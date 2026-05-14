@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-BondRadar is a backend application for analyzing bonds and issuer companies.
+BondRadar is an application for analyzing bonds and issuer companies.
 
 The app helps evaluate:
 
@@ -13,8 +13,8 @@ The app helps evaluate:
 - company debt load;
 - insufficient-data risk.
 
-The current repository contains the backend only. Frontend, ML, and MOEX API
-integration are not included yet.
+The current repository contains a FastAPI backend and a React frontend MVP.
+ML and MOEX API integration are not included yet.
 
 ## Important Disclaimer
 
@@ -39,6 +39,15 @@ Backend:
 - Pydantic
 - pytest
 
+Frontend:
+
+- React
+- TypeScript
+- Vite
+- TanStack Query
+- Tailwind
+- Recharts
+
 Infrastructure:
 
 - Docker Compose
@@ -53,6 +62,8 @@ Infrastructure:
 - Bond scoring
 - Batch recalculation for all bonds
 - CSV import for bonds and financial reports
+- Frontend Bonds dashboard
+- Frontend bond and issuer detail pages
 - JSON explanations for scoring results
 - Alembic migrations up to `202605140005`
 - Idempotent seed data
@@ -122,6 +133,8 @@ Import:
 
 ## Local Development
 
+Backend setup:
+
 Create and activate a virtual environment, then install dependencies:
 
 ```bash
@@ -144,6 +157,23 @@ python -m compileall backend/app
 python -m pytest backend/tests -q
 ```
 
+Frontend setup:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend development server is available at:
+
+```text
+http://localhost:5173
+```
+
+Vite proxies `/api` requests to the backend. Start the backend first on
+`http://localhost:8000`.
+
 ## Docker Run
 
 Run the app with PostgreSQL:
@@ -152,10 +182,11 @@ Run the app with PostgreSQL:
 docker compose up --build
 ```
 
-The API will be available at:
+The API and frontend will be available at:
 
 ```text
 http://localhost:8000
+http://localhost:5173
 ```
 
 If local port `5432` is already occupied, set another host port for PostgreSQL:
@@ -234,6 +265,13 @@ Run Python compile checks:
 python -m compileall backend/app
 ```
 
+Build the frontend:
+
+```bash
+cd frontend
+npm run build
+```
+
 ## Example API Calls
 
 Health check:
@@ -298,13 +336,15 @@ backend/
     schemas/               Pydantic schemas
     services/              Financial ratios and scoring services
   tests/                   pytest test suite
+frontend/
+  src/                     React app, API client, pages, components
+  vite.config.ts           Vite dev server and /api proxy
 docker-compose.yml         Backend and PostgreSQL services
 ```
 
 ## Roadmap
 
-- Frontend application with React, TypeScript, Vite, TanStack Query, Tailwind,
-  and Recharts
+- CSV upload controls in the frontend
 - MOEX API integration
 - More complete bond market data
 - More advanced scoring calibration
