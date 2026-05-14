@@ -1,6 +1,6 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 
-export function LoadingState({ label = "Loading data" }: { label?: string }) {
+export function LoadingState({ label = "Загрузка данных" }: { label?: string }) {
   return (
     <div className="surface flex items-center gap-3 px-4 py-5 text-sm text-slate-600">
       <Loader2 className="animate-spin" size={18} />

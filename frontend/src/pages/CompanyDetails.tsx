@@ -35,7 +35,7 @@ export function CompanyDetails() {
   });
 
   if (companyQuery.isLoading) {
-    return <LoadingState label="Loading company details" />;
+    return <LoadingState label="Загрузка карточки компании" />;
   }
 
   if (companyQuery.isError) {
@@ -44,7 +44,7 @@ export function CompanyDetails() {
 
   const company = companyQuery.data;
   if (!company) {
-    return <EmptyState label="Company was not found." />;
+    return <EmptyState label="Компания не найдена." />;
   }
 
   return (
@@ -53,7 +53,7 @@ export function CompanyDetails() {
         <div>
           <Link to="/" className="mb-3 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-accent">
             <ArrowLeft size={16} />
-            Back to bonds
+            К списку облигаций
           </Link>
           <h1 className="text-2xl font-semibold text-ink">{company.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -71,8 +71,8 @@ export function CompanyDetails() {
           <Calculator size={17} />
           <span>
             {calculateMutation.isPending
-              ? "Calculating"
-              : "Calculate company score"}
+              ? "Расчет"
+              : "Рассчитать скоринг компании"}
           </span>
         </button>
       </div>
@@ -83,22 +83,22 @@ export function CompanyDetails() {
 
       <section className="surface p-4">
         <h2 className="mb-4 text-sm font-semibold uppercase text-slate-500">
-          Company data
+          Данные компании
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <Field label="Ticker" value={company.ticker} />
-          <Field label="INN" value={company.inn ?? "n/a"} />
-          <Field label="Sector" value={company.sector ?? "n/a"} />
-          <Field label="Country" value={company.country} />
-          <Field label="Credit rating" value={company.credit_rating ?? "n/a"} />
-          <Field label="Notes" value={company.notes ?? "n/a"} />
+          <Field label="Тикер" value={company.ticker} />
+          <Field label="ИНН" value={company.inn ?? "нет данных"} />
+          <Field label="Сектор" value={company.sector ?? "нет данных"} />
+          <Field label="Страна" value={company.country} />
+          <Field label="Кредитный рейтинг" value={company.credit_rating ?? "нет данных"} />
+          <Field label="Заметки" value={company.notes ?? "нет данных"} />
         </div>
       </section>
 
       {!score ? (
-        <EmptyState label="Company score will appear after manual calculation." />
+        <EmptyState label="Скоринг компании появится после ручного расчета." />
       ) : (
-        <ScorePanel score={score} title="Company score" />
+        <ScorePanel score={score} title="Скоринг компании" />
       )}
     </div>
   );

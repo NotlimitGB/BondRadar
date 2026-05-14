@@ -7,7 +7,7 @@ import { api, normalizeApiError } from "../api/client";
 import type { AnalysisSignal } from "../api/types";
 import { EmptyState, ErrorState, LoadingState } from "../components/StateBlocks";
 import { StatusBadge } from "../components/StatusBadge";
-import { formatDate, formatNumber } from "../utils/format";
+import { formatDate, formatNumber, labelFromKey } from "../utils/format";
 
 const signalOptions: Array<AnalysisSignal | "all"> = [
   "all",
@@ -54,18 +54,18 @@ export function BondDashboard() {
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase text-accent">
-            Bonds dashboard
+            Панель облигаций
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-ink">
-            Bond analytics workspace
+            Аналитика облигаций
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Review imported bonds, inspect issuer context, and calculate
-            informational scoring snapshots.
+            Просматривайте импортированные облигации, анализируйте эмитентов
+            и рассчитывайте информационный скоринг.
           </p>
         </div>
         <div className="surface px-3 py-2 text-sm text-slate-600">
-          {filteredBonds.length} of {bondsQuery.data?.length ?? 0} bonds shown
+          Показано {filteredBonds.length} из {bondsQuery.data?.length ?? 0}
         </div>
       </section>
 
@@ -74,10 +74,10 @@ export function BondDashboard() {
           <label className="block">
             <span className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
               <Search size={15} />
-              Search
+              Поиск
             </span>
             <input
-              aria-label="Search bonds"
+              aria-label="Поиск облигаций"
               className="h-10 w-full border border-line bg-white px-3 text-sm outline-none transition focus:border-accent"
               style={{ borderRadius: 8 }}
               value={query}
@@ -88,10 +88,10 @@ export function BondDashboard() {
           <label className="block">
             <span className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase text-slate-500">
               <Filter size={15} />
-              Signal
+              Сигнал
             </span>
             <select
-              aria-label="Filter by signal"
+              aria-label="Фильтр по сигналу"
               className="h-10 w-full border border-line bg-white px-3 text-sm outline-none transition focus:border-accent"
               style={{ borderRadius: 8 }}
               value={signal}
@@ -101,7 +101,7 @@ export function BondDashboard() {
             >
               {signalOptions.map((value) => (
                 <option key={value} value={value}>
-                  {value === "all" ? "All signals" : value}
+                  {value === "all" ? "Все сигналы" : labelFromKey(value)}
                 </option>
               ))}
             </select>
@@ -109,16 +109,16 @@ export function BondDashboard() {
 
           <label className="block">
             <span className="mb-1 text-xs font-semibold uppercase text-slate-500">
-              Issuer
+              Эмитент
             </span>
             <select
-              aria-label="Filter by issuer"
+              aria-label="Фильтр по эмитенту"
               className="h-10 w-full border border-line bg-white px-3 text-sm outline-none transition focus:border-accent"
               style={{ borderRadius: 8 }}
               value={companyId}
               onChange={(event) => setCompanyId(event.target.value)}
             >
-              <option value="all">All issuers</option>
+              <option value="all">Все эмитенты</option>
               {(companiesQuery.data ?? []).map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
@@ -129,12 +129,12 @@ export function BondDashboard() {
         </div>
       </section>
 
-      {bondsQuery.isLoading ? <LoadingState label="Loading bonds" /> : null}
+      {bondsQuery.isLoading ? <LoadingState label="Загрузка облигаций" /> : null}
       {bondsQuery.isError ? (
         <ErrorState message={normalizeApiError(bondsQuery.error)} />
       ) : null}
       {!bondsQuery.isLoading && !bondsQuery.isError && filteredBonds.length === 0 ? (
-        <EmptyState label="No bonds match the current filters." />
+        <EmptyState label="По текущим фильтрам облигации не найдены." />
       ) : null}
 
       {filteredBonds.length ? (
@@ -143,12 +143,12 @@ export function BondDashboard() {
             <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
-                  <th className="border-b border-line px-4 py-3">Bond</th>
-                  <th className="border-b border-line px-4 py-3">Issuer</th>
-                  <th className="border-b border-line px-4 py-3">Yield</th>
-                  <th className="border-b border-line px-4 py-3">Duration</th>
-                  <th className="border-b border-line px-4 py-3">Maturity</th>
-                  <th className="border-b border-line px-4 py-3">Signal</th>
+                  <th className="border-b border-line px-4 py-3">Облигация</th>
+                  <th className="border-b border-line px-4 py-3">Эмитент</th>
+                  <th className="border-b border-line px-4 py-3">Доходность</th>
+                  <th className="border-b border-line px-4 py-3">Дюрация</th>
+                  <th className="border-b border-line px-4 py-3">Погашение</th>
+                  <th className="border-b border-line px-4 py-3">Сигнал</th>
                   <th className="border-b border-line px-4 py-3"></th>
                 </tr>
               </thead>
@@ -160,11 +160,11 @@ export function BondDashboard() {
                       <td className="border-b border-line px-4 py-3">
                         <div className="font-medium text-ink">{bond.name}</div>
                         <div className="text-xs text-slate-500">
-                          {bond.isin ?? bond.secid ?? "No market identifier"}
+                          {bond.isin ?? bond.secid ?? "Нет рыночного идентификатора"}
                         </div>
                       </td>
                       <td className="border-b border-line px-4 py-3 text-slate-700">
-                        {company?.name ?? `Company #${bond.company_id}`}
+                        {company?.name ?? `Компания #${bond.company_id}`}
                       </td>
                       <td className="border-b border-line px-4 py-3">
                         {formatNumber(bond.yield_to_maturity, 2)}
@@ -182,9 +182,9 @@ export function BondDashboard() {
                         <Link
                           className="text-button"
                           to={`/bonds/${bond.id}`}
-                          aria-label={`Open ${bond.name}`}
+                          aria-label={`Открыть ${bond.name}`}
                         >
-                          <span>Open</span>
+                          <span>Открыть</span>
                           <ArrowRight size={16} />
                         </Link>
                       </td>

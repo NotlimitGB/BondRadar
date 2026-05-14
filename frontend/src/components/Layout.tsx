@@ -16,13 +16,13 @@ export function Layout({ children }: { children: ReactNode }) {
                 BondRadar
               </span>
               <span className="block text-xs text-slate-500">
-                Analytical statuses only
+                Только информационные статусы
               </span>
             </span>
           </Link>
           <div className="hidden items-center gap-2 text-xs text-slate-500 sm:flex">
             <Database size={16} />
-            <span>Backend API via /api</span>
+            <span>API сервера через /api</span>
           </div>
         </div>
       </header>

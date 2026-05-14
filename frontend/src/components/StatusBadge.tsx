@@ -12,7 +12,7 @@ const toneBySignal: Record<AnalysisSignal, string> = {
 
 export function StatusBadge({
   signal,
-  label = "Signal",
+  label = "Сигнал",
 }: {
   signal: AnalysisSignal | string | null | undefined;
   label?: string;
@@ -20,7 +20,7 @@ export function StatusBadge({
   if (!signal) {
     return (
       <span className="inline-flex items-center border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-500">
-        {label}: n/a
+        {label}: нет данных
       </span>
     );
   }

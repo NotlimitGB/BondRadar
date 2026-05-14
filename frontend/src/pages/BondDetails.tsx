@@ -48,7 +48,7 @@ export function BondDetails() {
   });
 
   if (bondQuery.isLoading) {
-    return <LoadingState label="Loading bond details" />;
+    return <LoadingState label="Загрузка карточки облигации" />;
   }
 
   if (bondQuery.isError) {
@@ -57,7 +57,7 @@ export function BondDetails() {
 
   const bond = bondQuery.data;
   if (!bond) {
-    return <EmptyState label="Bond was not found." />;
+    return <EmptyState label="Облигация не найдена." />;
   }
 
   return (
@@ -66,13 +66,13 @@ export function BondDetails() {
         <div>
           <Link to="/" className="mb-3 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-accent">
             <ArrowLeft size={16} />
-            Back to bonds
+            К списку облигаций
           </Link>
           <h1 className="text-2xl font-semibold text-ink">{bond.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusBadge signal={bond.signal} />
             <span className="text-sm text-slate-500">
-              {bond.isin ?? bond.secid ?? "No market identifier"}
+              {bond.isin ?? bond.secid ?? "Нет рыночного идентификатора"}
             </span>
           </div>
         </div>
@@ -84,8 +84,8 @@ export function BondDetails() {
           <Calculator size={17} />
           <span>
             {calculateMutation.isPending
-              ? "Calculating"
-              : "Calculate bond score"}
+              ? "Расчет"
+              : "Рассчитать скоринг облигации"}
           </span>
         </button>
       </div>
@@ -97,27 +97,27 @@ export function BondDetails() {
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="surface p-4">
           <h2 className="mb-4 text-sm font-semibold uppercase text-slate-500">
-            Bond data
+            Данные облигации
           </h2>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <Field label="Currency" value={bond.currency} />
-            <Field label="Current price" value={formatNumber(bond.current_price, 3)} />
-            <Field label="Coupon rate" value={formatNumber(bond.coupon_rate, 3)} />
-            <Field label="Yield to maturity" value={formatNumber(bond.yield_to_maturity, 3)} />
-            <Field label="Duration years" value={formatNumber(bond.duration_years, 3)} />
-            <Field label="Liquidity score" value={formatNumber(bond.liquidity_score, 0)} />
-            <Field label="Volume" value={formatNumber(bond.volume, 0)} />
-            <Field label="Maturity date" value={formatDate(bond.maturity_date)} />
-            <Field label="Offer date" value={formatDate(bond.offer_date)} />
+            <Field label="Валюта" value={bond.currency} />
+            <Field label="Текущая цена" value={formatNumber(bond.current_price, 3)} />
+            <Field label="Ставка купона" value={formatNumber(bond.coupon_rate, 3)} />
+            <Field label="Доходность к погашению" value={formatNumber(bond.yield_to_maturity, 3)} />
+            <Field label="Дюрация, лет" value={formatNumber(bond.duration_years, 3)} />
+            <Field label="Скоринг ликвидности" value={formatNumber(bond.liquidity_score, 0)} />
+            <Field label="Объем торгов" value={formatNumber(bond.volume, 0)} />
+            <Field label="Дата погашения" value={formatDate(bond.maturity_date)} />
+            <Field label="Дата оферты" value={formatDate(bond.offer_date)} />
           </div>
         </div>
 
         <div className="surface p-4">
           <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase text-slate-500">
             <Building2 size={17} />
-            Issuer
+            Эмитент
           </h2>
-          {companyQuery.isLoading ? <LoadingState label="Loading issuer" /> : null}
+          {companyQuery.isLoading ? <LoadingState label="Загрузка эмитента" /> : null}
           {companyQuery.isError ? (
             <ErrorState message={normalizeApiError(companyQuery.error)} />
           ) : null}
@@ -136,22 +136,22 @@ export function BondDetails() {
                 className="text-button w-full justify-center"
                 to={`/companies/${companyQuery.data.id}`}
               >
-                Open issuer
+                Открыть эмитента
               </Link>
             </div>
           ) : null}
         </div>
       </section>
 
-      {scoreQuery.isLoading ? <LoadingState label="Loading latest score" /> : null}
+      {scoreQuery.isLoading ? <LoadingState label="Загрузка последнего скоринга" /> : null}
       {scoreQuery.isError && !(scoreQuery.error instanceof ApiError && scoreQuery.error.status === 404) ? (
         <ErrorState message={normalizeApiError(scoreQuery.error)} />
       ) : null}
       {!scoreQuery.isLoading && !scoreQuery.data ? (
-        <EmptyState label="Score has not been calculated yet." />
+        <EmptyState label="Скоринг еще не рассчитывался." />
       ) : null}
       {scoreQuery.data ? (
-        <ScorePanel score={scoreQuery.data} title="Bond score" />
+        <ScorePanel score={scoreQuery.data} title="Скоринг облигации" />
       ) : null}
     </div>
   );

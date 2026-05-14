@@ -1,4 +1,5 @@
 import type { Bond, BondScore, Company, CompanyScore } from "./types";
+import { translateText } from "../utils/format";
 
 export class ApiError extends Error {
   status: number;
@@ -39,19 +40,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function normalizeApiError(detail: unknown, status?: number): string {
   if (typeof detail === "string") {
-    return detail;
+    return translateText(detail);
   }
 
   if (detail && typeof detail === "object" && "detail" in detail) {
     const value = (detail as { detail: unknown }).detail;
     if (typeof value === "string") {
-      return value;
+      return translateText(value);
     }
     if (Array.isArray(value)) {
       return value
         .map((item) => {
           if (item && typeof item === "object" && "msg" in item) {
-            return String((item as { msg: unknown }).msg);
+            return translateText(String((item as { msg: unknown }).msg));
           }
           return JSON.stringify(item);
         })
@@ -61,10 +62,10 @@ export function normalizeApiError(detail: unknown, status?: number): string {
   }
 
   if (status) {
-    return `API request failed with status ${status}`;
+    return `Ошибка API, статус ${status}`;
   }
 
-  return "API request failed";
+  return "Ошибка API";
 }
 
 export const api = {
