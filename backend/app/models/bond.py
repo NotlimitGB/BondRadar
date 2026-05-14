@@ -38,6 +38,7 @@ class Bond(Base):
     coupon_rate: Mapped[Decimal | None] = mapped_column(Numeric(7, 3))
     yield_to_maturity: Mapped[Decimal | None] = mapped_column(Numeric(7, 3))
     duration_years: Mapped[Decimal | None] = mapped_column(Numeric(7, 3))
+    volume: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
     maturity_date: Mapped[date | None] = mapped_column(Date)
     offer_date: Mapped[date | None] = mapped_column(Date)
     is_floating_coupon: Mapped[bool] = mapped_column(
@@ -45,6 +46,7 @@ class Bond(Base):
     )
     is_subordinated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_perpetual: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    amortization: Mapped[bool | None] = mapped_column(Boolean)
     liquidity_score: Mapped[int | None] = mapped_column()
     signal: Mapped[str] = mapped_column(
         String(32), nullable=False, default=AnalysisSignal.INSUFFICIENT_DATA.value

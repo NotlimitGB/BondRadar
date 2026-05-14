@@ -7,6 +7,8 @@ from app.crud import bonds as bonds_crud
 from app.crud import companies as companies_crud
 from app.models.enums import AnalysisSignal
 from app.schemas.bond import BondCreate, BondRead, BondUpdate
+from app.schemas.bond_score import BondScoreCalculationRead
+from app.services.bond_score_service import BondScoreService
 
 
 router = APIRouter()
@@ -57,6 +59,22 @@ def get_bond(bond_id: int, db: Session = Depends(get_db)) -> BondRead:
     return bond
 
 
+@router.post("/{bond_id}/calculate-score", response_model=BondScoreCalculationRead)
+def calculate_bond_score(
+    bond_id: int,
+    db: Session = Depends(get_db),
+) -> BondScoreCalculationRead:
+    return BondScoreService(db).calculate_for_bond(bond_id)
+
+
+@router.get("/{bond_id}/score", response_model=BondScoreCalculationRead)
+def get_latest_bond_score(
+    bond_id: int,
+    db: Session = Depends(get_db),
+) -> BondScoreCalculationRead:
+    return BondScoreService(db).get_latest_score(bond_id)
+
+
 @router.patch("/{bond_id}", response_model=BondRead)
 def update_bond(
     bond_id: int,
@@ -95,4 +113,3 @@ def delete_bond(bond_id: int, db: Session = Depends(get_db)) -> Response:
         )
     bonds_crud.delete_bond(db, bond)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-

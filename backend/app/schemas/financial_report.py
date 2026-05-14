@@ -14,6 +14,10 @@ class FinancialReportBase(BaseModel):
     net_debt: Decimal | None = None
     total_debt: Decimal | None = None
     cash: Decimal | None = None
+    equity: Decimal | None = None
+    short_term_debt: Decimal | None = None
+    operating_cash_flow: Decimal | None = None
+    net_profit: Decimal | None = None
     interest_expense: Decimal | None = None
     debt_to_ebitda: Decimal | None = None
     interest_coverage: Decimal | None = None
@@ -35,6 +39,10 @@ class FinancialReportUpdate(BaseModel):
     net_debt: Decimal | None = None
     total_debt: Decimal | None = None
     cash: Decimal | None = None
+    equity: Decimal | None = None
+    short_term_debt: Decimal | None = None
+    operating_cash_flow: Decimal | None = None
+    net_profit: Decimal | None = None
     interest_expense: Decimal | None = None
     debt_to_ebitda: Decimal | None = None
     interest_coverage: Decimal | None = None

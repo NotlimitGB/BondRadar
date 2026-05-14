@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.crud import companies as companies_crud
 from app.models.enums import AnalysisSignal
+from app.schemas.company_score import CompanyScoreCalculationRead
 from app.schemas.company import CompanyCreate, CompanyRead, CompanyUpdate
+from app.services.company_scoring import CompanyScoreService
 
 
 router = APIRouter()
@@ -54,6 +56,17 @@ def get_company(company_id: int, db: Session = Depends(get_db)) -> CompanyRead:
     return company
 
 
+@router.post(
+    "/{company_id}/calculate-score",
+    response_model=CompanyScoreCalculationRead,
+)
+def calculate_company_score(
+    company_id: int,
+    db: Session = Depends(get_db),
+) -> CompanyScoreCalculationRead:
+    return CompanyScoreService(db).calculate_for_company(company_id)
+
+
 @router.patch("/{company_id}", response_model=CompanyRead)
 def update_company(
     company_id: int,
@@ -86,4 +99,3 @@ def delete_company(company_id: int, db: Session = Depends(get_db)) -> Response:
         )
     companies_crud.delete_company(db, company)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-

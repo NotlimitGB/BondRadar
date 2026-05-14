@@ -16,11 +16,13 @@ class BondBase(BaseModel):
     coupon_rate: Decimal | None = Field(default=None, ge=0)
     yield_to_maturity: Decimal | None = None
     duration_years: Decimal | None = Field(default=None, ge=0)
+    volume: Decimal | None = Field(default=None, ge=0)
     maturity_date: date | None = None
     offer_date: date | None = None
     is_floating_coupon: bool = False
     is_subordinated: bool = False
     is_perpetual: bool = False
+    amortization: bool | None = None
     liquidity_score: int | None = Field(default=None, ge=0, le=100)
     signal: AnalysisSignal = AnalysisSignal.INSUFFICIENT_DATA
     risk_notes: str | None = None
@@ -42,11 +44,13 @@ class BondUpdate(BaseModel):
     coupon_rate: Decimal | None = Field(default=None, ge=0)
     yield_to_maturity: Decimal | None = None
     duration_years: Decimal | None = Field(default=None, ge=0)
+    volume: Decimal | None = Field(default=None, ge=0)
     maturity_date: date | None = None
     offer_date: date | None = None
     is_floating_coupon: bool | None = None
     is_subordinated: bool | None = None
     is_perpetual: bool | None = None
+    amortization: bool | None = None
     liquidity_score: int | None = Field(default=None, ge=0, le=100)
     signal: AnalysisSignal | None = None
     risk_notes: str | None = None
@@ -60,4 +64,3 @@ class BondRead(BondBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-

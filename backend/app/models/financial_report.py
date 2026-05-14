@@ -42,6 +42,10 @@ class FinancialReport(Base):
     net_debt: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
     total_debt: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
     cash: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    equity: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    short_term_debt: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    operating_cash_flow: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    net_profit: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
     interest_expense: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
     debt_to_ebitda: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
     interest_coverage: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
@@ -60,4 +64,4 @@ class FinancialReport(Base):
     )
 
     company: Mapped["Company"] = relationship(back_populates="financial_reports")
-
+    company_scores: Mapped[list["CompanyScore"]] = relationship(back_populates="report")
