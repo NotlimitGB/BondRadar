@@ -1,14 +1,15 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import AnalysisSignal
 
 
 class BondBase(BaseModel):
     company_id: int = Field(..., ge=1)
-    isin: str = Field(..., min_length=12, max_length=12)
+    isin: str | None = Field(default=None, min_length=12, max_length=12)
+    secid: str | None = Field(default=None, min_length=1, max_length=32)
     name: str = Field(..., min_length=1, max_length=255)
     currency: str = Field(default="RUB", min_length=3, max_length=3)
     nominal_value: Decimal | None = Field(default=None, ge=0)
@@ -31,12 +32,17 @@ class BondBase(BaseModel):
 
 
 class BondCreate(BondBase):
-    pass
+    @model_validator(mode="after")
+    def require_identifier(self) -> "BondCreate":
+        if not self.isin and not self.secid:
+            raise ValueError("Either isin or secid is required")
+        return self
 
 
 class BondUpdate(BaseModel):
     company_id: int | None = Field(default=None, ge=1)
     isin: str | None = Field(default=None, min_length=12, max_length=12)
+    secid: str | None = Field(default=None, min_length=1, max_length=32)
     name: str | None = Field(default=None, min_length=1, max_length=255)
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     nominal_value: Decimal | None = Field(default=None, ge=0)

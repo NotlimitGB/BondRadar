@@ -30,7 +30,10 @@ class Bond(Base):
     company_id: Mapped[int] = mapped_column(
         ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    isin: Mapped[str] = mapped_column(String(12), nullable=False, unique=True, index=True)
+    isin: Mapped[str | None] = mapped_column(
+        String(12), nullable=True, unique=True, index=True
+    )
+    secid: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="RUB")
     nominal_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))

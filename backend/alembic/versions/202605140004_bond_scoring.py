@@ -26,25 +26,57 @@ NEW_SIGNAL_CHECK = (
     "'increased_risk', 'high_risk', 'insufficient_data')"
 )
 SIGNAL_CONSTRAINTS = [
-    ("companies", "ck_companies_companies_signal_allowed"),
-    ("bonds", "ck_bonds_bonds_signal_allowed"),
-    ("financial_reports", "ck_financial_reports_financial_reports_signal_allowed"),
-    ("company_scores", "ck_company_scores_company_scores_signal_allowed"),
-    ("bond_scores", "ck_bond_scores_bond_scores_signal_allowed"),
+    (
+        "companies",
+        "ck_companies_companies_signal_allowed",
+        "companies_signal_allowed",
+    ),
+    (
+        "bonds",
+        "ck_bonds_bonds_signal_allowed",
+        "bonds_signal_allowed",
+    ),
+    (
+        "financial_reports",
+        "ck_financial_reports_financial_reports_signal_allowed",
+        "financial_reports_signal_allowed",
+    ),
+    (
+        "company_scores",
+        "ck_company_scores_company_scores_signal_allowed",
+        "company_scores_signal_allowed",
+    ),
+    (
+        "bond_scores",
+        "ck_bond_scores_bond_scores_signal_allowed",
+        "bond_scores_signal_allowed",
+    ),
 ]
 
 
 def _replace_signal_constraints(check_sql: str) -> None:
-    for table_name, constraint_name in SIGNAL_CONSTRAINTS:
+    for table_name, canonical_name, legacy_name in SIGNAL_CONSTRAINTS:
+        for constraint_name in (canonical_name, legacy_name):
+            op.execute(
+                sa.text(
+                    f"ALTER TABLE {table_name} "
+                    f"DROP CONSTRAINT IF EXISTS {constraint_name}"
+                )
+            )
         op.execute(
             sa.text(
-                f"ALTER TABLE {table_name} DROP CONSTRAINT {constraint_name}"
+                f"ALTER TABLE {table_name} ADD CONSTRAINT {canonical_name} "
+                f"CHECK ({check_sql})"
             )
         )
+
+
+def _downgrade_signal_values() -> None:
+    for table_name, _, _ in SIGNAL_CONSTRAINTS:
         op.execute(
             sa.text(
-                f"ALTER TABLE {table_name} "
-                f"ADD CONSTRAINT {constraint_name} CHECK ({check_sql})"
+                f"UPDATE {table_name} SET signal = 'elevated_risk' "
+                "WHERE signal IN ('increased_risk', 'high_risk')"
             )
         )
 
@@ -114,6 +146,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    _downgrade_signal_values()
+    _replace_signal_constraints(OLD_SIGNAL_CHECK)
+
     op.drop_constraint(
         op.f("fk_bond_scores_company_score_id_company_scores"),
         "bond_scores",
@@ -131,5 +166,3 @@ def downgrade() -> None:
 
     op.drop_column("bonds", "amortization")
     op.drop_column("bonds", "volume")
-
-    _replace_signal_constraints(OLD_SIGNAL_CHECK)
