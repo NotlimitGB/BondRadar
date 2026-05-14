@@ -33,7 +33,9 @@ class Bond(Base):
     isin: Mapped[str | None] = mapped_column(
         String(12), nullable=True, unique=True, index=True
     )
-    secid: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
+    secid: Mapped[str | None] = mapped_column(
+        String(32), nullable=True, unique=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="RUB")
     nominal_value: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
