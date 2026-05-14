@@ -18,6 +18,13 @@ docker compose up --build
 ```
 
 The API will be available at `http://localhost:8000`.
+If local port `5432` is already occupied, set another host port for PostgreSQL:
+
+```bash
+POSTGRES_PORT=55432 docker compose up --build
+```
+
+You can also put `POSTGRES_PORT=55432` into `.env`.
 
 Interactive docs:
 
@@ -26,6 +33,33 @@ http://localhost:8000/docs
 ```
 
 On startup the API container applies Alembic migrations and loads idempotent seed data.
+
+## API
+
+Current backend endpoints:
+
+- `GET /api/health`
+- `GET /api/companies`
+- `POST /api/companies`
+- `GET /api/companies/{company_id}`
+- `PATCH /api/companies/{company_id}`
+- `DELETE /api/companies/{company_id}`
+- `GET /api/bonds`
+- `POST /api/bonds`
+- `GET /api/bonds/{bond_id}`
+- `PATCH /api/bonds/{bond_id}`
+- `DELETE /api/bonds/{bond_id}`
+- `GET /api/companies/{company_id}/reports`
+- `POST /api/companies/{company_id}/reports`
+- `GET /api/companies/{company_id}/reports/{report_id}`
+- `PATCH /api/companies/{company_id}/reports/{report_id}`
+- `DELETE /api/companies/{company_id}/reports/{report_id}`
+
+The database schema also contains `company_scores` and `bond_scores` tables for
+historical informational signal snapshots. Public score endpoints are not part
+of this first task.
+
+Not included in this stage: frontend, ML, MOEX API, or CSV import.
 
 ## Backend commands
 

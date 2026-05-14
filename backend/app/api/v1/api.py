@@ -9,7 +9,6 @@ api_router.include_router(companies.router, prefix="/companies", tags=["companie
 api_router.include_router(bonds.router, prefix="/bonds", tags=["bonds"])
 api_router.include_router(
     financial_reports.router,
-    prefix="/financial-reports",
-    tags=["financial-reports"],
+    prefix="/companies/{company_id}/reports",
+    tags=["company-reports"],
 )
-

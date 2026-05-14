@@ -7,7 +7,6 @@ from app.models.enums import AnalysisSignal
 
 
 class FinancialReportBase(BaseModel):
-    company_id: int = Field(..., ge=1)
     period_year: int = Field(..., ge=1900, le=2100)
     period_quarter: int = Field(default=0, ge=0, le=4)
     revenue: Decimal | None = None
@@ -29,7 +28,6 @@ class FinancialReportCreate(FinancialReportBase):
 
 
 class FinancialReportUpdate(BaseModel):
-    company_id: int | None = Field(default=None, ge=1)
     period_year: int | None = Field(default=None, ge=1900, le=2100)
     period_quarter: int | None = Field(default=None, ge=0, le=4)
     revenue: Decimal | None = None
@@ -48,8 +46,8 @@ class FinancialReportUpdate(BaseModel):
 
 class FinancialReportRead(FinancialReportBase):
     id: int
+    company_id: int
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
-

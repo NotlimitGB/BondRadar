@@ -61,4 +61,8 @@ class Bond(Base):
     )
 
     company: Mapped["Company"] = relationship(back_populates="bonds")
-
+    scores: Mapped[list["BondScore"]] = relationship(
+        back_populates="bond",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

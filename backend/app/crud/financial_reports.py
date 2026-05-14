@@ -41,9 +41,9 @@ def list_financial_reports(
 
 
 def create_financial_report(
-    db: Session, report_in: FinancialReportCreate
+    db: Session, *, company_id: int, report_in: FinancialReportCreate
 ) -> FinancialReport:
-    report = FinancialReport(**report_in.model_dump())
+    report = FinancialReport(company_id=company_id, **report_in.model_dump())
     db.add(report)
     db.commit()
     db.refresh(report)
@@ -64,4 +64,3 @@ def update_financial_report(
 def delete_financial_report(db: Session, report: FinancialReport) -> None:
     db.delete(report)
     db.commit()
-

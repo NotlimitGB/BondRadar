@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "BondRadar"
-    API_V1_PREFIX: str = "/api/v1"
+    API_PREFIX: str = "/api"
     DATABASE_URL: str = (
         "postgresql+psycopg://bondradar:bondradar@localhost:5432/bondradar"
     )
@@ -24,4 +24,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

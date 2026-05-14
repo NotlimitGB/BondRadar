@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.bond import Bond
+from app.models.bond_score import BondScore
 from app.models.company import Company
+from app.models.company_score import CompanyScore
 from app.models.enums import AnalysisSignal
 from app.models.financial_report import FinancialReport
 
@@ -155,6 +157,92 @@ REPORTS = [
 ]
 
 
+COMPANY_SCORES = [
+    {
+        "company_ticker": "NRG",
+        "score": Decimal("78.50"),
+        "signal": AnalysisSignal.INTERESTING_FOR_ANALYSIS.value,
+        "factors": {
+            "leverage": "moderate",
+            "coverage": "strong",
+            "disclosure": "sufficient",
+        },
+        "summary": "Demo snapshot: issuer metrics are suitable for deeper analysis.",
+        "as_of_date": date(2026, 5, 14),
+        "source": "Demo seed",
+    },
+    {
+        "company_ticker": "VINF",
+        "score": Decimal("61.00"),
+        "signal": AnalysisSignal.NEUTRAL.value,
+        "factors": {
+            "leverage": "acceptable",
+            "coverage": "acceptable",
+            "disclosure": "sufficient",
+        },
+        "summary": "Demo snapshot: no strong informational signal.",
+        "as_of_date": date(2026, 5, 14),
+        "source": "Demo seed",
+    },
+    {
+        "company_ticker": "BLSG",
+        "score": Decimal("34.00"),
+        "signal": AnalysisSignal.ELEVATED_RISK.value,
+        "factors": {
+            "leverage": "high",
+            "coverage": "weak",
+            "disclosure": "limited",
+        },
+        "summary": "Demo snapshot: elevated risk signal due to leverage and disclosure.",
+        "as_of_date": date(2026, 5, 14),
+        "source": "Demo seed",
+    },
+]
+
+
+BOND_SCORES = [
+    {
+        "isin": "RU000A100001",
+        "score": Decimal("76.00"),
+        "signal": AnalysisSignal.INTERESTING_FOR_ANALYSIS.value,
+        "factors": {
+            "issuer": "stable",
+            "liquidity": "good",
+            "duration": "short",
+        },
+        "summary": "Demo snapshot: bond is interesting for further analysis.",
+        "as_of_date": date(2026, 5, 14),
+        "source": "Demo seed",
+    },
+    {
+        "isin": "RU000A100002",
+        "score": Decimal("58.50"),
+        "signal": AnalysisSignal.NEUTRAL.value,
+        "factors": {
+            "issuer": "balanced",
+            "liquidity": "moderate",
+            "duration": "medium",
+        },
+        "summary": "Demo snapshot: neutral informational signal.",
+        "as_of_date": date(2026, 5, 14),
+        "source": "Demo seed",
+    },
+    {
+        "isin": "RU000A100003",
+        "score": Decimal("29.00"),
+        "signal": AnalysisSignal.ELEVATED_RISK.value,
+        "factors": {
+            "issuer": "weak",
+            "liquidity": "low",
+            "coupon": "floating",
+        },
+        "summary": "Demo snapshot: elevated risk signal from issuer and liquidity factors.",
+        "as_of_date": date(2026, 5, 14),
+        "source": "Demo seed",
+    },
+]
+
+
 def upsert_by_attr(db: Session, model: type, attr_name: str, data: dict) -> object:
     attr = getattr(model, attr_name)
     instance = db.execute(select(model).where(attr == data[attr_name])).scalar_one_or_none()
@@ -174,11 +262,14 @@ def seed(db: Session) -> None:
         companies_by_ticker[company.ticker] = company
     db.flush()
 
+    bonds_by_isin: dict[str, Bond] = {}
     for bond_data in BONDS:
         data = bond_data.copy()
         company_ticker = data.pop("company_ticker")
         data["company_id"] = companies_by_ticker[company_ticker].id
-        upsert_by_attr(db, Bond, "isin", data)
+        bond = upsert_by_attr(db, Bond, "isin", data)
+        bonds_by_isin[bond.isin] = bond
+    db.flush()
 
     for report_data in REPORTS:
         data = report_data.copy()
@@ -198,6 +289,42 @@ def seed(db: Session) -> None:
             for field, value in data.items():
                 setattr(report, field, value)
 
+    for score_data in COMPANY_SCORES:
+        data = score_data.copy()
+        company_ticker = data.pop("company_ticker")
+        company = companies_by_ticker[company_ticker]
+        score = db.execute(
+            select(CompanyScore).where(
+                CompanyScore.company_id == company.id,
+                CompanyScore.as_of_date == data["as_of_date"],
+                CompanyScore.source == data["source"],
+            )
+        ).scalar_one_or_none()
+        data["company_id"] = company.id
+        if score is None:
+            db.add(CompanyScore(**data))
+        else:
+            for field, value in data.items():
+                setattr(score, field, value)
+
+    for score_data in BOND_SCORES:
+        data = score_data.copy()
+        isin = data.pop("isin")
+        bond = bonds_by_isin[isin]
+        score = db.execute(
+            select(BondScore).where(
+                BondScore.bond_id == bond.id,
+                BondScore.as_of_date == data["as_of_date"],
+                BondScore.source == data["source"],
+            )
+        ).scalar_one_or_none()
+        data["bond_id"] = bond.id
+        if score is None:
+            db.add(BondScore(**data))
+        else:
+            for field, value in data.items():
+                setattr(score, field, value)
+
     db.commit()
 
 
@@ -211,4 +338,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
