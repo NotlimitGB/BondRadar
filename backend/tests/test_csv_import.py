@@ -96,6 +96,46 @@ def test_bonds_csv_updates_existing_company_and_bond_by_inn_and_isin(
     assert bond.current_price == Decimal("101.250")
 
 
+def test_bonds_csv_update_does_not_apply_create_defaults(
+    client: TestClient, db_session: Session
+) -> None:
+    company = create_company(db_session, inn="7701000150", ticker="DFLT")
+    bond = Bond(
+        company_id=company.id,
+        isin="RU000A100150",
+        name="Default Guard Bond",
+        currency="USD",
+        is_floating_coupon=True,
+        is_subordinated=True,
+        is_perpetual=True,
+        current_price=Decimal("90.000"),
+    )
+    db_session.add(bond)
+    db_session.commit()
+
+    response = upload(
+        client,
+        "/api/import/bonds-csv",
+        "\n".join(
+            [
+                "company_inn,bond_name,isin,current_price",
+                "7701000150,Default Guard Bond Updated,RU000A100150,101.25",
+            ]
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["updated"] == 1
+
+    db_session.refresh(bond)
+    assert bond.name == "Default Guard Bond Updated"
+    assert bond.current_price == Decimal("101.250")
+    assert bond.currency == "USD"
+    assert bond.is_floating_coupon is True
+    assert bond.is_subordinated is True
+    assert bond.is_perpetual is True
+
+
 def test_bonds_csv_creates_and_updates_bond_by_secid_without_isin(
     client: TestClient, db_session: Session
 ) -> None:

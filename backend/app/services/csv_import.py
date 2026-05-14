@@ -291,7 +291,7 @@ class CSVImportService:
                 select(Bond).where(Bond.secid == secid)
             ).scalar_one_or_none()
 
-        bond_data = self._bond_data(row)
+        bond_data = self._bond_data(row, include_defaults=bond is None)
         bond_data["company_id"] = company["company"].id
         if bond is None:
             if not self._text(row, "bond_name"):
@@ -388,17 +388,20 @@ class CSVImportService:
                 data[model_field] = value
         return data
 
-    def _bond_data(self, row: dict[str, str | None]) -> dict[str, Any]:
+    def _bond_data(
+        self, row: dict[str, str | None], *, include_defaults: bool
+    ) -> dict[str, Any]:
         data: dict[str, Any] = {}
         for csv_field, model_field in BOND_FIELD_MAP.items():
             value = self._parsed_value(row, csv_field)
             if value is not None:
                 data[model_field] = value
 
-        data.setdefault("currency", "RUB")
-        data.setdefault("is_floating_coupon", False)
-        data.setdefault("is_subordinated", False)
-        data.setdefault("is_perpetual", False)
+        if include_defaults:
+            data.setdefault("currency", "RUB")
+            data.setdefault("is_floating_coupon", False)
+            data.setdefault("is_subordinated", False)
+            data.setdefault("is_perpetual", False)
         return data
 
     def _report_data(self, row: dict[str, str | None]) -> dict[str, Any]:
