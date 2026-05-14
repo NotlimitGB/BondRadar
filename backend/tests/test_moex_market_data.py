@@ -365,6 +365,6 @@ def test_empty_moex_response_adds_warning(
 
 def test_no_ml_dependencies_added() -> None:
     requirements = open("backend/requirements.txt", encoding="utf-8").read().lower()
-    forbidden = ("pandas", "numpy", "scikit-learn", "xgboost", "catboost", "tensorflow", "torch")
+    forbidden = ("pandas", "numpy", "xgboost", "catboost", "tensorflow", "torch")
 
     assert all(package not in requirements for package in forbidden)

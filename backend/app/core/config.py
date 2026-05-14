@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: list[str] = []
     MOEX_ISS_BASE_URL: str = "https://iss.moex.com"
     MOEX_ISS_TIMEOUT_SECONDS: int = 20
+    ML_ARTIFACT_DIR: str = "artifacts/ml"
 
     model_config = SettingsConfigDict(
         env_file=".env",

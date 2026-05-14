@@ -10,3 +10,4 @@ __pycache__/
 postgres_data/
 frontend/node_modules/
 frontend/dist/
+artifacts/

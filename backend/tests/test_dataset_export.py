@@ -281,7 +281,6 @@ def test_no_ml_dependencies_added() -> None:
     forbidden = {
         "pandas",
         "numpy",
-        "scikit-learn",
         "xgboost",
         "catboost",
         "tensorflow",
