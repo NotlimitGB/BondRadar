@@ -1,9 +1,10 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.schemas.dataset_export import DatasetExportResponse, DatasetQualityReport
 from app.schemas.ml_dataset import (
     BondFeatureSnapshotRead,
     BondMarketSnapshotCreate,
@@ -14,6 +15,10 @@ from app.schemas.ml_dataset import (
     DatasetBuildRunRead,
 )
 from app.services.dataset_build_service import DatasetBuildService
+from app.services.dataset_export_service import (
+    DatasetExportFilters,
+    DatasetExportService,
+)
 from app.services.market_snapshot_service import MarketSnapshotService
 
 
@@ -95,4 +100,93 @@ def list_dataset_labels(
         as_of_date_from=as_of_date_from,
         as_of_date_to=as_of_date_to,
         limit=limit,
+    )
+
+
+@router.get("/datasets/export", response_model=DatasetExportResponse)
+def export_dataset(
+    bond_id: int | None = None,
+    company_id: int | None = None,
+    horizon_days: int = 30,
+    as_of_date_from: date | None = None,
+    as_of_date_to: date | None = None,
+    label: str | None = None,
+    include_insufficient: bool = True,
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+) -> DatasetExportResponse:
+    return DatasetExportService(db).export_json(
+        filters=DatasetExportFilters(
+            bond_id=bond_id,
+            company_id=company_id,
+            horizon_days=horizon_days,
+            as_of_date_from=as_of_date_from,
+            as_of_date_to=as_of_date_to,
+            label=label,
+            include_insufficient=include_insufficient,
+        ),
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/datasets/export.csv")
+def export_dataset_csv(
+    bond_id: int | None = None,
+    company_id: int | None = None,
+    horizon_days: int = 30,
+    as_of_date_from: date | None = None,
+    as_of_date_to: date | None = None,
+    label: str | None = None,
+    include_insufficient: bool = True,
+    limit: int = 1000,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+) -> Response:
+    csv_content = DatasetExportService(db).export_csv(
+        filters=DatasetExportFilters(
+            bond_id=bond_id,
+            company_id=company_id,
+            horizon_days=horizon_days,
+            as_of_date_from=as_of_date_from,
+            as_of_date_to=as_of_date_to,
+            label=label,
+            include_insufficient=include_insufficient,
+        ),
+        limit=limit,
+        offset=offset,
+    )
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="bondradar_dataset_h{horizon_days}.csv"'
+            )
+        },
+    )
+
+
+@router.get("/datasets/quality-report", response_model=DatasetQualityReport)
+def dataset_quality_report(
+    bond_id: int | None = None,
+    company_id: int | None = None,
+    horizon_days: int = 30,
+    as_of_date_from: date | None = None,
+    as_of_date_to: date | None = None,
+    label: str | None = None,
+    include_insufficient: bool = True,
+    db: Session = Depends(get_db),
+) -> DatasetQualityReport:
+    return DatasetExportService(db).quality_report(
+        filters=DatasetExportFilters(
+            bond_id=bond_id,
+            company_id=company_id,
+            horizon_days=horizon_days,
+            as_of_date_from=as_of_date_from,
+            as_of_date_to=as_of_date_to,
+            label=label,
+            include_insufficient=include_insufficient,
+        )
     )
