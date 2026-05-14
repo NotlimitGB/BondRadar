@@ -10,6 +10,8 @@ class Settings(BaseSettings):
         "postgresql+psycopg://bondradar:bondradar@localhost:5432/bondradar"
     )
     BACKEND_CORS_ORIGINS: list[str] = []
+    MOEX_ISS_BASE_URL: str = "https://iss.moex.com"
+    MOEX_ISS_TIMEOUT_SECONDS: int = 20
 
     model_config = SettingsConfigDict(
         env_file=".env",

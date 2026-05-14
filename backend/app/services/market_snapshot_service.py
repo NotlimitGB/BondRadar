@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from typing import Literal
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.models.bond import Bond
 from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.schemas.ml_dataset import BondMarketSnapshotCreate
+
+SnapshotUpsertAction = Literal["created", "updated", "skipped"]
 
 
 class MarketSnapshotService:
@@ -20,6 +23,18 @@ class MarketSnapshotService:
     def create_or_update(
         self, snapshot_in: BondMarketSnapshotCreate
     ) -> BondMarketSnapshot:
+        snapshot, _ = self.create_or_update_with_action(
+            snapshot_in,
+            rebuild_existing=True,
+        )
+        return snapshot
+
+    def create_or_update_with_action(
+        self,
+        snapshot_in: BondMarketSnapshotCreate,
+        *,
+        rebuild_existing: bool = True,
+    ) -> tuple[BondMarketSnapshot, SnapshotUpsertAction]:
         if self.db.get(Bond, snapshot_in.bond_id) is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -40,14 +55,18 @@ class MarketSnapshotService:
         if snapshot is None:
             snapshot = BondMarketSnapshot(**data)
             self.db.add(snapshot)
+            action: SnapshotUpsertAction = "created"
+        elif not rebuild_existing:
+            action = "skipped"
         else:
             for field, value in data.items():
                 setattr(snapshot, field, value)
             self.db.add(snapshot)
+            action = "updated"
 
         self.db.commit()
         self.db.refresh(snapshot)
-        return snapshot
+        return snapshot, action
 
     def list_snapshots(
         self,
