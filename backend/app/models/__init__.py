@@ -10,6 +10,8 @@ from app.models.company_credit_health_snapshot import CompanyCreditHealthSnapsho
 from app.models.company_score import CompanyScore
 from app.models.dataset_build_run import DatasetBuildRun
 from app.models.financial_report import FinancialReport
+from app.models.financial_report_import_run import FinancialReportImportRun
+from app.models.financial_report_source_document import FinancialReportSourceDocument
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
 
@@ -26,6 +28,8 @@ __all__ = [
     "CompanyScore",
     "DatasetBuildRun",
     "FinancialReport",
+    "FinancialReportImportRun",
+    "FinancialReportSourceDocument",
     "MLModelRun",
     "MLPrediction",
 ]

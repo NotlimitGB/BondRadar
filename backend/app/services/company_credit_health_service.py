@@ -113,30 +113,55 @@ class CompanyCreditHealthService:
             else_=0,
         )
         base = select(FinancialReport).where(FinancialReport.company_id == company_id)
-        exact = self.db.execute(
-            base.where(FinancialReport.created_at <= end_of_day)
+        published = self.db.execute(
+            base.where(
+                FinancialReport.published_at.is_not(None),
+                FinancialReport.published_at <= end_of_day,
+            )
             .order_by(
                 FinancialReport.period_year.desc(),
                 period_priority.desc(),
-                FinancialReport.created_at.desc(),
+                FinancialReport.published_at.desc(),
                 FinancialReport.id.desc(),
             )
             .limit(1)
         ).scalar_one_or_none()
-        if exact is not None:
-            return exact, None
+        if published is not None:
+            return published, None
 
-        fallback = self.db.execute(
-            base.order_by(
+        legacy = self.db.execute(
+            base.where(
+                FinancialReport.published_at.is_(None),
+                FinancialReport.created_at <= end_of_day,
+            )
+            .order_by(
                 FinancialReport.period_year.desc(),
                 period_priority.desc(),
                 FinancialReport.created_at.desc(),
                 FinancialReport.id.desc(),
             ).limit(1)
         ).scalar_one_or_none()
-        if fallback is None:
+        if legacy is not None:
+            return (
+                legacy,
+                "Financial report publication date is missing, fallback selection was used",
+            )
+
+        legacy_period = self.db.execute(
+            base.where(FinancialReport.published_at.is_(None))
+            .order_by(
+                FinancialReport.period_year.desc(),
+                period_priority.desc(),
+                FinancialReport.created_at.desc(),
+                FinancialReport.id.desc(),
+            ).limit(1)
+        ).scalar_one_or_none()
+        if legacy_period is None:
             return None, None
-        return fallback, "Financial report publication timing is approximated"
+        return (
+            legacy_period,
+            "Financial report publication date is missing, fallback selection was used",
+        )
 
     def _latest_company_score(
         self,

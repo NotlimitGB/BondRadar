@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Numeric,
@@ -50,6 +51,10 @@ class FinancialReport(Base):
     debt_to_ebitda: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
     interest_coverage: Mapped[Decimal | None] = mapped_column(Numeric(8, 3))
     source: Mapped[str | None] = mapped_column(String(255))
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    period_start_date: Mapped[date | None] = mapped_column(Date)
+    period_end_date: Mapped[date | None] = mapped_column(Date)
+    currency: Mapped[str | None] = mapped_column(String(3))
     signal: Mapped[str] = mapped_column(
         String(32), nullable=False, default=AnalysisSignal.INSUFFICIENT_DATA.value
     )
@@ -65,3 +70,6 @@ class FinancialReport(Base):
 
     company: Mapped["Company"] = relationship(back_populates="financial_reports")
     company_scores: Mapped[list["CompanyScore"]] = relationship(back_populates="report")
+    source_documents: Mapped[list["FinancialReportSourceDocument"]] = relationship(
+        back_populates="financial_report"
+    )

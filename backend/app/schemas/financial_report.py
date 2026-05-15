@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +22,10 @@ class FinancialReportBase(BaseModel):
     debt_to_ebitda: Decimal | None = None
     interest_coverage: Decimal | None = None
     source: str | None = Field(default=None, max_length=255)
+    published_at: datetime | None = None
+    period_start_date: date | None = None
+    period_end_date: date | None = None
+    currency: str | None = Field(default=None, max_length=3)
     signal: AnalysisSignal = AnalysisSignal.INSUFFICIENT_DATA
 
     model_config = ConfigDict(use_enum_values=True)
@@ -47,6 +51,10 @@ class FinancialReportUpdate(BaseModel):
     debt_to_ebitda: Decimal | None = None
     interest_coverage: Decimal | None = None
     source: str | None = Field(default=None, max_length=255)
+    published_at: datetime | None = None
+    period_start_date: date | None = None
+    period_end_date: date | None = None
+    currency: str | None = Field(default=None, max_length=3)
     signal: AnalysisSignal | None = None
 
     model_config = ConfigDict(use_enum_values=True)

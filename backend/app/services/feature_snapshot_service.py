@@ -204,6 +204,25 @@ class FeatureSnapshotService:
             select(FinancialReport)
             .where(
                 FinancialReport.company_id == company_id,
+                FinancialReport.published_at.is_not(None),
+                FinancialReport.published_at <= cutoff,
+            )
+            .order_by(
+                FinancialReport.period_year.desc(),
+                period_priority.desc(),
+                FinancialReport.published_at.desc(),
+                FinancialReport.id.desc(),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+        if report is not None:
+            return report, None
+
+        report = self.db.execute(
+            select(FinancialReport)
+            .where(
+                FinancialReport.company_id == company_id,
+                FinancialReport.published_at.is_(None),
                 FinancialReport.created_at <= cutoff,
             )
             .order_by(
@@ -215,13 +234,17 @@ class FeatureSnapshotService:
             .limit(1)
         ).scalar_one_or_none()
         if report is not None:
-            return report, None
+            return (
+                report,
+                "Financial report publication date is missing, fallback selection was used",
+            )
 
         current_quarter = ((as_of_date.month - 1) // 3) + 1
         report = self.db.execute(
             select(FinancialReport)
             .where(
                 FinancialReport.company_id == company_id,
+                FinancialReport.published_at.is_(None),
                 or_(
                     FinancialReport.period_year < as_of_date.year,
                     and_(
@@ -242,7 +265,7 @@ class FeatureSnapshotService:
             return None, None
         return (
             report,
-            "Financial report publication date is unknown; period-based fallback was used.",
+            "Financial report publication date is missing, fallback selection was used",
         )
 
     @staticmethod

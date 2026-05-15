@@ -1,0 +1,54 @@
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_db
+from app.schemas.financial_report_ingestion import (
+    FinancialReportImportRunRead,
+    FinancialReportIngestRequest,
+    FinancialReportIngestResult,
+    FinancialReportSourceDocumentRead,
+)
+from app.services.financial_report_ingestion_service import (
+    FinancialReportIngestionService,
+)
+
+
+router = APIRouter()
+
+
+@router.post("/ingest", response_model=FinancialReportIngestResult)
+def ingest_financial_reports(
+    request: FinancialReportIngestRequest,
+    db: Session = Depends(get_db),
+) -> FinancialReportIngestResult:
+    return FinancialReportIngestionService(db).ingest(request)
+
+
+@router.get("/import-runs", response_model=list[FinancialReportImportRunRead])
+def list_financial_report_import_runs(
+    source: str | None = Query(default=None, min_length=1, max_length=64),
+    limit: int = Query(default=20, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> list[FinancialReportImportRunRead]:
+    return FinancialReportIngestionService(db).list_runs(
+        source=source,
+        limit=limit,
+    )
+
+
+@router.get("/source-documents", response_model=list[FinancialReportSourceDocumentRead])
+def list_financial_report_source_documents(
+    company_id: int | None = Query(default=None, ge=1),
+    source: str | None = Query(default=None, min_length=1, max_length=64),
+    period_year: int | None = Query(default=None, ge=1900, le=2100),
+    period_quarter: int | None = Query(default=None, ge=0, le=4),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+) -> list[FinancialReportSourceDocumentRead]:
+    return FinancialReportIngestionService(db).list_source_documents(
+        company_id=company_id,
+        source=source,
+        period_year=period_year,
+        period_quarter=period_quarter,
+        limit=limit,
+    )

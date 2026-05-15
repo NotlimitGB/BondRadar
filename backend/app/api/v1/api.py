@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     companies,
     credit_risk,
     datasets,
+    financial_report_ingestion,
     financial_reports,
     health,
     imports,
@@ -35,6 +36,11 @@ api_router.include_router(
     ml_evaluation.router,
     prefix="/ml/evaluation",
     tags=["ml-evaluation"],
+)
+api_router.include_router(
+    financial_report_ingestion.router,
+    prefix="/financial-reports",
+    tags=["financial-report-ingestion"],
 )
 api_router.include_router(
     financial_reports.router,
