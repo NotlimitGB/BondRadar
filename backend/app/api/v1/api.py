@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     ml,
     ml_evaluation,
     scores,
+    strategy_backtest,
 )
 
 
@@ -54,4 +55,9 @@ api_router.include_router(
     financial_reports.router,
     prefix="/companies/{company_id}/reports",
     tags=["company-reports"],
+)
+api_router.include_router(
+    strategy_backtest.router,
+    prefix="/strategy/backtests",
+    tags=["strategy-backtests"],
 )
