@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     cashflows,
     companies,
     credit_risk,
+    data_pipeline,
     datasets,
     financial_report_ingestion,
     financial_reports,
@@ -28,6 +29,7 @@ api_router.include_router(
     prefix="/credit-risk",
     tags=["credit-risk"],
 )
+api_router.include_router(data_pipeline.router, prefix="/pipeline", tags=["pipeline"])
 api_router.include_router(imports.router, prefix="/import", tags=["import"])
 api_router.include_router(datasets.router, tags=["datasets"])
 api_router.include_router(market_data.router, tags=["market-data"])
