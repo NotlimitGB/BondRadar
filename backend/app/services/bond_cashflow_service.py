@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -21,6 +21,7 @@ ALLOWED_CASHFLOW_EVENT_TYPES = {
     "offer_redemption",
     "other",
 }
+CashflowUpsertAction = Literal["created", "updated", "skipped"]
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,18 @@ class BondCashflowService:
         self,
         event_in: BondCashflowEventCreate,
     ) -> BondCashflowEvent:
+        event, _ = self.create_or_update_event_with_action(
+            event_in,
+            rebuild_existing=True,
+        )
+        return event
+
+    def create_or_update_event_with_action(
+        self,
+        event_in: BondCashflowEventCreate,
+        *,
+        rebuild_existing: bool = True,
+    ) -> tuple[BondCashflowEvent, CashflowUpsertAction]:
         bond = self.db.get(Bond, event_in.bond_id)
         if bond is None:
             raise HTTPException(
@@ -69,13 +82,17 @@ class BondCashflowService:
         if event is None:
             event = BondCashflowEvent(**data)
             self.db.add(event)
+            action: CashflowUpsertAction = "created"
+        elif not rebuild_existing:
+            action = "skipped"
         else:
             for field, value in data.items():
                 setattr(event, field, value)
             self.db.add(event)
+            action = "updated"
         self.db.commit()
         self.db.refresh(event)
-        return event
+        return event, action
 
     def list_events(
         self,

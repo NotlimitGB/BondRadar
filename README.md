@@ -255,12 +255,21 @@ python -m app.db.seed
 
 BondRadar also has a larger deterministic demo scenario for local end-to-end
 checks. It is not run automatically on startup and does not delete existing
-data. Run migrations first:
+data. Start PostgreSQL first, then run migrations:
 
 ```bash
 cd backend
 alembic upgrade head
 ```
+
+With Docker Compose, start the database from the repository root first:
+
+```bash
+docker compose up -d postgres
+```
+
+If you use a different local database, set `DATABASE_URL` before running the
+seed command.
 
 Create or update the core demo data:
 

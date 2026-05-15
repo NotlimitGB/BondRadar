@@ -7,10 +7,12 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, func, select, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.session import SessionLocal
+from app.core.config import settings
 from app.models.bond import Bond
 from app.models.bond_cashflow_event import BondCashflowEvent
 from app.models.bond_feature_snapshot import BondFeatureSnapshot
@@ -45,6 +47,7 @@ DEMO_CREATED_AT = datetime(2024, 12, 31, 12, 0, 0)
 DEMO_SCORE_AS_OF_DATE = date(2024, 12, 31)
 DEMO_RISK_DATES = [date(2025, 1, 10), date(2025, 2, 10), date(2025, 3, 10)]
 HIGH_YIELD_WARNING = "High yield may reflect elevated credit/default risk"
+DB_CONNECT_TIMEOUT_SECONDS = 5
 
 DEMO_COMPANY_TICKERS = [
     "DEMO_STABLE",
@@ -1060,17 +1063,48 @@ def _print_summary(summary: DemoSeedSummary) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     options = _parse_args(argv)
+    engine = create_engine(
+        _database_url_with_timeout(settings.DATABASE_URL),
+        pool_pre_ping=True,
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     db = SessionLocal()
     try:
+        _check_database_connection(engine)
         summary = seed_demo_data(db, options)
         _print_summary(summary)
         return 0
+    except KeyboardInterrupt:
+        print("Demo seed interrupted.")
+        return 130
+    except SQLAlchemyError as exc:
+        print(f"Demo seed failed: {exc}")
+        print(
+            "Database connection failed or Alembic migrations may not be applied. "
+            "Start PostgreSQL or set DATABASE_URL to a reachable database."
+        )
+        return 1
     except Exception as exc:
         print(f"Demo seed failed: {exc}")
-        print("Database connection failed or Alembic migrations may not be applied.")
+        print("Check that Alembic migrations are applied and demo dependencies are installed.")
         return 1
     finally:
         db.close()
+        engine.dispose()
+
+
+def _database_url_with_timeout(database_url: str):
+    url = make_url(database_url)
+    if url.drivername.startswith("postgresql") and "connect_timeout" not in url.query:
+        query = dict(url.query)
+        query["connect_timeout"] = str(DB_CONNECT_TIMEOUT_SECONDS)
+        return url.set(query=query)
+    return url
+
+
+def _check_database_connection(engine) -> None:
+    with engine.connect() as connection:
+        connection.execute(text("select 1"))
 
 
 if __name__ == "__main__":
