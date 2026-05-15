@@ -30,9 +30,90 @@ class MoexCashflowScheduleResult:
 
 class MoexIssClient:
     MAX_PAGES = 100
+    BOND_UNIVERSE_PATH_TEMPLATE = (
+        "/iss/engines/stock/markets/bonds/boards/{board}/securities.json"
+    )
+    BOND_DESCRIPTION_PATH_TEMPLATE = "/iss/securities/{secid}.json"
     CASHFLOW_PATH_TEMPLATE = (
         "/iss/statistics/engines/stock/markets/bonds/bondization/{secid}.json"
     )
+    BOND_METADATA_ALIASES = {
+        "secid": ("secid", "SECID"),
+        "isin": ("isin", "ISIN", "isincode", "ISINCODE"),
+        "shortname": ("shortname", "SHORTNAME", "short_name"),
+        "name": ("secname", "SECNAME", "name", "NAME", "fullname", "FULLNAME"),
+        "issuer_name": (
+            "issuer_name",
+            "ISSUER_NAME",
+            "emitent_title",
+            "EMITENT_TITLE",
+            "emitentname",
+            "EMITENTNAME",
+            "emitent_full_name",
+            "EMITENT_FULL_NAME",
+            "issuer",
+            "ISSUER",
+        ),
+        "issuer_inn": (
+            "issuer_inn",
+            "ISSUER_INN",
+            "emitent_inn",
+            "EMITENT_INN",
+            "inn",
+            "INN",
+        ),
+        "currency": (
+            "currency",
+            "CURRENCY",
+            "currencyid",
+            "CURRENCYID",
+            "faceunit",
+            "FACEUNIT",
+        ),
+        "nominal_value": (
+            "nominal_value",
+            "NOMINAL_VALUE",
+            "facevalue",
+            "FACEVALUE",
+            "faceval",
+            "FACEVAL",
+            "nominal",
+            "NOMINAL",
+        ),
+        "coupon_rate": (
+            "coupon_rate",
+            "COUPON_RATE",
+            "couponpercent",
+            "COUPONPERCENT",
+            "coupon_rate_percent",
+        ),
+        "maturity_date": (
+            "maturity_date",
+            "MATURITY_DATE",
+            "matdate",
+            "MATDATE",
+            "maturitydate",
+            "MATURITYDATE",
+        ),
+        "offer_date": ("offer_date", "OFFER_DATE", "offerdate", "OFFERDATE"),
+        "is_perpetual": ("is_perpetual", "IS_PERPETUAL", "perpetual", "PERPETUAL"),
+        "is_subordinated": (
+            "is_subordinated",
+            "IS_SUBORDINATED",
+            "subordinated",
+            "SUBORDINATED",
+        ),
+        "has_amortization": (
+            "has_amortization",
+            "HAS_AMORTIZATION",
+            "amortization",
+            "AMORTIZATION",
+            "amortized",
+            "AMORTIZED",
+        ),
+        "status": ("status", "STATUS", "secstatus", "SECSTATUS"),
+        "is_traded": ("is_traded", "IS_TRADED", "istraded", "ISTRADED"),
+    }
     CASHFLOW_TABLE_ALIASES = {
         "coupons": (
             "coupons",
@@ -129,6 +210,61 @@ class MoexIssClient:
 
         return self._parse_cashflow_tables(payload, secid)
 
+    def fetch_bond_universe(
+        self,
+        board: str,
+        start: int = 0,
+        limit: int = 100,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        path = self.BOND_UNIVERSE_PATH_TEMPLATE.format(board=board)
+        payload = self._request_json(
+            path,
+            params={
+                "iss.meta": "off",
+                "start": start,
+                "limit": limit,
+            },
+        )
+        table_name = self._find_table_name(payload, ("securities",))
+        if table_name is None:
+            return [], [f"MOEX securities table is missing for board {board}"]
+        rows = self._parse_named_table(payload, table_name)
+        return [self._normalize_bond_metadata_row(row) for row in rows], []
+
+    def fetch_bond_description(
+        self,
+        secid: str,
+        board: str | None = None,
+    ) -> tuple[dict[str, Any], list[str]]:
+        path = self.BOND_DESCRIPTION_PATH_TEMPLATE.format(secid=secid)
+        params = {"iss.meta": "off"}
+        if board:
+            params["boards"] = board
+        payload = self._request_json(path, params=params)
+        warnings: list[str] = []
+        raw: dict[str, Any] = {}
+
+        description_table = self._find_table_name(payload, ("description",))
+        if description_table is not None:
+            rows = self._parse_named_table(payload, description_table)
+            raw.update(self._description_rows_to_dict(rows))
+        else:
+            warnings.append(f"MOEX description table is missing for {secid}")
+
+        securities_table = self._find_table_name(payload, ("securities",))
+        if securities_table is not None:
+            security_rows = self._parse_named_table(payload, securities_table)
+            if security_rows:
+                raw.update(security_rows[0])
+
+        if not raw:
+            warnings.append(f"No MOEX metadata rows found for {secid}")
+            raw = {"SECID": secid}
+        elif not self._has_value(self._first_value(raw, ("secid", "SECID"))):
+            raw["SECID"] = secid
+
+        return self._normalize_bond_metadata_row(raw), warnings
+
     def _fetch_page(
         self,
         *,
@@ -167,6 +303,33 @@ class MoexIssClient:
             raise MoexIssClientError("Invalid MOEX JSON response") from exc
 
         return self._parse_history_table(payload)
+
+    def _request_json(
+        self,
+        path: str,
+        *,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        try:
+            if self.http_client is not None:
+                response = self.http_client.get(path, params=params)
+            else:
+                with httpx.Client(
+                    base_url=self.base_url,
+                    timeout=self.timeout_seconds,
+                ) as client:
+                    response = client.get(path, params=params)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise MoexIssClientError(f"MOEX request failed: {exc}") from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise MoexIssClientError("Invalid MOEX JSON response") from exc
+        if not isinstance(payload, dict):
+            raise MoexIssClientError("Invalid MOEX JSON response")
+        return payload
 
     @staticmethod
     def _parse_history_table(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -258,3 +421,36 @@ class MoexIssClient:
                 )
             rows.append(dict(zip(columns, raw_row, strict=False)))
         return rows
+
+    @classmethod
+    def _normalize_bond_metadata_row(cls, row: dict[str, Any]) -> dict[str, Any]:
+        normalized: dict[str, Any] = {}
+        for target, aliases in cls.BOND_METADATA_ALIASES.items():
+            normalized[target] = cls._first_value(row, aliases)
+        normalized["raw"] = dict(row)
+        return normalized
+
+    @staticmethod
+    def _description_rows_to_dict(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        values: dict[str, Any] = {}
+        for row in rows:
+            key = MoexIssClient._first_value(row, ("name", "NAME", "code", "CODE"))
+            if not MoexIssClient._has_value(key):
+                key = MoexIssClient._first_value(row, ("title", "TITLE"))
+            value = MoexIssClient._first_value(row, ("value", "VALUE"))
+            if MoexIssClient._has_value(key):
+                values[str(key)] = value
+        return values
+
+    @staticmethod
+    def _first_value(row: dict[str, Any], aliases: tuple[str, ...]) -> Any:
+        normalized = {str(key).lower(): value for key, value in row.items()}
+        for alias in aliases:
+            value = normalized.get(str(alias).lower())
+            if MoexIssClient._has_value(value):
+                return value
+        return None
+
+    @staticmethod
+    def _has_value(value: Any) -> bool:
+        return value is not None and value != ""
