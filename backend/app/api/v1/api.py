@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     bonds,
+    cashflows,
     companies,
     credit_risk,
     datasets,
@@ -18,6 +19,7 @@ api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(companies.router, prefix="/companies", tags=["companies"])
 api_router.include_router(bonds.router, prefix="/bonds", tags=["bonds"])
+api_router.include_router(cashflows.router, prefix="/cashflows", tags=["cashflows"])
 api_router.include_router(scores.router, prefix="/scores", tags=["scores"])
 api_router.include_router(
     credit_risk.router,

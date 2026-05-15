@@ -69,6 +69,7 @@ class DatasetExportFilters:
     bond_id: int | None = None
     company_id: int | None = None
     horizon_days: int = 30
+    return_method: str = "price"
     as_of_date_from: date | None = None
     as_of_date_to: date | None = None
     label: str | None = None
@@ -219,6 +220,7 @@ class DatasetExportService:
     def _conditions(self, filters: DatasetExportFilters) -> list[Any]:
         conditions: list[Any] = [
             BondReturnLabel.horizon_days == filters.horizon_days,
+            BondReturnLabel.return_method == filters.return_method,
         ]
         if filters.bond_id is not None:
             conditions.append(BondFeatureSnapshot.bond_id == filters.bond_id)
@@ -251,6 +253,7 @@ class DatasetExportService:
             company_id=feature.company_id,
             as_of_date=feature.as_of_date,
             horizon_days=label.horizon_days,
+            return_method=label.return_method,
             bond_name=bond.name,
             isin=bond.isin,
             secid=bond.secid,
@@ -276,6 +279,15 @@ class DatasetExportService:
             future_return=label.future_return,
             benchmark_return=label.benchmark_return,
             excess_return=label.excess_return,
+            price_return=label.price_return,
+            coupon_return=label.coupon_return,
+            amortization_return=label.amortization_return,
+            redemption_return=label.redemption_return,
+            gross_total_return=label.gross_total_return,
+            estimated_costs_return=label.estimated_costs_return,
+            net_total_return=label.net_total_return,
+            risk_adjusted_excess_return=label.risk_adjusted_excess_return,
+            required_risk_premium=label.required_risk_premium,
             label=label.label,
             label_binary=label.label_binary,
             market_snapshot_id=feature.market_snapshot_id,
@@ -294,6 +306,11 @@ class DatasetExportService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="horizon_days must be positive",
+            )
+        if filters.return_method not in {"price", "total_return", "risk_adjusted"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid return method",
             )
         if (
             filters.as_of_date_from is not None

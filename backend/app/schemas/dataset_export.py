@@ -9,6 +9,7 @@ class DatasetExportRow(BaseModel):
     company_id: int
     as_of_date: date
     horizon_days: int
+    return_method: str
     bond_name: str
     isin: str | None
     secid: str | None
@@ -34,6 +35,15 @@ class DatasetExportRow(BaseModel):
     future_return: Decimal | None
     benchmark_return: Decimal | None
     excess_return: Decimal | None
+    price_return: Decimal | None
+    coupon_return: Decimal | None
+    amortization_return: Decimal | None
+    redemption_return: Decimal | None
+    gross_total_return: Decimal | None
+    estimated_costs_return: Decimal | None
+    net_total_return: Decimal | None
+    risk_adjusted_excess_return: Decimal | None
+    required_risk_premium: Decimal | None
     label: str
     label_binary: int | None
     market_snapshot_id: int | None

@@ -35,8 +35,23 @@ class LabelBuilderService:
         as_of_date: date,
         horizon_days: int,
         *,
+        return_method: str = "price",
+        benchmark_return: Decimal | None = None,
+        transaction_cost_rate: Decimal = Decimal("0.001"),
         rebuild_existing: bool = False,
     ) -> LabelBuildOutcome:
+        if return_method != "price":
+            from app.services.total_return_label_service import TotalReturnLabelService
+
+            return TotalReturnLabelService(self.db).build_for_bond_date(
+                bond_id,
+                as_of_date,
+                horizon_days,
+                return_method=return_method,
+                benchmark_return=benchmark_return,
+                transaction_cost_rate=transaction_cost_rate,
+                rebuild_existing=rebuild_existing,
+            )
         if self.db.get(Bond, bond_id) is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -48,6 +63,7 @@ class LabelBuilderService:
                 BondReturnLabel.bond_id == bond_id,
                 BondReturnLabel.as_of_date == as_of_date,
                 BondReturnLabel.horizon_days == horizon_days,
+                BondReturnLabel.return_method == "price",
             )
         ).scalar_one_or_none()
         if existing is not None and not rebuild_existing:
@@ -84,11 +100,12 @@ class LabelBuilderService:
         future_return: Decimal | None = None
         label = "insufficient_data"
         label_binary: int | None = None
+        warnings: list[str] = []
 
         if (
             start_price is not None
             and end_price is not None
-            and start_price != Decimal("0")
+            and start_price > Decimal("0")
         ):
             future_return = (end_price - start_price) / start_price
             if future_return > 0:
@@ -97,11 +114,14 @@ class LabelBuilderService:
             else:
                 label = "negative_return"
                 label_binary = 0
+        else:
+            warnings.append("Start or end price is missing")
 
         return {
             "bond_id": bond_id,
             "as_of_date": as_of_date,
             "horizon_days": horizon_days,
+            "return_method": "price",
             "start_market_snapshot_id": start_snapshot.id if start_snapshot else None,
             "end_market_snapshot_id": end_snapshot.id if end_snapshot else None,
             "start_price": start_price,
@@ -109,6 +129,21 @@ class LabelBuilderService:
             "future_return": future_return,
             "benchmark_return": None,
             "excess_return": None,
+            "price_return": future_return,
+            "coupon_return": None,
+            "amortization_return": None,
+            "redemption_return": None,
+            "gross_total_return": None,
+            "estimated_costs_return": None,
+            "net_total_return": None,
+            "risk_adjusted_excess_return": None,
+            "required_risk_premium": None,
+            "return_calculation_warnings": warnings,
+            "return_calculation_details": {
+                "return_method": "price",
+                "as_of_date": as_of_date.isoformat(),
+                "horizon_days": horizon_days,
+            },
             "label": label,
             "label_binary": label_binary,
         }

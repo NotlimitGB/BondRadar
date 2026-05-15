@@ -45,6 +45,9 @@ class DatasetBuildService:
                         bond_id,
                         trade_date,
                         request.horizon_days,
+                        return_method=request.return_method,
+                        benchmark_return=request.benchmark_return,
+                        transaction_cost_rate=request.transaction_cost_rate,
                         rebuild_existing=request.rebuild_existing,
                     )
                     run = self._refresh_run(run.id)
@@ -125,6 +128,7 @@ class DatasetBuildService:
         *,
         bond_id: int | None = None,
         horizon_days: int | None = None,
+        return_method: str | None = None,
         as_of_date_from=None,
         as_of_date_to=None,
         limit: int = 100,
@@ -134,6 +138,8 @@ class DatasetBuildService:
             stmt = stmt.where(BondReturnLabel.bond_id == bond_id)
         if horizon_days is not None:
             stmt = stmt.where(BondReturnLabel.horizon_days == horizon_days)
+        if return_method is not None:
+            stmt = stmt.where(BondReturnLabel.return_method == return_method)
         if as_of_date_from is not None:
             stmt = stmt.where(BondReturnLabel.as_of_date >= as_of_date_from)
         if as_of_date_to is not None:
@@ -156,6 +162,11 @@ class DatasetBuildService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="horizon_days must be positive",
             )
+        if request.return_method not in {"price", "total_return", "risk_adjusted"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid return method",
+            )
 
     def _create_run(self, request: DatasetBuildRequest) -> DatasetBuildRun:
         run = DatasetBuildRun(
@@ -174,6 +185,13 @@ class DatasetBuildService:
                 "as_of_date_to": request.as_of_date_to.isoformat(),
                 "horizon_days": request.horizon_days,
                 "bond_ids": request.bond_ids,
+                "return_method": request.return_method,
+                "benchmark_return": (
+                    None
+                    if request.benchmark_return is None
+                    else str(request.benchmark_return)
+                ),
+                "transaction_cost_rate": str(request.transaction_cost_rate),
                 "rebuild_existing": request.rebuild_existing,
             },
         )

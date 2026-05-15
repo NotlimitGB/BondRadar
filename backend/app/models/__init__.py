@@ -1,4 +1,5 @@
 from app.models.bond import Bond
+from app.models.bond_cashflow_event import BondCashflowEvent
 from app.models.bond_feature_snapshot import BondFeatureSnapshot
 from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.models.bond_risk_assessment import BondRiskAssessment
@@ -14,6 +15,7 @@ from app.models.ml_prediction import MLPrediction
 
 __all__ = [
     "Bond",
+    "BondCashflowEvent",
     "BondFeatureSnapshot",
     "BondMarketSnapshot",
     "BondRiskAssessment",

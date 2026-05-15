@@ -67,11 +67,23 @@ class BondReturnLabelRead(BaseModel):
     horizon_days: int
     start_market_snapshot_id: int | None
     end_market_snapshot_id: int | None
+    return_method: str
     start_price: Decimal | None
     end_price: Decimal | None
     future_return: Decimal | None
     benchmark_return: Decimal | None
     excess_return: Decimal | None
+    price_return: Decimal | None
+    coupon_return: Decimal | None
+    amortization_return: Decimal | None
+    redemption_return: Decimal | None
+    gross_total_return: Decimal | None
+    estimated_costs_return: Decimal | None
+    net_total_return: Decimal | None
+    risk_adjusted_excess_return: Decimal | None
+    required_risk_premium: Decimal | None
+    return_calculation_warnings: list[str] | None
+    return_calculation_details: dict[str, Any] | None
     label: str
     label_binary: int | None
     created_at: datetime
@@ -104,6 +116,9 @@ class DatasetBuildRequest(BaseModel):
     as_of_date_to: date
     horizon_days: int = 30
     bond_ids: list[int] | None = None
+    return_method: str = "price"
+    benchmark_return: Decimal | None = None
+    transaction_cost_rate: Decimal = Decimal("0.001")
     rebuild_existing: bool = False
 
 
