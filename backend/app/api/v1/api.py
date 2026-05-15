@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     market_data,
     ml,
     ml_evaluation,
+    portfolio_construction,
     scores,
     strategy_backtest,
 )
@@ -60,4 +61,9 @@ api_router.include_router(
     strategy_backtest.router,
     prefix="/strategy/backtests",
     tags=["strategy-backtests"],
+)
+api_router.include_router(
+    portfolio_construction.router,
+    prefix="/strategy/portfolio",
+    tags=["strategy-portfolio"],
 )
