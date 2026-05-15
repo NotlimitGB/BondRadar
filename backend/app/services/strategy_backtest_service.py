@@ -536,20 +536,26 @@ class StrategyBacktestService:
                         as_of_date=as_of_date,
                     )
                 )
-                turnovers.append(Decimal("0"))
+                weights: dict[int, Decimal] = {}
+                turnover = self._turnover(previous_weights, weights)
+                gross_return = Decimal("0")
+                costs_return = turnover * request.transaction_cost_rate
+                period_return = gross_return - costs_return
+                value = start_value * (Decimal("1") + period_return)
+                turnovers.append(turnover)
                 previous_weights = {}
                 periods.append(
                     StrategyBacktestPeriodResult(
                         as_of_date=as_of_date,
                         portfolio_value_start=start_value,
                         portfolio_value_end=value,
-                        period_return=Decimal("0"),
-                        gross_period_return=Decimal("0"),
-                        estimated_costs_return=Decimal("0"),
+                        period_return=period_return,
+                        gross_period_return=gross_return,
+                        estimated_costs_return=costs_return,
                         allocated_weight=Decimal("0"),
                         unallocated_weight=Decimal("1"),
                         allocated_capital=Decimal("0"),
-                        unallocated_capital=start_value,
+                        unallocated_capital=value,
                         high_risk_weight=Decimal("0"),
                         max_issuer_weight=Decimal("0"),
                         excluded_candidates_count=len(allocation.excluded_reasons),

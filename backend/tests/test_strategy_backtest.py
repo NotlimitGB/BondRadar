@@ -466,6 +466,65 @@ def test_transaction_cost_uses_constrained_turnover(
     assert Decimal(str(period["period_return"])) == Decimal("0.0180000000")
 
 
+def test_empty_allocation_period_charges_exit_turnover(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, "EXT")
+    bond = create_bond(db_session, company, 77)
+    run = create_run(db_session)
+    add_risk(db_session, bond=bond, as_of_date=date(2025, 12, 31))
+    add_prediction_and_label(
+        db_session,
+        run=run,
+        bond=bond,
+        as_of_date=date(2026, 1, 1),
+        probability=Decimal("0.90"),
+        future_return=Decimal("0.000000"),
+        liquidity_score=80,
+        yield_to_maturity=Decimal("12.000"),
+    )
+    add_prediction_and_label(
+        db_session,
+        run=run,
+        bond=bond,
+        as_of_date=date(2026, 2, 1),
+        probability=Decimal("0.10"),
+        future_return=Decimal("0.000000"),
+        liquidity_score=80,
+        yield_to_maturity=Decimal("12.000"),
+    )
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "top_n": 1,
+            "min_probability_positive": "0.50",
+            "max_position_weight": "0.20",
+            "max_issuer_weight": "1",
+            "transaction_cost_rate": "0.01",
+            "include_baselines": False,
+        },
+    )
+
+    assert response.status_code == 200
+    periods = response.json()["periods"]
+    first = periods[0]
+    second = periods[1]
+    assert Decimal(str(first["allocated_weight"])) == Decimal("0.20")
+    assert Decimal(str(first["estimated_costs_return"])) == Decimal("0.0020")
+    assert Decimal(str(first["period_return"])) == Decimal("-0.0020000000")
+    assert Decimal(str(second["allocated_weight"])) == Decimal("0")
+    assert Decimal(str(second["gross_period_return"])) == Decimal("0")
+    assert Decimal(str(second["estimated_costs_return"])) == Decimal("0.0020")
+    assert Decimal(str(second["period_return"])) == Decimal("-0.0020")
+    assert Decimal(str(second["portfolio_value_end"])) < Decimal(
+        str(second["portfolio_value_start"])
+    )
+    assert Decimal(str(response.json()["metrics"]["turnover"])) == Decimal("0.20")
+
+
 def test_missing_risk_exclusion_is_configurable(
     client: TestClient,
     db_session: Session,
