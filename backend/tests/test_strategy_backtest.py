@@ -327,6 +327,7 @@ def test_max_position_weight_leaves_unallocated_capital(
             "max_position_weight": "0.25",
             "transaction_cost_rate": "0",
             "include_baselines": False,
+            "use_portfolio_constraints": False,
         },
     )
 
@@ -336,6 +337,297 @@ def test_max_position_weight_leaves_unallocated_capital(
         for candidate in response.json()["periods"][0]["selected_candidates"]
     ]
     assert sum(weights) == Decimal("0.50")
+
+
+def test_constrained_backtest_applies_issuer_cap(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, bonds = seed_backtest_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "top_n": 4,
+            "max_position_weight": "0.20",
+            "max_issuer_weight": "0.30",
+            "max_high_risk_weight": "1",
+            "transaction_cost_rate": "0",
+            "include_baselines": False,
+            "include_excluded_candidates": True,
+        },
+    )
+
+    assert response.status_code == 200
+    first_period = response.json()["periods"][0]
+    selected = first_period["selected_candidates"]
+    company_weight = sum(
+        Decimal(str(candidate["weight"]))
+        for candidate in selected
+        if candidate["company_id"] == bonds[0].company_id
+    )
+    reasons = [reason for candidate in selected for reason in candidate["selection_reasons"]]
+    assert Decimal(str(first_period["max_issuer_weight"])) <= Decimal("0.30")
+    assert company_weight <= Decimal("0.30")
+    assert "Allocation reduced by issuer concentration cap" in reasons
+
+
+def test_constrained_backtest_applies_high_risk_cap(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, bonds = seed_backtest_dataset(db_session)
+    for bond in bonds[:2]:
+        add_risk(
+            db_session,
+            bond=bond,
+            as_of_date=date(2026, 1, 1),
+            decision_status="eligible_for_analysis",
+            risk_level="high",
+        )
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "date_from": "2026-01-01",
+            "date_to": "2026-01-01",
+            "top_n": 3,
+            "max_position_weight": "0.20",
+            "max_issuer_weight": "1",
+            "max_high_risk_weight": "0.30",
+            "transaction_cost_rate": "0",
+            "include_baselines": False,
+        },
+    )
+
+    assert response.status_code == 200
+    first_period = response.json()["periods"][0]
+    reasons = [
+        reason
+        for candidate in first_period["selected_candidates"]
+        for reason in candidate["selection_reasons"]
+    ]
+    assert Decimal(str(first_period["high_risk_weight"])) <= Decimal("0.30")
+    assert "Allocation reduced by high-risk cap" in reasons
+
+
+def test_unallocated_capital_affects_period_return(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_backtest_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "date_from": "2026-01-01",
+            "date_to": "2026-01-01",
+            "top_n": 1,
+            "max_position_weight": "0.20",
+            "max_issuer_weight": "1",
+            "transaction_cost_rate": "0",
+            "include_baselines": False,
+        },
+    )
+
+    assert response.status_code == 200
+    period = response.json()["periods"][0]
+    assert Decimal(str(period["allocated_weight"])) == Decimal("0.20")
+    assert Decimal(str(period["unallocated_weight"])) == Decimal("0.80")
+    assert Decimal(str(period["gross_period_return"])) == Decimal("0.0200000000")
+
+
+def test_transaction_cost_uses_constrained_turnover(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_backtest_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "date_from": "2026-01-01",
+            "date_to": "2026-01-01",
+            "top_n": 1,
+            "max_position_weight": "0.20",
+            "max_issuer_weight": "1",
+            "transaction_cost_rate": "0.01",
+            "include_baselines": False,
+        },
+    )
+
+    assert response.status_code == 200
+    period = response.json()["periods"][0]
+    assert Decimal(str(period["estimated_costs_return"])) == Decimal("0.0020")
+    assert Decimal(str(period["period_return"])) == Decimal("0.0180000000")
+
+
+def test_missing_risk_exclusion_is_configurable(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, "MRK")
+    bond = create_bond(db_session, company, 99)
+    run = create_run(db_session)
+    add_prediction_and_label(
+        db_session,
+        run=run,
+        bond=bond,
+        as_of_date=date(2026, 1, 1),
+        probability=Decimal("0.90"),
+        future_return=Decimal("0.020000"),
+        liquidity_score=80,
+        yield_to_maturity=Decimal("12.000"),
+        return_method="risk_adjusted",
+    )
+
+    excluded = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "exclude_insufficient_credit_data": True,
+            "include_excluded_candidates": True,
+            "include_baselines": False,
+        },
+    )
+    allowed = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "exclude_insufficient_credit_data": False,
+            "include_baselines": False,
+        },
+    )
+
+    assert excluded.status_code == 200
+    assert excluded.json()["periods"][0]["selected_candidates_count"] == 0
+    assert "Risk assessment is missing" in excluded.json()["periods"][0]["excluded_candidates"][0]["exclusion_reasons"]
+    assert allowed.status_code == 200
+    assert allowed.json()["periods"][0]["selected_candidates_count"] == 1
+
+
+def test_risk_level_and_decision_status_allow_lists_exclude_candidates(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, bonds = seed_backtest_dataset(db_session)
+    add_risk(
+        db_session,
+        bond=bonds[0],
+        as_of_date=date(2026, 1, 1),
+        decision_status="watchlist",
+        risk_level="medium",
+    )
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "date_from": "2026-01-01",
+            "date_to": "2026-01-01",
+            "allowed_risk_levels": ["low"],
+            "allowed_decision_statuses": ["eligible_for_analysis"],
+            "include_excluded_candidates": True,
+            "include_baselines": False,
+        },
+    )
+
+    assert response.status_code == 200
+    excluded = {
+        candidate["bond_id"]: candidate["exclusion_reasons"]
+        for candidate in response.json()["periods"][0]["excluded_candidates"]
+    }
+    assert "Risk level is not allowed" in excluded[bonds[0].id]
+    assert "Decision status is not allowed" in excluded[bonds[0].id]
+
+
+def test_simplified_mode_preserves_previous_selection_shape(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, bonds = seed_backtest_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "date_from": "2026-01-01",
+            "date_to": "2026-01-01",
+            "top_n": 2,
+            "max_position_weight": "0.25",
+            "transaction_cost_rate": "0",
+            "include_baselines": False,
+            "use_portfolio_constraints": False,
+        },
+    )
+
+    assert response.status_code == 200
+    period = response.json()["periods"][0]
+    assert [candidate["bond_id"] for candidate in period["selected_candidates"]] == [
+        bonds[0].id,
+        bonds[1].id,
+    ]
+    assert Decimal(str(period["allocated_weight"])) == Decimal("0.50")
+
+
+def test_baselines_respect_constraints_when_enabled(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_backtest_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_id": run.id,
+            "top_n": 3,
+            "max_position_weight": "0.20",
+            "max_issuer_weight": "0.30",
+            "max_high_risk_weight": "0.20",
+            "include_baselines": True,
+        },
+    )
+
+    assert response.status_code == 200
+    for baseline in response.json()["baselines"]:
+        assert Decimal(str(baseline["metrics"]["average_max_issuer_weight"])) <= Decimal("0.30")
+
+
+def test_response_includes_constrained_fields(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_backtest_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={"model_run_id": run.id, "include_baselines": False},
+    )
+
+    assert response.status_code == 200
+    period = response.json()["periods"][0]
+    metrics = response.json()["metrics"]
+    for key in [
+        "allocated_weight",
+        "unallocated_weight",
+        "allocated_capital",
+        "unallocated_capital",
+        "high_risk_weight",
+        "max_issuer_weight",
+    ]:
+        assert key in period
+    for key in [
+        "average_allocated_weight",
+        "average_unallocated_weight",
+        "average_high_risk_weight",
+        "average_max_issuer_weight",
+    ]:
+        assert key in metrics
+    assert "constraints" in period
 
 
 def test_risk_filter_excludes_blocked_candidates(
@@ -472,6 +764,22 @@ def test_invalid_backtest_request_returns_400(
         (
             {"max_position_weight": "1.1"},
             "max_position_weight must be greater than 0 and at most 1",
+        ),
+        (
+            {"max_issuer_weight": "0"},
+            "max_issuer_weight must be greater than 0 and at most 1",
+        ),
+        (
+            {"max_high_risk_weight": "1.1"},
+            "max_high_risk_weight must be between 0 and 1",
+        ),
+        (
+            {"allowed_risk_levels": ["severe"]},
+            "Invalid risk level",
+        ),
+        (
+            {"allowed_decision_statuses": ["manual"]},
+            "Invalid decision status",
         ),
         (
             {"transaction_cost_rate": "0.2"},

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from math import sqrt
-from typing import Callable
+from typing import Any, Callable
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, select
@@ -20,6 +21,7 @@ from app.models.ml_prediction import MLPrediction
 from app.schemas.strategy_backtest import (
     BACKTEST_REBALANCE_FREQUENCIES,
     StrategyBacktestBaselineResult,
+    StrategyBacktestExcludedCandidate,
     StrategyBacktestMetricSet,
     StrategyBacktestPeriodResult,
     StrategyBacktestRequest,
@@ -27,10 +29,15 @@ from app.schemas.strategy_backtest import (
     StrategyBacktestSelectedCandidate,
     StrategyBacktestWarning,
 )
+from app.schemas.portfolio_construction import (
+    PORTFOLIO_DECISION_STATUSES,
+    PORTFOLIO_RISK_LEVELS,
+)
 from app.services.ml_feature_builder import RETURN_METHODS
 
 
 EVALUABLE_LABELS = {"positive_return", "negative_return"}
+HIGH_RISK_LEVELS = {"high", "critical"}
 BASELINE_NAMES = {
     "equal_weight_all_evaluable",
     "top_yield_to_maturity",
@@ -52,10 +59,35 @@ class BacktestCandidate:
     realized_label: str | None
     realized_return: Decimal | None
     yield_to_maturity: Decimal | None
+    duration_years: Decimal | None
     liquidity_score: int | None
+    volume: Decimal | None
     decision_status: str | None
     risk_level: str | None
+    assessment_score: int | None
+    required_risk_premium: Decimal | None
+    risk_notes: list[str]
+    has_feature_snapshot: bool
+    has_risk_assessment: bool
     is_evaluable: bool
+
+
+@dataclass(frozen=True)
+class AllocationChoice:
+    candidate: BacktestCandidate
+    weight: Decimal
+    selection_reasons: list[str]
+
+
+@dataclass(frozen=True)
+class PeriodAllocation:
+    choices: list[AllocationChoice]
+    excluded_reasons: dict[int, list[str]]
+    constraints: list[dict[str, Any]]
+    allocated_weight: Decimal
+    unallocated_weight: Decimal
+    high_risk_weight: Decimal
+    max_issuer_weight: Decimal
 
 
 @dataclass(frozen=True)
@@ -94,9 +126,15 @@ class StrategyBacktestService:
             request=request,
             rebalance_dates=rebalance_dates,
             candidates_by_date=candidates_by_date,
-            selector=lambda candidates: self._select_model_candidates(
-                candidates, request
+            selector=(
+                self._rank_model_candidates
+                if request.use_portfolio_constraints
+                else lambda candidates: self._select_model_candidates(
+                    candidates, request
+                )
             ),
+            apply_probability_filter=request.use_portfolio_constraints,
+            limit_to_top_n=request.use_portfolio_constraints,
         )
         warnings = list(model_result.warnings)
         if not any(candidate.is_evaluable for rows in candidates_by_date.values() for candidate in rows):
@@ -160,6 +198,29 @@ class StrategyBacktestService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="max_position_weight must be greater than 0 and at most 1",
+            )
+        if request.max_issuer_weight <= 0 or request.max_issuer_weight > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="max_issuer_weight must be greater than 0 and at most 1",
+            )
+        if request.max_high_risk_weight < 0 or request.max_high_risk_weight > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="max_high_risk_weight must be between 0 and 1",
+            )
+        if set(request.allowed_risk_levels or []) - PORTFOLIO_RISK_LEVELS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid risk level",
+            )
+        if (
+            set(request.allowed_decision_statuses or [])
+            - PORTFOLIO_DECISION_STATUSES
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid decision status",
             )
         if request.transaction_cost_rate < 0 or request.transaction_cost_rate > Decimal(
             "0.1"
@@ -285,15 +346,34 @@ class StrategyBacktestService:
                     realized_label=None if label is None else label.label,
                     realized_return=label.future_return if is_evaluable else None,
                     yield_to_maturity=(
-                        None if feature is None else feature.yield_to_maturity
+                        feature.yield_to_maturity
+                        if feature is not None and feature.yield_to_maturity is not None
+                        else (None if risk is None else risk.yield_to_maturity)
+                    ),
+                    duration_years=(
+                        feature.duration_years
+                        if feature is not None and feature.duration_years is not None
+                        else (None if risk is None else risk.duration_years)
                     ),
                     liquidity_score=(
                         feature_liquidity
                         if feature_liquidity is not None
                         else risk_liquidity
                     ),
+                    volume=(
+                        feature.volume
+                        if feature is not None and feature.volume is not None
+                        else (None if risk is None else risk.volume)
+                    ),
                     decision_status=None if risk is None else risk.decision_status,
                     risk_level=None if risk is None else risk.risk_level,
+                    assessment_score=None if risk is None else risk.assessment_score,
+                    required_risk_premium=(
+                        None if risk is None else risk.required_risk_premium
+                    ),
+                    risk_notes=[] if risk is None else self._risk_notes(risk),
+                    has_feature_snapshot=feature is not None,
+                    has_risk_assessment=risk is not None,
                     is_evaluable=is_evaluable,
                 )
             )
@@ -398,6 +478,8 @@ class StrategyBacktestService:
                 rebalance_dates=rebalance_dates,
                 candidates_by_date=candidates_by_date,
                 selector=selectors[name],
+                apply_probability_filter=False,
+                limit_to_top_n=False,
             )
             results.append(
                 StrategyBacktestBaselineResult(
@@ -416,6 +498,8 @@ class StrategyBacktestService:
         rebalance_dates: list[date],
         candidates_by_date: dict[date, list[BacktestCandidate]],
         selector: Callable[[list[BacktestCandidate]], list[BacktestCandidate]],
+        apply_probability_filter: bool,
+        limit_to_top_n: bool,
     ) -> SimulationResult:
         value = request.initial_capital
         previous_weights: dict[int, Decimal] = {}
@@ -425,27 +509,35 @@ class StrategyBacktestService:
 
         for as_of_date in rebalance_dates:
             start_value = value
-            raw_selected = selector(candidates_by_date.get(as_of_date, []))
-            missing_realized = [
-                candidate for candidate in raw_selected if not candidate.is_evaluable
-            ]
-            for candidate in missing_realized:
-                warnings.append(
-                    StrategyBacktestWarning(
-                        message="Selected candidate has no evaluable realized label",
-                        as_of_date=as_of_date,
-                        bond_id=candidate.bond_id,
-                    )
+            ranked_candidates = selector(candidates_by_date.get(as_of_date, []))
+            if request.use_portfolio_constraints:
+                allocation = self._constrained_allocation(
+                    ranked_candidates,
+                    request,
+                    apply_probability_filter=apply_probability_filter,
+                    limit_to_top_n=limit_to_top_n,
                 )
-            selected = [candidate for candidate in raw_selected if candidate.is_evaluable]
-            if not selected:
+            else:
+                allocation = self._simplified_allocation(ranked_candidates, request)
+
+            for candidate_id, reasons in allocation.excluded_reasons.items():
+                if "Candidate excluded from period calculation because realized label is missing" in reasons:
+                    warnings.append(
+                        StrategyBacktestWarning(
+                            message="Candidate excluded from period calculation because realized label is missing",
+                            as_of_date=as_of_date,
+                            bond_id=candidate_id,
+                        )
+                    )
+            if not allocation.choices:
                 warnings.append(
                     StrategyBacktestWarning(
-                        message="No evaluable selected candidates for rebalance date",
+                        message="No candidates passed all filters for rebalance date",
                         as_of_date=as_of_date,
                     )
                 )
                 turnovers.append(Decimal("0"))
+                previous_weights = {}
                 periods.append(
                     StrategyBacktestPeriodResult(
                         as_of_date=as_of_date,
@@ -454,17 +546,32 @@ class StrategyBacktestService:
                         period_return=Decimal("0"),
                         gross_period_return=Decimal("0"),
                         estimated_costs_return=Decimal("0"),
+                        allocated_weight=Decimal("0"),
+                        unallocated_weight=Decimal("1"),
+                        allocated_capital=Decimal("0"),
+                        unallocated_capital=start_value,
+                        high_risk_weight=Decimal("0"),
+                        max_issuer_weight=Decimal("0"),
+                        excluded_candidates_count=len(allocation.excluded_reasons),
+                        constraints=allocation.constraints,
                         selected_candidates_count=0,
                         selected_candidates=[],
+                        excluded_candidates=self._excluded_candidates(
+                            ranked_candidates,
+                            allocation.excluded_reasons,
+                            request.include_excluded_candidates,
+                        ),
                     )
                 )
                 continue
 
-            weights = self._weights(selected, request.max_position_weight)
+            weights = {
+                choice.candidate.bond_id: choice.weight for choice in allocation.choices
+            }
             turnover = self._turnover(previous_weights, weights)
             gross_return = sum(
-                weights[candidate.bond_id] * (candidate.realized_return or Decimal("0"))
-                for candidate in selected
+                choice.weight * (choice.candidate.realized_return or Decimal("0"))
+                for choice in allocation.choices
             )
             costs_return = turnover * request.transaction_cost_rate
             period_return = gross_return - costs_return
@@ -475,15 +582,31 @@ class StrategyBacktestService:
                 StrategyBacktestPeriodResult(
                     as_of_date=as_of_date,
                     portfolio_value_start=start_value,
-                    portfolio_value_end=value,
-                    period_return=period_return,
-                    gross_period_return=gross_return,
-                    estimated_costs_return=costs_return,
-                    selected_candidates_count=len(selected),
+                        portfolio_value_end=value,
+                        period_return=period_return,
+                        gross_period_return=gross_return,
+                        estimated_costs_return=costs_return,
+                        allocated_weight=allocation.allocated_weight,
+                        unallocated_weight=allocation.unallocated_weight,
+                        allocated_capital=start_value * allocation.allocated_weight,
+                        unallocated_capital=start_value * allocation.unallocated_weight,
+                        high_risk_weight=allocation.high_risk_weight,
+                        max_issuer_weight=allocation.max_issuer_weight,
+                        excluded_candidates_count=len(allocation.excluded_reasons),
+                        constraints=allocation.constraints,
+                        selected_candidates_count=len(allocation.choices),
                     selected_candidates=[
-                        self._selected_candidate(candidate, weights[candidate.bond_id])
-                        for candidate in selected
+                            self._selected_candidate(
+                                choice,
+                                start_value * choice.weight,
+                            )
+                            for choice in allocation.choices
                     ],
+                        excluded_candidates=self._excluded_candidates(
+                            ranked_candidates,
+                            allocation.excluded_reasons,
+                            request.include_excluded_candidates,
+                        ),
                 )
             )
 
@@ -499,16 +622,346 @@ class StrategyBacktestService:
             warnings=warnings,
         )
 
-    @staticmethod
-    def _weights(
-        selected: list[BacktestCandidate],
-        max_position_weight: Decimal,
-    ) -> dict[int, Decimal]:
+    def _rank_model_candidates(
+        self,
+        candidates: list[BacktestCandidate],
+    ) -> list[BacktestCandidate]:
+        return self._sort_for_constraints(candidates)
+
+    def _simplified_allocation(
+        self,
+        ranked_candidates: list[BacktestCandidate],
+        request: StrategyBacktestRequest,
+    ) -> PeriodAllocation:
+        excluded: dict[int, list[str]] = {}
+        selected = []
+        for candidate in ranked_candidates:
+            if not candidate.is_evaluable:
+                excluded[candidate.bond_id] = [
+                    "Candidate excluded from period calculation because realized label is missing"
+                ]
+                continue
+            selected.append(candidate)
+
         if not selected:
-            return {}
+            return PeriodAllocation(
+                choices=[],
+                excluded_reasons=excluded,
+                constraints=self._period_constraints(
+                    excluded,
+                    Decimal("0"),
+                    Decimal("1"),
+                    Decimal("0"),
+                    Decimal("0"),
+                    request,
+                ),
+                allocated_weight=Decimal("0"),
+                unallocated_weight=Decimal("1"),
+                high_risk_weight=Decimal("0"),
+                max_issuer_weight=Decimal("0"),
+            )
+
         raw_weight = Decimal("1") / Decimal(len(selected))
-        weight = min(raw_weight, max_position_weight)
-        return {candidate.bond_id: weight for candidate in selected}
+        weight = min(raw_weight, request.max_position_weight)
+        choices = [
+            AllocationChoice(
+                candidate=candidate,
+                weight=weight,
+                selection_reasons=["Selected by probability ranking"],
+            )
+            for candidate in selected
+        ]
+        return self._period_allocation(choices, excluded, request)
+
+    def _constrained_allocation(
+        self,
+        ranked_candidates: list[BacktestCandidate],
+        request: StrategyBacktestRequest,
+        *,
+        apply_probability_filter: bool,
+        limit_to_top_n: bool,
+    ) -> PeriodAllocation:
+        excluded: dict[int, list[str]] = {}
+        eligible: list[BacktestCandidate] = []
+        for candidate in ranked_candidates:
+            reasons = self._filter_candidate(
+                candidate,
+                request,
+                apply_probability_filter=apply_probability_filter,
+            )
+            if reasons:
+                excluded[candidate.bond_id] = reasons
+            else:
+                eligible.append(candidate)
+        if limit_to_top_n:
+            eligible = eligible[: request.top_n]
+
+        choices: list[AllocationChoice] = []
+        issuer_weights: dict[int, Decimal] = defaultdict(Decimal)
+        high_risk_weight = Decimal("0")
+        allocated_weight = Decimal("0")
+        for candidate in eligible:
+            if allocated_weight >= Decimal("1"):
+                break
+            weight = min(request.max_position_weight, Decimal("1") - allocated_weight)
+            issuer_key = candidate.company_id or 0
+            issuer_capacity = request.max_issuer_weight - issuer_weights[issuer_key]
+            reduced_by_issuer = weight > issuer_capacity
+            weight = min(weight, issuer_capacity)
+
+            reduced_by_high_risk = False
+            if candidate.risk_level in HIGH_RISK_LEVELS:
+                high_risk_capacity = request.max_high_risk_weight - high_risk_weight
+                reduced_by_high_risk = weight > high_risk_capacity
+                weight = min(weight, high_risk_capacity)
+
+            if weight <= 0:
+                excluded[candidate.bond_id] = [
+                    "Allocation constraints left no available weight"
+                ]
+                continue
+
+            reasons = [
+                "Probability filter passed",
+                "Risk constraints passed",
+                "Liquidity constraints passed",
+                "Selected by probability ranking",
+            ]
+            if reduced_by_issuer:
+                reasons.append("Allocation reduced by issuer concentration cap")
+            if reduced_by_high_risk:
+                reasons.append("Allocation reduced by high-risk cap")
+            choices.append(
+                AllocationChoice(
+                    candidate=candidate,
+                    weight=weight,
+                    selection_reasons=reasons,
+                )
+            )
+            allocated_weight += weight
+            issuer_weights[issuer_key] += weight
+            if candidate.risk_level in HIGH_RISK_LEVELS:
+                high_risk_weight += weight
+
+        return self._period_allocation(choices, excluded, request)
+
+    def _period_allocation(
+        self,
+        choices: list[AllocationChoice],
+        excluded: dict[int, list[str]],
+        request: StrategyBacktestRequest,
+    ) -> PeriodAllocation:
+        allocated_weight = sum((choice.weight for choice in choices), Decimal("0"))
+        high_risk_weight = sum(
+            (
+                choice.weight
+                for choice in choices
+                if choice.candidate.risk_level in HIGH_RISK_LEVELS
+            ),
+            Decimal("0"),
+        )
+        issuer_weights: dict[int, Decimal] = defaultdict(Decimal)
+        for choice in choices:
+            issuer_weights[choice.candidate.company_id or 0] += choice.weight
+        max_issuer_weight = max(issuer_weights.values(), default=Decimal("0"))
+        unallocated_weight = max(Decimal("0"), Decimal("1") - allocated_weight)
+        return PeriodAllocation(
+            choices=choices,
+            excluded_reasons=excluded,
+            constraints=self._period_constraints(
+                excluded,
+                allocated_weight,
+                unallocated_weight,
+                high_risk_weight,
+                max_issuer_weight,
+                request,
+            ),
+            allocated_weight=allocated_weight,
+            unallocated_weight=unallocated_weight,
+            high_risk_weight=high_risk_weight,
+            max_issuer_weight=max_issuer_weight,
+        )
+
+    def _filter_candidate(
+        self,
+        candidate: BacktestCandidate,
+        request: StrategyBacktestRequest,
+        *,
+        apply_probability_filter: bool,
+    ) -> list[str]:
+        reasons: list[str] = []
+        if not candidate.is_evaluable:
+            reasons.append(
+                "Candidate excluded from period calculation because realized label is missing"
+            )
+        if (
+            apply_probability_filter
+            and candidate.probability_positive < request.min_probability_positive
+        ):
+            reasons.append("Probability below minimum")
+        if request.min_liquidity_score is not None:
+            if candidate.liquidity_score is None:
+                reasons.append("Liquidity score is missing")
+            elif candidate.liquidity_score < request.min_liquidity_score:
+                reasons.append("Liquidity score below minimum")
+        if (
+            request.exclude_blocked_by_risk
+            and candidate.decision_status == "blocked_by_risk"
+        ):
+            reasons.append("Blocked by risk assessment")
+        if request.exclude_insufficient_credit_data:
+            if candidate.decision_status is None:
+                reasons.append("Risk assessment is missing")
+            elif candidate.decision_status == "insufficient_data":
+                reasons.append("Insufficient credit risk data")
+        if (
+            request.allowed_risk_levels is not None
+            and candidate.risk_level not in request.allowed_risk_levels
+        ):
+            reasons.append("Risk level is not allowed")
+        if (
+            request.allowed_decision_statuses is not None
+            and candidate.decision_status not in request.allowed_decision_statuses
+        ):
+            reasons.append("Decision status is not allowed")
+        return reasons
+
+    @staticmethod
+    def _sort_for_constraints(
+        candidates: list[BacktestCandidate],
+    ) -> list[BacktestCandidate]:
+        return sorted(
+            candidates,
+            key=lambda candidate: (
+                candidate.probability_positive,
+                candidate.liquidity_score if candidate.liquidity_score is not None else -1,
+                candidate.assessment_score if candidate.assessment_score is not None else -1,
+                -candidate.bond_id,
+            ),
+            reverse=True,
+        )
+
+    @staticmethod
+    def _period_constraints(
+        excluded: dict[int, list[str]],
+        allocated_weight: Decimal,
+        unallocated_weight: Decimal,
+        high_risk_weight: Decimal,
+        max_issuer_weight: Decimal,
+        request: StrategyBacktestRequest,
+    ) -> list[dict[str, Any]]:
+        liquidity_excluded = sum(
+            any(reason.startswith("Liquidity") for reason in reasons)
+            for reasons in excluded.values()
+        )
+        risk_excluded = sum(
+            any(
+                reason
+                in {
+                    "Blocked by risk assessment",
+                    "Risk assessment is missing",
+                    "Insufficient credit risk data",
+                    "Risk level is not allowed",
+                    "Decision status is not allowed",
+                }
+                for reason in reasons
+            )
+            for reasons in excluded.values()
+        )
+        allocation_status = "pass"
+        allocation_message = "Allocated weight is positive"
+        if allocated_weight == 0:
+            allocation_status = "warning"
+            allocation_message = "Allocated weight is zero"
+        elif unallocated_weight > 0:
+            allocation_status = "warning"
+            allocation_message = "Some portfolio weight remains unallocated"
+        return [
+            {
+                "name": "liquidity_filter",
+                "status": "pass" if liquidity_excluded == 0 else "warning",
+                "message": (
+                    "Liquidity filter did not exclude candidates"
+                    if liquidity_excluded == 0
+                    else "Liquidity filter excluded candidates"
+                ),
+                "details": {"excluded_count": liquidity_excluded},
+            },
+            {
+                "name": "risk_filter",
+                "status": "pass" if risk_excluded == 0 else "warning",
+                "message": (
+                    "Risk filters did not exclude candidates"
+                    if risk_excluded == 0
+                    else "Risk filters excluded candidates"
+                ),
+                "details": {"excluded_count": risk_excluded},
+            },
+            {
+                "name": "issuer_concentration",
+                "status": (
+                    "pass"
+                    if max_issuer_weight <= request.max_issuer_weight
+                    else "fail"
+                ),
+                "message": "Issuer concentration is within configured cap",
+                "details": {
+                    "max_issuer_weight": max_issuer_weight,
+                    "cap": request.max_issuer_weight,
+                },
+            },
+            {
+                "name": "high_risk_weight",
+                "status": (
+                    "pass"
+                    if high_risk_weight <= request.max_high_risk_weight
+                    else "fail"
+                ),
+                "message": "High-risk weight is within configured cap",
+                "details": {
+                    "high_risk_weight": high_risk_weight,
+                    "cap": request.max_high_risk_weight,
+                },
+            },
+            {
+                "name": "allocation",
+                "status": allocation_status,
+                "message": allocation_message,
+                "details": {
+                    "allocated_weight": allocated_weight,
+                    "unallocated_weight": unallocated_weight,
+                },
+            },
+        ]
+
+    def _excluded_candidates(
+        self,
+        candidates: list[BacktestCandidate],
+        excluded_reasons: dict[int, list[str]],
+        include_excluded: bool,
+    ) -> list[StrategyBacktestExcludedCandidate]:
+        if not include_excluded:
+            return []
+        return [
+            StrategyBacktestExcludedCandidate(
+                bond_id=candidate.bond_id,
+                bond_name=candidate.bond_name,
+                isin=candidate.isin,
+                secid=candidate.secid,
+                company_id=candidate.company_id,
+                company_name=candidate.company_name,
+                as_of_date=candidate.as_of_date,
+                probability_positive=candidate.probability_positive,
+                predicted_label=candidate.predicted_label,
+                yield_to_maturity=candidate.yield_to_maturity,
+                liquidity_score=candidate.liquidity_score,
+                decision_status=candidate.decision_status,
+                risk_level=candidate.risk_level,
+                exclusion_reasons=excluded_reasons[candidate.bond_id],
+            )
+            for candidate in candidates
+            if candidate.bond_id in excluded_reasons
+        ]
 
     @staticmethod
     def _turnover(
@@ -523,9 +976,10 @@ class StrategyBacktestService:
 
     @staticmethod
     def _selected_candidate(
-        candidate: BacktestCandidate,
-        weight: Decimal,
+        choice: AllocationChoice,
+        allocation_amount: Decimal,
     ) -> StrategyBacktestSelectedCandidate:
+        candidate = choice.candidate
         return StrategyBacktestSelectedCandidate(
             bond_id=candidate.bond_id,
             bond_name=candidate.bond_name,
@@ -538,11 +992,18 @@ class StrategyBacktestService:
             predicted_label=candidate.predicted_label,
             realized_label=candidate.realized_label,
             realized_return=candidate.realized_return,
-            weight=weight,
+            weight=choice.weight,
+            allocation_amount=allocation_amount,
             yield_to_maturity=candidate.yield_to_maturity,
+            duration_years=candidate.duration_years,
             liquidity_score=candidate.liquidity_score,
+            volume=candidate.volume,
             decision_status=candidate.decision_status,
             risk_level=candidate.risk_level,
+            assessment_score=candidate.assessment_score,
+            required_risk_premium=candidate.required_risk_premium,
+            selection_reasons=choice.selection_reasons,
+            risk_notes=candidate.risk_notes,
         )
 
     @staticmethod
@@ -590,6 +1051,26 @@ class StrategyBacktestService:
             if periods
             else None
         )
+        average_allocated_weight = (
+            sum(period.allocated_weight for period in periods) / Decimal(period_count)
+            if periods
+            else None
+        )
+        average_unallocated_weight = (
+            sum(period.unallocated_weight for period in periods) / Decimal(period_count)
+            if periods
+            else None
+        )
+        average_high_risk_weight = (
+            sum(period.high_risk_weight for period in periods) / Decimal(period_count)
+            if periods
+            else None
+        )
+        average_max_issuer_weight = (
+            sum(period.max_issuer_weight for period in periods) / Decimal(period_count)
+            if periods
+            else None
+        )
         average_turnover = (
             sum(turnovers) / Decimal(len(turnovers)) if turnovers else Decimal("0")
         )
@@ -609,6 +1090,10 @@ class StrategyBacktestService:
             ),
             turnover=average_turnover,
             average_selected_candidates=average_selected_candidates,
+            average_allocated_weight=average_allocated_weight,
+            average_unallocated_weight=average_unallocated_weight,
+            average_high_risk_weight=average_high_risk_weight,
+            average_max_issuer_weight=average_max_issuer_weight,
         )
 
     @staticmethod
@@ -665,6 +1150,18 @@ class StrategyBacktestService:
                 dates.append(prediction_date)
                 previous_date = prediction_date
         return dates
+
+    @staticmethod
+    def _risk_notes(risk: BondRiskAssessment) -> list[str]:
+        notes: list[str] = []
+        for values in (
+            risk.warnings,
+            risk.blocking_reasons,
+            risk.negative_factors,
+            risk.missing_data,
+        ):
+            notes.extend(str(value) for value in values or [])
+        return notes
 
     @staticmethod
     def _return_method(model_run: MLModelRun) -> str:

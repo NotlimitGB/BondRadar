@@ -24,6 +24,12 @@ class StrategyBacktestRequest(BaseModel):
     min_liquidity_score: int | None = None
     exclude_blocked_by_risk: bool = True
     exclude_insufficient_credit_data: bool = False
+    use_portfolio_constraints: bool = True
+    max_issuer_weight: Decimal = Decimal("0.30")
+    max_high_risk_weight: Decimal = Decimal("0.20")
+    allowed_risk_levels: list[str] | None = None
+    allowed_decision_statuses: list[str] | None = None
+    include_excluded_candidates: bool = False
     include_baselines: bool = True
 
 
@@ -46,6 +52,10 @@ class StrategyBacktestMetricSet(BaseModel):
     negative_periods_count: int
     turnover: Decimal
     average_selected_candidates: Decimal | None
+    average_allocated_weight: Decimal | None
+    average_unallocated_weight: Decimal | None
+    average_high_risk_weight: Decimal | None
+    average_max_issuer_weight: Decimal | None
 
 
 class StrategyBacktestSelectedCandidate(BaseModel):
@@ -61,10 +71,34 @@ class StrategyBacktestSelectedCandidate(BaseModel):
     realized_label: str | None
     realized_return: Decimal | None
     weight: Decimal
+    allocation_amount: Decimal | None
+    yield_to_maturity: Decimal | None
+    duration_years: Decimal | None
+    liquidity_score: int | None
+    volume: Decimal | None
+    decision_status: str | None
+    risk_level: str | None
+    assessment_score: int | None
+    required_risk_premium: Decimal | None
+    selection_reasons: list[str]
+    risk_notes: list[str]
+
+
+class StrategyBacktestExcludedCandidate(BaseModel):
+    bond_id: int
+    bond_name: str | None
+    isin: str | None
+    secid: str | None
+    company_id: int | None
+    company_name: str | None
+    as_of_date: date
+    probability_positive: Decimal
+    predicted_label: str
     yield_to_maturity: Decimal | None
     liquidity_score: int | None
     decision_status: str | None
     risk_level: str | None
+    exclusion_reasons: list[str]
 
 
 class StrategyBacktestPeriodResult(BaseModel):
@@ -74,8 +108,17 @@ class StrategyBacktestPeriodResult(BaseModel):
     period_return: Decimal
     gross_period_return: Decimal
     estimated_costs_return: Decimal
+    allocated_weight: Decimal
+    unallocated_weight: Decimal
+    allocated_capital: Decimal
+    unallocated_capital: Decimal
+    high_risk_weight: Decimal
+    max_issuer_weight: Decimal
+    excluded_candidates_count: int
+    constraints: list[dict[str, Any]]
     selected_candidates_count: int
     selected_candidates: list[StrategyBacktestSelectedCandidate]
+    excluded_candidates: list[StrategyBacktestExcludedCandidate] = []
 
 
 class StrategyBacktestBaselineResult(BaseModel):
