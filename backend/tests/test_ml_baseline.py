@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
+import joblib
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -9,10 +10,13 @@ from app.core.config import settings
 from app.models.bond import Bond
 from app.models.bond_feature_snapshot import BondFeatureSnapshot
 from app.models.bond_return_label import BondReturnLabel
+from app.models.bond_risk_assessment import BondRiskAssessment
 from app.models.company import Company
+from app.models.company_credit_health_snapshot import CompanyCreditHealthSnapshot
 from app.models.enums import AnalysisSignal
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
+from app.services.ml_feature_builder import CREDIT_RISK_FEATURES, MLFeatureBuilder
 
 
 def create_company(db: Session, ticker: str = "MLT") -> Company:
@@ -54,6 +58,7 @@ def add_ml_dataset_row(
     as_of_date: date,
     positive: bool,
     insufficient: bool = False,
+    return_method: str = "price",
 ) -> None:
     feature = BondFeatureSnapshot(
         bond_id=bond.id,
@@ -94,10 +99,98 @@ def add_ml_dataset_row(
             bond_id=bond.id,
             as_of_date=as_of_date,
             horizon_days=30,
+            return_method=return_method,
             future_return=future_return,
+            price_return=future_return if return_method == "price" else None,
+            net_total_return=(
+                future_return if return_method == "total_return" else None
+            ),
+            risk_adjusted_excess_return=(
+                future_return if return_method == "risk_adjusted" else None
+            ),
             label=label,
             label_binary=label_binary,
             created_at=datetime(2026, 1, 2, 12, 0, 0),
+        )
+    )
+    db.commit()
+
+
+def add_labels_for_existing_features(
+    db: Session,
+    *,
+    bond: Bond,
+    return_method: str,
+) -> None:
+    features = (
+        db.query(BondFeatureSnapshot)
+        .filter_by(bond_id=bond.id)
+        .order_by(BondFeatureSnapshot.as_of_date.asc())
+        .all()
+    )
+    for index, feature in enumerate(features):
+        positive = index % 2 == 0
+        future_return = Decimal("0.030000") if positive else Decimal("-0.020000")
+        db.add(
+            BondReturnLabel(
+                bond_id=bond.id,
+                as_of_date=feature.as_of_date,
+                horizon_days=30,
+                return_method=return_method,
+                future_return=future_return,
+                net_total_return=(
+                    future_return if return_method == "total_return" else None
+                ),
+                risk_adjusted_excess_return=(
+                    future_return if return_method == "risk_adjusted" else None
+                ),
+                label="positive_return" if positive else "negative_return",
+                label_binary=1 if positive else 0,
+            )
+        )
+    db.commit()
+
+
+def add_credit_risk_snapshots(
+    db: Session,
+    *,
+    bond: Bond,
+    company: Company,
+    as_of_date: date,
+    credit_health_score: int = 80,
+    assessment_score: int = 70,
+    required_risk_premium: Decimal = Decimal("0.015000"),
+) -> None:
+    db.add(
+        CompanyCreditHealthSnapshot(
+            company_id=company.id,
+            as_of_date=as_of_date,
+            credit_health_score=credit_health_score,
+            credit_status="credit_watchlist",
+            risk_level="medium",
+            data_quality_level="high",
+            risk_factors=[],
+            positive_factors=[],
+            missing_data=[],
+            explanation={},
+        )
+    )
+    db.add(
+        BondRiskAssessment(
+            bond_id=bond.id,
+            company_id=company.id,
+            as_of_date=as_of_date,
+            assessment_score=assessment_score,
+            decision_status="watchlist",
+            risk_level="medium",
+            required_risk_premium=required_risk_premium,
+            gates={},
+            warnings=[],
+            blocking_reasons=[],
+            positive_factors=[],
+            negative_factors=[],
+            missing_data=[],
+            explanation={},
         )
     )
     db.commit()
@@ -168,6 +261,16 @@ def test_train_model_successfully(
     assert "confusion_matrix" in payload["metrics"]
     assert payload["feature_importance"]
     assert Path(payload["artifact_path"]).exists()
+    run = client.get(f"/api/ml/runs/{payload['run_id']}").json()
+    assert run["params"]["return_method"] == "price"
+    assert run["params"]["include_credit_risk_features"] is True
+    artifact = joblib.load(payload["artifact_path"])
+    assert artifact["features"] == run["features"]
+    assert artifact["return_method"] == "price"
+    assert artifact["include_credit_risk_features"] is True
+    assert {item["feature"] for item in run["feature_importance"]} == set(
+        run["features"]
+    )
 
 
 def test_training_excludes_insufficient_data(
@@ -216,6 +319,145 @@ def test_training_fails_when_not_enough_rows(
     assert response.json()["detail"] == "Not enough training rows"
 
 
+def test_training_filters_by_return_method(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(settings, "ML_ARTIFACT_DIR", str(tmp_path))
+    _, bond = seed_training_dataset(db_session, usable_rows=40, one_class=True)
+    add_labels_for_existing_features(
+        db_session,
+        bond=bond,
+        return_method="total_return",
+    )
+
+    response = client.post(
+        "/api/ml/train",
+        json=train_payload(return_method="total_return"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["positive_rows"] == 20
+    assert payload["negative_rows"] == 20
+    run = client.get(f"/api/ml/runs/{payload['run_id']}").json()
+    assert run["params"]["return_method"] == "total_return"
+
+
+def test_training_on_risk_adjusted_labels(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(settings, "ML_ARTIFACT_DIR", str(tmp_path))
+    _, bond = seed_training_dataset(db_session, usable_rows=40)
+    add_labels_for_existing_features(
+        db_session,
+        bond=bond,
+        return_method="risk_adjusted",
+    )
+
+    response = client.post(
+        "/api/ml/train",
+        json=train_payload(return_method="risk_adjusted"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["positive_rows"] == 20
+    assert payload["negative_rows"] == 20
+    run = client.get(f"/api/ml/runs/{payload['run_id']}").json()
+    assert run["params"]["return_method"] == "risk_adjusted"
+
+
+def test_not_enough_rows_for_selected_return_method(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(settings, "ML_ARTIFACT_DIR", str(tmp_path))
+    seed_training_dataset(db_session, usable_rows=40)
+
+    response = client.post(
+        "/api/ml/train",
+        json=train_payload(return_method="risk_adjusted"),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Not enough training rows"
+
+
+def test_credit_risk_features_can_be_enabled_or_disabled(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(settings, "ML_ARTIFACT_DIR", str(tmp_path))
+    seed_training_dataset(db_session, usable_rows=40)
+
+    enabled = client.post(
+        "/api/ml/train",
+        json=train_payload(include_credit_risk_features=True),
+    )
+    disabled = client.post(
+        "/api/ml/train",
+        json=train_payload(include_credit_risk_features=False),
+    )
+
+    assert enabled.status_code == 200
+    assert disabled.status_code == 200
+    enabled_run = client.get(f"/api/ml/runs/{enabled.json()['run_id']}").json()
+    disabled_run = client.get(f"/api/ml/runs/{disabled.json()['run_id']}").json()
+    assert set(CREDIT_RISK_FEATURES).issubset(set(enabled_run["features"]))
+    assert set(CREDIT_RISK_FEATURES).isdisjoint(set(disabled_run["features"]))
+    assert enabled_run["params"]["include_credit_risk_features"] is True
+    assert disabled_run["params"]["include_credit_risk_features"] is False
+
+
+def test_risk_feature_builder_uses_no_future_snapshots(
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, "NFL")
+    bond = create_bond(db_session, company, "RU000NFL001")
+    feature_date = date(2026, 1, 10)
+    add_ml_dataset_row(
+        db_session,
+        bond,
+        company,
+        as_of_date=feature_date,
+        positive=True,
+    )
+    add_credit_risk_snapshots(
+        db_session,
+        bond=bond,
+        company=company,
+        as_of_date=date(2026, 1, 5),
+        credit_health_score=61,
+        assessment_score=62,
+        required_risk_premium=Decimal("0.010000"),
+    )
+    add_credit_risk_snapshots(
+        db_session,
+        bond=bond,
+        company=company,
+        as_of_date=date(2026, 1, 11),
+        credit_health_score=99,
+        assessment_score=98,
+        required_risk_premium=Decimal("0.050000"),
+    )
+    feature = db_session.query(BondFeatureSnapshot).one()
+    builder = MLFeatureBuilder(db_session)
+
+    assert builder.value(feature, "credit_health_score") == 61
+    assert builder.value(feature, "assessment_score") == 62
+    assert builder.value(feature, "required_risk_premium") == Decimal("0.010000")
+
+
 def test_invalid_train_request(client: TestClient) -> None:
     invalid_horizon = client.post("/api/ml/train", json=train_payload(horizon_days=0))
     invalid_range = client.post(
@@ -223,6 +465,10 @@ def test_invalid_train_request(client: TestClient) -> None:
         json=train_payload(as_of_date_from="2026-02-01", as_of_date_to="2026-01-01"),
     )
     invalid_test_size = client.post("/api/ml/train", json=train_payload(test_size=0.5))
+    invalid_return_method = client.post(
+        "/api/ml/train",
+        json=train_payload(return_method="coupon_magic"),
+    )
     invalid_model_type = client.post(
         "/api/ml/train",
         json=train_payload(model_type="random_forest"),
@@ -237,6 +483,8 @@ def test_invalid_train_request(client: TestClient) -> None:
         invalid_test_size.json()["detail"]
         == "test_size must be greater than 0 and less than 0.5"
     )
+    assert invalid_return_method.status_code == 400
+    assert invalid_return_method.json()["detail"] == "Invalid return method"
     assert invalid_model_type.status_code == 400
     assert invalid_model_type.json()["detail"] == "Unsupported model type"
 
@@ -291,9 +539,37 @@ def test_predict_with_trained_model_and_upsert(
         probability = Decimal(str(prediction["probability_positive"]))
         assert Decimal("0") <= probability <= Decimal("1")
         assert prediction["predicted_label"] in allowed
+        assert set(CREDIT_RISK_FEATURES).issubset(set(prediction["features"]))
     assert db_session.query(MLPrediction).filter_by(model_run_id=run_id).count() == 5
     assert listed.status_code == 200
     assert listed.json()["total"] == 5
+
+
+def test_old_artifact_without_return_method_still_predicts(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(settings, "ML_ARTIFACT_DIR", str(tmp_path))
+    seed_training_dataset(db_session, usable_rows=30)
+    train_response = client.post(
+        "/api/ml/train",
+        json=train_payload(include_credit_risk_features=False),
+    )
+    run_id = train_response.json()["run_id"]
+    artifact_path = Path(train_response.json()["artifact_path"])
+    artifact = joblib.load(artifact_path)
+    artifact.pop("return_method", None)
+    joblib.dump(artifact, artifact_path)
+
+    response = client.post(
+        "/api/ml/predict",
+        json={"model_run_id": run_id, "limit": 3, "save_predictions": False},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["predictions"]
 
 
 def test_predict_fails_for_missing_or_not_completed_model(

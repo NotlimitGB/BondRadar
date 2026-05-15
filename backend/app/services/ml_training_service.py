@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from decimal import Decimal
-from math import nan
 from pathlib import Path
 from typing import Any
 
@@ -28,27 +26,7 @@ from app.models.bond_feature_snapshot import BondFeatureSnapshot
 from app.models.bond_return_label import BondReturnLabel
 from app.models.ml_model_run import MLModelRun
 from app.schemas.ml_model import MLModelRunRead, MLTrainRequest, MLTrainResult
-
-
-BASELINE_FEATURES = [
-    "bond_score",
-    "company_score",
-    "yield_to_maturity",
-    "duration_years",
-    "liquidity_score",
-    "volume",
-    "spread_to_ofz",
-    "net_debt_to_ebitda",
-    "debt_to_equity",
-    "interest_coverage",
-    "cash_to_short_term_debt",
-    "ocf_to_total_debt",
-    "net_profit_margin",
-    "days_to_maturity",
-    "has_offer",
-    "has_amortization",
-    "missing_data_count",
-]
+from app.services.ml_feature_builder import MLFeatureBuilder, RETURN_METHODS
 
 
 class MLTrainingService:
@@ -61,7 +39,11 @@ class MLTrainingService:
 
     def train(self, request: MLTrainRequest) -> MLTrainResult:
         self._validate_request(request)
-        run = self._create_run(request)
+        feature_names = MLFeatureBuilder.feature_names(
+            include_credit_risk_features=request.include_credit_risk_features
+        )
+        feature_builder = MLFeatureBuilder(self.db)
+        run = self._create_run(request, feature_names)
         try:
             rows = self._load_training_rows(request)
             self._validate_training_rows(rows, request.min_rows)
@@ -72,15 +54,26 @@ class MLTrainingService:
                     detail="Training dataset must contain at least two classes",
                 )
 
-            x_train = [self._feature_vector(feature) for feature, _ in train_rows]
+            x_train = [
+                feature_builder.vector(feature, feature_names)
+                for feature, _ in train_rows
+            ]
             y_train = [target for _, target in train_rows]
-            x_test = [self._feature_vector(feature) for feature, _ in test_rows]
+            x_test = [
+                feature_builder.vector(feature, feature_names)
+                for feature, _ in test_rows
+            ]
             y_test = [target for _, target in test_rows]
             pipeline = self._pipeline(request)
             pipeline.fit(x_train, y_train)
             metrics = self._metrics(pipeline, x_test, y_test)
-            feature_importance = self._feature_importance(pipeline)
-            artifact_path = self._save_artifact(run.id, pipeline, request)
+            feature_importance = self._feature_importance(pipeline, feature_names)
+            artifact_path = self._save_artifact(
+                run.id,
+                pipeline,
+                request,
+                feature_names,
+            )
 
             run = self._refresh_run(run.id)
             run.status = "completed"
@@ -163,18 +156,27 @@ class MLTrainingService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="max_rows must be positive",
             )
+        if request.return_method not in RETURN_METHODS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid return method",
+            )
         if request.model_type != MLTrainingService.MODEL_TYPE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Unsupported model type",
             )
 
-    def _create_run(self, request: MLTrainRequest) -> MLModelRun:
+    def _create_run(
+        self,
+        request: MLTrainRequest,
+        feature_names: list[str],
+    ) -> MLModelRun:
         run = MLModelRun(
             status="running",
             model_type=request.model_type,
             horizon_days=request.horizon_days,
-            features=list(BASELINE_FEATURES),
+            features=list(feature_names),
             target=self.TARGET,
             as_of_date_from=request.as_of_date_from,
             as_of_date_to=request.as_of_date_to,
@@ -186,6 +188,8 @@ class MLTrainingService:
             feature_importance=[],
             params={
                 "horizon_days": request.horizon_days,
+                "return_method": request.return_method,
+                "include_credit_risk_features": request.include_credit_risk_features,
                 "as_of_date_from": (
                     request.as_of_date_from.isoformat()
                     if request.as_of_date_from
@@ -225,6 +229,7 @@ class MLTrainingService:
             )
             .where(
                 BondReturnLabel.horizon_days == request.horizon_days,
+                BondReturnLabel.return_method == request.return_method,
                 BondReturnLabel.label.in_(("positive_return", "negative_return")),
                 BondReturnLabel.label_binary.is_not(None),
             )
@@ -279,23 +284,6 @@ class MLTrainingService:
         return rows[:train_rows_count], rows[train_rows_count:]
 
     @staticmethod
-    def _feature_vector(feature: BondFeatureSnapshot) -> list[float | None]:
-        return [
-            MLTrainingService._feature_value(getattr(feature, feature_name))
-            for feature_name in BASELINE_FEATURES
-        ]
-
-    @staticmethod
-    def _feature_value(value: Any) -> float | None:
-        if value is None:
-            return nan
-        if isinstance(value, bool):
-            return 1.0 if value else 0.0
-        if isinstance(value, Decimal):
-            return float(value)
-        return float(value)
-
-    @staticmethod
     def _pipeline(request: MLTrainRequest) -> Pipeline:
         return Pipeline(
             steps=[
@@ -341,14 +329,17 @@ class MLTrainingService:
         }
 
     @staticmethod
-    def _feature_importance(pipeline: Pipeline) -> list[dict[str, float | str]]:
+    def _feature_importance(
+        pipeline: Pipeline,
+        feature_names: list[str],
+    ) -> list[dict[str, float | str]]:
         model = pipeline.named_steps["model"]
         coefficients = getattr(model, "coef_", None)
         if coefficients is None:
             return []
         items = [
             {"feature": feature, "importance": float(coefficient)}
-            for feature, coefficient in zip(BASELINE_FEATURES, coefficients[0])
+            for feature, coefficient in zip(feature_names, coefficients[0])
         ]
         return sorted(items, key=lambda item: abs(item["importance"]), reverse=True)
 
@@ -357,6 +348,7 @@ class MLTrainingService:
         run_id: int,
         pipeline: Pipeline,
         request: MLTrainRequest,
+        feature_names: list[str],
     ) -> Path:
         self.artifact_dir.mkdir(parents=True, exist_ok=True)
         artifact_path = (
@@ -365,9 +357,11 @@ class MLTrainingService:
         joblib.dump(
             {
                 "model": pipeline,
-                "features": list(BASELINE_FEATURES),
+                "features": list(feature_names),
                 "model_type": request.model_type,
                 "horizon_days": request.horizon_days,
+                "return_method": request.return_method,
+                "include_credit_risk_features": request.include_credit_risk_features,
             },
             artifact_path,
         )

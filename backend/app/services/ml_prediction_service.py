@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from math import nan
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +18,7 @@ from app.schemas.ml_model import (
     MLPredictionRequest,
     MLPredictionResponse,
 )
+from app.services.ml_feature_builder import BASELINE_FEATURES, MLFeatureBuilder
 
 
 class MLPredictionService:
@@ -29,8 +29,9 @@ class MLPredictionService:
         self._validate_prediction_request(request)
         run = self._get_completed_run(request.model_run_id)
         artifact = self._load_artifact(run)
-        features = list(artifact["features"])
+        features = self._artifact_features(artifact, run)
         model = artifact["model"]
+        feature_builder = MLFeatureBuilder(self.db)
         total = self._count_feature_snapshots(
             bond_id=request.bond_id,
             company_id=request.company_id,
@@ -54,7 +55,10 @@ class MLPredictionService:
                 predictions=[],
             )
 
-        matrix = [self._model_vector(snapshot, features) for snapshot in snapshots]
+        matrix = [
+            feature_builder.vector(snapshot, features)
+            for snapshot in snapshots
+        ]
         probabilities = model.predict_proba(matrix)
         positive_index = list(model.classes_).index(1)
         predictions: list[MLPredictionRead] = []
@@ -65,7 +69,7 @@ class MLPredictionService:
                 if probability >= 0.5
                 else "predicted_negative_return"
             )
-            feature_payload = self._feature_payload(snapshot, features)
+            feature_payload = feature_builder.payload(snapshot, features)
             if request.save_predictions:
                 prediction = self._upsert_prediction(
                     run=run,
@@ -173,7 +177,10 @@ class MLPredictionService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="ML model artifact is missing",
             )
-        return joblib.load(run.artifact_path)
+        artifact = joblib.load(run.artifact_path)
+        artifact.setdefault("return_method", "price")
+        artifact.setdefault("include_credit_risk_features", False)
+        return artifact
 
     def _count_feature_snapshots(
         self,
@@ -309,44 +316,13 @@ class MLPredictionService:
         return prediction
 
     @staticmethod
-    def _model_vector(
-        snapshot: BondFeatureSnapshot,
-        features: list[str],
-    ) -> list[float]:
-        return [
-            MLPredictionService._model_value(getattr(snapshot, feature))
-            for feature in features
-        ]
-
-    @staticmethod
-    def _feature_payload(
-        snapshot: BondFeatureSnapshot,
-        features: list[str],
-    ) -> dict[str, float | None]:
-        return {
-            feature: MLPredictionService._json_value(getattr(snapshot, feature))
-            for feature in features
-        }
-
-    @staticmethod
-    def _model_value(value: Any) -> float:
-        if value is None:
-            return nan
-        if isinstance(value, bool):
-            return 1.0 if value else 0.0
-        if isinstance(value, Decimal):
-            return float(value)
-        return float(value)
-
-    @staticmethod
-    def _json_value(value: Any) -> float | None:
-        if value is None:
-            return None
-        if isinstance(value, bool):
-            return 1.0 if value else 0.0
-        if isinstance(value, Decimal):
-            return float(value)
-        return float(value)
+    def _artifact_features(artifact: dict[str, Any], run: MLModelRun) -> list[str]:
+        artifact_features = artifact.get("features")
+        if artifact_features:
+            return list(artifact_features)
+        if run.features:
+            return list(run.features)
+        return list(BASELINE_FEATURES)
 
     @staticmethod
     def _validate_prediction_request(request: MLPredictionRequest) -> None:

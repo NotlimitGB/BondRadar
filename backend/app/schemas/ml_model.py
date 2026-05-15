@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 class MLTrainRequest(BaseModel):
     horizon_days: int = 30
+    return_method: str = "price"
+    include_credit_risk_features: bool = True
     as_of_date_from: date | None = None
     as_of_date_to: date | None = None
     bond_ids: list[int] | None = None
