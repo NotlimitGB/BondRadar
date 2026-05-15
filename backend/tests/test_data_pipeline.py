@@ -22,7 +22,7 @@ from app.schemas.moex import (
     MoexCashflowSyncResult,
     MoexMarketDataSyncResult,
 )
-from app.services.data_pipeline_service import DataPipelineService
+from app.services.data_pipeline_service import DataPipelineService, StepExecutionResult
 from app.services.moex_cashflow_service import MoexCashflowService
 from app.services.moex_market_data_service import MoexMarketDataService
 
@@ -159,6 +159,48 @@ def fake_cashflow_sync(self, request):
         created=1,
         updated=0,
         skipped=0,
+        errors=[],
+        warnings=[],
+    )
+
+
+def fake_readiness_step(status_value: str = "ready"):
+    def _fake(self, request, bond_ids, company_ids):
+        warning_gates = ["cashflow_coverage"] if status_value == "warning" else []
+        failed_gates = ["evaluable_rows"] if status_value == "not_ready" else []
+        gates = [
+            {"name": name, "status": "warning", "message": f"{name} warning", "details": {}}
+            for name in warning_gates
+        ] + [
+            {"name": name, "status": "fail", "message": f"{name} failed", "details": {}}
+            for name in failed_gates
+        ]
+        result = {
+            "status": status_value,
+            "summary": {
+                "ready_for_ml_training": status_value == "ready",
+                "evaluable_label_count": 30 if status_value != "not_ready" else 0,
+                "positive_label_count": 15 if status_value != "not_ready" else 0,
+                "negative_label_count": 15 if status_value != "not_ready" else 0,
+                "insufficient_ratio": "0.10",
+            },
+            "gates": gates,
+            "bond_issues": [],
+            "warnings": [gate["message"] for gate in gates if gate["status"] == "warning"],
+            "recommended_next_actions": [],
+        }
+        warnings = [
+            {"step": "data_readiness_check", "message": message}
+            for message in result["warnings"]
+        ]
+        return StepExecutionResult(result=result, errors=[], warnings=warnings)
+
+    return _fake
+
+
+def fake_ml_train(self, request, bond_ids, company_ids):
+    return StepExecutionResult(
+        result={"model_run_id": 777, "status": "completed"},
         errors=[],
         warnings=[],
     )
@@ -333,6 +375,258 @@ def test_dataset_and_label_steps_create_all_return_methods(
     assert response.json()["summary"]["price_labels_created"] == 1
     assert response.json()["summary"]["total_return_labels_created"] == 1
     assert response.json()["summary"]["risk_adjusted_labels_created"] == 1
+
+
+def test_ml_request_auto_inserts_readiness_before_train(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    _, bond = create_demo_context(db_session)
+    monkeypatch.setattr(MoexMarketDataService, "sync", fake_market_sync)
+    monkeypatch.setattr(MoexCashflowService, "sync", fake_cashflow_sync)
+    monkeypatch.setattr(
+        DataPipelineService,
+        "_data_readiness_check",
+        fake_readiness_step("ready"),
+    )
+    monkeypatch.setattr(DataPipelineService, "_ml_train", fake_ml_train)
+
+    response = client.post(
+        "/api/pipeline/run",
+        json={
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            "bond_ids": [bond.id],
+            "return_methods": ["price"],
+            "run_ml": True,
+            "readiness_min_rows": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    step_names = [step["step_name"] for step in response.json()["run"]["steps"]]
+    assert "data_readiness_check" in step_names
+    assert step_names.index("data_readiness_check") < step_names.index("ml_train")
+
+
+def test_data_only_pipeline_does_not_auto_insert_readiness(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    _, bond = create_demo_context(db_session)
+    monkeypatch.setattr(MoexMarketDataService, "sync", fake_market_sync)
+    monkeypatch.setattr(MoexCashflowService, "sync", fake_cashflow_sync)
+
+    response = client.post(
+        "/api/pipeline/run",
+        json={
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            "bond_ids": [bond.id],
+            "return_methods": ["price"],
+        },
+    )
+
+    assert response.status_code == 200
+    step_names = [step["step_name"] for step in response.json()["run"]["steps"]]
+    assert "data_readiness_check" not in step_names
+    assert "ml_train" not in step_names
+
+
+def test_explicit_readiness_true_inserts_before_ml(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    _, bond = create_demo_context(db_session)
+    monkeypatch.setattr(
+        DataPipelineService,
+        "_data_readiness_check",
+        fake_readiness_step("ready"),
+    )
+    monkeypatch.setattr(DataPipelineService, "_ml_train", fake_ml_train)
+
+    response = client.post(
+        "/api/pipeline/run",
+        json={
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            "bond_ids": [bond.id],
+            "steps": ["dataset_build_price", "ml_train"],
+            "run_readiness_check": True,
+            "readiness_min_rows": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    step_names = [step["step_name"] for step in response.json()["run"]["steps"]]
+    assert step_names == ["dataset_build_price", "data_readiness_check", "ml_train"]
+
+
+def test_not_ready_readiness_skips_ml_by_default(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        DataPipelineService,
+        "_data_readiness_check",
+        fake_readiness_step("not_ready"),
+    )
+
+    def fail_if_called(self, request, bond_ids, company_ids):
+        raise AssertionError("ML train should have been skipped")
+
+    monkeypatch.setattr(DataPipelineService, "_ml_train", fail_if_called)
+
+    response = client.post(
+        "/api/pipeline/run",
+        json={
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            "steps": ["data_readiness_check", "ml_train"],
+            "run_ml": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed_with_errors"
+    assert payload["summary"]["readiness_status"] == "not_ready"
+    assert payload["summary"]["ready_for_ml_training"] is False
+    assert payload["summary"]["readiness_failed_gates"] == ["evaluable_rows"]
+    assert payload["summary"]["readiness_evaluable_rows"] == 0
+    assert payload["summary"]["readiness_positive_rows"] == 0
+    assert payload["summary"]["readiness_negative_rows"] == 0
+    assert payload["summary"]["readiness_insufficient_ratio"] == "0.10"
+    steps = payload["run"]["steps"]
+    assert steps[0]["status"] == "completed"
+    assert steps[1]["status"] == "skipped"
+    assert steps[1]["warnings_json"][0]["message"] == (
+        "ML steps skipped because dataset readiness is not_ready"
+    )
+
+
+def test_warning_readiness_proceeds_when_allowed(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        DataPipelineService,
+        "_data_readiness_check",
+        fake_readiness_step("warning"),
+    )
+    monkeypatch.setattr(DataPipelineService, "_ml_train", fake_ml_train)
+
+    response = client.post(
+        "/api/pipeline/run",
+        json={
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            "steps": ["data_readiness_check", "ml_train"],
+            "run_ml": True,
+            "allow_readiness_warning": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed_with_errors"
+    assert payload["summary"]["readiness_status"] == "warning"
+    assert payload["summary"]["readiness_warning_gates"] == ["cashflow_coverage"]
+    assert payload["run"]["steps"][1]["status"] == "completed"
+    assert payload["summary"]["ml_model_run_id"] == 777
+
+
+def test_warning_readiness_skips_ml_when_disallowed(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        DataPipelineService,
+        "_data_readiness_check",
+        fake_readiness_step("warning"),
+    )
+    monkeypatch.setattr(DataPipelineService, "_ml_train", fake_ml_train)
+
+    response = client.post(
+        "/api/pipeline/run",
+        json={
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            "steps": ["data_readiness_check", "ml_train"],
+            "run_ml": True,
+            "allow_readiness_warning": False,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed_with_errors"
+    assert payload["run"]["steps"][1]["status"] == "skipped"
+    assert payload["run"]["steps"][1]["warnings_json"][0]["message"] == (
+        "ML steps skipped because readiness status is warning"
+    )
+
+
+def test_readiness_disabled_allows_ml_with_warning(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(DataPipelineService, "_ml_train", fake_ml_train)
+
+    response = client.post(
+        "/api/pipeline/run",
+        json={
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            "steps": ["ml_train"],
+            "run_readiness_check": False,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    step_names = [step["step_name"] for step in payload["run"]["steps"]]
+    assert step_names == ["ml_train"]
+    assert payload["status"] == "completed_with_errors"
+    assert payload["warnings"][0]["message"] == (
+        "ML steps are running without readiness check"
+    )
+    assert payload["summary"]["ml_model_run_id"] == 777
+
+
+def test_pipeline_readiness_validation_errors(client: TestClient) -> None:
+    cases = [
+        ({"readiness_min_rows": 0}, "readiness_min_rows must be positive"),
+        (
+            {"readiness_min_positive_rows": -1},
+            "readiness_min_positive_rows must be non-negative",
+        ),
+        (
+            {"readiness_min_negative_rows": -1},
+            "readiness_min_negative_rows must be non-negative",
+        ),
+        (
+            {"readiness_max_insufficient_ratio": "1.1"},
+            "readiness_max_insufficient_ratio must be between 0 and 1",
+        ),
+        (
+            {"readiness_max_bond_issues": 0},
+            "readiness_max_bond_issues must be between 1 and 500",
+        ),
+    ]
+
+    for override, detail in cases:
+        payload = {
+            "date_from": "2025-01-10",
+            "date_to": "2025-01-10",
+            **override,
+        }
+        response = client.post("/api/pipeline/run", json=payload)
+        assert response.status_code == 400
+        assert response.json()["detail"] == detail
 
 
 def test_step_failure_marks_run_completed_with_errors(

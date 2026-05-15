@@ -23,12 +23,14 @@ from app.schemas.data_pipeline import (
     DataPipelineRunRequest,
     DataPipelineRunResult,
 )
+from app.schemas.data_readiness import DataReadinessCheckRequest
 from app.schemas.ml_dataset import DatasetBuildRequest
 from app.schemas.ml_evaluation import MLRunEvaluationReport
 from app.schemas.ml_model import MLTrainRequest, MLPredictionRequest
 from app.schemas.moex import MoexCashflowSyncRequest, MoexMarketDataSyncRequest
 from app.services.bond_risk_assessment_service import BondRiskAssessmentService
 from app.services.company_credit_health_service import CompanyCreditHealthService
+from app.services.data_readiness_service import DataReadinessService
 from app.services.dataset_build_service import DatasetBuildService
 from app.services.ml_evaluation_service import MLEvaluationFilters, MLEvaluationService
 from app.services.ml_prediction_service import MLPredictionService
@@ -49,6 +51,8 @@ RETURN_METHOD_STEPS = {
     "total_return": "labels_total_return",
     "risk_adjusted": "labels_risk_adjusted",
 }
+READINESS_STEP = "data_readiness_check"
+ML_STEPS = {"ml_train", "ml_predict", "ml_evaluate"}
 
 
 @dataclass
@@ -83,11 +87,44 @@ class DataPipelineService:
         run_errors: list[dict[str, Any]] = []
         run_warnings: list[dict[str, Any]] = []
         model_run_id: int | None = None
+        readiness_status: str | None = None
+        readiness_enabled = READINESS_STEP in steps
+        guard_warnings_emitted: set[str] = set()
+
+        if self._ml_requested_by_steps(steps) and not readiness_enabled:
+            run_warnings.append(
+                {
+                    "step": None,
+                    "message": "ML steps are running without readiness check",
+                }
+            )
 
         try:
             for step in step_runs:
                 self._start_step(step.id)
                 try:
+                    pre_step_warnings: list[dict[str, Any]] = []
+                    if step.step_name in ML_STEPS:
+                        skip_message = self._ml_skip_message(
+                            readiness_status=readiness_status,
+                            readiness_enabled=readiness_enabled,
+                            request=request,
+                        )
+                        if skip_message is not None:
+                            raise PipelineStepSkipped(skip_message)
+                        guard_warning = self._ml_guard_warning(
+                            readiness_status=readiness_status,
+                            readiness_enabled=readiness_enabled,
+                            request=request,
+                        )
+                        if (
+                            guard_warning is not None
+                            and guard_warning not in guard_warnings_emitted
+                        ):
+                            guard_warnings_emitted.add(guard_warning)
+                            pre_step_warnings.append(
+                                {"step": step.step_name, "message": guard_warning}
+                            )
                     execution = self._execute_step(
                         step.step_name,
                         request=request,
@@ -97,19 +134,22 @@ class DataPipelineService:
                     )
                     if step.step_name == "ml_train":
                         model_run_id = execution.result.get("model_run_id")
+                    if step.step_name == READINESS_STEP:
+                        readiness_status = execution.result.get("status")
                     self._merge_summary(
                         summary,
                         step.step_name,
                         execution.result,
                     )
                     run_errors.extend(execution.errors)
+                    run_warnings.extend(pre_step_warnings)
                     run_warnings.extend(execution.warnings)
                     self._finish_step(
                         step.id,
                         status_value="completed",
                         result=execution.result,
                         errors=execution.errors,
-                        warnings=execution.warnings,
+                        warnings=pre_step_warnings + execution.warnings,
                     )
                 except PipelineStepSkipped as exc:
                     warning = {"step": step.step_name, "message": exc.message}
@@ -216,6 +256,8 @@ class DataPipelineService:
             return self._labels_total_return(request, bond_ids)
         if step_name == "labels_risk_adjusted":
             return self._labels_risk_adjusted(request, bond_ids)
+        if step_name == READINESS_STEP:
+            return self._data_readiness_check(request, bond_ids, company_ids)
         if step_name == "ml_train":
             return self._ml_train(request, bond_ids, company_ids)
         if step_name == "ml_predict":
@@ -380,6 +422,22 @@ class DataPipelineService:
         )
         return self._service_result(result)
 
+    def _data_readiness_check(
+        self,
+        request: DataPipelineRunRequest,
+        bond_ids: list[int],
+        company_ids: list[int],
+    ) -> StepExecutionResult:
+        result = DataReadinessService(self.db).check(
+            self._readiness_request(request, bond_ids, company_ids)
+        )
+        payload = self._to_json(result)
+        return StepExecutionResult(
+            result=payload,
+            errors=[],
+            warnings=self._readiness_warnings(payload),
+        )
+
     def _ml_train(
         self,
         request: DataPipelineRunRequest,
@@ -481,6 +539,55 @@ class DataPipelineService:
                 ).scalars()
             )
         return list(self.db.execute(select(Company.id).order_by(Company.id)).scalars())
+
+    @staticmethod
+    def _ml_requested_by_flags(request: DataPipelineRunRequest) -> bool:
+        return request.run_ml or request.run_predictions or request.run_evaluation
+
+    @staticmethod
+    def _ml_requested_by_steps(steps: list[str]) -> bool:
+        return any(step in ML_STEPS for step in steps)
+
+    @staticmethod
+    def _insert_readiness_step(steps: list[str]) -> list[str]:
+        if READINESS_STEP in steps:
+            return steps
+        updated = list(steps)
+        if "ml_train" in updated:
+            updated.insert(updated.index("ml_train"), READINESS_STEP)
+        else:
+            updated.append(READINESS_STEP)
+        return updated
+
+    @staticmethod
+    def _ml_skip_message(
+        *,
+        readiness_status: str | None,
+        readiness_enabled: bool,
+        request: DataPipelineRunRequest,
+    ) -> str | None:
+        if not readiness_enabled:
+            return None
+        if readiness_status is None:
+            return "ML steps skipped because readiness check did not complete"
+        if readiness_status == "not_ready" and request.fail_on_not_ready:
+            return "ML steps skipped because dataset readiness is not_ready"
+        if readiness_status == "warning" and not request.allow_readiness_warning:
+            return "ML steps skipped because readiness status is warning"
+        return None
+
+    @staticmethod
+    def _ml_guard_warning(
+        *,
+        readiness_status: str | None,
+        readiness_enabled: bool,
+        request: DataPipelineRunRequest,
+    ) -> str | None:
+        if not readiness_enabled:
+            return None
+        if readiness_status == "not_ready" and not request.fail_on_not_ready:
+            return "ML is running despite not_ready dataset readiness status"
+        return None
 
     def _create_run(
         self,
@@ -663,6 +770,43 @@ class DataPipelineService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="ml_min_rows must be positive",
             )
+        if request.readiness_min_rows is not None and request.readiness_min_rows <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="readiness_min_rows must be positive",
+            )
+        if (
+            request.readiness_min_positive_rows is not None
+            and request.readiness_min_positive_rows < 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="readiness_min_positive_rows must be non-negative",
+            )
+        if (
+            request.readiness_min_negative_rows is not None
+            and request.readiness_min_negative_rows < 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="readiness_min_negative_rows must be non-negative",
+            )
+        if (
+            request.readiness_max_insufficient_ratio is not None
+            and (
+                request.readiness_max_insufficient_ratio < 0
+                or request.readiness_max_insufficient_ratio > 1
+            )
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="readiness_max_insufficient_ratio must be between 0 and 1",
+            )
+        if request.readiness_max_bond_issues < 1 or request.readiness_max_bond_issues > 500:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="readiness_max_bond_issues must be between 1 and 500",
+            )
         if request.run_predictions and not request.run_ml:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -697,6 +841,14 @@ class DataPipelineService:
 
         if "ml_train" in steps:
             request.run_ml = True
+        ml_requested = self._ml_requested_by_steps(steps) or self._ml_requested_by_flags(request)
+        readiness_enabled = (
+            request.run_readiness_check
+            if request.run_readiness_check is not None
+            else ml_requested
+        )
+        if readiness_enabled and READINESS_STEP not in steps:
+            steps = self._insert_readiness_step(steps)
         if "ml_predict" in steps and "ml_train" not in steps:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -731,6 +883,23 @@ class DataPipelineService:
             base["transaction_cost_rate"] = request.transaction_cost_rate
         if step_name == "labels_risk_adjusted":
             base["benchmark_return"] = request.benchmark_return
+        if step_name == READINESS_STEP:
+            base.update(
+                {
+                    "return_method": self._readiness_return_method(request),
+                    "min_rows": request.readiness_min_rows or request.ml_min_rows,
+                    "min_positive_rows": request.readiness_min_positive_rows,
+                    "min_negative_rows": request.readiness_min_negative_rows,
+                    "max_insufficient_ratio": request.readiness_max_insufficient_ratio,
+                    "require_credit_risk": request.readiness_require_credit_risk,
+                    "require_financial_reports": (
+                        request.readiness_require_financial_reports
+                    ),
+                    "require_cashflows": request.readiness_require_cashflows,
+                    "require_moex_secid": request.readiness_require_moex_secid,
+                    "max_bond_issues": request.readiness_max_bond_issues,
+                }
+            )
         if step_name == "ml_train":
             base.update(
                 {
@@ -752,6 +921,61 @@ class DataPipelineService:
             errors=DataPipelineService._errors_from_value(payload.get("errors", [])),
             warnings=DataPipelineService._warnings_from_value(payload.get("warnings", [])),
         )
+
+    def _readiness_request(
+        self,
+        request: DataPipelineRunRequest,
+        bond_ids: list[int],
+        company_ids: list[int],
+    ) -> DataReadinessCheckRequest:
+        payload: dict[str, Any] = {
+            "date_from": request.date_from,
+            "date_to": request.date_to,
+            "horizon_days": request.horizon_days,
+            "bond_ids": bond_ids,
+            "company_ids": company_ids,
+            "return_method": self._readiness_return_method(request),
+            "min_rows": request.readiness_min_rows or request.ml_min_rows,
+            "require_credit_risk": request.readiness_require_credit_risk,
+            "require_financial_reports": request.readiness_require_financial_reports,
+            "require_cashflows": request.readiness_require_cashflows,
+            "require_moex_secid": request.readiness_require_moex_secid,
+            "max_bond_issues": request.readiness_max_bond_issues,
+        }
+        if request.readiness_min_positive_rows is not None:
+            payload["min_positive_rows"] = request.readiness_min_positive_rows
+        if request.readiness_min_negative_rows is not None:
+            payload["min_negative_rows"] = request.readiness_min_negative_rows
+        if request.readiness_max_insufficient_ratio is not None:
+            payload["max_insufficient_ratio"] = request.readiness_max_insufficient_ratio
+        return DataReadinessCheckRequest(**payload)
+
+    @staticmethod
+    def _readiness_return_method(request: DataPipelineRunRequest) -> str:
+        if DataPipelineService._ml_requested_by_flags(request):
+            return request.ml_return_method
+        if "risk_adjusted" in request.return_methods:
+            return "risk_adjusted"
+        if "total_return" in request.return_methods:
+            return "total_return"
+        return "price"
+
+    @staticmethod
+    def _readiness_warnings(payload: dict[str, Any]) -> list[dict[str, Any]]:
+        warnings: list[dict[str, Any]] = [
+            {"step": READINESS_STEP, "message": warning}
+            for warning in payload.get("warnings", [])
+        ]
+        for gate in payload.get("gates", []):
+            if gate.get("status") == "warning":
+                warnings.append(
+                    {
+                        "step": READINESS_STEP,
+                        "gate": gate.get("name"),
+                        "message": gate.get("message"),
+                    }
+                )
+        return warnings
 
     @staticmethod
     def _errors_from_value(value: Any) -> list[dict[str, Any]]:
@@ -825,6 +1049,40 @@ class DataPipelineService:
                     "brier_score",
                 )
             }
+            return
+        if step_name == READINESS_STEP:
+            gates = result.get("gates", [])
+            readiness_summary = result.get("summary", {})
+            summary.update(
+                {
+                    "readiness_status": result.get("status"),
+                    "ready_for_ml_training": readiness_summary.get(
+                        "ready_for_ml_training"
+                    ),
+                    "readiness_failed_gates": [
+                        gate.get("name")
+                        for gate in gates
+                        if gate.get("status") == "fail"
+                    ],
+                    "readiness_warning_gates": [
+                        gate.get("name")
+                        for gate in gates
+                        if gate.get("status") == "warning"
+                    ],
+                    "readiness_evaluable_rows": readiness_summary.get(
+                        "evaluable_label_count"
+                    ),
+                    "readiness_positive_rows": readiness_summary.get(
+                        "positive_label_count"
+                    ),
+                    "readiness_negative_rows": readiness_summary.get(
+                        "negative_label_count"
+                    ),
+                    "readiness_insufficient_ratio": readiness_summary.get(
+                        "insufficient_ratio"
+                    ),
+                }
+            )
             return
         for source_key, target_key in mapping.get(step_name, {}).items():
             if source_key in result:

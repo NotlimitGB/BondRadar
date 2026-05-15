@@ -19,6 +19,7 @@ PIPELINE_STEPS = {
     "dataset_build_price",
     "labels_total_return",
     "labels_risk_adjusted",
+    "data_readiness_check",
     "ml_train",
     "ml_predict",
     "ml_evaluate",
@@ -45,6 +46,18 @@ class DataPipelineRunRequest(BaseModel):
     ml_include_credit_risk_features: bool = True
     benchmark_return: Decimal | None = None
     transaction_cost_rate: Decimal = Decimal("0.001")
+    run_readiness_check: bool | None = None
+    allow_readiness_warning: bool = True
+    fail_on_not_ready: bool = True
+    readiness_min_rows: int | None = None
+    readiness_min_positive_rows: int | None = None
+    readiness_min_negative_rows: int | None = None
+    readiness_max_insufficient_ratio: Decimal | None = None
+    readiness_require_credit_risk: bool = True
+    readiness_require_financial_reports: bool = True
+    readiness_require_cashflows: bool = False
+    readiness_require_moex_secid: bool = True
+    readiness_max_bond_issues: int = 50
 
 
 class DataPipelineStepRunRead(BaseModel):
