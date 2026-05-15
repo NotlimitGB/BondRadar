@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     imports,
     market_data,
     ml,
+    ml_evaluation,
     scores,
 )
 
@@ -30,6 +31,11 @@ api_router.include_router(imports.router, prefix="/import", tags=["import"])
 api_router.include_router(datasets.router, tags=["datasets"])
 api_router.include_router(market_data.router, tags=["market-data"])
 api_router.include_router(ml.router, prefix="/ml", tags=["ml"])
+api_router.include_router(
+    ml_evaluation.router,
+    prefix="/ml/evaluation",
+    tags=["ml-evaluation"],
+)
 api_router.include_router(
     financial_reports.router,
     prefix="/companies/{company_id}/reports",
