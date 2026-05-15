@@ -251,6 +251,51 @@ To load seed data manually:
 python -m app.db.seed
 ```
 
+## Demo Data Seed
+
+BondRadar also has a larger deterministic demo scenario for local end-to-end
+checks. It is not run automatically on startup and does not delete existing
+data. Run migrations first:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Create or update the core demo data:
+
+```bash
+python -m app.scripts.seed_demo_data
+```
+
+Run the same scenario with ML training and saved predictions:
+
+```bash
+python -m app.scripts.seed_demo_data --with-ml
+```
+
+Run it with ML evaluation output as well:
+
+```bash
+python -m app.scripts.seed_demo_data --with-ml --with-evaluation
+```
+
+The script creates `DEMO_` issuers, demo bonds, financial reports, market
+snapshots, cashflow events, credit-health snapshots, bond risk assessments,
+feature snapshots, and labels for `price`, `total_return`, and
+`risk_adjusted`. The summary prints business checks such as cashflow impact,
+high-yield weak issuer warnings, and risk-adjusted label class distribution.
+
+Example API checks after starting the backend:
+
+```bash
+curl http://127.0.0.1:8000/api/bonds
+curl "http://127.0.0.1:8000/api/datasets/export?return_method=risk_adjusted&limit=5"
+curl http://127.0.0.1:8000/api/ml/runs
+curl http://127.0.0.1:8000/api/ml/predictions
+curl http://127.0.0.1:8000/api/ml/evaluation/runs/1
+```
+
 ## Tests
 
 Run tests from the repository root:
