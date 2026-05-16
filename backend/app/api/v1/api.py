@@ -20,6 +20,7 @@ from app.api.v1.endpoints import (
     scores,
     strategy_backtest,
     strategy_experiment,
+    strategy_promotion,
 )
 
 
@@ -68,6 +69,11 @@ api_router.include_router(
     strategy_experiment.router,
     prefix="/strategy/experiments",
     tags=["strategy-experiments"],
+)
+api_router.include_router(
+    strategy_promotion.router,
+    prefix="/strategy/promotions",
+    tags=["strategy-promotions"],
 )
 api_router.include_router(
     portfolio_construction.router,
