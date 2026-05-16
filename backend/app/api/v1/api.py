@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     cashflows,
     companies,
     credit_risk,
+    data_quality_dashboard,
     data_readiness,
     data_pipeline,
     datasets,
@@ -39,6 +40,11 @@ api_router.include_router(
     data_readiness.router,
     prefix="/data-readiness",
     tags=["data-readiness"],
+)
+api_router.include_router(
+    data_quality_dashboard.router,
+    prefix="/data-quality",
+    tags=["data-quality"],
 )
 api_router.include_router(data_pipeline.router, prefix="/pipeline", tags=["pipeline"])
 api_router.include_router(imports.router, prefix="/import", tags=["import"])
