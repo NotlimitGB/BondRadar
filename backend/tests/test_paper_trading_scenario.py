@@ -29,6 +29,7 @@ def create_run(
     *,
     status: str = "completed",
     horizon_days: int = 30,
+    return_method: str = "risk_adjusted",
 ) -> MLModelRun:
     run = MLModelRun(
         status=status,
@@ -42,7 +43,7 @@ def create_run(
         negative_rows=30,
         metrics={},
         feature_importance=[],
-        params={"return_method": "risk_adjusted"},
+        params={"return_method": return_method},
         finished_at=dt(2026, 1, 1),
     )
     db.add(run)
@@ -153,6 +154,34 @@ def add_prediction(
     db.commit()
 
 
+def add_prediction_for_existing_feature(
+    db: Session,
+    *,
+    run: MLModelRun,
+    feature: BondFeatureSnapshot,
+    probability: Decimal = Decimal("0.90"),
+) -> None:
+    db.add(
+        MLPrediction(
+            model_run_id=run.id,
+            feature_snapshot_id=feature.id,
+            bond_id=feature.bond_id,
+            company_id=feature.company_id,
+            as_of_date=feature.as_of_date,
+            horizon_days=run.horizon_days,
+            probability_positive=probability,
+            predicted_label=(
+                "predicted_positive_return"
+                if probability >= Decimal("0.50")
+                else "predicted_negative_return"
+            ),
+            features={},
+            created_at=dt(2026, 1, 2),
+        )
+    )
+    db.commit()
+
+
 def add_label(
     db: Session,
     *,
@@ -161,12 +190,13 @@ def add_label(
     as_of_date: date,
     future_return: Decimal = Decimal("0.050000"),
 ) -> None:
+    return_method = (run.params or {}).get("return_method") or "price"
     db.add(
         BondReturnLabel(
             bond_id=bond.id,
             as_of_date=as_of_date,
             horizon_days=run.horizon_days,
-            return_method="risk_adjusted",
+            return_method=return_method,
             future_return=future_return,
             risk_adjusted_excess_return=future_return,
             required_risk_premium=Decimal("0.020000"),
@@ -209,6 +239,39 @@ def seed_scenario(
                     future_return=Decimal("0.050000"),
                 )
     return run, bonds, selected_dates
+
+
+def seed_multi_run_scenario(
+    db: Session,
+    *,
+    first_date: date = date(2026, 1, 1),
+    second_date: date = date(2026, 2, 1),
+    first_horizon_days: int = 30,
+    second_horizon_days: int = 30,
+    first_return_method: str = "risk_adjusted",
+    second_return_method: str = "risk_adjusted",
+    labels: bool = True,
+    ticker: str = "PMR",
+) -> tuple[MLModelRun, MLModelRun, Bond]:
+    first_run = create_run(
+        db,
+        horizon_days=first_horizon_days,
+        return_method=first_return_method,
+    )
+    second_run = create_run(
+        db,
+        horizon_days=second_horizon_days,
+        return_method=second_return_method,
+    )
+    company = create_company(db, ticker)
+    bond = create_bond(db, company, 1)
+    add_risk(db, bond=bond, as_of_date=date(2025, 12, 31))
+    add_prediction(db, run=first_run, bond=bond, as_of_date=first_date)
+    add_prediction(db, run=second_run, bond=bond, as_of_date=second_date)
+    if labels:
+        add_label(db, run=first_run, bond=bond, as_of_date=first_date)
+        add_label(db, run=second_run, bond=bond, as_of_date=second_date)
+    return first_run, second_run, bond
 
 
 def create_portfolio(client: TestClient, run: MLModelRun) -> dict:
@@ -255,6 +318,11 @@ def test_scenario_creates_portfolio_when_omitted(
     assert response.status_code == 200
     payload = response.json()
     assert payload["portfolio_id"] is not None
+    assert payload["model_run_id"] == run.id
+    assert payload["model_run_ids"] == [run.id]
+    assert payload["model_run_count"] == 1
+    assert payload["prediction_source_mode"] == "single_model_run"
+    assert all(cycle["model_run_id"] == run.id for cycle in payload["cycles"])
     assert payload["cycles_completed"] == 2
     assert payload["rebalance_success_count"] == 2
     assert payload["mark_success_count"] == 2
@@ -332,6 +400,111 @@ def test_weekly_and_monthly_date_modes(
     assert monthly.status_code == 200
     assert weekly.json()["cycles_requested"] == 2
     assert monthly.json()["cycles_requested"] == 2
+
+
+def test_multi_run_scenario_uses_predictions_from_all_completed_runs(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_scenario(db_session)
+
+    response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["model_run_id"] is None
+    assert payload["model_run_ids"] == [first_run.id, second_run.id]
+    assert payload["model_run_count"] == 2
+    assert payload["prediction_source_mode"] == "multiple_model_runs"
+    assert [cycle["as_of_date"] for cycle in payload["cycles"]] == [
+        "2026-01-01",
+        "2026-02-01",
+    ]
+    assert [cycle["model_run_id"] for cycle in payload["cycles"]] == [
+        first_run.id,
+        second_run.id,
+    ]
+
+
+def test_multi_run_label_dates_use_shared_horizon_gap(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_scenario(
+        db_session,
+        first_date=date(2026, 1, 1),
+        second_date=date(2026, 1, 10),
+    )
+
+    response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["cycles_requested"] == 1
+    assert payload["cycles"][0]["as_of_date"] == "2026-01-01"
+    assert payload["cycles"][0]["model_run_id"] == first_run.id
+
+
+def test_multi_run_weekly_and_monthly_modes_resolve_cycle_model_run(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    weekly_first, weekly_second, _ = seed_multi_run_scenario(
+        db_session,
+        first_date=date(2026, 1, 1),
+        second_date=date(2026, 1, 8),
+        ticker="PMW",
+    )
+    weekly = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            weekly_first,
+            model_run_id=None,
+            model_run_ids=[weekly_first.id, weekly_second.id],
+            rebalance_frequency="weekly",
+        ),
+    )
+
+    monthly_first, monthly_second, _ = seed_multi_run_scenario(
+        db_session,
+        first_date=date(2026, 3, 1),
+        second_date=date(2026, 4, 1),
+        ticker="PMM",
+    )
+    monthly = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            monthly_first,
+            model_run_id=None,
+            model_run_ids=[monthly_first.id, monthly_second.id],
+            rebalance_frequency="monthly",
+        ),
+    )
+
+    assert weekly.status_code == 200
+    assert monthly.status_code == 200
+    assert [cycle["model_run_id"] for cycle in weekly.json()["cycles"]] == [
+        weekly_first.id,
+        weekly_second.id,
+    ]
+    assert [cycle["model_run_id"] for cycle in monthly.json()["cycles"]] == [
+        monthly_first.id,
+        monthly_second.id,
+    ]
 
 
 def test_mark_period_applies_labels_across_cycles(
@@ -456,6 +629,123 @@ def test_missing_and_non_completed_model_errors(
     assert non_completed.json()["detail"] == "ML model run is not completed"
 
 
+def test_multi_run_requires_compatible_horizon_and_return_method(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    horizon_first, horizon_second, _ = seed_multi_run_scenario(
+        db_session,
+        first_horizon_days=30,
+        second_horizon_days=60,
+    )
+    horizon_response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            horizon_first,
+            model_run_id=None,
+            model_run_ids=[horizon_first.id, horizon_second.id],
+        ),
+    )
+
+    method_first, method_second, _ = seed_multi_run_scenario(
+        db_session,
+        first_return_method="risk_adjusted",
+        second_return_method="total_return",
+        ticker="PMT",
+    )
+    method_response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            method_first,
+            model_run_id=None,
+            model_run_ids=[method_first.id, method_second.id],
+        ),
+    )
+
+    assert horizon_response.status_code == 400
+    assert (
+        horizon_response.json()["detail"]
+        == "Model runs must use the same horizon and return method"
+    )
+    assert method_response.status_code == 400
+    assert (
+        method_response.json()["detail"]
+        == "Model runs must use the same horizon and return method"
+    )
+
+
+def test_multi_run_missing_and_non_completed_model_errors(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    completed = create_run(db_session)
+    running = create_run(db_session, status="running")
+
+    missing = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            completed,
+            model_run_id=None,
+            model_run_ids=[completed.id, 999999],
+        ),
+    )
+    non_completed = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            completed,
+            model_run_id=None,
+            model_run_ids=[completed.id, running.id],
+        ),
+    )
+
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "ML model run not found"
+    assert non_completed.status_code == 400
+    assert non_completed.json()["detail"] == "ML model run is not completed"
+
+
+def test_scenario_model_selector_validation_errors(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = create_run(db_session)
+
+    missing_payload = scenario_payload(run)
+    missing_payload.pop("model_run_id")
+    missing = client.post("/api/paper-trading/scenarios/run", json=missing_payload)
+    both = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(run, model_run_ids=[run.id]),
+    )
+    empty = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(run, model_run_id=None, model_run_ids=[]),
+    )
+    duplicate = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(run, model_run_id=None, model_run_ids=[run.id, run.id]),
+    )
+    too_many = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            run,
+            model_run_id=None,
+            model_run_ids=list(range(1, 202)),
+        ),
+    )
+
+    assert missing.status_code == 400
+    assert missing.json()["detail"] == "Provide model_run_id or model_run_ids"
+    assert both.status_code == 400
+    assert both.json()["detail"] == "Use only one of model_run_id or model_run_ids"
+    assert empty.status_code == 400
+    assert empty.json()["detail"] == "model_run_ids must not be empty"
+    assert duplicate.status_code == 400
+    assert duplicate.json()["detail"] == "model_run_ids must not contain duplicates"
+    assert too_many.status_code == 400
+    assert too_many.json()["detail"] == "model_run_ids must not exceed 200"
+
+
 def test_archived_portfolio_rejected(
     client: TestClient,
     db_session: Session,
@@ -475,6 +765,98 @@ def test_archived_portfolio_rejected(
     assert response.json()["detail"] == "Paper portfolio is archived"
 
 
+def test_multi_run_duplicate_same_date_resolves_by_request_order(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run = create_run(db_session)
+    second_run = create_run(db_session)
+    company = create_company(db_session, "PMD")
+    bond = create_bond(db_session, company, 1)
+    as_of_date = date(2026, 1, 1)
+    add_risk(db_session, bond=bond, as_of_date=date(2025, 12, 31))
+    add_prediction(db_session, run=first_run, bond=bond, as_of_date=as_of_date)
+    feature = db_session.execute(
+        select(BondFeatureSnapshot).where(
+            BondFeatureSnapshot.bond_id == bond.id,
+            BondFeatureSnapshot.as_of_date == as_of_date,
+        )
+    ).scalar_one()
+    add_prediction_for_existing_feature(
+        db_session,
+        run=second_run,
+        feature=feature,
+        probability=Decimal("0.95"),
+    )
+    add_label(db_session, run=first_run, bond=bond, as_of_date=as_of_date)
+
+    response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["cycles"][0]["model_run_id"] == second_run.id
+    assert any(
+        warning["message"]
+        == "Duplicate walk-forward prediction dates were resolved by model_run_ids order"
+        for warning in payload["warnings"]
+    )
+
+
+def test_multi_run_new_portfolio_uses_primary_model_run_warning(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_scenario(db_session)
+
+    response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+            date_to="2026-01-01",
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    portfolio = db_session.get(PaperPortfolio, payload["portfolio_id"])
+    assert portfolio is not None
+    assert portfolio.model_run_id == first_run.id
+    assert any("primary model run id" in warning["message"] for warning in payload["warnings"])
+
+
+def test_multi_run_existing_portfolio_reuse_keeps_portfolio_and_warns(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_scenario(db_session)
+    portfolio = create_portfolio(client, first_run)
+
+    response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            first_run,
+            portfolio_id=portfolio["id"],
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["portfolio_id"] == portfolio["id"]
+    assert any("appended" in warning["message"] for warning in payload["warnings"])
+    assert any("fold model runs" in warning["message"] for warning in payload["warnings"])
+
+
 def test_performance_report_included_when_requested(
     client: TestClient,
     db_session: Session,
@@ -491,6 +873,28 @@ def test_performance_report_included_when_requested(
     assert payload["performance_report"] is not None
     assert payload["summary"]["snapshot_count"] == payload["performance_report"]["metrics"]["snapshot_count"]
     assert payload["summary"]["total_fee_amount"] == payload["performance_report"]["metrics"]["total_fee_amount"]
+
+
+def test_multi_run_performance_report_included_when_requested(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_scenario(db_session)
+
+    response = client.post(
+        "/api/paper-trading/scenarios/run",
+        json=scenario_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+            include_performance_report=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["performance_report"] is not None
+    assert payload["summary"]["snapshot_count"] == payload["performance_report"]["metrics"]["snapshot_count"]
 
 
 def test_scenario_payload_has_no_recommendation_vocabulary(

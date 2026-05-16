@@ -23,6 +23,7 @@ class PaperTradingScenarioWarning(BaseModel):
 class PaperTradingScenarioCycleResult(BaseModel):
     cycle_index: int
     as_of_date: date
+    model_run_id: int | None
     mark_snapshot_date: date | None
     rebalance_status: str
     mark_status: str
@@ -53,7 +54,8 @@ class PaperTradingScenarioRunRequest(BaseModel):
     description: str | None = None
     initial_capital: Decimal = Decimal("50000")
     base_currency: str = "RUB"
-    model_run_id: int
+    model_run_id: int | None = None
+    model_run_ids: list[int] | None = None
     date_from: date | None = None
     date_to: date | None = None
     rebalance_frequency: str = "label_dates"
@@ -79,7 +81,10 @@ class PaperTradingScenarioRunRequest(BaseModel):
 
 class PaperTradingScenarioRunResponse(BaseModel):
     portfolio_id: int
-    model_run_id: int
+    model_run_id: int | None
+    model_run_ids: list[int]
+    model_run_count: int
+    prediction_source_mode: str
     return_method: str
     horizon_days: int
     date_from: date | None

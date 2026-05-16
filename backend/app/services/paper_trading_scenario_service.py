@@ -46,25 +46,58 @@ class PaperTradingScenarioService:
         request: PaperTradingScenarioRunRequest,
     ) -> PaperTradingScenarioRunResponse:
         self._validate_request(request)
-        model_run = self._load_model_run(request.model_run_id)
-        portfolio, warnings = self._resolve_portfolio(request)
-        prediction_dates = self._prediction_dates(model_run, request)
+        model_runs = self._load_completed_model_runs(request)
+        model_run_ids = [model_run.id for model_run in model_runs]
+        primary_model_run = model_runs[0]
+        multi_run = len(model_runs) > 1
+        return_method = self._return_method(primary_model_run)
+        portfolio, warnings = self._resolve_portfolio(
+            request,
+            primary_model_run_id=primary_model_run.id,
+            multi_run=multi_run,
+        )
+        prediction_dates = self._prediction_dates(model_run_ids, request)
         cycle_dates = self._rebalance_dates(
             prediction_dates,
             frequency=request.rebalance_frequency,
-            horizon_days=model_run.horizon_days,
+            horizon_days=primary_model_run.horizon_days,
             rebalance_gap_days=request.rebalance_gap_days,
         )[: request.max_cycles]
 
         cycles: list[PaperTradingScenarioCycleResult] = []
         for index, as_of_date in enumerate(cycle_dates, start=1):
-            cycle = self._run_cycle(
-                portfolio_id=portfolio.id,
-                model_run_id=model_run.id,
-                as_of_date=as_of_date,
-                cycle_index=index,
-                request=request,
+            cycle_model_run_id, duplicate_resolved = self._model_run_id_for_date(
+                as_of_date,
+                model_run_ids,
             )
+            cycle_warnings: list[PaperTradingScenarioWarning] = []
+            if duplicate_resolved:
+                cycle_warnings.append(
+                    PaperTradingScenarioWarning(
+                        message=(
+                            "Duplicate walk-forward prediction dates were resolved "
+                            "by model_run_ids order"
+                        ),
+                        as_of_date=as_of_date,
+                        cycle_index=index,
+                    )
+                )
+            if cycle_model_run_id is None:
+                cycle = self._missing_predictions_cycle(
+                    portfolio_id=portfolio.id,
+                    as_of_date=as_of_date,
+                    cycle_index=index,
+                    initial_warnings=cycle_warnings,
+                )
+            else:
+                cycle = self._run_cycle(
+                    portfolio_id=portfolio.id,
+                    model_run_id=cycle_model_run_id,
+                    as_of_date=as_of_date,
+                    cycle_index=index,
+                    request=request,
+                    initial_warnings=cycle_warnings,
+                )
             cycles.append(cycle)
             warnings.extend(cycle.warnings)
             if (
@@ -100,9 +133,14 @@ class PaperTradingScenarioService:
         cycles_for_response = cycles if request.include_cycle_details else []
         return PaperTradingScenarioRunResponse(
             portfolio_id=portfolio.id,
-            model_run_id=model_run.id,
-            return_method=self._return_method(model_run),
-            horizon_days=model_run.horizon_days,
+            model_run_id=model_run_ids[0] if len(model_run_ids) == 1 else None,
+            model_run_ids=model_run_ids,
+            model_run_count=len(model_run_ids),
+            prediction_source_mode=(
+                "single_model_run" if len(model_run_ids) == 1 else "multiple_model_runs"
+            ),
+            return_method=return_method,
+            horizon_days=primary_model_run.horizon_days,
             date_from=request.date_from,
             date_to=request.date_to,
             cycles_requested=len(cycle_dates),
@@ -135,10 +173,11 @@ class PaperTradingScenarioService:
         as_of_date: date,
         cycle_index: int,
         request: PaperTradingScenarioRunRequest,
+        initial_warnings: list[PaperTradingScenarioWarning] | None = None,
     ) -> PaperTradingScenarioCycleResult:
         portfolio = self.paper_service.get_portfolio(portfolio_id)
         value_before = portfolio.current_value
-        cycle_warnings: list[PaperTradingScenarioWarning] = []
+        cycle_warnings = list(initial_warnings or [])
         try:
             rebalance = self.paper_service.rebalance(
                 portfolio_id,
@@ -172,6 +211,7 @@ class PaperTradingScenarioService:
             return PaperTradingScenarioCycleResult(
                 cycle_index=cycle_index,
                 as_of_date=as_of_date,
+                model_run_id=model_run_id,
                 mark_snapshot_date=None,
                 rebalance_status="failed",
                 mark_status="skipped",
@@ -231,6 +271,7 @@ class PaperTradingScenarioService:
         return PaperTradingScenarioCycleResult(
             cycle_index=cycle_index,
             as_of_date=as_of_date,
+            model_run_id=model_run_id,
             mark_snapshot_date=mark_snapshot_date,
             rebalance_status="completed",
             mark_status=mark_status,
@@ -246,18 +287,31 @@ class PaperTradingScenarioService:
     def _resolve_portfolio(
         self,
         request: PaperTradingScenarioRunRequest,
+        *,
+        primary_model_run_id: int,
+        multi_run: bool,
     ) -> tuple[PaperPortfolio, list[PaperTradingScenarioWarning]]:
         if request.portfolio_id is None:
             portfolio = self.paper_service.create_portfolio(
                 PaperPortfolioCreate(
-                    name=request.name or f"Scenario portfolio {request.model_run_id}",
+                    name=request.name or f"Scenario portfolio {primary_model_run_id}",
                     description=request.description,
                     initial_capital=request.initial_capital,
                     base_currency=request.base_currency,
-                    model_run_id=request.model_run_id,
+                    model_run_id=primary_model_run_id,
                 )
             )
-            return portfolio, []
+            warnings = []
+            if multi_run:
+                warnings.append(
+                    PaperTradingScenarioWarning(
+                        message=(
+                            "Paper portfolio stores a primary model run id; "
+                            "multi-run scenario uses fold model runs per cycle"
+                        )
+                    )
+                )
+            return portfolio, warnings
 
         portfolio = self.paper_service.get_portfolio(request.portfolio_id)
         if portfolio.status == "archived":
@@ -265,7 +319,7 @@ class PaperTradingScenarioService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Paper portfolio is archived",
             )
-        return portfolio, [
+        warnings = [
             PaperTradingScenarioWarning(
                 message=(
                     "Existing paper portfolio was reused; scenario operations "
@@ -273,13 +327,23 @@ class PaperTradingScenarioService:
                 )
             )
         ]
+        if multi_run:
+            warnings.append(
+                PaperTradingScenarioWarning(
+                    message=(
+                        "Existing paper portfolio was reused with a multi-run "
+                        "scenario; cycle rebalances use fold model runs"
+                    )
+                )
+            )
+        return portfolio, warnings
 
     def _prediction_dates(
         self,
-        model_run: MLModelRun,
+        model_run_ids: list[int],
         request: PaperTradingScenarioRunRequest,
     ) -> list[date]:
-        conditions = [MLPrediction.model_run_id == model_run.id]
+        conditions = [MLPrediction.model_run_id.in_(set(model_run_ids))]
         if request.date_from is not None:
             conditions.append(MLPrediction.as_of_date >= request.date_from)
         if request.date_to is not None:
@@ -298,6 +362,60 @@ class PaperTradingScenarioService:
                 detail="No predictions found for selected model run and date range",
             )
         return dates
+
+    def _model_run_id_for_date(
+        self,
+        as_of_date: date,
+        model_run_ids: list[int],
+    ) -> tuple[int | None, bool]:
+        rows = list(
+            self.db.execute(
+                select(MLPrediction.model_run_id)
+                .where(
+                    MLPrediction.model_run_id.in_(set(model_run_ids)),
+                    MLPrediction.as_of_date == as_of_date,
+                )
+                .distinct()
+            ).scalars()
+        )
+        if not rows:
+            return None, False
+        order = {model_run_id: index for index, model_run_id in enumerate(model_run_ids)}
+        selected_model_run_id = max(rows, key=lambda model_run_id: order[model_run_id])
+        return selected_model_run_id, len(rows) > 1
+
+    def _missing_predictions_cycle(
+        self,
+        *,
+        portfolio_id: int,
+        as_of_date: date,
+        cycle_index: int,
+        initial_warnings: list[PaperTradingScenarioWarning] | None = None,
+    ) -> PaperTradingScenarioCycleResult:
+        portfolio = self.paper_service.get_portfolio(portfolio_id)
+        warnings = list(initial_warnings or [])
+        warnings.append(
+            PaperTradingScenarioWarning(
+                message="No predictions found for selected rebalance date",
+                as_of_date=as_of_date,
+                cycle_index=cycle_index,
+            )
+        )
+        return PaperTradingScenarioCycleResult(
+            cycle_index=cycle_index,
+            as_of_date=as_of_date,
+            model_run_id=None,
+            mark_snapshot_date=None,
+            rebalance_status="failed",
+            mark_status="skipped",
+            portfolio_value_before=portfolio.current_value,
+            portfolio_value_after_rebalance=None,
+            portfolio_value_after_mark=None,
+            selected_positions_count=0,
+            turnover=None,
+            fee_amount=None,
+            warnings=warnings,
+        )
 
     @staticmethod
     def _rebalance_dates(
@@ -380,12 +498,20 @@ class PaperTradingScenarioService:
             last_cycle_as_of_date=cycles[-1].as_of_date if cycles else None,
         )
 
-    def _load_model_run(self, model_run_id: int | None) -> MLModelRun:
-        if model_run_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="model_run_id is required",
-            )
+    def _load_completed_model_runs(
+        self,
+        request: PaperTradingScenarioRunRequest,
+    ) -> list[MLModelRun]:
+        model_run_ids = (
+            [request.model_run_id]
+            if request.model_run_id is not None
+            else list(request.model_run_ids or [])
+        )
+        model_runs = [self._load_model_run(model_run_id) for model_run_id in model_run_ids]
+        self._validate_model_run_compatibility(model_runs)
+        return model_runs
+
+    def _load_model_run(self, model_run_id: int) -> MLModelRun:
         model_run = self.db.get(MLModelRun, model_run_id)
         if model_run is None:
             raise HTTPException(
@@ -399,17 +525,56 @@ class PaperTradingScenarioService:
             )
         return model_run
 
+    def _validate_model_run_compatibility(
+        self,
+        model_runs: list[MLModelRun],
+    ) -> None:
+        if not model_runs:
+            return
+        horizon_days = model_runs[0].horizon_days
+        return_method = self._return_method(model_runs[0])
+        if any(
+            model_run.horizon_days != horizon_days
+            or self._return_method(model_run) != return_method
+            for model_run in model_runs[1:]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Model runs must use the same horizon and return method",
+            )
+
     def _validate_request(self, request: PaperTradingScenarioRunRequest) -> None:
         if request.initial_capital <= 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="initial_capital must be positive",
             )
-        if request.model_run_id is None:
+        if request.model_run_id is None and request.model_run_ids is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="model_run_id is required",
+                detail="Provide model_run_id or model_run_ids",
             )
+        if request.model_run_id is not None and request.model_run_ids is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Use only one of model_run_id or model_run_ids",
+            )
+        if request.model_run_ids is not None:
+            if not request.model_run_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not be empty",
+                )
+            if len(set(request.model_run_ids)) != len(request.model_run_ids):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not contain duplicates",
+                )
+            if len(request.model_run_ids) > 200:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not exceed 200",
+                )
         if (
             request.date_from is not None
             and request.date_to is not None
