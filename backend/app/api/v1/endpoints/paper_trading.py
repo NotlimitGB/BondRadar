@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,12 @@ from app.schemas.paper_trading import (
     PaperPortfolioSnapshotRead,
     PaperPortfolioTransactionRead,
 )
+from app.schemas.paper_trading_report import (
+    PaperTradingContributionsResponse,
+    PaperTradingEquityPoint,
+    PaperTradingPerformanceResponse,
+)
+from app.services.paper_trading_report_service import PaperTradingReportService
 from app.services.paper_trading_service import PaperTradingService
 
 
@@ -90,6 +98,63 @@ def list_paper_snapshots(
         PaperPortfolioSnapshotRead.model_validate(snapshot)
         for snapshot in PaperTradingService(db).list_snapshots(portfolio_id)
     ]
+
+
+@router.get(
+    "/portfolios/{portfolio_id}/performance",
+    response_model=PaperTradingPerformanceResponse,
+)
+def get_paper_performance(
+    portfolio_id: int,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    include_equity_curve: bool = True,
+    db: Session = Depends(get_db),
+) -> PaperTradingPerformanceResponse:
+    return PaperTradingReportService(db).performance(
+        portfolio_id,
+        date_from=date_from,
+        date_to=date_to,
+        include_equity_curve=include_equity_curve,
+    )
+
+
+@router.get(
+    "/portfolios/{portfolio_id}/equity-curve",
+    response_model=list[PaperTradingEquityPoint],
+)
+def get_paper_equity_curve(
+    portfolio_id: int,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: Session = Depends(get_db),
+) -> list[PaperTradingEquityPoint]:
+    return PaperTradingReportService(db).equity_curve(
+        portfolio_id,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
+@router.get(
+    "/portfolios/{portfolio_id}/contributions",
+    response_model=PaperTradingContributionsResponse,
+)
+def get_paper_contributions(
+    portfolio_id: int,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    limit: int = 100,
+    include_inactive: bool = True,
+    db: Session = Depends(get_db),
+) -> PaperTradingContributionsResponse:
+    return PaperTradingReportService(db).contributions(
+        portfolio_id,
+        date_from=date_from,
+        date_to=date_to,
+        limit=limit,
+        include_inactive=include_inactive,
+    )
 
 
 @router.post(
