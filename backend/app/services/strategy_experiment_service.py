@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from itertools import product
 from decimal import Decimal
 from typing import Any
 
@@ -13,13 +14,106 @@ from app.schemas.strategy_experiment import (
     EXPERIMENT_RANKING_METRICS,
     StrategyExperimentCompareRequest,
     StrategyExperimentCompareResponse,
+    StrategyExperimentGridRequest,
     StrategyExperimentLeaderboardItem,
+    StrategyExperimentSensitivityItem,
     StrategyExperimentVariantRequest,
     StrategyExperimentVariantResult,
     StrategyExperimentWarning,
 )
 from app.services.ml_feature_builder import RETURN_METHODS
 from app.services.strategy_backtest_service import StrategyBacktestService
+
+
+GRID_FIELDS = [
+    "top_n_values",
+    "min_probability_positive_values",
+    "rebalance_frequency_values",
+    "rebalance_gap_days_values",
+    "use_portfolio_constraints_values",
+    "max_position_weight_values",
+    "max_issuer_weight_values",
+    "max_high_risk_weight_values",
+    "min_liquidity_score_values",
+    "exclude_blocked_by_risk_values",
+    "exclude_insufficient_credit_data_values",
+    "allowed_risk_levels_values",
+    "allowed_decision_statuses_values",
+]
+
+SENSITIVITY_PARAMETERS = [
+    "top_n",
+    "min_probability_positive",
+    "rebalance_frequency",
+    "max_position_weight",
+    "max_issuer_weight",
+    "max_high_risk_weight",
+    "min_liquidity_score",
+    "exclude_insufficient_credit_data",
+    "use_portfolio_constraints",
+]
+
+EXPERIMENT_PRESETS = {
+    "conservative": StrategyExperimentGridRequest(
+        top_n_values=[5, 10],
+        min_probability_positive_values=[Decimal("0.60"), Decimal("0.65")],
+        rebalance_frequency_values=["label_dates", "monthly"],
+        max_position_weight_values=[Decimal("0.10"), Decimal("0.15")],
+        max_issuer_weight_values=[Decimal("0.20"), Decimal("0.30")],
+        max_high_risk_weight_values=[Decimal("0"), Decimal("0.10")],
+        exclude_blocked_by_risk_values=[True],
+        exclude_insufficient_credit_data_values=[True],
+    ),
+    "balanced": StrategyExperimentGridRequest(
+        top_n_values=[5, 10],
+        min_probability_positive_values=[Decimal("0.55"), Decimal("0.60")],
+        rebalance_frequency_values=["label_dates", "monthly"],
+        max_position_weight_values=[Decimal("0.15"), Decimal("0.20")],
+        max_issuer_weight_values=[Decimal("0.30")],
+        max_high_risk_weight_values=[Decimal("0.10"), Decimal("0.20")],
+        exclude_blocked_by_risk_values=[True],
+        exclude_insufficient_credit_data_values=[False, True],
+    ),
+    "aggressive": StrategyExperimentGridRequest(
+        top_n_values=[5, 10, 15],
+        min_probability_positive_values=[
+            Decimal("0.50"),
+            Decimal("0.55"),
+            Decimal("0.60"),
+        ],
+        rebalance_frequency_values=["label_dates", "weekly", "monthly"],
+        max_position_weight_values=[Decimal("0.20"), Decimal("0.25")],
+        max_issuer_weight_values=[Decimal("0.30"), Decimal("0.40")],
+        max_high_risk_weight_values=[Decimal("0.20"), Decimal("0.40")],
+        exclude_blocked_by_risk_values=[True],
+        exclude_insufficient_credit_data_values=[False],
+    ),
+    "liquidity_focused": StrategyExperimentGridRequest(
+        top_n_values=[5, 10],
+        min_probability_positive_values=[Decimal("0.55"), Decimal("0.60")],
+        rebalance_frequency_values=["label_dates", "monthly"],
+        max_position_weight_values=[
+            Decimal("0.10"),
+            Decimal("0.15"),
+            Decimal("0.20"),
+        ],
+        max_issuer_weight_values=[Decimal("0.30")],
+        max_high_risk_weight_values=[Decimal("0.10"), Decimal("0.20")],
+        min_liquidity_score_values=[60, 80],
+        exclude_blocked_by_risk_values=[True],
+        exclude_insufficient_credit_data_values=[True],
+    ),
+    "low_drawdown": StrategyExperimentGridRequest(
+        top_n_values=[10, 15],
+        min_probability_positive_values=[Decimal("0.60"), Decimal("0.65")],
+        rebalance_frequency_values=["monthly"],
+        max_position_weight_values=[Decimal("0.10")],
+        max_issuer_weight_values=[Decimal("0.20"), Decimal("0.30")],
+        max_high_risk_weight_values=[Decimal("0"), Decimal("0.10")],
+        exclude_blocked_by_risk_values=[True],
+        exclude_insufficient_credit_data_values=[True],
+    ),
+}
 
 
 class StrategyExperimentService:
@@ -32,13 +126,19 @@ class StrategyExperimentService:
     ) -> StrategyExperimentCompareResponse:
         self._validate_request(request)
         model_run = self._load_model_run(request.model_run_id)
+        variants, generation_mode = self._resolve_variants(request)
+        if len(variants) > request.max_variants:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="variants must not exceed max_variants",
+            )
         results = [
             self._run_variant(
                 request=request,
                 variant=variant,
                 variant_index=index,
             )
-            for index, variant in enumerate(request.variants, start=1)
+            for index, variant in enumerate(variants, start=1)
         ]
         leaderboard = self._leaderboard(
             results,
@@ -51,6 +151,11 @@ class StrategyExperimentService:
             for warning in result.warnings
             if result.status == "failed"
         ]
+        generated_variants = (
+            self._jsonable([variant.model_dump() for variant in variants])
+            if generation_mode != "manual" and request.include_generated_variants
+            else []
+        )
         return StrategyExperimentCompareResponse(
             model_run_id=model_run.id,
             return_method=self._return_method(model_run),
@@ -64,10 +169,99 @@ class StrategyExperimentService:
             variant_count=len(results),
             successful_variant_count=sum(result.status == "completed" for result in results),
             failed_variant_count=sum(result.status == "failed" for result in results),
+            generation_mode=generation_mode,
+            preset=request.preset,
+            generated_variant_count=(len(variants) if generation_mode != "manual" else 0),
+            generated_variants=generated_variants,
+            sensitivity=self._sensitivity(
+                variants=variants,
+                results=results,
+                ranking_metric=request.ranking_metric,
+                ranking_direction=request.ranking_direction,
+            ),
+            best_variant=self._best_variant(leaderboard),
             leaderboard=leaderboard,
             results=results,
             warnings=warnings,
         )
+
+    def _resolve_variants(
+        self,
+        request: StrategyExperimentCompareRequest,
+    ) -> tuple[list[StrategyExperimentVariantRequest], str]:
+        if request.variants:
+            return request.variants, "manual"
+        if request.grid is not None:
+            return self._variants_from_grid(request.grid), "grid"
+
+        preset_grid = EXPERIMENT_PRESETS.get(str(request.preset))
+        if preset_grid is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid experiment preset",
+            )
+        if request.preset_overrides is not None:
+            preset_grid = self._apply_preset_overrides(
+                preset_grid,
+                request.preset_overrides,
+            )
+        return self._variants_from_grid(preset_grid), "preset"
+
+    @staticmethod
+    def _apply_preset_overrides(
+        preset_grid: StrategyExperimentGridRequest,
+        overrides: StrategyExperimentGridRequest,
+    ) -> StrategyExperimentGridRequest:
+        payload = preset_grid.model_dump()
+        for field_name in overrides.model_fields_set:
+            payload[field_name] = getattr(overrides, field_name)
+        return StrategyExperimentGridRequest(**payload)
+
+    def _variants_from_grid(
+        self,
+        grid: StrategyExperimentGridRequest,
+    ) -> list[StrategyExperimentVariantRequest]:
+        self._validate_grid(grid)
+        variants = []
+        for index, values in enumerate(
+            product(*(getattr(grid, field_name) for field_name in GRID_FIELDS)),
+            start=1,
+        ):
+            variant = StrategyExperimentVariantRequest(
+                name=self._generated_variant_name(index, values),
+                top_n=values[0],
+                min_probability_positive=values[1],
+                rebalance_frequency=values[2],
+                rebalance_gap_days=values[3],
+                use_portfolio_constraints=values[4],
+                max_position_weight=values[5],
+                max_issuer_weight=values[6],
+                max_high_risk_weight=values[7],
+                min_liquidity_score=values[8],
+                exclude_blocked_by_risk=values[9],
+                exclude_insufficient_credit_data=values[10],
+                allowed_risk_levels=values[11],
+                allowed_decision_statuses=values[12],
+            )
+            variants.append(variant)
+        return variants
+
+    @staticmethod
+    def _generated_variant_name(index: int, values: tuple[Any, ...]) -> str:
+        probability = StrategyExperimentService._compact_decimal(values[1])
+        position = StrategyExperimentService._compact_decimal(values[5])
+        issuer = StrategyExperimentService._compact_decimal(values[6])
+        high_risk = StrategyExperimentService._compact_decimal(values[7])
+        return (
+            f"grid_{index:03d}_top{values[0]}_prob{probability}_"
+            f"freq_{values[2]}_pos{position}_issuer{issuer}_hr{high_risk}"
+        )
+
+    @staticmethod
+    def _compact_decimal(value: Any) -> str:
+        decimal = Decimal(str(value))
+        digits = f"{decimal:.4f}".rstrip("0").rstrip(".")
+        return digits.replace(".", "")
 
     def _run_variant(
         self,
@@ -209,6 +403,91 @@ class StrategyExperimentService:
         ]
 
     @staticmethod
+    def _best_variant(
+        leaderboard: list[StrategyExperimentLeaderboardItem],
+    ) -> StrategyExperimentLeaderboardItem | None:
+        for item in leaderboard:
+            if item.status == "completed" and item.ranking_value is not None:
+                return item
+        return None
+
+    def _sensitivity(
+        self,
+        *,
+        variants: list[StrategyExperimentVariantRequest],
+        results: list[StrategyExperimentVariantResult],
+        ranking_metric: str,
+        ranking_direction: str,
+    ) -> list[StrategyExperimentSensitivityItem]:
+        items: list[StrategyExperimentSensitivityItem] = []
+        result_by_index = {result.variant_index: result for result in results}
+        for parameter in SENSITIVITY_PARAMETERS:
+            values = {
+                self._parameter_value(getattr(variant, parameter))
+                for variant in variants
+            }
+            if len(values) <= 1:
+                continue
+            for value in sorted(values):
+                grouped = []
+                for index, variant in enumerate(variants, start=1):
+                    if self._parameter_value(getattr(variant, parameter)) != value:
+                        continue
+                    result = result_by_index.get(index)
+                    if result is None or result.status != "completed":
+                        continue
+                    ranking_value = self._ranking_value(result, ranking_metric)
+                    if ranking_value is not None:
+                        grouped.append((result, ranking_value))
+                if not grouped:
+                    items.append(
+                        StrategyExperimentSensitivityItem(
+                            parameter=parameter,
+                            value=value,
+                            completed_count=0,
+                            average_ranking_value=None,
+                            best_ranking_value=None,
+                            best_variant_name=None,
+                        )
+                    )
+                    continue
+                best_result, best_value = self._best_group_value(
+                    grouped,
+                    ranking_direction=ranking_direction,
+                )
+                items.append(
+                    StrategyExperimentSensitivityItem(
+                        parameter=parameter,
+                        value=value,
+                        completed_count=len(grouped),
+                        average_ranking_value=(
+                            sum(value for _, value in grouped) / Decimal(len(grouped))
+                        ),
+                        best_ranking_value=best_value,
+                        best_variant_name=best_result.variant_name,
+                    )
+                )
+        return items
+
+    @staticmethod
+    def _parameter_value(value: Any) -> str:
+        if isinstance(value, Decimal):
+            return str(value.normalize())
+        if value is None:
+            return "none"
+        return str(value).lower()
+
+    @staticmethod
+    def _best_group_value(
+        grouped: list[tuple[StrategyExperimentVariantResult, Decimal]],
+        *,
+        ranking_direction: str,
+    ) -> tuple[StrategyExperimentVariantResult, Decimal]:
+        if ranking_direction == "asc":
+            return min(grouped, key=lambda item: (item[1], item[0].variant_index))
+        return max(grouped, key=lambda item: (item[1], -item[0].variant_index))
+
+    @staticmethod
     def _leaderboard_item(
         *,
         result: StrategyExperimentVariantResult,
@@ -278,10 +557,32 @@ class StrategyExperimentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="model_run_id is required",
             )
-        if not request.variants:
+        mode_count = sum(
+            [
+                bool(request.variants),
+                request.grid is not None,
+                request.preset is not None,
+            ]
+        )
+        if mode_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="variants must not be empty",
+                detail="Provide variants, grid, or preset",
+            )
+        if mode_count > 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Use only one of variants, grid, or preset",
+            )
+        if request.preset_overrides is not None and request.preset is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="preset_overrides requires preset",
+            )
+        if request.preset is not None and request.preset not in EXPERIMENT_PRESETS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid experiment preset",
             )
         if request.max_variants < 1 or request.max_variants > 100:
             raise HTTPException(
@@ -321,6 +622,14 @@ class StrategyExperimentService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="transaction_cost_rate must be between 0 and 0.1",
+            )
+
+    @staticmethod
+    def _validate_grid(grid: StrategyExperimentGridRequest) -> None:
+        if any(not getattr(grid, field_name) for field_name in GRID_FIELDS):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Grid value lists must not be empty",
             )
 
     def _load_model_run(self, model_run_id: int) -> MLModelRun:

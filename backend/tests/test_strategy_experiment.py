@@ -238,6 +238,8 @@ def test_compare_two_successful_variants(
     payload = response.json()
     assert payload["successful_variant_count"] == 2
     assert payload["failed_variant_count"] == 0
+    assert payload["generation_mode"] == "manual"
+    assert payload["generated_variant_count"] == 0
     assert [item["variant_name"] for item in payload["leaderboard"]] == [
         "top_one",
         "top_two",
@@ -360,7 +362,198 @@ def test_empty_variants_returns_400(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "variants must not be empty"
+    assert response.json()["detail"] == "Provide variants, grid, or preset"
+
+
+def test_grid_generates_cartesian_product(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            run,
+            variants=[],
+            grid={
+                "top_n_values": [1, 2],
+                "min_probability_positive_values": ["0.50", "0.80"],
+                "rebalance_frequency_values": ["label_dates", "monthly"],
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["generation_mode"] == "grid"
+    assert payload["generated_variant_count"] == 8
+    assert payload["variant_count"] == 8
+    assert len(payload["generated_variants"]) == 8
+
+
+def test_grid_respects_max_variants(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            run,
+            variants=[],
+            max_variants=3,
+            grid={
+                "top_n_values": [1, 2],
+                "min_probability_positive_values": ["0.50", "0.80"],
+            },
+        ),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "variants must not exceed max_variants"
+
+
+def test_preset_generates_variants(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            run,
+            variants=[],
+            preset="low_drawdown",
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["generation_mode"] == "preset"
+    assert payload["preset"] == "low_drawdown"
+    assert payload["generated_variant_count"] > 0
+
+
+def test_invalid_preset_returns_400(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(run, variants=[], preset="unknown"),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid experiment preset"
+
+
+def test_preset_overrides_replace_only_supplied_lists(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            run,
+            variants=[],
+            preset="balanced",
+            max_variants=100,
+            preset_overrides={"top_n_values": [5]},
+        ),
+    )
+
+    assert response.status_code == 200
+    generated = response.json()["generated_variants"]
+    assert {variant["top_n"] for variant in generated} == {5}
+    assert len({variant["min_probability_positive"] for variant in generated}) > 1
+
+
+def test_cannot_provide_variants_and_grid_together(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(run, grid={"top_n_values": [1]}),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Use only one of variants, grid, or preset"
+
+
+def test_include_generated_variants_false_hides_generated_variants(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            run,
+            variants=[],
+            include_generated_variants=False,
+            grid={"top_n_values": [1, 2]},
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["generated_variant_count"] == 2
+    assert payload["generated_variants"] == []
+
+
+def test_best_variant_is_first_completed_leaderboard_item(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(run),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["best_variant"]["rank"] == 1
+    assert payload["best_variant"]["variant_name"] == payload["leaderboard"][0]["variant_name"]
+
+
+def test_sensitivity_summary_is_returned_and_ignores_failed_variants(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = seed_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            run,
+            variants=[],
+            grid={
+                "top_n_values": [0, 1],
+                "min_probability_positive_values": ["0.50", "0.80"],
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["failed_variant_count"] > 0
+    parameters = {item["parameter"] for item in payload["sensitivity"]}
+    assert "top_n" in parameters
+    assert "min_probability_positive" in parameters
+    assert all(item["completed_count"] >= 0 for item in payload["sensitivity"])
 
 
 def test_too_many_variants_returns_400(

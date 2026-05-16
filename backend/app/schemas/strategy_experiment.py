@@ -37,13 +37,47 @@ class StrategyExperimentVariantRequest(BaseModel):
     allowed_decision_statuses: list[str] | None = None
 
 
+class StrategyExperimentGridRequest(BaseModel):
+    top_n_values: list[int] = Field(default_factory=lambda: [10])
+    min_probability_positive_values: list[Decimal] = Field(
+        default_factory=lambda: [Decimal("0.55")]
+    )
+    rebalance_frequency_values: list[str] = Field(default_factory=lambda: ["label_dates"])
+    rebalance_gap_days_values: list[int | None] = Field(default_factory=lambda: [None])
+    use_portfolio_constraints_values: list[bool] = Field(default_factory=lambda: [True])
+    max_position_weight_values: list[Decimal] = Field(
+        default_factory=lambda: [Decimal("0.20")]
+    )
+    max_issuer_weight_values: list[Decimal] = Field(
+        default_factory=lambda: [Decimal("0.30")]
+    )
+    max_high_risk_weight_values: list[Decimal] = Field(
+        default_factory=lambda: [Decimal("0.20")]
+    )
+    min_liquidity_score_values: list[int | None] = Field(default_factory=lambda: [None])
+    exclude_blocked_by_risk_values: list[bool] = Field(default_factory=lambda: [True])
+    exclude_insufficient_credit_data_values: list[bool] = Field(
+        default_factory=lambda: [False]
+    )
+    allowed_risk_levels_values: list[list[str] | None] = Field(
+        default_factory=lambda: [None]
+    )
+    allowed_decision_statuses_values: list[list[str] | None] = Field(
+        default_factory=lambda: [None]
+    )
+
+
 class StrategyExperimentCompareRequest(BaseModel):
     model_run_id: int
     date_from: date | None = None
     date_to: date | None = None
     initial_capital: Decimal = Decimal("50000")
     transaction_cost_rate: Decimal = Decimal("0.001")
-    variants: list[StrategyExperimentVariantRequest]
+    variants: list[StrategyExperimentVariantRequest] = Field(default_factory=list)
+    grid: StrategyExperimentGridRequest | None = None
+    preset: str | None = None
+    preset_overrides: StrategyExperimentGridRequest | None = None
+    include_generated_variants: bool = True
     ranking_metric: str = "total_return"
     ranking_direction: str = "desc"
     include_periods: bool = False
@@ -89,6 +123,15 @@ class StrategyExperimentVariantResult(BaseModel):
     error: str | None
 
 
+class StrategyExperimentSensitivityItem(BaseModel):
+    parameter: str
+    value: str
+    completed_count: int
+    average_ranking_value: Decimal | None
+    best_ranking_value: Decimal | None
+    best_variant_name: str | None
+
+
 class StrategyExperimentCompareResponse(BaseModel):
     model_run_id: int
     return_method: str
@@ -102,6 +145,12 @@ class StrategyExperimentCompareResponse(BaseModel):
     variant_count: int
     successful_variant_count: int
     failed_variant_count: int
+    generation_mode: str
+    preset: str | None
+    generated_variant_count: int
+    generated_variants: list[dict[str, Any]]
+    sensitivity: list[StrategyExperimentSensitivityItem]
+    best_variant: StrategyExperimentLeaderboardItem | None
     leaderboard: list[StrategyExperimentLeaderboardItem]
     results: list[StrategyExperimentVariantResult]
     warnings: list[StrategyExperimentWarning]
