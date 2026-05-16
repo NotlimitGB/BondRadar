@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     paper_trading,
     scores,
     strategy_backtest,
+    strategy_experiment,
 )
 
 
@@ -62,6 +63,11 @@ api_router.include_router(
     strategy_backtest.router,
     prefix="/strategy/backtests",
     tags=["strategy-backtests"],
+)
+api_router.include_router(
+    strategy_experiment.router,
+    prefix="/strategy/experiments",
+    tags=["strategy-experiments"],
 )
 api_router.include_router(
     portfolio_construction.router,
