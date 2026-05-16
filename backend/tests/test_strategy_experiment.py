@@ -52,11 +52,17 @@ def create_bond(db: Session, company: Company, index: int) -> Bond:
     return bond
 
 
-def create_run(db: Session, *, status: str = "completed") -> MLModelRun:
+def create_run(
+    db: Session,
+    *,
+    status: str = "completed",
+    return_method: str = "risk_adjusted",
+    horizon_days: int = 30,
+) -> MLModelRun:
     run = MLModelRun(
         status=status,
         model_type="logistic_regression",
-        horizon_days=30,
+        horizon_days=horizon_days,
         features=["bond_score", "company_score", "liquidity_score"],
         target="label_binary",
         train_rows=40,
@@ -65,7 +71,7 @@ def create_run(db: Session, *, status: str = "completed") -> MLModelRun:
         negative_rows=25,
         metrics={},
         feature_importance=[],
-        params={"return_method": "risk_adjusted"},
+        params={"return_method": return_method},
         finished_at=dt(2026, 1, 1),
     )
     db.add(run)
@@ -191,6 +197,49 @@ def seed_experiment_dataset(db: Session) -> MLModelRun:
     return run
 
 
+def seed_multi_run_experiment_dataset(db: Session) -> tuple[MLModelRun, MLModelRun]:
+    first_run = create_run(db)
+    second_run = create_run(db)
+    company = create_company(db, "WFE")
+    bonds = [create_bond(db, company, index) for index in range(11, 13)]
+    for bond in bonds:
+        add_risk(db, bond=bond, as_of_date=date(2024, 12, 31))
+
+    add_prediction_and_label(
+        db,
+        run=first_run,
+        bond=bonds[0],
+        as_of_date=date(2025, 1, 1),
+        probability=Decimal("0.95"),
+        future_return=Decimal("0.100000"),
+    )
+    add_prediction_and_label(
+        db,
+        run=first_run,
+        bond=bonds[1],
+        as_of_date=date(2025, 1, 1),
+        probability=Decimal("0.70"),
+        future_return=Decimal("-0.080000"),
+    )
+    add_prediction_and_label(
+        db,
+        run=second_run,
+        bond=bonds[0],
+        as_of_date=date(2025, 2, 1),
+        probability=Decimal("0.90"),
+        future_return=Decimal("0.080000"),
+    )
+    add_prediction_and_label(
+        db,
+        run=second_run,
+        bond=bonds[1],
+        as_of_date=date(2025, 2, 1),
+        probability=Decimal("0.65"),
+        future_return=Decimal("-0.040000"),
+    )
+    return first_run, second_run
+
+
 def compare_payload(run: MLModelRun, **overrides) -> dict:
     payload = {
         "model_run_id": run.id,
@@ -238,6 +287,10 @@ def test_compare_two_successful_variants(
     payload = response.json()
     assert payload["successful_variant_count"] == 2
     assert payload["failed_variant_count"] == 0
+    assert payload["model_run_id"] == run.id
+    assert payload["model_run_ids"] == [run.id]
+    assert payload["model_run_count"] == 1
+    assert payload["prediction_source_mode"] == "single_model_run"
     assert payload["generation_mode"] == "manual"
     assert payload["generated_variant_count"] == 0
     assert [item["variant_name"] for item in payload["leaderboard"]] == [
@@ -348,6 +401,90 @@ def test_include_baselines_flag(
     assert hidden.status_code == 200
     assert included.json()["results"][0]["baseline_summaries"]
     assert hidden.json()["results"][0]["baseline_summaries"] == []
+
+
+def test_multi_run_manual_experiment_works(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run = seed_multi_run_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["model_run_id"] is None
+    assert payload["model_run_ids"] == [first_run.id, second_run.id]
+    assert payload["model_run_count"] == 2
+    assert payload["prediction_source_mode"] == "multiple_model_runs"
+    assert payload["successful_variant_count"] == 2
+    assert all(result["status"] == "completed" for result in payload["results"])
+    assert payload["results"][0]["request"]["model_run_ids"] == [
+        first_run.id,
+        second_run.id,
+    ]
+
+
+def test_multi_run_grid_experiment_works(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run = seed_multi_run_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+            variants=[],
+            include_baselines=False,
+            grid={
+                "top_n_values": [1, 2],
+                "min_probability_positive_values": ["0.50", "0.80"],
+            },
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["generation_mode"] == "grid"
+    assert payload["generated_variant_count"] == 4
+    assert payload["leaderboard"]
+    assert payload["model_run_ids"] == [first_run.id, second_run.id]
+
+
+def test_multi_run_preset_experiment_works(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run = seed_multi_run_experiment_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            first_run,
+            model_run_id=None,
+            model_run_ids=[first_run.id, second_run.id],
+            variants=[],
+            preset="balanced",
+            max_variants=100,
+            preset_overrides={"top_n_values": [1]},
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["generation_mode"] == "preset"
+    assert payload["generated_variant_count"] > 0
+    assert payload["model_run_count"] == 2
 
 
 def test_empty_variants_returns_400(
@@ -612,6 +749,102 @@ def test_missing_and_non_completed_model_errors(
     assert missing.json()["detail"] == "ML model run not found"
     assert non_completed.status_code == 400
     assert non_completed.json()["detail"] == "ML model run is not completed"
+
+
+def test_multi_run_requires_compatible_horizon_and_return_method(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    base_run = create_run(db_session)
+    different_method = create_run(db_session, return_method="price")
+    different_horizon = create_run(db_session, horizon_days=60)
+
+    method_response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            base_run,
+            model_run_id=None,
+            model_run_ids=[base_run.id, different_method.id],
+        ),
+    )
+    horizon_response = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            base_run,
+            model_run_id=None,
+            model_run_ids=[base_run.id, different_horizon.id],
+        ),
+    )
+
+    assert method_response.status_code == 400
+    assert method_response.json()["detail"] == (
+        "Model runs must use the same horizon and return method"
+    )
+    assert horizon_response.status_code == 400
+    assert horizon_response.json()["detail"] == (
+        "Model runs must use the same horizon and return method"
+    )
+
+
+def test_multi_run_missing_and_non_completed_model_errors(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    completed = create_run(db_session)
+    running = create_run(db_session, status="running")
+
+    missing = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            completed,
+            model_run_id=None,
+            model_run_ids=[completed.id, 999999],
+        ),
+    )
+    non_completed = client.post(
+        "/api/strategy/experiments/compare",
+        json=compare_payload(
+            completed,
+            model_run_id=None,
+            model_run_ids=[completed.id, running.id],
+        ),
+    )
+
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "ML model run not found"
+    assert non_completed.status_code == 400
+    assert non_completed.json()["detail"] == "ML model run is not completed"
+
+
+def test_model_run_selector_validation_errors(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = create_run(db_session)
+    cases = [
+        ({"variants": [{"name": "v1"}]}, "Provide model_run_id or model_run_ids"),
+        (
+            compare_payload(run, model_run_ids=[run.id]),
+            "Use only one of model_run_id or model_run_ids",
+        ),
+        (
+            compare_payload(run, model_run_id=None, model_run_ids=[]),
+            "model_run_ids must not be empty",
+        ),
+        (
+            compare_payload(run, model_run_id=None, model_run_ids=[run.id, run.id]),
+            "model_run_ids must not contain duplicates",
+        ),
+        (
+            compare_payload(run, model_run_id=None, model_run_ids=list(range(1, 202))),
+            "model_run_ids must not exceed 200",
+        ),
+    ]
+
+    for payload, detail in cases:
+        response = client.post("/api/strategy/experiments/compare", json=payload)
+        assert response.status_code == 400
+        assert response.json()["detail"] == detail
 
 
 def test_strategy_experiment_payload_has_no_recommendation_vocabulary(

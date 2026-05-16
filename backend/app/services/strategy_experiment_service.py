@@ -125,7 +125,10 @@ class StrategyExperimentService:
         request: StrategyExperimentCompareRequest,
     ) -> StrategyExperimentCompareResponse:
         self._validate_request(request)
-        model_run = self._load_model_run(request.model_run_id)
+        model_runs = self._load_completed_model_runs(request)
+        model_run_ids = [model_run.id for model_run in model_runs]
+        return_method = self._return_method(model_runs[0])
+        horizon_days = model_runs[0].horizon_days
         variants, generation_mode = self._resolve_variants(request)
         if len(variants) > request.max_variants:
             raise HTTPException(
@@ -157,9 +160,16 @@ class StrategyExperimentService:
             else []
         )
         return StrategyExperimentCompareResponse(
-            model_run_id=model_run.id,
-            return_method=self._return_method(model_run),
-            horizon_days=model_run.horizon_days,
+            model_run_id=model_run_ids[0] if len(model_run_ids) == 1 else None,
+            model_run_ids=model_run_ids,
+            model_run_count=len(model_run_ids),
+            prediction_source_mode=(
+                "single_model_run"
+                if len(model_run_ids) == 1
+                else "multiple_model_runs"
+            ),
+            return_method=return_method,
+            horizon_days=horizon_days,
             date_from=request.date_from,
             date_to=request.date_to,
             initial_capital=request.initial_capital,
@@ -353,6 +363,7 @@ class StrategyExperimentService:
     ) -> StrategyBacktestRequest:
         return StrategyBacktestRequest(
             model_run_id=request.model_run_id,
+            model_run_ids=request.model_run_ids,
             date_from=request.date_from,
             date_to=request.date_to,
             initial_capital=request.initial_capital,
@@ -552,11 +563,32 @@ class StrategyExperimentService:
         return StrategyExperimentService._jsonable(summaries)
 
     def _validate_request(self, request: StrategyExperimentCompareRequest) -> None:
-        if request.model_run_id is None:
+        if request.model_run_id is None and request.model_run_ids is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="model_run_id is required",
+                detail="Provide model_run_id or model_run_ids",
             )
+        if request.model_run_id is not None and request.model_run_ids is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Use only one of model_run_id or model_run_ids",
+            )
+        if request.model_run_ids is not None:
+            if not request.model_run_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not be empty",
+                )
+            if len(set(request.model_run_ids)) != len(request.model_run_ids):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not contain duplicates",
+                )
+            if len(request.model_run_ids) > 200:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not exceed 200",
+                )
         mode_count = sum(
             [
                 bool(request.variants),
@@ -632,6 +664,19 @@ class StrategyExperimentService:
                 detail="Grid value lists must not be empty",
             )
 
+    def _load_completed_model_runs(
+        self,
+        request: StrategyExperimentCompareRequest,
+    ) -> list[MLModelRun]:
+        model_run_ids = (
+            [request.model_run_id]
+            if request.model_run_id is not None
+            else list(request.model_run_ids or [])
+        )
+        model_runs = [self._load_model_run(model_run_id) for model_run_id in model_run_ids]
+        self._validate_model_run_compatibility(model_runs)
+        return model_runs
+
     def _load_model_run(self, model_run_id: int) -> MLModelRun:
         model_run = self.db.get(MLModelRun, model_run_id)
         if model_run is None:
@@ -645,6 +690,24 @@ class StrategyExperimentService:
                 detail="ML model run is not completed",
             )
         return model_run
+
+    def _validate_model_run_compatibility(
+        self,
+        model_runs: list[MLModelRun],
+    ) -> None:
+        if not model_runs:
+            return
+        horizon_days = model_runs[0].horizon_days
+        return_method = self._return_method(model_runs[0])
+        if any(
+            model_run.horizon_days != horizon_days
+            or self._return_method(model_run) != return_method
+            for model_run in model_runs[1:]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Model runs must use the same horizon and return method",
+            )
 
     @staticmethod
     def _return_method(model_run: MLModelRun) -> str:

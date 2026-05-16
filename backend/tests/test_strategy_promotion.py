@@ -503,6 +503,31 @@ def test_promotion_missing_and_non_completed_model_errors(
     assert non_completed.json()["detail"] == "ML model run is not completed"
 
 
+def test_multi_run_experiment_promotion_is_rejected(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, _ = seed_promotion_dataset(db_session)
+    second_run = create_run(db_session)
+
+    response = client.post(
+        "/api/strategy/promotions/best-experiment-to-paper-scenario",
+        json=promotion_payload(
+            first_run,
+            experiment=experiment_payload(
+                first_run,
+                model_run_id=None,
+                model_run_ids=[first_run.id, second_run.id],
+            ),
+        ),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Multi-run experiment promotion to paper scenario is not supported yet"
+    )
+
+
 def test_promotion_payload_has_no_recommendation_vocabulary(
     client: TestClient,
     db_session: Session,

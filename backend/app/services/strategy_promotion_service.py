@@ -137,6 +137,14 @@ class StrategyPromotionService:
         )
 
     def _validate_request(self, request: StrategyPromotionRequest) -> None:
+        if request.experiment.model_run_ids is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Multi-run experiment promotion to paper scenario is not "
+                    "supported yet"
+                ),
+            )
         if (
             request.paper_initial_capital is not None
             and request.paper_initial_capital <= 0
