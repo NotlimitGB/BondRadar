@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     ml,
     ml_evaluation,
     portfolio_construction,
+    paper_trading,
     scores,
     strategy_backtest,
 )
@@ -66,4 +67,9 @@ api_router.include_router(
     portfolio_construction.router,
     prefix="/strategy/portfolio",
     tags=["strategy-portfolio"],
+)
+api_router.include_router(
+    paper_trading.router,
+    prefix="/paper-trading",
+    tags=["paper-trading"],
 )
