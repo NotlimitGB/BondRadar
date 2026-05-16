@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     market_data,
     ml,
     ml_evaluation,
+    ml_walk_forward,
     portfolio_construction,
     paper_trading,
     scores,
@@ -51,6 +52,11 @@ api_router.include_router(imports.router, prefix="/import", tags=["import"])
 api_router.include_router(datasets.router, tags=["datasets"])
 api_router.include_router(market_data.router, tags=["market-data"])
 api_router.include_router(ml.router, prefix="/ml", tags=["ml"])
+api_router.include_router(
+    ml_walk_forward.router,
+    prefix="/ml/walk-forward",
+    tags=["ml-walk-forward"],
+)
 api_router.include_router(
     ml_evaluation.router,
     prefix="/ml/evaluation",
