@@ -20,11 +20,24 @@ from app.schemas.paper_trading_report import (
     PaperTradingEquityPoint,
     PaperTradingPerformanceResponse,
 )
+from app.schemas.paper_trading_scenario import (
+    PaperTradingScenarioRunRequest,
+    PaperTradingScenarioRunResponse,
+)
 from app.services.paper_trading_report_service import PaperTradingReportService
+from app.services.paper_trading_scenario_service import PaperTradingScenarioService
 from app.services.paper_trading_service import PaperTradingService
 
 
 router = APIRouter()
+
+
+@router.post("/scenarios/run", response_model=PaperTradingScenarioRunResponse)
+def run_paper_trading_scenario(
+    request: PaperTradingScenarioRunRequest,
+    db: Session = Depends(get_db),
+) -> PaperTradingScenarioRunResponse:
+    return PaperTradingScenarioService(db).run(request)
 
 
 @router.post("/portfolios", response_model=PaperPortfolioRead)
