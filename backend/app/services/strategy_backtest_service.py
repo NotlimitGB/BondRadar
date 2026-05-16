@@ -104,23 +104,30 @@ class StrategyBacktestService:
 
     def run(self, request: StrategyBacktestRequest) -> StrategyBacktestResponse:
         self._validate_request(request)
-        model_run = self._load_model_run(request.model_run_id)
-        return_method = self._return_method(model_run)
-        prediction_dates = self._prediction_dates(model_run, request)
+        model_runs = self._load_completed_model_runs(request)
+        model_run_ids = [model_run.id for model_run in model_runs]
+        return_method = self._compatible_return_method(model_runs)
+        horizon_days = model_runs[0].horizon_days
+        prediction_dates = self._prediction_dates(model_run_ids, request)
         rebalance_dates = self._rebalance_dates(
             prediction_dates,
             frequency=request.rebalance_frequency,
-            horizon_days=model_run.horizon_days,
+            horizon_days=horizon_days,
             rebalance_gap_days=request.rebalance_gap_days,
         )
-        candidates_by_date = {
-            as_of_date: self._candidate_rows_for_date(
-                model_run,
+        candidates_by_date: dict[date, list[BacktestCandidate]] = {}
+        duplicate_predictions_resolved = False
+        for as_of_date in rebalance_dates:
+            candidates, duplicates_resolved = self._candidate_rows_for_date(
+                model_run_ids,
+                horizon_days,
                 return_method,
                 as_of_date,
             )
-            for as_of_date in rebalance_dates
-        }
+            candidates_by_date[as_of_date] = candidates
+            duplicate_predictions_resolved = (
+                duplicate_predictions_resolved or duplicates_resolved
+            )
 
         model_result = self._simulate(
             request=request,
@@ -137,6 +144,12 @@ class StrategyBacktestService:
             limit_to_top_n=request.use_portfolio_constraints,
         )
         warnings = list(model_result.warnings)
+        if duplicate_predictions_resolved:
+            warnings.append(
+                StrategyBacktestWarning(
+                    message="Duplicate walk-forward predictions were resolved by model_run_ids order"
+                )
+            )
         if not any(candidate.is_evaluable for rows in candidates_by_date.values() for candidate in rows):
             warnings.append(
                 StrategyBacktestWarning(
@@ -153,9 +166,16 @@ class StrategyBacktestService:
             )
 
         return StrategyBacktestResponse(
-            model_run_id=model_run.id,
+            model_run_id=model_run_ids[0] if len(model_run_ids) == 1 else None,
+            model_run_ids=model_run_ids,
+            model_run_count=len(model_run_ids),
+            prediction_source_mode=(
+                "single_model_run"
+                if len(model_run_ids) == 1
+                else "multiple_model_runs"
+            ),
             return_method=return_method,
-            horizon_days=model_run.horizon_days,
+            horizon_days=horizon_days,
             date_from=request.date_from,
             date_to=request.date_to,
             initial_capital=request.initial_capital,
@@ -167,6 +187,32 @@ class StrategyBacktestService:
         )
 
     def _validate_request(self, request: StrategyBacktestRequest) -> None:
+        if request.model_run_id is None and request.model_run_ids is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Provide model_run_id or model_run_ids",
+            )
+        if request.model_run_id is not None and request.model_run_ids is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Use only one of model_run_id or model_run_ids",
+            )
+        if request.model_run_ids is not None:
+            if not request.model_run_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not be empty",
+                )
+            if len(set(request.model_run_ids)) != len(request.model_run_ids):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not contain duplicates",
+                )
+            if len(request.model_run_ids) > 200:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="model_run_ids must not exceed 200",
+                )
         if (
             request.date_from is not None
             and request.date_to is not None
@@ -243,6 +289,19 @@ class StrategyBacktestService:
                 detail="rebalance_gap_days must be positive",
             )
 
+    def _load_completed_model_runs(
+        self,
+        request: StrategyBacktestRequest,
+    ) -> list[MLModelRun]:
+        model_run_ids = (
+            [request.model_run_id]
+            if request.model_run_id is not None
+            else list(request.model_run_ids or [])
+        )
+        model_runs = [self._load_model_run(model_run_id) for model_run_id in model_run_ids]
+        self._validate_model_run_compatibility(model_runs)
+        return model_runs
+
     def _load_model_run(self, model_run_id: int) -> MLModelRun:
         model_run = self.db.get(MLModelRun, model_run_id)
         if model_run is None:
@@ -257,12 +316,33 @@ class StrategyBacktestService:
             )
         return model_run
 
+    def _validate_model_run_compatibility(
+        self,
+        model_runs: list[MLModelRun],
+    ) -> None:
+        if not model_runs:
+            return
+        horizon_days = model_runs[0].horizon_days
+        return_method = self._return_method(model_runs[0])
+        if any(
+            model_run.horizon_days != horizon_days
+            or self._return_method(model_run) != return_method
+            for model_run in model_runs[1:]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Model runs must use the same horizon and return method",
+            )
+
+    def _compatible_return_method(self, model_runs: list[MLModelRun]) -> str:
+        return self._return_method(model_runs[0])
+
     def _prediction_dates(
         self,
-        model_run: MLModelRun,
+        model_run_ids: list[int],
         request: StrategyBacktestRequest,
     ) -> list[date]:
-        conditions = [MLPrediction.model_run_id == model_run.id]
+        conditions = [MLPrediction.model_run_id.in_(set(model_run_ids))]
         if request.date_from is not None:
             conditions.append(MLPrediction.as_of_date >= request.date_from)
         if request.date_to is not None:
@@ -285,10 +365,11 @@ class StrategyBacktestService:
 
     def _candidate_rows_for_date(
         self,
-        model_run: MLModelRun,
+        model_run_ids: list[int],
+        horizon_days: int,
         return_method: str,
         as_of_date: date,
-    ) -> list[BacktestCandidate]:
+    ) -> tuple[list[BacktestCandidate], bool]:
         rows = self.db.execute(
             select(
                 MLPrediction,
@@ -308,16 +389,20 @@ class StrategyBacktestService:
                 and_(
                     BondReturnLabel.bond_id == MLPrediction.bond_id,
                     BondReturnLabel.as_of_date == MLPrediction.as_of_date,
-                    BondReturnLabel.horizon_days == model_run.horizon_days,
+                    BondReturnLabel.horizon_days == horizon_days,
                     BondReturnLabel.return_method == return_method,
                 ),
             )
             .where(
-                MLPrediction.model_run_id == model_run.id,
+                MLPrediction.model_run_id.in_(set(model_run_ids)),
                 MLPrediction.as_of_date == as_of_date,
             )
-            .order_by(MLPrediction.id.asc())
+            .order_by(MLPrediction.model_run_id.asc(), MLPrediction.id.asc())
         ).all()
+        rows, duplicates_resolved = self._resolve_duplicate_prediction_rows(
+            rows,
+            model_run_ids,
+        )
         bond_ids = [prediction.bond_id for prediction, *_ in rows]
         risk_by_bond = self._latest_risk_by_bond(as_of_date, bond_ids)
 
@@ -377,7 +462,37 @@ class StrategyBacktestService:
                     is_evaluable=is_evaluable,
                 )
             )
-        return candidates
+        return candidates, duplicates_resolved
+
+    @staticmethod
+    def _resolve_duplicate_prediction_rows(
+        rows: list[tuple[Any, ...]],
+        model_run_ids: list[int],
+    ) -> tuple[list[tuple[Any, ...]], bool]:
+        if len(model_run_ids) <= 1:
+            return rows, False
+        model_run_order = {
+            model_run_id: index for index, model_run_id in enumerate(model_run_ids)
+        }
+        row_by_key: dict[tuple[int, date], tuple[Any, ...]] = {}
+        duplicates_resolved = False
+        for row in rows:
+            prediction = row[0]
+            key = (prediction.bond_id, prediction.as_of_date)
+            existing = row_by_key.get(key)
+            if existing is not None:
+                duplicates_resolved = True
+                existing_prediction = existing[0]
+                if (
+                    model_run_order[prediction.model_run_id]
+                    < model_run_order[existing_prediction.model_run_id]
+                ):
+                    continue
+            row_by_key[key] = row
+        return (
+            sorted(row_by_key.values(), key=lambda row: row[0].id),
+            duplicates_resolved,
+        )
 
     def _latest_risk_by_bond(
         self,

@@ -11,7 +11,8 @@ BACKTEST_REBALANCE_FREQUENCIES = {"label_dates", "monthly", "weekly"}
 
 
 class StrategyBacktestRequest(BaseModel):
-    model_run_id: int
+    model_run_id: int | None = None
+    model_run_ids: list[int] | None = None
     date_from: date | None = None
     date_to: date | None = None
     initial_capital: Decimal = Decimal("50000")
@@ -129,7 +130,10 @@ class StrategyBacktestBaselineResult(BaseModel):
 
 
 class StrategyBacktestResponse(BaseModel):
-    model_run_id: int
+    model_run_id: int | None
+    model_run_ids: list[int]
+    model_run_count: int
+    prediction_source_mode: str
     return_method: str
     horizon_days: int
     date_from: date | None

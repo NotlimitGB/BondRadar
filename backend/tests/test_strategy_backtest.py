@@ -57,11 +57,12 @@ def create_run(
     *,
     return_method: str = "risk_adjusted",
     status: str = "completed",
+    horizon_days: int = 30,
 ) -> MLModelRun:
     run = MLModelRun(
         status=status,
         model_type="logistic_regression",
-        horizon_days=30,
+        horizon_days=horizon_days,
         features=["bond_score", "company_score", "liquidity_score"],
         target="label_binary",
         train_rows=40,
@@ -176,6 +177,40 @@ def add_prediction_and_label(
             ),
             label="positive_return" if future_return > 0 else "negative_return",
             label_binary=1 if future_return > 0 else 0,
+        )
+    )
+    db.commit()
+
+
+def add_prediction_for_existing_feature(
+    db: Session,
+    *,
+    run: MLModelRun,
+    bond: Bond,
+    as_of_date: date,
+    probability: Decimal,
+) -> None:
+    feature = (
+        db.query(BondFeatureSnapshot)
+        .filter_by(bond_id=bond.id, as_of_date=as_of_date)
+        .one()
+    )
+    db.add(
+        MLPrediction(
+            model_run_id=run.id,
+            feature_snapshot_id=feature.id,
+            bond_id=bond.id,
+            company_id=bond.company_id,
+            as_of_date=as_of_date,
+            horizon_days=run.horizon_days,
+            probability_positive=probability,
+            predicted_label=(
+                "predicted_positive_return"
+                if probability >= Decimal("0.50")
+                else "predicted_negative_return"
+            ),
+            features={"probability": str(probability)},
+            created_at=dt(2026, 1, 3),
         )
     )
     db.commit()
@@ -764,6 +799,209 @@ def test_baselines_are_returned(
         "top_yield_to_maturity",
         "top_liquidity",
     }
+
+
+def test_multi_run_backtest_uses_predictions_from_all_completed_runs(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, "WFM")
+    bond_a = create_bond(db_session, company, 201)
+    bond_b = create_bond(db_session, company, 202)
+    first_run = create_run(db_session)
+    second_run = create_run(db_session)
+    add_risk(db_session, bond=bond_a, as_of_date=date(2024, 12, 31))
+    add_risk(db_session, bond=bond_b, as_of_date=date(2024, 12, 31))
+    add_prediction_and_label(
+        db_session,
+        run=first_run,
+        bond=bond_a,
+        as_of_date=date(2025, 1, 1),
+        probability=Decimal("0.80"),
+        future_return=Decimal("0.020000"),
+        liquidity_score=85,
+        yield_to_maturity=Decimal("10.000"),
+    )
+    add_prediction_and_label(
+        db_session,
+        run=second_run,
+        bond=bond_b,
+        as_of_date=date(2025, 2, 1),
+        probability=Decimal("0.90"),
+        future_return=Decimal("0.030000"),
+        liquidity_score=90,
+        yield_to_maturity=Decimal("11.000"),
+    )
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_ids": [first_run.id, second_run.id],
+            "initial_capital": "1000",
+            "top_n": 1,
+            "transaction_cost_rate": "0",
+            "include_baselines": False,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["model_run_id"] is None
+    assert payload["model_run_ids"] == [first_run.id, second_run.id]
+    assert payload["model_run_count"] == 2
+    assert payload["prediction_source_mode"] == "multiple_model_runs"
+    assert payload["metrics"]["period_count"] == 2
+    assert [period["as_of_date"] for period in payload["periods"]] == [
+        "2025-01-01",
+        "2025-02-01",
+    ]
+
+
+def test_single_run_response_includes_prediction_source_metadata(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_backtest_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={"model_run_id": run.id, "include_baselines": False},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["model_run_id"] == run.id
+    assert payload["model_run_ids"] == [run.id]
+    assert payload["model_run_count"] == 1
+    assert payload["prediction_source_mode"] == "single_model_run"
+
+
+def test_multi_run_requires_same_horizon_and_return_method(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    base_run = create_run(db_session)
+    different_method = create_run(db_session, return_method="price")
+    different_horizon = create_run(db_session, horizon_days=60)
+
+    method_response = client.post(
+        "/api/strategy/backtests/run",
+        json={"model_run_ids": [base_run.id, different_method.id]},
+    )
+    horizon_response = client.post(
+        "/api/strategy/backtests/run",
+        json={"model_run_ids": [base_run.id, different_horizon.id]},
+    )
+
+    assert method_response.status_code == 400
+    assert method_response.json()["detail"] == (
+        "Model runs must use the same horizon and return method"
+    )
+    assert horizon_response.status_code == 400
+    assert horizon_response.json()["detail"] == (
+        "Model runs must use the same horizon and return method"
+    )
+
+
+def test_missing_and_non_completed_model_run_errors_in_multi_run_mode(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    completed = create_run(db_session)
+    running = create_run(db_session, status="running")
+
+    missing = client.post(
+        "/api/strategy/backtests/run",
+        json={"model_run_ids": [completed.id, 999999]},
+    )
+    non_completed = client.post(
+        "/api/strategy/backtests/run",
+        json={"model_run_ids": [completed.id, running.id]},
+    )
+
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "ML model run not found"
+    assert non_completed.status_code == 400
+    assert non_completed.json()["detail"] == "ML model run is not completed"
+
+
+def test_duplicate_multi_run_predictions_resolve_by_request_order(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, "DUP")
+    bond = create_bond(db_session, company, 301)
+    first_run = create_run(db_session)
+    second_run = create_run(db_session)
+    add_risk(db_session, bond=bond, as_of_date=date(2024, 12, 31))
+    add_prediction_and_label(
+        db_session,
+        run=first_run,
+        bond=bond,
+        as_of_date=date(2025, 1, 1),
+        probability=Decimal("0.55"),
+        future_return=Decimal("0.020000"),
+        liquidity_score=90,
+        yield_to_maturity=Decimal("10.000"),
+    )
+    add_prediction_for_existing_feature(
+        db_session,
+        run=second_run,
+        bond=bond,
+        as_of_date=date(2025, 1, 1),
+        probability=Decimal("0.95"),
+    )
+
+    response = client.post(
+        "/api/strategy/backtests/run",
+        json={
+            "model_run_ids": [first_run.id, second_run.id],
+            "top_n": 1,
+            "transaction_cost_rate": "0",
+            "include_baselines": False,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    period = payload["periods"][0]
+    assert period["selected_candidates_count"] == 1
+    assert Decimal(str(period["selected_candidates"][0]["probability_positive"])) == (
+        Decimal("0.9500000000")
+    )
+    assert any(
+        warning["message"]
+        == "Duplicate walk-forward predictions were resolved by model_run_ids order"
+        for warning in payload["warnings"]
+    )
+
+
+def test_model_run_selector_validation_errors(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run = create_run(db_session)
+    cases = [
+        ({}, "Provide model_run_id or model_run_ids"),
+        (
+            {"model_run_id": run.id, "model_run_ids": [run.id]},
+            "Use only one of model_run_id or model_run_ids",
+        ),
+        ({"model_run_ids": []}, "model_run_ids must not be empty"),
+        (
+            {"model_run_ids": [run.id, run.id]},
+            "model_run_ids must not contain duplicates",
+        ),
+        (
+            {"model_run_ids": list(range(1, 202))},
+            "model_run_ids must not exceed 200",
+        ),
+    ]
+
+    for payload, detail in cases:
+        response = client.post("/api/strategy/backtests/run", json=payload)
+        assert response.status_code == 400
+        assert response.json()["detail"] == detail
 
 
 def test_missing_and_non_completed_model_run_errors(
