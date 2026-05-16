@@ -47,7 +47,10 @@ class StrategyPromotionRequest(BaseModel):
 
 
 class StrategyPromotionResponse(BaseModel):
-    model_run_id: int
+    model_run_id: int | None
+    model_run_ids: list[int]
+    model_run_count: int
+    prediction_source_mode: str
     return_method: str
     horizon_days: int
     selected_variant: StrategyPromotionSelectedVariant | None

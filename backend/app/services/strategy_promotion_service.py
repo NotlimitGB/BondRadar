@@ -66,6 +66,9 @@ class StrategyPromotionService:
             )
             return StrategyPromotionResponse(
                 model_run_id=experiment.model_run_id,
+                model_run_ids=experiment.model_run_ids,
+                model_run_count=experiment.model_run_count,
+                prediction_source_mode=experiment.prediction_source_mode,
                 return_method=experiment.return_method,
                 horizon_days=experiment.horizon_days,
                 selected_variant=None,
@@ -100,6 +103,13 @@ class StrategyPromotionService:
                 )
             )
 
+        if experiment.prediction_source_mode == "multiple_model_runs":
+            warnings.append(
+                StrategyPromotionWarning(
+                    message="Multi-run experiment was promoted to a multi-run paper scenario"
+                )
+            )
+
         scenario_request = self._scenario_request(
             request=request,
             experiment=experiment,
@@ -128,6 +138,9 @@ class StrategyPromotionService:
 
         return StrategyPromotionResponse(
             model_run_id=experiment.model_run_id,
+            model_run_ids=experiment.model_run_ids,
+            model_run_count=experiment.model_run_count,
+            prediction_source_mode=experiment.prediction_source_mode,
             return_method=experiment.return_method,
             horizon_days=experiment.horizon_days,
             selected_variant=selected_variant,
@@ -137,14 +150,6 @@ class StrategyPromotionService:
         )
 
     def _validate_request(self, request: StrategyPromotionRequest) -> None:
-        if request.experiment.model_run_ids is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Multi-run experiment promotion to paper scenario is not "
-                    "supported yet"
-                ),
-            )
         if (
             request.paper_initial_capital is not None
             and request.paper_initial_capital <= 0
@@ -218,7 +223,16 @@ class StrategyPromotionService:
             description=request.paper_portfolio_description,
             initial_capital=initial_capital,
             base_currency=request.paper_base_currency,
-            model_run_id=experiment.model_run_id,
+            model_run_id=(
+                experiment.model_run_id
+                if experiment.prediction_source_mode == "single_model_run"
+                else None
+            ),
+            model_run_ids=(
+                experiment.model_run_ids
+                if experiment.prediction_source_mode == "multiple_model_runs"
+                else None
+            ),
             date_from=request.scenario_date_from or experiment.date_from,
             date_to=request.scenario_date_to or experiment.date_to,
             rebalance_frequency=selected_request.get("rebalance_frequency", "label_dates"),

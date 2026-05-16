@@ -27,6 +27,7 @@ def create_run(
     *,
     status: str = "completed",
     horizon_days: int = 30,
+    return_method: str = "risk_adjusted",
 ) -> MLModelRun:
     run = MLModelRun(
         status=status,
@@ -40,7 +41,7 @@ def create_run(
         negative_rows=30,
         metrics={},
         feature_importance=[],
-        params={"return_method": "risk_adjusted"},
+        params={"return_method": return_method},
         finished_at=dt(2026, 1, 1),
     )
     db.add(run)
@@ -160,12 +161,13 @@ def add_label(
     as_of_date: date,
     future_return: Decimal,
 ) -> None:
+    return_method = (run.params or {}).get("return_method") or "price"
     db.add(
         BondReturnLabel(
             bond_id=bond.id,
             as_of_date=as_of_date,
             horizon_days=run.horizon_days,
-            return_method="risk_adjusted",
+            return_method=return_method,
             future_return=future_return,
             risk_adjusted_excess_return=future_return,
             required_risk_premium=Decimal("0.020000"),
@@ -220,6 +222,51 @@ def seed_promotion_dataset(
     return run, bonds
 
 
+def seed_multi_run_promotion_dataset(
+    db: Session,
+) -> tuple[MLModelRun, MLModelRun, list[Bond]]:
+    first_run = create_run(db)
+    second_run = create_run(db)
+    company = create_company(db, "WFP")
+    bonds = [create_bond(db, company, index) for index in range(11, 13)]
+    for bond in bonds:
+        add_risk(db, bond=bond, as_of_date=date(2025, 12, 31))
+
+    for run, as_of_date in [
+        (first_run, date(2026, 1, 1)),
+        (second_run, date(2026, 2, 1)),
+    ]:
+        add_prediction(
+            db,
+            run=run,
+            bond=bonds[0],
+            as_of_date=as_of_date,
+            probability=Decimal("0.95"),
+        )
+        add_prediction(
+            db,
+            run=run,
+            bond=bonds[1],
+            as_of_date=as_of_date,
+            probability=Decimal("0.70"),
+        )
+        add_label(
+            db,
+            run=run,
+            bond=bonds[0],
+            as_of_date=as_of_date,
+            future_return=Decimal("0.100000"),
+        )
+        add_label(
+            db,
+            run=run,
+            bond=bonds[1],
+            as_of_date=as_of_date,
+            future_return=Decimal("-0.080000"),
+        )
+    return first_run, second_run, bonds
+
+
 def experiment_payload(run: MLModelRun, **overrides) -> dict:
     payload = {
         "model_run_id": run.id,
@@ -264,6 +311,19 @@ def promotion_payload(run: MLModelRun, **overrides) -> dict:
     return payload
 
 
+def multi_run_experiment_payload(
+    first_run: MLModelRun,
+    second_run: MLModelRun,
+    **overrides,
+) -> dict:
+    return experiment_payload(
+        first_run,
+        model_run_id=None,
+        model_run_ids=[first_run.id, second_run.id],
+        **overrides,
+    )
+
+
 def create_existing_portfolio(client: TestClient, run: MLModelRun) -> dict:
     response = client.post(
         "/api/paper-trading/portfolios",
@@ -291,9 +351,17 @@ def test_promotion_runs_experiment_and_scenario(
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["model_run_id"] == run.id
+    assert payload["model_run_ids"] == [run.id]
+    assert payload["model_run_count"] == 1
+    assert payload["prediction_source_mode"] == "single_model_run"
     assert payload["experiment"]["successful_variant_count"] == 2
     assert payload["selected_variant"] is not None
     assert payload["scenario"] is not None
+    assert payload["scenario"]["model_run_id"] == run.id
+    assert payload["scenario"]["model_run_ids"] == [run.id]
+    assert payload["scenario"]["model_run_count"] == 1
+    assert payload["scenario"]["prediction_source_mode"] == "single_model_run"
     assert payload["scenario"]["portfolio_id"] is not None
     assert payload["scenario"]["final_portfolio_value"] is not None
     assert db_session.execute(select(PaperPortfolio)).scalars().first() is not None
@@ -339,6 +407,10 @@ def test_promotion_without_completed_variant_returns_warning(
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["model_run_id"] == run.id
+    assert payload["model_run_ids"] == [run.id]
+    assert payload["model_run_count"] == 1
+    assert payload["prediction_source_mode"] == "single_model_run"
     assert payload["selected_variant"] is None
     assert payload["scenario"] is None
     assert any("No completed experiment variant" in item["message"] for item in payload["warnings"])
@@ -503,29 +575,184 @@ def test_promotion_missing_and_non_completed_model_errors(
     assert non_completed.json()["detail"] == "ML model run is not completed"
 
 
-def test_multi_run_experiment_promotion_is_rejected(
+def test_multi_run_promotion_runs_experiment_and_scenario(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    first_run, _ = seed_promotion_dataset(db_session)
-    second_run = create_run(db_session)
+    first_run, second_run, _ = seed_multi_run_promotion_dataset(db_session)
 
     response = client.post(
         "/api/strategy/promotions/best-experiment-to-paper-scenario",
         json=promotion_payload(
             first_run,
-            experiment=experiment_payload(
-                first_run,
-                model_run_id=None,
-                model_run_ids=[first_run.id, second_run.id],
-            ),
+            experiment=multi_run_experiment_payload(first_run, second_run),
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["model_run_id"] is None
+    assert payload["model_run_ids"] == [first_run.id, second_run.id]
+    assert payload["model_run_count"] == 2
+    assert payload["prediction_source_mode"] == "multiple_model_runs"
+    assert payload["selected_variant"] is not None
+    assert payload["selected_variant"]["request"]["model_run_ids"] == [
+        first_run.id,
+        second_run.id,
+    ]
+    assert payload["scenario"] is not None
+    assert payload["scenario"]["model_run_id"] is None
+    assert payload["scenario"]["model_run_ids"] == [first_run.id, second_run.id]
+    assert payload["scenario"]["prediction_source_mode"] == "multiple_model_runs"
+    assert [cycle["model_run_id"] for cycle in payload["scenario"]["cycles"]] == [
+        first_run.id,
+        second_run.id,
+    ]
+    assert any(
+        warning["message"]
+        == "Multi-run experiment was promoted to a multi-run paper scenario"
+        for warning in payload["warnings"]
+    )
+    assert any(
+        "primary model run id" in warning["message"]
+        for warning in payload["scenario"]["warnings"]
+    )
+
+
+def test_multi_run_promotion_reuses_existing_portfolio(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_promotion_dataset(db_session)
+    portfolio = create_existing_portfolio(client, first_run)
+
+    response = client.post(
+        "/api/strategy/promotions/best-experiment-to-paper-scenario",
+        json=promotion_payload(
+            first_run,
+            portfolio_id=portfolio["id"],
+            experiment=multi_run_experiment_payload(first_run, second_run),
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["scenario"]["portfolio_id"] == portfolio["id"]
+    assert any(
+        "appended" in warning["message"]
+        for warning in payload["scenario"]["warnings"]
+    )
+    assert any(
+        "fold model runs" in warning["message"]
+        for warning in payload["scenario"]["warnings"]
+    )
+
+
+def test_multi_run_promotion_ranking_override_selects_from_existing_results(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_promotion_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/promotions/best-experiment-to-paper-scenario",
+        json=promotion_payload(
+            first_run,
+            experiment=multi_run_experiment_payload(first_run, second_run),
+            promote_ranking_metric="average_unallocated_weight",
+            promote_ranking_direction="asc",
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["selected_variant"]["variant_name"] == "top_two"
+    assert payload["selected_variant"]["ranking_metric"] == "average_unallocated_weight"
+    assert payload["selected_variant"]["ranking_direction"] == "asc"
+
+
+def test_multi_run_promotion_scenario_failure_is_captured(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run, second_run, _ = seed_multi_run_promotion_dataset(db_session)
+
+    response = client.post(
+        "/api/strategy/promotions/best-experiment-to-paper-scenario",
+        json=promotion_payload(
+            first_run,
+            experiment=multi_run_experiment_payload(first_run, second_run),
+            scenario_date_from="2027-01-01",
+            scenario_date_to="2027-01-31",
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["selected_variant"] is not None
+    assert payload["scenario"] is None
+    assert any(
+        warning["message"] == "Paper trading scenario failed after experiment promotion"
+        for warning in payload["warnings"]
+    )
+
+
+def test_multi_run_promotion_incompatible_model_runs_fail_via_experiment(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    first_run = create_run(db_session)
+    second_run = create_run(db_session, horizon_days=60)
+
+    response = client.post(
+        "/api/strategy/promotions/best-experiment-to-paper-scenario",
+        json=promotion_payload(
+            first_run,
+            experiment=multi_run_experiment_payload(first_run, second_run),
         ),
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "Multi-run experiment promotion to paper scenario is not supported yet"
+    assert (
+        response.json()["detail"]
+        == "Model runs must use the same horizon and return method"
     )
+
+
+def test_multi_run_promotion_missing_and_non_completed_model_errors(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    completed = create_run(db_session)
+    running = create_run(db_session, status="running")
+
+    missing = client.post(
+        "/api/strategy/promotions/best-experiment-to-paper-scenario",
+        json=promotion_payload(
+            completed,
+            experiment=experiment_payload(
+                completed,
+                model_run_id=None,
+                model_run_ids=[completed.id, 999999],
+            ),
+        ),
+    )
+    non_completed = client.post(
+        "/api/strategy/promotions/best-experiment-to-paper-scenario",
+        json=promotion_payload(
+            completed,
+            experiment=experiment_payload(
+                completed,
+                model_run_id=None,
+                model_run_ids=[completed.id, running.id],
+            ),
+        ),
+    )
+
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "ML model run not found"
+    assert non_completed.status_code == 400
+    assert non_completed.json()["detail"] == "ML model run is not completed"
 
 
 def test_promotion_payload_has_no_recommendation_vocabulary(
