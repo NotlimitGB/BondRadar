@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     financial_reports,
     health,
     imports,
+    label_quality,
     market_data,
     market_history_quality,
     ml,
@@ -59,6 +60,11 @@ api_router.include_router(
     market_history_quality.router,
     prefix="/data-quality/market-history",
     tags=["data-quality-market-history"],
+)
+api_router.include_router(
+    label_quality.router,
+    prefix="/data-quality/labels",
+    tags=["data-quality-labels"],
 )
 api_router.include_router(data_pipeline.router, prefix="/pipeline", tags=["pipeline"])
 api_router.include_router(imports.router, prefix="/import", tags=["import"])
