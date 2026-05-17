@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     bonds,
     cashflows,
+    cashflow_quality,
     companies,
     credit_risk,
     data_quality_dashboard,
@@ -48,6 +49,11 @@ api_router.include_router(
     data_quality_dashboard.router,
     prefix="/data-quality",
     tags=["data-quality"],
+)
+api_router.include_router(
+    cashflow_quality.router,
+    prefix="/data-quality/cashflows",
+    tags=["data-quality-cashflows"],
 )
 api_router.include_router(
     market_history_quality.router,
