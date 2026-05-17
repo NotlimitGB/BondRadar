@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     market_data,
     market_history_quality,
     ml,
+    ml_candidate_comparison,
     ml_evaluation,
     ml_prediction_quality,
     ml_walk_forward,
@@ -86,6 +87,11 @@ api_router.include_router(
     ml_prediction_quality.router,
     prefix="/ml/evaluation/prediction-quality",
     tags=["ml-prediction-quality"],
+)
+api_router.include_router(
+    ml_candidate_comparison.router,
+    prefix="/ml/evaluation/candidates",
+    tags=["ml-candidate-comparison"],
 )
 api_router.include_router(
     financial_report_ingestion.router,
