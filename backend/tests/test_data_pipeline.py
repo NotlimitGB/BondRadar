@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-import json
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -707,16 +707,5 @@ def test_pipeline_payload_has_no_recommendation_vocabulary(
         },
     )
 
-    payload = json.dumps(response.json()).lower()
-    forbidden = [
-        "buy",
-        "sell",
-        "hold",
-        "strong_buy",
-        "strong_sell",
-        "must_buy",
-        "must_sell",
-        "покупать",
-        "продавать",
-    ]
-    assert all(word not in payload for word in forbidden)
+    assert_no_forbidden_investment_vocabulary(response.json())
+

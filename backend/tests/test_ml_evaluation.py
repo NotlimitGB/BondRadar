@@ -1,7 +1,6 @@
-import json
-import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -399,17 +398,6 @@ def test_no_recommendation_vocabulary(
     report = client.get(f"/api/ml/evaluation/runs/{run.id}").json()
     rows = client.get(f"/api/ml/evaluation/runs/{run.id}/rows").json()
     comparison = client.get("/api/ml/evaluation/compare").json()
-    text = json.dumps([report, rows, comparison], ensure_ascii=False).lower()
-    forbidden_patterns = [
-        r"\bbuy\b",
-        r"\bsell\b",
-        r"\bhold\b",
-        r"\bstrong_buy\b",
-        r"\bstrong_sell\b",
-        r"\bmust_buy\b",
-        r"\bmust_sell\b",
-        r"\bпокупать\b",
-        r"\bпродавать\b",
-    ]
 
-    assert all(re.search(pattern, text) is None for pattern in forbidden_patterns)
+    assert_no_forbidden_investment_vocabulary([report, rows, comparison])
+

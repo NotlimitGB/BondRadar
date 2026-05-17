@@ -1,7 +1,6 @@
-import json
-import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -490,16 +489,7 @@ def test_paper_trading_payload_has_no_recommendation_vocabulary(
     ).json()
     list_payload = client.get("/api/paper-trading/portfolios").json()
 
-    text = json.dumps([portfolio, rebalance_payload, mark_payload, list_payload], ensure_ascii=False).lower()
-    forbidden_patterns = [
-        r"\bbuy\b",
-        r"\bsell\b",
-        r"\bhold\b",
-        r"\bstrong_buy\b",
-        r"\bstrong_sell\b",
-        r"\bmust_buy\b",
-        r"\bmust_sell\b",
-        r"\bпокупать\b",
-        r"\bпродавать\b",
-    ]
-    assert all(re.search(pattern, text) is None for pattern in forbidden_patterns)
+    assert_no_forbidden_investment_vocabulary(
+        [portfolio, rebalance_payload, mark_payload, list_payload]
+    )
+

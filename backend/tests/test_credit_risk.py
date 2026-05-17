@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -321,27 +321,6 @@ def test_no_recommendation_vocabulary(
         f"/api/credit-risk/companies/{company.id}/calculate"
     ).json()
     assessment_payload = client.post(f"/api/credit-risk/bonds/{bond.id}/assess").json()
-    forbidden = {
-        "buy",
-        "sell",
-        "hold",
-        "strong_buy",
-        "strong_sell",
-        "must_buy",
-        "must_sell",
-        "покупать",
-        "продавать",
-    }
 
-    def walk(value: Any):
-        if isinstance(value, dict):
-            for item in value.values():
-                yield from walk(item)
-        elif isinstance(value, list):
-            for item in value:
-                yield from walk(item)
-        elif isinstance(value, str):
-            yield value.lower()
+    assert_no_forbidden_investment_vocabulary([health_payload, assessment_payload])
 
-    all_text = " ".join([*walk(health_payload), *walk(assessment_payload)])
-    assert all(term not in all_text for term in forbidden)

@@ -1,7 +1,6 @@
-import json
-import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -610,16 +609,5 @@ def test_robustness_payload_has_no_recommendation_vocabulary(
     )
 
     assert response.status_code == 200
-    text = json.dumps(response.json(), ensure_ascii=False).lower()
-    forbidden_patterns = [
-        r"\bbuy\b",
-        r"\bsell\b",
-        r"\bhold\b",
-        r"\bstrong_buy\b",
-        r"\bstrong_sell\b",
-        r"\bmust_buy\b",
-        r"\bmust_sell\b",
-        r"\bРїРѕРєСѓРїР°С‚СЊ\b",
-        r"\bРїСЂРѕРґР°РІР°С‚СЊ\b",
-    ]
-    assert all(re.search(pattern, text) is None for pattern in forbidden_patterns)
+    assert_no_forbidden_investment_vocabulary(response.json())
+

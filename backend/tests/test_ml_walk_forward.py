@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-import json
 from types import SimpleNamespace
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -419,17 +419,5 @@ def test_walk_forward_payload_has_no_recommendation_vocabulary(
     )
 
     assert response.status_code == 200
-    payload = json.dumps(response.json()).lower()
-    forbidden = [
-        "buy",
-        "sell",
-        "hold",
-        "strong_buy",
-        "strong_sell",
-        "must_buy",
-        "must_sell",
-        "\u043f\u043e\u043a\u0443\u043f\u0430\u0442\u044c",
-        "\u043f\u0440\u043e\u0434\u0430\u0432\u0430\u0442\u044c",
-        "threshold",
-    ]
-    assert all(word not in payload for word in forbidden)
+    assert_no_forbidden_investment_vocabulary(response.json())
+

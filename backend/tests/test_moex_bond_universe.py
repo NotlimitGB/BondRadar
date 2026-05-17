@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
-import json
 from typing import Any
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -551,16 +551,5 @@ def test_response_payload_has_no_recommendation_vocabulary(
     response = client.post("/api/market-data/moex/bonds/sync", json=sync_payload())
 
     assert response.status_code == 200
-    payload = json.dumps(response.json()).lower()
-    forbidden = [
-        "buy",
-        "sell",
-        "hold",
-        "strong_buy",
-        "strong_sell",
-        "must_buy",
-        "must_sell",
-        "покупать",
-        "продавать",
-    ]
-    assert all(word not in payload for word in forbidden)
+    assert_no_forbidden_investment_vocabulary(response.json())
+

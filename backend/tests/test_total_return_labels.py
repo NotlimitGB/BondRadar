@@ -1,10 +1,9 @@
 import csv
-import json
-import re
 from datetime import date, timedelta
 from decimal import Decimal
 from io import StringIO
 from typing import Any
+from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -459,20 +458,8 @@ def test_no_investment_recommendation_vocabulary(
     labels_payload = client.get(
         f"/api/datasets/labels?bond_id={bond.id}&return_method=total_return"
     ).json()
-    text = json.dumps(
-        [event_payload, build_payload, labels_payload],
-        ensure_ascii=False,
-    ).lower()
-    forbidden_patterns = [
-        r"\bbuy\b",
-        r"\bsell\b",
-        r"\bhold\b",
-        r"\bstrong_buy\b",
-        r"\bstrong_sell\b",
-        r"\bmust_buy\b",
-        r"\bmust_sell\b",
-        r"\bпокупать\b",
-        r"\bпродавать\b",
-    ]
 
-    assert all(re.search(pattern, text) is None for pattern in forbidden_patterns)
+    assert_no_forbidden_investment_vocabulary(
+        [event_payload, build_payload, labels_payload]
+    )
+
