@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     market_history_quality,
     ml,
     ml_candidate_comparison,
+    ml_candidate_strategy_promotion,
     ml_evaluation,
     ml_prediction_quality,
     ml_walk_forward,
@@ -92,6 +93,11 @@ api_router.include_router(
     ml_candidate_comparison.router,
     prefix="/ml/evaluation/candidates",
     tags=["ml-candidate-comparison"],
+)
+api_router.include_router(
+    ml_candidate_strategy_promotion.router,
+    prefix="/ml/evaluation/candidates",
+    tags=["ml-candidate-strategy-promotion"],
 )
 api_router.include_router(
     financial_report_ingestion.router,
