@@ -49,6 +49,17 @@ class BondTotalReturnLabelBuildRequest(BaseModel):
     return_method: str = "total_return"
     benchmark_return: Decimal | None = None
     transaction_cost_rate: Decimal = Decimal("0.001")
+    use_quality_filters: bool = True
+    require_start_market_snapshot: bool = True
+    require_end_market_snapshot: bool = True
+    require_positive_start_price: bool = True
+    require_positive_end_price: bool = True
+    require_cashflow_schedule: bool = False
+    include_cashflows_in_total_return: bool = True
+    max_gap_days_to_start_snapshot: int = 0
+    max_gap_days_to_end_snapshot: int = 7
+    skip_perpetual_without_offer: bool = True
+    skip_matured_before_horizon: bool = True
     rebuild_existing: bool = False
 
 

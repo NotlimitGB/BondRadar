@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -10,6 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.bond import Bond
+from app.models.bond_cashflow_event import BondCashflowEvent
+from app.models.bond_feature_snapshot import BondFeatureSnapshot
 from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.models.bond_return_label import BondReturnLabel
 from app.models.bond_risk_assessment import BondRiskAssessment
@@ -26,8 +28,9 @@ RETURN_METHODS = {"price", "total_return", "risk_adjusted"}
 
 @dataclass(frozen=True)
 class TotalReturnLabelBuildOutcome:
-    label: BondReturnLabel
+    label: BondReturnLabel | None
     action: str
+    warnings: list[str] | None = None
 
 
 class TotalReturnLabelService:
@@ -51,6 +54,17 @@ class TotalReturnLabelService:
         return_method: str = "total_return",
         benchmark_return: Decimal | None = None,
         transaction_cost_rate: Decimal = Decimal("0.001"),
+        use_quality_filters: bool = True,
+        require_start_market_snapshot: bool = True,
+        require_end_market_snapshot: bool = True,
+        require_positive_start_price: bool = True,
+        require_positive_end_price: bool = True,
+        require_cashflow_schedule: bool = False,
+        include_cashflows_in_total_return: bool = True,
+        max_gap_days_to_start_snapshot: int = 0,
+        max_gap_days_to_end_snapshot: int = 7,
+        skip_perpetual_without_offer: bool = True,
+        skip_matured_before_horizon: bool = True,
         rebuild_existing: bool = False,
     ) -> TotalReturnLabelBuildOutcome:
         self._validate_method(return_method)
@@ -77,6 +91,45 @@ class TotalReturnLabelService:
         if existing is not None and not rebuild_existing:
             return TotalReturnLabelBuildOutcome(label=existing, action="skipped")
 
+        target_date = as_of_date + timedelta(days=horizon_days)
+        start_snapshot = self._start_snapshot(
+            bond.id,
+            as_of_date,
+            use_quality_filters=use_quality_filters,
+            max_gap_days=max_gap_days_to_start_snapshot,
+        )
+        end_snapshot = self._end_snapshot(
+            bond.id,
+            target_date,
+            use_quality_filters=use_quality_filters,
+            max_gap_days=max_gap_days_to_end_snapshot,
+        )
+        start_price = self._price(start_snapshot)
+        end_price = self._price(end_snapshot)
+        if use_quality_filters:
+            skip_reason = self._quality_skip_reason(
+                bond=bond,
+                as_of_date=as_of_date,
+                target_date=target_date,
+                start_snapshot=start_snapshot,
+                end_snapshot=end_snapshot,
+                start_price=start_price,
+                end_price=end_price,
+                require_start_market_snapshot=require_start_market_snapshot,
+                require_end_market_snapshot=require_end_market_snapshot,
+                require_positive_start_price=require_positive_start_price,
+                require_positive_end_price=require_positive_end_price,
+                require_cashflow_schedule=require_cashflow_schedule,
+                skip_perpetual_without_offer=skip_perpetual_without_offer,
+                skip_matured_before_horizon=skip_matured_before_horizon,
+            )
+            if skip_reason is not None:
+                return TotalReturnLabelBuildOutcome(
+                    label=None,
+                    action="skipped",
+                    warnings=[skip_reason],
+                )
+
         payload = self._build_payload(
             bond=bond,
             as_of_date=as_of_date,
@@ -84,18 +137,29 @@ class TotalReturnLabelService:
             return_method=return_method,
             benchmark_return=benchmark_return,
             transaction_cost_rate=transaction_cost_rate,
+            start_snapshot=start_snapshot,
+            end_snapshot=end_snapshot,
+            include_cashflows_in_total_return=include_cashflows_in_total_return,
         )
         if existing is None:
             label = BondReturnLabel(**payload)
             self.db.add(label)
             self.db.flush()
-            return TotalReturnLabelBuildOutcome(label=label, action="created")
+            return TotalReturnLabelBuildOutcome(
+                label=label,
+                action="created",
+                warnings=label.return_calculation_warnings or [],
+            )
 
         for field, value in payload.items():
             setattr(existing, field, value)
         self.db.add(existing)
         self.db.flush()
-        return TotalReturnLabelBuildOutcome(label=existing, action="updated")
+        return TotalReturnLabelBuildOutcome(
+            label=existing,
+            action="updated",
+            warnings=existing.return_calculation_warnings or [],
+        )
 
     def build_labels(
         self,
@@ -119,11 +183,28 @@ class TotalReturnLabelService:
                     return_method=request.return_method,
                     benchmark_return=request.benchmark_return,
                     transaction_cost_rate=request.transaction_cost_rate,
+                    use_quality_filters=request.use_quality_filters,
+                    require_start_market_snapshot=request.require_start_market_snapshot,
+                    require_end_market_snapshot=request.require_end_market_snapshot,
+                    require_positive_start_price=request.require_positive_start_price,
+                    require_positive_end_price=request.require_positive_end_price,
+                    require_cashflow_schedule=request.require_cashflow_schedule,
+                    include_cashflows_in_total_return=(
+                        request.include_cashflows_in_total_return
+                    ),
+                    max_gap_days_to_start_snapshot=(
+                        request.max_gap_days_to_start_snapshot
+                    ),
+                    max_gap_days_to_end_snapshot=request.max_gap_days_to_end_snapshot,
+                    skip_perpetual_without_offer=(
+                        request.skip_perpetual_without_offer
+                    ),
+                    skip_matured_before_horizon=request.skip_matured_before_horizon,
                     rebuild_existing=request.rebuild_existing,
                 )
                 counters[outcome.action] += 1
                 self.db.commit()
-                for warning in outcome.label.return_calculation_warnings or []:
+                for warning in outcome.warnings or []:
                     if warning not in warnings:
                         warnings.append(warning)
             except Exception as exc:
@@ -155,18 +236,17 @@ class TotalReturnLabelService:
         return_method: str,
         benchmark_return: Decimal | None,
         transaction_cost_rate: Decimal,
+        start_snapshot: BondMarketSnapshot | None,
+        end_snapshot: BondMarketSnapshot | None,
+        include_cashflows_in_total_return: bool,
     ) -> dict[str, Any]:
-        start_snapshot = self.market_service.get_latest_for_bond(bond.id, as_of_date)
-        end_snapshot = self.market_service.get_future_for_bond(
-            bond.id,
-            as_of_date,
-            horizon_days,
-        )
         warnings: list[str] = []
         details: dict[str, Any] = {
             "return_method": return_method,
             "as_of_date": as_of_date.isoformat(),
             "horizon_days": horizon_days,
+            "target_date": (as_of_date + timedelta(days=horizon_days)).isoformat(),
+            "cashflows_included": include_cashflows_in_total_return,
         }
         start_price = self._price(start_snapshot)
         end_price = self._price(end_snapshot)
@@ -202,6 +282,7 @@ class TotalReturnLabelService:
             benchmark_return=benchmark_return,
             warnings=warnings,
             details=details,
+            include_cashflows=include_cashflows_in_total_return,
         )
         basis = total_return_payload["net_total_return"]
         if return_method == "risk_adjusted":
@@ -244,11 +325,12 @@ class TotalReturnLabelService:
         benchmark_return: Decimal | None,
         warnings: list[str],
         details: dict[str, Any],
+        include_cashflows: bool,
     ) -> dict[str, Decimal | None]:
         start_dirty_value = self._dirty_value(bond, start_snapshot, warnings)
         end_dirty_value = self._dirty_value(bond, end_snapshot, warnings)
         cashflows = None
-        if end_date is not None:
+        if end_date is not None and include_cashflows:
             cashflows = self.cashflow_service.sum_cashflows_for_period(
                 bond=bond,
                 as_of_date=as_of_date,
@@ -257,6 +339,8 @@ class TotalReturnLabelService:
             warnings.extend(
                 warning for warning in cashflows.warnings if warning not in warnings
             )
+        elif not include_cashflows:
+            warnings.append("Cashflow inclusion disabled for label calculation")
 
         details["start_dirty_value"] = self._json_decimal(start_dirty_value)
         details["end_dirty_value"] = self._json_decimal(end_dirty_value)
@@ -388,6 +472,7 @@ class TotalReturnLabelService:
         self,
         request: BondTotalReturnLabelBuildRequest,
     ) -> list[tuple[int, date]]:
+        pairs: set[tuple[int, date]] = set()
         stmt = (
             select(BondMarketSnapshot.bond_id, BondMarketSnapshot.trade_date)
             .where(
@@ -399,7 +484,155 @@ class TotalReturnLabelService:
         if request.bond_ids:
             stmt = stmt.where(BondMarketSnapshot.bond_id.in_(set(request.bond_ids)))
         stmt = stmt.order_by(BondMarketSnapshot.bond_id, BondMarketSnapshot.trade_date)
-        return [(row.bond_id, row.trade_date) for row in self.db.execute(stmt)]
+        pairs.update((row.bond_id, row.trade_date) for row in self.db.execute(stmt))
+        if request.max_gap_days_to_start_snapshot > 0:
+            feature_stmt = (
+                select(BondFeatureSnapshot.bond_id, BondFeatureSnapshot.as_of_date)
+                .where(
+                    BondFeatureSnapshot.as_of_date >= request.as_of_date_from,
+                    BondFeatureSnapshot.as_of_date <= request.as_of_date_to,
+                )
+                .distinct()
+            )
+            if request.bond_ids:
+                feature_stmt = feature_stmt.where(
+                    BondFeatureSnapshot.bond_id.in_(set(request.bond_ids))
+                )
+            pairs.update(
+                (row.bond_id, row.as_of_date) for row in self.db.execute(feature_stmt)
+            )
+        return sorted(pairs, key=lambda item: (item[0], item[1]))
+
+    def _start_snapshot(
+        self,
+        bond_id: int,
+        as_of_date: date,
+        *,
+        use_quality_filters: bool,
+        max_gap_days: int,
+    ) -> BondMarketSnapshot | None:
+        if not use_quality_filters:
+            return self.market_service.get_latest_for_bond(bond_id, as_of_date)
+        min_date = as_of_date - timedelta(days=max_gap_days)
+        return self.db.execute(
+            select(BondMarketSnapshot)
+            .where(
+                BondMarketSnapshot.bond_id == bond_id,
+                BondMarketSnapshot.trade_date >= min_date,
+                BondMarketSnapshot.trade_date <= as_of_date,
+            )
+            .order_by(
+                BondMarketSnapshot.trade_date.desc(),
+                BondMarketSnapshot.id.desc(),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+    def _end_snapshot(
+        self,
+        bond_id: int,
+        target_date: date,
+        *,
+        use_quality_filters: bool,
+        max_gap_days: int,
+    ) -> BondMarketSnapshot | None:
+        max_date = target_date + timedelta(
+            days=max_gap_days
+            if use_quality_filters
+            else MarketSnapshotService.MAX_FUTURE_LOOKUP_DAYS
+        )
+        return self.db.execute(
+            select(BondMarketSnapshot)
+            .where(
+                BondMarketSnapshot.bond_id == bond_id,
+                BondMarketSnapshot.trade_date >= target_date,
+                BondMarketSnapshot.trade_date <= max_date,
+            )
+            .order_by(
+                BondMarketSnapshot.trade_date.asc(),
+                BondMarketSnapshot.id.asc(),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+    def _quality_skip_reason(
+        self,
+        *,
+        bond: Bond,
+        as_of_date: date,
+        target_date: date,
+        start_snapshot: BondMarketSnapshot | None,
+        end_snapshot: BondMarketSnapshot | None,
+        start_price: Decimal | None,
+        end_price: Decimal | None,
+        require_start_market_snapshot: bool,
+        require_end_market_snapshot: bool,
+        require_positive_start_price: bool,
+        require_positive_end_price: bool,
+        require_cashflow_schedule: bool,
+        skip_perpetual_without_offer: bool,
+        skip_matured_before_horizon: bool,
+    ) -> str | None:
+        if bond.maturity_date is not None and bond.maturity_date <= as_of_date:
+            return "Bond is already matured at label date"
+        if (
+            skip_matured_before_horizon
+            and bond.maturity_date is not None
+            and bond.maturity_date < target_date
+            and not self._has_cashflow_event(
+                bond.id,
+                as_of_date,
+                target_date,
+                event_types={"redemption", "offer_redemption"},
+            )
+        ):
+            return "Bond matures before label horizon and redemption cashflow is missing"
+        if (
+            skip_perpetual_without_offer
+            and bond.is_perpetual
+            and (
+                bond.offer_date is None
+                or bond.offer_date <= as_of_date
+                or bond.offer_date > target_date
+            )
+        ):
+            return "Perpetual bond offer date is missing or outside label horizon"
+        if require_start_market_snapshot and start_snapshot is None:
+            return "Start market snapshot is missing"
+        if require_end_market_snapshot and end_snapshot is None:
+            return "End market snapshot is missing"
+        if require_positive_start_price and (
+            start_price is None or start_price <= Decimal("0")
+        ):
+            return "Start market price is missing or invalid"
+        if require_positive_end_price and (
+            end_price is None or end_price <= Decimal("0")
+        ):
+            return "End market price is missing or invalid"
+        if require_cashflow_schedule and not self._has_cashflow_event(
+            bond.id,
+            as_of_date,
+            target_date,
+        ):
+            return "Cashflow schedule is missing for label horizon"
+        return None
+
+    def _has_cashflow_event(
+        self,
+        bond_id: int,
+        as_of_date: date,
+        target_date: date,
+        *,
+        event_types: set[str] | None = None,
+    ) -> bool:
+        stmt = select(BondCashflowEvent.id).where(
+            BondCashflowEvent.bond_id == bond_id,
+            BondCashflowEvent.event_date > as_of_date,
+            BondCashflowEvent.event_date <= target_date,
+        )
+        if event_types is not None:
+            stmt = stmt.where(BondCashflowEvent.event_type.in_(event_types))
+        return self.db.execute(stmt.limit(1)).scalar_one_or_none() is not None
 
     def _dirty_value(
         self,
@@ -517,6 +750,16 @@ class TotalReturnLabelService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="horizon_days must be positive",
+            )
+        if request.max_gap_days_to_start_snapshot < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="max_gap_days_to_start_snapshot must be non-negative",
+            )
+        if request.max_gap_days_to_end_snapshot < 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="max_gap_days_to_end_snapshot must be non-negative",
             )
         self._validate_method(request.return_method)
 

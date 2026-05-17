@@ -274,7 +274,7 @@ def test_financial_report_period_fallback_records_warning(
     assert "leakage_warning" in features[0]["features_json"]
 
 
-def test_future_snapshot_outside_lookup_window_is_insufficient(
+def test_future_snapshot_outside_lookup_window_skips_label(
     client: TestClient, db_session: Session
 ) -> None:
     as_of_date = date(2026, 1, 10)
@@ -286,13 +286,12 @@ def test_future_snapshot_outside_lookup_window_is_insufficient(
     response = build_dataset(client, as_of_date)
 
     assert response.status_code == 200
+    assert response.json()["labels_created"] == 0
     labels = client.get(f"/api/datasets/labels?bond_id={bond.id}").json()
-    assert labels[0]["label"] == "insufficient_data"
-    assert labels[0]["label_binary"] is None
-    assert labels[0]["future_return"] is None
+    assert labels == []
 
 
-def test_missing_future_snapshot_is_insufficient(
+def test_missing_future_snapshot_skips_label(
     client: TestClient, db_session: Session
 ) -> None:
     as_of_date = date(2026, 1, 10)
@@ -303,8 +302,9 @@ def test_missing_future_snapshot_is_insufficient(
     response = build_dataset(client, as_of_date)
 
     assert response.status_code == 200
+    assert response.json()["labels_created"] == 0
     labels = client.get(f"/api/datasets/labels?bond_id={bond.id}").json()
-    assert labels[0]["label"] == "insufficient_data"
+    assert labels == []
 
 
 def test_rebuild_false_skips_feature_and_builds_missing_label(
