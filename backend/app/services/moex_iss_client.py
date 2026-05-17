@@ -144,6 +144,42 @@ class MoexIssClient:
             "bondization_redemptions",
         ),
     }
+    BOND_MARKET_HISTORY_ALIASES = {
+        "secid": ("secid", "SECID"),
+        "trade_date": ("tradedate", "TRADEDATE"),
+        "close_price": ("close", "CLOSE"),
+        "last_price": ("last", "LAST", "lastprice", "LASTPRICE"),
+        "market_price": (
+            "marketprice",
+            "MARKETPRICE",
+            "marketprice2",
+            "MARKETPRICE2",
+        ),
+        "weighted_average_price": ("waprice", "WAPRICE"),
+        "legal_close_price": ("legalcloseprice", "LEGALCLOSEPRICE"),
+        "yield_to_maturity": (
+            "yield",
+            "YIELD",
+            "yieldclose",
+            "YIELDCLOSE",
+            "yieldatwaprice",
+            "YIELDATWAPRICE",
+        ),
+        "duration": ("duration", "DURATION"),
+        "volume": ("volume", "VOLUME"),
+        "value": ("value", "VALUE"),
+        "num_trades": ("numtrades", "NUMTRADES"),
+        "currency": (
+            "faceunit",
+            "FACEUNIT",
+            "currency",
+            "CURRENCY",
+            "currencyid",
+            "CURRENCYID",
+        ),
+        "board": ("boardid", "BOARDID", "board", "BOARD"),
+        "accrued_interest": ("accruedint", "ACCRUEDINT"),
+    }
 
     def __init__(
         self,
@@ -230,6 +266,35 @@ class MoexIssClient:
             return [], [f"MOEX securities table is missing for board {board}"]
         rows = self._parse_named_table(payload, table_name)
         return [self._normalize_bond_metadata_row(row) for row in rows], []
+
+    def fetch_bond_market_history(
+        self,
+        secid: str,
+        *,
+        board: str,
+        date_from: date,
+        date_to: date,
+        start: int = 0,
+        limit: int = 100,
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        path = (
+            f"/iss/history/engines/stock/markets/bonds/boards/{board}"
+            f"/securities/{secid}.json"
+        )
+        payload = self._request_json(
+            path,
+            params={
+                "from": date_from.isoformat(),
+                "till": date_to.isoformat(),
+                "start": start,
+                "limit": limit,
+            },
+        )
+        table_name = self._find_table_name(payload, ("history",))
+        if table_name is None:
+            return [], [f"MOEX history table is missing for {secid}"]
+        rows = self._parse_named_table(payload, table_name)
+        return [self._normalize_bond_market_history_row(row) for row in rows], []
 
     def fetch_bond_description(
         self,
@@ -426,6 +491,14 @@ class MoexIssClient:
     def _normalize_bond_metadata_row(cls, row: dict[str, Any]) -> dict[str, Any]:
         normalized: dict[str, Any] = {}
         for target, aliases in cls.BOND_METADATA_ALIASES.items():
+            normalized[target] = cls._first_value(row, aliases)
+        normalized["raw"] = dict(row)
+        return normalized
+
+    @classmethod
+    def _normalize_bond_market_history_row(cls, row: dict[str, Any]) -> dict[str, Any]:
+        normalized: dict[str, Any] = {}
+        for target, aliases in cls.BOND_MARKET_HISTORY_ALIASES.items():
             normalized[target] = cls._first_value(row, aliases)
         normalized["raw"] = dict(row)
         return normalized

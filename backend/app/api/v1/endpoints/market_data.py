@@ -8,6 +8,10 @@ from app.schemas.moex import (
     MoexMarketDataSyncRequest,
     MoexMarketDataSyncResult,
 )
+from app.schemas.moex_market_history import (
+    MoexBondMarketHistoryBackfillRequest,
+    MoexBondMarketHistoryBackfillResult,
+)
 from app.schemas.moex_bond_universe import (
     MoexBondUniverseSyncRequest,
     MoexBondUniverseSyncResult,
@@ -26,6 +30,17 @@ def sync_moex_market_data(
     db: Session = Depends(get_db),
 ) -> MoexMarketDataSyncResult:
     return MoexMarketDataService(db).sync(request)
+
+
+@router.post(
+    "/market-data/moex/bonds/history/backfill",
+    response_model=MoexBondMarketHistoryBackfillResult,
+)
+def backfill_moex_bond_market_history(
+    request: MoexBondMarketHistoryBackfillRequest,
+    db: Session = Depends(get_db),
+) -> MoexBondMarketHistoryBackfillResult:
+    return MoexMarketDataService(db).backfill_history(request)
 
 
 @router.post(
