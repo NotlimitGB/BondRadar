@@ -25,9 +25,14 @@ from app.schemas.data_readiness import (
     DataReadinessClassDistribution,
     DataReadinessCoverage,
     DataReadinessGate,
+    DataReadinessQualityGateSummary,
     DataReadinessResponse,
     DataReadinessSummary,
 )
+from app.schemas.cashflow_quality import CashflowQualityAuditRequest
+from app.schemas.market_history_quality import MarketHistoryQualityAuditRequest
+from app.services.cashflow_quality_service import CashflowQualityService
+from app.services.market_history_quality_service import MarketHistoryQualityService
 
 
 EVALUABLE_LABELS = {"positive_return", "negative_return"}
@@ -66,6 +71,14 @@ class DataReadinessService:
             ready_for_ml_training=False,
         )
         gates = self._gates(request, summary, coverage)
+        market_quality_summary, market_quality_gate = self._market_quality_gate(request)
+        cashflow_quality_summary, cashflow_quality_gate = self._cashflow_quality_gate(
+            request
+        )
+        if market_quality_gate is not None:
+            gates.append(market_quality_gate)
+        if cashflow_quality_gate is not None:
+            gates.append(cashflow_quality_gate)
         ready_for_ml_training = self._ready_for_ml_training(request, gates, summary)
         summary.ready_for_ml_training = ready_for_ml_training
         response_status = self._response_status(gates)
@@ -80,6 +93,8 @@ class DataReadinessService:
             ),
             warnings=[gate.message for gate in gates if gate.status == "warning"],
             recommended_next_actions=self._recommended_next_actions(gates),
+            market_history_quality=market_quality_summary,
+            cashflow_quality=cashflow_quality_summary,
         )
 
     def _validate(self, request: DataReadinessCheckRequest) -> None:
@@ -117,6 +132,73 @@ class DataReadinessService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="max_bond_issues must be between 1 and 500",
+            )
+        if (
+            request.market_minimum_snapshot_count is not None
+            and request.market_minimum_snapshot_count <= 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="market_minimum_snapshot_count must be positive",
+            )
+        if (
+            request.market_minimum_coverage_ratio is not None
+            and (
+                request.market_minimum_coverage_ratio < 0
+                or request.market_minimum_coverage_ratio > 1
+            )
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="market_minimum_coverage_ratio must be between 0 and 1",
+            )
+        if (
+            request.market_maximum_gap_days is not None
+            and request.market_maximum_gap_days < 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="market_maximum_gap_days must be non-negative",
+            )
+        if request.market_expected_date_mode not in {
+            "business_days",
+            "observed_market_dates",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid market expected date mode",
+            )
+        if (
+            request.market_quality_source is not None
+            and not str(request.market_quality_source).strip()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="market_quality_source must not be empty when provided",
+            )
+        if (
+            request.cashflow_max_duplicate_events_per_bond is not None
+            and request.cashflow_max_duplicate_events_per_bond < 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="cashflow_max_duplicate_events_per_bond must be non-negative",
+            )
+        if (
+            request.cashflow_maximum_days_without_future_event is not None
+            and request.cashflow_maximum_days_without_future_event < 0
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="cashflow_maximum_days_without_future_event must be non-negative",
+            )
+        if (
+            request.cashflow_quality_source is not None
+            and not str(request.cashflow_quality_source).strip()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="cashflow_quality_source must not be empty when provided",
             )
 
     def _selected_bonds(self, request: DataReadinessCheckRequest) -> list[Bond]:
@@ -756,6 +838,191 @@ class DataReadinessService:
             details,
         )
 
+    def _market_quality_gate(
+        self,
+        request: DataReadinessCheckRequest,
+    ) -> tuple[DataReadinessQualityGateSummary | None, DataReadinessGate | None]:
+        if not request.include_market_history_quality:
+            return None, None
+
+        payload: dict[str, Any] = {
+            "date_from": request.date_from,
+            "date_to": request.date_to,
+            "source": request.market_quality_source,
+            "expected_date_mode": request.market_expected_date_mode,
+            "require_price": request.market_require_price,
+            "require_yield": request.market_require_yield,
+            "require_volume": request.market_require_volume,
+            "include_bond_rows": False,
+            "include_gap_details": False,
+            "limit": 1,
+            "offset": 0,
+        }
+        payload.update(self._quality_selector_kwargs(request))
+        if request.market_minimum_snapshot_count is not None:
+            payload["minimum_snapshot_count"] = request.market_minimum_snapshot_count
+        if request.market_minimum_coverage_ratio is not None:
+            payload["minimum_coverage_ratio"] = request.market_minimum_coverage_ratio
+        if request.market_maximum_gap_days is not None:
+            payload["maximum_gap_days"] = request.market_maximum_gap_days
+
+        audit = MarketHistoryQualityService(self.db).audit(
+            MarketHistoryQualityAuditRequest(**payload)
+        )
+        summary = self._quality_summary(
+            enabled=True,
+            status_value=self._quality_gate_status(
+                total_bond_count=audit.overview.selected_bond_count,
+                not_ready_bond_count=audit.overview.not_ready_bond_count,
+                warning_bond_count=audit.overview.warning_bond_count,
+            ),
+            ready_bond_count=audit.overview.ready_bond_count,
+            warning_bond_count=audit.overview.warning_bond_count,
+            not_ready_bond_count=audit.overview.not_ready_bond_count,
+            total_bond_count=audit.overview.selected_bond_count,
+            issue_summary=self._issue_summary_dict(audit.issue_summary),
+            warnings=[warning.message for warning in audit.warnings],
+        )
+        gate = self._gate(
+            "market_history_quality",
+            summary.status,
+            self._quality_gate_message("Market history quality", summary.status),
+            {
+                "ready_bond_count": summary.ready_bond_count,
+                "warning_bond_count": summary.warning_bond_count,
+                "not_ready_bond_count": summary.not_ready_bond_count,
+                "total_bond_count": summary.total_bond_count,
+                "issue_summary": summary.issue_summary,
+            },
+        )
+        return summary, gate
+
+    def _cashflow_quality_gate(
+        self,
+        request: DataReadinessCheckRequest,
+    ) -> tuple[DataReadinessQualityGateSummary | None, DataReadinessGate | None]:
+        if not request.include_cashflow_quality:
+            return None, None
+
+        payload: dict[str, Any] = {
+            "date_from": request.date_from,
+            "date_to": request.date_to,
+            "horizon_days": request.horizon_days,
+            "source": request.cashflow_quality_source,
+            "require_future_cashflows": request.cashflow_require_future_cashflows,
+            "require_coupon_events": request.cashflow_require_coupon_events,
+            "require_redemption_or_maturity": (
+                request.cashflow_require_redemption_or_maturity
+            ),
+            "include_bond_rows": False,
+            "include_event_type_breakdown": False,
+            "include_issue_details": False,
+            "limit": 1,
+            "offset": 0,
+        }
+        payload.update(self._quality_selector_kwargs(request))
+        if request.cashflow_max_duplicate_events_per_bond is not None:
+            payload["max_duplicate_events_per_bond"] = (
+                request.cashflow_max_duplicate_events_per_bond
+            )
+        if request.cashflow_maximum_days_without_future_event is not None:
+            payload["maximum_days_without_future_event"] = (
+                request.cashflow_maximum_days_without_future_event
+            )
+
+        audit = CashflowQualityService(self.db).audit(
+            CashflowQualityAuditRequest(**payload)
+        )
+        summary = self._quality_summary(
+            enabled=True,
+            status_value=self._quality_gate_status(
+                total_bond_count=audit.overview.selected_bond_count,
+                not_ready_bond_count=audit.overview.not_ready_bond_count,
+                warning_bond_count=audit.overview.warning_bond_count,
+            ),
+            ready_bond_count=audit.overview.ready_bond_count,
+            warning_bond_count=audit.overview.warning_bond_count,
+            not_ready_bond_count=audit.overview.not_ready_bond_count,
+            total_bond_count=audit.overview.selected_bond_count,
+            issue_summary=self._issue_summary_dict(audit.issue_summary),
+            warnings=[warning.message for warning in audit.warnings],
+        )
+        gate = self._gate(
+            "cashflow_quality",
+            summary.status,
+            self._quality_gate_message("Cashflow quality", summary.status),
+            {
+                "ready_bond_count": summary.ready_bond_count,
+                "warning_bond_count": summary.warning_bond_count,
+                "not_ready_bond_count": summary.not_ready_bond_count,
+                "total_bond_count": summary.total_bond_count,
+                "issue_summary": summary.issue_summary,
+            },
+        )
+        return summary, gate
+
+    @staticmethod
+    def _quality_selector_kwargs(
+        request: DataReadinessCheckRequest,
+    ) -> dict[str, list[int]]:
+        if request.bond_ids is not None:
+            return {"bond_ids": request.bond_ids}
+        if request.company_ids is not None:
+            return {"company_ids": request.company_ids}
+        return {}
+
+    @staticmethod
+    def _quality_gate_status(
+        *,
+        total_bond_count: int,
+        not_ready_bond_count: int,
+        warning_bond_count: int,
+    ) -> str:
+        if total_bond_count == 0 or not_ready_bond_count > 0:
+            return "fail"
+        if warning_bond_count > 0:
+            return "warning"
+        return "pass"
+
+    @staticmethod
+    def _quality_gate_message(label: str, status_value: str) -> str:
+        if status_value == "pass":
+            return f"{label} gate passed"
+        if status_value == "warning":
+            return f"{label} gate has warnings"
+        return f"{label} gate failed"
+
+    @staticmethod
+    def _quality_summary(
+        *,
+        enabled: bool,
+        status_value: str,
+        ready_bond_count: int,
+        warning_bond_count: int,
+        not_ready_bond_count: int,
+        total_bond_count: int,
+        issue_summary: dict[str, int],
+        warnings: list[str],
+    ) -> DataReadinessQualityGateSummary:
+        return DataReadinessQualityGateSummary(
+            enabled=enabled,
+            status=status_value,
+            ready_bond_count=ready_bond_count,
+            warning_bond_count=warning_bond_count,
+            not_ready_bond_count=not_ready_bond_count,
+            total_bond_count=total_bond_count,
+            issue_summary=issue_summary,
+            warnings=warnings,
+        )
+
+    @staticmethod
+    def _issue_summary_dict(issue_summary: Any) -> dict[str, int]:
+        return {
+            key: int(value)
+            for key, value in issue_summary.model_dump().items()
+            if isinstance(value, int)
+        }
+
     def _bond_issues(
         self,
         request: DataReadinessCheckRequest,
@@ -866,6 +1133,12 @@ class DataReadinessService:
             ),
             "insufficient_ratio": (
                 "Review source data gaps, then rebuild features and labels"
+            ),
+            "market_history_quality": (
+                "Review market history quality audit and backfill or clean market snapshots"
+            ),
+            "cashflow_quality": (
+                "Review cashflow quality audit and sync or clean cashflow events"
             ),
         }
         actions: list[str] = []

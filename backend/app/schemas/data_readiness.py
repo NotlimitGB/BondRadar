@@ -28,6 +28,22 @@ class DataReadinessCheckRequest(BaseModel):
     require_cashflows: bool = False
     require_moex_secid: bool = True
     max_bond_issues: int = 50
+    include_market_history_quality: bool = False
+    include_cashflow_quality: bool = False
+    market_quality_source: str | None = "moex"
+    market_expected_date_mode: str = "business_days"
+    market_minimum_snapshot_count: int | None = None
+    market_minimum_coverage_ratio: Decimal | None = None
+    market_maximum_gap_days: int | None = None
+    market_require_price: bool = True
+    market_require_yield: bool = False
+    market_require_volume: bool = False
+    cashflow_quality_source: str | None = "moex"
+    cashflow_require_future_cashflows: bool = True
+    cashflow_require_coupon_events: bool = False
+    cashflow_require_redemption_or_maturity: bool = False
+    cashflow_max_duplicate_events_per_bond: int | None = None
+    cashflow_maximum_days_without_future_event: int | None = None
 
 
 class DataReadinessGate(BaseModel):
@@ -35,6 +51,17 @@ class DataReadinessGate(BaseModel):
     status: str
     message: str
     details: dict[str, Any]
+
+
+class DataReadinessQualityGateSummary(BaseModel):
+    enabled: bool
+    status: str
+    ready_bond_count: int
+    warning_bond_count: int
+    not_ready_bond_count: int
+    total_bond_count: int
+    issue_summary: dict[str, int]
+    warnings: list[str]
 
 
 class DataReadinessClassDistribution(BaseModel):
@@ -99,3 +126,5 @@ class DataReadinessResponse(BaseModel):
     bond_issues: list[DataReadinessBondIssue]
     warnings: list[str]
     recommended_next_actions: list[str]
+    market_history_quality: DataReadinessQualityGateSummary | None = None
+    cashflow_quality: DataReadinessQualityGateSummary | None = None

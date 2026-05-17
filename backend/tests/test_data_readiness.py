@@ -3,6 +3,7 @@ from decimal import Decimal
 from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.bond import Bond
@@ -247,6 +248,70 @@ def gate(payload: dict, name: str) -> dict:
     return next(item for item in payload["gates"] if item["name"] == name)
 
 
+def add_market_snapshot(
+    db: Session,
+    bond: Bond,
+    trade_date: date,
+    *,
+    yield_to_maturity: Decimal | None = Decimal("12.000"),
+) -> None:
+    db.add(
+        BondMarketSnapshot(
+            bond_id=bond.id,
+            trade_date=trade_date,
+            price=Decimal("100.000000"),
+            clean_price=Decimal("100.000000"),
+            dirty_price=Decimal("101.000000"),
+            nkd=Decimal("10.000000"),
+            yield_to_maturity=yield_to_maturity,
+            duration_years=Decimal("2.000"),
+            volume=Decimal("1000000.00"),
+            liquidity_score=80,
+            source="readiness-test",
+            raw_payload={"test": True},
+        )
+    )
+
+
+def add_future_cashflows(
+    db: Session,
+    bonds: list[Bond],
+    *,
+    include_coupon: bool = True,
+    include_redemption: bool = True,
+) -> None:
+    for bond in bonds:
+        if include_coupon:
+            db.add(
+                BondCashflowEvent(
+                    bond_id=bond.id,
+                    event_date=DATE_TO + timedelta(days=5),
+                    event_type="coupon",
+                    amount=Decimal("20.000000"),
+                    currency="RUB",
+                    source="readiness-test",
+                    raw_payload={"test": True},
+                )
+            )
+        if include_redemption:
+            db.add(
+                BondCashflowEvent(
+                    bond_id=bond.id,
+                    event_date=DATE_TO + timedelta(days=20),
+                    event_type="redemption",
+                    amount=Decimal("1000.000000"),
+                    currency="RUB",
+                    source="readiness-test",
+                    raw_payload={"test": True},
+                )
+            )
+    db.commit()
+
+
+def table_count(db: Session, model) -> int:
+    return int(db.execute(select(func.count()).select_from(model)).scalar_one())
+
+
 def test_no_selected_bonds_returns_not_ready(client: TestClient) -> None:
     response = client.post("/api/data-readiness/check", json=base_payload())
 
@@ -274,6 +339,235 @@ def test_ready_dataset_returns_ready(
     assert payload["summary"]["negative_label_count"] == 2
     assert payload["summary"]["joined_feature_label_row_count"] == 4
     assert all(item["status"] == "pass" for item in payload["gates"])
+    assert payload["market_history_quality"] is None
+    assert payload["cashflow_quality"] is None
+    assert "market_history_quality" not in {item["name"] for item in payload["gates"]}
+    assert "cashflow_quality" not in {item["name"] for item in payload["gates"]}
+
+
+def test_market_history_quality_pass_gate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, bonds = seed_readiness_dataset(db_session)
+    for bond in bonds:
+        add_market_snapshot(db_session, bond, DATE_TO)
+    db_session.commit()
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_market_history_quality=True,
+            market_quality_source="readiness-test",
+            market_expected_date_mode="observed_market_dates",
+            market_minimum_snapshot_count=1,
+            market_minimum_coverage_ratio="0",
+            market_maximum_gap_days=999,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["market_history_quality"]["status"] == "pass"
+    assert payload["market_history_quality"]["total_bond_count"] == 2
+    assert gate(payload, "market_history_quality")["status"] == "pass"
+
+
+def test_market_history_quality_fail_gate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    seed_readiness_dataset(db_session)
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(include_market_history_quality=True),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["summary"]["ready_for_ml_training"] is False
+    assert payload["market_history_quality"]["status"] == "fail"
+    assert payload["market_history_quality"]["not_ready_bond_count"] == 2
+    assert gate(payload, "market_history_quality")["status"] == "fail"
+
+
+def test_market_history_quality_warning_gate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, bonds = seed_readiness_dataset(db_session)
+    for snapshot in db_session.execute(select(BondMarketSnapshot)).scalars():
+        snapshot.yield_to_maturity = None
+    for bond in bonds:
+        add_market_snapshot(db_session, bond, DATE_TO, yield_to_maturity=None)
+    db_session.commit()
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_market_history_quality=True,
+            market_quality_source="readiness-test",
+            market_expected_date_mode="observed_market_dates",
+            market_minimum_snapshot_count=1,
+            market_minimum_coverage_ratio="0",
+            market_maximum_gap_days=999,
+            market_require_yield=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "warning"
+    assert payload["summary"]["ready_for_ml_training"] is True
+    assert payload["market_history_quality"]["status"] == "warning"
+    assert payload["market_history_quality"]["issue_summary"]["missing_yield_count"] == 2
+    assert gate(payload, "market_history_quality")["status"] == "warning"
+
+
+def test_cashflow_quality_pass_gate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, bonds = seed_readiness_dataset(db_session)
+    add_future_cashflows(db_session, bonds)
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_cashflow_quality=True,
+            cashflow_quality_source="readiness-test",
+            cashflow_require_future_cashflows=True,
+            cashflow_require_coupon_events=True,
+            cashflow_require_redemption_or_maturity=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    assert payload["cashflow_quality"]["status"] == "pass"
+    assert payload["cashflow_quality"]["total_bond_count"] == 2
+    assert gate(payload, "cashflow_quality")["status"] == "pass"
+
+
+def test_cashflow_quality_fail_gate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    seed_readiness_dataset(db_session)
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_cashflow_quality=True,
+            cashflow_quality_source="readiness-test",
+            cashflow_require_future_cashflows=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["summary"]["ready_for_ml_training"] is False
+    assert payload["cashflow_quality"]["status"] == "fail"
+    assert payload["cashflow_quality"]["not_ready_bond_count"] == 2
+    assert gate(payload, "cashflow_quality")["status"] == "fail"
+
+
+def test_cashflow_quality_warning_gate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, bonds = seed_readiness_dataset(db_session, include_cashflows=False)
+    add_future_cashflows(db_session, bonds, include_coupon=False, include_redemption=True)
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_cashflow_quality=True,
+            cashflow_quality_source="readiness-test",
+            cashflow_require_future_cashflows=True,
+            cashflow_require_coupon_events=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "warning"
+    assert payload["summary"]["ready_for_ml_training"] is True
+    assert payload["cashflow_quality"]["status"] == "warning"
+    assert payload["cashflow_quality"]["issue_summary"]["no_coupon_events_count"] == 2
+    assert gate(payload, "cashflow_quality")["status"] == "warning"
+
+
+def test_both_quality_gates_enabled(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, bonds = seed_readiness_dataset(db_session)
+    for bond in bonds:
+        add_market_snapshot(db_session, bond, DATE_TO)
+    db_session.commit()
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_market_history_quality=True,
+            market_quality_source="readiness-test",
+            market_expected_date_mode="observed_market_dates",
+            market_minimum_snapshot_count=1,
+            market_minimum_coverage_ratio="0",
+            market_maximum_gap_days=999,
+            include_cashflow_quality=True,
+            cashflow_quality_source="readiness-test",
+            cashflow_require_future_cashflows=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "not_ready"
+    assert payload["market_history_quality"]["status"] == "pass"
+    assert payload["cashflow_quality"]["status"] == "fail"
+
+
+def test_quality_summaries_are_compact(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, bonds = seed_readiness_dataset(db_session)
+    for bond in bonds:
+        add_market_snapshot(db_session, bond, DATE_TO)
+    db_session.commit()
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_market_history_quality=True,
+            market_quality_source="readiness-test",
+            market_expected_date_mode="observed_market_dates",
+            market_minimum_snapshot_count=1,
+            market_minimum_coverage_ratio="0",
+            market_maximum_gap_days=999,
+            include_cashflow_quality=True,
+            cashflow_quality_source="readiness-test",
+            cashflow_require_future_cashflows=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    for key in ("market_history_quality", "cashflow_quality"):
+        summary = payload[key]
+        assert "issue_summary" in summary
+        assert "warnings" in summary
+        assert "bond_rows" not in summary
+        assert "gaps" not in summary
+        assert "event_type_breakdown" not in summary
+        assert "issue_details" not in summary
 
 
 def test_missing_secid_fail_and_warning_behavior(
@@ -410,6 +704,38 @@ def test_invalid_requests_return_400(client: TestClient) -> None:
             "max_insufficient_ratio must be between 0 and 1",
         ),
         (base_payload(max_bond_issues=0), "max_bond_issues must be between 1 and 500"),
+        (
+            base_payload(market_expected_date_mode="daily"),
+            "Invalid market expected date mode",
+        ),
+        (
+            base_payload(market_minimum_snapshot_count=0),
+            "market_minimum_snapshot_count must be positive",
+        ),
+        (
+            base_payload(market_minimum_coverage_ratio="1.5"),
+            "market_minimum_coverage_ratio must be between 0 and 1",
+        ),
+        (
+            base_payload(market_maximum_gap_days=-1),
+            "market_maximum_gap_days must be non-negative",
+        ),
+        (
+            base_payload(market_quality_source=" "),
+            "market_quality_source must not be empty when provided",
+        ),
+        (
+            base_payload(cashflow_max_duplicate_events_per_bond=-1),
+            "cashflow_max_duplicate_events_per_bond must be non-negative",
+        ),
+        (
+            base_payload(cashflow_maximum_days_without_future_event=-1),
+            "cashflow_maximum_days_without_future_event must be non-negative",
+        ),
+        (
+            base_payload(cashflow_quality_source=" "),
+            "cashflow_quality_source must not be empty when provided",
+        ),
     ]
 
     for payload, detail in cases:
@@ -418,13 +744,69 @@ def test_invalid_requests_return_400(client: TestClient) -> None:
         assert response.json()["detail"] == detail
 
 
+def test_quality_gates_do_not_write_rows(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    _, bonds = seed_readiness_dataset(db_session)
+    add_future_cashflows(db_session, bonds)
+    for bond in bonds:
+        add_market_snapshot(db_session, bond, DATE_TO)
+    db_session.commit()
+    models = [
+        Company,
+        Bond,
+        BondMarketSnapshot,
+        BondCashflowEvent,
+        BondFeatureSnapshot,
+        BondReturnLabel,
+    ]
+    before = {model.__name__: table_count(db_session, model) for model in models}
+
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_market_history_quality=True,
+            market_quality_source="readiness-test",
+            market_expected_date_mode="observed_market_dates",
+            market_minimum_snapshot_count=1,
+            market_minimum_coverage_ratio="0",
+            market_maximum_gap_days=999,
+            include_cashflow_quality=True,
+            cashflow_quality_source="readiness-test",
+            cashflow_require_future_cashflows=True,
+        ),
+    )
+
+    assert response.status_code == 200
+    after = {model.__name__: table_count(db_session, model) for model in models}
+    assert after == before
+
+
 def test_readiness_payload_has_no_recommendation_vocabulary(
     client: TestClient,
     db_session: Session,
 ) -> None:
-    seed_readiness_dataset(db_session)
+    _, bonds = seed_readiness_dataset(db_session)
+    add_future_cashflows(db_session, bonds)
+    for bond in bonds:
+        add_market_snapshot(db_session, bond, DATE_TO)
+    db_session.commit()
 
-    response = client.post("/api/data-readiness/check", json=base_payload())
+    response = client.post(
+        "/api/data-readiness/check",
+        json=base_payload(
+            include_market_history_quality=True,
+            market_quality_source="readiness-test",
+            market_expected_date_mode="observed_market_dates",
+            market_minimum_snapshot_count=1,
+            market_minimum_coverage_ratio="0",
+            market_maximum_gap_days=999,
+            include_cashflow_quality=True,
+            cashflow_quality_source="readiness-test",
+            cashflow_require_future_cashflows=True,
+        ),
+    )
 
     assert response.status_code == 200
     assert_no_forbidden_investment_vocabulary(response.json())
