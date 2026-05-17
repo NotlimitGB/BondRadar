@@ -19,6 +19,7 @@ from app.api.v1.endpoints import (
     market_history_quality,
     ml,
     ml_evaluation,
+    ml_prediction_quality,
     ml_walk_forward,
     portfolio_construction,
     paper_trading,
@@ -80,6 +81,11 @@ api_router.include_router(
     ml_evaluation.router,
     prefix="/ml/evaluation",
     tags=["ml-evaluation"],
+)
+api_router.include_router(
+    ml_prediction_quality.router,
+    prefix="/ml/evaluation/prediction-quality",
+    tags=["ml-prediction-quality"],
 )
 api_router.include_router(
     financial_report_ingestion.router,
