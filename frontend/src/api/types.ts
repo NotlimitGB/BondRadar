@@ -86,3 +86,107 @@ export interface CompanyScore {
   explanation: Explanation | null;
   created_at: string;
 }
+
+export type LivePaperHealthStatus = "healthy" | "warning" | "critical" | "unknown";
+
+export type LivePaperAlertLevel = "info" | "warning" | "critical";
+
+export interface LivePaperMonitoringAlert {
+  level: LivePaperAlertLevel;
+  code: string;
+  message: string;
+  details: Record<string, unknown>;
+}
+
+export interface LivePaperScheduleMonitoringSummary {
+  id: number;
+  name: string;
+  status: string;
+  next_run_at: string;
+  last_run_at: string | null;
+  last_cycle_run_id: number | null;
+  run_count: number;
+  max_runs: number | null;
+  interval_days: number;
+  is_due: boolean;
+  is_locked: boolean;
+  lock_expires_at: string | null;
+  health_status: LivePaperHealthStatus;
+  alerts: LivePaperMonitoringAlert[];
+}
+
+export interface LivePaperCycleMonitoringSummary {
+  id: number;
+  status: string;
+  mode: string;
+  portfolio_id: number | null;
+  schedule_id: number | null;
+  client_cycle_key: string | null;
+  as_of_date: string | null;
+  scheduled_for: string | null;
+  readiness_status: string | null;
+  selected_model_run_id: number | null;
+  started_at: string;
+  finished_at: string | null;
+  warning_count: number;
+  error_count: number;
+  summary: Record<string, unknown>;
+}
+
+export interface LivePaperPortfolioMonitoringSummary {
+  id: number;
+  name: string;
+  status: string;
+  base_currency: string;
+  initial_capital: string | number;
+  current_value: string | number;
+  cash_balance: string | number;
+  model_run_id: number | null;
+  return_method: string | null;
+  horizon_days: number | null;
+  last_rebalance_as_of_date: string | null;
+  last_rebalanced_at: string | null;
+  last_marked_at: string | null;
+  active_positions_count: number;
+  snapshot_count: number;
+  latest_snapshot_date: string | null;
+  cumulative_return: string | number | null;
+  max_drawdown: string | number | null;
+  health_status: LivePaperHealthStatus;
+  alerts: LivePaperMonitoringAlert[];
+}
+
+export interface LivePaperMonitoringOverviewResponse {
+  health_status: LivePaperHealthStatus;
+  now: string;
+
+  schedule_count: number;
+  active_schedule_count: number;
+  due_schedule_count: number;
+  locked_schedule_count: number;
+
+  portfolio_count: number;
+  active_portfolio_count: number;
+
+  recent_cycle_count: number;
+  completed_cycle_count: number;
+  blocked_cycle_count: number;
+  failed_cycle_count: number;
+  running_cycle_count: number;
+
+  schedules: LivePaperScheduleMonitoringSummary[];
+  portfolios: LivePaperPortfolioMonitoringSummary[];
+  recent_cycles: LivePaperCycleMonitoringSummary[];
+
+  alerts: LivePaperMonitoringAlert[];
+}
+
+export interface LivePaperPortfolioMonitoringResponse {
+  portfolio: LivePaperPortfolioMonitoringSummary;
+  performance: Record<string, unknown> | null;
+  equity_curve: Array<Record<string, unknown>>;
+  contributions: Record<string, unknown> | null;
+  positions: Array<Record<string, unknown>>;
+  recent_cycles: LivePaperCycleMonitoringSummary[];
+  alerts: LivePaperMonitoringAlert[];
+}

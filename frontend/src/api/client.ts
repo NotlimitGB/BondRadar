@@ -1,4 +1,11 @@
-import type { Bond, BondScore, Company, CompanyScore } from "./types";
+import type {
+  Bond,
+  BondScore,
+  Company,
+  CompanyScore,
+  LivePaperMonitoringOverviewResponse,
+  LivePaperPortfolioMonitoringResponse,
+} from "./types";
 import { translateText } from "../utils/format";
 
 export class ApiError extends Error {
@@ -92,4 +99,12 @@ export const api = {
     request<CompanyScore>(`/api/companies/${companyId}/calculate-score`, {
       method: "POST",
     }),
+  getLivePaperOverview: () =>
+    request<LivePaperMonitoringOverviewResponse>(
+      "/api/paper-trading/live/monitoring/overview",
+    ),
+  getLivePaperPortfolio: (portfolioId: number) =>
+    request<LivePaperPortfolioMonitoringResponse>(
+      `/api/paper-trading/live/monitoring/portfolios/${portfolioId}`,
+    ),
 };
