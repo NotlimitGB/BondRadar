@@ -26,6 +26,7 @@ from app.api.v1.endpoints import (
     ml_walk_forward,
     portfolio_construction,
     paper_trading,
+    paper_trading_live_readiness,
     scores,
     strategy_backtest,
     strategy_experiment,
@@ -144,4 +145,9 @@ api_router.include_router(
     paper_trading.router,
     prefix="/paper-trading",
     tags=["paper-trading"],
+)
+api_router.include_router(
+    paper_trading_live_readiness.router,
+    prefix="/paper-trading/live",
+    tags=["paper-trading-live-readiness"],
 )
