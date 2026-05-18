@@ -191,6 +191,97 @@ export interface LivePaperPortfolioMonitoringResponse {
   alerts: LivePaperMonitoringAlert[];
 }
 
+export interface LivePaperCycleMonitoringListResponse {
+  total_returned: number;
+  cycles: LivePaperCycleMonitoringSummary[];
+  alerts: LivePaperMonitoringAlert[];
+}
+
+export type LivePaperScheduleStatus = "active" | "paused" | "archived";
+
+export interface LivePaperCycleRunRead extends Record<string, unknown> {
+  id: number;
+  status: string;
+  mode: string;
+  portfolio_id: number | null;
+  schedule_id: number | null;
+  client_cycle_key: string | null;
+  as_of_date: string | null;
+  scheduled_for: string | null;
+  readiness_status: string | null;
+  selected_model_run_id: number | null;
+  selected_model_run_ids_json: number[] | null;
+  request_json: Record<string, unknown>;
+  readiness_json: Record<string, unknown>;
+  mark_period_result_json: Record<string, unknown> | null;
+  rebalance_result_json: Record<string, unknown> | null;
+  summary_json: Record<string, unknown>;
+  warnings_json: Array<Record<string, unknown>>;
+  errors_json: Array<Record<string, unknown>>;
+  started_at: string;
+  finished_at: string | null;
+  created_at: string;
+}
+
+export interface LivePaperScheduleRead {
+  id: number;
+  name: string;
+  status: LivePaperScheduleStatus | string;
+  mode: string;
+  cycle_request_json: Record<string, unknown>;
+  next_run_at: string;
+  last_run_at: string | null;
+  last_cycle_run_id: number | null;
+  interval_days: number;
+  max_runs: number | null;
+  run_count: number;
+  use_current_date_as_of_date: boolean;
+  locked_at: string | null;
+  lock_expires_at: string | null;
+  lock_token: string | null;
+  summary_json: Record<string, unknown>;
+  warnings_json: Array<Record<string, unknown>>;
+  errors_json: Array<Record<string, unknown>>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LivePaperScheduleUpdateRequest {
+  name?: string;
+  status?: LivePaperScheduleStatus;
+  next_run_at?: string;
+  interval_days?: number;
+  max_runs?: number | null;
+  use_current_date_as_of_date?: boolean;
+}
+
+export interface LivePaperScheduleRunDueRequest {
+  now?: string | null;
+  limit?: number;
+  dry_run: boolean;
+  lock_minutes?: number;
+}
+
+export interface LivePaperScheduledRunItem {
+  schedule: LivePaperScheduleRead;
+  status: string;
+  scheduled_for: string;
+  cycle: LivePaperCycleRunRead | null;
+  warnings: Array<Record<string, unknown>>;
+  errors: Array<Record<string, unknown>>;
+}
+
+export interface LivePaperScheduleRunDueResponse {
+  now: string;
+  dry_run: boolean;
+  due_schedule_count: number;
+  executed_count: number;
+  skipped_count: number;
+  results: LivePaperScheduledRunItem[];
+  warnings: Array<Record<string, unknown>>;
+  errors: Array<Record<string, unknown>>;
+}
+
 export type LivePaperPilotBootstrapStatus =
   | "prepared"
   | "scheduled"

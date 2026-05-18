@@ -3,10 +3,16 @@ import type {
   BondScore,
   Company,
   CompanyScore,
+  LivePaperCycleMonitoringListResponse,
   LivePaperMonitoringOverviewResponse,
   LivePaperPilotBootstrapRequest,
   LivePaperPilotBootstrapResponse,
   LivePaperPortfolioMonitoringResponse,
+  LivePaperScheduleRead,
+  LivePaperScheduleRunDueRequest,
+  LivePaperScheduleRunDueResponse,
+  LivePaperScheduleUpdateRequest,
+  LivePaperScheduledRunItem,
   PaperPortfolioOperation,
   PaperPortfolioPosition,
   PaperPortfolioSnapshot,
@@ -15,6 +21,33 @@ import type {
   PaperTradingPerformanceResponse,
 } from "./types";
 import { translateText } from "../utils/format";
+
+type LivePaperScheduleListParams = {
+  limit?: number;
+  status?: string | null;
+};
+
+type LivePaperCyclesParams = {
+  schedule_id?: number | null;
+  portfolio_id?: number | null;
+  status?: string | null;
+  limit?: number;
+};
+
+type LivePaperScheduleRunOnceParams = {
+  now?: string | null;
+};
+
+function buildQuery(params: Record<string, string | number | boolean | null | undefined>): string {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  });
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
 
 export class ApiError extends Error {
   status: number;
@@ -114,6 +147,63 @@ export const api = {
   getLivePaperPortfolio: (portfolioId: number) =>
     request<LivePaperPortfolioMonitoringResponse>(
       `/api/paper-trading/live/monitoring/portfolios/${portfolioId}`,
+    ),
+  getLivePaperSchedules: (params: LivePaperScheduleListParams = {}) =>
+    request<LivePaperScheduleRead[]>(
+      `/api/paper-trading/live/schedules${buildQuery({
+        limit: params.limit ?? 100,
+        status: params.status,
+      })}`,
+    ),
+  getLivePaperSchedule: (scheduleId: number) =>
+    request<LivePaperScheduleRead>(
+      `/api/paper-trading/live/schedules/${scheduleId}`,
+    ),
+  updateLivePaperSchedule: (
+    scheduleId: number,
+    payload: LivePaperScheduleUpdateRequest,
+  ) =>
+    request<LivePaperScheduleRead>(
+      `/api/paper-trading/live/schedules/${scheduleId}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+    ),
+  runLivePaperScheduleOnce: (
+    scheduleId: number,
+    params: LivePaperScheduleRunOnceParams = {},
+  ) =>
+    request<LivePaperScheduledRunItem>(
+      `/api/paper-trading/live/schedules/${scheduleId}/run${buildQuery({
+        now: params.now,
+      })}`,
+      {
+        method: "POST",
+      },
+    ),
+  runDueLivePaperSchedules: (payload: LivePaperScheduleRunDueRequest) =>
+    request<LivePaperScheduleRunDueResponse>(
+      "/api/paper-trading/live/schedules/run-due",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
+    ),
+  getLivePaperCycles: (params: LivePaperCyclesParams = {}) =>
+    request<LivePaperCycleMonitoringListResponse>(
+      `/api/paper-trading/live/monitoring/cycles${buildQuery({
+        schedule_id: params.schedule_id,
+        portfolio_id: params.portfolio_id,
+        status: params.status,
+        limit: params.limit ?? 50,
+      })}`,
     ),
   bootstrapLivePaperPilot: (payload: LivePaperPilotBootstrapRequest) =>
     request<LivePaperPilotBootstrapResponse>(

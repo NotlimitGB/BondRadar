@@ -617,6 +617,9 @@ export function LivePaperDashboard() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Link className="text-button" to="/live-paper/schedules">
+            Расписания и запуски
+          </Link>
           <Link className="primary-button" to="/live-paper/pilot-bootstrap">
             Подготовить pilot schedule
           </Link>
