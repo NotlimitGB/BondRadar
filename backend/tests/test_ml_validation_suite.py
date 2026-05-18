@@ -107,6 +107,62 @@ def readiness_response(status_value: str) -> LiveDataReadinessResponse:
     )
 
 
+def model_gap_readiness_response(
+    *,
+    include_feature_failure: bool = False,
+) -> LiveDataReadinessResponse:
+    failed_names = [
+        "completed_model_run_available",
+        "predictions_available",
+        "recent_predictions_available",
+    ]
+    if include_feature_failure:
+        failed_names.insert(0, "feature_snapshots_available")
+    checks = [
+        LiveDataReadinessCheck(
+            name=name,
+            status="failed",
+            message=f"{name} failed",
+            details={},
+        )
+        for name in failed_names
+    ]
+    checks.append(
+        LiveDataReadinessCheck(
+            name="paper_pilot_data_ready",
+            status="failed",
+            message="Live data chain state was checked",
+            details={"blocking_checks": list(failed_names)},
+        )
+    )
+    return LiveDataReadinessResponse(
+        status="not_ready",
+        as_of=now(),
+        corporate_bond_count=20,
+        ofz_bond_count=0,
+        total_bond_count=20,
+        working_bond_count=20,
+        company_count=20,
+        latest_market_snapshot_date=None,
+        market_snapshot_count=20,
+        bonds_with_recent_market_snapshot_count=20,
+        latest_cashflow_date=None,
+        cashflow_event_count=20,
+        bonds_with_cashflows_count=20,
+        latest_feature_snapshot_date=None,
+        feature_snapshot_count=0 if include_feature_failure else 20,
+        bonds_with_recent_features_count=0 if include_feature_failure else 20,
+        latest_completed_model_run_id=None,
+        latest_completed_model_run_created_at=None,
+        prediction_count_for_latest_run=0,
+        bonds_with_predictions_for_latest_run_count=0,
+        latest_prediction_date=None,
+        checks=checks,
+        warnings=[],
+        next_steps=["Run ML validation suite after data checks."],
+    )
+
+
 def train_result(run_id: int, status_value: str = "completed") -> MLTrainResult:
     return MLTrainResult(
         run_id=run_id,
@@ -139,6 +195,8 @@ def comparison_response(
     *,
     selected_model_run_id: int | None,
     warnings: bool = False,
+    ready_for_strategy_research: bool = True,
+    issues: list[str] | None = None,
 ) -> MLCandidateComparisonResponse:
     selected = (
         MLCandidateComparisonSelectedCandidate(
@@ -149,8 +207,8 @@ def comparison_response(
             model_run_id=selected_model_run_id,
             model_run_ids=[selected_model_run_id],
             prediction_source_mode="single_model",
-            ready_for_strategy_research=True,
-            issues=[],
+            ready_for_strategy_research=ready_for_strategy_research,
+            issues=list(issues or []),
         )
         if selected_model_run_id is not None
         else None
@@ -268,6 +326,96 @@ def test_readiness_warning_allowed_continues(
     assert calls
     assert payload["completed_training_count"] == 3
     assert any(warning["code"] == "readiness_warning" for warning in payload["warnings"])
+
+
+def test_no_completed_model_run_can_continue_when_training_can_fix_it(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    training_calls: list[int] = []
+    prediction_calls: list[int] = []
+    monkeypatch.setattr(
+        LiveDataReadinessService,
+        "check",
+        lambda *args, **kwargs: model_gap_readiness_response(),
+    )
+
+    def fake_train(self, request):
+        training_calls.append(request.random_state)
+        return train_result(909)
+
+    def fake_predict(self, request):
+        prediction_calls.append(request.model_run_id)
+        return prediction_response(request.model_run_id)
+
+    monkeypatch.setattr(MLTrainingService, "train", fake_train)
+    monkeypatch.setattr(MLPredictionService, "predict", fake_predict)
+    monkeypatch.setattr(
+        MLCandidateComparisonService,
+        "compare",
+        lambda self, request: comparison_response(selected_model_run_id=909),
+    )
+
+    response = client.post(
+        VALIDATION_SUITE_URL,
+        json={"training_configs": [{"name": "model_gap", "min_rows": 10}]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] in {"completed", "completed_with_warnings"}
+    assert training_calls
+    assert prediction_calls == [909]
+    assert any(warning["code"] == "model_readiness_gap" for warning in payload["warnings"])
+
+
+def test_missing_model_still_blocks_when_training_disabled(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        LiveDataReadinessService,
+        "check",
+        lambda *args, **kwargs: model_gap_readiness_response(),
+    )
+
+    def fail_train(*args, **kwargs):
+        raise AssertionError("training should not run")
+
+    monkeypatch.setattr(MLTrainingService, "train", fail_train)
+
+    response = client.post(
+        VALIDATION_SUITE_URL,
+        json={"include_ml_training": False},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "blocked"
+    assert payload["training_result_count"] == 0
+
+
+def test_non_ml_data_failure_still_blocks(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        LiveDataReadinessService,
+        "check",
+        lambda *args, **kwargs: model_gap_readiness_response(include_feature_failure=True),
+    )
+
+    def fail_train(*args, **kwargs):
+        raise AssertionError("training should not run")
+
+    monkeypatch.setattr(MLTrainingService, "train", fail_train)
+
+    response = client.post(VALIDATION_SUITE_URL, json={})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "blocked"
+    assert payload["training_result_count"] == 0
 
 
 def test_default_training_configs_run(
@@ -438,6 +586,50 @@ def test_no_selected_candidate_yields_warning_status(
     assert payload["status"] == "completed_with_warnings"
     assert payload["recommended_model_run_id"] is None
     assert payload["can_continue_to_robustness"] is False
+
+
+def test_selected_candidate_not_ready_yields_warning_status(
+    client: TestClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        MLTrainingService,
+        "train",
+        lambda self, request: train_result(414),
+    )
+    monkeypatch.setattr(
+        MLPredictionService,
+        "predict",
+        lambda self, request: prediction_response(request.model_run_id),
+    )
+    monkeypatch.setattr(
+        MLCandidateComparisonService,
+        "compare",
+        lambda self, request: comparison_response(
+            selected_model_run_id=414,
+            ready_for_strategy_research=False,
+            issues=["not enough evaluable predictions"],
+        ),
+    )
+
+    response = client.post(
+        VALIDATION_SUITE_URL,
+        json={
+            "require_live_data_ready": False,
+            "training_configs": [{"name": "unready_candidate", "min_rows": 10}],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed_with_warnings"
+    assert payload["recommended_model_run_id"] is None
+    assert payload["can_continue_to_robustness"] is False
+    assert payload["can_continue_to_paper_readiness"] is False
+    assert any(
+        warning["code"] == "selected_candidate_not_ready"
+        for warning in payload["warnings"]
+    )
 
 
 def test_generate_predictions_false_skips_prediction_calls(

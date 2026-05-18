@@ -32,7 +32,8 @@ from app.services.ml_prediction_service import MLPredictionService
 from app.services.ml_training_service import MLTrainingService
 
 
-PREDICTION_GAP_CHECKS = {
+MODEL_READINESS_GAP_CHECKS = {
+    "completed_model_run_available",
     "predictions_available",
     "recent_predictions_available",
 }
@@ -98,7 +99,17 @@ class MLValidationSuiteService:
                 }
             )
 
-        training_results = self._run_training(configs)
+        if request.include_ml_training:
+            training_results = self._run_training(configs)
+        else:
+            warnings.append(
+                {
+                    "code": "ml_training_skipped",
+                    "message": "ML training was skipped for this validation suite",
+                    "details": {},
+                }
+            )
+            training_results = []
         completed_training = [
             result
             for result in training_results
@@ -147,6 +158,17 @@ class MLValidationSuiteService:
                     selected_candidate = self._selected_candidate(
                         candidate_comparison
                     )
+                    if not selected_candidate.ready_for_strategy_research:
+                        warnings.append(
+                            {
+                                "code": "selected_candidate_not_ready",
+                                "message": "Selected model candidate is not ready for strategy research",
+                                "details": {
+                                    "model_run_id": selected_candidate.model_run_id,
+                                    "issues": selected_candidate.issues,
+                                },
+                            }
+                        )
 
         status_value = self._status(
             readiness_blocked=False,
@@ -364,8 +386,8 @@ class MLValidationSuiteService:
             for check in failed_checks
             if not MLValidationSuiteService._is_prediction_only_failure(check)
         ]
-        training_mode_allows_prediction_gap = (
-            request.minimum_bonds_with_predictions == 0
+        suite_can_handle_model_gap = (
+            request.include_ml_training
             and request.generate_predictions
             and not non_prediction_failures
         )
@@ -389,13 +411,13 @@ class MLValidationSuiteService:
                 "warnings": [],
                 "details": {"readiness_status": readiness.status},
             }
-        if training_mode_allows_prediction_gap:
+        if suite_can_handle_model_gap:
             return {
                 "blocked": False,
                 "warnings": [
                     {
-                        "code": "prediction_readiness_gap",
-                        "message": "Prediction readiness gaps will be handled by this validation suite",
+                        "code": "model_readiness_gap",
+                        "message": "Model and prediction readiness gaps will be handled by this validation suite",
                         "details": {
                             "failed_checks": [check.name for check in failed_checks]
                         },
@@ -414,12 +436,12 @@ class MLValidationSuiteService:
 
     @staticmethod
     def _is_prediction_only_failure(check) -> bool:
-        if check.name in PREDICTION_GAP_CHECKS:
+        if check.name in MODEL_READINESS_GAP_CHECKS:
             return True
         if check.name != "paper_pilot_data_ready":
             return False
         blocking = set(check.details.get("blocking_checks") or [])
-        return bool(blocking) and blocking.issubset(PREDICTION_GAP_CHECKS)
+        return bool(blocking) and blocking.issubset(MODEL_READINESS_GAP_CHECKS)
 
     def _run_training(
         self,

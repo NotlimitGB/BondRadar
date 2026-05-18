@@ -49,6 +49,7 @@ class MLValidationSuiteRequest(BaseModel):
 
     training_configs: list[MLValidationTrainingConfig] = Field(default_factory=list)
 
+    include_ml_training: bool = True
     generate_predictions: bool = True
     prediction_as_of_date_from: date | None = None
     prediction_as_of_date_to: date | None = None
