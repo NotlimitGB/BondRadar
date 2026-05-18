@@ -34,6 +34,7 @@ from app.api.v1.endpoints import (
     paper_trading_live_pilot,
     paper_trading_live_readiness,
     paper_trading_live_schedule,
+    pre_deploy_paper_pilot_quality_gate,
     scores,
     strategy_backtest,
     strategy_experiment,
@@ -192,4 +193,9 @@ api_router.include_router(
     paper_trading_live_pilot.router,
     prefix="/paper-trading/live/pilots",
     tags=["paper-trading-live-pilots"],
+)
+api_router.include_router(
+    pre_deploy_paper_pilot_quality_gate.router,
+    prefix="/pre-deploy/paper-pilot",
+    tags=["pre-deploy-paper-pilot"],
 )
