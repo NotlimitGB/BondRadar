@@ -16,6 +16,7 @@ from app.models.financial_report_import_run import FinancialReportImportRun
 from app.models.financial_report_source_document import FinancialReportSourceDocument
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
+from app.models.paper_live_cycle_run import PaperLiveCycleRun
 from app.models.paper_portfolio import PaperPortfolio
 from app.models.paper_portfolio_position import PaperPortfolioPosition
 from app.models.paper_portfolio_snapshot import PaperPortfolioSnapshot
@@ -40,6 +41,7 @@ __all__ = [
     "FinancialReportSourceDocument",
     "MLModelRun",
     "MLPrediction",
+    "PaperLiveCycleRun",
     "PaperPortfolio",
     "PaperPortfolioPosition",
     "PaperPortfolioSnapshot",
