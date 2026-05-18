@@ -25,6 +25,7 @@ from app.api.v1.endpoints import (
     ml_candidate_strategy_promotion,
     ml_evaluation,
     ml_prediction_quality,
+    ml_validation_suite,
     ml_walk_forward,
     portfolio_construction,
     paper_trading,
@@ -92,6 +93,11 @@ api_router.include_router(imports.router, prefix="/import", tags=["import"])
 api_router.include_router(datasets.router, tags=["datasets"])
 api_router.include_router(market_data.router, tags=["market-data"])
 api_router.include_router(ml.router, prefix="/ml", tags=["ml"])
+api_router.include_router(
+    ml_validation_suite.router,
+    prefix="/ml/validation-suite",
+    tags=["ml-validation-suite"],
+)
 api_router.include_router(
     ml_walk_forward.router,
     prefix="/ml/walk-forward",
