@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     cashflows,
     cashflow_quality,
     companies,
+    corporate_universe_action_plan,
     credit_risk,
     data_quality_dashboard,
     data_readiness,
@@ -60,6 +61,11 @@ api_router.include_router(
     live_data_readiness.router,
     prefix="/data-readiness",
     tags=["data-readiness-live"],
+)
+api_router.include_router(
+    corporate_universe_action_plan.router,
+    prefix="/data-readiness",
+    tags=["data-readiness-corporate-universe"],
 )
 api_router.include_router(
     data_quality_dashboard.router,
