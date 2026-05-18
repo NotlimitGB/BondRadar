@@ -28,6 +28,7 @@ from app.api.v1.endpoints import (
     paper_trading,
     paper_trading_live_cycle,
     paper_trading_live_monitoring,
+    paper_trading_live_pilot,
     paper_trading_live_readiness,
     paper_trading_live_schedule,
     scores,
@@ -168,4 +169,9 @@ api_router.include_router(
     paper_trading_live_monitoring.router,
     prefix="/paper-trading/live/monitoring",
     tags=["paper-trading-live-monitoring"],
+)
+api_router.include_router(
+    paper_trading_live_pilot.router,
+    prefix="/paper-trading/live/pilots",
+    tags=["paper-trading-live-pilots"],
 )
