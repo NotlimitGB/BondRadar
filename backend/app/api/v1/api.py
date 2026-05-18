@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     health,
     imports,
     label_quality,
+    live_data_readiness,
     market_data,
     market_history_quality,
     ml,
@@ -54,6 +55,11 @@ api_router.include_router(
     data_readiness.router,
     prefix="/data-readiness",
     tags=["data-readiness"],
+)
+api_router.include_router(
+    live_data_readiness.router,
+    prefix="/data-readiness",
+    tags=["data-readiness-live"],
 )
 api_router.include_router(
     data_quality_dashboard.router,
