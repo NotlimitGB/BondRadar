@@ -5,6 +5,12 @@ import type {
   CompanyScore,
   LivePaperMonitoringOverviewResponse,
   LivePaperPortfolioMonitoringResponse,
+  PaperPortfolioOperation,
+  PaperPortfolioPosition,
+  PaperPortfolioSnapshot,
+  PaperTradingContributionsResponse,
+  PaperTradingEquityPoint,
+  PaperTradingPerformanceResponse,
 } from "./types";
 import { translateText } from "../utils/format";
 
@@ -106,5 +112,29 @@ export const api = {
   getLivePaperPortfolio: (portfolioId: number) =>
     request<LivePaperPortfolioMonitoringResponse>(
       `/api/paper-trading/live/monitoring/portfolios/${portfolioId}`,
+    ),
+  getPaperPortfolioPositions: (portfolioId: number) =>
+    request<PaperPortfolioPosition[]>(
+      `/api/paper-trading/portfolios/${portfolioId}/positions`,
+    ),
+  getPaperPortfolioOperations: (portfolioId: number) =>
+    request<PaperPortfolioOperation[]>(
+      `/api/paper-trading/portfolios/${portfolioId}/transactions`,
+    ),
+  getPaperPortfolioSnapshots: (portfolioId: number) =>
+    request<PaperPortfolioSnapshot[]>(
+      `/api/paper-trading/portfolios/${portfolioId}/snapshots`,
+    ),
+  getPaperPortfolioPerformance: (portfolioId: number) =>
+    request<PaperTradingPerformanceResponse>(
+      `/api/paper-trading/portfolios/${portfolioId}/performance`,
+    ),
+  getPaperPortfolioEquityCurve: (portfolioId: number) =>
+    request<PaperTradingEquityPoint[]>(
+      `/api/paper-trading/portfolios/${portfolioId}/equity-curve`,
+    ),
+  getPaperPortfolioContributions: (portfolioId: number) =>
+    request<PaperTradingContributionsResponse>(
+      `/api/paper-trading/portfolios/${portfolioId}/contributions`,
     ),
 };

@@ -190,3 +190,125 @@ export interface LivePaperPortfolioMonitoringResponse {
   recent_cycles: LivePaperCycleMonitoringSummary[];
   alerts: LivePaperMonitoringAlert[];
 }
+
+export interface PaperPortfolioPosition {
+  id: number;
+  portfolio_id: number;
+  bond_id: number;
+  company_id: number | null;
+  as_of_date: string;
+  allocation_weight: string | number;
+  allocation_amount: string | number;
+  current_amount: string | number;
+  probability_positive: string | number | null;
+  predicted_label: string | null;
+  yield_to_maturity: string | number | null;
+  liquidity_score: number | null;
+  decision_status: string | null;
+  risk_level: string | null;
+  is_active: boolean;
+  source_model_run_id: number | null;
+  source_prediction_id: number | null;
+  source_details_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaperPortfolioOperation {
+  id: number;
+  portfolio_id: number;
+  bond_id: number | null;
+  company_id?: number | null;
+  transaction_type?: string | null;
+  operation_type?: string | null;
+  amount_delta?: string | number | null;
+  weight_delta?: string | number | null;
+  amount?: string | number | null;
+  quantity?: string | number | null;
+  price?: string | number | null;
+  weight?: string | number | null;
+  fee_amount?: string | number | null;
+  portfolio_value_before?: string | number | null;
+  portfolio_value_after?: string | number | null;
+  as_of_date?: string | null;
+  executed_at?: string | null;
+  created_at?: string | null;
+  cycle_run_id?: number | null;
+  model_run_id?: number | null;
+  details_json?: Record<string, unknown>;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface PaperPortfolioSnapshot {
+  id: number;
+  portfolio_id: number;
+  as_of_date: string;
+  portfolio_value?: string | number | null;
+  cash_balance?: string | number | null;
+  allocated_value?: string | number | null;
+  allocated_weight?: string | number | null;
+  unallocated_weight?: string | number | null;
+  positions_count?: number | null;
+  active_positions_count?: number | null;
+  cumulative_return?: string | number | null;
+  period_return?: string | number | null;
+  max_drawdown?: string | number | null;
+  metrics_json?: Record<string, unknown>;
+  warnings_json?: Array<Record<string, unknown>>;
+  created_at?: string | null;
+}
+
+export interface PaperTradingEquityPoint {
+  as_of_date: string;
+  portfolio_value: string | number;
+  cash_balance: string | number;
+  allocated_value: string | number;
+  allocated_weight: string | number;
+  unallocated_weight: string | number;
+  cumulative_return: string | number;
+  period_return: string | number | null;
+  drawdown: string | number;
+  active_positions_count: number;
+}
+
+export interface PaperTradingPerformanceResponse {
+  portfolio_id: number;
+  name: string;
+  status: string;
+  base_currency: string;
+  model_run_id: number | null;
+  return_method: string | null;
+  horizon_days: number | null;
+  date_from: string | null;
+  date_to: string | null;
+  metrics: Record<string, unknown>;
+  equity_curve: PaperTradingEquityPoint[];
+  warnings: Array<Record<string, unknown>>;
+}
+
+export interface PaperTradingContributionItem {
+  bond_id: number | null;
+  bond_name: string | null;
+  isin: string | null;
+  secid: string | null;
+  company_id: number | null;
+  company_name: string | null;
+  period_return_amount: string | number;
+  allocation_increase_amount: string | number;
+  allocation_decrease_amount: string | number;
+  removed_amount: string | number;
+  fee_amount: string | number;
+  net_amount_delta: string | number;
+  transaction_count: number;
+  current_amount: string | number | null;
+  current_weight: string | number | null;
+  is_active: boolean | null;
+}
+
+export interface PaperTradingContributionsResponse {
+  portfolio_id: number;
+  date_from: string | null;
+  date_to: string | null;
+  items: PaperTradingContributionItem[];
+  warnings: Array<Record<string, unknown>>;
+}

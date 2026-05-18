@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
@@ -693,6 +694,14 @@ export function LivePaperDashboard() {
                 title={selectedPortfolio.name}
                 subtitle={`Портфель #${selectedPortfolio.id}`}
               />
+              <div className="mb-3">
+                <Link
+                  className="text-button"
+                  to={`/live-paper/portfolios/${selectedPortfolio.id}`}
+                >
+                  Открыть детали
+                </Link>
+              </div>
               <PortfolioSummary portfolio={selectedPortfolio} />
             </section>
           ) : null}

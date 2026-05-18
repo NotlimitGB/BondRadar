@@ -5,6 +5,7 @@ import { BondDashboard } from "./pages/BondDashboard";
 import { BondDetails } from "./pages/BondDetails";
 import { CompanyDetails } from "./pages/CompanyDetails";
 import { LivePaperDashboard } from "./pages/LivePaperDashboard";
+import { LivePaperPortfolioDetails } from "./pages/LivePaperPortfolioDetails";
 
 export default function App() {
   return (
@@ -12,6 +13,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<BondDashboard />} />
         <Route path="/live-paper" element={<LivePaperDashboard />} />
+        <Route
+          path="/live-paper/portfolios/:portfolioId"
+          element={<LivePaperPortfolioDetails />}
+        />
         <Route path="/bonds/:bondId" element={<BondDetails />} />
         <Route path="/companies/:companyId" element={<CompanyDetails />} />
         <Route path="*" element={<Navigate to="/" replace />} />
