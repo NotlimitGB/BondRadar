@@ -28,14 +28,19 @@ import type {
   LivePaperPortfolioMonitoringSummary,
   LivePaperScheduleMonitoringSummary,
 } from "../api/types";
+import {
+  HealthBadge,
+  StatusBadge as StatusPill,
+} from "../components/live-paper/LivePaperBadges";
 import { EmptyState, ErrorState, LoadingState } from "../components/StateBlocks";
-
-const healthTone: Record<LivePaperHealthStatus, string> = {
-  healthy: "border-teal-200 bg-teal-50 text-teal-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-  critical: "border-red-200 bg-red-50 text-red-800",
-  unknown: "border-slate-200 bg-slate-50 text-slate-700",
-};
+import {
+  formatDateOnly,
+  formatDateTime,
+  formatMoney,
+  formatPercent,
+  formatPlain,
+  toNumber,
+} from "../utils/livePaperFormat";
 
 const alertTone: Record<LivePaperAlertLevel, string> = {
   info: "border-slate-200 bg-slate-50 text-slate-700",
@@ -66,95 +71,6 @@ const healthLabels: Record<LivePaperHealthStatus, string> = {
   unknown: "нет данных",
 };
 
-const statusLabels: Record<string, string> = {
-  active: "активно",
-  paused: "пауза",
-  archived: "архив",
-  running: "в работе",
-  completed: "завершен",
-  blocked: "заблокирован",
-  failed: "ошибка",
-  ready: "готово",
-  warning: "внимание",
-  not_ready: "не готово",
-};
-
-function toNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
-function formatPlain(value: unknown, digits = 2): string {
-  const numeric = toNumber(value);
-  if (numeric === null) {
-    return value === null || value === undefined || value === "" ? "—" : String(value);
-  }
-  return new Intl.NumberFormat("ru-RU", {
-    maximumFractionDigits: digits,
-  }).format(numeric);
-}
-
-function formatMoney(value: unknown, currency = "RUB"): string {
-  const numeric = toNumber(value);
-  if (numeric === null) {
-    return "—";
-  }
-  try {
-    return new Intl.NumberFormat("ru-RU", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(numeric);
-  } catch {
-    return `${formatPlain(numeric, 0)} ${currency}`;
-  }
-}
-
-function formatPercent(value: unknown): string {
-  const numeric = toNumber(value);
-  if (numeric === null) {
-    return "—";
-  }
-  return new Intl.NumberFormat("ru-RU", {
-    style: "percent",
-    maximumFractionDigits: 2,
-  }).format(numeric);
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
-
-function formatDateOnly(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function statusLabel(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  return statusLabels[value] ?? value.replaceAll("_", " ");
-}
-
 function recordValue(
   record: Record<string, unknown>,
   keys: string[],
@@ -166,37 +82,6 @@ function recordValue(
     }
   }
   return null;
-}
-
-function HealthBadge({ status }: { status: LivePaperHealthStatus }) {
-  return (
-    <span
-      className={`inline-flex items-center border px-2 py-1 text-xs font-semibold ${healthTone[status]}`}
-      style={{ borderRadius: 8 }}
-    >
-      {healthLabels[status]}
-    </span>
-  );
-}
-
-function StatusPill({ status }: { status: string | null | undefined }) {
-  const value = status ?? "unknown";
-  const tone =
-    value === "completed" || value === "ready" || value === "active"
-      ? "border-teal-200 bg-teal-50 text-teal-800"
-      : value === "blocked" || value === "warning" || value === "paused"
-        ? "border-amber-200 bg-amber-50 text-amber-800"
-        : value === "failed" || value === "critical"
-          ? "border-red-200 bg-red-50 text-red-800"
-          : "border-slate-200 bg-slate-50 text-slate-700";
-  return (
-    <span
-      className={`inline-flex items-center border px-2 py-1 text-xs font-semibold ${tone}`}
-      style={{ borderRadius: 8 }}
-    >
-      {statusLabel(value)}
-    </span>
-  );
 }
 
 function MetricCard({

@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -19,7 +18,19 @@ import type {
   LivePaperScheduleRunDueResponse,
   LivePaperScheduledRunItem,
 } from "../api/types";
+import { StatusBadge } from "../components/live-paper/LivePaperBadges";
+import {
+  MessageList,
+  Section,
+  SummaryItem,
+} from "../components/live-paper/LivePaperLayout";
 import { EmptyState, ErrorState, LoadingState } from "../components/StateBlocks";
+import {
+  formatDateOnly as formatDate,
+  formatDateTime,
+  formatPlain,
+  toNumber,
+} from "../utils/livePaperFormat";
 
 type RunDueFormState = {
   now: string;
@@ -55,92 +66,6 @@ const defaultCycleFilters: CycleFilterState = {
   limit: "50",
 };
 
-const statusLabels: Record<string, string> = {
-  active: "активно",
-  paused: "пауза",
-  archived: "архив",
-  running: "в работе",
-  completed: "завершен",
-  blocked: "заблокирован",
-  failed: "ошибка",
-  skipped: "пропущен",
-  dry_run: "dry-run",
-  due: "due",
-  ready: "готово",
-  warning: "внимание",
-  not_ready: "не готово",
-};
-
-const statusTone: Record<string, string> = {
-  active: "border-teal-200 bg-teal-50 text-teal-800",
-  completed: "border-teal-200 bg-teal-50 text-teal-800",
-  paused: "border-amber-200 bg-amber-50 text-amber-800",
-  blocked: "border-amber-200 bg-amber-50 text-amber-800",
-  skipped: "border-slate-200 bg-slate-50 text-slate-700",
-  dry_run: "border-sky-200 bg-sky-50 text-sky-800",
-  failed: "border-red-200 bg-red-50 text-red-800",
-  archived: "border-slate-200 bg-slate-50 text-slate-700",
-  running: "border-sky-200 bg-sky-50 text-sky-800",
-};
-
-function toNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
-function formatPlain(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  return String(value);
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed);
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "medium",
-  }).format(parsed);
-}
-
-function messageFromItem(item: unknown): string {
-  if (!item || typeof item !== "object") {
-    return formatPlain(item);
-  }
-  const record = item as Record<string, unknown>;
-  const message = record.message ?? record.detail ?? record.code;
-  if (
-    typeof message === "string" ||
-    typeof message === "number" ||
-    typeof message === "boolean"
-  ) {
-    return String(message);
-  }
-  return JSON.stringify(record);
-}
-
 function validateRunDueForm(form: RunDueFormState): string[] {
   const errors: string[] = [];
   const limit = toNumber(form.limit);
@@ -169,92 +94,6 @@ function buildRunDuePayload(
     dry_run: dryRun,
     lock_minutes: Number(form.lock_minutes),
   };
-}
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${
-        statusTone[status] ?? "border-slate-200 bg-slate-50 text-slate-700"
-      }`}
-    >
-      {statusLabels[status] ?? status}
-    </span>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-line bg-white p-3">
-      <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-ink">{value}</div>
-    </div>
-  );
-}
-
-function JsonDetails({ title, data }: { title: string; data: unknown }) {
-  return (
-    <details className="rounded-lg border border-line bg-white p-3">
-      <summary className="cursor-pointer text-sm font-semibold text-ink">
-        {title}
-      </summary>
-      <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-        {JSON.stringify(data, null, 2)}
-      </pre>
-    </details>
-  );
-}
-
-function MessageList({
-  title,
-  items,
-  tone,
-}: {
-  title: string;
-  items: unknown[];
-  tone: string;
-}) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      {items.length ? (
-        <div className="mt-2 space-y-2">
-          {items.map((item, index) => (
-            <div
-              className={`rounded-lg border px-3 py-2 text-sm ${tone}`}
-              key={`${title}-${index}`}
-            >
-              {messageFromItem(item)}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState label="Нет записей для отображения." />
-      )}
-    </div>
-  );
-}
-
-function Section({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="surface p-4">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
-        {subtitle ? (
-          <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 function cyclePortfolioId(cycle: LivePaperScheduledRunItem["cycle"]): number | null {

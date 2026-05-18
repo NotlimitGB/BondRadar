@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -18,7 +17,20 @@ import type {
   LivePaperPilotBootstrapResponse,
   LivePaperPilotBootstrapStatus,
 } from "../api/types";
+import {
+  MessageList,
+  Section,
+  SummaryItem,
+} from "../components/live-paper/LivePaperLayout";
+import { JsonDetails } from "../components/live-paper/LivePaperJson";
 import { EmptyState, ErrorState, LoadingState } from "../components/StateBlocks";
+import {
+  asRecord,
+  asRecordArray,
+  formatDateTime,
+  formatPlain,
+  toNumber,
+} from "../utils/livePaperFormat";
 
 type PilotFormState = {
   name: string;
@@ -86,14 +98,6 @@ const statusTone: Record<LivePaperPilotBootstrapStatus, string> = {
   blocked: "border-amber-200 bg-amber-50 text-amber-800",
 };
 
-function toNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") {
-    return null;
-  }
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-}
-
 function isPositiveNumber(value: unknown): boolean {
   const numeric = toNumber(value);
   return numeric !== null && numeric > 0;
@@ -109,48 +113,6 @@ function isZeroToOne(value: unknown): boolean {
   return numeric !== null && numeric >= 0 && numeric <= 1;
 }
 
-function formatPlain(value: unknown): string {
-  if (value === null || value === undefined || value === "") {
-    return "—";
-  }
-  if (typeof value === "number") {
-    return new Intl.NumberFormat("ru-RU", {
-      maximumFractionDigits: 4,
-    }).format(value);
-  }
-  return String(value);
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) {
-    return "—";
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat("ru-RU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed);
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return null;
-}
-
-function asRecordArray(value: unknown): Array<Record<string, unknown>> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((item) => asRecord(item))
-    .filter((item): item is Record<string, unknown> => item !== null);
-}
-
 function scalar(value: unknown): string {
   if (
     typeof value === "string" ||
@@ -160,18 +122,6 @@ function scalar(value: unknown): string {
     return String(value);
   }
   return "—";
-}
-
-function messageFromRecord(item: Record<string, unknown>): string {
-  const message = item.message ?? item.detail ?? item.code;
-  if (
-    typeof message === "string" ||
-    typeof message === "number" ||
-    typeof message === "boolean"
-  ) {
-    return String(message);
-  }
-  return JSON.stringify(item);
 }
 
 function validateForm(form: PilotFormState): string[] {
@@ -271,28 +221,6 @@ function buildPayload(
   };
 }
 
-function Section({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="surface p-4">
-      <div className="mb-4">
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
-        {subtitle ? (
-          <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
 function Field({
   label,
   value,
@@ -346,69 +274,6 @@ function CheckboxField({
         ) : null}
       </span>
     </label>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="rounded-lg border border-line bg-white p-3">
-      <div className="text-xs font-semibold uppercase text-slate-500">{label}</div>
-      <div className="mt-1 text-sm font-semibold text-ink">{value}</div>
-    </div>
-  );
-}
-
-function JsonDetails({ title, data }: { title: string; data: unknown }) {
-  if (data === null || data === undefined) {
-    return (
-      <details className="rounded-lg border border-line bg-white p-3">
-        <summary className="cursor-pointer text-sm font-semibold text-ink">
-          {title}
-        </summary>
-        <div className="mt-3 text-sm text-slate-500">Нет данных</div>
-      </details>
-    );
-  }
-
-  return (
-    <details className="rounded-lg border border-line bg-white p-3">
-      <summary className="cursor-pointer text-sm font-semibold text-ink">
-        {title}
-      </summary>
-      <pre className="mt-3 max-h-96 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-        {JSON.stringify(data, null, 2)}
-      </pre>
-    </details>
-  );
-}
-
-function MessageList({
-  title,
-  items,
-  tone,
-}: {
-  title: string;
-  items: Array<Record<string, unknown>>;
-  tone: string;
-}) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold text-ink">{title}</h3>
-      {items.length ? (
-        <div className="mt-2 space-y-2">
-          {items.map((item, index) => (
-            <div
-              className={`rounded-lg border px-3 py-2 text-sm ${tone}`}
-              key={`${title}-${index}`}
-            >
-              {messageFromRecord(item)}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <EmptyState label="Нет записей для отображения." />
-      )}
-    </div>
   );
 }
 
