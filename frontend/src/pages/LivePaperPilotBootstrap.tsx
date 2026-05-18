@@ -60,8 +60,8 @@ type PilotFormState = {
 };
 
 const defaultForm: PilotFormState = {
-  name: "50k live paper pilot",
-  description: "Virtual paper observation pilot",
+  name: "Пилот виртуального портфеля 50 000 ₽",
+  description: "Виртуальное наблюдение за портфелем",
   model_run_id: "",
   return_method: "risk_adjusted",
   horizon_days: "30",
@@ -131,10 +131,10 @@ function validateForm(form: PilotFormState): string[] {
     errors.push("Название не должно быть пустым.");
   }
   if (!isPositiveNumber(form.model_run_id)) {
-    errors.push("Model run ID должен быть положительным числом.");
+    errors.push("ID запуска модели должен быть положительным числом.");
   }
   if (!isPositiveNumber(form.virtual_initial_capital)) {
-    errors.push("Virtual initial capital должен быть положительным.");
+    errors.push("Виртуальный начальный капитал должен быть положительным.");
   }
 
   const plannedDuration = toNumber(form.planned_duration_days);
@@ -143,7 +143,7 @@ function validateForm(form: PilotFormState): string[] {
     plannedDuration < 1 ||
     plannedDuration > 365
   ) {
-    errors.push("Planned duration days должен быть от 1 до 365.");
+    errors.push("Плановая длительность должна быть от 1 до 365 дней.");
   }
 
   const dateFrom = Date.parse(`${form.date_from}T00:00:00`);
@@ -155,35 +155,35 @@ function validateForm(form: PilotFormState): string[] {
     Number.isNaN(dateTo) ||
     dateFrom > dateTo
   ) {
-    errors.push("Date from должен быть раньше или равен Date to.");
+    errors.push("Дата начала должна быть раньше или равна дате окончания.");
   }
 
   if (!form.next_run_at.trim() || Number.isNaN(Date.parse(form.next_run_at))) {
-    errors.push("Next run at обязателен и должен быть корректной датой.");
+    errors.push("Следующий запуск обязателен и должен быть корректной датой.");
   }
   if (!isPositiveNumber(form.interval_days)) {
-    errors.push("Interval days должен быть положительным.");
+    errors.push("Интервал в днях должен быть положительным.");
   }
   if (form.max_runs.trim() && !isPositiveNumber(form.max_runs)) {
-    errors.push("Max runs должен быть положительным, если заполнен.");
+    errors.push("Максимум запусков должен быть положительным, если заполнен.");
   }
   if (!isPositiveNumber(form.top_n)) {
-    errors.push("Top N должен быть положительным.");
+    errors.push("Количество позиций должно быть положительным.");
   }
   if (!isZeroToOne(form.min_probability_positive)) {
-    errors.push("Minimum probability positive должен быть от 0 до 1.");
+    errors.push("Минимальная вероятность позитивного класса должна быть от 0 до 1.");
   }
   if (!isZeroToOne(form.max_position_weight)) {
-    errors.push("Max position weight должен быть от 0 до 1.");
+    errors.push("Максимальный вес позиции должен быть от 0 до 1.");
   }
   if (!isZeroToOne(form.max_issuer_weight)) {
-    errors.push("Max issuer weight должен быть от 0 до 1.");
+    errors.push("Максимальный вес эмитента должен быть от 0 до 1.");
   }
   if (!isZeroToOne(form.max_high_risk_weight)) {
-    errors.push("Max high risk weight должен быть от 0 до 1.");
+    errors.push("Максимальный вес высокого риска должен быть от 0 до 1.");
   }
   if (!isNonNegativeNumber(form.transaction_cost_rate)) {
-    errors.push("Transaction cost rate должен быть неотрицательным.");
+    errors.push("Ставка операционных издержек должна быть неотрицательной.");
   }
 
   return errors;
@@ -283,7 +283,7 @@ function ReadinessSummary({
   readiness: Record<string, unknown> | null;
 }) {
   if (!readiness) {
-    return <EmptyState label="Readiness-отчет не вернулся в ответе." />;
+    return <EmptyState label="Отчет готовности не вернулся в ответе." />;
   }
 
   const gates = asRecordArray(readiness.gates);
@@ -296,14 +296,14 @@ function ReadinessSummary({
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       <SummaryItem
-        label="Readiness"
+        label="Готовность"
         value={scalar(readiness.readiness_status)}
       />
-      <SummaryItem label="Gates" value={gates.length} />
-      <SummaryItem label="Failed gates" value={failedGateCount} />
-      <SummaryItem label="Warning gates" value={warningGateCount} />
+      <SummaryItem label="Проверки" value={gates.length} />
+      <SummaryItem label="Проваленные проверки" value={failedGateCount} />
+      <SummaryItem label="Проверки с предупреждением" value={warningGateCount} />
       <SummaryItem
-        label="Selected model run"
+        label="Выбранный запуск модели"
         value={scalar(
           selectedCandidate?.model_run_id ?? readiness.selected_model_run_id,
         )}
@@ -319,11 +319,11 @@ function MonitoringSummary({
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      <SummaryItem label="Health" value={overview.health_status} />
-      <SummaryItem label="Schedules" value={overview.schedule_count} />
-      <SummaryItem label="Active schedules" value={overview.active_schedule_count} />
-      <SummaryItem label="Portfolios" value={overview.portfolio_count} />
-      <SummaryItem label="Recent cycles" value={overview.recent_cycle_count} />
+      <SummaryItem label="Состояние" value={overview.health_status} />
+      <SummaryItem label="Расписания" value={overview.schedule_count} />
+      <SummaryItem label="Активные расписания" value={overview.active_schedule_count} />
+      <SummaryItem label="Портфели" value={overview.portfolio_count} />
+      <SummaryItem label="Недавние циклы" value={overview.recent_cycle_count} />
     </div>
   );
 }
@@ -332,8 +332,8 @@ function ResultPanel({ result }: { result: LivePaperPilotBootstrapResponse }) {
   return (
     <div className="space-y-4">
       <Section
-        title="Результат bootstrap"
-        subtitle="Сводка ответа, readiness-отчета и подготовленных payloads."
+        title="Результат подготовки"
+        subtitle="Сводка ответа, отчета готовности и подготовленных данных запросов."
       >
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <span
@@ -342,40 +342,40 @@ function ResultPanel({ result }: { result: LivePaperPilotBootstrapResponse }) {
             {statusLabels[result.status]}
           </span>
           <span className="text-sm text-slate-600">
-            HTTP-ответ успешен; статус blocked означает остановку проверками.
+            HTTP-ответ успешен; статус «заблокировано» означает остановку проверками.
           </span>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryItem label="Readiness" value={formatPlain(result.readiness_status)} />
+          <SummaryItem label="Готовность" value={formatPlain(result.readiness_status)} />
           <SummaryItem
-            label="Selected model run"
+            label="Выбранный запуск модели"
             value={formatPlain(result.selected_model_run_id)}
           />
           <SummaryItem
-            label="Created schedule"
+            label="Созданное расписание"
             value={formatPlain(result.created_schedule_id)}
           />
           <SummaryItem
-            label="Virtual capital"
+            label="Виртуальный капитал"
             value={formatPlain(result.virtual_initial_capital)}
           />
           <SummaryItem
-            label="Planned duration"
+            label="Плановая длительность"
             value={`${result.planned_duration_days} дней`}
           />
           <SummaryItem
-            label="Next run"
+            label="Следующий запуск"
             value={formatDateTime(result.next_run_at)}
           />
           <SummaryItem
-            label="Interval"
+            label="Интервал"
             value={`${result.interval_days} дней`}
           />
-          <SummaryItem label="Max runs" value={formatPlain(result.max_runs)} />
+          <SummaryItem label="Максимум запусков" value={formatPlain(result.max_runs)} />
         </div>
       </Section>
 
-      <Section title="Readiness summary">
+      <Section title="Сводка готовности">
         <ReadinessSummary readiness={result.readiness} />
       </Section>
 
@@ -383,21 +383,21 @@ function ResultPanel({ result }: { result: LivePaperPilotBootstrapResponse }) {
         <div className="surface p-4">
           <MessageList
             items={result.warnings}
-            title="Warnings"
+            title="Предупреждения"
             tone="border-amber-200 bg-amber-50 text-amber-800"
           />
         </div>
         <div className="surface p-4">
           <MessageList
             items={result.errors}
-            title="Errors"
+            title="Ошибки"
             tone="border-red-200 bg-red-50 text-red-800"
           />
         </div>
       </section>
 
       <Section
-        title="Next steps"
+        title="Следующие шаги"
         subtitle="Команды показаны только как подсказки; эта страница их не выполняет."
       >
         <div className="grid gap-3 lg:grid-cols-2">
@@ -416,28 +416,28 @@ function ResultPanel({ result }: { result: LivePaperPilotBootstrapResponse }) {
                 {step.path}
               </div>
               <p className="mt-2 text-sm text-slate-600">{step.description}</p>
-              {step.body ? <JsonDetails data={step.body} title="Body" /> : null}
+              {step.body ? <JsonDetails data={step.body} title="Тело запроса" /> : null}
             </div>
           ))}
         </div>
       </Section>
 
-      <Section title="Generated payloads">
+      <Section title="Сформированные данные запросов">
         <div className="space-y-3">
           <JsonDetails
             data={result.payloads.readiness_request}
-            title="readiness_request"
+            title="Запрос готовности"
           />
-          <JsonDetails data={result.payloads.cycle_request} title="cycle_request" />
+          <JsonDetails data={result.payloads.cycle_request} title="Запрос цикла" />
           <JsonDetails
             data={result.payloads.schedule_request}
-            title="schedule_request"
+            title="Запрос расписания"
           />
         </div>
       </Section>
 
       {result.monitoring_overview ? (
-        <Section title="Monitoring overview">
+        <Section title="Сводка мониторинга">
           <MonitoringSummary overview={result.monitoring_overview} />
         </Section>
       ) : null}
@@ -499,36 +499,36 @@ export function LivePaperPilotBootstrap() {
         <div>
           <Link className="text-button inline-flex items-center gap-2" to="/live-paper">
             <ArrowLeft size={16} />
-            К Live Paper
+            К виртуальному контуру
           </Link>
           <p className="mt-4 text-sm font-semibold uppercase text-accent">
-            Live Paper Pilot
+            Пилот виртуального контура
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-ink">
-            Подготовка pilot schedule
+            Подготовка расписания пилота
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Форма собирает compact payload для readiness, cycle и schedule.
+            Форма собирает компактные данные для проверки готовности, цикла и расписания.
             Информационный режим: без реальных брокерских действий.
           </p>
         </div>
         <div className="surface flex items-center gap-2 px-3 py-2 text-sm text-slate-600">
           <Rocket size={16} />
-          50 000 RUB virtual pilot
+          Виртуальный пилот на 50 000 ₽
         </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-4">
-        <SummaryItem label="Capital" value={formSummary.capital} />
-        <SummaryItem label="Duration" value={`${formSummary.duration} дней`} />
-        <SummaryItem label="Dates" value={formSummary.dates} />
-        <SummaryItem label="Next run" value={formSummary.nextRun} />
+        <SummaryItem label="Капитал" value={formSummary.capital} />
+        <SummaryItem label="Длительность" value={`${formSummary.duration} дней`} />
+        <SummaryItem label="Даты" value={formSummary.dates} />
+        <SummaryItem label="Следующий запуск" value={formSummary.nextRun} />
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-5">
           <Section
-            title="Basic pilot settings"
+            title="Основные настройки пилота"
             subtitle="Основные параметры будущего виртуального наблюдения."
           >
             <div className="grid gap-4 md:grid-cols-2">
@@ -543,29 +543,29 @@ export function LivePaperPilotBootstrap() {
                 value={form.description}
               />
               <Field
-                label="Model run ID"
+                label="Идентификатор запуска модели"
                 onChange={(value) => updateField("model_run_id", value)}
                 type="number"
                 value={form.model_run_id}
               />
               <Field
-                label="Return method"
+                label="Метод доходности"
                 onChange={(value) => updateField("return_method", value)}
                 value={form.return_method}
               />
               <Field
-                label="Horizon days"
+                label="Горизонт, дней"
                 onChange={(value) => updateField("horizon_days", value)}
                 type="number"
                 value={form.horizon_days}
               />
               <Field
-                label="Virtual initial capital"
+                label="Виртуальный начальный капитал"
                 onChange={(value) => updateField("virtual_initial_capital", value)}
                 value={form.virtual_initial_capital}
               />
               <Field
-                label="Planned duration days"
+                label="Плановая длительность, дней"
                 onChange={(value) => updateField("planned_duration_days", value)}
                 type="number"
                 value={form.planned_duration_days}
@@ -574,25 +574,25 @@ export function LivePaperPilotBootstrap() {
           </Section>
 
           <Section
-            title="Experiment dates"
-            subtitle="Явный период нужен для стабильных robustness diagnostics."
+            title="Даты эксперимента"
+            subtitle="Явный период нужен для стабильных проверок устойчивости."
           >
             <div className="grid gap-4 md:grid-cols-2">
               <Field
-                label="Date from"
+                label="Дата начала"
                 onChange={(value) => updateField("date_from", value)}
                 type="date"
                 value={form.date_from}
               />
               <Field
-                label="Date to"
+                label="Дата окончания"
                 onChange={(value) => updateField("date_to", value)}
                 type="date"
                 value={form.date_to}
               />
               <div className="md:col-span-2">
                 <Field
-                  label="Next run at"
+                  label="Следующий запуск"
                   onChange={(value) => updateField("next_run_at", value)}
                   placeholder="2025-03-15T10:00:00Z"
                   value={form.next_run_at}
@@ -607,13 +607,13 @@ export function LivePaperPilotBootstrap() {
                 </button>
               </div>
               <Field
-                label="Interval days"
+                label="Интервал, дней"
                 onChange={(value) => updateField("interval_days", value)}
                 type="number"
                 value={form.interval_days}
               />
               <Field
-                label="Max runs"
+                label="Максимум запусков"
                 onChange={(value) => updateField("max_runs", value)}
                 placeholder="пусто = без лимита"
                 type="number"
@@ -623,45 +623,45 @@ export function LivePaperPilotBootstrap() {
           </Section>
 
           <Section
-            title="Strategy settings"
-            subtitle="Нейтральные параметры отбора позиций для paper-портфеля."
+            title="Настройки стратегии"
+            subtitle="Нейтральные параметры отбора позиций для виртуального портфеля."
           >
             <div className="grid gap-4 md:grid-cols-2">
               <Field
-                label="Top N"
+                label="Количество позиций"
                 onChange={(value) => updateField("top_n", value)}
                 type="number"
                 value={form.top_n}
               />
               <Field
-                label="Minimum probability positive"
+                label="Минимальная вероятность позитивного класса"
                 onChange={(value) => updateField("min_probability_positive", value)}
                 value={form.min_probability_positive}
               />
               <Field
-                label="Transaction cost rate"
+                label="Ставка операционных издержек"
                 onChange={(value) => updateField("transaction_cost_rate", value)}
                 value={form.transaction_cost_rate}
               />
               <CheckboxField
                 checked={form.use_portfolio_constraints}
-                label="Use portfolio constraints"
+                label="Использовать портфельные ограничения"
                 onChange={(checked) =>
                   updateField("use_portfolio_constraints", checked)
                 }
               />
               <Field
-                label="Max position weight"
+                label="Максимальный вес позиции"
                 onChange={(value) => updateField("max_position_weight", value)}
                 value={form.max_position_weight}
               />
               <Field
-                label="Max issuer weight"
+                label="Максимальный вес эмитента"
                 onChange={(value) => updateField("max_issuer_weight", value)}
                 value={form.max_issuer_weight}
               />
               <Field
-                label="Max high risk weight"
+                label="Максимальный вес высокого риска"
                 onChange={(value) => updateField("max_high_risk_weight", value)}
                 value={form.max_high_risk_weight}
               />
@@ -669,34 +669,34 @@ export function LivePaperPilotBootstrap() {
           </Section>
 
           <Section
-            title="Safety controls"
-            subtitle="Bootstrap не запускает cycles и не выполняет rebalance."
+            title="Контроль безопасности"
+            subtitle="Подготовка не запускает циклы и не выполняет ребалансировку."
           >
             <div className="grid gap-3 md:grid-cols-2">
               <CheckboxField
                 checked={form.dry_run_only}
-                description="Dry-run режим ничего не создает и только показывает, что будет отправлено."
-                label="Dry run only"
+                description="Проверочный режим ничего не создает и только показывает, что будет отправлено."
+                label="Только проверочный режим"
                 onChange={(checked) => updateField("dry_run_only", checked)}
               />
               <CheckboxField
                 checked={form.create_schedule}
-                label="Create schedule"
+                label="Создать расписание"
                 onChange={(checked) => updateField("create_schedule", checked)}
               />
               <CheckboxField
                 checked={form.allow_readiness_warning}
-                label="Allow readiness warning"
+                label="Разрешить предупреждение готовности"
                 onChange={(checked) => updateField("allow_readiness_warning", checked)}
               />
               <CheckboxField
                 checked={form.allow_not_ready}
-                label="Allow not ready"
+                label="Разрешить статус неготовности"
                 onChange={(checked) => updateField("allow_not_ready", checked)}
               />
               <CheckboxField
                 checked={form.include_monitoring_overview}
-                label="Include monitoring overview"
+                label="Добавить сводку мониторинга"
                 onChange={(checked) =>
                   updateField("include_monitoring_overview", checked)
                 }
@@ -707,9 +707,9 @@ export function LivePaperPilotBootstrap() {
 
         <aside className="space-y-4">
           <section className="surface sticky top-4 p-4">
-            <h2 className="text-base font-semibold text-ink">Submit</h2>
+            <h2 className="text-base font-semibold text-ink">Отправка</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Первый шаг безопасно проверяет readiness. Создание schedule требует
+              Первый шаг безопасно проверяет готовность. Создание расписания требует
               отдельного подтверждения.
             </p>
 
@@ -740,12 +740,12 @@ export function LivePaperPilotBootstrap() {
                 onClick={() => submit("dry-run")}
                 type="button"
               >
-                Проверить без создания schedule
+                Проверить без создания расписания
               </button>
 
               <CheckboxField
                 checked={confirmationChecked}
-                label="Я понимаю, что будет создано live paper расписание в локальной системе."
+                label="Я понимаю, что будет создано расписание виртуального контура в локальной системе."
                 onChange={setConfirmationChecked}
               />
 
@@ -755,7 +755,7 @@ export function LivePaperPilotBootstrap() {
                 onClick={() => submit("create-schedule")}
                 type="button"
               >
-                Создать schedule
+                Создать расписание
               </button>
             </div>
           </section>
@@ -763,15 +763,15 @@ export function LivePaperPilotBootstrap() {
       </div>
 
       {bootstrapMutation.isPending ? (
-        <LoadingState label="Отправка bootstrap-запроса" />
+        <LoadingState label="Отправка запроса подготовки" />
       ) : null}
 
       {latestResult ? <ResultPanel result={latestResult} /> : (
         <section className="surface flex items-start gap-3 p-4 text-sm text-slate-600">
           <FileJson className="mt-0.5 shrink-0" size={18} />
           <span>
-            После проверки здесь появятся readiness summary, generated payloads и
-            next steps.
+            После проверки здесь появятся сводка готовности, сформированные данные
+            запросов и следующие шаги.
           </span>
         </section>
       )}
@@ -780,7 +780,7 @@ export function LivePaperPilotBootstrap() {
         <section className="surface flex items-start gap-3 border-teal-200 bg-teal-50 p-4 text-sm text-teal-800">
           <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
           <span>
-            Schedule создан. Эта страница не запускает due schedules; запуск
+            Расписание создано. Эта страница не запускает ожидающие расписания; запуск
             остается отдельным ручным действием.
           </span>
         </section>

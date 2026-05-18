@@ -34,12 +34,12 @@ export function Layout({ children }: { children: ReactNode }) {
                 style={{ borderRadius: 8 }}
               >
                 <WalletCards size={16} />
-                <span>Live Paper</span>
+                <span>Виртуальный контур</span>
               </NavLink>
             </nav>
             <div className="hidden items-center gap-2 text-xs text-slate-500 sm:flex">
               <Database size={16} />
-              <span>API сервера через /api</span>
+              <span>Серверный интерфейс через /api</span>
             </div>
           </div>
         </div>

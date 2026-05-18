@@ -29,6 +29,7 @@ import {
   formatDateOnly as formatDate,
   formatDateTime,
   formatPlain,
+  statusLabel,
   toNumber,
 } from "../utils/livePaperFormat";
 
@@ -72,13 +73,13 @@ function validateRunDueForm(form: RunDueFormState): string[] {
   const lockMinutes = toNumber(form.lock_minutes);
 
   if (limit === null || limit < 1 || limit > 100) {
-    errors.push("Limit должен быть от 1 до 100.");
+    errors.push("Лимит должен быть от 1 до 100.");
   }
   if (lockMinutes === null || lockMinutes < 1 || lockMinutes > 120) {
-    errors.push("Lock minutes должен быть от 1 до 120.");
+    errors.push("Время блокировки должно быть от 1 до 120 минут.");
   }
   if (form.now.trim() && Number.isNaN(Date.parse(form.now))) {
-    errors.push("Now должен быть корректной датой, если заполнен.");
+    errors.push("Текущий момент должен быть корректной датой, если заполнен.");
   }
 
   return errors;
@@ -122,13 +123,13 @@ function RunDuePanel({
 }) {
   return (
     <Section
-      title="Due schedules"
-      subtitle="Проверка и выполнение due schedules через DB-backed scheduler."
+      title="Ожидающие расписания"
+      subtitle="Проверка и выполнение ожидающих расписаний через планировщик на базе БД."
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">Now</span>
+            <span className="font-medium text-slate-700">Текущий момент</span>
             <input
               className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               onChange={(event) => setForm({ ...form, now: event.target.value })}
@@ -137,7 +138,7 @@ function RunDuePanel({
             />
           </label>
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">Limit</span>
+            <span className="font-medium text-slate-700">Лимит</span>
             <input
               className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               onChange={(event) => setForm({ ...form, limit: event.target.value })}
@@ -146,7 +147,7 @@ function RunDuePanel({
             />
           </label>
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">Lock minutes</span>
+            <span className="font-medium text-slate-700">Минуты блокировки</span>
             <input
               className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               onChange={(event) =>
@@ -164,7 +165,7 @@ function RunDuePanel({
               }
               type="checkbox"
             />
-            Dry-run only
+            Только проверка без изменений
           </label>
         </div>
 
@@ -175,7 +176,7 @@ function RunDuePanel({
             onClick={onDryRun}
             type="button"
           >
-            Проверить due schedules
+            Проверить ожидающие расписания
           </button>
           <label className="flex items-start gap-2 rounded-lg border border-line bg-white p-3 text-sm text-slate-700">
             <input
@@ -185,7 +186,7 @@ function RunDuePanel({
               type="checkbox"
             />
             <span>
-              Я понимаю, что будут созданы виртуальные scheduled cycles в
+              Я понимаю, что будут созданы виртуальные запланированные циклы в
               локальной системе.
             </span>
           </label>
@@ -195,7 +196,7 @@ function RunDuePanel({
             onClick={onExecute}
             type="button"
           >
-            Выполнить due schedules
+            Выполнить ожидающие расписания
           </button>
         </div>
       </div>
@@ -237,7 +238,7 @@ function SchedulesTable({
   pendingScheduleId: number | null;
 }) {
   if (!schedules.length) {
-    return <EmptyState label="Live paper расписаний пока нет." />;
+    return <EmptyState label="Расписаний виртуального контура пока нет." />;
   }
 
   return (
@@ -245,17 +246,17 @@ function SchedulesTable({
       <table className="min-w-full divide-y divide-line text-sm">
         <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
           <tr>
-            <th className="px-3 py-2">ID</th>
+            <th className="px-3 py-2">№</th>
             <th className="px-3 py-2">Название</th>
             <th className="px-3 py-2">Статус</th>
             <th className="px-3 py-2">Следующий запуск</th>
             <th className="px-3 py-2">Последний запуск</th>
-            <th className="px-3 py-2">Run count</th>
-            <th className="px-3 py-2">Max runs</th>
-            <th className="px-3 py-2">Interval</th>
-            <th className="px-3 py-2">Locked</th>
-            <th className="px-3 py-2">Last cycle</th>
-            <th className="px-3 py-2">Actions</th>
+            <th className="px-3 py-2">Запусков</th>
+            <th className="px-3 py-2">Максимум</th>
+            <th className="px-3 py-2">Интервал</th>
+            <th className="px-3 py-2">Блокировка</th>
+            <th className="px-3 py-2">Последний цикл</th>
+            <th className="px-3 py-2">Действия</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line bg-white">
@@ -270,7 +271,7 @@ function SchedulesTable({
                 </td>
                 <td className="px-3 py-3">
                   <div className="font-medium text-ink">{schedule.name}</div>
-                  <div className="text-xs text-slate-500">{schedule.mode}</div>
+                  <div className="text-xs text-slate-500">{statusLabel(schedule.mode)}</div>
                 </td>
                 <td className="px-3 py-3">
                   <StatusBadge status={schedule.status} />
@@ -323,7 +324,7 @@ function SchedulesTable({
                     <input
                       className="w-full rounded-lg border border-line bg-white px-3 py-2 text-xs text-ink outline-none focus:border-accent"
                       onChange={(event) => setRunNow(event.target.value)}
-                      placeholder="optional now"
+                      placeholder="текущий момент, необязательно"
                       value={runNow}
                     />
                     <label className="flex items-start gap-2 rounded-lg border border-line bg-white p-2 text-xs text-slate-700">
@@ -338,7 +339,7 @@ function SchedulesTable({
                         }
                         type="checkbox"
                       />
-                      Подтверждаю запуск этого schedule
+                      Подтверждаю запуск этого расписания
                     </label>
                     <button
                       className="primary-button justify-center disabled:cursor-not-allowed disabled:opacity-50"
@@ -346,7 +347,7 @@ function SchedulesTable({
                       onClick={() => onRunSchedule(schedule)}
                       type="button"
                     >
-                      Запустить schedule
+                      Запустить расписание
                     </button>
                   </div>
                 </td>
@@ -365,15 +366,15 @@ function RunDueResultTable({ data }: { data: LivePaperScheduleRunDueResponse }) 
       <table className="min-w-full divide-y divide-line text-sm">
         <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
           <tr>
-            <th className="px-3 py-2">Schedule ID</th>
-            <th className="px-3 py-2">Schedule name</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Scheduled for</th>
-            <th className="px-3 py-2">Cycle ID</th>
-            <th className="px-3 py-2">Cycle status</th>
-            <th className="px-3 py-2">Portfolio</th>
-            <th className="px-3 py-2">Warnings</th>
-            <th className="px-3 py-2">Errors</th>
+            <th className="px-3 py-2">Идентификатор расписания</th>
+            <th className="px-3 py-2">Название расписания</th>
+            <th className="px-3 py-2">Статус</th>
+            <th className="px-3 py-2">Запланировано на</th>
+            <th className="px-3 py-2">Идентификатор цикла</th>
+            <th className="px-3 py-2">Статус цикла</th>
+            <th className="px-3 py-2">Портфель</th>
+            <th className="px-3 py-2">Предупр.</th>
+            <th className="px-3 py-2">Ошибки</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line bg-white">
@@ -431,15 +432,15 @@ function SingleRunResult({ data }: { data: LivePaperScheduledRunItem }) {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <SummaryItem label="Schedule" value={`#${data.schedule.id}`} />
-        <SummaryItem label="Status" value={<StatusBadge status={data.status} />} />
+        <SummaryItem label="Расписание" value={`#${data.schedule.id}`} />
+        <SummaryItem label="Статус" value={<StatusBadge status={data.status} />} />
         <SummaryItem
-          label="Scheduled for"
+          label="Запланировано на"
           value={formatDateTime(data.scheduled_for)}
         />
-        <SummaryItem label="Cycle" value={formatPlain(data.cycle?.id)} />
+        <SummaryItem label="Цикл" value={formatPlain(data.cycle?.id)} />
         <SummaryItem
-          label="Cycle status"
+          label="Статус цикла"
           value={
             data.cycle?.status ? <StatusBadge status={data.cycle.status} /> : "—"
           }
@@ -456,12 +457,12 @@ function SingleRunResult({ data }: { data: LivePaperScheduledRunItem }) {
       <div className="grid gap-4 md:grid-cols-2">
         <MessageList
           items={data.warnings}
-          title="Warnings"
+          title="Предупреждения"
           tone="border-amber-200 bg-amber-50 text-amber-800"
         />
         <MessageList
           items={data.errors}
-          title="Errors"
+          title="Ошибки"
           tone="border-red-200 bg-red-50 text-red-800"
         />
       </div>
@@ -472,40 +473,40 @@ function SingleRunResult({ data }: { data: LivePaperScheduledRunItem }) {
 function ResultPanel({ result }: { result: LatestResult }) {
   if (result.kind === "single") {
     return (
-      <Section title="Single schedule result">
+      <Section title="Результат запуска расписания">
         <SingleRunResult data={result.data} />
       </Section>
     );
   }
 
   return (
-    <Section title="Run-due result">
+    <Section title="Результат запуска ожидающих расписаний">
       <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <SummaryItem label="Now" value={formatDateTime(result.data.now)} />
+        <SummaryItem label="Текущий момент" value={formatDateTime(result.data.now)} />
         <SummaryItem
-          label="Mode"
-          value={result.data.dry_run ? "dry-run" : "execution"}
+          label="Режим"
+          value={result.data.dry_run ? "проверка без изменений" : "выполнение"}
         />
-        <SummaryItem label="Due schedules" value={result.data.due_schedule_count} />
-        <SummaryItem label="Executed" value={result.data.executed_count} />
-        <SummaryItem label="Skipped" value={result.data.skipped_count} />
+        <SummaryItem label="Ожидали запуска" value={result.data.due_schedule_count} />
+        <SummaryItem label="Выполнено" value={result.data.executed_count} />
+        <SummaryItem label="Пропущено" value={result.data.skipped_count} />
       </div>
       <div className="mb-4 grid gap-4 md:grid-cols-2">
         <MessageList
           items={result.data.warnings}
-          title="Warnings"
+          title="Предупреждения"
           tone="border-amber-200 bg-amber-50 text-amber-800"
         />
         <MessageList
           items={result.data.errors}
-          title="Errors"
+          title="Ошибки"
           tone="border-red-200 bg-red-50 text-red-800"
         />
       </div>
       {result.data.results.length ? (
         <RunDueResultTable data={result.data} />
       ) : (
-        <EmptyState label="Run-due result не содержит schedule items." />
+        <EmptyState label="Результат запуска не содержит элементов расписания." />
       )}
     </Section>
   );
@@ -513,7 +514,7 @@ function ResultPanel({ result }: { result: LatestResult }) {
 
 function RecentCyclesTable({ cycles }: { cycles: LivePaperCycleMonitoringSummary[] }) {
   if (!cycles.length) {
-    return <EmptyState label="Недавних live paper cycles пока нет." />;
+    return <EmptyState label="Недавних циклов виртуального контура пока нет." />;
   }
 
   return (
@@ -521,16 +522,16 @@ function RecentCyclesTable({ cycles }: { cycles: LivePaperCycleMonitoringSummary
       <table className="min-w-full divide-y divide-line text-sm">
         <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
           <tr>
-            <th className="px-3 py-2">ID</th>
-            <th className="px-3 py-2">Status</th>
-            <th className="px-3 py-2">Schedule</th>
-            <th className="px-3 py-2">Portfolio</th>
-            <th className="px-3 py-2">As of date</th>
-            <th className="px-3 py-2">Scheduled for</th>
-            <th className="px-3 py-2">Readiness</th>
-            <th className="px-3 py-2">Model run</th>
-            <th className="px-3 py-2">Warnings</th>
-            <th className="px-3 py-2">Errors</th>
+            <th className="px-3 py-2">№</th>
+            <th className="px-3 py-2">Статус</th>
+            <th className="px-3 py-2">Расписание</th>
+            <th className="px-3 py-2">Портфель</th>
+            <th className="px-3 py-2">Дата</th>
+            <th className="px-3 py-2">Запланировано на</th>
+            <th className="px-3 py-2">Готовность</th>
+            <th className="px-3 py-2">Запуск модели</th>
+            <th className="px-3 py-2">Предупр.</th>
+            <th className="px-3 py-2">Ошибки</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line bg-white">
@@ -692,7 +693,7 @@ export function LivePaperSchedules() {
 
   function runSchedule(schedule: LivePaperScheduleRead) {
     if (singleRunNow.trim() && Number.isNaN(Date.parse(singleRunNow))) {
-      setRunDueErrors(["Now должен быть корректной датой, если заполнен."]);
+      setRunDueErrors(["Текущий момент должен быть корректной датой, если заполнен."]);
       return;
     }
     setRunDueErrors([]);
@@ -709,29 +710,29 @@ export function LivePaperSchedules() {
         <div>
           <Link className="text-button inline-flex items-center gap-2" to="/live-paper">
             <ArrowLeft size={16} />
-            К Live Paper
+            К виртуальному контуру
           </Link>
           <p className="mt-4 text-sm font-semibold uppercase text-accent">
-            Scheduler Controls
+            Управление расписаниями
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-ink">
-            Расписания Live Paper
+            Расписания виртуального контура
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Контроль расписаний, dry-run проверок и виртуальных scheduled cycles.
+            Контроль расписаний, проверок без изменений и виртуальных запланированных циклов.
           </p>
         </div>
         <div className="surface flex items-start gap-2 px-3 py-2 text-sm text-slate-600">
           <ShieldCheck className="mt-0.5 shrink-0" size={16} />
-          Информационный режим: действия создают только виртуальные paper-записи.
+          Информационный режим: действия создают только виртуальные записи.
         </div>
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <SummaryItem label="Schedules" value={schedules.length} />
-        <SummaryItem label="Active" value={activeScheduleCount} />
+        <SummaryItem label="Расписания" value={schedules.length} />
+        <SummaryItem label="Активные" value={activeScheduleCount} />
         <SummaryItem
-          label="Recent cycles"
+          label="Недавние циклы"
           value={cycleResponse?.total_returned ?? 0}
         />
       </section>
@@ -760,15 +761,15 @@ export function LivePaperSchedules() {
       {runDueMutation.isPending ||
       updateScheduleMutation.isPending ||
       singleRunMutation.isPending ? (
-        <LoadingState label="Обновление live paper schedules" />
+        <LoadingState label="Обновление расписаний виртуального контура" />
       ) : null}
 
       <Section
-        title="Schedule list"
-        subtitle="Список live paper расписаний и безопасные действия с подтверждением."
+        title="Список расписаний"
+        subtitle="Список расписаний виртуального контура и безопасные действия с подтверждением."
       >
         {schedulesQuery.isLoading ? (
-          <LoadingState label="Загрузка live paper schedules" />
+          <LoadingState label="Загрузка расписаний виртуального контура" />
         ) : null}
         {schedulesQuery.isError ? (
           <ErrorState message={normalizeApiError(schedulesQuery.error)} />
@@ -794,18 +795,18 @@ export function LivePaperSchedules() {
           <FileJson className="mt-0.5 shrink-0" size={18} />
           <span>
             После dry-run или подтвержденного выполнения здесь появится результат
-            scheduler operation.
+            операции планировщика.
           </span>
         </section>
       )}
 
       <Section
-        title="Recent cycles"
-        subtitle="Monitoring endpoint показывает недавние live paper cycles."
+        title="Недавние циклы"
+        subtitle="Мониторинг показывает недавние циклы виртуального контура."
       >
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end">
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">Status</span>
+            <span className="font-medium text-slate-700">Статус</span>
             <select
               className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               onChange={(event) =>
@@ -816,15 +817,15 @@ export function LivePaperSchedules() {
               }
               value={cycleFilters.status}
             >
-              <option value="">all</option>
-              <option value="running">running</option>
-              <option value="completed">completed</option>
-              <option value="blocked">blocked</option>
-              <option value="failed">failed</option>
+              <option value="">все</option>
+              <option value="running">в работе</option>
+              <option value="completed">завершен</option>
+              <option value="blocked">заблокирован</option>
+              <option value="failed">ошибка</option>
             </select>
           </label>
           <label className="block text-sm">
-            <span className="font-medium text-slate-700">Limit</span>
+            <span className="font-medium text-slate-700">Лимит</span>
             <input
               className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-accent"
               onChange={(event) =>
@@ -850,7 +851,7 @@ export function LivePaperSchedules() {
         </div>
 
         {cyclesQuery.isLoading ? (
-          <LoadingState label="Загрузка live paper cycles" />
+          <LoadingState label="Загрузка циклов виртуального контура" />
         ) : null}
         {cyclesQuery.isError ? (
           <ErrorState message={normalizeApiError(cyclesQuery.error)} />
@@ -860,7 +861,7 @@ export function LivePaperSchedules() {
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <MessageList
               items={cycleResponse.alerts}
-              title="Cycle monitoring alerts"
+              title="Предупреждения мониторинга циклов"
               tone="border-amber-200 bg-amber-50 text-amber-800"
             />
           </div>
@@ -870,8 +871,8 @@ export function LivePaperSchedules() {
       <section className="surface flex items-start gap-3 border-teal-200 bg-teal-50 p-4 text-sm text-teal-800">
         <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
         <span>
-          Эта страница вызывает только scheduler endpoints и monitoring cycles;
-          низкоуровневые portfolio-действия напрямую не вызываются.
+          Эта страница вызывает только endpoints планировщика и мониторинг циклов;
+          низкоуровневые действия с портфелем напрямую не вызываются.
         </span>
       </section>
 

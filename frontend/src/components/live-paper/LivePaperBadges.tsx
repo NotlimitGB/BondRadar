@@ -9,10 +9,10 @@ const healthTone: Record<LivePaperHealthStatus, string> = {
 };
 
 const healthLabels: Record<LivePaperHealthStatus, string> = {
-  healthy: "Р·РґРѕСЂРѕРІРѕ",
-  warning: "РІРЅРёРјР°РЅРёРµ",
-  critical: "РєСЂРёС‚РёС‡РЅРѕ",
-  unknown: "РЅРµС‚ РґР°РЅРЅС‹С…",
+  healthy: "здорово",
+  warning: "внимание",
+  critical: "критично",
+  unknown: "нет данных",
 };
 
 const statusTone: Record<string, string> = {

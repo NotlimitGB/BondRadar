@@ -146,7 +146,7 @@ function SummaryCards({
     ["Макс. просадка", formatPercent(portfolio.max_drawdown)],
     ["Активные позиции", String(portfolio.active_positions_count)],
     ["Снимки состояния", String(portfolio.snapshot_count)],
-    ["Model run", portfolio.model_run_id?.toString() ?? "—"],
+    ["Запуск модели", portfolio.model_run_id?.toString() ?? "—"],
   ];
 
   return (
@@ -313,8 +313,8 @@ function OperationsTable({ operations }: { operations: PaperPortfolioOperation[]
               <th className="border-b border-line px-4 py-3">Количество</th>
               <th className="border-b border-line px-4 py-3">Цена</th>
               <th className="border-b border-line px-4 py-3">Комиссия</th>
-              <th className="border-b border-line px-4 py-3">Cycle</th>
-              <th className="border-b border-line px-4 py-3">Model run</th>
+              <th className="border-b border-line px-4 py-3">Цикл</th>
+              <th className="border-b border-line px-4 py-3">Запуск модели</th>
             </tr>
           </thead>
           <tbody>
@@ -425,14 +425,14 @@ function CyclesTable({ cycles }: { cycles: LivePaperCycleMonitoringSummary[] }) 
         <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="border-b border-line px-4 py-3">ID</th>
+              <th className="border-b border-line px-4 py-3">№</th>
               <th className="border-b border-line px-4 py-3">Статус</th>
               <th className="border-b border-line px-4 py-3">Расписание</th>
               <th className="border-b border-line px-4 py-3">Дата</th>
-              <th className="border-b border-line px-4 py-3">Readiness</th>
-              <th className="border-b border-line px-4 py-3">Model run</th>
-              <th className="border-b border-line px-4 py-3">Warnings</th>
-              <th className="border-b border-line px-4 py-3">Errors</th>
+              <th className="border-b border-line px-4 py-3">Готовность</th>
+              <th className="border-b border-line px-4 py-3">Запуск модели</th>
+              <th className="border-b border-line px-4 py-3">Предупр.</th>
+              <th className="border-b border-line px-4 py-3">Ошибки</th>
             </tr>
           </thead>
           <tbody>
@@ -488,7 +488,7 @@ function KeyValueCard({
         <div className="space-y-2 text-sm">
           {values.map(([key, value]) => (
             <div key={key} className="flex justify-between gap-3">
-              <span className="text-slate-500">{key.replaceAll("_", " ")}</span>
+              <span className="text-slate-500">{key}</span>
               <span className="font-medium text-slate-800">
                 {typeof value === "number" || typeof value === "string"
                   ? formatPlain(value, 4)
@@ -568,12 +568,12 @@ function performanceValues(
   }
   const metrics = performance.metrics;
   const values: Array<[string, unknown]> = [
-    ["cumulative_return", metrics.cumulative_return],
-    ["max_drawdown", metrics.max_drawdown],
-    ["volatility", metrics.volatility],
-    ["total_fee_amount", metrics.total_fee_amount],
-    ["active_positions_count", metrics.active_positions_count],
-    ["snapshot_count", metrics.snapshot_count],
+    ["Накопленный результат", metrics.cumulative_return],
+    ["Макс. просадка", metrics.max_drawdown],
+    ["Волатильность", metrics.volatility],
+    ["Сумма комиссий", metrics.total_fee_amount],
+    ["Активные позиции", metrics.active_positions_count],
+    ["Снимки состояния", metrics.snapshot_count],
   ];
   return values.filter(([, value]) => value !== undefined);
 }
@@ -671,7 +671,7 @@ export function LivePaperPortfolioDetails() {
             className="mb-3 inline-flex items-center gap-2 text-sm text-slate-600 hover:text-accent"
           >
             <ArrowLeft size={16} />
-            К Live Paper
+            К виртуальному контуру
           </Link>
           <p className="text-sm font-semibold uppercase text-accent">
             Виртуальный портфель #{portfolio.id}
@@ -680,7 +680,7 @@ export function LivePaperPortfolioDetails() {
             {portfolio.name}
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Детальный просмотр состояния, операций и циклов paper-контура.
+            Детальный просмотр состояния, операций и циклов виртуального контура.
           </p>
           <p className="mt-1 text-sm text-slate-500">
             Информационный режим: без реальных брокерских действий.
@@ -733,7 +733,7 @@ export function LivePaperPortfolioDetails() {
       <section>
         <SectionHeader
           title="Операции"
-          subtitle="Изменения портфеля и служебные записи paper-контура."
+          subtitle="Изменения портфеля и служебные записи виртуального контура."
         />
         {operationsQuery.isLoading ? <LoadingState label="Загрузка операций" /> : null}
         {operationsQuery.isError ? (
@@ -794,7 +794,7 @@ export function LivePaperPortfolioDetails() {
       <section>
         <SectionHeader
           title="Недавние циклы"
-          subtitle="Циклы live paper, связанные с выбранным портфелем."
+          subtitle="Циклы виртуального контура, связанные с выбранным портфелем."
         />
         <CyclesTable cycles={monitoring.recent_cycles} />
       </section>

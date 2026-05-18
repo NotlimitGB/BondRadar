@@ -1,19 +1,20 @@
-const EMPTY_VALUE = "вЂ”";
+const EMPTY_VALUE = "—";
 
 const statusLabels: Record<string, string> = {
-  active: "Р°РєС‚РёРІРЅРѕ",
-  paused: "РїР°СѓР·Р°",
-  archived: "Р°СЂС…РёРІ",
-  running: "РІ СЂР°Р±РѕС‚Рµ",
-  completed: "Р·Р°РІРµСЂС€РµРЅ",
-  blocked: "Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ",
-  failed: "РѕС€РёР±РєР°",
-  skipped: "РїСЂРѕРїСѓС‰РµРЅ",
-  dry_run: "dry-run",
-  due: "due",
-  ready: "РіРѕС‚РѕРІРѕ",
-  warning: "РІРЅРёРјР°РЅРёРµ",
-  not_ready: "РЅРµ РіРѕС‚РѕРІРѕ",
+  active: "активно",
+  paused: "пауза",
+  archived: "архив",
+  running: "в работе",
+  completed: "завершен",
+  blocked: "заблокирован",
+  failed: "ошибка",
+  skipped: "пропущен",
+  dry_run: "проверка без изменений",
+  due: "ожидает запуска",
+  manual_cycle: "ручной цикл",
+  ready: "готово",
+  warning: "внимание",
+  not_ready: "не готово",
 };
 
 export function toNumber(value: unknown): number | null {

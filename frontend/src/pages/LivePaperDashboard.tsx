@@ -174,7 +174,7 @@ function SchedulesTable({
         <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="border-b border-line px-4 py-3">ID</th>
+              <th className="border-b border-line px-4 py-3">№</th>
               <th className="border-b border-line px-4 py-3">Название</th>
               <th className="border-b border-line px-4 py-3">Статус</th>
               <th className="border-b border-line px-4 py-3">Следующий запуск</th>
@@ -251,7 +251,7 @@ function PortfolioSelector({
               <div>
                 <div className="font-medium text-ink">{portfolio.name}</div>
                 <div className="mt-1 text-xs text-slate-500">
-                  ID {portfolio.id} · model run {portfolio.model_run_id ?? "—"}
+                  ID {portfolio.id} · запуск модели {portfolio.model_run_id ?? "—"}
                 </div>
               </div>
               <HealthBadge status={portfolio.health_status} />
@@ -280,7 +280,7 @@ function PortfolioSummary({
     ["Активные позиции", String(portfolio.active_positions_count)],
     ["Снимки состояния", String(portfolio.snapshot_count)],
     ["Последний снимок", formatDateOnly(portfolio.latest_snapshot_date)],
-    ["Model run", portfolio.model_run_id?.toString() ?? "—"],
+    ["Запуск модели", portfolio.model_run_id?.toString() ?? "—"],
   ];
 
   return (
@@ -348,13 +348,13 @@ function PositionsTable({ positions }: { positions: Array<Record<string, unknown
         <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="border-b border-line px-4 py-3">Bond ID</th>
-              <th className="border-b border-line px-4 py-3">Company ID</th>
-              <th className="border-b border-line px-4 py-3">Current amount</th>
-              <th className="border-b border-line px-4 py-3">Current weight</th>
-              <th className="border-b border-line px-4 py-3">Probability</th>
-              <th className="border-b border-line px-4 py-3">Risk level</th>
-              <th className="border-b border-line px-4 py-3">Status</th>
+              <th className="border-b border-line px-4 py-3">Облигация</th>
+              <th className="border-b border-line px-4 py-3">Эмитент</th>
+              <th className="border-b border-line px-4 py-3">Сумма</th>
+              <th className="border-b border-line px-4 py-3">Вес</th>
+              <th className="border-b border-line px-4 py-3">Вероятность</th>
+              <th className="border-b border-line px-4 py-3">Риск</th>
+              <th className="border-b border-line px-4 py-3">Статус</th>
             </tr>
           </thead>
           <tbody>
@@ -400,15 +400,15 @@ function CyclesTable({ cycles }: { cycles: LivePaperCycleMonitoringSummary[] }) 
         <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
-              <th className="border-b border-line px-4 py-3">ID</th>
+              <th className="border-b border-line px-4 py-3">№</th>
               <th className="border-b border-line px-4 py-3">Статус</th>
               <th className="border-b border-line px-4 py-3">Портфель</th>
               <th className="border-b border-line px-4 py-3">Расписание</th>
               <th className="border-b border-line px-4 py-3">Дата</th>
-              <th className="border-b border-line px-4 py-3">Readiness</th>
-              <th className="border-b border-line px-4 py-3">Model run</th>
-              <th className="border-b border-line px-4 py-3">Warnings</th>
-              <th className="border-b border-line px-4 py-3">Errors</th>
+              <th className="border-b border-line px-4 py-3">Готовность</th>
+              <th className="border-b border-line px-4 py-3">Запуск модели</th>
+              <th className="border-b border-line px-4 py-3">Предупр.</th>
+              <th className="border-b border-line px-4 py-3">Ошибки</th>
             </tr>
           </thead>
           <tbody>
@@ -493,9 +493,9 @@ export function LivePaperDashboard() {
     <div className="space-y-5">
       <section className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-sm font-semibold uppercase text-accent">Live Paper</p>
+          <p className="text-sm font-semibold uppercase text-accent">Виртуальный контур</p>
           <h1 className="mt-1 text-2xl font-semibold text-ink">
-            Виртуальный контур наблюдения за paper-портфелем
+            Виртуальный контур наблюдения за портфелем
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             Информационный режим: без реальных операций и брокерских действий.
@@ -506,7 +506,7 @@ export function LivePaperDashboard() {
             Расписания и запуски
           </Link>
           <Link className="primary-button" to="/live-paper/pilot-bootstrap">
-            Подготовить pilot schedule
+            Подготовить расписание пилота
           </Link>
           {overview ? (
             <div className="surface px-3 py-2 text-sm text-slate-600">
@@ -517,7 +517,7 @@ export function LivePaperDashboard() {
       </section>
 
       {overviewQuery.isLoading ? (
-        <LoadingState label="Загрузка live paper мониторинга" />
+        <LoadingState label="Загрузка мониторинга виртуального контура" />
       ) : null}
       {overviewQuery.isError ? (
         <ErrorState message={normalizeApiError(overviewQuery.error)} />
@@ -564,7 +564,7 @@ export function LivePaperDashboard() {
           <section>
             <SectionHeader
               title="Расписания"
-              subtitle="Текущие настройки автоматизированного paper-наблюдения."
+              subtitle="Текущие настройки автоматизированного виртуального наблюдения."
             />
             <SchedulesTable schedules={overview.schedules} />
           </section>
@@ -620,7 +620,7 @@ export function LivePaperDashboard() {
               <div className="surface p-4">
                 <SectionHeader
                   title="Детали портфеля"
-                  subtitle="Сводка из мониторинга и отчетов paper-контура."
+                  subtitle="Сводка из мониторинга и отчетов виртуального контура."
                 />
                 {portfolioDetail ? (
                   <div className="space-y-3 text-sm text-slate-600">
@@ -661,7 +661,7 @@ export function LivePaperDashboard() {
           <section>
             <SectionHeader
               title="Недавние циклы"
-              subtitle="Последние результаты live paper процесса."
+              subtitle="Последние результаты виртуального процесса."
             />
             <CyclesTable cycles={overview.recent_cycles} />
           </section>

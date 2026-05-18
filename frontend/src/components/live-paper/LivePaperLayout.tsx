@@ -38,7 +38,7 @@ export function MessageList({
   title,
   items,
   tone,
-  emptyLabel = "РќРµС‚ Р·Р°РїРёСЃРµР№ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ.",
+  emptyLabel = "Нет записей для отображения.",
 }: {
   title: string;
   items: unknown[];

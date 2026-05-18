@@ -5,7 +5,7 @@ export function JsonDetails({ title, data }: { title: string; data: unknown }) {
         <summary className="cursor-pointer text-sm font-semibold text-ink">
           {title}
         </summary>
-        <div className="mt-3 text-sm text-slate-500">РќРµС‚ РґР°РЅРЅС‹С…</div>
+        <div className="mt-3 text-sm text-slate-500">Нет данных</div>
       </details>
     );
   }
