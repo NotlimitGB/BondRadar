@@ -42,12 +42,25 @@ class PaperLiveCycleRun(Base):
         ForeignKey("paper_portfolios.id", ondelete="SET NULL"),
         index=True,
     )
+    schedule_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "paper_live_schedules.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_paper_live_cycle_schedule",
+        ),
+        index=True,
+    )
     client_cycle_key: Mapped[str | None] = mapped_column(
         String(255),
         unique=True,
         index=True,
     )
     as_of_date: Mapped[date | None] = mapped_column(Date, index=True)
+    scheduled_for: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        index=True,
+    )
 
     readiness_status: Mapped[str | None] = mapped_column(String(32))
     selected_model_run_id: Mapped[int | None] = mapped_column(index=True)
@@ -95,3 +108,6 @@ class PaperLiveCycleRun(Base):
     )
 
     portfolio: Mapped["PaperPortfolio | None"] = relationship()
+    schedule: Mapped["PaperLiveSchedule | None"] = relationship(
+        foreign_keys=[schedule_id]
+    )

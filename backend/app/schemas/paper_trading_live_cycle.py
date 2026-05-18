@@ -49,8 +49,10 @@ class LivePaperCycleRunRead(BaseModel):
     status: str
     mode: str
     portfolio_id: int | None
+    schedule_id: int | None
     client_cycle_key: str | None
     as_of_date: date | None
+    scheduled_for: datetime | None
 
     readiness_status: str | None
     selected_model_run_id: int | None
