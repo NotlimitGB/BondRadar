@@ -191,6 +191,84 @@ export interface LivePaperPortfolioMonitoringResponse {
   alerts: LivePaperMonitoringAlert[];
 }
 
+export type LivePaperPilotBootstrapStatus =
+  | "prepared"
+  | "scheduled"
+  | "blocked";
+
+export interface LivePaperPilotBootstrapRequest {
+  name: string;
+  description?: string | null;
+
+  model_run_id: number;
+  return_method: string;
+  horizon_days: number;
+
+  virtual_initial_capital: string | number;
+  planned_duration_days: number;
+
+  date_from: string;
+  date_to: string;
+
+  next_run_at: string;
+  interval_days: number;
+  max_runs?: number | null;
+
+  create_schedule: boolean;
+  dry_run_only: boolean;
+
+  allow_readiness_warning: boolean;
+  allow_not_ready: boolean;
+
+  top_n: number;
+  min_probability_positive: string | number;
+
+  use_portfolio_constraints: boolean;
+  max_position_weight: string | number;
+  max_issuer_weight: string | number;
+  max_high_risk_weight: string | number;
+
+  transaction_cost_rate: string | number;
+
+  include_monitoring_overview: boolean;
+}
+
+export interface LivePaperPilotBootstrapPayloads {
+  readiness_request: Record<string, unknown>;
+  cycle_request: Record<string, unknown>;
+  schedule_request: Record<string, unknown> | null;
+}
+
+export interface LivePaperPilotBootstrapNextStep {
+  label: string;
+  method: string;
+  path: string;
+  body: Record<string, unknown> | null;
+  description: string;
+}
+
+export interface LivePaperPilotBootstrapResponse {
+  status: LivePaperPilotBootstrapStatus;
+  created_schedule_id: number | null;
+  readiness_status: string | null;
+  selected_model_run_id: number | null;
+
+  virtual_initial_capital: string | number;
+  planned_duration_days: number;
+  next_run_at: string;
+  interval_days: number;
+  max_runs: number | null;
+
+  readiness: Record<string, unknown> | null;
+  schedule: Record<string, unknown> | null;
+  monitoring_overview: LivePaperMonitoringOverviewResponse | null;
+
+  payloads: LivePaperPilotBootstrapPayloads;
+  next_steps: LivePaperPilotBootstrapNextStep[];
+  warnings: Array<Record<string, unknown>>;
+  errors: Array<Record<string, unknown>>;
+}
+
 export interface PaperPortfolioPosition {
   id: number;
   portfolio_id: number;

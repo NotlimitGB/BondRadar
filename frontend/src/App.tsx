@@ -5,6 +5,7 @@ import { BondDashboard } from "./pages/BondDashboard";
 import { BondDetails } from "./pages/BondDetails";
 import { CompanyDetails } from "./pages/CompanyDetails";
 import { LivePaperDashboard } from "./pages/LivePaperDashboard";
+import { LivePaperPilotBootstrap } from "./pages/LivePaperPilotBootstrap";
 import { LivePaperPortfolioDetails } from "./pages/LivePaperPortfolioDetails";
 
 export default function App() {
@@ -13,6 +14,10 @@ export default function App() {
       <Routes>
         <Route path="/" element={<BondDashboard />} />
         <Route path="/live-paper" element={<LivePaperDashboard />} />
+        <Route
+          path="/live-paper/pilot-bootstrap"
+          element={<LivePaperPilotBootstrap />}
+        />
         <Route
           path="/live-paper/portfolios/:portfolioId"
           element={<LivePaperPortfolioDetails />}

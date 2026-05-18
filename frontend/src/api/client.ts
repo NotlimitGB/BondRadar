@@ -4,6 +4,8 @@ import type {
   Company,
   CompanyScore,
   LivePaperMonitoringOverviewResponse,
+  LivePaperPilotBootstrapRequest,
+  LivePaperPilotBootstrapResponse,
   LivePaperPortfolioMonitoringResponse,
   PaperPortfolioOperation,
   PaperPortfolioPosition,
@@ -112,6 +114,17 @@ export const api = {
   getLivePaperPortfolio: (portfolioId: number) =>
     request<LivePaperPortfolioMonitoringResponse>(
       `/api/paper-trading/live/monitoring/portfolios/${portfolioId}`,
+    ),
+  bootstrapLivePaperPilot: (payload: LivePaperPilotBootstrapRequest) =>
+    request<LivePaperPilotBootstrapResponse>(
+      "/api/paper-trading/live/pilots/bootstrap",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      },
     ),
   getPaperPortfolioPositions: (portfolioId: number) =>
     request<PaperPortfolioPosition[]>(

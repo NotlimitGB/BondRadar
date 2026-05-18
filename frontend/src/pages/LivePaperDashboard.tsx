@@ -616,11 +616,16 @@ export function LivePaperDashboard() {
             Информационный режим: без реальных операций и брокерских действий.
           </p>
         </div>
-        {overview ? (
-          <div className="surface px-3 py-2 text-sm text-slate-600">
-            Обновлено: {formatDateTime(overview.now)}
-          </div>
-        ) : null}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Link className="primary-button" to="/live-paper/pilot-bootstrap">
+            Подготовить pilot schedule
+          </Link>
+          {overview ? (
+            <div className="surface px-3 py-2 text-sm text-slate-600">
+              Обновлено: {formatDateTime(overview.now)}
+            </div>
+          ) : null}
+        </div>
       </section>
 
       {overviewQuery.isLoading ? (
