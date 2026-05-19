@@ -165,3 +165,29 @@ POST /api/pre-deploy/paper-pilot/quality-gate
 
 Bootstrap completion is not proof that the model or pilot is ready. Treat the
 result as operational evidence for the next review step.
+
+After the quality gate and pilot bootstrap dry-run are acceptable, move to the
+live operations runner for separate cadences:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode monitoring \
+  --json-output ./logs/live_ops_monitoring.json
+```
+
+Recommended sequence:
+
+```text
+release preflight
+production-like smoke
+live data bootstrap
+pre-deploy quality gate
+pilot bootstrap dry-run
+create schedule
+live operations runner monitoring
+live operations runner data-refresh
+paper dry-run
+confirmed virtual paper execution
+```
+
+See `docs/deployment/LIVE_OPERATIONS_RUNNER.md`.

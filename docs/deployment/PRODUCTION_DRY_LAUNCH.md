@@ -30,13 +30,17 @@ python scripts/live_data_bootstrap.py \
 
 See `docs/deployment/LIVE_DATA_BOOTSTRAP.md` for the next step.
 
+After bootstrap and quality-gate review, use
+`docs/deployment/LIVE_OPERATIONS_RUNNER.md` for the recurring monitoring,
+data-refresh, paper dry-run, and confirmed virtual paper execution cadence.
+
 ## 2. Local Production-like Dry Launch
 
 Prepare environment:
 
 ```bash
 cp .env.production.example .env.production
-# edit .env.production and replace placeholders
+# edit .env.production and replace sample values
 ```
 
 Build and start the production-like stack:
@@ -82,6 +86,19 @@ Smoke passed does not mean:
 - ML candidate quality is acceptable;
 - paper pilot schedule should be created;
 - VDS deployment is complete.
+
+Recommended sequence after smoke:
+
+```text
+live data bootstrap
+pre-deploy quality gate
+pilot bootstrap dry-run
+create schedule
+live operations runner monitoring
+live operations runner data-refresh
+paper dry-run
+confirmed virtual paper execution
+```
 
 Readiness can still be `not_ready`. Quality gate can still be `blocked`.
 

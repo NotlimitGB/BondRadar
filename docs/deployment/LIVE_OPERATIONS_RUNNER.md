@@ -1,0 +1,213 @@
+# BondRadar Live Operations Runner
+
+`scripts/live_operations_runner.py` is the operations runner for the future
+60-90 day virtual paper pilot. It is designed for manual use, cron, or a
+systemd timer on a VDS.
+
+The runner separates data refresh cadence from virtual paper execution cadence.
+The default mode is safe monitoring: no data pipeline mutation, no paper schedule
+execution, and no paper portfolio mutation.
+
+The pilot remains virtual paper only:
+
+- no broker actions;
+- no real-money flow;
+- no external trading actions;
+- all reports should be treated as operational evidence, not proof of model
+  success.
+
+## 1. Recommended Cadence
+
+Suggested starting cadence:
+
+- monitoring: every hour;
+- data-refresh: every 1-3 hours during market or business hours;
+- paper-dry-run: once per day before the execution window;
+- paper-execute: once per day, after dry-run review or after a stable automation
+  period.
+
+Adjust the cadence after observing API stability, data freshness, and scheduler
+behavior.
+
+## 2. Monitoring Mode
+
+Default command:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode monitoring \
+  --json-output ./logs/live_ops_monitoring.json
+```
+
+This calls:
+
+```text
+GET /api/health
+GET /api/data-readiness/live
+GET /api/data-readiness/live/action-plan
+GET /api/paper-trading/live/monitoring/overview
+```
+
+Readiness may still be `not_ready`, `warning`, `blocked`, or
+`needs_attention`; that does not fail the runner when endpoints respond with the
+expected shape.
+
+## 3. Frequent Data Refresh
+
+Plan-only data refresh check:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode data-refresh \
+  --json-output ./logs/live_ops_data_refresh_plan.json
+```
+
+Run the proposed data pipeline only with explicit confirmation:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode data-refresh \
+  --execute-data-pipeline \
+  --wait-pipeline \
+  --confirm-live-operations yes \
+  --json-output ./logs/live_ops_data_refresh.json
+```
+
+The runner uses `pipeline_payload` returned by:
+
+```text
+GET /api/data-readiness/live/action-plan
+```
+
+It does not invent pipeline request fields.
+
+## 4. Paper Dry-run
+
+Use this before the execution window:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode paper-dry-run \
+  --json-output ./logs/live_ops_paper_dry_run.json
+```
+
+This calls only:
+
+```text
+POST /api/paper-trading/live/schedules/run-due
+```
+
+with:
+
+```json
+{
+  "dry_run": true
+}
+```
+
+If the response does not confirm `dry_run=true`, the runner returns
+`safety_failed`.
+
+## 5. Paper Execution
+
+Virtual paper due execution requires explicit confirmation:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode paper-execute \
+  --execute-due-schedules \
+  --confirm-live-operations yes \
+  --json-output ./logs/live_ops_paper_execute.json
+```
+
+The runner first calls `run-due` with `dry_run=true`. It sends `dry_run=false`
+only after the dry-run response confirms the safe marker.
+
+If the execution response does not confirm `dry_run=false`, the runner returns
+`safety_failed`.
+
+## 6. Full Cycle
+
+Use this only after the bootstrap flow and quality gate review are acceptable:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode full-cycle \
+  --execute-data-pipeline \
+  --wait-pipeline \
+  --execute-due-schedules \
+  --confirm-live-operations yes \
+  --json-output ./logs/live_ops_full_cycle.json
+```
+
+The sequence is:
+
+```text
+health
+live data readiness
+live data action plan
+optional data pipeline run
+optional pipeline polling
+post-pipeline readiness/action-plan checks
+monitoring overview
+run-due dry-run
+confirmed due execution
+post-execution monitoring overview
+```
+
+## 7. Cron Examples
+
+Create `./logs` before installing cron entries:
+
+```bash
+mkdir -p ./logs
+```
+
+Frequent monitoring:
+
+```cron
+0 * * * * cd /opt/BondRadar && /usr/bin/python3 scripts/live_operations_runner.py --mode monitoring --json-output ./logs/live_ops_monitoring_$(date +\%Y\%m\%d_\%H).json >> ./logs/live_ops_monitoring.log 2>&1
+```
+
+Frequent data refresh during weekdays:
+
+```cron
+0 9-18/2 * * 1-5 cd /opt/BondRadar && /usr/bin/python3 scripts/live_operations_runner.py --mode data-refresh --execute-data-pipeline --wait-pipeline --confirm-live-operations yes --json-output ./logs/live_ops_data_refresh_$(date +\%Y\%m\%d_\%H).json >> ./logs/live_ops_data_refresh.log 2>&1
+```
+
+Daily dry-run:
+
+```cron
+30 8 * * 1-5 cd /opt/BondRadar && /usr/bin/python3 scripts/live_operations_runner.py --mode paper-dry-run --json-output ./logs/live_ops_paper_dry_run_$(date +\%Y\%m\%d).json >> ./logs/live_ops_paper_dry_run.log 2>&1
+```
+
+Daily virtual paper execution:
+
+```cron
+45 8 * * 1-5 cd /opt/BondRadar && /usr/bin/python3 scripts/live_operations_runner.py --mode paper-execute --execute-due-schedules --confirm-live-operations yes --json-output ./logs/live_ops_paper_execute_$(date +\%Y\%m\%d).json >> ./logs/live_ops_paper_execute.log 2>&1
+```
+
+Cron examples are not installed automatically. Review paths, Python location,
+timezone, and logs before enabling them.
+
+## 8. Stop and Pause Guidance
+
+To pause operations:
+
+1. Disable the cron entry or systemd timer.
+2. Run monitoring mode only.
+3. Run paper dry-run mode only when needed.
+4. Check `/live-paper/schedules`.
+5. Check the pre-deploy quality gate.
+6. Review JSON reports and backend logs.
+
+Resume confirmed execution only after the cause of the pause is understood.
+
+## 9. Safety Notes
+
+The runner does not call single-schedule execution, cycle execution, portfolio
+rebalance, or mark-period endpoints. It uses only the batch run-due endpoint for
+paper due handling and always requires a dry-run before confirmed due execution.
+
+Runner completion is not a model-quality conclusion. Treat each run as an
+operations report for readiness, cadence, and safety review.

@@ -29,6 +29,7 @@ Complete this checklist before creating any live paper schedule:
 - backend tests are green;
 - frontend build is green;
 - database backup is created.
+- live operations runner cadence has been reviewed.
 
 Recommended preflight commands:
 
@@ -54,6 +55,9 @@ flow and optional quality gate smoke command.
 
 See `docs/deployment/LIVE_DATA_BOOTSTRAP.md` for controlled data sync, pipeline,
 ML validation, and quality-gate orchestration.
+
+See `docs/deployment/LIVE_OPERATIONS_RUNNER.md` for monitoring, data-refresh,
+paper dry-run, and confirmed virtual paper execution cadence examples.
 
 ## 2. Launch Sequence
 
@@ -97,6 +101,21 @@ with:
 }
 ```
 
+The recommended operational sequence after schedule creation is:
+
+```text
+release preflight
+production-like smoke
+live data bootstrap
+pre-deploy quality gate
+pilot bootstrap dry-run
+create schedule
+live operations runner monitoring
+live operations runner data-refresh
+paper dry-run
+confirmed virtual paper execution
+```
+
 ## 3. Daily Monitoring
 
 Daily checks:
@@ -115,6 +134,7 @@ Useful API checks:
 curl -s http://127.0.0.1:8000/api/health
 curl -s http://127.0.0.1:8000/api/paper-trading/live/monitoring/overview
 curl -s http://127.0.0.1:8000/api/data-readiness/live
+python scripts/live_operations_runner.py --mode monitoring
 ```
 
 ## 4. Weekly Monitoring

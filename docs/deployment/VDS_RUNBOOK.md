@@ -161,6 +161,19 @@ release preflight, production-like smoke, live data bootstrap plan, controlled
 data sync/pipeline/model validation, pre-deploy quality gate, and only then
 pilot bootstrap dry-run review.
 
+After pilot bootstrap dry-run review and schedule creation, use the live
+operations runner for separate monitoring, data refresh, paper dry-run, and
+confirmed virtual paper execution cadences:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode monitoring \
+  --json-output ./logs/live_ops_monitoring.json
+```
+
+See `docs/deployment/LIVE_OPERATIONS_RUNNER.md` before installing cron or
+systemd timers.
+
 Open the frontend:
 
 ```text
@@ -333,3 +346,6 @@ bash scripts/postgres_restore.sh ./backups/<backup-file>.dump
 - Backend tests and frontend build remain manual checks before deployment.
 - The deployment runbook does not replace operational review of data freshness,
   model validation, strategy robustness, and paper readiness.
+- Scheduled pilot operations should use `scripts/live_operations_runner.py` with
+  separate cadences for monitoring, data refresh, dry-run, and confirmed virtual
+  paper execution.
