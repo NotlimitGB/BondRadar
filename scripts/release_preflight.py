@@ -47,6 +47,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Skip docker compose config --quiet.",
     )
     parser.add_argument(
+        "--run-smoke-check",
+        action="store_true",
+        help="Run production-like smoke check against an already running stack.",
+    )
+    parser.add_argument(
         "--fail-fast",
         action="store_true",
         help="Stop after the first failed required check.",
@@ -95,6 +100,15 @@ def build_checks(args: argparse.Namespace, root: Path | None = None) -> list[Che
                 command=["docker", "compose", "config", "--quiet"],
                 cwd=base,
                 display_command="docker compose config --quiet",
+            )
+        )
+    if args.run_smoke_check:
+        checks.append(
+            Check(
+                name="prod_smoke_check",
+                command=[sys.executable, "scripts/prod_smoke_check.py"],
+                cwd=base,
+                display_command="python scripts/prod_smoke_check.py",
             )
         )
     return checks

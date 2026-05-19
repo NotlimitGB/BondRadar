@@ -16,6 +16,7 @@ Pilot context:
 
 Complete this checklist before creating any live paper schedule:
 
+- production-like dry launch smoke check has passed;
 - corporate universe action plan is ready;
 - live data readiness is ready or an accepted warning is documented;
 - ML validation suite completed;
@@ -34,6 +35,7 @@ Recommended preflight commands:
 python -m compileall backend/app
 python -m pytest backend/tests -q
 cd frontend && npm run build
+python scripts/prod_smoke_check.py --skip-quality-gate
 export POSTGRES_HOST=127.0.0.1
 export POSTGRES_PORT=5432
 export POSTGRES_DB=<database-name>
@@ -44,6 +46,9 @@ bash scripts/postgres_backup.sh
 
 The backup helper is intended to run from the VDS host against the production
 compose localhost-only PostgreSQL binding.
+
+See `docs/deployment/PRODUCTION_DRY_LAUNCH.md` for the production-like smoke
+flow and optional quality gate smoke command.
 
 ## 2. Launch Sequence
 

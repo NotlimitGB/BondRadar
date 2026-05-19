@@ -129,6 +129,25 @@ curl -s http://127.0.0.1:8000/api/health
 curl -s http://127.0.0.1:8000/api/data-readiness/live
 ```
 
+Run the production-like smoke check:
+
+```bash
+python scripts/prod_smoke_check.py --skip-quality-gate
+```
+
+When a completed model run is available, include the pre-deploy quality gate
+smoke:
+
+```bash
+python scripts/prod_smoke_check.py \
+  --model-run-id <MODEL_RUN_ID> \
+  --date-from <YYYY-MM-DD> \
+  --date-to <YYYY-MM-DD>
+```
+
+See `docs/deployment/PRODUCTION_DRY_LAUNCH.md` for troubleshooting and expected
+outcomes.
+
 Open the frontend:
 
 ```text

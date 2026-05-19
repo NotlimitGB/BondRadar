@@ -27,6 +27,7 @@ def args(**overrides: Any) -> Namespace:
         "skip_backend_tests": False,
         "skip_frontend_build": False,
         "skip_docker_config": False,
+        "run_smoke_check": False,
         "fail_fast": False,
         "json_output": None,
     }
@@ -62,6 +63,17 @@ def test_skip_flags_remove_checks() -> None:
     )
 
     assert [check.name for check in checks] == ["backend_compile"]
+
+
+def test_smoke_check_is_optional_and_non_default() -> None:
+    preflight = load_preflight_module()
+
+    default_checks = preflight.build_checks(args(), Path("/repo"))
+    smoke_checks = preflight.build_checks(args(run_smoke_check=True), Path("/repo"))
+
+    assert "prod_smoke_check" not in [check.name for check in default_checks]
+    assert smoke_checks[-1].name == "prod_smoke_check"
+    assert smoke_checks[-1].display_command == "python scripts/prod_smoke_check.py"
 
 
 def test_non_zero_check_produces_failed_report_and_exit(monkeypatch: Any) -> None:
