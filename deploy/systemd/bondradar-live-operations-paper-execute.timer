@@ -1,0 +1,10 @@
+[Unit]
+Description=Run BondRadar confirmed virtual paper due execution on weekdays
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 08:45:00
+Persistent=true
+Unit=bondradar-live-operations-paper-execute.service
+
+[Install]
+WantedBy=timers.target

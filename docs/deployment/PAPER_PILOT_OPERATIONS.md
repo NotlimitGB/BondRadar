@@ -16,6 +16,8 @@ Pilot context:
 
 Complete this checklist before creating any live paper schedule:
 
+- production env validation has passed;
+- server sanity check has passed;
 - production-like dry launch smoke check has passed;
 - live data bootstrap plan has been reviewed;
 - corporate universe action plan is ready;
@@ -30,6 +32,7 @@ Complete this checklist before creating any live paper schedule:
 - frontend build is green;
 - database backup is created.
 - live operations runner cadence has been reviewed.
+- runtime retention plan has been reviewed.
 
 Recommended preflight commands:
 
@@ -37,6 +40,8 @@ Recommended preflight commands:
 python -m compileall backend/app
 python -m pytest backend/tests -q
 cd frontend && npm run build
+python scripts/validate_production_env.py --env-file .env.production
+python scripts/server_sanity_check.py --env-file .env.production
 python scripts/prod_smoke_check.py --skip-quality-gate
 python scripts/live_data_bootstrap.py --json-output ./live_data_bootstrap_plan.json
 export POSTGRES_HOST=127.0.0.1
@@ -58,6 +63,9 @@ ML validation, and quality-gate orchestration.
 
 See `docs/deployment/LIVE_OPERATIONS_RUNNER.md` for monitoring, data-refresh,
 paper dry-run, and confirmed virtual paper execution cadence examples.
+
+See `docs/deployment/RUNTIME_HARDENING.md` for runtime hardening, backup
+verification, retention cleanup, and pause procedures.
 
 ## 2. Launch Sequence
 
@@ -127,6 +135,7 @@ Daily checks:
 - review warnings and errors;
 - confirm latest market data and prediction coverage remain fresh;
 - confirm latest backup exists.
+- confirm retention plan was reviewed before any cleanup execution.
 
 Useful API checks:
 
@@ -135,6 +144,7 @@ curl -s http://127.0.0.1:8000/api/health
 curl -s http://127.0.0.1:8000/api/paper-trading/live/monitoring/overview
 curl -s http://127.0.0.1:8000/api/data-readiness/live
 python scripts/live_operations_runner.py --mode monitoring
+python scripts/ops_retention.py --json-output ./logs/ops_retention_plan.json
 ```
 
 ## 4. Weekly Monitoring
@@ -194,3 +204,7 @@ When recovering from an incident:
 5. Inspect `/api/pre-deploy/paper-pilot/quality-gate`.
 6. Restore from backup only when the current database state is not acceptable.
 7. Run scheduler dry-run before resuming schedules.
+
+To pause confirmed virtual paper execution while keeping monitoring and data
+refresh, disable only the paper execute cron entry or systemd timer. Keep
+monitoring active, and run paper dry-run before resuming confirmed execution.

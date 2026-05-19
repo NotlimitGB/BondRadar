@@ -1,0 +1,10 @@
+[Unit]
+Description=Run BondRadar live paper dry-run on weekdays
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 08:30:00
+Persistent=true
+Unit=bondradar-live-operations-paper-dry-run.service
+
+[Install]
+WantedBy=timers.target

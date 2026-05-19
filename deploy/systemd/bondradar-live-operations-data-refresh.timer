@@ -1,0 +1,10 @@
+[Unit]
+Description=Run BondRadar data refresh on weekdays during working hours
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09,11,13,15,17:00:00
+Persistent=true
+Unit=bondradar-live-operations-data-refresh.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=BondRadar PostgreSQL backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/BondRadar
+EnvironmentFile=/opt/BondRadar/.env.production
+ExecStart=/bin/bash -lc 'bash scripts/postgres_backup.sh'

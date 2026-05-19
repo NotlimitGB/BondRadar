@@ -1,0 +1,10 @@
+[Unit]
+Description=BondRadar live operations data refresh
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/BondRadar
+EnvironmentFile=/opt/BondRadar/.env.production
+ExecStart=/bin/bash -lc '/usr/bin/python3 scripts/live_operations_runner.py --mode data-refresh --execute-data-pipeline --wait-pipeline --confirm-live-operations yes --json-output ./logs/live_ops_data_refresh_$(date -u +%%Y%%m%%dT%%H%%M%%SZ).json'

@@ -1,0 +1,25 @@
+# BondRadar cron examples for a VDS host.
+# Review paths, Python location, timezone, and JSON/log destinations before use.
+# Install manually with: crontab deploy/cron/bondradar.example.crontab
+
+SHELL=/bin/bash
+BOND_RADAR_DIR=/opt/BondRadar
+
+# Hourly monitoring only. Read-only.
+# 0 * * * * cd ${BOND_RADAR_DIR} && /usr/bin/python3 scripts/live_operations_runner.py --mode monitoring --json-output ./logs/live_ops_monitoring_$(date +\%Y\%m\%d_\%H).json >> ./logs/live_ops_monitoring.log 2>&1
+
+# Weekday data refresh every 2 hours during the working window.
+# Requires explicit runner confirmation and uses the action-plan pipeline payload.
+# 0 9-18/2 * * 1-5 cd ${BOND_RADAR_DIR} && /usr/bin/python3 scripts/live_operations_runner.py --mode data-refresh --execute-data-pipeline --wait-pipeline --confirm-live-operations yes --json-output ./logs/live_ops_data_refresh_$(date +\%Y\%m\%d_\%H).json >> ./logs/live_ops_data_refresh.log 2>&1
+
+# Daily paper dry-run before the execution window. Does not execute due schedules.
+# 30 8 * * 1-5 cd ${BOND_RADAR_DIR} && /usr/bin/python3 scripts/live_operations_runner.py --mode paper-dry-run --json-output ./logs/live_ops_paper_dry_run_$(date +\%Y\%m\%d).json >> ./logs/live_ops_paper_dry_run.log 2>&1
+
+# Daily confirmed virtual paper due execution after dry-run review/stable operation.
+# 45 8 * * 1-5 cd ${BOND_RADAR_DIR} && /usr/bin/python3 scripts/live_operations_runner.py --mode paper-execute --execute-due-schedules --confirm-live-operations yes --json-output ./logs/live_ops_paper_execute_$(date +\%Y\%m\%d).json >> ./logs/live_ops_paper_execute.log 2>&1
+
+# Daily PostgreSQL backup from the VDS host through the localhost-only binding.
+# 15 2 * * * cd ${BOND_RADAR_DIR} && . ./.env.production && bash scripts/postgres_backup.sh >> ./logs/postgres_backup.log 2>&1
+
+# Daily retention dry-run. Add --execute only after reviewing candidates.
+# 45 2 * * * cd ${BOND_RADAR_DIR} && /usr/bin/python3 scripts/ops_retention.py --json-output ./logs/ops_retention_plan_$(date +\%Y\%m\%d).json >> ./logs/ops_retention.log 2>&1

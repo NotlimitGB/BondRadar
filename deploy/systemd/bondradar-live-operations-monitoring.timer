@@ -1,0 +1,10 @@
+[Unit]
+Description=Run BondRadar live operations monitoring hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=bondradar-live-operations-monitoring.service
+
+[Install]
+WantedBy=timers.target

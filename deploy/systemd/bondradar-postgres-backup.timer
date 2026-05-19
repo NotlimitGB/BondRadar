@@ -1,0 +1,10 @@
+[Unit]
+Description=Run BondRadar PostgreSQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+Unit=bondradar-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

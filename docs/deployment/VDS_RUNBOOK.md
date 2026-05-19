@@ -104,6 +104,17 @@ cp .env.production.example .env.production
 nano .env.production
 ```
 
+Validate runtime settings and server-side files:
+
+```bash
+python scripts/validate_production_env.py \
+  --env-file .env.production \
+  --json-output ./logs/env_validation.json
+python scripts/server_sanity_check.py \
+  --env-file .env.production \
+  --json-output ./logs/server_sanity.json
+```
+
 Run the release preflight before starting services:
 
 ```bash
@@ -173,6 +184,10 @@ python scripts/live_operations_runner.py \
 
 See `docs/deployment/LIVE_OPERATIONS_RUNNER.md` before installing cron or
 systemd timers.
+
+See `docs/deployment/RUNTIME_HARDENING.md` for env validation, server sanity
+checks, cron/systemd templates, retention cleanup, backup verification, and
+pause procedures.
 
 Open the frontend:
 
@@ -328,6 +343,15 @@ export PGPASSWORD=<database-password>
 bash scripts/postgres_restore.sh ./backups/<backup-file>.dump
 ```
 
+Retention planning:
+
+```bash
+python scripts/ops_retention.py \
+  --json-output ./logs/ops_retention_plan.json
+```
+
+Run with `--execute` only after reviewing the report.
+
 ## 9. Security Notes
 
 - Never commit `.env.production`.
@@ -349,3 +373,6 @@ bash scripts/postgres_restore.sh ./backups/<backup-file>.dump
 - Scheduled pilot operations should use `scripts/live_operations_runner.py` with
   separate cadences for monitoring, data refresh, dry-run, and confirmed virtual
   paper execution.
+- Runtime hardening helpers live in `docs/deployment/RUNTIME_HARDENING.md`,
+  `deploy/cron/`, `deploy/systemd/`, and the `scripts/*sanity*` /
+  `scripts/*retention*` helpers.

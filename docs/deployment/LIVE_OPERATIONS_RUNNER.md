@@ -190,7 +190,51 @@ Daily virtual paper execution:
 Cron examples are not installed automatically. Review paths, Python location,
 timezone, and logs before enabling them.
 
-## 8. Stop and Pause Guidance
+The repository also includes a commented cron template:
+
+```text
+deploy/cron/bondradar.example.crontab
+```
+
+Review `docs/deployment/RUNTIME_HARDENING.md` before installing it.
+
+## 8. Systemd Timer Examples
+
+Example service and timer files live in:
+
+```text
+deploy/systemd/
+```
+
+They cover monitoring, data refresh, paper dry-run, confirmed virtual paper
+execution, and PostgreSQL backup. The templates use:
+
+```text
+WorkingDirectory=/opt/BondRadar
+EnvironmentFile=/opt/BondRadar/.env.production
+```
+
+Copy and enable only after reviewing paths, cadence, and safety settings.
+
+## 9. Retention and Sanity Helpers
+
+Before enabling recurring operations, run:
+
+```bash
+python scripts/server_sanity_check.py --env-file .env.production
+```
+
+Plan cleanup of old operation reports and database backups:
+
+```bash
+python scripts/ops_retention.py \
+  --json-output ./logs/ops_retention_plan.json
+```
+
+`scripts/ops_retention.py` is dry-run by default. Use `--execute` only after
+reviewing candidates.
+
+## 10. Stop and Pause Guidance
 
 To pause operations:
 
@@ -203,7 +247,7 @@ To pause operations:
 
 Resume confirmed execution only after the cause of the pause is understood.
 
-## 9. Safety Notes
+## 11. Safety Notes
 
 The runner does not call single-schedule execution, cycle execution, portfolio
 rebalance, or mark-period endpoints. It uses only the batch run-due endpoint for
