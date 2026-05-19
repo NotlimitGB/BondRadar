@@ -32,7 +32,25 @@ python scripts/server_sanity_check.py --env-file .env.production --skip-docker -
 secrets are intentionally present. Validate the real `.env.production` file
 before deployment.
 
-## 2. Production-like Checks
+## 2. GitHub Actions Checks
+
+Review the non-deploying CI workflows before VDS preparation:
+
+```text
+.github/workflows/ci.yml
+.github/workflows/release-candidate.yml
+docs/deployment/CI_CHECKS.md
+```
+
+The main CI workflow checks backend compile/tests, frontend build, and
+production compose config. The release-candidate workflow is manual-only and
+runs the deployment/operations script test set plus safe static checks.
+
+CI passing does not prove live data readiness, model quality, or pilot readiness.
+It means the code, build, and static deployment checks are healthy enough to
+continue local release-candidate review.
+
+## 3. Production-like Checks
 
 Run these against a local or VDS-like production compose stack:
 
@@ -54,7 +72,7 @@ python scripts/prod_smoke_check.py \
   --json-output ./logs/prod_smoke_with_gate.json
 ```
 
-## 3. Data, Model, and Paper Gates
+## 4. Data, Model, and Paper Gates
 
 Review these gates before the 50k virtual paper pilot:
 
@@ -68,10 +86,11 @@ Review these gates before the 50k virtual paper pilot:
 
 Warnings are not automatically acceptable. They require human review.
 
-## 4. VDS Deployment No-Go Conditions
+## 5. VDS Deployment No-Go Conditions
 
 Do not proceed with VDS deployment preparation when any of these are true:
 
+- required GitHub Actions checks fail;
 - backend tests fail;
 - frontend build fails;
 - production compose config fails;
@@ -81,7 +100,7 @@ Do not proceed with VDS deployment preparation when any of these are true:
 - backup scripts have not been reviewed;
 - operator has not reviewed the runbook and runtime hardening docs.
 
-## 5. 50k Virtual Paper Pilot No-Go Conditions
+## 6. 50k Virtual Paper Pilot No-Go Conditions
 
 Do not start the 50k virtual paper pilot when any of these are true:
 
@@ -93,7 +112,7 @@ Do not start the 50k virtual paper pilot when any of these are true:
 - monitoring overview has critical alerts;
 - database backup has not been created.
 
-## 6. Required Saved Artifacts
+## 7. Required Saved Artifacts
 
 Save these under `./logs`:
 
@@ -118,7 +137,7 @@ python scripts/release_candidate_report.py \
   --markdown-output ./logs/release_candidate_report.md
 ```
 
-## 7. Final Human Review
+## 8. Final Human Review
 
 Before VDS deployment preparation, confirm:
 

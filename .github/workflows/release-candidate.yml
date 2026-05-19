@@ -1,0 +1,63 @@
+name: Release Candidate Checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-candidate-scripts:
+    name: Release candidate script checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements-dev.txt
+
+      - name: Run focused release candidate tests
+        run: |
+          python -m pytest backend/tests/test_release_preflight.py -q
+          python -m pytest backend/tests/test_prod_smoke_check.py -q
+          python -m pytest backend/tests/test_live_data_bootstrap.py -q
+          python -m pytest backend/tests/test_live_operations_runner.py -q
+          python -m pytest backend/tests/test_validate_production_env.py -q
+          python -m pytest backend/tests/test_ops_retention.py -q
+          python -m pytest backend/tests/test_server_sanity_check.py -q
+          python -m pytest backend/tests/test_release_candidate_report.py -q
+          python -m pytest backend/tests/test_ci_guardrails.py -q
+
+      - name: Run safe static script checks
+        run: |
+          python scripts/ops_retention.py --json-output /tmp/bondradar_retention_plan.json
+          python scripts/release_candidate_report.py --logs-dir ./logs --json-output /tmp/bondradar_release_candidate_report.json --markdown-output /tmp/bondradar_release_candidate_report.md
+          python scripts/ci_guardrails.py
+
+      - name: Confirm sample production env validation fails
+        run: |
+          if python scripts/validate_production_env.py --env-file .env.production.example; then
+            echo "::error::.env.production.example validation unexpectedly passed"
+            exit 1
+          else
+            echo ".env.production.example validation failed as expected"
+          fi
+
+  release-candidate-compose:
+    name: Release candidate compose config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate production compose config
+        run: docker compose -f docker-compose.prod.yml --env-file .env.production.example config --quiet

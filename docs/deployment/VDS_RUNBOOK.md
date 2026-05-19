@@ -121,6 +121,19 @@ Run the release preflight before starting services:
 python scripts/release_preflight.py
 ```
 
+If the repository is hosted on GitHub, review the non-deploying CI workflows
+before server work:
+
+```text
+.github/workflows/ci.yml
+.github/workflows/release-candidate.yml
+docs/deployment/CI_CHECKS.md
+```
+
+The main workflow checks backend tests, frontend build, and production compose
+config. The manual release-candidate workflow checks the deployment and
+operations helper scripts without starting containers or deploying anything.
+
 Build and start the production compose stack:
 
 ```bash
@@ -396,3 +409,6 @@ Run with `--execute` only after reviewing the report.
   `docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md`,
   `docs/deployment/PROJECT_OPERATING_MODEL.md`, and
   `scripts/release_candidate_report.py`.
+- CI documentation and workflow definitions live in
+  `docs/deployment/CI_CHECKS.md`, `.github/workflows/ci.yml`, and
+  `.github/workflows/release-candidate.yml`.
