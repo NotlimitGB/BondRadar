@@ -9,6 +9,7 @@ from typing import Any
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "release_preflight.py"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def load_preflight_module() -> Any:
@@ -122,3 +123,26 @@ def test_fail_fast_stops_after_first_failure(monkeypatch: Any) -> None:
     assert report["status"] == "failed"
     assert len(report["checks"]) == 1
     assert len(calls) == 1
+
+
+def test_production_compose_uses_nginx_frontend_and_local_postgres() -> None:
+    compose = (REPO_ROOT / "docker-compose.prod.yml").read_text(encoding="utf-8")
+
+    assert "dockerfile: Dockerfile.prod" in compose
+    assert '"127.0.0.1:${POSTGRES_PORT:-5432}:5432"' in compose
+    assert "VITE_API_PROXY_TARGET" not in compose
+
+
+def test_frontend_nginx_proxies_api() -> None:
+    nginx = (REPO_ROOT / "frontend" / "nginx.conf").read_text(encoding="utf-8")
+
+    assert "location /api/" in nginx
+    assert "proxy_pass http://backend:8000/api/;" in nginx
+
+
+def test_production_env_uses_localhost_backup_binding() -> None:
+    env_example = (REPO_ROOT / ".env.production.example").read_text(encoding="utf-8")
+
+    assert "POSTGRES_HOST=127.0.0.1" in env_example
+    assert "DATABASE_URL=postgresql+psycopg://" in env_example
+    assert "@postgres:5432/" in env_example

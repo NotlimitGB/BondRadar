@@ -15,18 +15,18 @@ BondRadar production operation is virtual paper mode only:
 
 ```text
 VDS
-├─ backend API
-├─ frontend UI
-├─ PostgreSQL
-├─ Docker Compose
-├─ persistent volumes
-├─ backups
-└─ scheduled paper/data operations
+|-- backend API
+|-- frontend UI served by nginx
+|-- PostgreSQL
+|-- Docker Compose
+|-- persistent volumes
+|-- backups
+`-- scheduled paper/data operations
 ```
 
 The backend exposes FastAPI endpoints under `/api`. PostgreSQL stores issuer,
-bond, market-data, ML, and virtual paper records. The frontend serves the
-BondRadar UI, including the Live Paper dashboard.
+bond, market-data, ML, and virtual paper records. The production frontend serves
+the built Vite bundle through nginx and proxies `/api` to the backend container.
 
 ## 2. Server Prerequisites
 
@@ -40,8 +40,9 @@ Recommended baseline:
 - basic firewall rules;
 - enough disk space for PostgreSQL data, backups, logs, and ML artifacts.
 
-Do not expose PostgreSQL to the public internet. Keep database access inside the
-Docker network unless there is a specific operational reason to do otherwise.
+Do not expose PostgreSQL to the public internet. The production compose file
+binds PostgreSQL to `127.0.0.1` only so host-level backup and restore scripts can
+reach it while public network access stays closed.
 
 ## 3. Required Environment Variables
 
@@ -60,7 +61,6 @@ BACKEND_CORS_ORIGINS
 MOEX_ISS_BASE_URL
 MOEX_ISS_TIMEOUT_SECONDS
 ML_ARTIFACT_DIR
-VITE_API_PROXY_TARGET
 ```
 
 Operational variables used by helper scripts:
@@ -72,6 +72,19 @@ BACKUP_DIR
 LOG_LEVEL
 BACKEND_PORT
 FRONTEND_PORT
+```
+
+`DATABASE_URL` should keep using the Docker service name:
+
+```text
+postgresql+psycopg://<user>:<password>@postgres:5432/<database>
+```
+
+Host-level backup scripts should use:
+
+```text
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
 ```
 
 `BACKEND_CORS_ORIGINS` is parsed by Pydantic settings. Use JSON-list syntax:
@@ -103,6 +116,10 @@ Build and start the production compose stack:
 docker compose -f docker-compose.prod.yml --env-file .env.production build
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d
 ```
+
+`docker-compose.prod.yml` uses `frontend/Dockerfile.prod`, which builds the Vite
+bundle and serves it through nginx. The nginx config proxies `/api` to
+`http://backend:8000`.
 
 Check services:
 
@@ -232,6 +249,15 @@ Recommended policy:
 - store backups outside the container volume;
 - keep at least 7 daily backups and 4 weekly backups if disk space allows;
 - periodically test restore on a non-production database.
+
+In production compose, PostgreSQL is bound as:
+
+```text
+127.0.0.1:${POSTGRES_PORT:-5432}:5432
+```
+
+This binding is for host-level backup and restore scripts only. Do not change it
+to a public bind address.
 
 Backup:
 

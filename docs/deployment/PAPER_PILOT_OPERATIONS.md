@@ -34,8 +34,16 @@ Recommended preflight commands:
 python -m compileall backend/app
 python -m pytest backend/tests -q
 cd frontend && npm run build
+export POSTGRES_HOST=127.0.0.1
+export POSTGRES_PORT=5432
+export POSTGRES_DB=<database-name>
+export POSTGRES_USER=<database-user>
+export PGPASSWORD=<database-password>
 bash scripts/postgres_backup.sh
 ```
+
+The backup helper is intended to run from the VDS host against the production
+compose localhost-only PostgreSQL binding.
 
 ## 2. Launch Sequence
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-POSTGRES_HOST="${POSTGRES_HOST:-localhost}"
+# Intended to run from the VDS host against the localhost-only Postgres binding.
+POSTGRES_HOST="${POSTGRES_HOST:-127.0.0.1}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 POSTGRES_DB="${POSTGRES_DB:?POSTGRES_DB is required}"
 POSTGRES_USER="${POSTGRES_USER:?POSTGRES_USER is required}"
