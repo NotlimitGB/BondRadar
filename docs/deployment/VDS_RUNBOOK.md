@@ -95,6 +95,24 @@ BACKEND_CORS_ORIGINS=["https://bondradar.example.com"]
 
 ## 4. First Deployment Flow
 
+For a fresh server, start with the provisioning command pack:
+
+```text
+docs/deployment/VDS_PROVISIONING.md
+docs/deployment/FIRST_DEPLOY_CHECKLIST.md
+scripts/render_first_deploy_commands.py
+```
+
+To render a server-specific command checklist:
+
+```bash
+python scripts/render_first_deploy_commands.py \
+  --server-ip <SERVER_IP> \
+  --repo-url <REPO_URL> \
+  --markdown-output ./logs/first_deploy_commands.md \
+  --json-output ./logs/first_deploy_commands.json
+```
+
 Run from the VDS shell after installing prerequisites:
 
 ```bash
@@ -412,3 +430,7 @@ Run with `--execute` only after reviewing the report.
 - CI documentation and workflow definitions live in
   `docs/deployment/CI_CHECKS.md`, `.github/workflows/ci.yml`, and
   `.github/workflows/release-candidate.yml`.
+- Fresh-server provisioning and first-deploy commands live in
+  `docs/deployment/VDS_PROVISIONING.md`,
+  `docs/deployment/FIRST_DEPLOY_CHECKLIST.md`, and
+  `scripts/render_first_deploy_commands.py`.

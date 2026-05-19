@@ -17,6 +17,8 @@ BondRadar pilot operation remains virtual paper only:
 Use this sequence after cloning the project and creating `.env.production`:
 
 ```text
+VDS provisioning checklist
+first-deploy command rendering
 validate .env.production
 server sanity check
 release preflight
@@ -28,6 +30,17 @@ operations runner
 runtime retention and backups
 release candidate report
 ```
+
+Provisioning and first-deploy references:
+
+```text
+docs/deployment/VDS_PROVISIONING.md
+docs/deployment/FIRST_DEPLOY_CHECKLIST.md
+scripts/render_first_deploy_commands.py
+```
+
+Runtime hardening starts after the server is provisioned and the first deploy
+verification commands have been reviewed.
 
 ## 2. Production Env Validation
 
