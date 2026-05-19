@@ -67,6 +67,10 @@ paper dry-run, and confirmed virtual paper execution cadence examples.
 See `docs/deployment/RUNTIME_HARDENING.md` for runtime hardening, backup
 verification, retention cleanup, and pause procedures.
 
+See `docs/deployment/PROJECT_OPERATING_MODEL.md` for the plain-language
+operating model and `docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md` for the
+final release candidate review before VDS preparation.
+
 ## 2. Launch Sequence
 
 Review diagnostics in this order:

@@ -26,6 +26,7 @@ live data bootstrap
 pre-deploy quality gate
 operations runner
 runtime retention and backups
+release candidate report
 ```
 
 ## 2. Production Env Validation
@@ -204,3 +205,25 @@ entries as appropriate.
   confirmed virtual paper execution.
 - The retention helper is dry-run by default.
 - Runtime hardening does not prove model quality or data readiness by itself.
+
+## 11. Release Candidate Aggregation
+
+After required JSON reports are saved under `./logs`, generate the final local
+release candidate report:
+
+```bash
+python scripts/release_candidate_report.py \
+  --logs-dir ./logs \
+  --json-output ./logs/release_candidate_report.json \
+  --markdown-output ./logs/release_candidate_report.md
+```
+
+Review the output together with:
+
+```text
+docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md
+docs/deployment/PROJECT_OPERATING_MODEL.md
+```
+
+The report is a local artifact aggregator. It does not call HTTP endpoints, does
+not run commands, and does not replace human review.

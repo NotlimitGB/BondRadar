@@ -189,6 +189,22 @@ See `docs/deployment/RUNTIME_HARDENING.md` for env validation, server sanity
 checks, cron/systemd templates, retention cleanup, backup verification, and
 pause procedures.
 
+Before treating the repository as a release candidate, review:
+
+```text
+docs/deployment/PROJECT_OPERATING_MODEL.md
+docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md
+```
+
+Then generate the local release candidate aggregation report:
+
+```bash
+python scripts/release_candidate_report.py \
+  --logs-dir ./logs \
+  --json-output ./logs/release_candidate_report.json \
+  --markdown-output ./logs/release_candidate_report.md
+```
+
 Open the frontend:
 
 ```text
@@ -376,3 +392,7 @@ Run with `--execute` only after reviewing the report.
 - Runtime hardening helpers live in `docs/deployment/RUNTIME_HARDENING.md`,
   `deploy/cron/`, `deploy/systemd/`, and the `scripts/*sanity*` /
   `scripts/*retention*` helpers.
+- Final release candidate review lives in
+  `docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md`,
+  `docs/deployment/PROJECT_OPERATING_MODEL.md`, and
+  `scripts/release_candidate_report.py`.
