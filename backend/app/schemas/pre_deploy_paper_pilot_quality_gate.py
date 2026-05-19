@@ -52,6 +52,8 @@ class PreDeployPaperPilotQualityGateRequest(BaseModel):
     allow_data_warning: bool = False
     allow_robustness_warning: bool = False
     allow_live_paper_warning: bool = False
+    allow_external_risk_warning: bool = False
+    allow_external_risk_severe: bool = False
 
     minimum_analyzed_variant_count: int = 1
     minimum_completed_subperiods: int = 2
@@ -96,6 +98,7 @@ class PreDeployPaperPilotQualityGateResponse(BaseModel):
 
     corporate_universe_action_plan: dict[str, Any] | None
     live_data_readiness: dict[str, Any] | None
+    external_risk_regime: dict[str, Any] | None
     strategy_robustness: dict[str, Any] | None
     live_paper_readiness: dict[str, Any] | None
     pilot_bootstrap_dry_run: dict[str, Any] | None

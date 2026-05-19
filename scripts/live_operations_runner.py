@@ -14,6 +14,7 @@ from typing import Any, Sequence
 TERMINAL_PIPELINE_STATUSES = {"completed", "completed_with_errors", "failed"}
 CONFIRMATION_MODES = {"paper-execute", "full-cycle"}
 RUN_DUE_PATH = "/api/paper-trading/live/schedules/run-due"
+EXTERNAL_RISK_PATH = "/api/risk/external-regime"
 
 
 def utc_now() -> str:
@@ -61,6 +62,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     parser.add_argument("--execute-due-schedules", action="store_true")
     parser.add_argument("--run-due-now", default=None)
+    parser.add_argument("--ack-external-risk-elevated", action="store_true")
+    parser.add_argument("--override-external-risk-severe", action="store_true")
 
     parser.add_argument("--json-output", type=Path, default=None)
     parser.add_argument("--fail-fast", action="store_true")
@@ -146,6 +149,9 @@ def run_operations(args: argparse.Namespace) -> dict[str, Any]:
         "dry_run_due_count": None,
         "executed_due_count": None,
         "alerts_count": None,
+        "external_risk_mode": None,
+        "external_risk_source": None,
+        "external_risk_override_used": False,
     }
 
     if _confirmation_required(args):
@@ -173,6 +179,11 @@ def run_operations(args: argparse.Namespace) -> dict[str, Any]:
         )
 
     _run_health(args, steps, backend_url)
+    if _should_stop(args, steps):
+        return _finish(started_at, args, date_from, date_to, steps, summary)
+
+    external_risk = _run_external_risk_regime(args, steps, backend_url)
+    _update_external_risk_summary(summary, external_risk)
     if _should_stop(args, steps):
         return _finish(started_at, args, date_from, date_to, steps, summary)
 
@@ -244,6 +255,14 @@ def run_operations(args: argparse.Namespace) -> dict[str, Any]:
         if _should_stop(args, steps):
             return _finish(started_at, args, date_from, date_to, steps, summary)
         if args.execute_due_schedules:
+            _enforce_external_risk_for_execution(
+                args,
+                steps,
+                external_risk,
+                summary,
+            )
+            if _should_stop(args, steps):
+                return _finish(started_at, args, date_from, date_to, steps, summary)
             execution_data = _run_scheduler_due_execution(args, steps, backend_url)
             summary["executed_due_count"] = _int_or_none(execution_data.get("executed_count"))
             if _should_stop(args, steps):
@@ -321,6 +340,23 @@ def _run_live_readiness(
     backend_url: str,
 ) -> dict[str, Any]:
     return _run_live_readiness_after(args, steps, backend_url, "live_data_readiness")
+
+
+def _run_external_risk_regime(
+    args: argparse.Namespace,
+    steps: list[dict[str, Any]],
+    backend_url: str,
+) -> dict[str, Any]:
+    response = _request_step(
+        args,
+        steps,
+        name="external_risk_regime",
+        method="GET",
+        path=EXTERNAL_RISK_PATH,
+        url=f"{backend_url}{EXTERNAL_RISK_PATH}",
+        validator=_validate_external_risk_regime,
+    )
+    return _data(response)
 
 
 def _run_live_readiness_after(
@@ -541,6 +577,72 @@ def _run_scheduler_due_execution(
     return _data(response)
 
 
+def _enforce_external_risk_for_execution(
+    args: argparse.Namespace,
+    steps: list[dict[str, Any]],
+    external_risk: dict[str, Any],
+    summary: dict[str, Any],
+) -> None:
+    mode = external_risk.get("mode")
+    details = {
+        "mode": mode,
+        "source": external_risk.get("source"),
+        "external_risk_override_used": False,
+    }
+    if mode == "elevated" and not args.ack_external_risk_elevated:
+        details["safety_failed"] = True
+        step = _manual_step(
+            "external_risk_execution_check",
+            "failed",
+            "Elevated external risk requires --ack-external-risk-elevated before confirmed paper execution.",
+            details=details,
+        )
+        steps.append(step)
+        _print_step(step)
+        return
+    if mode == "severe" and not args.override_external_risk_severe:
+        details["safety_failed"] = True
+        step = _manual_step(
+            "external_risk_execution_check",
+            "failed",
+            "Severe external risk blocks confirmed paper execution by default.",
+            details=details,
+        )
+        steps.append(step)
+        _print_step(step)
+        return
+    if mode == "severe":
+        details["external_risk_override_used"] = True
+        summary["external_risk_override_used"] = True
+        step = _manual_step(
+            "external_risk_execution_check",
+            "warning",
+            "Severe external risk override was explicitly provided.",
+            details=details,
+        )
+        steps.append(step)
+        _print_step(step)
+        return
+    if mode == "elevated":
+        step = _manual_step(
+            "external_risk_execution_check",
+            "warning",
+            "Elevated external risk acknowledgement was provided.",
+            details={**details, "acknowledged": True},
+        )
+        steps.append(step)
+        _print_step(step)
+        return
+    step = _manual_step(
+        "external_risk_execution_check",
+        "passed",
+        "External risk regime allows confirmed paper execution.",
+        details=details,
+    )
+    steps.append(step)
+    _print_step(step)
+
+
 def _run_due_payload(args: argparse.Namespace, *, dry_run: bool) -> dict[str, Any]:
     payload: dict[str, Any] = {"dry_run": dry_run}
     if args.run_due_now:
@@ -715,6 +817,25 @@ def _validate_monitoring(response: dict[str, Any]) -> tuple[str, str, dict[str, 
     return "failed", "Monitoring overview shape is invalid.", _details(response)
 
 
+def _validate_external_risk_regime(
+    response: dict[str, Any],
+) -> tuple[str, str, dict[str, Any]]:
+    data = response.get("json")
+    required = {"mode", "reason", "source", "is_active"}
+    if (
+        _is_success(response)
+        and isinstance(data, dict)
+        and required <= data.keys()
+        and data.get("mode") in {"normal", "elevated", "severe"}
+    ):
+        return "passed", "External risk regime shape is valid.", {
+            "mode": data.get("mode"),
+            "source": data.get("source"),
+            "is_active": data.get("is_active"),
+        }
+    return "failed", "External risk regime shape is invalid.", _details(response)
+
+
 def _validate_shape(
     response: dict[str, Any],
     required: set[str],
@@ -774,6 +895,19 @@ def _update_monitoring_summary(
         return
     summary["monitoring_status"] = monitoring.get("health_status")
     summary["alerts_count"] = _list_count(monitoring.get("alerts"))
+    regime = monitoring.get("external_risk_regime")
+    if isinstance(regime, dict):
+        _update_external_risk_summary(summary, regime)
+
+
+def _update_external_risk_summary(
+    summary: dict[str, Any],
+    external_risk: dict[str, Any],
+) -> None:
+    if not external_risk:
+        return
+    summary["external_risk_mode"] = external_risk.get("mode")
+    summary["external_risk_source"] = external_risk.get("source")
 
 
 def _extract_pipeline_run_id(data: dict[str, Any]) -> int | None:

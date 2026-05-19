@@ -43,6 +43,7 @@ This calls:
 
 ```text
 GET /api/health
+GET /api/risk/external-regime
 GET /api/data-readiness/live
 GET /api/data-readiness/live/action-plan
 GET /api/paper-trading/live/monitoring/overview
@@ -81,6 +82,9 @@ GET /api/data-readiness/live/action-plan
 
 It does not invent pipeline request fields.
 
+Data refresh does not stop because external risk is elevated or severe. The
+overlay is for confirmed paper execution safety.
+
 ## 4. Paper Dry-run
 
 Use this before the execution window:
@@ -108,6 +112,9 @@ with:
 If the response does not confirm `dry_run=true`, the runner returns
 `safety_failed`.
 
+Paper dry-run may continue during elevated or severe external risk modes because
+it is non-mutating.
+
 ## 5. Paper Execution
 
 Virtual paper due execution requires explicit confirmation:
@@ -125,6 +132,24 @@ only after the dry-run response confirms the safe marker.
 
 If the execution response does not confirm `dry_run=false`, the runner returns
 `safety_failed`.
+
+External risk rules for confirmed paper execution:
+
+- `elevated` requires `--ack-external-risk-elevated`;
+- `severe` is blocked by default;
+- `severe` can continue only with `--override-external-risk-severe`;
+- `--confirm-live-operations yes` is still required separately.
+
+Example for elevated mode after manual review:
+
+```bash
+python scripts/live_operations_runner.py \
+  --mode paper-execute \
+  --execute-due-schedules \
+  --ack-external-risk-elevated \
+  --confirm-live-operations yes \
+  --json-output ./logs/live_ops_paper_execute.json
+```
 
 ## 6. Full Cycle
 
@@ -255,3 +280,23 @@ paper due handling and always requires a dry-run before confirmed due execution.
 
 Runner completion is not a model-quality conclusion. Treat each run as an
 operations report for readiness, cadence, and safety review.
+
+## 12. External Risk API
+
+Check current external risk mode:
+
+```bash
+curl -s http://127.0.0.1:8000/api/risk/external-regime
+```
+
+Set elevated mode:
+
+```bash
+curl -s -X PUT http://127.0.0.1:8000/api/risk/external-regime \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "elevated",
+    "reason": "Manual operator caution before paper execution window.",
+    "source": "manual"
+  }'
+```

@@ -45,12 +45,25 @@ def action_plan_payload() -> dict[str, Any]:
     }
 
 
-def monitoring_payload() -> dict[str, Any]:
+def monitoring_payload(external_risk_mode: str = "normal") -> dict[str, Any]:
     return {
         "health_status": "healthy",
         "now": "2025-03-14T08:00:00+00:00",
         "due_schedule_count": 1,
+        "external_risk_regime": external_risk_payload(external_risk_mode),
         "alerts": [],
+    }
+
+
+def external_risk_payload(mode: str = "normal") -> dict[str, Any]:
+    return {
+        "mode": mode,
+        "reason": "Manual operator caution before paper execution window."
+        if mode != "normal"
+        else "Default external risk regime.",
+        "source": "manual" if mode != "normal" else "default",
+        "is_active": True,
+        "expires_at": None,
     }
 
 
@@ -74,6 +87,7 @@ def fake_http_factory(
     *,
     unsafe_dry_run: bool = False,
     unsafe_execution: bool = False,
+    external_risk_mode: str = "normal",
 ) -> Any:
     pipeline_poll_count = {"value": 0}
 
@@ -86,12 +100,14 @@ def fake_http_factory(
         calls.append({"method": method, "url": url, "payload": payload})
         if url.endswith("/api/health"):
             return response({"status": "ok"})
+        if url.endswith("/api/risk/external-regime"):
+            return response(external_risk_payload(external_risk_mode))
         if "/api/data-readiness/live/action-plan" in url:
             return response(action_plan_payload())
         if "/api/data-readiness/live" in url:
             return response(live_readiness_payload())
         if url.endswith("/api/paper-trading/live/monitoring/overview"):
-            return response(monitoring_payload())
+            return response(monitoring_payload(external_risk_mode))
         if url.endswith("/api/pipeline/run"):
             return response({"run": {"id": 7}, "status": "running"})
         if url.endswith("/api/pipeline/runs/7"):
@@ -120,13 +136,15 @@ def test_default_run_is_monitoring_only_and_read_only(monkeypatch: Any) -> None:
     )
 
     assert report["status"] == "monitoring_completed"
-    assert [call["method"] for call in calls] == ["GET", "GET", "GET", "GET"]
+    assert [call["method"] for call in calls] == ["GET", "GET", "GET", "GET", "GET"]
     assert [call["url"].split("http://api.test", 1)[1].split("?", 1)[0] for call in calls] == [
         "/api/health",
+        "/api/risk/external-regime",
         "/api/data-readiness/live",
         "/api/data-readiness/live/action-plan",
         "/api/paper-trading/live/monitoring/overview",
     ]
+    assert report["summary"]["external_risk_mode"] == "normal"
 
 
 def test_paper_dry_run_mode_uses_dry_run_schedule_due_only(monkeypatch: Any) -> None:
@@ -144,6 +162,29 @@ def test_paper_dry_run_mode_uses_dry_run_schedule_due_only(monkeypatch: Any) -> 
     assert report["status"] == "dry_run_completed"
     assert len(run_due_calls) == 1
     assert run_due_calls[0]["payload"] == {"dry_run": True}
+
+
+def test_paper_dry_run_with_severe_external_risk_stays_dry_run(
+    monkeypatch: Any,
+) -> None:
+    operations = load_operations_module()
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        operations,
+        "http_json",
+        fake_http_factory(calls, external_risk_mode="severe"),
+    )
+
+    report = operations.run_operations(operations.parse_args(["--mode", "paper-dry-run"]))
+
+    run_due_calls = [
+        call
+        for call in calls
+        if call["url"].endswith("/api/paper-trading/live/schedules/run-due")
+    ]
+    assert report["status"] == "dry_run_completed"
+    assert report["summary"]["external_risk_mode"] == "severe"
+    assert run_due_calls == [{"method": "POST", "url": "http://127.0.0.1:8000/api/paper-trading/live/schedules/run-due", "payload": {"dry_run": True}}]
 
 
 def test_execution_flags_require_confirmation() -> None:
@@ -244,6 +285,119 @@ def test_paper_execution_sends_false_only_after_dry_run_and_confirmation(
     ]
     assert report["status"] == "completed"
     assert run_due_payloads == [{"dry_run": True}, {"dry_run": False}]
+
+
+def test_paper_execution_with_elevated_external_risk_requires_ack(
+    monkeypatch: Any,
+) -> None:
+    operations = load_operations_module()
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        operations,
+        "http_json",
+        fake_http_factory(calls, external_risk_mode="elevated"),
+    )
+
+    report = operations.run_operations(
+        operations.parse_args(
+            [
+                "--mode",
+                "paper-execute",
+                "--execute-due-schedules",
+                "--confirm-live-operations",
+                "yes",
+            ]
+        )
+    )
+
+    run_due_payloads = [
+        call["payload"]
+        for call in calls
+        if call["url"].endswith("/api/paper-trading/live/schedules/run-due")
+    ]
+    assert report["status"] == "safety_failed"
+    assert run_due_payloads == [{"dry_run": True}]
+
+
+def test_paper_execution_with_severe_external_risk_blocks_before_execution(
+    monkeypatch: Any,
+) -> None:
+    operations = load_operations_module()
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        operations,
+        "http_json",
+        fake_http_factory(calls, external_risk_mode="severe"),
+    )
+
+    report = operations.run_operations(
+        operations.parse_args(
+            [
+                "--mode",
+                "paper-execute",
+                "--execute-due-schedules",
+                "--confirm-live-operations",
+                "yes",
+            ]
+        )
+    )
+
+    run_due_payloads = [
+        call["payload"]
+        for call in calls
+        if call["url"].endswith("/api/paper-trading/live/schedules/run-due")
+    ]
+    assert report["status"] == "safety_failed"
+    assert run_due_payloads == [{"dry_run": True}]
+
+
+def test_paper_execution_with_severe_override_records_override(
+    monkeypatch: Any,
+) -> None:
+    operations = load_operations_module()
+    calls: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        operations,
+        "http_json",
+        fake_http_factory(calls, external_risk_mode="severe"),
+    )
+
+    report = operations.run_operations(
+        operations.parse_args(
+            [
+                "--mode",
+                "paper-execute",
+                "--execute-due-schedules",
+                "--confirm-live-operations",
+                "yes",
+                "--override-external-risk-severe",
+            ]
+        )
+    )
+
+    run_due_payloads = [
+        call["payload"]
+        for call in calls
+        if call["url"].endswith("/api/paper-trading/live/schedules/run-due")
+    ]
+    assert report["status"] == "completed"
+    assert report["summary"]["external_risk_override_used"] is True
+    assert run_due_payloads == [{"dry_run": True}, {"dry_run": False}]
+
+
+def test_confirmation_is_still_required_with_external_risk_ack() -> None:
+    operations = load_operations_module()
+
+    exit_code = operations.main(
+        [
+            "--mode",
+            "paper-execute",
+            "--execute-due-schedules",
+            "--ack-external-risk-elevated",
+        ]
+    )
+
+    assert exit_code == 2
 
 
 def test_execution_response_unsafe_marker_fails(monkeypatch: Any) -> None:

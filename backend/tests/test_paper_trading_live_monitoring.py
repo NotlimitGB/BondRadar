@@ -44,6 +44,7 @@ from tests.test_paper_trading_live_schedule import (
 
 
 MONITORING_URL = "/api/paper-trading/live/monitoring"
+EXTERNAL_RISK_URL = "/api/risk/external-regime"
 
 
 def alert_codes(payload: dict) -> set[str]:
@@ -139,7 +140,43 @@ def test_overview_with_no_data(client: TestClient) -> None:
     assert payload["schedule_count"] == 0
     assert payload["portfolio_count"] == 0
     assert payload["recent_cycle_count"] == 0
+    assert payload["external_risk_regime"]["mode"] == "normal"
     assert "no_active_schedules" in alert_codes(payload)
+
+
+def test_overview_includes_elevated_external_risk_alert(client: TestClient) -> None:
+    regime = client.put(
+        EXTERNAL_RISK_URL,
+        json={
+            "mode": "elevated",
+            "reason": "Manual operator caution before paper execution window.",
+        },
+    )
+    response = client.get(f"{MONITORING_URL}/overview")
+
+    assert regime.status_code == 200
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["external_risk_regime"]["mode"] == "elevated"
+    assert "external_risk_elevated" in alert_codes(payload)
+
+
+def test_overview_includes_severe_external_risk_alert(client: TestClient) -> None:
+    regime = client.put(
+        EXTERNAL_RISK_URL,
+        json={
+            "mode": "severe",
+            "reason": "Manual severe external risk overlay.",
+        },
+    )
+    response = client.get(f"{MONITORING_URL}/overview")
+
+    assert regime.status_code == 200
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["external_risk_regime"]["mode"] == "severe"
+    assert payload["health_status"] == "critical"
+    assert "external_risk_severe" in alert_codes(payload)
 
 
 def test_overview_with_active_schedule_and_completed_cycle(

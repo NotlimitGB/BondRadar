@@ -28,6 +28,7 @@ Complete this checklist before creating any live paper schedule:
 - live paper readiness is ready;
 - pilot bootstrap dry-run is prepared;
 - scheduler dry-run is safe;
+- external risk regime is reviewed;
 - backend tests are green;
 - frontend build is green;
 - database backup is created.
@@ -79,6 +80,7 @@ Review diagnostics in this order:
 GET  /api/data-readiness/corporate-universe/action-plan
 GET  /api/data-readiness/live
 GET  /api/data-readiness/live/action-plan
+GET  /api/risk/external-regime
 python scripts/live_data_bootstrap.py --json-output ./live_data_bootstrap_plan.json
 POST /api/ml/validation-suite/run
 POST /api/pre-deploy/paper-pilot/quality-gate
@@ -128,7 +130,40 @@ paper dry-run
 confirmed virtual paper execution
 ```
 
-## 3. Daily Monitoring
+## 3. External Risk Overlay
+
+The external risk overlay is controlled by the operator. It records current
+outside-context caution without pretending the ML model understands news.
+
+Modes:
+
+- `normal`: normal virtual paper operation may continue;
+- `elevated`: confirmed paper execution requires explicit acknowledgement in the
+  operations runner;
+- `severe`: confirmed paper execution is blocked by default.
+
+Data refresh may continue in elevated or severe modes. Paper dry-run may
+continue because it does not mutate paper state.
+
+Current regime:
+
+```bash
+curl -s http://127.0.0.1:8000/api/risk/external-regime
+```
+
+Manual elevated regime:
+
+```bash
+curl -s -X PUT http://127.0.0.1:8000/api/risk/external-regime \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "elevated",
+    "reason": "Manual operator caution before paper execution window.",
+    "source": "manual"
+  }'
+```
+
+## 4. Daily Monitoring
 
 Daily checks:
 
@@ -145,13 +180,14 @@ Useful API checks:
 
 ```bash
 curl -s http://127.0.0.1:8000/api/health
+curl -s http://127.0.0.1:8000/api/risk/external-regime
 curl -s http://127.0.0.1:8000/api/paper-trading/live/monitoring/overview
 curl -s http://127.0.0.1:8000/api/data-readiness/live
 python scripts/live_operations_runner.py --mode monitoring
 python scripts/ops_retention.py --json-output ./logs/ops_retention_plan.json
 ```
 
-## 4. Weekly Monitoring
+## 5. Weekly Monitoring
 
 Weekly checks:
 
@@ -164,7 +200,7 @@ Weekly checks:
 - review quality gate status;
 - confirm backup restore instructions are still current.
 
-## 5. Stop Conditions
+## 6. Stop Conditions
 
 Pause the pilot workflow for manual review if any of these conditions persist:
 
@@ -172,6 +208,7 @@ Pause the pilot workflow for manual review if any of these conditions persist:
 - model predictions are unavailable;
 - paper readiness becomes `not_ready`;
 - scheduler errors repeat;
+- external risk regime is `severe`;
 - unexpected database growth;
 - quality gate becomes `blocked`;
 - manual review identifies data corruption;
@@ -180,7 +217,7 @@ Pause the pilot workflow for manual review if any of these conditions persist:
 Do not treat a pilot pause as a model conclusion. It is an operational control
 for data quality and system safety.
 
-## 6. End-of-3-Month Review
+## 7. End-of-3-Month Review
 
 At the end of the observation period, prepare a review using:
 
@@ -197,7 +234,7 @@ At the end of the observation period, prepare a review using:
 The pilot result is evidence for further research, not proof that a model is
 ready for any real-money workflow.
 
-## 7. Recovery Checklist
+## 8. Recovery Checklist
 
 When recovering from an incident:
 

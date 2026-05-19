@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.external_risk_regime import ExternalRiskRegimeResponse
+
 
 LIVE_MONITORING_HEALTH_STATUSES = {"healthy", "warning", "critical", "unknown"}
 LIVE_MONITORING_ALERT_LEVELS = {"info", "warning", "critical"}
@@ -98,6 +100,7 @@ class LivePaperMonitoringOverviewResponse(BaseModel):
     portfolios: list[LivePaperPortfolioMonitoringSummary]
     recent_cycles: list[LivePaperCycleMonitoringSummary]
 
+    external_risk_regime: ExternalRiskRegimeResponse
     alerts: list[LivePaperMonitoringAlert]
 
 

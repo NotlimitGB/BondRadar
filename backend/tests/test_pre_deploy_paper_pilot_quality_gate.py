@@ -68,6 +68,7 @@ from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 
 QUALITY_GATE_URL = "/api/pre-deploy/paper-pilot/quality-gate"
+EXTERNAL_RISK_URL = "/api/risk/external-regime"
 
 
 def count_rows(db: Session, model: type) -> int:
@@ -416,6 +417,115 @@ def test_ready_core_gates_with_manual_deploy_warnings(
     assert gate_by_code(payload, "backend_test_plan_ready")["status"] == "warning"
     assert gate_by_code(payload, "frontend_build_plan_ready")["status"] == "warning"
     assert gate_by_code(payload, "deployment_runbook_ready")["status"] == "warning"
+
+
+def test_normal_external_risk_passes_gate(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: Any,
+) -> None:
+    create_model_run(db_session, run_id=1)
+    patch_ready_services(monkeypatch)
+
+    response = client.post(QUALITY_GATE_URL, json=base_payload())
+
+    assert response.status_code == 200
+    payload = response.json()
+    gate = gate_by_code(payload, "external_risk_regime_ready")
+    assert gate["status"] == "passed"
+    assert gate["details"]["mode"] == "normal"
+    assert payload["external_risk_regime"]["mode"] == "normal"
+
+
+def test_elevated_external_risk_warns_and_blocks_pilot_until_allowed(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: Any,
+) -> None:
+    create_model_run(db_session, run_id=1)
+    patch_ready_services(monkeypatch)
+    regime = client.put(
+        EXTERNAL_RISK_URL,
+        json={
+            "mode": "elevated",
+            "reason": "Manual operator caution before paper execution window.",
+        },
+    )
+    assert regime.status_code == 200
+
+    blocked = client.post(QUALITY_GATE_URL, json=base_payload())
+    assert blocked.status_code == 200
+    blocked_payload = blocked.json()
+    blocked_gate = gate_by_code(blocked_payload, "external_risk_regime_ready")
+    assert blocked_gate["status"] == "warning"
+    assert blocked_gate["details"]["accepted"] is False
+    assert blocked_payload["ready_for_50k_paper_pilot"] is False
+
+    allowed = client.post(
+        QUALITY_GATE_URL,
+        json=base_payload(allow_external_risk_warning=True),
+    )
+    assert allowed.status_code == 200
+    allowed_payload = allowed.json()
+    allowed_gate = gate_by_code(allowed_payload, "external_risk_regime_ready")
+    assert allowed_gate["status"] == "warning"
+    assert allowed_gate["details"]["accepted"] is True
+    assert allowed_payload["ready_for_50k_paper_pilot"] is True
+
+
+def test_severe_external_risk_fails_gate_by_default(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: Any,
+) -> None:
+    create_model_run(db_session, run_id=1)
+    patch_ready_services(monkeypatch)
+    regime = client.put(
+        EXTERNAL_RISK_URL,
+        json={
+            "mode": "severe",
+            "reason": "Manual severe external risk overlay.",
+        },
+    )
+    assert regime.status_code == 200
+
+    response = client.post(QUALITY_GATE_URL, json=base_payload())
+
+    assert response.status_code == 200
+    payload = response.json()
+    gate = gate_by_code(payload, "external_risk_regime_ready")
+    assert gate["status"] == "failed"
+    assert payload["status"] == "blocked"
+    assert payload["ready_for_50k_paper_pilot"] is False
+
+
+def test_severe_external_risk_override_still_warns(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch: Any,
+) -> None:
+    create_model_run(db_session, run_id=1)
+    patch_ready_services(monkeypatch)
+    regime = client.put(
+        EXTERNAL_RISK_URL,
+        json={
+            "mode": "severe",
+            "reason": "Manual severe external risk overlay.",
+        },
+    )
+    assert regime.status_code == 200
+
+    response = client.post(
+        QUALITY_GATE_URL,
+        json=base_payload(allow_external_risk_severe=True),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    gate = gate_by_code(payload, "external_risk_regime_ready")
+    assert gate["status"] == "warning"
+    assert gate["details"]["external_risk_override_used"] is True
+    assert payload["status"] == "warning"
 
 
 def test_robustness_warning_can_be_allowed_or_blocked(

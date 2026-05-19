@@ -33,6 +33,7 @@ from app.schemas.strategy_robustness import StrategyRobustnessAnalyzeRequest
 from app.services.corporate_universe_action_plan_service import (
     CorporateUniverseActionPlanService,
 )
+from app.services.external_risk_regime_service import ExternalRiskRegimeService
 from app.services.live_data_readiness_service import LiveDataReadinessService
 from app.services.ml_candidate_comparison_service import RANKING_DIRECTIONS
 from app.services.ml_candidate_strategy_robustness_service import (
@@ -52,6 +53,7 @@ CORE_GATE_CODES = {
     "model_run_available",
     "strategy_robustness_ready",
     "live_paper_readiness_ready",
+    "external_risk_regime_ready",
     "pilot_bootstrap_dry_run_ready",
 }
 
@@ -101,6 +103,7 @@ class PreDeployPaperPilotQualityGateService:
         live_readiness = None
         bootstrap_result = None
         scheduler_result = None
+        external_risk_regime = None
         bridge_request = self._candidate_strategy_request(request)
         live_readiness_request = self._live_paper_readiness_request(
             request,
@@ -182,6 +185,9 @@ class PreDeployPaperPilotQualityGateService:
                     "Live paper readiness check was skipped because earlier core gates failed",
                 )
             )
+
+        external_risk_regime = ExternalRiskRegimeService(self.db).current()
+        gates.append(self._external_risk_gate(request, external_risk_regime))
 
         if self._can_continue_core(gates):
             try:
@@ -290,6 +296,11 @@ class PreDeployPaperPilotQualityGateService:
             next_steps=next_steps,
             corporate_universe_action_plan=corporate_plan.model_dump(mode="json"),
             live_data_readiness=live_data.model_dump(mode="json"),
+            external_risk_regime=(
+                external_risk_regime.model_dump(mode="json")
+                if external_risk_regime is not None
+                else None
+            ),
             strategy_robustness=(
                 robustness_result.model_dump(mode="json")
                 if robustness_result is not None
@@ -739,6 +750,54 @@ class PreDeployPaperPilotQualityGateService:
         )
 
     @staticmethod
+    def _external_risk_gate(
+        request: PreDeployPaperPilotQualityGateRequest,
+        regime: Any,
+    ) -> PreDeployQualityGateItem:
+        details = {
+            "mode": regime.mode,
+            "reason": regime.reason,
+            "source": regime.source,
+            "expires_at": regime.expires_at.isoformat()
+            if regime.expires_at is not None
+            else None,
+            "is_active": regime.is_active,
+            "accepted": False,
+            "external_risk_override_used": False,
+        }
+        if regime.mode == "normal":
+            details["accepted"] = True
+            return PreDeployPaperPilotQualityGateService._gate(
+                "external_risk_regime_ready",
+                "passed",
+                "External risk regime is normal",
+                details,
+            )
+        if regime.mode == "elevated":
+            details["accepted"] = request.allow_external_risk_warning
+            return PreDeployPaperPilotQualityGateService._gate(
+                "external_risk_regime_ready",
+                "warning",
+                "External risk regime requires manual review before virtual pilot execution",
+                details,
+            )
+        if request.allow_external_risk_severe:
+            details["accepted"] = True
+            details["external_risk_override_used"] = True
+            return PreDeployPaperPilotQualityGateService._gate(
+                "external_risk_regime_ready",
+                "warning",
+                "External risk regime is severe and override was explicitly allowed",
+                details,
+            )
+        return PreDeployPaperPilotQualityGateService._gate(
+            "external_risk_regime_ready",
+            "failed",
+            "External risk regime is severe and blocks virtual pilot execution",
+            details,
+        )
+
+    @staticmethod
     def _pilot_bootstrap_gate(
         result: Any,
     ) -> PreDeployQualityGateItem:
@@ -854,6 +913,13 @@ class PreDeployPaperPilotQualityGateService:
 
     @staticmethod
     def _ready_for_50k(gates: list[PreDeployQualityGateItem]) -> bool:
+        for gate in gates:
+            if (
+                gate.code == "external_risk_regime_ready"
+                and gate.status == "warning"
+                and not gate.details.get("accepted")
+            ):
+                return False
         return not any(
             gate.code in CORE_GATE_CODES and gate.status in {"failed", "skipped"}
             for gate in gates
@@ -906,6 +972,7 @@ class PreDeployPaperPilotQualityGateService:
             "model_run_available": "Run ML validation suite and select a completed model candidate.",
             "strategy_robustness_ready": "Review strategy robustness diagnostics.",
             "live_paper_readiness_ready": "Review live paper readiness diagnostics.",
+            "external_risk_regime_ready": "Review external risk regime before pilot launch.",
             "pilot_bootstrap_dry_run_ready": "Run pilot bootstrap dry-run after blockers are resolved.",
             "scheduler_dry_run_ready": "Review scheduler dry-run result.",
             "backend_test_plan_ready": "Run backend compile and pytest checks before deploy.",

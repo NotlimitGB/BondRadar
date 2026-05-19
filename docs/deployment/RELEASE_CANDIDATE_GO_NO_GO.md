@@ -105,6 +105,7 @@ Review these gates before the 50k virtual paper pilot:
 - ML validation suite produced a `recommended_model_run_id`;
 - strategy robustness has no fail-level flags;
 - live paper readiness is ready, or warnings are explicitly accepted;
+- external risk regime is `normal`, or `elevated` with documented manual review;
 - pre-deploy quality gate core gates pass;
 - pilot bootstrap dry-run is prepared.
 
@@ -132,6 +133,7 @@ Do not start the 50k virtual paper pilot when any of these are true:
 - live data readiness is `not_ready`;
 - no recommended model run is available;
 - quality gate is `blocked`;
+- external risk regime is `severe`;
 - pilot bootstrap dry-run is blocked;
 - monitoring overview has critical alerts;
 - database backup has not been created.

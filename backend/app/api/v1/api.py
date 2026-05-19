@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     datasets,
     financial_report_ingestion,
     financial_reports,
+    external_risk_regime,
     health,
     imports,
     label_quality,
@@ -93,6 +94,11 @@ api_router.include_router(data_pipeline.router, prefix="/pipeline", tags=["pipel
 api_router.include_router(imports.router, prefix="/import", tags=["import"])
 api_router.include_router(datasets.router, tags=["datasets"])
 api_router.include_router(market_data.router, tags=["market-data"])
+api_router.include_router(
+    external_risk_regime.router,
+    prefix="/risk/external-regime",
+    tags=["external-risk-regime"],
+)
 api_router.include_router(ml.router, prefix="/ml", tags=["ml"])
 api_router.include_router(
     ml_validation_suite.router,

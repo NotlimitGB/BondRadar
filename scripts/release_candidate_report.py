@@ -237,12 +237,59 @@ def _classify_semantics(
                 {},
             )
         )
+    _classify_external_risk(artifact, name, data)
+
+
+def _classify_external_risk(
+    artifact: dict[str, Any],
+    name: str,
+    data: dict[str, Any],
+) -> None:
+    mode = _external_risk_mode(name, data)
+    if mode == "elevated":
+        artifact["warnings"].append(
+            _message(
+                name,
+                "external_risk_elevated",
+                "External risk regime is elevated and requires review.",
+                {},
+            )
+        )
+    if mode == "severe":
+        artifact["errors"].append(
+            _message(
+                name,
+                "external_risk_severe",
+                "External risk regime is severe.",
+                {},
+            )
+        )
+
+
+def _external_risk_mode(name: str, data: dict[str, Any]) -> str | None:
+    regime = data.get("external_risk_regime")
+    if isinstance(regime, dict) and isinstance(regime.get("mode"), str):
+        return regime["mode"]
+    summary = data.get("summary")
+    if isinstance(summary, dict) and isinstance(summary.get("external_risk_mode"), str):
+        return summary["external_risk_mode"]
+    if name == "quality_gate":
+        for gate in data.get("gates") or []:
+            if isinstance(gate, dict) and gate.get("code") == "external_risk_regime_ready":
+                details = gate.get("details")
+                if isinstance(details, dict) and isinstance(details.get("mode"), str):
+                    return details["mode"]
+    return None
 
 
 def _summary(name: str, data: dict[str, Any]) -> dict[str, Any]:
     keys_by_artifact = {
         "ml_validation_suite": ["recommended_model_run_id", "completed_training_count"],
-        "quality_gate": ["ready_for_50k_paper_pilot", "ready_for_vds_deploy"],
+        "quality_gate": [
+            "ready_for_50k_paper_pilot",
+            "ready_for_vds_deploy",
+            "external_risk_regime",
+        ],
         "live_data_bootstrap_plan": ["summary"],
         "live_ops_monitoring": ["summary"],
         "prod_smoke": ["backend_url", "frontend_url"],

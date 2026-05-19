@@ -171,3 +171,55 @@ def test_malformed_json_is_reported_without_crashing(tmp_path: Path) -> None:
 
     assert report["status"] == "warning"
     assert any(item["code"] == "malformed_artifact" for item in report["warnings"])
+
+
+def test_external_risk_elevated_in_quality_gate_warns(tmp_path: Path) -> None:
+    module = load_report_module()
+    logs_dir = tmp_path / "logs"
+    write_artifact(
+        logs_dir,
+        "quality_gate.json",
+        {
+            "status": "warning",
+            "ready_for_50k_paper_pilot": True,
+            "ready_for_vds_deploy": False,
+            "external_risk_regime": {"mode": "elevated"},
+        },
+    )
+
+    report = module.build_report(logs_dir)
+
+    assert report["status"] == "warning"
+    assert any(item["code"] == "external_risk_elevated" for item in report["warnings"])
+
+
+def test_external_risk_severe_in_live_ops_blocks(tmp_path: Path) -> None:
+    module = load_report_module()
+    logs_dir = tmp_path / "logs"
+    write_artifact(
+        logs_dir,
+        "live_ops_monitoring.json",
+        {
+            "status": "monitoring_completed",
+            "summary": {"external_risk_mode": "severe"},
+        },
+    )
+
+    report = module.build_report(logs_dir)
+
+    assert report["status"] == "blocked"
+    assert any(item["code"] == "external_risk_severe" for item in report["errors"])
+
+
+def test_missing_external_risk_field_is_ignored(tmp_path: Path) -> None:
+    module = load_report_module()
+    logs_dir = tmp_path / "logs"
+    write_ready_artifacts(logs_dir)
+
+    report = module.build_report(logs_dir)
+
+    assert report["status"] == "ready"
+    assert not any(
+        item["code"].startswith("external_risk")
+        for item in [*report["warnings"], *report["errors"]]
+    )

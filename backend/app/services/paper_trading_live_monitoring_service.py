@@ -24,6 +24,7 @@ from app.schemas.paper_trading_live_monitoring import (
     LivePaperScheduleMonitoringResponse,
     LivePaperScheduleMonitoringSummary,
 )
+from app.services.external_risk_regime_service import ExternalRiskRegimeService
 from app.services.paper_trading_report_service import PaperTradingReportService
 
 
@@ -86,10 +87,12 @@ class LivePaperMonitoringService:
         active_portfolio_count = sum(
             portfolio.status == "active" for portfolio in portfolios
         )
+        external_risk_regime = ExternalRiskRegimeService(self.db).current(now=as_of_now)
         alerts = (
             self._overview_alerts(
                 schedules=schedules,
                 recent_cycles=recent_cycles,
+                external_risk_regime=external_risk_regime,
                 now=as_of_now,
             )
             if include_alerts
@@ -121,6 +124,7 @@ class LivePaperMonitoringService:
             schedules=schedule_summaries if include_schedules else [],
             portfolios=portfolio_summaries if include_portfolios else [],
             recent_cycles=cycle_summaries if include_recent_cycles else [],
+            external_risk_regime=external_risk_regime,
             alerts=alerts,
         )
 
@@ -515,9 +519,32 @@ class LivePaperMonitoringService:
         *,
         schedules: list[PaperLiveSchedule],
         recent_cycles: list[PaperLiveCycleRun],
+        external_risk_regime: Any,
         now: datetime,
     ) -> list[LivePaperMonitoringAlert]:
         alerts: list[LivePaperMonitoringAlert] = []
+        if external_risk_regime.mode == "elevated":
+            alerts.append(
+                self._alert(
+                    "warning",
+                    "external_risk_elevated",
+                    "External risk regime requires manual review",
+                    mode=external_risk_regime.mode,
+                    source=external_risk_regime.source,
+                    expires_at=external_risk_regime.expires_at,
+                )
+            )
+        if external_risk_regime.mode == "severe":
+            alerts.append(
+                self._alert(
+                    "critical",
+                    "external_risk_severe",
+                    "External risk regime blocks confirmed paper execution by default",
+                    mode=external_risk_regime.mode,
+                    source=external_risk_regime.source,
+                    expires_at=external_risk_regime.expires_at,
+                )
+            )
         if not any(schedule.status == "active" for schedule in schedules):
             alerts.append(
                 self._alert(
@@ -575,10 +602,10 @@ class LivePaperMonitoringService:
         alerts: list[LivePaperMonitoringAlert],
         now: datetime,
     ) -> str:
-        if not schedules and not portfolios and not recent_cycles:
-            return "unknown"
         if any(alert.level == "critical" for alert in alerts):
             return "critical"
+        if not schedules and not portfolios and not recent_cycles:
+            return "unknown"
         if any(cycle.status == "failed" for cycle in recent_cycles):
             return "critical"
         if any(

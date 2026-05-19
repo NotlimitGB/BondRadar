@@ -118,7 +118,40 @@ Review pilot evidence cautiously:
 
 Short field observation does not prove model quality.
 
-## 8. Stop Conditions
+## 8. External Risk Overlay
+
+External risk is a manual operator overlay for macro, geopolitical, or market
+stress context. It does not make the ML model understand news automatically.
+There is no news scraping, NLP, or external geopolitical API in this layer.
+
+Supported modes:
+
+- `normal`: normal virtual paper operation may continue;
+- `elevated`: confirmed paper execution requires manual review;
+- `severe`: confirmed paper execution is blocked by safety checks by default.
+
+Data refresh may continue during elevated or severe modes. Paper dry-run may
+continue because it is non-mutating and useful for review.
+
+Check the current mode:
+
+```bash
+curl -s http://127.0.0.1:8000/api/risk/external-regime
+```
+
+Set an elevated mode manually:
+
+```bash
+curl -s -X PUT http://127.0.0.1:8000/api/risk/external-regime \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "elevated",
+    "reason": "Manual operator caution before paper execution window.",
+    "source": "manual"
+  }'
+```
+
+## 9. Stop Conditions
 
 Pause the pilot workflow when any of these persist:
 
@@ -126,17 +159,19 @@ Pause the pilot workflow when any of these persist:
 - model predictions are unavailable;
 - quality gate becomes blocked;
 - paper readiness becomes `not_ready`;
+- external risk regime is `severe`;
 - critical monitoring alerts appear;
 - unexpected database growth appears;
 - backup fails;
 - operator is uncertain.
 
-## 9. Human Responsibilities
+## 10. Human Responsibilities
 
 The operator is responsible for:
 
 - reviewing reports;
 - checking alerts;
+- setting the external risk overlay when outside context changes;
 - keeping backups;
 - pausing execution when unsure;
 - treating model output as research evidence rather than financial advice.
