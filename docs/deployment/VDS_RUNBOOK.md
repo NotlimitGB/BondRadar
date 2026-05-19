@@ -148,6 +148,19 @@ python scripts/prod_smoke_check.py \
 See `docs/deployment/PRODUCTION_DRY_LAUNCH.md` for troubleshooting and expected
 outcomes.
 
+Collect the live data bootstrap plan before running any data-changing pipeline
+step:
+
+```bash
+python scripts/live_data_bootstrap.py \
+  --json-output ./live_data_bootstrap_plan.json
+```
+
+See `docs/deployment/LIVE_DATA_BOOTSTRAP.md` for the controlled flow:
+release preflight, production-like smoke, live data bootstrap plan, controlled
+data sync/pipeline/model validation, pre-deploy quality gate, and only then
+pilot bootstrap dry-run review.
+
 Open the frontend:
 
 ```text

@@ -20,6 +20,16 @@ The dry launch smoke pack checks:
 Smoke success means the stack wiring works. It does not mean the data chain,
 model candidate, or 50k virtual paper pilot is ready.
 
+After smoke passes, collect the live data bootstrap plan before running any
+controlled data/model preparation step:
+
+```bash
+python scripts/live_data_bootstrap.py \
+  --json-output ./live_data_bootstrap_plan.json
+```
+
+See `docs/deployment/LIVE_DATA_BOOTSTRAP.md` for the next step.
+
 ## 2. Local Production-like Dry Launch
 
 Prepare environment:

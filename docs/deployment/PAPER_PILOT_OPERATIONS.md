@@ -17,6 +17,7 @@ Pilot context:
 Complete this checklist before creating any live paper schedule:
 
 - production-like dry launch smoke check has passed;
+- live data bootstrap plan has been reviewed;
 - corporate universe action plan is ready;
 - live data readiness is ready or an accepted warning is documented;
 - ML validation suite completed;
@@ -36,6 +37,7 @@ python -m compileall backend/app
 python -m pytest backend/tests -q
 cd frontend && npm run build
 python scripts/prod_smoke_check.py --skip-quality-gate
+python scripts/live_data_bootstrap.py --json-output ./live_data_bootstrap_plan.json
 export POSTGRES_HOST=127.0.0.1
 export POSTGRES_PORT=5432
 export POSTGRES_DB=<database-name>
@@ -50,6 +52,9 @@ compose localhost-only PostgreSQL binding.
 See `docs/deployment/PRODUCTION_DRY_LAUNCH.md` for the production-like smoke
 flow and optional quality gate smoke command.
 
+See `docs/deployment/LIVE_DATA_BOOTSTRAP.md` for controlled data sync, pipeline,
+ML validation, and quality-gate orchestration.
+
 ## 2. Launch Sequence
 
 Review diagnostics in this order:
@@ -58,6 +63,7 @@ Review diagnostics in this order:
 GET  /api/data-readiness/corporate-universe/action-plan
 GET  /api/data-readiness/live
 GET  /api/data-readiness/live/action-plan
+python scripts/live_data_bootstrap.py --json-output ./live_data_bootstrap_plan.json
 POST /api/ml/validation-suite/run
 POST /api/pre-deploy/paper-pilot/quality-gate
 POST /api/paper-trading/live/pilots/bootstrap
