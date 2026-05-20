@@ -84,6 +84,17 @@ ports to `127.0.0.1`, and the browser should access them through SSH tunneling.
 
 ## 5. Local Exposure Check
 
+Run the local release rehearsal before buying or configuring the VDS:
+
+```bash
+python scripts/local_release_rehearsal.py \
+  --json-output ./logs/rehearsal/local_release_rehearsal.json \
+  --markdown-output ./logs/rehearsal/local_release_rehearsal.md
+```
+
+The rehearsal includes the private exposure check and writes a top-level
+operator report.
+
 Run the local repository check before first deploy review:
 
 ```bash

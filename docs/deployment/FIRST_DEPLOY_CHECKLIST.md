@@ -7,6 +7,7 @@ single-operator operation by default.
 ## 1. Before VDS Purchase
 
 - [ ] Release candidate docs reviewed.
+- [ ] Local release rehearsal passed and reports are saved.
 - [ ] Private VDS security baseline reviewed.
 - [ ] Security debt register reviewed.
 - [ ] GitHub Actions checks are green or failures are understood.

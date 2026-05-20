@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -25,6 +26,10 @@ def utc_now() -> str:
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def npm_executable() -> str:
+    return "npm.cmd" if os.name == "nt" else "npm"
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -88,7 +93,7 @@ def build_checks(args: argparse.Namespace, root: Path | None = None) -> list[Che
         checks.append(
             Check(
                 name="frontend_build",
-                command=["npm", "run", "build"],
+                command=[npm_executable(), "run", "build"],
                 cwd=base / "frontend",
                 display_command="cd frontend && npm run build",
             )

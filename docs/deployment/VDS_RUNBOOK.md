@@ -103,9 +103,21 @@ BACKEND_CORS_ORIGINS=["https://bondradar.example.com"]
 
 ## 4. First Deployment Flow
 
-For a fresh server, start with the provisioning command pack:
+Before buying or configuring a fresh server, run the local rehearsal:
+
+```bash
+python scripts/local_release_rehearsal.py \
+  --json-output ./logs/rehearsal/local_release_rehearsal.json \
+  --markdown-output ./logs/rehearsal/local_release_rehearsal.md
+```
+
+Review `docs/deployment/LOCAL_RELEASE_REHEARSAL.md` and save the report with
+the release-candidate artifacts.
+
+For a fresh server, then continue with the provisioning command pack:
 
 ```text
+docs/deployment/LOCAL_RELEASE_REHEARSAL.md
 docs/deployment/VDS_PROVISIONING.md
 docs/deployment/FIRST_DEPLOY_CHECKLIST.md
 scripts/render_first_deploy_commands.py
@@ -451,8 +463,10 @@ Run with `--execute` only after reviewing the report.
   `scripts/*retention*` helpers.
 - Final release candidate review lives in
   `docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md`,
+  `docs/deployment/LOCAL_RELEASE_REHEARSAL.md`,
   `docs/deployment/PROJECT_OPERATING_MODEL.md`, and
-  `scripts/release_candidate_report.py`.
+  `scripts/release_candidate_report.py` /
+  `scripts/local_release_rehearsal.py`.
 - CI documentation and workflow definitions live in
   `docs/deployment/CI_CHECKS.md`, `.github/workflows/ci.yml`, and
   `.github/workflows/release-candidate.yml`.

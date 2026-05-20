@@ -19,6 +19,7 @@ BondRadar pilot operation is:
 Review the provisioning and first-deploy pack before creating the server:
 
 ```text
+docs/deployment/LOCAL_RELEASE_REHEARSAL.md
 docs/deployment/VDS_PROVISIONING.md
 docs/deployment/FIRST_DEPLOY_CHECKLIST.md
 docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md
@@ -41,6 +42,14 @@ python scripts/render_first_deploy_commands.py \
 The rendered pack is for operator review. It does not connect to a server,
 start Docker, or enable paper execution.
 
+Prefer running the local rehearsal before buying or configuring the VDS:
+
+```bash
+python scripts/local_release_rehearsal.py \
+  --json-output ./logs/rehearsal/local_release_rehearsal.json \
+  --markdown-output ./logs/rehearsal/local_release_rehearsal.md
+```
+
 ## 2. Required Local Checks
 
 Run these before treating the repository as a release candidate:
@@ -55,6 +64,9 @@ python scripts/validate_production_env.py --env-file .env.production --json-outp
 python scripts/server_sanity_check.py --env-file .env.production --skip-docker --json-output ./logs/server_sanity.json
 python scripts/private_vds_exposure_check.py --render-commands --json-output ./logs/private_vds_exposure.json
 ```
+
+The rehearsal script runs the safe local checks above in one controlled flow and
+saves its own report under `./logs/rehearsal`.
 
 `.env.production.example` is expected to fail env validation because sample
 secrets are intentionally present. Validate the real `.env.production` file
@@ -148,6 +160,8 @@ Do not start the 50k virtual paper pilot when any of these are true:
 Save these under `./logs`:
 
 ```text
+rehearsal/local_release_rehearsal.json
+rehearsal/local_release_rehearsal.md
 release_preflight.json
 env_validation.json
 server_sanity.json

@@ -35,6 +35,7 @@ jobs:
           python -m pytest backend/tests/test_ops_retention.py -q
           python -m pytest backend/tests/test_server_sanity_check.py -q
           python -m pytest backend/tests/test_release_candidate_report.py -q
+          python -m pytest backend/tests/test_local_release_rehearsal.py -q
           python -m pytest backend/tests/test_ci_guardrails.py -q
 
       - name: Run safe static script checks
