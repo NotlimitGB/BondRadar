@@ -46,6 +46,12 @@ const LivePaperSchedules = lazy(() =>
   })),
 );
 
+const ExternalRiskRegimePage = lazy(() =>
+  import("./pages/ExternalRiskRegimePage").then((module) => ({
+    default: module.ExternalRiskRegimePage,
+  })),
+);
+
 export default function App() {
   return (
     <Layout>
@@ -61,6 +67,10 @@ export default function App() {
           <Route
             path="/live-paper/portfolios/:portfolioId"
             element={<LivePaperPortfolioDetails />}
+          />
+          <Route
+            path="/risk/external-regime"
+            element={<ExternalRiskRegimePage />}
           />
           <Route path="/bonds/:bondId" element={<BondDetails />} />
           <Route path="/companies/:companyId" element={<CompanyDetails />} />

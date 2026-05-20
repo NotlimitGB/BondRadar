@@ -98,6 +98,26 @@ export interface LivePaperMonitoringAlert {
   details: Record<string, unknown>;
 }
 
+export type ExternalRiskRegimeMode = "normal" | "elevated" | "severe";
+
+export interface ExternalRiskRegime {
+  id?: number | null;
+  mode: ExternalRiskRegimeMode;
+  reason: string;
+  source: string;
+  is_active: boolean;
+  expires_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ExternalRiskRegimeUpdateRequest {
+  mode: ExternalRiskRegimeMode;
+  reason?: string | null;
+  source?: string;
+  expires_at?: string | null;
+}
+
 export interface LivePaperScheduleMonitoringSummary {
   id: number;
   name: string;
@@ -179,6 +199,7 @@ export interface LivePaperMonitoringOverviewResponse {
   recent_cycles: LivePaperCycleMonitoringSummary[];
 
   alerts: LivePaperMonitoringAlert[];
+  external_risk_regime?: ExternalRiskRegime | null;
 }
 
 export interface LivePaperPortfolioMonitoringResponse {

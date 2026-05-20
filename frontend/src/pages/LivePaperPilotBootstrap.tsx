@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 
 import { api, normalizeApiError } from "../api/client";
 import type {
+  ExternalRiskRegime,
   LivePaperMonitoringOverviewResponse,
   LivePaperPilotBootstrapRequest,
   LivePaperPilotBootstrapResponse,
@@ -96,6 +97,18 @@ const statusTone: Record<LivePaperPilotBootstrapStatus, string> = {
   prepared: "border-sky-200 bg-sky-50 text-sky-800",
   scheduled: "border-teal-200 bg-teal-50 text-teal-800",
   blocked: "border-amber-200 bg-amber-50 text-amber-800",
+};
+
+const externalRiskLabels: Record<ExternalRiskRegime["mode"], string> = {
+  normal: "Обычный режим",
+  elevated: "Повышенный внешний риск",
+  severe: "Жёсткий внешний риск",
+};
+
+const externalRiskTone: Record<ExternalRiskRegime["mode"], string> = {
+  normal: "border-teal-200 bg-teal-50 text-teal-800",
+  elevated: "border-amber-200 bg-amber-50 text-amber-800",
+  severe: "border-red-200 bg-red-50 text-red-800",
 };
 
 function isPositiveNumber(value: unknown): boolean {
@@ -445,6 +458,28 @@ function ResultPanel({ result }: { result: LivePaperPilotBootstrapResponse }) {
   );
 }
 
+function ExternalRiskNotice({ regime }: { regime: ExternalRiskRegime }) {
+  return (
+    <section className={`surface border p-4 text-sm ${externalRiskTone[regime.mode]}`}>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <div className="font-semibold">{externalRiskLabels[regime.mode]}</div>
+          <p className="mt-1">
+            {regime.reason || "Внешний режим задан без пояснения."}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-80">
+            <span>Источник: {regime.source || "manual"}</span>
+            <span>До: {formatDateTime(regime.expires_at)}</span>
+          </div>
+        </div>
+        <Link className="text-button shrink-0" to="/risk/external-regime">
+          Открыть внешний режим
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 export function LivePaperPilotBootstrap() {
   const [form, setForm] = useState<PilotFormState>(defaultForm);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -452,6 +487,11 @@ export function LivePaperPilotBootstrap() {
 
   const bootstrapMutation = useMutation({
     mutationFn: api.bootstrapLivePaperPilot,
+  });
+
+  const externalRiskQuery = useQuery({
+    queryKey: ["external-risk-regime"],
+    queryFn: api.getExternalRiskRegime,
   });
 
   const latestResult = bootstrapMutation.data;
@@ -517,6 +557,10 @@ export function LivePaperPilotBootstrap() {
           Виртуальный пилот на 50 000 ₽
         </div>
       </section>
+
+      {externalRiskQuery.data ? (
+        <ExternalRiskNotice regime={externalRiskQuery.data} />
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-4">
         <SummaryItem label="Капитал" value={formSummary.capital} />

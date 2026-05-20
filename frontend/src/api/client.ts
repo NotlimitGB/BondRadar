@@ -3,6 +3,8 @@ import type {
   BondScore,
   Company,
   CompanyScore,
+  ExternalRiskRegime,
+  ExternalRiskRegimeUpdateRequest,
   LivePaperCycleMonitoringListResponse,
   LivePaperMonitoringOverviewResponse,
   LivePaperPilotBootstrapRequest,
@@ -139,6 +141,16 @@ export const api = {
   calculateCompanyScore: (companyId: number) =>
     request<CompanyScore>(`/api/companies/${companyId}/calculate-score`, {
       method: "POST",
+    }),
+  getExternalRiskRegime: () =>
+    request<ExternalRiskRegime>("/api/risk/external-regime"),
+  updateExternalRiskRegime: (payload: ExternalRiskRegimeUpdateRequest) =>
+    request<ExternalRiskRegime>("/api/risk/external-regime", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     }),
   getLivePaperOverview: () =>
     request<LivePaperMonitoringOverviewResponse>(

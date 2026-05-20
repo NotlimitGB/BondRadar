@@ -289,6 +289,9 @@ Check current external risk mode:
 curl -s http://127.0.0.1:8000/api/risk/external-regime
 ```
 
+The same regime can be reviewed and updated in the frontend at
+`/risk/external-regime`.
+
 Set elevated mode:
 
 ```bash

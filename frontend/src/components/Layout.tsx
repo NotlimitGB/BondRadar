@@ -1,4 +1,4 @@
-import { BarChart3, Database, WalletCards } from "lucide-react";
+import { BarChart3, Database, ShieldAlert, WalletCards } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -35,6 +35,20 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <WalletCards size={16} />
                 <span>Виртуальный контур</span>
+              </NavLink>
+              <NavLink
+                to="/risk/external-regime"
+                className={({ isActive }) =>
+                  `inline-flex items-center gap-2 border px-3 py-2 font-medium transition ${
+                    isActive
+                      ? "border-accent bg-teal-50 text-accent"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-accent hover:text-accent"
+                  }`
+                }
+                style={{ borderRadius: 8 }}
+              >
+                <ShieldAlert size={16} />
+                <span>Внешний риск</span>
               </NavLink>
             </nav>
             <div className="hidden items-center gap-2 text-xs text-slate-500 sm:flex">

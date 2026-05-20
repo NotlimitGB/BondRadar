@@ -151,6 +151,9 @@ Current regime:
 curl -s http://127.0.0.1:8000/api/risk/external-regime
 ```
 
+Operators can also review and update the current external risk regime from the
+frontend route `/risk/external-regime`.
+
 Manual elevated regime:
 
 ```bash
