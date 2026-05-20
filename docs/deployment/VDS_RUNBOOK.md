@@ -44,6 +44,14 @@ Do not expose PostgreSQL to the public internet. The production compose file
 binds PostgreSQL to `127.0.0.1` only so host-level backup and restore scripts can
 reach it while public network access stays closed.
 
+For the first private VDS deployment, frontend and backend host ports should
+also stay localhost-bound and accessed through SSH tunneling. Review:
+
+```text
+docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md
+docs/deployment/SECURITY_DEBT_REGISTER.md
+```
+
 ## 3. Required Environment Variables
 
 Create `.env.production` from `.env.production.example` and review every value.
@@ -109,6 +117,7 @@ To render a server-specific command checklist:
 python scripts/render_first_deploy_commands.py \
   --server-ip <SERVER_IP> \
   --repo-url <REPO_URL> \
+  --access-mode private \
   --markdown-output ./logs/first_deploy_commands.md \
   --json-output ./logs/first_deploy_commands.json
 ```
@@ -131,6 +140,14 @@ python scripts/validate_production_env.py \
 python scripts/server_sanity_check.py \
   --env-file .env.production \
   --json-output ./logs/server_sanity.json
+```
+
+Check the private exposure posture:
+
+```bash
+python scripts/private_vds_exposure_check.py \
+  --render-commands \
+  --json-output ./logs/private_vds_exposure.json
 ```
 
 Run the release preflight before starting services:
@@ -236,10 +253,16 @@ python scripts/release_candidate_report.py \
   --markdown-output ./logs/release_candidate_report.md
 ```
 
-Open the frontend:
+Open an SSH tunnel from the operator machine:
+
+```bash
+ssh -L 5173:127.0.0.1:5173 -L 8000:127.0.0.1:8000 bondradar@<SERVER_IP>
+```
+
+Open the frontend locally through the tunnel:
 
 ```text
-http://<server-ip>:5173
+http://127.0.0.1:5173
 ```
 
 Do not start the 50k paper pilot during first deployment. Review readiness and
@@ -405,7 +428,10 @@ Run with `--execute` only after reviewing the report.
 - Use a strong PostgreSQL password.
 - Restrict SSH access to key-based login.
 - Do not expose PostgreSQL publicly.
-- Put HTTPS and a reverse proxy in front of public traffic before external use.
+- Keep frontend and backend app ports private by default; use SSH tunneling for
+  the first single-operator VDS deployment.
+- Put auth/RBAC, HTTPS, and a reverse proxy in front of any public or team
+  traffic before external use.
 - Keep backups readable only by trusted server users.
 - Rotate secrets after an accidental exposure.
 
@@ -434,3 +460,7 @@ Run with `--execute` only after reviewing the report.
   `docs/deployment/VDS_PROVISIONING.md`,
   `docs/deployment/FIRST_DEPLOY_CHECKLIST.md`, and
   `scripts/render_first_deploy_commands.py`.
+- Private VDS exposure guidance and required future security work live in
+  `docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md`,
+  `docs/deployment/SECURITY_DEBT_REGISTER.md`, and
+  `scripts/private_vds_exposure_check.py`.

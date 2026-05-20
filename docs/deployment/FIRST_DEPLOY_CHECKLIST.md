@@ -1,11 +1,14 @@
 # BondRadar First Deploy Checklist
 
 Use this checklist with `docs/deployment/VDS_PROVISIONING.md` and
-`docs/deployment/VDS_RUNBOOK.md`.
+`docs/deployment/VDS_RUNBOOK.md`. The first deployment is private
+single-operator operation by default.
 
 ## 1. Before VDS Purchase
 
 - [ ] Release candidate docs reviewed.
+- [ ] Private VDS security baseline reviewed.
+- [ ] Security debt register reviewed.
 - [ ] GitHub Actions checks are green or failures are understood.
 - [ ] `.env.production` values are prepared outside git.
 - [ ] Operator understands BondRadar is virtual paper only.
@@ -19,6 +22,8 @@ Use this checklist with `docs/deployment/VDS_PROVISIONING.md` and
 - [ ] 40-80 GB SSD minimum selected.
 - [ ] Provider backups or snapshots enabled if available.
 - [ ] SSH key configured if provider supports it.
+- [ ] Provider firewall allows SSH only by default.
+- [ ] App ports are not public by default.
 - [ ] Server IP recorded.
 
 ## 3. First SSH Login
@@ -66,6 +71,7 @@ Use this checklist with `docs/deployment/VDS_PROVISIONING.md` and
 - [ ] `GET /api/health` returns OK.
 - [ ] Frontend root opens.
 - [ ] Frontend `/api` proxy reaches backend health.
+- [ ] SSH tunnel works for local browser access.
 - [ ] Production smoke report saved.
 
 ## 9. Data and Model Bootstrap
@@ -100,6 +106,8 @@ Use this checklist with `docs/deployment/VDS_PROVISIONING.md` and
 - [ ] Do not enable paper execution cron entries.
 - [ ] Do not start the 50k virtual paper pilot during first deploy.
 - [ ] Do not expose PostgreSQL publicly.
+- [ ] Do not expose frontend/backend app ports publicly by default.
+- [ ] Do not treat this deployment as public/team-ready without auth/RBAC.
 
 ## Stop Before Pilot Launch
 

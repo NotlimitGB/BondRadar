@@ -26,6 +26,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--python-bin", default=DEFAULT_PYTHON_BIN)
     parser.add_argument("--frontend-port", default=DEFAULT_FRONTEND_PORT)
     parser.add_argument("--backend-port", default=DEFAULT_BACKEND_PORT)
+    parser.add_argument(
+        "--access-mode",
+        choices=("private", "public-dev"),
+        default="private",
+        help="private uses SSH tunnel access; public-dev renders app port firewall examples with warnings.",
+    )
     parser.add_argument("--json-output", type=Path, default=None)
     parser.add_argument("--markdown-output", type=Path, default=None)
     return parser.parse_args(argv)
@@ -34,6 +40,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def build_command_report(args: argparse.Namespace) -> dict[str, Any]:
     backend_url = f"http://127.0.0.1:{args.backend_port}"
     frontend_url = f"http://127.0.0.1:{args.frontend_port}"
+    private_tunnel = (
+        f"ssh -L {args.frontend_port}:127.0.0.1:{args.frontend_port} "
+        f"-L {args.backend_port}:127.0.0.1:{args.backend_port} "
+        f"{args.deploy_user}@{args.server_ip}"
+    )
+    firewall_commands = [
+        "sudo ufw allow OpenSSH",
+        "sudo ufw enable",
+        "sudo ufw status",
+    ]
+    firewall_warning = None
+    if args.access_mode == "public-dev":
+        firewall_commands = [
+            "sudo ufw allow OpenSSH",
+            f"sudo ufw allow {args.frontend_port}/tcp",
+            f"sudo ufw allow {args.backend_port}/tcp",
+            "sudo ufw enable",
+            "sudo ufw status",
+        ]
+        firewall_warning = (
+            "Not recommended for the first private VDS deployment. Do not use "
+            "for public or team operation without auth, HTTPS, and reverse-proxy hardening."
+        )
+
     return {
         "server_ip": args.server_ip,
         "repo_url": args.repo_url,
@@ -42,6 +72,7 @@ def build_command_report(args: argparse.Namespace) -> dict[str, Any]:
         "python_bin": args.python_bin,
         "frontend_port": str(args.frontend_port),
         "backend_port": str(args.backend_port),
+        "access_mode": args.access_mode,
         "sections": [
             {
                 "title": "SSH login",
@@ -61,13 +92,18 @@ def build_command_report(args: argparse.Namespace) -> dict[str, Any]:
             },
             {
                 "title": "firewall",
+                "commands": firewall_commands,
+                **({"warning": firewall_warning} if firewall_warning else {}),
+            },
+            {
+                "title": "SSH tunnel",
                 "commands": [
-                    "sudo ufw allow OpenSSH",
-                    f"sudo ufw allow {args.frontend_port}/tcp",
-                    f"sudo ufw allow {args.backend_port}/tcp",
-                    "sudo ufw enable",
-                    "sudo ufw status",
+                    private_tunnel,
                 ],
+                "note": (
+                    "Keep this session open, then use the local browser at "
+                    f"{frontend_url} and local API checks at {backend_url}."
+                ),
             },
             {
                 "title": "clone repository",
@@ -168,15 +204,20 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"Repository URL: `{report['repo_url']}`",
         f"Deploy directory: `{report['deploy_dir']}`",
         f"Deploy user: `{report['deploy_user']}`",
+        f"Access mode: `{report.get('access_mode', 'private')}`",
         "",
         "These commands are rendered for operator review. Run them manually and adjust provider-specific steps when needed.",
+        "Default private mode keeps app ports local to the VDS and uses an SSH tunnel for operator access.",
         "",
     ]
     for section in report["sections"]:
+        lines.extend([f"## {section['title']}", ""])
+        if section.get("warning"):
+            lines.extend([f"> Warning: {section['warning']}", ""])
+        if section.get("note"):
+            lines.extend([section["note"], ""])
         lines.extend(
             [
-                f"## {section['title']}",
-                "",
                 "```bash",
                 *section["commands"],
                 "```",

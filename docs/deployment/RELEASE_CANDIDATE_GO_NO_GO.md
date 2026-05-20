@@ -21,6 +21,8 @@ Review the provisioning and first-deploy pack before creating the server:
 ```text
 docs/deployment/VDS_PROVISIONING.md
 docs/deployment/FIRST_DEPLOY_CHECKLIST.md
+docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md
+docs/deployment/SECURITY_DEBT_REGISTER.md
 scripts/render_first_deploy_commands.py
 ```
 
@@ -31,6 +33,7 @@ are known:
 python scripts/render_first_deploy_commands.py \
   --server-ip <SERVER_IP> \
   --repo-url <REPO_URL> \
+  --access-mode private \
   --markdown-output ./logs/first_deploy_commands.md \
   --json-output ./logs/first_deploy_commands.json
 ```
@@ -50,6 +53,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.production.example con
 python scripts/release_preflight.py --json-output ./logs/release_preflight.json
 python scripts/validate_production_env.py --env-file .env.production --json-output ./logs/env_validation.json
 python scripts/server_sanity_check.py --env-file .env.production --skip-docker --json-output ./logs/server_sanity.json
+python scripts/private_vds_exposure_check.py --render-commands --json-output ./logs/private_vds_exposure.json
 ```
 
 `.env.production.example` is expected to fail env validation because sample
@@ -121,6 +125,7 @@ Do not proceed with VDS deployment preparation when any of these are true:
 - production compose config fails;
 - production env validation fails;
 - server sanity check fails;
+- private VDS exposure check fails;
 - production smoke check fails;
 - backup scripts have not been reviewed;
 - operator has not reviewed the runbook and runtime hardening docs.
@@ -146,6 +151,7 @@ Save these under `./logs`:
 release_preflight.json
 env_validation.json
 server_sanity.json
+private_vds_exposure.json
 prod_smoke.json
 live_data_bootstrap_plan.json
 ml_validation_suite.json
@@ -174,3 +180,4 @@ Before VDS deployment preparation, confirm:
 - I know how to restore backup.
 - I know where JSON reports are stored.
 - I know which reports block deployment and which reports block pilot launch.
+- I understand private VDS operation is not public/team-ready without auth/RBAC.

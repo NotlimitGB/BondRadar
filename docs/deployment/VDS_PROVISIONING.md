@@ -4,10 +4,12 @@ This guide prepares a clean Ubuntu VDS for BondRadar. It is provider-neutral and
 intended for a beginner operator who wants a safe first production-like launch.
 
 This guide does not start the 50k virtual paper pilot and does not enable paper
-execution automatically. BondRadar remains virtual paper only:
+execution automatically. The first deployment is private single-operator
+operation by default. BondRadar remains virtual paper only:
 
 - no broker actions;
 - no real-money flow;
+- no public multi-user access;
 - no automatic paper execution timers during first deploy.
 
 ## 1. Recommended VDS Baseline
@@ -32,7 +34,9 @@ Before creating the server:
 - choose a stable region close enough for normal administration;
 - enable provider backups or snapshots if available;
 - add an SSH key if the provider supports it;
+- allow SSH only in the provider firewall by default;
 - do not expose the database port publicly;
+- do not expose frontend or backend app ports publicly by default;
 - record the server IP;
 - do not paste secrets into screenshots or tickets.
 
@@ -76,18 +80,47 @@ su - bondradar
 
 ## 5. Basic Firewall
 
-Example `ufw` setup:
+Default private `ufw` setup:
 
 ```bash
 sudo ufw allow OpenSSH
-sudo ufw allow 5173/tcp
-sudo ufw allow 8000/tcp
 sudo ufw enable
 sudo ufw status
 ```
 
 PostgreSQL must not be opened publicly. `docker-compose.prod.yml` binds
-PostgreSQL to `127.0.0.1` only for host-level backup and restore scripts.
+PostgreSQL to `127.0.0.1` only for host-level backup and restore scripts. The
+frontend and backend host ports are also intended to stay bound to
+`127.0.0.1` for the first private deployment.
+
+Do not use these public app port rules in the default private path:
+
+```bash
+sudo ufw allow 5173/tcp
+sudo ufw allow 8000/tcp
+```
+
+Open frontend/backend ports only after making a conscious exposure, auth, HTTPS,
+and reverse-proxy decision.
+
+Access the app through an SSH tunnel from the operator machine:
+
+```bash
+ssh -L 5173:127.0.0.1:5173 -L 8000:127.0.0.1:8000 bondradar@<SERVER_IP>
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5173
+```
+
+Tunnel health checks:
+
+```bash
+curl -s http://127.0.0.1:8000/api/health
+curl -s http://127.0.0.1:5173/api/health
+```
 
 ## 6. Install Docker and Compose Plugin
 
@@ -141,7 +174,8 @@ Review these rules before saving:
 - keep `POSTGRES_PASSWORD` and `PGPASSWORD` equal;
 - keep `DATABASE_URL` host as `postgres`;
 - keep `POSTGRES_HOST` as `127.0.0.1`;
-- set `BACKEND_CORS_ORIGINS` for the frontend URL you will use;
+- set `BACKEND_CORS_ORIGINS` for the frontend URL you will use, usually the
+  tunnel URL during private operation;
 - do not commit `.env.production`.
 
 ## 9. Validate Before Starting
@@ -203,12 +237,20 @@ Generate a command pack for the exact server and repository:
 python3 scripts/render_first_deploy_commands.py \
   --server-ip <SERVER_IP> \
   --repo-url <REPO_URL> \
+  --access-mode private \
   --markdown-output ./logs/first_deploy_commands.md \
   --json-output ./logs/first_deploy_commands.json
 ```
 
 The render script prints commands only. It does not connect to the server, run
 Docker, edit files, or start services.
+
+Review the private exposure baseline before opening any public app ports:
+
+```text
+docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md
+docs/deployment/SECURITY_DEBT_REGISTER.md
+```
 
 ## 13. Do Not Enable Paper Execution Yet
 

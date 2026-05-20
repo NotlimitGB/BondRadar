@@ -60,6 +60,7 @@ def test_output_has_required_sections() -> None:
         "SSH login",
         "create deploy user",
         "firewall",
+        "SSH tunnel",
         "clone repository",
         "prepare env",
         "validate env",
@@ -70,6 +71,28 @@ def test_output_has_required_sections() -> None:
         "monitoring check",
         "backup check",
     ]
+
+
+def test_default_private_mode_uses_ssh_tunnel_and_does_not_open_app_ports() -> None:
+    report = build_report()
+    text = render_text(report)
+
+    assert report["access_mode"] == "private"
+    assert "ssh -L 5173:127.0.0.1:5173 -L 8000:127.0.0.1:8000 bondradar@<SERVER_IP>" in text
+    assert "sudo ufw allow OpenSSH" in text
+    assert "sudo ufw allow 5173/tcp" not in text
+    assert "sudo ufw allow 8000/tcp" not in text
+
+
+def test_public_dev_mode_includes_app_port_warning() -> None:
+    report = build_report(["--access-mode", "public-dev"])
+    text = render_text(report)
+
+    assert report["access_mode"] == "public-dev"
+    assert "sudo ufw allow 5173/tcp" in text
+    assert "sudo ufw allow 8000/tcp" in text
+    assert "Not recommended for the first private VDS deployment" in text
+    assert "without auth, HTTPS, and reverse-proxy hardening" in text
 
 
 def test_no_paper_execution_enablement_commands() -> None:

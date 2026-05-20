@@ -72,7 +72,14 @@ Monitoring / frontend
 - `/risk/external-regime`: external risk overlay.
 
 Auth/RBAC is a separate pre-public hardening task. The current operator UI is
-prepared for controlled private operation, not public multi-user access.
+prepared for controlled private operation, not public multi-user access. For the
+first VDS observation period, use the private access baseline:
+
+```text
+docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md
+docs/deployment/SECURITY_DEBT_REGISTER.md
+scripts/private_vds_exposure_check.py
+```
 
 ## 4. Virtual Operation Meaning
 

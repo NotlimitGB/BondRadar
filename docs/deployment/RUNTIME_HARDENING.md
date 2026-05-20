@@ -19,6 +19,7 @@ Use this sequence after cloning the project and creating `.env.production`:
 ```text
 VDS provisioning checklist
 first-deploy command rendering
+private VDS exposure check
 validate .env.production
 server sanity check
 release preflight
@@ -36,11 +37,18 @@ Provisioning and first-deploy references:
 ```text
 docs/deployment/VDS_PROVISIONING.md
 docs/deployment/FIRST_DEPLOY_CHECKLIST.md
+docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md
+docs/deployment/SECURITY_DEBT_REGISTER.md
 scripts/render_first_deploy_commands.py
+scripts/private_vds_exposure_check.py
 ```
 
 Runtime hardening starts after the server is provisioned and the first deploy
 verification commands have been reviewed.
+
+For the first private VDS deployment, keep only SSH publicly reachable and use
+an SSH tunnel for frontend/API access. Application auth/RBAC remains mandatory
+before public or team use.
 
 ## 2. Production Env Validation
 
@@ -84,6 +92,17 @@ python scripts/server_sanity_check.py \
   --env-file .env.production \
   --skip-docker
 ```
+
+Run the private exposure check before enabling runtime automation:
+
+```bash
+python scripts/private_vds_exposure_check.py \
+  --render-commands \
+  --json-output ./logs/private_vds_exposure.json
+```
+
+This check is local only. It does not start Docker and does not call remote
+servers.
 
 ## 4. Cron Examples
 
@@ -218,6 +237,7 @@ entries as appropriate.
   confirmed virtual paper execution.
 - The retention helper is dry-run by default.
 - Runtime hardening does not prove model quality or data readiness by itself.
+- Runtime hardening does not replace auth/RBAC for public or team use.
 
 ## 11. Release Candidate Aggregation
 
