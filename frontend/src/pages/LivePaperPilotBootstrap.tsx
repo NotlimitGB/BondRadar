@@ -12,12 +12,12 @@ import { Link } from "react-router-dom";
 
 import { api, normalizeApiError } from "../api/client";
 import type {
-  ExternalRiskRegime,
   LivePaperMonitoringOverviewResponse,
   LivePaperPilotBootstrapRequest,
   LivePaperPilotBootstrapResponse,
   LivePaperPilotBootstrapStatus,
 } from "../api/types";
+import { ExternalRiskRegimeCard } from "../components/live-paper/ExternalRiskRegimeCard";
 import {
   MessageList,
   Section,
@@ -97,18 +97,6 @@ const statusTone: Record<LivePaperPilotBootstrapStatus, string> = {
   prepared: "border-sky-200 bg-sky-50 text-sky-800",
   scheduled: "border-teal-200 bg-teal-50 text-teal-800",
   blocked: "border-amber-200 bg-amber-50 text-amber-800",
-};
-
-const externalRiskLabels: Record<ExternalRiskRegime["mode"], string> = {
-  normal: "Обычный режим",
-  elevated: "Повышенный внешний риск",
-  severe: "Жёсткий внешний риск",
-};
-
-const externalRiskTone: Record<ExternalRiskRegime["mode"], string> = {
-  normal: "border-teal-200 bg-teal-50 text-teal-800",
-  elevated: "border-amber-200 bg-amber-50 text-amber-800",
-  severe: "border-red-200 bg-red-50 text-red-800",
 };
 
 function isPositiveNumber(value: unknown): boolean {
@@ -458,28 +446,6 @@ function ResultPanel({ result }: { result: LivePaperPilotBootstrapResponse }) {
   );
 }
 
-function ExternalRiskNotice({ regime }: { regime: ExternalRiskRegime }) {
-  return (
-    <section className={`surface border p-4 text-sm ${externalRiskTone[regime.mode]}`}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="font-semibold">{externalRiskLabels[regime.mode]}</div>
-          <p className="mt-1">
-            {regime.reason || "Внешний режим задан без пояснения."}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-80">
-            <span>Источник: {regime.source || "manual"}</span>
-            <span>До: {formatDateTime(regime.expires_at)}</span>
-          </div>
-        </div>
-        <Link className="text-button shrink-0" to="/risk/external-regime">
-          Открыть внешний режим
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 export function LivePaperPilotBootstrap() {
   const [form, setForm] = useState<PilotFormState>(defaultForm);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -549,7 +515,7 @@ export function LivePaperPilotBootstrap() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             Форма собирает компактные данные для проверки готовности, цикла и расписания.
-            Информационный режим: без реальных брокерских действий.
+            Информационный режим: virtual paper only, no broker, no real money.
           </p>
         </div>
         <div className="surface flex items-center gap-2 px-3 py-2 text-sm text-slate-600">
@@ -559,8 +525,21 @@ export function LivePaperPilotBootstrap() {
       </section>
 
       {externalRiskQuery.data ? (
-        <ExternalRiskNotice regime={externalRiskQuery.data} />
+        <ExternalRiskRegimeCard compact regime={externalRiskQuery.data} />
       ) : null}
+      {externalRiskQuery.isError ? (
+        <ErrorState message={normalizeApiError(externalRiskQuery.error)} />
+      ) : null}
+
+      <section className="surface flex items-start gap-3 border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <AlertTriangle className="mt-0.5 shrink-0" size={18} />
+        <span>
+          Проверка без создания schedule только формирует отчет. Создание
+          schedule настраивает virtual paper pilot, но не запускает реальные
+          действия. Перед confirmed paper execution нужны quality gate,
+          внешний риск и monitoring review.
+        </span>
+      </section>
 
       <section className="grid gap-3 md:grid-cols-4">
         <SummaryItem label="Капитал" value={formSummary.capital} />
@@ -784,7 +763,7 @@ export function LivePaperPilotBootstrap() {
                 onClick={() => submit("dry-run")}
                 type="button"
               >
-                Проверить без создания расписания
+                Проверить без создания schedule
               </button>
 
               <CheckboxField
@@ -799,7 +778,7 @@ export function LivePaperPilotBootstrap() {
                 onClick={() => submit("create-schedule")}
                 type="button"
               >
-                Создать расписание
+                Создать schedule для virtual pilot
               </button>
             </div>
           </section>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { api, normalizeApiError } from "../api/client";
@@ -10,6 +10,7 @@ import type {
   ExternalRiskRegimeMode,
   ExternalRiskRegimeUpdateRequest,
 } from "../api/types";
+import { ExternalRiskRegimeCard } from "../components/live-paper/ExternalRiskRegimeCard";
 import { ErrorState, LoadingState } from "../components/StateBlocks";
 import { formatDateTime } from "../utils/livePaperFormat";
 
@@ -32,12 +33,6 @@ const modeDescriptions: Record<ExternalRiskRegimeMode, string> = {
     "Повышенный риск: confirmed paper execution требует ручного review/acknowledgement.",
   severe:
     "Жёсткий риск: confirmed paper execution блокируется safety overlay по умолчанию.",
-};
-
-const modeTone: Record<ExternalRiskRegimeMode, string> = {
-  normal: "border-teal-200 bg-teal-50 text-teal-800",
-  elevated: "border-amber-200 bg-amber-50 text-amber-800",
-  severe: "border-red-200 bg-red-50 text-red-800",
 };
 
 function toDatetimeLocal(value: string | null | undefined): string {
@@ -179,7 +174,8 @@ export function ExternalRiskRegimePage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             Операторский режим для macro, market-stress и иных внешних условий.
-            Он не запускает paper execution и не меняет расписания.
+            Он не запускает paper execution, не меняет расписания, no broker,
+            no real money.
           </p>
         </div>
         <Link className="text-button" to="/live-paper">
@@ -196,18 +192,13 @@ export function ExternalRiskRegimePage() {
       ) : null}
 
       {currentRegime ? (
-        <section
-          className={`surface border p-4 ${modeTone[currentRegime.mode]}`}
-        >
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-lg border border-current px-2 py-1 text-xs font-semibold uppercase">
-                <ShieldAlert size={15} />
-                {modeLabels[currentRegime.mode]}
-              </div>
-              <p className="mt-3 text-sm">{modeDescriptions[currentRegime.mode]}</p>
-            </div>
-            <div className="grid gap-2 text-sm md:min-w-72">
+        <div className="space-y-3">
+          <ExternalRiskRegimeCard regime={currentRegime} showLink={false} />
+          <section className="surface p-4">
+            <h2 className="mb-3 text-sm font-semibold text-ink">
+              Метаданные внешнего режима
+            </h2>
+            <div className="grid gap-2 text-sm md:grid-cols-2">
               <DetailRow label="Причина" value={currentRegime.reason} />
               <DetailRow label="Источник" value={currentRegime.source} />
               <DetailRow
@@ -223,8 +214,8 @@ export function ExternalRiskRegimePage() {
                 value={formatDateTime(currentRegime.created_at)}
               />
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       ) : null}
 
       <form className="surface p-4" onSubmit={submit}>

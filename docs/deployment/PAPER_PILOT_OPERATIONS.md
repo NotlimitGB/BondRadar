@@ -72,6 +72,19 @@ See `docs/deployment/PROJECT_OPERATING_MODEL.md` for the plain-language
 operating model and `docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md` for the
 final release candidate review before VDS preparation.
 
+Operator UI map:
+
+- `/`: bond and company overview;
+- `/live-paper`: virtual paper monitoring dashboard;
+- `/live-paper/schedules`: schedules and safe run checks;
+- `/live-paper/pilot-bootstrap`: pilot schedule preparation;
+- `/live-paper/portfolios/:id`: portfolio details, positions, operations, and
+  snapshots;
+- `/risk/external-regime`: external risk overlay.
+
+Auth/RBAC is a separate pre-public hardening task. Do not expose the operator UI
+as a public multi-user surface until that hardening is complete.
+
 ## 2. Launch Sequence
 
 Review diagnostics in this order:

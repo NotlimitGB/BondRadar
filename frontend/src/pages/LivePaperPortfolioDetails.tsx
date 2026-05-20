@@ -683,7 +683,8 @@ export function LivePaperPortfolioDetails() {
             Детальный просмотр состояния, операций и циклов виртуального контура.
           </p>
           <p className="mt-1 text-sm text-slate-500">
-            Информационный режим: без реальных брокерских действий.
+            Информационный режим: virtual paper only, no broker, no real money.
+            Страница не выполняет mutation actions.
           </p>
         </div>
         <div className="surface flex items-center gap-3 px-3 py-2 text-sm text-slate-600">

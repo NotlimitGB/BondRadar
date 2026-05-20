@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 
 import { api, normalizeApiError } from "../api/client";
 import type {
+  ExternalRiskRegime,
   LivePaperCycleMonitoringSummary,
   LivePaperScheduleRead,
   LivePaperScheduleRunDueRequest,
@@ -19,6 +20,7 @@ import type {
   LivePaperScheduledRunItem,
 } from "../api/types";
 import { StatusBadge } from "../components/live-paper/LivePaperBadges";
+import { ExternalRiskRegimeCard } from "../components/live-paper/ExternalRiskRegimeCard";
 import {
   MessageList,
   Section,
@@ -111,6 +113,7 @@ function RunDuePanel({
   isPending,
   onDryRun,
   onExecute,
+  externalRiskMode,
 }: {
   form: RunDueFormState;
   setForm: (form: RunDueFormState) => void;
@@ -120,11 +123,15 @@ function RunDuePanel({
   isPending: boolean;
   onDryRun: () => void;
   onExecute: () => void;
+  externalRiskMode?: ExternalRiskRegime["mode"] | null;
 }) {
+  const executionBlocked = externalRiskMode === "severe";
+  const elevatedReview = externalRiskMode === "elevated";
+
   return (
     <Section
       title="Ожидающие расписания"
-      subtitle="Проверка и выполнение ожидающих расписаний через планировщик на базе БД."
+      subtitle="Dry-run проверяет due schedules без изменений; confirmed paper execution создает только виртуальные записи."
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -186,17 +193,27 @@ function RunDuePanel({
               type="checkbox"
             />
             <span>
-              Я понимаю, что будут созданы виртуальные запланированные циклы в
-              локальной системе.
+              Я понимаю, что confirmed paper execution создает виртуальные
+              циклы в локальной системе. Это virtual paper only: no broker, no
+              real money.
+              {elevatedReview
+                ? " Внешний риск elevated: ручной review обязателен."
+                : ""}
             </span>
           </label>
+          {executionBlocked ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              Жёсткий внешний риск: confirmed paper execution заблокирован
+              safety overlay по умолчанию. Dry-run доступен для проверки.
+            </div>
+          ) : null}
           <button
             className="primary-button w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!executeConfirmed || isPending}
+            disabled={!executeConfirmed || isPending || executionBlocked}
             onClick={onExecute}
             type="button"
           >
-            Выполнить ожидающие расписания
+            Confirmed virtual run for due schedules
           </button>
         </div>
       </div>
@@ -227,6 +244,7 @@ function SchedulesTable({
   onToggleStatus,
   onRunSchedule,
   pendingScheduleId,
+  externalRiskMode,
 }: {
   schedules: LivePaperScheduleRead[];
   confirmedRuns: Record<number, boolean>;
@@ -236,6 +254,7 @@ function SchedulesTable({
   onToggleStatus: (schedule: LivePaperScheduleRead) => void;
   onRunSchedule: (schedule: LivePaperScheduleRead) => void;
   pendingScheduleId: number | null;
+  externalRiskMode?: ExternalRiskRegime["mode"] | null;
 }) {
   if (!schedules.length) {
     return <EmptyState label="Расписаний виртуального контура пока нет." />;
@@ -264,6 +283,7 @@ function SchedulesTable({
             const confirmed = Boolean(confirmedRuns[schedule.id]);
             const canToggle =
               schedule.status === "active" || schedule.status === "paused";
+            const executionBlocked = externalRiskMode === "severe";
             return (
               <tr key={schedule.id}>
                 <td className="px-3 py-3 font-mono text-xs text-slate-600">
@@ -339,15 +359,28 @@ function SchedulesTable({
                         }
                         type="checkbox"
                       />
-                      Подтверждаю запуск этого расписания
+                      Confirmed virtual run reviewed
+                      {externalRiskMode === "elevated"
+                        ? ": elevated external risk acknowledged"
+                        : ""}
                     </label>
+                    {executionBlocked ? (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-800">
+                        Жёсткий внешний риск: confirmed paper execution
+                        заблокирован.
+                      </div>
+                    ) : null}
                     <button
                       className="primary-button justify-center disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={!confirmed || pendingScheduleId === schedule.id}
+                      disabled={
+                        !confirmed ||
+                        pendingScheduleId === schedule.id ||
+                        executionBlocked
+                      }
                       onClick={() => onRunSchedule(schedule)}
                       type="button"
                     >
-                      Запустить расписание
+                      Confirmed virtual run
                     </button>
                   </div>
                 </td>
@@ -614,8 +647,15 @@ export function LivePaperSchedules() {
       }),
   });
 
+  const externalRiskQuery = useQuery({
+    queryKey: ["external-risk-regime"],
+    queryFn: api.getExternalRiskRegime,
+  });
+
   const schedules = schedulesQuery.data ?? [];
   const cycleResponse = cyclesQuery.data;
+  const externalRiskMode = externalRiskQuery.data?.mode ?? null;
+  const confirmedExecutionBlocked = externalRiskMode === "severe";
 
   const refreshLivePaper = () => {
     queryClient.invalidateQueries({ queryKey: ["live-paper", "schedules"] });
@@ -674,6 +714,12 @@ export function LivePaperSchedules() {
   );
 
   function submitRunDue(dryRun: boolean) {
+    if (!dryRun && confirmedExecutionBlocked) {
+      setRunDueErrors([
+        "Жёсткий внешний риск блокирует confirmed paper execution. Dry-run доступен.",
+      ]);
+      return;
+    }
     const errors = validateRunDueForm(runDueForm);
     setRunDueErrors(errors);
     if (errors.length) {
@@ -692,6 +738,12 @@ export function LivePaperSchedules() {
   }
 
   function runSchedule(schedule: LivePaperScheduleRead) {
+    if (confirmedExecutionBlocked) {
+      setRunDueErrors([
+        "Жёсткий внешний риск блокирует confirmed paper execution. Dry-run доступен.",
+      ]);
+      return;
+    }
     if (singleRunNow.trim() && Number.isNaN(Date.parse(singleRunNow))) {
       setRunDueErrors(["Текущий момент должен быть корректной датой, если заполнен."]);
       return;
@@ -719,7 +771,8 @@ export function LivePaperSchedules() {
             Расписания виртуального контура
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Контроль расписаний, проверок без изменений и виртуальных запланированных циклов.
+            Контроль расписаний, dry-run checks и confirmed virtual cycles.
+            virtual paper only, no broker, no real money.
           </p>
         </div>
         <div className="surface flex items-start gap-2 px-3 py-2 text-sm text-slate-600">
@@ -727,6 +780,13 @@ export function LivePaperSchedules() {
           Информационный режим: действия создают только виртуальные записи.
         </div>
       </section>
+
+      {externalRiskQuery.data ? (
+        <ExternalRiskRegimeCard regime={externalRiskQuery.data} />
+      ) : null}
+      {externalRiskQuery.isError ? (
+        <ErrorState message={normalizeApiError(externalRiskQuery.error)} />
+      ) : null}
 
       <section className="grid gap-3 md:grid-cols-3">
         <SummaryItem label="Расписания" value={schedules.length} />
@@ -743,6 +803,7 @@ export function LivePaperSchedules() {
         isPending={runDueMutation.isPending}
         onDryRun={() => submitRunDue(true)}
         onExecute={() => submitRunDue(false)}
+        externalRiskMode={externalRiskMode}
         setExecuteConfirmed={setExecuteConfirmed}
         setForm={setRunDueForm}
         validationErrors={runDueErrors}
@@ -780,6 +841,7 @@ export function LivePaperSchedules() {
             onRunSchedule={runSchedule}
             onToggleStatus={toggleScheduleStatus}
             pendingScheduleId={pendingScheduleId}
+            externalRiskMode={externalRiskMode}
             runNow={singleRunNow}
             schedules={schedulesQuery.data}
             setConfirmedRuns={setConfirmedRuns}
@@ -872,7 +934,8 @@ export function LivePaperSchedules() {
         <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
         <span>
           Эта страница вызывает только endpoints планировщика и мониторинг циклов;
-          низкоуровневые действия с портфелем напрямую не вызываются.
+          низкоуровневые действия с портфелем напрямую не вызываются. virtual
+          paper only, no broker, no real money.
         </span>
       </section>
 

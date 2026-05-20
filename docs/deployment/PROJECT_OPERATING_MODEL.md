@@ -61,6 +61,19 @@ Operations / positions / snapshots
 Monitoring / frontend
 ```
 
+## 3.1 Operator UI Map
+
+- `/`: bond and company overview;
+- `/live-paper`: virtual paper monitoring dashboard;
+- `/live-paper/schedules`: schedules and safe run checks;
+- `/live-paper/pilot-bootstrap`: pilot schedule preparation;
+- `/live-paper/portfolios/:id`: portfolio details, positions, operations, and
+  snapshots;
+- `/risk/external-regime`: external risk overlay.
+
+Auth/RBAC is a separate pre-public hardening task. The current operator UI is
+prepared for controlled private operation, not public multi-user access.
+
 ## 4. Virtual Operation Meaning
 
 A virtual operation is a database record that simulates portfolio state changes.

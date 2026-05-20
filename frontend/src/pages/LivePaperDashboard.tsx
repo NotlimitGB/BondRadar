@@ -22,7 +22,6 @@ import {
 
 import { api, normalizeApiError } from "../api/client";
 import type {
-  ExternalRiskRegime,
   LivePaperAlertLevel,
   LivePaperCycleMonitoringSummary,
   LivePaperHealthStatus,
@@ -30,6 +29,10 @@ import type {
   LivePaperPortfolioMonitoringSummary,
   LivePaperScheduleMonitoringSummary,
 } from "../api/types";
+import {
+  ExternalRiskRegimeCard,
+  externalRiskModeLabel,
+} from "../components/live-paper/ExternalRiskRegimeCard";
 import {
   HealthBadge,
   StatusBadge as StatusPill,
@@ -73,18 +76,6 @@ const healthLabels: Record<LivePaperHealthStatus, string> = {
   warning: "внимание",
   critical: "критично",
   unknown: "нет данных",
-};
-
-const externalRiskLabels: Record<ExternalRiskRegime["mode"], string> = {
-  normal: "Обычный режим",
-  elevated: "Повышенный внешний риск",
-  severe: "Жёсткий внешний риск",
-};
-
-const externalRiskTone: Record<ExternalRiskRegime["mode"], string> = {
-  normal: "border-teal-200 bg-teal-50 text-teal-800",
-  elevated: "border-amber-200 bg-amber-50 text-amber-800",
-  severe: "border-red-200 bg-red-50 text-red-800",
 };
 
 function recordValue(
@@ -146,37 +137,6 @@ function SectionHeader({
       <h2 className="text-base font-semibold text-ink">{title}</h2>
       {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
     </div>
-  );
-}
-
-function ExternalRiskCard({
-  regime,
-}: {
-  regime?: ExternalRiskRegime | null;
-}) {
-  if (!regime) {
-    return null;
-  }
-
-  return (
-    <section className={`surface border p-4 ${externalRiskTone[regime.mode]}`}>
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <div className="inline-flex items-center gap-2 rounded-lg border border-current px-2 py-1 text-xs font-semibold uppercase">
-            <ShieldAlert size={15} />
-            {externalRiskLabels[regime.mode]}
-          </div>
-          <p className="mt-3 text-sm">{regime.reason || "Внешний режим задан без пояснения."}</p>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs opacity-80">
-            <span>Источник: {regime.source || "manual"}</span>
-            <span>До: {formatDateTime(regime.expires_at)}</span>
-          </div>
-        </div>
-        <Link className="text-button shrink-0" to="/risk/external-regime">
-          Открыть внешний режим
-        </Link>
-      </div>
-    </section>
   );
 }
 
@@ -545,12 +505,15 @@ export function LivePaperDashboard() {
             Виртуальный контур наблюдения за портфелем
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Информационный режим: без реальных операций и брокерских действий.
+            Информационный режим: virtual paper only, no broker, no real money.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Link className="text-button" to="/live-paper/schedules">
             Расписания и запуски
+          </Link>
+          <Link className="text-button" to="/risk/external-regime">
+            Внешний риск
           </Link>
           <Link className="primary-button" to="/live-paper/pilot-bootstrap">
             Подготовить расписание пилота
@@ -572,9 +535,9 @@ export function LivePaperDashboard() {
 
       {overview ? (
         <>
-          <ExternalRiskCard regime={overview.external_risk_regime} />
+          <ExternalRiskRegimeCard regime={overview.external_risk_regime} />
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <MetricCard
               title="Состояние системы"
               value={healthLabels[overview.health_status]}
@@ -599,6 +562,24 @@ export function LivePaperDashboard() {
               value={`${overview.completed_cycle_count} / ${overview.recent_cycle_count}`}
               detail={`${overview.blocked_cycle_count} заблокированы`}
               icon={<LineChartIcon size={20} />}
+            />
+            <MetricCard
+              title="Внешний риск"
+              value={externalRiskModeLabel(overview.external_risk_regime?.mode)}
+              detail={
+                overview.external_risk_regime?.mode === "severe"
+                  ? "confirmed paper execution blocked by default"
+                  : overview.external_risk_regime?.mode === "elevated"
+                    ? "manual review required"
+                    : "virtual paper only"
+              }
+              icon={<ShieldAlert size={20} />}
+            />
+            <MetricCard
+              title="Предупреждения"
+              value={String(overview.alerts.length)}
+              detail="monitoring alerts for operator review"
+              icon={<AlertTriangle size={20} />}
             />
           </section>
 
