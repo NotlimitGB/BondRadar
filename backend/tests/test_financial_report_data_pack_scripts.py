@@ -60,6 +60,26 @@ def test_target_export_deduplicates_companies_and_enriches_coverage() -> None:
         ],
         "/api/companies/10": {"id": 10, "name": "Issuer A", "ticker": "A", "inn": "1"},
         "/api/companies/20": {"id": 20, "name": "Issuer B", "ticker": "B", "inn": "2"},
+        "/api/companies/identity/profiles/10": {
+            "company_id": 10,
+            "identity_status": "matched",
+            "identity_confidence": "0.8",
+            "legal_name": "Issuer A",
+            "short_name": "Issuer A",
+            "ogrn": None,
+            "issuer_group_name": None,
+            "issuer_role": "legal_issuer",
+        },
+        "/api/companies/identity/profiles/20": {
+            "company_id": 20,
+            "identity_status": "matched",
+            "identity_confidence": "0.8",
+            "legal_name": "Issuer B",
+            "short_name": "Issuer B",
+            "ogrn": None,
+            "issuer_group_name": None,
+            "issuer_role": "legal_issuer",
+        },
         "/api/companies/10/reports?limit=1": [],
         "/api/companies/20/reports?limit=1": [
             {
@@ -95,6 +115,8 @@ def test_target_export_deduplicates_companies_and_enriches_coverage() -> None:
     by_id = {row["company_id"]: row for row in report["targets"]}
     assert by_id[10]["bonds_count"] == 2
     assert by_id[10]["coverage_status"] == "missing_report"
+    assert by_id[10]["identity_status"] == "matched"
+    assert by_id[10]["needs_identity_review"] is False
     assert by_id[20]["coverage_status"] == "has_report"
 
 

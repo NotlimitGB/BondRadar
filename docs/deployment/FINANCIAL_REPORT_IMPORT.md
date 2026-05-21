@@ -71,6 +71,15 @@ docs/examples/financial_reports/
 The small example files are synthetic workflow fixtures, not real issuer
 financials.
 
+Before collecting real financial reports, review issuer identity:
+
+```text
+docs/deployment/ISSUER_IDENTITY_ENRICHMENT.md
+```
+
+Financial reports should not be linked to generated names such as `Unknown
+issuer for RU...` without identity review.
+
 ## Dry-run Validation
 
 Run local validation without calling the ingest endpoint:
@@ -239,6 +248,22 @@ python scripts/financial_report_target_issuers.py \
   --csv-output logs/financial_reports/target_issuers.csv \
   --markdown-output logs/financial_reports/target_issuers.md
 ```
+
+If the target export marks `needs_identity_review=true`, run issuer identity
+diagnostics and preview first:
+
+```bash
+python scripts/issuer_identity_target_export.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --limit 50 \
+  --json-output logs/issuer_identity/targets.json \
+  --csv-output logs/issuer_identity/targets.csv \
+  --markdown-output logs/issuer_identity/targets.md
+```
+
+Then use `scripts/issuer_identity_import.py` in dry-run mode and apply only
+after operator review.
 
 Supported target sources:
 

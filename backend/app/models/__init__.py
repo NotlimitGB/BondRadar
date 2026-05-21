@@ -7,6 +7,7 @@ from app.models.bond_return_label import BondReturnLabel
 from app.models.bond_score import BondScore
 from app.models.company import Company
 from app.models.company_credit_health_snapshot import CompanyCreditHealthSnapshot
+from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.company_score import CompanyScore
 from app.models.data_pipeline_run import DataPipelineRun
 from app.models.data_pipeline_step_run import DataPipelineStepRun
@@ -34,6 +35,7 @@ __all__ = [
     "BondScore",
     "Company",
     "CompanyCreditHealthSnapshot",
+    "CompanyIdentityProfile",
     "CompanyScore",
     "DataPipelineRun",
     "DataPipelineStepRun",

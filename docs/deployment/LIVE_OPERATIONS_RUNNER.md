@@ -16,6 +16,11 @@ The pilot remains virtual paper only:
 - all reports should be treated as operational evidence, not proof of model
   success.
 
+Before importing real issuer financial reports for the paper pilot, review
+issuer identity with `docs/deployment/ISSUER_IDENTITY_ENRICHMENT.md`. Keep
+schedules paused while identity, report import, downstream rebuild, readiness,
+and operator review are in progress.
+
 ## 1. Recommended Cadence
 
 Suggested starting cadence:

@@ -29,6 +29,7 @@ Complete this checklist before creating any live paper schedule:
 - pilot bootstrap dry-run is prepared;
 - scheduler dry-run is safe;
 - external risk regime is reviewed;
+- issuer identity review is complete for the first real financial report pack;
 - backend tests are green;
 - frontend build is green;
 - database backup is created.
@@ -70,6 +71,10 @@ verification, retention cleanup, and pause procedures.
 
 See `docs/deployment/FINANCIAL_REPORT_IMPORT.md` for controlled financial
 report imports, coverage checks, and post-ingest rebuild planning.
+
+See `docs/deployment/ISSUER_IDENTITY_ENRICHMENT.md` before collecting real
+issuer financial reports. Identity review should happen before financial report
+import when target issuers still have generated or weak company names.
 
 See `docs/deployment/PROJECT_OPERATING_MODEL.md` for the plain-language
 operating model and `docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md` for the

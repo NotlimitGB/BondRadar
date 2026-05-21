@@ -1,0 +1,2 @@
+company_id,current_company_name,legal_name,short_name,display_name,inn,ogrn,kpp,okpo,country,issuer_group_name,issuer_group_inn,issuer_role,identity_source,source_url,source_file_name,review_notes
+1,Unknown issuer for RU000SYN001,Synthetic Demo Finance LLC,Synthetic Demo Finance,Synthetic Demo Finance,7700000001,1027700000001,770001001,12345678,RU,Synthetic Demo Group,7700000000,finance_subsidiary,operator_csv,https://example.invalid/synthetic-issuer,synthetic_identity.pdf,Synthetic sample only; replace with official issuer evidence.

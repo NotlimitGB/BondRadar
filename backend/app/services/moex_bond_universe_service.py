@@ -19,6 +19,7 @@ from app.schemas.moex_bond_universe import (
     MoexBondUniverseSyncResult,
     MoexBondUniverseSyncWarning,
 )
+from app.services.issuer_identity_service import IssuerIdentityService
 from app.services.moex_iss_client import MoexIssClient, MoexIssClientError
 
 
@@ -329,6 +330,21 @@ class MoexBondUniverseService:
                     message="Issuer metadata is missing",
                 )
             )
+            warnings.append(
+                MoexBondUniverseSyncWarning(
+                    secid=secid,
+                    isin=self._text(metadata.get("isin"), upper=True),
+                    message="issuer_name_missing",
+                )
+            )
+        if not issuer_inn:
+            warnings.append(
+                MoexBondUniverseSyncWarning(
+                    secid=secid,
+                    isin=self._text(metadata.get("isin"), upper=True),
+                    message="issuer_inn_missing",
+                )
+            )
 
         company = self._company_by_inn(issuer_inn) if issuer_inn else None
         if company is None and issuer_name:
@@ -341,7 +357,23 @@ class MoexBondUniverseService:
             if changed:
                 self.db.add(company)
                 self.db.flush()
+                self._upsert_identity_from_moex(
+                    company,
+                    metadata=metadata,
+                    secid=secid,
+                    issuer_name=issuer_name,
+                    issuer_inn=issuer_inn,
+                    warnings=warnings,
+                )
                 return company, "updated", None
+            self._upsert_identity_from_moex(
+                company,
+                metadata=metadata,
+                secid=secid,
+                issuer_name=issuer_name,
+                issuer_inn=issuer_inn,
+                warnings=warnings,
+            )
             return company, "skipped", None
 
         if not request.create_missing_companies:
@@ -365,7 +397,49 @@ class MoexBondUniverseService:
         )
         self.db.add(company)
         self.db.flush()
+        self._upsert_identity_from_moex(
+            company,
+            metadata=metadata,
+            secid=secid,
+            issuer_name=issuer_name,
+            issuer_inn=issuer_inn,
+            warnings=warnings,
+        )
         return company, "created", None
+
+    def _upsert_identity_from_moex(
+        self,
+        company: Company,
+        *,
+        metadata: dict[str, Any],
+        secid: str,
+        issuer_name: str | None,
+        issuer_inn: str | None,
+        warnings: list[MoexBondUniverseSyncWarning],
+    ) -> None:
+        action = IssuerIdentityService(self.db).upsert_from_moex(
+            company,
+            metadata=metadata,
+            secid=secid,
+            issuer_name=issuer_name,
+            issuer_inn=issuer_inn,
+        )
+        if action == "created" and (not issuer_name or not issuer_inn):
+            warnings.append(
+                MoexBondUniverseSyncWarning(
+                    secid=secid,
+                    isin=self._text(metadata.get("isin"), upper=True),
+                    message="company_identity_created_weak",
+                )
+            )
+        elif action == "updated":
+            warnings.append(
+                MoexBondUniverseSyncWarning(
+                    secid=secid,
+                    isin=self._text(metadata.get("isin"), upper=True),
+                    message="company_identity_enriched",
+                )
+            )
 
     def _bond_values(
         self,

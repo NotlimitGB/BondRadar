@@ -1,0 +1,23 @@
+{
+  "rows": [
+    {
+      "company_id": null,
+      "current_company_name": null,
+      "legal_name": null,
+      "short_name": null,
+      "display_name": null,
+      "inn": null,
+      "ogrn": null,
+      "kpp": null,
+      "okpo": null,
+      "country": "RU",
+      "issuer_group_name": null,
+      "issuer_group_inn": null,
+      "issuer_role": "legal_issuer",
+      "identity_source": "operator_json",
+      "source_url": null,
+      "source_file_name": null,
+      "review_notes": null
+    }
+  ]
+}

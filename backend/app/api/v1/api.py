@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     cashflows,
     cashflow_quality,
     companies,
+    company_identity,
     corporate_universe_action_plan,
     credit_risk,
     data_quality_dashboard,
@@ -46,6 +47,11 @@ from app.api.v1.endpoints import (
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
+api_router.include_router(
+    company_identity.router,
+    prefix="/companies/identity",
+    tags=["company-identity"],
+)
 api_router.include_router(companies.router, prefix="/companies", tags=["companies"])
 api_router.include_router(bonds.router, prefix="/bonds", tags=["bonds"])
 api_router.include_router(cashflows.router, prefix="/cashflows", tags=["cashflows"])

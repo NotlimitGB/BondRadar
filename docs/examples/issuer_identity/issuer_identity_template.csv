@@ -1,0 +1,2 @@
+company_id,current_company_name,legal_name,short_name,display_name,inn,ogrn,kpp,okpo,country,issuer_group_name,issuer_group_inn,issuer_role,identity_source,source_url,source_file_name,review_notes
+,,,,,,,,RU,,,,legal_issuer,operator_csv,,,

@@ -31,6 +31,9 @@ MOEX data
 Corporate bond universe
   |
   v
+Issuer identity review
+  |
+  v
 Market snapshots / cashflows
   |
   v
@@ -89,6 +92,17 @@ docs/deployment/PRIVATE_VDS_SECURITY_BASELINE.md
 docs/deployment/SECURITY_DEBT_REGISTER.md
 scripts/private_vds_exposure_check.py
 ```
+
+Issuer identity cleanup is the review step before the first real financial
+report pack:
+
+```text
+docs/deployment/ISSUER_IDENTITY_ENRICHMENT.md
+```
+
+It keeps legal issuer, finance subsidiary, SPV, operating company, and parent
+group concepts separate. Do not attach real reports to generated unknown issuer
+names until identity has been reviewed.
 
 ## 4. Virtual Operation Meaning
 

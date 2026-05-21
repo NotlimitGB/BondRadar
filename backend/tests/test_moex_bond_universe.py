@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.bond import Bond
 from app.models.company import Company
+from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.enums import AnalysisSignal
 from app.services.moex_iss_client import MoexIssClient
 
@@ -265,9 +266,15 @@ def test_explicit_secids_sync_creates_company_and_bond(
     assert payload["companies_created"] == 1
     assert payload["bonds_created"] == 1
     company = db_session.execute(select(Company)).scalar_one()
+    identity = db_session.execute(select(CompanyIdentityProfile)).scalar_one()
     bond = db_session.execute(select(Bond)).scalar_one()
     assert company.inn == "7700000001"
     assert company.signal == AnalysisSignal.INSUFFICIENT_DATA.value
+    assert identity.company_id == company.id
+    assert identity.legal_name == "Demo Issuer"
+    assert identity.inn == "7700000001"
+    assert identity.identity_status == "matched"
+    assert identity.identity_source == "moex_iss"
     assert bond.company_id == company.id
     assert bond.secid == "RU000A100001"
     assert bond.isin == "RU000A100001"
@@ -416,6 +423,69 @@ def test_create_missing_companies_false_skips_unresolved_issuer(
     assert payload["errors"][0]["message"] == "Company could not be resolved"
     assert count(db_session, Company) == 0
     assert count(db_session, Bond) == 0
+
+
+def test_missing_moex_issuer_metadata_creates_weak_identity(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    fake_client = FakeBondUniverseClient(
+        descriptions={
+            "RU000A100001": description(issuer_name=None, issuer_inn=None)
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post("/api/market-data/moex/bonds/sync", json=sync_payload())
+
+    assert response.status_code == 200
+    profile = db_session.execute(select(CompanyIdentityProfile)).scalar_one()
+    assert profile.identity_status == "unknown"
+    assert profile.identity_source == "moex_iss"
+    messages = {warning["message"] for warning in response.json()["warnings"]}
+    assert "issuer_name_missing" in messages
+    assert "issuer_inn_missing" in messages
+    assert "company_identity_created_weak" in messages
+
+
+def test_moex_sync_does_not_overwrite_verified_identity(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    company = create_company(db_session, name="Curated Issuer", inn="7700000001")
+    db_session.add(
+        CompanyIdentityProfile(
+            company_id=company.id,
+            legal_name="Verified Legal Name",
+            inn="7700000001",
+            issuer_role="legal_issuer",
+            identity_status="verified",
+            identity_source="manual_review",
+            review_status="accepted",
+        )
+    )
+    db_session.commit()
+    fake_client = FakeBondUniverseClient(
+        descriptions={
+            "RU000A100001": description(issuer_name="MOEX Name", issuer_inn=company.inn)
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post("/api/market-data/moex/bonds/sync", json=sync_payload())
+
+    assert response.status_code == 200
+    profile = db_session.execute(select(CompanyIdentityProfile)).scalar_one()
+    assert profile.legal_name == "Verified Legal Name"
+    assert profile.identity_status == "verified"
 
 
 def test_missing_and_invalid_values_are_item_warnings_or_errors(

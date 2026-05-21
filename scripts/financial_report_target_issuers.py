@@ -16,6 +16,14 @@ OUTPUT_FIELDS = [
     "company_name",
     "company_ticker",
     "company_inn",
+    "identity_status",
+    "identity_confidence",
+    "legal_name",
+    "short_name",
+    "ogrn",
+    "issuer_group_name",
+    "issuer_role",
+    "needs_identity_review",
     "bonds_count",
     "sample_secids",
     "sample_bond_names",
@@ -141,14 +149,15 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Targets",
         "",
-        "| Company | Ticker | Bonds | Coverage | Reason |",
-        "| --- | --- | ---: | --- | --- |",
+        "| Company | Ticker | Identity | Bonds | Coverage | Reason |",
+        "| --- | --- | --- | ---: | --- | --- |",
     ]
     for row in report["targets"]:
         lines.append(
-            "| {name} | {ticker} | {bonds} | {coverage} | {reason} |".format(
+            "| {name} | {ticker} | {identity} | {bonds} | {coverage} | {reason} |".format(
                 name=row.get("company_name") or "",
                 ticker=row.get("company_ticker") or "",
+                identity=row.get("identity_status") or "",
                 bonds=row.get("bonds_count") or 0,
                 coverage=row.get("coverage_status") or "",
                 reason=row.get("source_reason") or "",
@@ -323,16 +332,36 @@ def _enrich_target(
         f"{backend}/api/companies/{company_id}/reports?limit=1",
         default=[],
     )
+    identity = _safe_get_json(
+        http_request,
+        f"{backend}/api/companies/identity/profiles/{company_id}",
+        default=None,
+    )
     if not isinstance(company, dict):
         warnings.append({"message": f"company {company_id} could not be resolved"})
         company = {}
+    if not isinstance(identity, dict):
+        identity = {}
     latest = reports[0] if isinstance(reports, list) and reports else {}
     has_report = bool(latest)
+    identity_status = _identity_status(company, identity)
+    needs_identity_review = identity_status in {"unknown", "weak", "conflict"}
+    coverage_status = "has_report" if has_report else "missing_report"
+    if needs_identity_review:
+        coverage_status = "missing_identity"
     return {
         "company_id": company_id,
         "company_name": company.get("name"),
         "company_ticker": company.get("ticker"),
         "company_inn": company.get("inn"),
+        "identity_status": identity_status,
+        "identity_confidence": identity.get("identity_confidence"),
+        "legal_name": identity.get("legal_name"),
+        "short_name": identity.get("short_name"),
+        "ogrn": identity.get("ogrn"),
+        "issuer_group_name": identity.get("issuer_group_name"),
+        "issuer_role": identity.get("issuer_role") or "unknown",
+        "needs_identity_review": needs_identity_review,
         "bonds_count": target["bonds_count"],
         "sample_secids": target["sample_secids"][:5],
         "sample_bond_names": target["sample_bond_names"][:5],
@@ -341,7 +370,7 @@ def _enrich_target(
         "latest_report_period_year": latest.get("period_year"),
         "latest_report_period_quarter": latest.get("period_quarter"),
         "latest_report_period_end_date": latest.get("period_end_date"),
-        "coverage_status": "has_report" if has_report else "missing_report",
+        "coverage_status": coverage_status,
         "notes": "",
     }
 
@@ -447,6 +476,18 @@ def _decimal_float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _identity_status(company: dict[str, Any], identity: dict[str, Any]) -> str:
+    status = identity.get("identity_status")
+    if status:
+        return str(status)
+    name = str(company.get("name") or "")
+    if name.startswith("Unknown issuer for "):
+        return "unknown"
+    if not company.get("inn"):
+        return "weak"
+    return "matched"
 
 
 def _csv_value(value: Any) -> str:

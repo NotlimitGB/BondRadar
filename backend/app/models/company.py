@@ -48,6 +48,12 @@ class Company(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    identity_profile: Mapped["CompanyIdentityProfile | None"] = relationship(
+        back_populates="company",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
     scores: Mapped[list["CompanyScore"]] = relationship(
         back_populates="company",
         cascade="all, delete-orphan",

@@ -1,0 +1,23 @@
+{
+  "rows": [
+    {
+      "company_id": 1,
+      "current_company_name": "Unknown issuer for RU000SYN001",
+      "legal_name": "Synthetic Demo Finance LLC",
+      "short_name": "Synthetic Demo Finance",
+      "display_name": "Synthetic Demo Finance",
+      "inn": "7700000001",
+      "ogrn": "1027700000001",
+      "kpp": "770001001",
+      "okpo": "12345678",
+      "country": "RU",
+      "issuer_group_name": "Synthetic Demo Group",
+      "issuer_group_inn": "7700000000",
+      "issuer_role": "finance_subsidiary",
+      "identity_source": "operator_json",
+      "source_url": "https://example.invalid/synthetic-issuer",
+      "source_file_name": "synthetic_identity.pdf",
+      "review_notes": "Synthetic sample only; replace with official issuer evidence."
+    }
+  ]
+}
