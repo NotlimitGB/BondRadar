@@ -1,0 +1,20 @@
+{
+  "rows": [
+    {
+      "canonical_company_id": 101,
+      "canonical_company_name": "Synthetic Rail Group",
+      "candidate_company_id": 202,
+      "candidate_company_name": "Unknown issuer for RU000SYN202",
+      "match_type": "bond_name_phrase",
+      "match_score": "0.7500",
+      "match_reasons": [
+        "Synthetic candidate bond name contains canonical display name"
+      ],
+      "sample_secids": ["RU000SYN202"],
+      "sample_bond_names": ["Synthetic Rail Group BO 001"],
+      "status": "needs_review",
+      "review_status": "reviewed",
+      "review_notes": "Synthetic example only; not real issuer data"
+    }
+  ]
+}

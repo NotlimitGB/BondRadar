@@ -1,0 +1,2 @@
+canonical_company_id,canonical_company_name,candidate_company_id,candidate_company_name,match_type,match_score,match_reasons,sample_secids,sample_bond_names,status,review_status,review_notes
+1,Synthetic Canonical Issuer,2,Synthetic Candidate Issuer,manual_review,0.5000,Synthetic review reason,RU000SYN001,Synthetic bond name,needs_review,pending,Synthetic template row only

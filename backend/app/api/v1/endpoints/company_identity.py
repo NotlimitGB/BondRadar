@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -6,14 +8,65 @@ from app.schemas.company_identity import (
     CompanyIdentityApplyRequest,
     CompanyIdentityApplyResult,
     CompanyIdentityDiagnosticsResult,
+    CompanyIdentityDuplicateApplyRequest,
+    CompanyIdentityDuplicateApplyResult,
+    CompanyIdentityDuplicateDiagnosticsResult,
+    CompanyIdentityDuplicatePreviewRequest,
+    CompanyIdentityDuplicatePreviewResult,
     CompanyIdentityPreviewRequest,
     CompanyIdentityPreviewResult,
     CompanyIdentityProfileRead,
+)
+from app.services.company_identity_duplicate_service import (
+    CompanyIdentityDuplicateService,
 )
 from app.services.issuer_identity_service import IssuerIdentityService
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/duplicates/diagnostics",
+    response_model=CompanyIdentityDuplicateDiagnosticsResult,
+)
+def get_duplicate_diagnostics(
+    active_only: bool = Query(default=True),
+    limit: int = Query(default=50, ge=0, le=500),
+    min_score: Decimal = Query(default=Decimal("0.5000"), ge=0, le=1),
+    include_bonds: bool = Query(default=True),
+    include_rejected: bool = Query(default=False),
+    db: Session = Depends(get_db),
+) -> CompanyIdentityDuplicateDiagnosticsResult:
+    return CompanyIdentityDuplicateService(db).diagnostics(
+        active_only=active_only,
+        limit=limit,
+        min_score=min_score,
+        include_bonds=include_bonds,
+        include_rejected=include_rejected,
+    )
+
+
+@router.post(
+    "/duplicates/preview",
+    response_model=CompanyIdentityDuplicatePreviewResult,
+)
+def preview_duplicate_updates(
+    request: CompanyIdentityDuplicatePreviewRequest,
+    db: Session = Depends(get_db),
+) -> CompanyIdentityDuplicatePreviewResult:
+    return CompanyIdentityDuplicateService(db).preview(request)
+
+
+@router.post(
+    "/duplicates/apply",
+    response_model=CompanyIdentityDuplicateApplyResult,
+)
+def apply_duplicate_updates(
+    request: CompanyIdentityDuplicateApplyRequest,
+    db: Session = Depends(get_db),
+) -> CompanyIdentityDuplicateApplyResult:
+    return CompanyIdentityDuplicateService(db).apply(request)
 
 
 @router.get("/diagnostics", response_model=CompanyIdentityDiagnosticsResult)

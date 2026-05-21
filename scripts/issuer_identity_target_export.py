@@ -22,6 +22,11 @@ OUTPUT_FIELDS = [
     "reason",
     "identity_status",
     "identity_confidence",
+    "possible_canonical_company_id",
+    "possible_canonical_company_name",
+    "possible_duplicate_match_score",
+    "possible_duplicate_reasons",
+    "needs_duplicate_review",
     "suggested_search_query",
     "notes",
 ]
@@ -87,6 +92,10 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
                 _merge_target(target, row)
         except Exception as exc:
             warnings.append({"message": f"{source} identity target collection failed: {exc}"})
+
+    duplicate_hints = _duplicate_hints(backend, args, http_request, warnings)
+    for target in targets.values():
+        _attach_duplicate_hint(target, duplicate_hints.get(target["company_id"]))
 
     rows = sorted(
         targets.values(),
@@ -264,6 +273,11 @@ def _empty_target(row: dict[str, Any]) -> dict[str, Any]:
         "reason": "",
         "identity_status": row.get("identity_status") or "unknown",
         "identity_confidence": row.get("identity_confidence"),
+        "possible_canonical_company_id": None,
+        "possible_canonical_company_name": None,
+        "possible_duplicate_match_score": None,
+        "possible_duplicate_reasons": [],
+        "needs_duplicate_review": False,
         "suggested_search_query": "",
         "notes": "",
         "_reasons": set(),
@@ -292,6 +306,59 @@ def _merge_target(target: dict[str, Any], row: dict[str, Any]) -> None:
                 target[field].append(value)
     target["suggested_search_query"] = target.get("suggested_search_query") or _suggested_query(target)
     target["notes"] = target.get("notes") or row.get("notes") or ""
+
+
+def _duplicate_hints(
+    backend: str,
+    args: argparse.Namespace,
+    http_request: Any,
+    warnings: list[dict[str, Any]],
+) -> dict[int, dict[str, Any]]:
+    result = http_request(
+        "GET",
+        (
+            f"{backend}/api/companies/identity/duplicates/diagnostics"
+            f"?active_only=true&limit={max(50, args.limit * 4)}&min_score=0.50&include_bonds=true"
+        ),
+        None,
+    )
+    try:
+        data = _data_or_raise(result)
+    except Exception as exc:
+        warnings.append({"message": f"duplicate hint diagnostics failed: {exc}"})
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    hints: dict[int, dict[str, Any]] = {}
+    for group in data.get("groups") or []:
+        for candidate in group.get("candidates") or []:
+            company_id = candidate.get("company_id")
+            if company_id is None:
+                continue
+            current = hints.get(int(company_id))
+            score = _float(candidate.get("match_score"))
+            if current is not None and score <= _float(current.get("possible_duplicate_match_score")):
+                continue
+            hints[int(company_id)] = {
+                "possible_canonical_company_id": group.get("canonical_company_id"),
+                "possible_canonical_company_name": group.get("canonical_company_name"),
+                "possible_duplicate_match_score": candidate.get("match_score"),
+                "possible_duplicate_reasons": candidate.get("match_reasons") or [],
+            }
+    warnings.extend(data.get("warnings") or [])
+    return hints
+
+
+def _attach_duplicate_hint(target: dict[str, Any], hint: dict[str, Any] | None) -> None:
+    if not hint:
+        return
+    target.update(hint)
+    target["needs_duplicate_review"] = True
+    target["notes"] = (
+        "possible same-issuer duplicate requires review"
+        if not target.get("notes")
+        else f"{target['notes']}; possible same-issuer duplicate requires review"
+    )
 
 
 def _suggested_query(item: dict[str, Any]) -> str:
@@ -324,6 +391,13 @@ def _csv_value(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     return "" if value is None else str(value)
+
+
+def _float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 if __name__ == "__main__":

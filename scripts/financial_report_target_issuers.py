@@ -33,6 +33,11 @@ OUTPUT_FIELDS = [
     "latest_report_period_quarter",
     "latest_report_period_end_date",
     "coverage_status",
+    "possible_canonical_company_id",
+    "possible_canonical_company_name",
+    "possible_duplicate_match_score",
+    "possible_duplicate_reasons",
+    "needs_duplicate_review",
     "notes",
 ]
 
@@ -101,6 +106,9 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
         _merge_targets(targets, bond_targets)
 
     rows = [_enrich_target(target, backend, http_request, warnings) for target in targets.values()]
+    duplicate_hints = _duplicate_hints(backend, args, http_request, warnings)
+    for row in rows:
+        _attach_duplicate_hint(row, duplicate_hints.get(row["company_id"]))
     rows = sorted(
         rows,
         key=lambda item: (
@@ -149,17 +157,18 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Targets",
         "",
-        "| Company | Ticker | Identity | Bonds | Coverage | Reason |",
-        "| --- | --- | --- | ---: | --- | --- |",
+        "| Company | Ticker | Identity | Bonds | Coverage | Duplicate hint | Reason |",
+        "| --- | --- | --- | ---: | --- | --- | --- |",
     ]
     for row in report["targets"]:
         lines.append(
-            "| {name} | {ticker} | {identity} | {bonds} | {coverage} | {reason} |".format(
+            "| {name} | {ticker} | {identity} | {bonds} | {coverage} | {duplicate} | {reason} |".format(
                 name=row.get("company_name") or "",
                 ticker=row.get("company_ticker") or "",
                 identity=row.get("identity_status") or "",
                 bonds=row.get("bonds_count") or 0,
                 coverage=row.get("coverage_status") or "",
+                duplicate=row.get("possible_canonical_company_name") or "",
                 reason=row.get("source_reason") or "",
             )
         )
@@ -371,8 +380,59 @@ def _enrich_target(
         "latest_report_period_quarter": latest.get("period_quarter"),
         "latest_report_period_end_date": latest.get("period_end_date"),
         "coverage_status": coverage_status,
+        "possible_canonical_company_id": None,
+        "possible_canonical_company_name": None,
+        "possible_duplicate_match_score": None,
+        "possible_duplicate_reasons": [],
+        "needs_duplicate_review": False,
         "notes": "",
     }
+
+
+def _duplicate_hints(
+    backend: str,
+    args: argparse.Namespace,
+    http_request: Any,
+    warnings: list[dict[str, Any]],
+) -> dict[int, dict[str, Any]]:
+    data = _safe_get_json(
+        http_request,
+        (
+            f"{backend}/api/companies/identity/duplicates/diagnostics"
+            f"?active_only=true&limit={max(50, args.limit * 4)}&min_score=0.50&include_bonds=true"
+        ),
+        default=None,
+    )
+    if not isinstance(data, dict):
+        return {}
+    hints: dict[int, dict[str, Any]] = {}
+    for group in data.get("groups") or []:
+        for candidate in group.get("candidates") or []:
+            company_id = candidate.get("company_id")
+            if company_id is None:
+                continue
+            current = hints.get(int(company_id))
+            score = _decimal_float(candidate.get("match_score"))
+            if current is not None and score <= _decimal_float(current.get("possible_duplicate_match_score")):
+                continue
+            hints[int(company_id)] = {
+                "possible_canonical_company_id": group.get("canonical_company_id"),
+                "possible_canonical_company_name": group.get("canonical_company_name"),
+                "possible_duplicate_match_score": candidate.get("match_score"),
+                "possible_duplicate_reasons": candidate.get("match_reasons") or [],
+            }
+    warnings.extend(data.get("warnings") or [])
+    return hints
+
+
+def _attach_duplicate_hint(row: dict[str, Any], hint: dict[str, Any] | None) -> None:
+    if not hint:
+        return
+    row.update(hint)
+    row["needs_duplicate_review"] = True
+    row["coverage_status"] = "duplicate_review"
+    note = "possible same-issuer duplicate requires review"
+    row["notes"] = note if not row.get("notes") else f"{row['notes']}; {note}"
 
 
 def _merge_targets(targets: dict[int, dict[str, Any]], rows: list[dict[str, Any]]) -> None:

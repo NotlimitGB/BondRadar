@@ -1,0 +1,2 @@
+canonical_company_id,canonical_company_name,candidate_company_id,candidate_company_name,match_type,match_score,match_reasons,sample_secids,sample_bond_names,status,review_status,review_notes
+101,Synthetic Rail Group,202,Unknown issuer for RU000SYN202,bond_name_phrase,0.7500,Synthetic candidate bond name contains canonical display name,RU000SYN202,Synthetic Rail Group BO 001,needs_review,reviewed,Synthetic example only; not real issuer data

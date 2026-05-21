@@ -1,0 +1,18 @@
+{
+  "rows": [
+    {
+      "canonical_company_id": 1,
+      "canonical_company_name": "Synthetic Canonical Issuer",
+      "candidate_company_id": 2,
+      "candidate_company_name": "Synthetic Candidate Issuer",
+      "match_type": "manual_review",
+      "match_score": "0.5000",
+      "match_reasons": ["Synthetic review reason"],
+      "sample_secids": ["RU000SYN001"],
+      "sample_bond_names": ["Synthetic bond name"],
+      "status": "needs_review",
+      "review_status": "pending",
+      "review_notes": "Synthetic template row only"
+    }
+  ]
+}

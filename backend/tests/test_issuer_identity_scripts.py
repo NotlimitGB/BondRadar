@@ -135,6 +135,27 @@ def test_identity_target_export_deduplicates_and_writes_outputs(tmp_path: Path) 
 
     def fake_http(method: str, url: str, payload=None):
         assert method == "GET"
+        if "/duplicates/diagnostics" in url:
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "groups": [
+                        {
+                            "canonical_company_id": 18,
+                            "canonical_company_name": "Synthetic Canonical",
+                            "candidates": [
+                                {
+                                    "company_id": 1,
+                                    "match_score": "0.7500",
+                                    "match_reasons": ["Synthetic duplicate hint"],
+                                }
+                            ],
+                        }
+                    ],
+                    "warnings": [],
+                },
+            )
         return import_script.HttpResult(
             ok=True,
             status_code=200,
@@ -167,6 +188,8 @@ def test_identity_target_export_deduplicates_and_writes_outputs(tmp_path: Path) 
 
     assert report["total_targets"] == 1
     assert report["targets"][0]["suggested_search_query"] == '"Synthetic Bond" issuer INN'
+    assert report["targets"][0]["needs_duplicate_review"] is True
+    assert report["targets"][0]["possible_canonical_company_id"] == 18
     assert json.loads(json_output.read_text(encoding="utf-8"))["targets"][0]["company_id"] == 1
     assert "company_id" in csv_output.read_text(encoding="utf-8")
     assert "# BondRadar Issuer Identity Targets" in markdown_output.read_text(encoding="utf-8")

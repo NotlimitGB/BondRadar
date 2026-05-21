@@ -175,6 +175,77 @@ Preview reports hard conflicts, including:
 Apply blocks hard conflicts by default. `--allow-conflicts` records conflict
 status and notes, but still does not merge companies.
 
+## Duplicate / Same Issuer Review
+
+Duplicate company rows happen when the bond universe contains weak issuer
+metadata and BondRadar creates generated placeholders such as `Unknown issuer
+for RU000...`. A later reviewed identity can reveal that several company rows
+probably refer to the same legal issuer or the same issuer group.
+
+Duplicate review does not merge companies. It only records a reviewed candidate
+relationship in `company_identity_duplicate_candidates`. Actual merge or bond
+consolidation is a separate future task.
+
+Keep these cases separate during review:
+
+- duplicate legal issuer;
+- same issuer group;
+- SPV or finance subsidiary;
+- parent group or guarantor.
+
+Safe workflow:
+
+```text
+diagnostics -> duplicate export -> manual review -> preview -> confirmed apply
+```
+
+Duplicate diagnostics:
+
+```bash
+curl -sS "http://127.0.0.1:8000/api/companies/identity/duplicates/diagnostics?active_only=true&limit=50&min_score=0.50" \
+  -o logs/issuer_identity/duplicate_diagnostics.json
+```
+
+Export duplicate candidates:
+
+```bash
+python scripts/issuer_identity_duplicate_export.py \
+  --backend-url http://127.0.0.1:8000 \
+  --limit 50 \
+  --min-score 0.50 \
+  --json-output logs/issuer_identity/duplicate_candidates.json \
+  --csv-output logs/issuer_identity/duplicate_candidates.csv \
+  --markdown-output logs/issuer_identity/duplicate_candidates.md
+```
+
+Preview reviewed duplicate decisions:
+
+```bash
+python scripts/issuer_identity_duplicate_review.py \
+  --input data/issuer_identity/private/duplicate_review.csv \
+  --format csv \
+  --backend-url http://127.0.0.1:8000 \
+  --dry-run \
+  --json-output logs/issuer_identity/duplicate_preview.json \
+  --markdown-output logs/issuer_identity/duplicate_preview.md
+```
+
+Confirmed apply records only the non-destructive review decision:
+
+```bash
+python scripts/issuer_identity_duplicate_review.py \
+  --input data/issuer_identity/private/duplicate_review.csv \
+  --format csv \
+  --backend-url http://127.0.0.1:8000 \
+  --execute-apply yes \
+  --confirm-apply yes \
+  --json-output logs/issuer_identity/duplicate_apply.json \
+  --markdown-output logs/issuer_identity/duplicate_apply.md
+```
+
+The duplicate workflow never moves bonds, deletes companies, overwrites verified
+identity, or applies legal-name guesses automatically.
+
 ## Uncertain Cases
 
 If evidence is unclear:
@@ -258,4 +329,53 @@ batch rehearsal returns warning/passed, not failed
 review template file is generated
 paper schedule remains paused
 identity apply is not executed
+```
+
+## VDS Duplicate Smoke Checklist
+
+Health:
+
+```bash
+curl -i http://127.0.0.1:8000/api/health
+```
+
+Duplicate diagnostics:
+
+```bash
+curl -sS "http://127.0.0.1:8000/api/companies/identity/duplicates/diagnostics?active_only=true&limit=20&min_score=0.50" \
+  -o logs/issuer_identity/duplicates_diagnostics_task82_vds.json
+```
+
+Export duplicate candidates:
+
+```bash
+python3 scripts/issuer_identity_duplicate_export.py \
+  --backend-url http://127.0.0.1:8000 \
+  --limit 20 \
+  --min-score 0.50 \
+  --json-output logs/issuer_identity/duplicate_candidates_task82_vds.json \
+  --csv-output logs/issuer_identity/duplicate_candidates_task82_vds.csv \
+  --markdown-output logs/issuer_identity/duplicate_candidates_task82_vds.md
+```
+
+Confirm the schedule remains paused:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+select id, name, status, use_current_date_as_of_date, next_run_at, last_run_at, last_cycle_run_id, run_count
+from paper_live_schedules
+order by id desc
+limit 5;
+"
+```
+
+Expected:
+
+```text
+health = 200 OK
+duplicate diagnostics returns JSON
+duplicate export writes reports
+no apply executed
+schedule remains paused
 ```
