@@ -14,6 +14,19 @@ from financial_report_target_issuers import parse_args as parse_financial_target
 OUTPUT_FIELDS = [
     "company_id",
     "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "is_canonical_target",
+    "is_duplicate_candidate",
+    "duplicate_mapping_status",
+    "duplicate_review_status",
+    "duplicate_match_score",
+    "duplicate_match_type",
+    "duplicate_company_ids",
+    "duplicate_company_names",
+    "duplicate_sample_secids",
+    "duplicate_sample_bond_names",
+    "duplicate_count",
     "ticker",
     "inn",
     "bonds_count",
@@ -60,6 +73,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--model-run-id", type=int, default=None)
     parser.add_argument("--as-of-date", default=None)
     parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument("--use-duplicate-mapping", action="store_true")
+    parser.add_argument("--rollup-duplicates", action="store_true")
+    parser.add_argument("--include-duplicate-members", action="store_true")
+    parser.add_argument("--compare-rollup", action="store_true")
     parser.add_argument("--json-output", type=Path, default=None)
     parser.add_argument("--csv-output", type=Path, default=None)
     parser.add_argument("--markdown-output", type=Path, default=None)
@@ -93,9 +110,20 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
         except Exception as exc:
             warnings.append({"message": f"{source} identity target collection failed: {exc}"})
 
+    raw_target_count = len(targets)
+    canonical_context = _canonical_context(backend, args, http_request, warnings)
     duplicate_hints = _duplicate_hints(backend, args, http_request, warnings)
     for target in targets.values():
         _attach_duplicate_hint(target, duplicate_hints.get(target["company_id"]))
+
+    if _flag(args, "use_duplicate_mapping") or _flag(args, "rollup_duplicates"):
+        _attach_canonical_resolution(targets, canonical_context)
+    if _flag(args, "rollup_duplicates"):
+        targets = _rollup_targets(
+            targets,
+            canonical_context,
+            include_duplicate_members=_flag(args, "include_duplicate_members"),
+        )
 
     rows = sorted(
         targets.values(),
@@ -110,10 +138,12 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
         row.pop("_reasons", None)
         row.pop("_priority", None)
     status = "failed" if errors else "warning" if warnings else "passed"
+    rollup_comparison = _rollup_comparison(raw_target_count, rows)
     return {
         "status": status,
         "source": args.source,
         "total_targets": len(rows),
+        "rollup_comparison": rollup_comparison if _flag(args, "compare_rollup") else None,
         "targets": rows,
         "warnings": warnings,
         "errors": errors,
@@ -148,15 +178,17 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Targets",
         "",
-        "| Company | Identity | Bonds | Reason | Search query |",
-        "| --- | --- | ---: | --- | --- |",
+        "| Company | Canonical | Identity | Bonds | Duplicates | Reason | Search query |",
+        "| --- | --- | --- | ---: | ---: | --- | --- |",
     ]
     for row in report["targets"]:
         lines.append(
-            "| {company} | {status} | {bonds} | {reason} | {query} |".format(
+            "| {company} | {canonical} | {status} | {bonds} | {duplicates} | {reason} | {query} |".format(
                 company=row.get("company_name") or "",
+                canonical=row.get("canonical_company_name") or "",
                 status=row.get("identity_status") or "",
                 bonds=row.get("bonds_count") or 0,
+                duplicates=row.get("duplicate_count") or 0,
                 reason=row.get("reason") or "",
                 query=row.get("suggested_search_query") or "",
             )
@@ -265,6 +297,19 @@ def _empty_target(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "company_id": int(row["company_id"]),
         "company_name": row.get("company_name"),
+        "canonical_company_id": int(row["company_id"]),
+        "canonical_company_name": row.get("company_name"),
+        "is_canonical_target": True,
+        "is_duplicate_candidate": False,
+        "duplicate_mapping_status": None,
+        "duplicate_review_status": None,
+        "duplicate_match_score": None,
+        "duplicate_match_type": None,
+        "duplicate_company_ids": [],
+        "duplicate_company_names": [],
+        "duplicate_sample_secids": [],
+        "duplicate_sample_bond_names": [],
+        "duplicate_count": 0,
         "ticker": row.get("ticker"),
         "inn": row.get("inn"),
         "bonds_count": 0,
@@ -306,6 +351,162 @@ def _merge_target(target: dict[str, Any], row: dict[str, Any]) -> None:
                 target[field].append(value)
     target["suggested_search_query"] = target.get("suggested_search_query") or _suggested_query(target)
     target["notes"] = target.get("notes") or row.get("notes") or ""
+
+
+def _canonical_context(
+    backend: str,
+    args: argparse.Namespace,
+    http_request: Any,
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not (
+        _flag(args, "use_duplicate_mapping")
+        or _flag(args, "rollup_duplicates")
+        or _flag(args, "compare_rollup")
+    ):
+        return {"by_candidate": {}, "groups_by_canonical": {}}
+    result = http_request(
+        "GET",
+        f"{backend}/api/companies/identity/canonical-groups?active_only=true",
+        None,
+    )
+    try:
+        data = _data_or_raise(result)
+    except Exception as exc:
+        warnings.append({"message": f"canonical group resolution failed: {exc}"})
+        return {"by_candidate": {}, "groups_by_canonical": {}}
+    if not isinstance(data, dict):
+        return {"by_candidate": {}, "groups_by_canonical": {}}
+    by_candidate: dict[int, dict[str, Any]] = {}
+    groups_by_canonical: dict[int, dict[str, Any]] = {}
+    for group in data.get("groups") or []:
+        canonical_id = group.get("canonical_company_id")
+        if canonical_id is None:
+            continue
+        groups_by_canonical[int(canonical_id)] = group
+        for member in group.get("duplicate_members") or []:
+            member_id = member.get("company_id")
+            if member_id is None:
+                continue
+            by_candidate[int(member_id)] = {"group": group, "member": member}
+    warnings.extend(data.get("warnings") or [])
+    return {"by_candidate": by_candidate, "groups_by_canonical": groups_by_canonical}
+
+
+def _attach_canonical_resolution(
+    targets: dict[int, dict[str, Any]],
+    context: dict[str, Any],
+) -> None:
+    by_candidate = context.get("by_candidate") or {}
+    for company_id, target in targets.items():
+        mapping = by_candidate.get(company_id)
+        if not mapping:
+            target["canonical_company_id"] = target["company_id"]
+            target["canonical_company_name"] = target.get("company_name")
+            target["is_canonical_target"] = True
+            target["is_duplicate_candidate"] = False
+            continue
+        group = mapping["group"]
+        member = mapping["member"]
+        target["canonical_company_id"] = group.get("canonical_company_id")
+        target["canonical_company_name"] = group.get("canonical_company_name")
+        target["is_canonical_target"] = False
+        target["is_duplicate_candidate"] = True
+        target["duplicate_mapping_status"] = member.get("duplicate_mapping_status")
+        target["duplicate_review_status"] = member.get("duplicate_review_status")
+        target["duplicate_match_score"] = member.get("duplicate_match_score")
+        target["duplicate_match_type"] = member.get("duplicate_match_type")
+
+
+def _rollup_targets(
+    targets: dict[int, dict[str, Any]],
+    context: dict[str, Any],
+    *,
+    include_duplicate_members: bool,
+) -> dict[int, dict[str, Any]]:
+    by_candidate = context.get("by_candidate") or {}
+    groups_by_canonical = context.get("groups_by_canonical") or {}
+    rolled: dict[int, dict[str, Any]] = {}
+    for company_id, target in targets.items():
+        mapping = by_candidate.get(company_id)
+        canonical_id = (
+            int(mapping["group"]["canonical_company_id"])
+            if mapping
+            else int(target["company_id"])
+        )
+        group = groups_by_canonical.get(canonical_id)
+        if canonical_id not in rolled:
+            base = _canonical_empty_target(target, group) if mapping else dict(target)
+            rolled[canonical_id] = base
+        if mapping:
+            _merge_target(rolled[canonical_id], target)
+            _add_duplicate_member_samples(rolled[canonical_id], target)
+    for canonical_id, row in rolled.items():
+        group = groups_by_canonical.get(canonical_id)
+        if group:
+            _attach_group_members(
+                row,
+                group,
+                include_duplicate_members=include_duplicate_members,
+            )
+        row["is_canonical_target"] = True
+        row["is_duplicate_candidate"] = False
+    return rolled
+
+
+def _canonical_empty_target(
+    source_target: dict[str, Any],
+    group: dict[str, Any] | None,
+) -> dict[str, Any]:
+    canonical_id = int(group.get("canonical_company_id") if group else source_target["company_id"])
+    name = group.get("canonical_company_name") if group else source_target.get("company_name")
+    return {
+        **_empty_target(
+            {
+                "company_id": canonical_id,
+                "company_name": name,
+                "ticker": None if group is None else group.get("canonical_ticker"),
+                "inn": None if group is None else group.get("canonical_inn"),
+                "identity_status": None if group is None else group.get("canonical_identity_status"),
+                "identity_confidence": None,
+            }
+        ),
+        "source_reasons": set(),
+    }
+
+
+def _add_duplicate_member_samples(target: dict[str, Any], source: dict[str, Any]) -> None:
+    for field, duplicate_field in (
+        ("sample_secids", "duplicate_sample_secids"),
+        ("sample_bond_names", "duplicate_sample_bond_names"),
+    ):
+        for value in source.get(field) or []:
+            if value and value not in target[duplicate_field]:
+                target[duplicate_field].append(value)
+
+
+def _attach_group_members(
+    target: dict[str, Any],
+    group: dict[str, Any],
+    *,
+    include_duplicate_members: bool,
+) -> None:
+    members = group.get("duplicate_members") or []
+    target["duplicate_count"] = len(members)
+    if include_duplicate_members:
+        target["duplicate_company_ids"] = [member.get("company_id") for member in members]
+        target["duplicate_company_names"] = [member.get("company_name") for member in members]
+
+
+def _rollup_comparison(raw_count: int, rows: list[dict[str, Any]]) -> dict[str, int]:
+    canonical_count = len(rows)
+    duplicate_member_count = sum(int(row.get("duplicate_count") or 0) for row in rows)
+    return {
+        "raw_target_count": raw_count,
+        "canonical_target_count": canonical_count,
+        "deduplicated_count": max(0, raw_count - canonical_count),
+        "duplicate_member_count": duplicate_member_count,
+    }
 
 
 def _duplicate_hints(
@@ -398,6 +599,10 @@ def _float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _flag(args: argparse.Namespace, name: str) -> bool:
+    return bool(getattr(args, name, False))
 
 
 if __name__ == "__main__":

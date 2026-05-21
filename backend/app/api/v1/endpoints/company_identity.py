@@ -8,6 +8,7 @@ from app.schemas.company_identity import (
     CompanyIdentityApplyRequest,
     CompanyIdentityApplyResult,
     CompanyIdentityDiagnosticsResult,
+    CompanyIdentityCanonicalGroupsResult,
     CompanyIdentityDuplicateApplyRequest,
     CompanyIdentityDuplicateApplyResult,
     CompanyIdentityDuplicateDiagnosticsResult,
@@ -20,10 +21,26 @@ from app.schemas.company_identity import (
 from app.services.company_identity_duplicate_service import (
     CompanyIdentityDuplicateService,
 )
+from app.services.company_identity_resolution_service import (
+    CompanyIdentityResolutionService,
+)
 from app.services.issuer_identity_service import IssuerIdentityService
 
 
 router = APIRouter()
+
+
+@router.get(
+    "/canonical-groups",
+    response_model=CompanyIdentityCanonicalGroupsResult,
+)
+def get_canonical_groups(
+    active_only: bool = Query(default=True),
+    db: Session = Depends(get_db),
+) -> CompanyIdentityCanonicalGroupsResult:
+    return CompanyIdentityResolutionService(db).get_canonical_groups(
+        active_only=active_only,
+    )
 
 
 @router.get(

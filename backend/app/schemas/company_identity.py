@@ -315,3 +315,55 @@ class CompanyIdentityDuplicateApplyResult(BaseModel):
     rows: list[CompanyIdentityDuplicateApplyRow]
     errors: list[CompanyIdentityRowMessage] = Field(default_factory=list)
     warnings: list[CompanyIdentityRowMessage] = Field(default_factory=list)
+
+
+class CompanyIdentityResolutionWarning(BaseModel):
+    code: str
+    message: str
+    company_id: int | None = None
+
+
+class CompanyIdentityResolution(BaseModel):
+    company_id: int
+    company_name: str
+    canonical_company_id: int
+    canonical_company_name: str
+    is_canonical: bool
+    is_duplicate_candidate: bool
+    duplicate_mapping_status: str | None = None
+    duplicate_review_status: str | None = None
+    duplicate_match_type: str | None = None
+    duplicate_match_score: Decimal | None = None
+    warnings: list[CompanyIdentityResolutionWarning] = Field(default_factory=list)
+
+
+class CompanyIdentityCanonicalDuplicateMember(BaseModel):
+    company_id: int
+    company_name: str
+    ticker: str | None = None
+    inn: str | None = None
+    duplicate_mapping_status: str
+    duplicate_review_status: str
+    duplicate_match_type: str
+    duplicate_match_score: Decimal
+
+
+class CompanyIdentityCanonicalGroup(BaseModel):
+    canonical_company_id: int
+    canonical_company_name: str
+    canonical_ticker: str | None = None
+    canonical_inn: str | None = None
+    canonical_identity_status: str | None = None
+    duplicate_count: int
+    duplicate_company_ids: list[int] = Field(default_factory=list)
+    duplicate_members: list[CompanyIdentityCanonicalDuplicateMember] = Field(default_factory=list)
+    warnings: list[CompanyIdentityResolutionWarning] = Field(default_factory=list)
+
+
+class CompanyIdentityCanonicalGroupsResult(BaseModel):
+    status: str
+    group_count: int
+    duplicate_mapping_count: int
+    conflict_count: int
+    groups: list[CompanyIdentityCanonicalGroup] = Field(default_factory=list)
+    warnings: list[CompanyIdentityResolutionWarning] = Field(default_factory=list)

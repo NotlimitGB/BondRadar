@@ -218,6 +218,10 @@ python scripts/issuer_identity_duplicate_export.py \
   --markdown-output logs/issuer_identity/duplicate_candidates.md
 ```
 
+Use `--exclude-accepted` when you want only unresolved candidates. The default
+export keeps accepted/reviewed rows visible so the operator can see the current
+duplicate map.
+
 Preview reviewed duplicate decisions:
 
 ```bash
@@ -245,6 +249,33 @@ python scripts/issuer_identity_duplicate_review.py \
 
 The duplicate workflow never moves bonds, deletes companies, overwrites verified
 identity, or applies legal-name guesses automatically.
+
+## Using Duplicate Mapping In Target Exports
+
+Accepted/reviewed duplicate decisions can be used as a read-only canonical
+issuer layer for operator reports. This does not merge companies and does not
+move bonds; it only rolls duplicate rows up in generated CSV/JSON/Markdown.
+
+Identity targets with canonical rollup:
+
+```bash
+python scripts/issuer_identity_target_export.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --compare-rollup \
+  --json-output logs/issuer_identity/canonical_identity_targets_task83.json \
+  --csv-output logs/issuer_identity/canonical_identity_targets_task83.csv \
+  --markdown-output logs/issuer_identity/canonical_identity_targets_task83.md
+```
+
+Use this before applying more identity rows so reviewed duplicate candidates are
+not handled as separate legal issuers by mistake.
 
 ## Uncertain Cases
 
@@ -376,6 +407,54 @@ Expected:
 health = 200 OK
 duplicate diagnostics returns JSON
 duplicate export writes reports
+no apply executed
+schedule remains paused
+```
+
+## VDS Canonical Rollup Smoke Checklist
+
+Health:
+
+```bash
+curl -i http://127.0.0.1:8000/api/health
+```
+
+Identity targets with duplicate rollup:
+
+```bash
+python3 scripts/issuer_identity_target_export.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --compare-rollup \
+  --json-output logs/issuer_identity/canonical_identity_targets_task83_vds.json \
+  --csv-output logs/issuer_identity/canonical_identity_targets_task83_vds.csv \
+  --markdown-output logs/issuer_identity/canonical_identity_targets_task83_vds.md
+```
+
+Schedule safety:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+select id, name, status, use_current_date_as_of_date, next_run_at, last_run_at, last_cycle_run_id, run_count
+from paper_live_schedules
+order by id desc
+limit 5;
+"
+```
+
+Expected:
+
+```text
+health = 200 OK
+canonical identity target export is written
+accepted duplicate members appear under canonical issuers
 no apply executed
 schedule remains paused
 ```

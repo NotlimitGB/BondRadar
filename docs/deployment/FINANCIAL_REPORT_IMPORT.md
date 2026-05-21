@@ -249,6 +249,33 @@ python scripts/financial_report_target_issuers.py \
   --markdown-output logs/financial_reports/target_issuers.md
 ```
 
+After duplicate review, use accepted/reviewed duplicate mapping to avoid
+collecting the same issuer report multiple times:
+
+```bash
+python scripts/financial_report_target_issuers.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --compare-rollup \
+  --json-output logs/financial_reports/canonical_targets_task83.json \
+  --csv-output logs/financial_reports/canonical_targets_task83.csv \
+  --markdown-output logs/financial_reports/canonical_targets_task83.md \
+  --collection-template-output logs/financial_reports/canonical_collection_template_task83.csv
+```
+
+Duplicate mapping is export-only. It does not merge companies, move bonds,
+change `financial_reports.company_id`, or apply reports to duplicate rows.
+Financial reports should usually be collected for the canonical legal issuer.
+If a report is attached only to a duplicate candidate, the export reports
+`financial_report_attached_to_duplicate_candidate` so the operator can review
+the data before rebuilding downstream layers.
+
 If the target export marks `needs_identity_review=true`, run issuer identity
 diagnostics and preview first:
 
@@ -386,6 +413,39 @@ python scripts/financial_report_post_ingest_rebuild.py \
 
 Do not use the imported data in paper pilot review until downstream rebuild and
 readiness checks have been reviewed.
+
+## VDS Canonical Target Smoke
+
+```bash
+curl -i http://127.0.0.1:8000/api/health
+```
+
+```bash
+python3 scripts/financial_report_target_issuers.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --compare-rollup \
+  --json-output logs/financial_reports/canonical_targets_task83_vds.json \
+  --csv-output logs/financial_reports/canonical_targets_task83_vds.csv \
+  --markdown-output logs/financial_reports/canonical_targets_task83_vds.md \
+  --collection-template-output logs/financial_reports/canonical_collection_template_task83_vds.csv
+```
+
+Expected:
+
+```text
+health = 200 OK
+canonical financial report target export is written
+canonical issuers include accepted duplicate member IDs
+paper schedule remains paused
+no import or apply endpoint is called
+```
 
 ## Source Quality Guidance
 

@@ -109,6 +109,50 @@ def test_duplicate_export_writes_json_csv_markdown(tmp_path: Path) -> None:
     assert "# BondRadar Issuer Duplicate Candidates" in markdown_output.read_text(encoding="utf-8")
 
 
+def test_duplicate_export_can_exclude_accepted_rows() -> None:
+    args = duplicate_export.parse_args(
+        [
+            "--backend-url",
+            "http://testserver",
+            "--exclude-accepted",
+        ]
+    )
+
+    def fake_http(method: str, url: str, payload=None):
+        return import_script.HttpResult(
+            ok=True,
+            status_code=200,
+            data={
+                "candidate_group_count": 1,
+                "candidate_pair_count": 1,
+                "groups": [
+                    {
+                        "group_key": "manual",
+                        "canonical_company_id": 18,
+                        "canonical_company_name": "Synthetic Canonical",
+                        "canonical_identity_status": "matched",
+                        "candidates": [
+                            {
+                                "company_id": 289,
+                                "company_name": "Unknown issuer for RU000SYN289",
+                                "match_type": "bond_name_phrase",
+                                "match_score": "0.7500",
+                                "match_reasons": ["Accepted synthetic mapping"],
+                                "persisted_status": "accepted",
+                                "review_status": "reviewed",
+                            }
+                        ],
+                    }
+                ],
+                "warnings": [],
+            },
+        )
+
+    report = duplicate_export.build_report(args, http_request=fake_http)
+
+    assert report["rows"] == []
+
+
 def test_duplicate_review_dry_run_calls_preview_only(tmp_path: Path) -> None:
     input_path = tmp_path / "duplicate_review.csv"
     _write_review_csv(input_path)

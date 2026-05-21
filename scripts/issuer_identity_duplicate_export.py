@@ -37,6 +37,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--active-only", action="store_true", default=True)
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--min-score", default="0.50")
+    parser.add_argument("--include-accepted", action="store_true")
+    parser.add_argument("--exclude-accepted", action="store_true")
     parser.add_argument("--json-output", type=Path, default=None)
     parser.add_argument("--csv-output", type=Path, default=None)
     parser.add_argument("--markdown-output", type=Path, default=None)
@@ -79,6 +81,15 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
 
     warnings.extend(data.get("warnings") or [])
     rows = _flatten_groups(data.get("groups") or [])
+    if getattr(args, "exclude_accepted", False):
+        rows = [
+            row
+            for row in rows
+            if not (
+                row.get("persisted_status") == "accepted"
+                and row.get("review_status") in {"reviewed", "accepted"}
+            )
+        ]
     status = "failed" if errors else "warning" if warnings or rows else "passed"
     return {
         "status": status,

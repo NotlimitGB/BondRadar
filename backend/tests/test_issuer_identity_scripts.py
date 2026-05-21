@@ -195,6 +195,91 @@ def test_identity_target_export_deduplicates_and_writes_outputs(tmp_path: Path) 
     assert "# BondRadar Issuer Identity Targets" in markdown_output.read_text(encoding="utf-8")
 
 
+def test_identity_target_export_rolls_up_accepted_duplicates() -> None:
+    args = target_export.parse_args(
+        [
+            "--backend-url",
+            "http://testserver",
+            "--source",
+            "unknown-companies",
+            "--limit",
+            "10",
+            "--use-duplicate-mapping",
+            "--rollup-duplicates",
+            "--include-duplicate-members",
+            "--compare-rollup",
+        ]
+    )
+
+    def fake_http(method: str, url: str, payload=None):
+        assert method == "GET"
+        if "/canonical-groups" in url:
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "status": "passed",
+                    "groups": [
+                        {
+                            "canonical_company_id": 18,
+                            "canonical_company_name": "Synthetic Canonical",
+                            "canonical_ticker": "CAN",
+                            "canonical_inn": "7700000001",
+                            "canonical_identity_status": "matched",
+                            "duplicate_members": [
+                                {
+                                    "company_id": 289,
+                                    "company_name": "Unknown issuer for RU000SYN289",
+                                    "duplicate_mapping_status": "accepted",
+                                    "duplicate_review_status": "reviewed",
+                                    "duplicate_match_type": "bond_name_phrase",
+                                    "duplicate_match_score": "0.7500",
+                                }
+                            ],
+                        }
+                    ],
+                    "warnings": [],
+                },
+            )
+        if "/duplicates/diagnostics" in url:
+            return import_script.HttpResult(ok=True, status_code=200, data={"groups": []})
+        return import_script.HttpResult(
+            ok=True,
+            status_code=200,
+            data={
+                "status": "warning",
+                "top_unknown_issuers": [
+                    {
+                        "company_id": 289,
+                        "company_name": "Unknown issuer for RU000SYN289",
+                        "ticker": "MOEX_RU000SYN289",
+                        "inn": None,
+                        "bonds_count": 1,
+                        "sample_secids": ["RU000SYN289"],
+                        "sample_bond_names": ["Synthetic Canonical BO 001"],
+                        "identity_status": "unknown",
+                    }
+                ],
+                "warnings": [],
+            },
+        )
+
+    report = target_export.build_report(args, http_request=fake_http)
+
+    assert report["total_targets"] == 1
+    assert report["rollup_comparison"] == {
+        "raw_target_count": 1,
+        "canonical_target_count": 1,
+        "deduplicated_count": 0,
+        "duplicate_member_count": 1,
+    }
+    target = report["targets"][0]
+    assert target["company_id"] == 18
+    assert target["company_name"] == "Synthetic Canonical"
+    assert target["duplicate_company_ids"] == [289]
+    assert target["duplicate_sample_secids"] == ["RU000SYN289"]
+
+
 def test_moex_enrich_defaults_to_preview_only() -> None:
     calls: list[str] = []
 
