@@ -46,6 +46,11 @@ from app.services.paper_trading_live_readiness_service import (
 from app.services.paper_trading_live_schedule_service import (
     LivePaperScheduleService,
 )
+from app.services.paper_trading_risk_policy import (
+    paper_risk_policy_payload,
+    risk_override_warning,
+    validate_paper_risk_policy,
+)
 
 
 class LivePaperPilotBootstrapService:
@@ -63,6 +68,7 @@ class LivePaperPilotBootstrapService:
 
         readiness = LivePaperReadinessService(self.db).check(readiness_request)
         warnings = self._readiness_warnings(readiness)
+        warnings.extend(self._configuration_warnings(request))
         blocked_message = self._blocked_message(request, readiness)
         schedule_read: LivePaperScheduleRead | None = None
 
@@ -191,6 +197,7 @@ class LivePaperPilotBootstrapService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="transaction_cost_rate must be non-negative",
             )
+        validate_paper_risk_policy(request)
 
     @staticmethod
     def _between_zero_and_one(value: Decimal) -> bool:
@@ -229,6 +236,11 @@ class LivePaperPilotBootstrapService:
             max_position_weight=request.max_position_weight,
             max_issuer_weight=request.max_issuer_weight,
             max_high_risk_weight=request.max_high_risk_weight,
+            min_liquidity_score=request.min_liquidity_score,
+            exclude_blocked_by_risk=request.exclude_blocked_by_risk,
+            exclude_insufficient_credit_data=request.exclude_insufficient_credit_data,
+            allowed_risk_levels=request.allowed_risk_levels,
+            allowed_decision_statuses=request.allowed_decision_statuses,
         )
         experiment = StrategyExperimentCompareRequest(
             model_run_id=request.model_run_id,
@@ -283,6 +295,13 @@ class LivePaperPilotBootstrapService:
             max_position_weight=request.max_position_weight,
             max_issuer_weight=request.max_issuer_weight,
             max_high_risk_weight=request.max_high_risk_weight,
+            min_liquidity_score=request.min_liquidity_score,
+            exclude_blocked_by_risk=request.exclude_blocked_by_risk,
+            exclude_insufficient_credit_data=request.exclude_insufficient_credit_data,
+            allowed_risk_levels=request.allowed_risk_levels,
+            allowed_decision_statuses=request.allowed_decision_statuses,
+            risk_override_enabled=request.risk_override_enabled,
+            risk_override_reason=request.risk_override_reason,
             transaction_cost_rate=request.transaction_cost_rate,
             include_excluded_candidates=True,
         )
@@ -314,17 +333,42 @@ class LivePaperPilotBootstrapService:
             interval_days=request.interval_days,
             max_runs=request.max_runs,
             status="active",
-            use_current_date_as_of_date=True,
+            use_current_date_as_of_date=request.use_current_date_as_of_date,
         )
 
     @staticmethod
     def _readiness_warnings(
         readiness: LivePaperReadinessResponse,
     ) -> list[dict[str, Any]]:
-        return [
+        warnings = [
             warning.model_dump(mode="json")
             for warning in readiness.warnings
         ]
+        return warnings
+
+    @staticmethod
+    def _configuration_warnings(
+        request: LivePaperPilotBootstrapRequest,
+    ) -> list[dict[str, Any]]:
+        warnings: list[dict[str, Any]] = []
+        override_warning = risk_override_warning(request)
+        if override_warning is not None:
+            warnings.append(override_warning)
+        if request.use_current_date_as_of_date:
+            warnings.append(
+                {
+                    "message": (
+                        "Current-date schedule mode requires refreshed predictions "
+                        "before each paper execution"
+                    ),
+                    "details": {
+                        "use_current_date_as_of_date": True,
+                        "fixed_prediction_date": request.date_to.isoformat(),
+                        "risk_policy": paper_risk_policy_payload(request),
+                    },
+                }
+            )
+        return warnings
 
     @staticmethod
     def _blocked_message(

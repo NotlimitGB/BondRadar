@@ -295,7 +295,7 @@ def scenario_payload(run: MLModelRun, **overrides) -> dict:
         "top_n": 1,
         "max_position_weight": "0.20",
         "max_issuer_weight": "1",
-        "max_high_risk_weight": "1",
+        "max_high_risk_weight": "0.20",
         "transaction_cost_rate": "0",
         "include_performance_report": True,
     }

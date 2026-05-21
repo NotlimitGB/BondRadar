@@ -441,6 +441,22 @@ class LivePaperMonitoringService:
             if schedule.last_cycle_run_id is None
             else self.db.get(PaperLiveCycleRun, schedule.last_cycle_run_id)
         )
+        risk_override = self._risk_override_from_cycle_request(
+            schedule.cycle_request_json
+        )
+        if risk_override.get("risk_override_enabled") is True:
+            alerts.append(
+                self._alert(
+                    "warning",
+                    "risk_override_enabled",
+                    "Paper risk override is enabled for this schedule",
+                    schedule_id=schedule.id,
+                    risk_override=risk_override,
+                    risk_policy=self._risk_policy_from_cycle_request(
+                        schedule.cycle_request_json
+                    ),
+                )
+            )
         if last_cycle is not None and last_cycle.status == "failed":
             alerts.append(
                 self._alert(
@@ -491,12 +507,20 @@ class LivePaperMonitoringService:
                 )
             )
         if active_positions_count == 0:
+            construction_summary = (
+                portfolio.summary_json or {}
+            ).get("construction_summary") or {}
             alerts.append(
                 LivePaperMonitoringService._alert(
                     "warning",
                     "portfolio_no_active_positions",
                     "Paper portfolio has no active positions",
                     portfolio_id=portfolio.id,
+                    construction_summary=construction_summary,
+                    exclusion_reason_counts=construction_summary.get(
+                        "exclusion_reason_counts",
+                        {},
+                    ),
                 )
             )
         if (
@@ -569,6 +593,38 @@ class LivePaperMonitoringService:
                     "Recent live paper cycles contain blocked results",
                 )
             )
+        zero_position_cycles = [
+            cycle for cycle in recent_cycles if self._cycle_selected_zero_positions(cycle)
+        ]
+        if zero_position_cycles:
+            alerts.append(
+                self._alert(
+                    "warning",
+                    "recent_zero_position_cycles",
+                    "Recent live paper cycles selected zero positions",
+                    cycle_ids=[cycle.id for cycle in zero_position_cycles],
+                    exclusion_reason_counts=self._merged_exclusion_reason_counts(
+                        zero_position_cycles
+                    ),
+                )
+            )
+        risk_override_schedules = [
+            schedule.id
+            for schedule in schedules
+            if self._risk_override_from_cycle_request(
+                schedule.cycle_request_json
+            ).get("risk_override_enabled")
+            is True
+        ]
+        if risk_override_schedules:
+            alerts.append(
+                self._alert(
+                    "warning",
+                    "risk_override_enabled",
+                    "Paper risk override is enabled for one or more schedules",
+                    schedule_ids=risk_override_schedules,
+                )
+            )
         stale_cycles = [
             cycle for cycle in recent_cycles if self._cycle_is_stale(cycle, now)
         ]
@@ -637,6 +693,61 @@ class LivePaperMonitoringService:
         if any(alert.level == "warning" for alert in alerts):
             return "warning"
         return "healthy"
+
+    @staticmethod
+    def _risk_policy_from_cycle_request(payload: dict[str, Any]) -> dict[str, Any]:
+        rebalance = (payload or {}).get("rebalance") or {}
+        return {
+            key: rebalance.get(key)
+            for key in (
+                "top_n",
+                "min_probability_positive",
+                "max_position_weight",
+                "max_issuer_weight",
+                "max_high_risk_weight",
+                "min_liquidity_score",
+                "exclude_blocked_by_risk",
+                "exclude_insufficient_credit_data",
+                "allowed_risk_levels",
+                "allowed_decision_statuses",
+            )
+            if key in rebalance
+        }
+
+    @staticmethod
+    def _risk_override_from_cycle_request(payload: dict[str, Any]) -> dict[str, Any]:
+        rebalance = (payload or {}).get("rebalance") or {}
+        return {
+            "risk_override_enabled": rebalance.get("risk_override_enabled", False),
+            "risk_override_reason": rebalance.get("risk_override_reason"),
+        }
+
+    @staticmethod
+    def _cycle_selected_zero_positions(cycle: PaperLiveCycleRun) -> bool:
+        summary = cycle.summary_json or {}
+        if summary.get("selected_position_count") == 0:
+            return True
+        construction_summary = summary.get("construction_summary") or {}
+        return construction_summary.get("selected_count") == 0
+
+    @staticmethod
+    def _merged_exclusion_reason_counts(
+        cycles: list[PaperLiveCycleRun],
+    ) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for cycle in cycles:
+            summary = cycle.summary_json or {}
+            reason_counts = summary.get("exclusion_reason_counts") or (
+                summary.get("construction_summary") or {}
+            ).get("exclusion_reason_counts") or {}
+            for reason, count in reason_counts.items():
+                counts[str(reason)] = counts.get(str(reason), 0) + int(count)
+        return dict(
+            sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        )
 
     @staticmethod
     def _schedule_is_due(schedule: PaperLiveSchedule, now: datetime) -> bool:

@@ -345,9 +345,12 @@ class BondRiskAssessmentService:
         blocking_reasons: list[str],
     ) -> None:
         status_value = credit_health.credit_status
-        if status_value in {"credit_distressed", "insufficient_data"}:
+        if status_value == "credit_distressed":
             gates["credit_gate"] = "blocked"
             blocking_reasons.append(f"Issuer credit status is {status_value}")
+        elif status_value == "insufficient_data":
+            gates["credit_gate"] = "warning"
+            warnings.append("Issuer credit status has insufficient data")
         elif status_value == "credit_stressed" and credit_health.credit_health_score < 50:
             gates["credit_gate"] = "blocked"
             blocking_reasons.append("Issuer credit health is stressed")
@@ -439,7 +442,6 @@ class BondRiskAssessmentService:
         weak_credit = credit_health.credit_status in {
             "credit_stressed",
             "credit_distressed",
-            "insufficient_data",
         }
         if bond.is_subordinated:
             warnings.append("Bond is subordinated")

@@ -284,7 +284,7 @@ def experiment_payload(run: MLModelRun, **overrides) -> dict:
                 "min_probability_positive": "0.50",
                 "max_position_weight": "0.50",
                 "max_issuer_weight": "1",
-                "max_high_risk_weight": "1",
+                "max_high_risk_weight": "0.20",
             },
             {
                 "name": "top_two",
@@ -292,7 +292,7 @@ def experiment_payload(run: MLModelRun, **overrides) -> dict:
                 "min_probability_positive": "0.50",
                 "max_position_weight": "0.50",
                 "max_issuer_weight": "1",
-                "max_high_risk_weight": "1",
+                "max_high_risk_weight": "0.20",
             },
         ],
     }
@@ -508,7 +508,7 @@ def test_promotion_warns_for_simplified_backtest_variant(
                         "use_portfolio_constraints": False,
                         "max_position_weight": "0.50",
                         "max_issuer_weight": "1",
-                        "max_high_risk_weight": "1",
+                        "max_high_risk_weight": "0.20",
                     }
                 ],
             ),

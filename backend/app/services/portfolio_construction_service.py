@@ -154,6 +154,7 @@ class PortfolioConstructionService:
             candidates=candidates,
             selected=selected,
             excluded_count=len(excluded_reasons),
+            exclusion_reason_counts=self._exclusion_reason_counts(excluded_reasons),
             capital=request.capital,
             issuer_weights=issuer_weights,
             high_risk_weight=high_risk_weight,
@@ -170,6 +171,9 @@ class PortfolioConstructionService:
                 PortfolioConstructionWarning(
                     message="No candidates passed all filters",
                     as_of_date=as_of_date,
+                    details={
+                        "exclusion_reason_counts": summary.exclusion_reason_counts,
+                    },
                 )
             )
         if summary.unallocated_weight > 0:
@@ -440,6 +444,7 @@ class PortfolioConstructionService:
         candidates: list[RawPortfolioCandidate],
         selected: list[PortfolioCandidate],
         excluded_count: int,
+        exclusion_reason_counts: dict[str, int],
         capital: Decimal,
         issuer_weights: dict[int, Decimal],
         high_risk_weight: Decimal,
@@ -497,6 +502,7 @@ class PortfolioConstructionService:
             weighted_yield_to_maturity=weighted_ytm,
             max_issuer_weight=max(issuer_weights.values(), default=Decimal("0")),
             high_risk_weight=high_risk_weight,
+            exclusion_reason_counts=exclusion_reason_counts,
         )
 
     def _constraints(
@@ -676,6 +682,21 @@ class PortfolioConstructionService:
                 )
             )
         return warnings
+
+    @staticmethod
+    def _exclusion_reason_counts(
+        excluded_reasons: dict[int, list[str]],
+    ) -> dict[str, int]:
+        counts: dict[str, int] = defaultdict(int)
+        for reasons in excluded_reasons.values():
+            for reason in reasons:
+                counts[reason] += 1
+        return dict(
+            sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        )
 
     @staticmethod
     def _risk_notes(risk: BondRiskAssessment) -> list[str]:

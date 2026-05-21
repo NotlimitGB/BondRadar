@@ -180,6 +180,32 @@ confirmed due execution
 post-execution monitoring overview
 ```
 
+## 6.1 Prediction Date And Risk Policy
+
+Pilot bootstrap schedules use the tested prediction date by default. The
+schedule keeps the bootstrap `date_to` value as `as_of_date` for both the live
+cycle and the paper rebalance request. This avoids silently switching from a
+tested prediction date to the server's current date.
+
+Use `use_current_date_as_of_date=true` only when the daily flow refreshes market
+data, features, and predictions before paper execution. If current-date mode is
+enabled and predictions are missing for the execution date, the cycle reports a
+clear diagnostic telling the operator to refresh predictions or disable current
+date mode.
+
+Risk policy is explicit in the bootstrap payload and is copied into readiness
+robustness, the schedule `cycle_request_json`, and the paper rebalance request.
+The conservative defaults keep blocked risk candidates and insufficient credit
+data out of portfolio construction.
+
+Risk override mode is paper-only and requires both:
+
+- `risk_override_enabled=true`;
+- a non-empty `risk_override_reason`.
+
+Use it only for technical validation or a controlled experiment. It should not
+be the normal strategy posture.
+
 ## 7. Cron Examples
 
 Create `./logs` before installing cron entries:

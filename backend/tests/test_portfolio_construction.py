@@ -343,6 +343,104 @@ def test_blocked_risk_filter_excludes_candidate(
         for candidate in response.json()["excluded_candidates"]
     }
     assert "Blocked by risk assessment" in excluded[bonds[0].id]
+    assert response.json()["summary"]["exclusion_reason_counts"][
+        "Blocked by risk assessment"
+    ] == 1
+
+
+def test_zero_position_diagnostics_group_exclusion_reasons(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _, bonds = seed_portfolio_dataset(db_session)
+    for bond in bonds:
+        add_risk(
+            db_session,
+            bond=bond,
+            as_of_date=date(2026, 2, 5),
+            decision_status="blocked_by_risk",
+            risk_level="critical",
+        )
+
+    response = client.post(
+        "/api/strategy/portfolio/construct",
+        json={"model_run_id": run.id},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["selected_count"] == 0
+    assert payload["summary"]["excluded_count"] == len(bonds)
+    assert payload["summary"]["exclusion_reason_counts"][
+        "Blocked by risk assessment"
+    ] == len(bonds)
+    assert payload["warnings"][0]["details"]["exclusion_reason_counts"][
+        "Blocked by risk assessment"
+    ] == len(bonds)
+
+
+def test_relaxed_risk_policy_can_select_blocked_candidates_for_analysis(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _, bonds = seed_portfolio_dataset(db_session)
+    for bond in bonds:
+        add_risk(
+            db_session,
+            bond=bond,
+            as_of_date=date(2026, 2, 5),
+            decision_status="blocked_by_risk",
+            risk_level="critical",
+        )
+
+    response = client.post(
+        "/api/strategy/portfolio/construct",
+        json={
+            "model_run_id": run.id,
+            "exclude_blocked_by_risk": False,
+            "exclude_insufficient_credit_data": False,
+            "max_high_risk_weight": "1.0",
+            "max_position_weight": "0.20",
+            "max_issuer_weight": "1.0",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["selected_count"] > 0
+    assert Decimal(str(payload["summary"]["allocated_weight"])) > 0
+
+
+def test_high_risk_cap_limits_relaxed_critical_candidates(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _, bonds = seed_portfolio_dataset(db_session)
+    for bond in bonds:
+        add_risk(
+            db_session,
+            bond=bond,
+            as_of_date=date(2026, 2, 5),
+            decision_status="blocked_by_risk",
+            risk_level="critical",
+        )
+
+    response = client.post(
+        "/api/strategy/portfolio/construct",
+        json={
+            "model_run_id": run.id,
+            "exclude_blocked_by_risk": False,
+            "exclude_insufficient_credit_data": False,
+            "max_high_risk_weight": "0.10",
+            "max_position_weight": "1.0",
+            "max_issuer_weight": "1.0",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert Decimal(str(payload["summary"]["high_risk_weight"])) <= Decimal("0.10")
+    assert Decimal(str(payload["summary"]["allocated_weight"])) <= Decimal("0.10")
 
 
 def test_missing_risk_excluded_by_default(

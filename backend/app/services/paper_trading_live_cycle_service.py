@@ -24,6 +24,12 @@ from app.schemas.paper_trading_live_cycle import (
 )
 from app.schemas.paper_trading_live_readiness import LivePaperReadinessResponse
 from app.services.paper_trading_live_readiness_service import LivePaperReadinessService
+from app.services.paper_trading_risk_policy import (
+    paper_risk_policy_payload,
+    risk_override_metadata,
+    risk_override_warning,
+    validate_paper_risk_policy,
+)
 from app.services.paper_trading_service import PaperTradingService
 
 
@@ -109,7 +115,12 @@ class LivePaperCycleService:
             )
             cycle.rebalance_result_json = rebalance_result.model_dump(mode="json")
             cycle.as_of_date = rebalance_result.snapshot.as_of_date
-            self._complete_cycle(cycle, readiness, rebalance_result)
+            self._complete_cycle(
+                cycle,
+                request=request,
+                readiness=readiness,
+                rebalance_result=rebalance_result,
+            )
             return self._response(
                 cycle,
                 request=request,
@@ -182,6 +193,7 @@ class LivePaperCycleService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="portfolio_id is required when create_portfolio_if_missing is false",
             )
+        validate_paper_risk_policy(request.rebalance)
 
     def _get_by_client_cycle_key(
         self,
@@ -311,22 +323,48 @@ class LivePaperCycleService:
     def _complete_cycle(
         self,
         cycle: PaperLiveCycleRun,
+        *,
+        request: LivePaperCycleRunRequest,
         readiness: LivePaperReadinessResponse,
         rebalance_result: PaperPortfolioRebalanceResult,
     ) -> None:
         cycle.status = "completed"
         cycle.finished_at = datetime.now(timezone.utc)
-        cycle.summary_json = {
+        selected_count = len(rebalance_result.selected_positions)
+        construction_summary = rebalance_result.construction_summary
+        exclusion_reason_counts = construction_summary.get("exclusion_reason_counts", {})
+        risk_policy = self._jsonable(paper_risk_policy_payload(request.rebalance))
+        risk_override = self._jsonable(risk_override_metadata(request.rebalance))
+        cycle.summary_json = self._jsonable({
             "portfolio_id": rebalance_result.portfolio.id,
             "selected_model_run_id": cycle.selected_model_run_id,
             "readiness_status": readiness.readiness_status,
             "rebalance_as_of_date": rebalance_result.snapshot.as_of_date.isoformat(),
-            "selected_position_count": len(rebalance_result.selected_positions),
+            "selected_position_count": selected_count,
             "turnover": str(rebalance_result.turnover),
             "fee_amount": str(rebalance_result.fee_amount),
             "snapshot_id": rebalance_result.snapshot.id,
             "portfolio_value": str(rebalance_result.snapshot.portfolio_value),
-        }
+            "construction_summary": construction_summary,
+            "exclusion_reason_counts": exclusion_reason_counts,
+            "risk_policy": risk_policy,
+            "risk_override": risk_override,
+        })
+        cycle_warnings = [*cycle.warnings_json]
+        override_warning = risk_override_warning(request.rebalance)
+        if override_warning is not None:
+            cycle_warnings.append(self._jsonable(override_warning))
+        if selected_count == 0:
+            cycle_warnings.append(
+                {
+                    "message": "Paper cycle selected zero positions",
+                    "details": {
+                        "construction_summary": construction_summary,
+                        "exclusion_reason_counts": exclusion_reason_counts,
+                    },
+                }
+            )
+        cycle.warnings_json = cycle_warnings
         self.db.commit()
         self.db.refresh(cycle)
 
@@ -449,3 +487,17 @@ class LivePaperCycleService:
     @staticmethod
     def _normalized_key(value: str | None) -> str | None:
         return None if value is None else value.strip()
+
+    @classmethod
+    def _jsonable(cls, value: Any) -> Any:
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        if isinstance(value, list):
+            return [cls._jsonable(item) for item in value]
+        if isinstance(value, tuple):
+            return [cls._jsonable(item) for item in value]
+        if isinstance(value, dict):
+            return {str(key): cls._jsonable(item) for key, item in value.items()}
+        if hasattr(value, "as_tuple"):
+            return str(value)
+        return value

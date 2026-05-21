@@ -375,6 +375,31 @@ def test_use_current_date_as_of_date(
     assert request_json["rebalance"]["as_of_date"] == "2025-03-10"
 
 
+def test_current_date_mode_missing_predictions_is_diagnostic(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_live_candidate(db_session, index=65)
+    create_schedule(client, run, use_current_date_as_of_date=True)
+
+    result = run_due(client, now=iso(2025, 3, 11, 10))
+
+    item = result["results"][0]
+    assert item["status"] == "failed"
+    assert any(
+        error.get("detail")
+        == (
+            "No predictions found for current execution date. Run data "
+            "refresh/predictions first or disable use_current_date_as_of_date."
+        )
+        for error in item["errors"]
+    )
+    assert item["cycle"]["summary_json"]["failure_detail"] == (
+        "No predictions found for current execution date. Run data "
+        "refresh/predictions first or disable use_current_date_as_of_date."
+    )
+
+
 def test_scheduler_does_not_call_lower_level_services_directly(
     client: TestClient,
     db_session: Session,

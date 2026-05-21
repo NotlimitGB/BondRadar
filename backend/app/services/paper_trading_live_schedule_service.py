@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.paper_live_cycle_run import PaperLiveCycleRun
 from app.models.paper_live_schedule import PaperLiveSchedule
 from app.schemas.paper_trading_live_cycle import (
+    LivePaperCycleRunRead,
     LivePaperCycleRunRequest,
     LivePaperCycleRunResponse,
 )
@@ -24,6 +25,16 @@ from app.schemas.paper_trading_live_schedule import (
     LivePaperScheduledRunItem,
 )
 from app.services.paper_trading_live_cycle_service import LivePaperCycleService
+from app.services.paper_trading_risk_policy import validate_paper_risk_policy
+
+
+CURRENT_DATE_PREDICTION_ERROR = (
+    "No predictions found for current execution date. Run data refresh/predictions "
+    "first or disable use_current_date_as_of_date."
+)
+GENERIC_AS_OF_DATE_PREDICTION_ERROR = (
+    "No predictions found for selected model run and as_of_date"
+)
 
 
 class LivePaperScheduleService:
@@ -195,6 +206,10 @@ class LivePaperScheduleService:
         try:
             cycle_request = self._cycle_request(locked_schedule, scheduled_for, now)
             cycle_response = LivePaperCycleService(self.db).run(cycle_request)
+            cycle_response = self._enrich_current_date_prediction_failure(
+                locked_schedule,
+                cycle_response,
+            )
             linked_cycle = self._link_cycle(
                 cycle_response,
                 schedule_id=locked_schedule.id,
@@ -250,6 +265,47 @@ class LivePaperScheduleService:
             rebalance["as_of_date"] = execution_date
             payload["rebalance"] = rebalance
         return LivePaperCycleRunRequest.model_validate(payload)
+
+    def _enrich_current_date_prediction_failure(
+        self,
+        schedule: PaperLiveSchedule,
+        cycle_response: LivePaperCycleRunResponse,
+    ) -> LivePaperCycleRunResponse:
+        if not schedule.use_current_date_as_of_date:
+            return cycle_response
+        if cycle_response.cycle.status != "failed":
+            return cycle_response
+        if not self._has_generic_prediction_error(cycle_response.errors):
+            return cycle_response
+
+        diagnostic = {
+            "detail": CURRENT_DATE_PREDICTION_ERROR,
+            "source": "use_current_date_as_of_date",
+        }
+        cycle = self.db.get(PaperLiveCycleRun, cycle_response.cycle.id)
+        if cycle is None:
+            return cycle_response
+        cycle.errors_json = [*cycle.errors_json, diagnostic]
+        cycle.summary_json = {
+            **(cycle.summary_json or {}),
+            "failure_detail": CURRENT_DATE_PREDICTION_ERROR,
+            "use_current_date_as_of_date": True,
+        }
+        self.db.commit()
+        self.db.refresh(cycle)
+        return cycle_response.model_copy(
+            update={
+                "cycle": LivePaperCycleRunRead.model_validate(cycle),
+                "errors": [*cycle_response.errors, diagnostic],
+            }
+        )
+
+    @staticmethod
+    def _has_generic_prediction_error(errors: list[dict[str, Any]]) -> bool:
+        return any(
+            error.get("detail") == GENERIC_AS_OF_DATE_PREDICTION_ERROR
+            for error in errors
+        )
 
     def _link_cycle(
         self,
@@ -439,6 +495,7 @@ class LivePaperScheduleService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="max_runs must be positive when provided",
             )
+        validate_paper_risk_policy(request.cycle_request.rebalance)
 
     @staticmethod
     def _validate_update(request: LivePaperScheduleUpdate) -> None:
@@ -462,6 +519,8 @@ class LivePaperScheduleService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="max_runs must be positive when provided",
             )
+        if request.cycle_request is not None:
+            validate_paper_risk_policy(request.cycle_request.rebalance)
 
     @staticmethod
     def _validate_run_due(request: LivePaperScheduleRunDueRequest) -> None:

@@ -47,8 +47,17 @@ class LivePaperPilotBootstrapRequest(BaseModel):
     max_position_weight: Decimal = Decimal("0.20")
     max_issuer_weight: Decimal = Decimal("0.30")
     max_high_risk_weight: Decimal = Decimal("0.20")
+    min_liquidity_score: int | None = None
+    exclude_blocked_by_risk: bool = True
+    exclude_insufficient_credit_data: bool = True
+    allowed_risk_levels: list[str] | None = None
+    allowed_decision_statuses: list[str] | None = None
+    risk_override_enabled: bool = False
+    risk_override_reason: str | None = None
 
     transaction_cost_rate: Decimal = Decimal("0.001")
+
+    use_current_date_as_of_date: bool = False
 
     include_monitoring_overview: bool = True
 

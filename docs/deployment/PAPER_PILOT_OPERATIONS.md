@@ -139,9 +139,21 @@ pilot bootstrap dry-run
 create schedule
 live operations runner monitoring
 live operations runner data-refresh
+feature/prediction refresh
+readiness/quality gate review
 paper dry-run
 confirmed virtual paper execution
 ```
+
+Bootstrap schedules use a fixed prediction date by default: `date_to` becomes
+the cycle and rebalance `as_of_date`. Enable `use_current_date_as_of_date=true`
+only after the operator has a reliable daily refresh sequence for market data,
+features, and predictions.
+
+Risk policy is part of the pilot payload. Conservative defaults exclude blocked
+risk candidates and insufficient credit data. A relaxed paper risk policy is an
+explicit override and must include a reason. Treat this as a technical
+validation or controlled experiment mode, not the normal pilot posture.
 
 ## 3. External Risk Overlay
 

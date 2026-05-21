@@ -28,6 +28,12 @@ from app.schemas.paper_trading import (
 )
 from app.schemas.portfolio_construction import PortfolioConstructionRequest
 from app.services.ml_feature_builder import RETURN_METHODS
+from app.services.paper_trading_risk_policy import (
+    paper_risk_policy_payload,
+    risk_override_metadata,
+    risk_override_warning,
+    validate_paper_risk_policy,
+)
 from app.services.portfolio_construction_service import PortfolioConstructionService
 
 
@@ -166,6 +172,7 @@ class PaperTradingService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="transaction_cost_rate must be between 0 and 0.1",
             )
+        validate_paper_risk_policy(request)
 
         construction = PortfolioConstructionService(self.db).construct(
             PortfolioConstructionRequest(
@@ -287,9 +294,28 @@ class PaperTradingService:
         portfolio.horizon_days = construction.horizon_days
         portfolio.last_rebalanced_at = datetime.now(timezone.utc)
         portfolio.last_rebalance_as_of_date = construction.as_of_date
-        portfolio.params_json = self._jsonable({"last_rebalance_request": request.model_dump()})
-        portfolio.summary_json = self._jsonable({"construction_summary": construction.summary.model_dump()})
-        portfolio.warnings_json = self._jsonable([warning.model_dump() for warning in construction.warnings])
+        construction_summary = self._jsonable(construction.summary.model_dump())
+        risk_policy = self._jsonable(paper_risk_policy_payload(request))
+        risk_override = self._jsonable(risk_override_metadata(request))
+        portfolio.params_json = self._jsonable(
+            {
+                "last_rebalance_request": request.model_dump(),
+                "risk_policy": risk_policy,
+                "risk_override": risk_override,
+            }
+        )
+        portfolio.summary_json = self._jsonable(
+            {
+                "construction_summary": construction_summary,
+                "risk_policy": risk_policy,
+                "risk_override": risk_override,
+            }
+        )
+        warning_payloads = [warning.model_dump() for warning in construction.warnings]
+        override_warning = risk_override_warning(request)
+        if override_warning is not None:
+            warning_payloads.append(override_warning)
+        portfolio.warnings_json = self._jsonable(warning_payloads)
         self.db.flush()
         snapshot = self._create_or_update_snapshot(
             portfolio,
@@ -315,7 +341,7 @@ class PaperTradingService:
             ),
             turnover=turnover,
             fee_amount=fee_amount,
-            construction_summary=self._jsonable(construction.summary.model_dump()),
+            construction_summary=construction_summary,
             warnings=[
                 PaperTradingWarning(
                     message=warning.message,
@@ -324,7 +350,17 @@ class PaperTradingService:
                     details=warning.details,
                 )
                 for warning in construction.warnings
-            ],
+            ]
+            + (
+                []
+                if override_warning is None
+                else [
+                    PaperTradingWarning(
+                        message=override_warning["message"],
+                        details=override_warning["details"],
+                    )
+                ]
+            ),
         )
 
     def mark_period(

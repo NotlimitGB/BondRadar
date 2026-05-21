@@ -171,6 +171,22 @@ def test_missing_financial_report_does_not_crash(
     assert "Financial report is missing" in payload["missing_data"]
 
 
+def test_insufficient_credit_data_does_not_become_confirmed_block(
+    client: TestClient, db_session: Session
+) -> None:
+    company = create_company(db_session, "BINS")
+    bond = create_bond(db_session, company, isin="RU000CRD010")
+
+    response = client.post(f"/api/credit-risk/bonds/{bond.id}/assess")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["company_credit_status"] == "insufficient_data"
+    assert payload["decision_status"] == "insufficient_data"
+    assert payload["risk_level"] == "unknown"
+    assert payload["gates"]["credit_gate"] == "warning"
+
+
 def test_missing_company_score_does_not_crash(
     client: TestClient, db_session: Session
 ) -> None:
@@ -202,7 +218,8 @@ def test_high_yield_weak_issuer_warning(
     assert response.status_code == 200
     payload = response.json()
     assert "High yield may reflect elevated credit/default risk" in payload["warnings"]
-    assert payload["decision_status"] != "eligible_for_analysis"
+    assert payload["decision_status"] == "blocked_by_risk"
+    assert "High yield is combined with weak issuer credit" in payload["blocking_reasons"]
 
 
 def test_credit_gate_blocks_distressed_issuer(

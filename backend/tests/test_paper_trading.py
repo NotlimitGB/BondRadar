@@ -225,16 +225,19 @@ def rebalance(
     as_of_date: str = "2026-01-01",
     cost: str = "0",
     top_n: int = 1,
+    **overrides,
 ) -> dict:
+    payload = {
+        "as_of_date": as_of_date,
+        "top_n": top_n,
+        "max_position_weight": "0.20",
+        "max_issuer_weight": "1",
+        "transaction_cost_rate": cost,
+    }
+    payload.update(overrides)
     response = client.post(
         f"/api/paper-trading/portfolios/{portfolio_id}/rebalance",
-        json={
-            "as_of_date": as_of_date,
-            "top_n": top_n,
-            "max_position_weight": "0.20",
-            "max_issuer_weight": "1",
-            "transaction_cost_rate": cost,
-        },
+        json=payload,
     )
     assert response.status_code == 200
     return response.json()
@@ -467,6 +470,72 @@ def test_archived_portfolio_cannot_rebalance(
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Paper portfolio is archived"
+
+
+def test_rebalance_risk_override_requires_confirmation(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _, _ = seed_prediction_context(db_session)
+    portfolio = create_portfolio(client, run.id)
+
+    missing_enabled = client.post(
+        f"/api/paper-trading/portfolios/{portfolio['id']}/rebalance",
+        json={"as_of_date": "2026-01-01", "exclude_blocked_by_risk": False},
+    )
+    missing_reason = client.post(
+        f"/api/paper-trading/portfolios/{portfolio['id']}/rebalance",
+        json={
+            "as_of_date": "2026-01-01",
+            "max_high_risk_weight": "1.0",
+            "risk_override_enabled": True,
+            "risk_override_reason": " ",
+        },
+    )
+
+    assert missing_enabled.status_code == 400
+    assert "risk_override_enabled is required" in missing_enabled.json()["detail"]
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["detail"] == (
+        "risk_override_reason is required when risk_override_enabled is true"
+    )
+
+
+def test_rebalance_valid_risk_override_is_audited(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, bond_a, _ = seed_prediction_context(db_session)
+    add_risk(
+        db_session,
+        bond=bond_a,
+        as_of_date=date(2026, 1, 1),
+        risk_level="critical",
+        decision_status="blocked_by_risk",
+    )
+    portfolio = create_portfolio(client, run.id)
+
+    result = rebalance(
+        client,
+        portfolio["id"],
+        max_high_risk_weight="1.0",
+        exclude_blocked_by_risk=False,
+        exclude_insufficient_credit_data=False,
+        risk_override_enabled=True,
+        risk_override_reason="Technical virtual paper validation.",
+    )
+    stored = db_session.get(PaperPortfolio, portfolio["id"])
+    db_session.refresh(stored)
+
+    assert result["selected_positions"]
+    assert stored.params_json["risk_override"]["risk_override_enabled"] is True
+    assert stored.params_json["risk_override"]["risk_override_reason"] == (
+        "Technical virtual paper validation."
+    )
+    assert any(
+        warning["details"].get("risk_override_enabled") is True
+        for warning in result["warnings"]
+    )
 
 
 def test_paper_trading_payload_has_no_recommendation_vocabulary(

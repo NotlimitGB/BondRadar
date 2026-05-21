@@ -61,7 +61,7 @@ def pilot_payload(run: MLModelRun, **overrides) -> dict:
         "virtual_initial_capital": "50000",
         "planned_duration_days": 90,
         "date_from": "2025-01-10",
-        "date_to": "2025-03-14",
+        "date_to": "2025-03-10",
         "next_run_at": iso(2025, 3, 15, 10),
         "interval_days": 1,
         "top_n": 1,
@@ -69,7 +69,7 @@ def pilot_payload(run: MLModelRun, **overrides) -> dict:
         "use_portfolio_constraints": True,
         "max_position_weight": "1",
         "max_issuer_weight": "1",
-        "max_high_risk_weight": "1",
+        "max_high_risk_weight": "0.20",
         "transaction_cost_rate": "0",
     }
     payload.update(overrides)
@@ -189,9 +189,14 @@ def test_creates_schedule_when_ready(
     assert payload["status"] == "scheduled"
     assert payload["created_schedule_id"] is not None
     assert payload["schedule"]["status"] == "active"
-    assert payload["schedule"]["use_current_date_as_of_date"] is True
+    assert payload["schedule"]["use_current_date_as_of_date"] is False
     assert payload["schedule"]["cycle_request_json"]["readiness"]
     assert payload["schedule"]["cycle_request_json"]["rebalance"]
+    assert payload["schedule"]["cycle_request_json"]["as_of_date"] == "2025-03-10"
+    assert (
+        payload["schedule"]["cycle_request_json"]["rebalance"]["as_of_date"]
+        == "2025-03-10"
+    )
     assert payload["readiness_status"] == "ready"
     assert core_counts(db_session) == before_core
     after_paper = paper_counts(db_session)
@@ -204,6 +209,122 @@ def test_creates_schedule_when_ready(
         == before_paper["PaperPortfolioTransaction"]
     )
     assert after_paper["PaperPortfolioSnapshot"] == before_paper["PaperPortfolioSnapshot"]
+
+
+def test_current_date_mode_must_be_explicit(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_live_candidate(db_session, index=111)
+
+    response = client.post(
+        PILOT_URL,
+        json=pilot_payload(run, use_current_date_as_of_date=True),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["schedule"]["use_current_date_as_of_date"] is True
+    assert any(
+        warning["details"].get("use_current_date_as_of_date") is True
+        for warning in payload["warnings"]
+    )
+
+
+def test_risk_policy_is_propagated_to_readiness_cycle_and_schedule(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_live_candidate(db_session, index=112)
+
+    response = client.post(
+        PILOT_URL,
+        json=pilot_payload(
+            run,
+            dry_run_only=True,
+            min_liquidity_score=70,
+            exclude_blocked_by_risk=True,
+            exclude_insufficient_credit_data=True,
+            allowed_risk_levels=["low", "medium"],
+            allowed_decision_statuses=["eligible_for_analysis", "watchlist"],
+        ),
+    )
+
+    assert response.status_code == 200
+    payloads = response.json()["payloads"]
+    variant = payloads["readiness_request"]["candidate_strategy_robustness"][
+        "strategy_robustness"
+    ]["experiment"]["variants"][0]
+    rebalance = payloads["cycle_request"]["rebalance"]
+    schedule_rebalance = payloads["schedule_request"]["cycle_request"]["rebalance"]
+    expected = {
+        "min_liquidity_score": 70,
+        "exclude_blocked_by_risk": True,
+        "exclude_insufficient_credit_data": True,
+        "allowed_risk_levels": ["low", "medium"],
+        "allowed_decision_statuses": ["eligible_for_analysis", "watchlist"],
+    }
+    for key, value in expected.items():
+        assert variant[key] == value
+        assert rebalance[key] == value
+        assert schedule_rebalance[key] == value
+
+
+def test_risk_override_requires_confirmation_and_reason(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_live_candidate(db_session, index=113)
+
+    missing_enabled = client.post(
+        PILOT_URL,
+        json=pilot_payload(run, exclude_blocked_by_risk=False),
+    )
+    missing_reason = client.post(
+        PILOT_URL,
+        json=pilot_payload(
+            run,
+            exclude_blocked_by_risk=False,
+            risk_override_enabled=True,
+            risk_override_reason=" ",
+        ),
+    )
+    valid = client.post(
+        PILOT_URL,
+        json=pilot_payload(
+            run,
+            exclude_blocked_by_risk=False,
+            exclude_insufficient_credit_data=False,
+            max_high_risk_weight="1.0",
+            allowed_risk_levels=["critical"],
+            allowed_decision_statuses=["blocked_by_risk"],
+            risk_override_enabled=True,
+            risk_override_reason="Technical virtual paper validation.",
+            dry_run_only=True,
+        ),
+    )
+
+    assert missing_enabled.status_code == 400
+    assert "risk_override_enabled is required" in missing_enabled.json()["detail"]
+    assert missing_reason.status_code == 400
+    assert missing_reason.json()["detail"] == (
+        "risk_override_reason is required when risk_override_enabled is true"
+    )
+    assert valid.status_code == 200
+    payload = valid.json()
+    assert payload["payloads"]["cycle_request"]["rebalance"][
+        "exclude_blocked_by_risk"
+    ] is False
+    assert payload["payloads"]["cycle_request"]["rebalance"][
+        "exclude_insufficient_credit_data"
+    ] is False
+    assert payload["payloads"]["cycle_request"]["rebalance"][
+        "risk_override_enabled"
+    ] is True
+    assert any(
+        warning["details"].get("risk_override_enabled") is True
+        for warning in payload["warnings"]
+    )
 
 
 def test_blocked_warning_status_requires_allowance(

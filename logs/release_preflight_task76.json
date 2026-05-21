@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "started_at": "2026-05-21T07:20:02.651050+00:00",
+  "finished_at": "2026-05-21T07:20:42.449336+00:00",
+  "checks": [
+    {
+      "name": "backend_compile",
+      "command": "python -m compileall backend/app",
+      "returncode": 0,
+      "duration_seconds": 0.071,
+      "status": "passed"
+    },
+    {
+      "name": "backend_tests",
+      "command": "python -m pytest backend/tests -q",
+      "returncode": 0,
+      "duration_seconds": 33.308,
+      "status": "passed"
+    },
+    {
+      "name": "frontend_build",
+      "command": "cd frontend && npm run build",
+      "returncode": 0,
+      "duration_seconds": 5.973,
+      "status": "passed"
+    },
+    {
+      "name": "docker_compose_config",
+      "command": "docker compose config --quiet",
+      "returncode": 0,
+      "duration_seconds": 0.446,
+      "status": "passed"
+    }
+  ]
+}

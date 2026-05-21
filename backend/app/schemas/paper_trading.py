@@ -121,6 +121,8 @@ class PaperPortfolioRebalanceRequest(BaseModel):
     exclude_insufficient_credit_data: bool = True
     allowed_risk_levels: list[str] | None = None
     allowed_decision_statuses: list[str] | None = None
+    risk_override_enabled: bool = False
+    risk_override_reason: str | None = None
     transaction_cost_rate: Decimal = Decimal("0.001")
     include_excluded_candidates: bool = True
 

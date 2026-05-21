@@ -55,7 +55,7 @@ def cycle_payload(run: MLModelRun, **overrides) -> dict:
             "min_probability_positive": "0.50",
             "max_position_weight": "1",
             "max_issuer_weight": "1",
-            "max_high_risk_weight": "1",
+            "max_high_risk_weight": "0.20",
             "transaction_cost_rate": "0",
         },
     }
@@ -324,7 +324,7 @@ def test_mark_period_before_rebalance(
             "min_probability_positive": "0.50",
             "max_position_weight": "1",
             "max_issuer_weight": "1",
-            "max_high_risk_weight": "1",
+            "max_high_risk_weight": "0.20",
             "transaction_cost_rate": "0",
         },
     )

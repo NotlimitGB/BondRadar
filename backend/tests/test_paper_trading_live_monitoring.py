@@ -352,6 +352,35 @@ def test_schedule_alerts(
     assert "schedule_max_runs_reached" in codes
 
 
+def test_schedule_risk_override_alert(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    run, _, _ = seed_live_candidate(db_session, index=80)
+    request = cycle_payload(run)
+    request["rebalance"].update(
+        {
+            "exclude_blocked_by_risk": False,
+            "max_high_risk_weight": "1.0",
+            "risk_override_enabled": True,
+            "risk_override_reason": "Technical virtual paper validation.",
+        }
+    )
+    schedule = create_schedule(client, run, cycle_request=request)
+
+    response = client.get(
+        f"{MONITORING_URL}/schedules/{schedule['id']}?now={query_iso(2025, 3, 1, 10)}"
+    )
+    overview = client.get(
+        f"{MONITORING_URL}/overview?now={query_iso(2025, 3, 1, 10)}"
+    )
+
+    assert response.status_code == 200
+    assert "risk_override_enabled" in alert_codes(response.json())
+    assert overview.status_code == 200
+    assert "risk_override_enabled" in alert_codes(overview.json())
+
+
 def test_portfolio_alerts(
     client: TestClient,
     db_session: Session,
@@ -372,6 +401,56 @@ def test_portfolio_alerts(
     codes = alert_codes(empty_response.json())
     assert "portfolio_no_snapshots" in codes
     assert "portfolio_no_active_positions" in codes
+
+
+def test_empty_portfolio_alert_includes_construction_diagnostics(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    portfolio = create_direct_portfolio(db_session, name="Diagnostic paper portfolio")
+    portfolio.summary_json = {
+        "construction_summary": {
+            "selected_count": 0,
+            "excluded_count": 3,
+            "exclusion_reason_counts": {"Blocked by risk assessment": 3},
+        }
+    }
+    db_session.commit()
+
+    response = client.get(f"{MONITORING_URL}/portfolios/{portfolio.id}")
+
+    assert response.status_code == 200
+    alert = next(
+        alert
+        for alert in response.json()["alerts"]
+        if alert["code"] == "portfolio_no_active_positions"
+    )
+    assert alert["details"]["exclusion_reason_counts"] == {
+        "Blocked by risk assessment": 3
+    }
+
+
+def test_zero_position_cycle_overview_alert(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    cycle = create_failed_cycle(db_session)
+    cycle.status = "completed"
+    cycle.summary_json = {
+        "selected_position_count": 0,
+        "construction_summary": {
+            "selected_count": 0,
+            "exclusion_reason_counts": {"Blocked by risk assessment": 2},
+        },
+    }
+    db_session.commit()
+
+    response = client.get(
+        f"{MONITORING_URL}/overview?now={query_iso(2025, 3, 10, 10)}"
+    )
+
+    assert response.status_code == 200
+    assert "recent_zero_position_cycles" in alert_codes(response.json())
 
 
 def test_stale_running_cycle(

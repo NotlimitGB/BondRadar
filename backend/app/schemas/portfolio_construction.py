@@ -103,6 +103,7 @@ class PortfolioConstructionSummary(BaseModel):
     weighted_yield_to_maturity: Decimal | None
     max_issuer_weight: Decimal
     high_risk_weight: Decimal
+    exclusion_reason_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class PortfolioConstructionResponse(BaseModel):

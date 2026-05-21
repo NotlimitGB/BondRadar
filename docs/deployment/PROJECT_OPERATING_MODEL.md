@@ -123,6 +123,11 @@ create noisy virtual operations, so the operations runner separates:
 - paper dry-run;
 - confirmed virtual paper execution.
 
+Live paper schedules use the tested prediction date by default. Current-date
+execution should be enabled only when predictions are refreshed before the paper
+execution window. Risk override is available only as an explicit paper-pilot
+control with a recorded reason.
+
 ## 7. Evaluation Signals
 
 Review pilot evidence cautiously:
