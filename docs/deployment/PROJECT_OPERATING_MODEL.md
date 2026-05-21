@@ -214,6 +214,12 @@ for missing fields, not fake zeros. After import, rebuild credit health, bond
 risk assessments, and feature snapshots before reviewing model or paper pilot
 readiness.
 
+The first real issuer data pack should be small and reviewed. Keep real
+operator-collected files under ignored local paths such as
+`data/financial_reports/private/` or `data/financial_reports/staging/`. Paper
+schedules should remain paused during data collection, import, and downstream
+rebuild.
+
 ## 10. Stop Conditions
 
 Pause the pilot workflow when any of these persist:

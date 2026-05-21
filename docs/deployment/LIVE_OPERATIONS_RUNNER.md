@@ -232,6 +232,16 @@ python scripts/financial_report_post_ingest_rebuild.py \
 Keep paper schedules paused until coverage, rebuild, readiness, and manual
 review are complete.
 
+The first real issuer data pack should use:
+
+```text
+scripts/financial_report_target_issuers.py
+scripts/financial_report_collection_normalize.py
+scripts/financial_report_data_pack_rehearsal.py
+```
+
+These scripts prepare and validate data. They do not run paper schedules.
+
 ## 7. Cron Examples
 
 Create `./logs` before installing cron entries:

@@ -1,0 +1,98 @@
+{
+  "status": "warning",
+  "total_rows": 2,
+  "normalized_rows": [
+    {
+      "company_id": null,
+      "company_ticker": "SYNTH_A",
+      "company_inn": null,
+      "period_year": "2025",
+      "period_quarter": "0",
+      "period_start_date": "2025-01-01",
+      "period_end_date": "2025-12-31",
+      "published_at": "2026-03-20T12:00:00Z",
+      "document_date": "2026-03-20",
+      "currency": "RUB",
+      "source": "operator_collection",
+      "source_url": "https://example.invalid/synthetic-a",
+      "source_file_name": "synthetic-a-2025-fy.pdf",
+      "report_type": "synthetic_sample",
+      "revenue": "1000000000",
+      "ebitda": "220000000",
+      "net_debt": "350000000",
+      "total_debt": "500000000",
+      "cash": "150000000",
+      "equity": "700000000",
+      "short_term_debt": "120000000",
+      "operating_cash_flow": "180000000",
+      "net_profit": "90000000",
+      "interest_expense": "40000000",
+      "debt_to_ebitda": "2.272727",
+      "interest_coverage": "5.5"
+    },
+    {
+      "company_id": null,
+      "company_ticker": "SYNTH_B",
+      "company_inn": null,
+      "period_year": "2025",
+      "period_quarter": "0",
+      "period_start_date": "2025-01-01",
+      "period_end_date": "2025-12-31",
+      "published_at": "2026-03-25T12:00:00Z",
+      "document_date": "2026-03-25",
+      "currency": "RUB",
+      "source": "operator_collection",
+      "source_url": "https://example.invalid/synthetic-b",
+      "source_file_name": "synthetic-b-2025-fy.pdf",
+      "report_type": "synthetic_sample",
+      "revenue": "850000000",
+      "ebitda": "160000000",
+      "net_debt": "420000000",
+      "total_debt": "520000000",
+      "cash": "100000000",
+      "equity": "380000000",
+      "short_term_debt": "180000000",
+      "operating_cash_flow": "120000000",
+      "net_profit": "45000000",
+      "interest_expense": "50000000",
+      "debt_to_ebitda": "2.63",
+      "interest_coverage": "3.2"
+    }
+  ],
+  "collection_metadata": [
+    {
+      "row_index": 1,
+      "company_name": "Synthetic Issuer A",
+      "accounting_standard": "IFRS",
+      "consolidation_scope": "consolidated",
+      "value_scale": "million",
+      "source_page": "42",
+      "source_table": "Consolidated statement",
+      "source_note": "Synthetic sample only"
+    },
+    {
+      "row_index": 2,
+      "company_name": "Synthetic Issuer B",
+      "accounting_standard": "IFRS",
+      "consolidation_scope": "consolidated",
+      "value_scale": "million",
+      "source_page": "38",
+      "source_table": "Consolidated statement",
+      "source_note": "Synthetic sample only"
+    }
+  ],
+  "warnings": [
+    {
+      "row_index": 2,
+      "company_id": null,
+      "company_ticker": "SYNTH_B",
+      "company_inn": null,
+      "period_year": "2025",
+      "period_quarter": "0",
+      "message": "debt_to_ebitda differs from computed value 3.25"
+    }
+  ],
+  "errors": [],
+  "strict": false,
+  "output": "logs\\financial_reports\\normalized_collection_task79.csv"
+}

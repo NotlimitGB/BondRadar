@@ -11,3 +11,6 @@ postgres_data/
 frontend/node_modules/
 frontend/dist/
 artifacts/
+data/financial_reports/private/
+data/financial_reports/staging/
+!data/financial_reports/.gitkeep

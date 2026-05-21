@@ -266,6 +266,22 @@ Keep paper schedules paused until coverage, rebuild, readiness, and manual
 review are complete. Risk override is paper-only and should not be normal
 strategy behavior.
 
+For the first real issuer financial report data pack, start small:
+
+```bash
+python scripts/financial_report_target_issuers.py \
+  --source mixed \
+  --backend-url http://127.0.0.1:8000 \
+  --limit 50 \
+  --csv-output logs/financial_reports/target_issuers.csv \
+  --markdown-output logs/financial_reports/target_issuers.md
+```
+
+Collect real report rows only in ignored local paths such as
+`data/financial_reports/staging/` or `data/financial_reports/private/`. After
+import, rebuild credit health, bond risk assessments, and feature snapshots
+before reviewing readiness or paper dry-run output.
+
 ## 5. Weekly Monitoring
 
 Weekly checks:
