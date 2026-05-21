@@ -68,6 +68,9 @@ paper dry-run, and confirmed virtual paper execution cadence examples.
 See `docs/deployment/RUNTIME_HARDENING.md` for runtime hardening, backup
 verification, retention cleanup, and pause procedures.
 
+See `docs/deployment/FINANCIAL_REPORT_IMPORT.md` for controlled financial
+report imports, coverage checks, and post-ingest rebuild planning.
+
 See `docs/deployment/PROJECT_OPERATING_MODEL.md` for the plain-language
 operating model and `docs/deployment/RELEASE_CANDIDATE_GO_NO_GO.md` for the
 final release candidate review before VDS preparation.
@@ -209,11 +212,59 @@ Useful API checks:
 ```bash
 curl -s http://127.0.0.1:8000/api/health
 curl -s http://127.0.0.1:8000/api/risk/external-regime
+curl -s "http://127.0.0.1:8000/api/data-readiness/financial-reports/coverage?as_of_date=2026-05-19&active_only=true&stale_after_days=540"
 curl -s http://127.0.0.1:8000/api/paper-trading/live/monitoring/overview
 curl -s http://127.0.0.1:8000/api/data-readiness/live
 python scripts/live_operations_runner.py --mode monitoring
 python scripts/ops_retention.py --json-output ./logs/ops_retention_plan.json
 ```
+
+## 4.1 Financial Report Coverage
+
+Financial reports flow through:
+
+```text
+financial_reports -> company_credit_health -> bond_risk_assessment -> bond_feature_snapshots -> ML model -> paper portfolio
+```
+
+Interpretation guide:
+
+- `insufficient_data`: report or ratio coverage is not enough for a firm
+  conclusion;
+- `watchlist`: manual review is needed, but this is not the same as a hard
+  block;
+- `blocked_by_risk`: actual risk gate failure in the current policy;
+- `critical`: severe risk level from hard evidence or combined risk factors.
+
+To import reports safely, run dry-run validation first:
+
+```bash
+python scripts/financial_report_import.py \
+  --input ./data/financial_reports/company_reports_2025.csv \
+  --format csv \
+  --source operator_csv \
+  --backend-url http://127.0.0.1:8000 \
+  --dry-run \
+  --validate-companies \
+  --json-output logs/financial_reports/import_preview.json \
+  --markdown-output logs/financial_reports/import_preview.md
+```
+
+After confirmed import, rebuild downstream data before any paper dry-run review:
+
+```bash
+python scripts/financial_report_post_ingest_rebuild.py \
+  --backend-url http://127.0.0.1:8000 \
+  --as-of-date-from 2026-05-13 \
+  --as-of-date-to 2026-05-19 \
+  --dry-run \
+  --json-output logs/financial_reports/post_ingest_rebuild_plan.json \
+  --markdown-output logs/financial_reports/post_ingest_rebuild_plan.md
+```
+
+Keep paper schedules paused until coverage, rebuild, readiness, and manual
+review are complete. Risk override is paper-only and should not be normal
+strategy behavior.
 
 ## 5. Weekly Monitoring
 

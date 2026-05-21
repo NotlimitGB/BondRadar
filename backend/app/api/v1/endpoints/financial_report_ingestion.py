@@ -6,6 +6,7 @@ from app.schemas.financial_report_ingestion import (
     FinancialReportImportRunRead,
     FinancialReportIngestRequest,
     FinancialReportIngestResult,
+    FinancialReportPreviewResult,
     FinancialReportSourceDocumentRead,
 )
 from app.services.financial_report_ingestion_service import (
@@ -14,6 +15,14 @@ from app.services.financial_report_ingestion_service import (
 
 
 router = APIRouter()
+
+
+@router.post("/preview", response_model=FinancialReportPreviewResult)
+def preview_financial_reports(
+    request: FinancialReportIngestRequest,
+    db: Session = Depends(get_db),
+) -> FinancialReportPreviewResult:
+    return FinancialReportIngestionService(db).preview(request)
 
 
 @router.post("/ingest", response_model=FinancialReportIngestResult)
@@ -34,6 +43,14 @@ def list_financial_report_import_runs(
         source=source,
         limit=limit,
     )
+
+
+@router.get("/import-runs/{run_id}", response_model=FinancialReportImportRunRead)
+def get_financial_report_import_run(
+    run_id: int,
+    db: Session = Depends(get_db),
+) -> FinancialReportImportRunRead:
+    return FinancialReportIngestionService(db).get_run(run_id)
 
 
 @router.get("/source-documents", response_model=list[FinancialReportSourceDocumentRead])

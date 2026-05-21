@@ -1,0 +1,2 @@
+company_id,company_ticker,company_inn,period_year,period_quarter,period_start_date,period_end_date,published_at,document_date,currency,source,source_url,source_file_name,report_type,revenue,ebitda,net_debt,total_debt,cash,equity,short_term_debt,operating_cash_flow,net_profit,interest_expense,debt_to_ebitda,interest_coverage
+,,,,,,,,,RUB,operator_csv,,,,,,,,,,,,,

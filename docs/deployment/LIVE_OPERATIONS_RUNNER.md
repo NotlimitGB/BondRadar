@@ -206,6 +206,32 @@ Risk override mode is paper-only and requires both:
 Use it only for technical validation or a controlled experiment. It should not
 be the normal strategy posture.
 
+## 6.2 Financial Report Coverage Before Paper Review
+
+Financial reports feed credit health, bond risk assessment, feature snapshots,
+model inputs, and paper portfolio construction. Check coverage before daily
+paper pilot review:
+
+```bash
+curl -s "http://127.0.0.1:8000/api/data-readiness/financial-reports/coverage?as_of_date=2026-05-19&active_only=true&stale_after_days=540"
+```
+
+When new financial reports are imported, render the post-ingest rebuild plan
+before using the updated data in paper diagnostics:
+
+```bash
+python scripts/financial_report_post_ingest_rebuild.py \
+  --backend-url http://127.0.0.1:8000 \
+  --as-of-date-from 2026-05-13 \
+  --as-of-date-to 2026-05-19 \
+  --dry-run \
+  --json-output logs/financial_reports/post_ingest_rebuild_plan.json \
+  --markdown-output logs/financial_reports/post_ingest_rebuild_plan.md
+```
+
+Keep paper schedules paused until coverage, rebuild, readiness, and manual
+review are complete.
+
 ## 7. Cron Examples
 
 Create `./logs` before installing cron entries:

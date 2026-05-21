@@ -17,6 +17,8 @@ from app.schemas.financial_report_ingestion import (
     FinancialReportIngestRequest,
     FinancialReportIngestResult,
     FinancialReportIngestWarning,
+    FinancialReportPreviewResult,
+    FinancialReportPreviewRow,
     FinancialReportStructuredInput,
 )
 
@@ -41,6 +43,7 @@ NON_NEGATIVE_FIELDS = {
     "short_term_debt",
     "interest_expense",
 }
+CORE_FIELDS = ("revenue", "ebitda", "total_debt", "equity", "interest_expense")
 
 
 class FinancialReportRowError(Exception):
@@ -52,6 +55,97 @@ class FinancialReportRowError(Exception):
 class FinancialReportIngestionService:
     def __init__(self, db: Session) -> None:
         self.db = db
+
+    def preview(self, request: FinancialReportIngestRequest) -> FinancialReportPreviewResult:
+        self._validate_request_shape(request)
+        rows: list[FinancialReportPreviewRow] = []
+        errors: list[FinancialReportIngestError] = []
+        warnings: list[FinancialReportIngestWarning] = []
+        valid_rows = would_create = would_update = would_skip = 0
+        seen_keys: dict[tuple[int, int, int], int] = {}
+
+        for row_index, row in enumerate(request.rows, start=1):
+            period_quarter = self._period_quarter(row)
+            row_errors: list[dict[str, Any]] = []
+            row_warnings: list[dict[str, Any]] = []
+            company: Company | None = None
+            identifier_used: str | None = None
+            action = "invalid"
+
+            try:
+                company, identifier_used = self._resolve_company_with_identifier(row)
+                row_warnings.extend(self._row_warnings(row, row_index, period_quarter))
+                self._raise_on_invalid_values(row)
+                key = (company.id, row.period_year, period_quarter)
+                duplicate_first_row = seen_keys.get(key)
+                if duplicate_first_row is not None:
+                    row_errors.append(
+                        self._row_message(
+                            row,
+                            row_index,
+                            f"Duplicate company-period row in request; first seen at row {duplicate_first_row}",
+                            period_quarter=period_quarter,
+                        )
+                    )
+                else:
+                    seen_keys[key] = row_index
+                if not row_errors:
+                    report = self._existing_report(company.id, row.period_year, period_quarter)
+                    if report is None:
+                        action = "create"
+                        would_create += 1
+                    elif request.rebuild_existing:
+                        action = "update"
+                        would_update += 1
+                    else:
+                        action = "skip"
+                        would_skip += 1
+                    valid_rows += 1
+            except FinancialReportRowError as exc:
+                row_errors.append(
+                    self._row_message(
+                        row,
+                        row_index,
+                        exc.message,
+                        period_quarter=period_quarter,
+                    )
+                )
+
+            error_models = [FinancialReportIngestError(**item) for item in row_errors]
+            warning_models = [
+                FinancialReportIngestWarning(**item) for item in row_warnings
+            ]
+            errors.extend(error_models)
+            warnings.extend(warning_models)
+            rows.append(
+                FinancialReportPreviewRow(
+                    row_index=row_index,
+                    company_id=row.company_id,
+                    company_ticker=row.company_ticker,
+                    company_inn=row.company_inn,
+                    matched_company_id=None if company is None else company.id,
+                    matched_company_name=None if company is None else company.name,
+                    identifier_used=identifier_used,
+                    period_year=row.period_year,
+                    period_quarter=period_quarter,
+                    would_action=action,
+                    errors=error_models,
+                    warnings=warning_models,
+                )
+            )
+
+        return FinancialReportPreviewResult(
+            status="failed" if errors else "warning" if warnings else "passed",
+            total_rows=len(request.rows),
+            valid_rows=valid_rows,
+            invalid_rows=len(request.rows) - valid_rows,
+            would_create=would_create,
+            would_update=would_update,
+            would_skip=would_skip,
+            rows=rows,
+            errors=errors,
+            warnings=warnings,
+        )
 
     def ingest(self, request: FinancialReportIngestRequest) -> FinancialReportIngestResult:
         self._validate_request(request)
@@ -119,6 +213,15 @@ class FinancialReportIngestionService:
         ).limit(limit)
         return list(self.db.execute(stmt).scalars())
 
+    def get_run(self, run_id: int) -> FinancialReportImportRun:
+        run = self.db.get(FinancialReportImportRun, run_id)
+        if run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="financial report import run not found",
+            )
+        return run
+
     def list_source_documents(
         self,
         *,
@@ -155,15 +258,10 @@ class FinancialReportIngestionService:
         rebuild_existing: bool,
     ) -> tuple[str, list[dict[str, Any]]]:
         company = self._resolve_company(row)
-        period_quarter = row.period_quarter if row.period_quarter is not None else 0
+        period_quarter = self._period_quarter(row)
         row_warnings = self._row_warnings(row, row_index, period_quarter)
-        report = self.db.execute(
-            select(FinancialReport).where(
-                FinancialReport.company_id == company.id,
-                FinancialReport.period_year == row.period_year,
-                FinancialReport.period_quarter == period_quarter,
-            )
-        ).scalar_one_or_none()
+        self._raise_on_invalid_values(row)
+        report = self._existing_report(company.id, row.period_year, period_quarter)
 
         report_data = self._report_data(row, request_source, period_quarter)
         if report is None:
@@ -193,26 +291,53 @@ class FinancialReportIngestionService:
         return action, row_warnings
 
     def _resolve_company(self, row: FinancialReportStructuredInput) -> Company:
+        company, _identifier_used = self._resolve_company_with_identifier(row)
+        return company
+
+    def _resolve_company_with_identifier(
+        self,
+        row: FinancialReportStructuredInput,
+    ) -> tuple[Company, str]:
         if row.company_id is not None:
             company = self.db.get(Company, row.company_id)
             if company is None:
-                raise FinancialReportRowError("Company not found")
-            return company
+                raise FinancialReportRowError(
+                    f"Company not found for company_id={row.company_id}"
+                )
+            return company, "company_id"
         if row.company_ticker:
             company = self.db.execute(
                 select(Company).where(Company.ticker == row.company_ticker)
             ).scalar_one_or_none()
             if company is None:
-                raise FinancialReportRowError("Company not found")
-            return company
+                raise FinancialReportRowError(
+                    f"Company not found for company_ticker={row.company_ticker}"
+                )
+            return company, "company_ticker"
         if row.company_inn:
             company = self.db.execute(
                 select(Company).where(Company.inn == row.company_inn)
             ).scalar_one_or_none()
             if company is None:
-                raise FinancialReportRowError("Company not found")
-            return company
+                raise FinancialReportRowError(
+                    f"Company not found for company_inn={row.company_inn}"
+                )
+            return company, "company_inn"
         raise FinancialReportRowError("Company identifier is required")
+
+    def _existing_report(
+        self,
+        company_id: int,
+        period_year: int,
+        period_quarter: int,
+    ) -> FinancialReport | None:
+        return self.db.execute(
+            select(FinancialReport).where(
+                FinancialReport.company_id == company_id,
+                FinancialReport.period_year == period_year,
+                FinancialReport.period_quarter == period_quarter,
+            )
+        ).scalar_one_or_none()
 
     def _report_data(
         self,
@@ -326,6 +451,16 @@ class FinancialReportIngestionService:
                     period_quarter=period_quarter,
                 )
             )
+        for field in CORE_FIELDS:
+            if self._decimal(getattr(row, field), field) is None:
+                warnings.append(
+                    self._row_message(
+                        row,
+                        row_index,
+                        f"{field} is missing",
+                        period_quarter=period_quarter,
+                    )
+                )
         for field in MONEY_FIELDS + RATIO_FIELDS:
             value = self._decimal(getattr(row, field), field)
             if value is None:
@@ -350,6 +485,14 @@ class FinancialReportIngestionService:
                 )
         return warnings
 
+    def _raise_on_invalid_values(self, row: FinancialReportStructuredInput) -> None:
+        for field in MONEY_FIELDS + RATIO_FIELDS:
+            value = self._decimal(getattr(row, field), field)
+            if value is None:
+                continue
+            if field in NON_NEGATIVE_FIELDS and value < 0:
+                raise FinancialReportRowError(f"{field} cannot be negative")
+
     @staticmethod
     def _decimal(value: Any, field: str) -> Decimal | None:
         if value is None:
@@ -364,15 +507,34 @@ class FinancialReportIngestionService:
         except (InvalidOperation, ValueError) as exc:
             raise FinancialReportRowError(f"Invalid decimal value for {field}") from exc
 
+    def _validate_request(self, request: FinancialReportIngestRequest) -> None:
+        self._validate_request_shape(request)
+        seen: dict[tuple[str, str, int, int], int] = {}
+        for row_index, row in enumerate(request.rows, start=1):
+            identifier_key = self._input_identifier_key(row)
+            if identifier_key is None:
+                continue
+            key = (*identifier_key, row.period_year, self._period_quarter(row))
+            first_row = seen.get(key)
+            if first_row is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "duplicate company-period rows in request: "
+                        f"row {row_index} duplicates row {first_row}"
+                    ),
+                )
+            seen[key] = row_index
+
     @staticmethod
-    def _validate_request(request: FinancialReportIngestRequest) -> None:
+    def _validate_request_shape(request: FinancialReportIngestRequest) -> None:
         if not request.rows:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="rows cannot be empty",
             )
         for row in request.rows:
-            period_quarter = row.period_quarter if row.period_quarter is not None else 0
+            period_quarter = FinancialReportIngestionService._period_quarter(row)
             if period_quarter < 0 or period_quarter > 4:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -387,6 +549,22 @@ class FinancialReportIngestionService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid date range",
                 )
+
+    @staticmethod
+    def _period_quarter(row: FinancialReportStructuredInput) -> int:
+        return row.period_quarter if row.period_quarter is not None else 0
+
+    @staticmethod
+    def _input_identifier_key(
+        row: FinancialReportStructuredInput,
+    ) -> tuple[str, str] | None:
+        if row.company_id is not None:
+            return ("company_id", str(row.company_id))
+        if row.company_ticker:
+            return ("company_ticker", row.company_ticker.strip())
+        if row.company_inn:
+            return ("company_inn", row.company_inn.strip())
+        return None
 
     def _create_run(
         self,

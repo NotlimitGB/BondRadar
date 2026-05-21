@@ -59,6 +59,34 @@ class FinancialReportIngestWarning(FinancialReportIngestError):
     pass
 
 
+class FinancialReportPreviewRow(BaseModel):
+    row_index: int
+    company_id: int | None = None
+    company_ticker: str | None = None
+    company_inn: str | None = None
+    matched_company_id: int | None = None
+    matched_company_name: str | None = None
+    identifier_used: str | None = None
+    period_year: int | None = None
+    period_quarter: int | None = None
+    would_action: str
+    errors: list[FinancialReportIngestError] = Field(default_factory=list)
+    warnings: list[FinancialReportIngestWarning] = Field(default_factory=list)
+
+
+class FinancialReportPreviewResult(BaseModel):
+    status: str
+    total_rows: int
+    valid_rows: int
+    invalid_rows: int
+    would_create: int
+    would_update: int
+    would_skip: int
+    rows: list[FinancialReportPreviewRow]
+    errors: list[FinancialReportIngestError] = Field(default_factory=list)
+    warnings: list[FinancialReportIngestWarning] = Field(default_factory=list)
+
+
 class FinancialReportIngestResult(BaseModel):
     run_id: int
     status: str

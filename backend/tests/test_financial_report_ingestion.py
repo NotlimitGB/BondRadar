@@ -288,9 +288,208 @@ def test_unknown_company_and_invalid_decimal_are_row_level_errors(
     assert payload["errors"][0]["row_index"] == 1
     assert payload["errors"][0]["period_year"] == 2024
     assert payload["errors"][0]["period_quarter"] == 4
-    assert payload["errors"][0]["message"] == "Company not found"
+    assert payload["errors"][0]["message"] == "Company not found for company_id=999999"
     assert payload["errors"][1]["company_id"] == company.id
     assert payload["errors"][1]["message"] == "Invalid decimal value for revenue"
+
+
+def test_preview_matches_companies_without_mutating(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company_by_id = create_company(db_session, ticker="PRID", inn="7701000021")
+    company_by_ticker = create_company(db_session, ticker="PRTK", inn="7701000022")
+    company_by_inn = create_company(db_session, ticker="PRIN", inn="7701000023")
+    payload = {
+        "source": "operator_csv",
+        "rows": [
+            ingest_payload(company_by_id)["rows"][0],
+            ingest_payload(
+                company_by_ticker,
+                company_id=None,
+                company_ticker="PRTK",
+                period_quarter=3,
+                source_file_name="ticker-q3.json",
+            )["rows"][0],
+            ingest_payload(
+                company_by_inn,
+                company_id=None,
+                company_inn="7701000023",
+                period_quarter=2,
+                source_file_name="inn-q2.json",
+            )["rows"][0],
+        ],
+    }
+
+    response = client.post("/api/financial-reports/preview", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "passed"
+    assert data["would_create"] == 3
+    assert [row["identifier_used"] for row in data["rows"]] == [
+        "company_id",
+        "company_ticker",
+        "company_inn",
+    ]
+    assert db_session.scalar(select(func.count()).select_from(FinancialReport)) == 0
+
+
+def test_preview_reports_unknown_company_and_duplicate_period(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, ticker="PDUP", inn="7701000024")
+    payload = {
+        "source": "operator_csv",
+        "rows": [
+            ingest_payload(company)["rows"][0],
+            ingest_payload(
+                company,
+                source_file_name="duplicate-period.json",
+            )["rows"][0],
+            ingest_payload(
+                company,
+                company_id=None,
+                company_ticker="UNKNOWN",
+                period_quarter=3,
+            )["rows"][0],
+        ],
+    }
+
+    response = client.post("/api/financial-reports/preview", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "failed"
+    messages = [error["message"] for error in data["errors"]]
+    assert any("Duplicate company-period row" in message for message in messages)
+    assert "Company not found for company_ticker=UNKNOWN" in messages
+    assert data["invalid_rows"] == 2
+
+
+def test_ingest_rejects_duplicate_rows_before_mutation(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, ticker="DUPR", inn="7701000025")
+    payload = {
+        "source": "operator_csv",
+        "rows": [
+            ingest_payload(company)["rows"][0],
+            ingest_payload(company, source_file_name="duplicate.json")["rows"][0],
+        ],
+    }
+
+    response = client.post("/api/financial-reports/ingest", json=payload)
+
+    assert response.status_code == 400
+    assert "duplicate company-period rows" in response.json()["detail"]
+    assert db_session.scalar(select(func.count()).select_from(FinancialReport)) == 0
+
+
+def test_negative_non_negative_field_fails_but_negative_equity_warns(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, ticker="NEGV", inn="7701000026")
+    payload = {
+        "source": "operator_csv",
+        "rows": [
+            ingest_payload(company, revenue="-1")["rows"][0],
+            ingest_payload(
+                company,
+                period_quarter=3,
+                source_file_name="negative-equity.json",
+                equity="-10",
+            )["rows"][0],
+        ],
+    }
+
+    response = client.post("/api/financial-reports/ingest", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "completed_with_errors"
+    assert data["created"] == 1
+    assert data["failed"] == 1
+    assert data["errors"][0]["message"] == "revenue cannot be negative"
+    assert any("negative equity" in warning["message"] for warning in data["warnings"])
+
+
+def test_missing_core_fields_are_import_warnings(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, ticker="CORE", inn="7701000027")
+
+    response = client.post(
+        "/api/financial-reports/ingest",
+        json=ingest_payload(
+            company,
+            ebitda=None,
+            total_debt=None,
+            interest_expense=None,
+        ),
+    )
+
+    assert response.status_code == 200
+    messages = [warning["message"] for warning in response.json()["warnings"]]
+    assert "ebitda is missing" in messages
+    assert "total_debt is missing" in messages
+    assert "interest_expense is missing" in messages
+
+
+def test_get_import_run_detail(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, ticker="RUND", inn="7701000028")
+    ingest_response = client.post(
+        "/api/financial-reports/ingest",
+        json=ingest_payload(company),
+    )
+    run_id = ingest_response.json()["run_id"]
+
+    response = client.get(f"/api/financial-reports/import-runs/{run_id}")
+
+    assert response.status_code == 200
+    assert response.json()["id"] == run_id
+
+
+def test_import_changes_financial_report_coverage_but_not_feature_ratio_coverage(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, ticker="COVI", inn="7701000029")
+    create_bond_with_snapshot(db_session, company)
+
+    before = client.get(
+        "/api/data-readiness/financial-reports/coverage?as_of_date=2025-04-01"
+    )
+    assert before.status_code == 200
+    assert before.json()["companies_with_financial_reports"] == 0
+
+    ingest_response = client.post(
+        "/api/financial-reports/ingest",
+        json=ingest_payload(company, period_quarter=0),
+    )
+    assert ingest_response.status_code == 200
+
+    after = client.get(
+        "/api/data-readiness/financial-reports/coverage?as_of_date=2025-04-01"
+    )
+
+    assert after.status_code == 200
+    payload = after.json()
+    assert payload["companies_with_financial_reports"] == 1
+    assert payload["active_bonds_with_financial_reports"] == 1
+    assert (
+        payload["feature_snapshot_coverage"][
+            "feature_snapshots_with_any_financial_ratio"
+        ]
+        == 0
+    )
 
 
 def test_future_published_report_is_not_used_by_credit_health(

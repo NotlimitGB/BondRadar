@@ -34,6 +34,15 @@ Corporate bond universe
 Market snapshots / cashflows
   |
   v
+Financial reports
+  |
+  v
+Company credit health
+  |
+  v
+Bond risk assessment
+  |
+  v
 Feature snapshots
   |
   v
@@ -179,7 +188,33 @@ curl -s -X PUT http://127.0.0.1:8000/api/risk/external-regime \
   }'
 ```
 
-## 9. Stop Conditions
+## 9. Financial Report Import Workflow
+
+Company financial reports are a first-class input for corporate bond analysis.
+They feed this chain:
+
+```text
+financial_reports -> company_credit_health -> bond_risk_assessment -> bond_feature_snapshots -> ML model -> paper portfolio
+```
+
+Before daily paper pilot review, check coverage:
+
+```bash
+curl -s "http://127.0.0.1:8000/api/data-readiness/financial-reports/coverage?as_of_date=2026-05-19&active_only=true&stale_after_days=540"
+```
+
+File-based imports are documented in:
+
+```text
+docs/deployment/FINANCIAL_REPORT_IMPORT.md
+```
+
+Missing financial reports should remain explicit. Use empty or `null` values
+for missing fields, not fake zeros. After import, rebuild credit health, bond
+risk assessments, and feature snapshots before reviewing model or paper pilot
+readiness.
+
+## 10. Stop Conditions
 
 Pause the pilot workflow when any of these persist:
 
@@ -193,7 +228,7 @@ Pause the pilot workflow when any of these persist:
 - backup fails;
 - operator is uncertain.
 
-## 10. Human Responsibilities
+## 11. Human Responsibilities
 
 The operator is responsible for:
 

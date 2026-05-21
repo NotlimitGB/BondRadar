@@ -1,0 +1,32 @@
+{
+  "rows": [
+    {
+      "company_id": null,
+      "company_ticker": null,
+      "company_inn": null,
+      "period_year": 2025,
+      "period_quarter": 0,
+      "period_start_date": null,
+      "period_end_date": null,
+      "published_at": null,
+      "document_date": null,
+      "currency": "RUB",
+      "source": "operator_json",
+      "source_url": null,
+      "source_file_name": null,
+      "report_type": null,
+      "revenue": null,
+      "ebitda": null,
+      "net_debt": null,
+      "total_debt": null,
+      "cash": null,
+      "equity": null,
+      "short_term_debt": null,
+      "operating_cash_flow": null,
+      "net_profit": null,
+      "interest_expense": null,
+      "debt_to_ebitda": null,
+      "interest_coverage": null
+    }
+  ]
+}
