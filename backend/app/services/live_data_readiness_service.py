@@ -14,11 +14,13 @@ from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.models.company import Company
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
+from app.schemas.financial_report_coverage import FinancialReportCoverageResponse
 from app.schemas.live_data_readiness import (
     LiveDataReadinessCheck,
     LiveDataReadinessResponse,
     LiveDataReadinessWarning,
 )
+from app.services.financial_report_coverage_service import FinancialReportCoverageService
 
 
 class LiveDataReadinessService:
@@ -56,6 +58,10 @@ class LiveDataReadinessService:
         market = self._market_summary(working_bond_ids, recent_cutoff)
         cashflows = self._cashflow_summary(working_bond_ids)
         features = self._feature_summary(working_bond_ids, recent_cutoff)
+        financial_report_coverage = FinancialReportCoverageService(self.db).coverage(
+            as_of_date=as_of.date(),
+            active_only=not include_ofz,
+        )
         latest_run = self._latest_completed_model_run()
         predictions = self._prediction_summary(
             working_bond_ids=working_bond_ids,
@@ -71,6 +77,7 @@ class LiveDataReadinessService:
             market=market,
             cashflows=cashflows,
             features=features,
+            financial_report_coverage=financial_report_coverage,
             latest_run=latest_run,
             predictions=predictions,
             minimum_corporate_bonds=minimum_corporate_bonds,
@@ -107,6 +114,7 @@ class LiveDataReadinessService:
             prediction_count_for_latest_run=predictions["row_count"],
             bonds_with_predictions_for_latest_run_count=predictions["bond_count"],
             latest_prediction_date=predictions["latest_date"],
+            financial_report_coverage=financial_report_coverage,
             checks=checks,
             warnings=warnings,
             next_steps=self._next_steps(checks),
@@ -266,6 +274,7 @@ class LiveDataReadinessService:
         market: dict[str, Any],
         cashflows: dict[str, Any],
         features: dict[str, Any],
+        financial_report_coverage: FinancialReportCoverageResponse,
         latest_run: MLModelRun | None,
         predictions: dict[str, Any],
         minimum_corporate_bonds: int,
@@ -293,12 +302,41 @@ class LiveDataReadinessService:
                 recent_cutoff,
                 minimum_bonds_with_recent_features,
             ),
+            *self._financial_report_coverage_checks(financial_report_coverage),
             self._completed_model_run_check(latest_run),
             self._predictions_check(predictions, minimum_bonds_with_predictions),
             self._recent_predictions_check(predictions, recent_days, recent_cutoff),
         ]
         checks.append(self._paper_pilot_check(checks))
         return checks
+
+    @staticmethod
+    def _financial_report_coverage_checks(
+        coverage: FinancialReportCoverageResponse,
+    ) -> list[LiveDataReadinessCheck]:
+        if not coverage.warnings:
+            return [
+                LiveDataReadinessService._check(
+                    "financial_report_coverage_ready",
+                    "passed",
+                    "Financial report coverage is sufficient for readiness diagnostics",
+                    {
+                        "coverage_ratio": coverage.coverage_ratio,
+                        "feature_snapshot_financial_ratio_ratio": (
+                            coverage.feature_snapshot_coverage.feature_snapshot_financial_ratio_ratio
+                        ),
+                    },
+                )
+            ]
+        return [
+            LiveDataReadinessService._check(
+                warning.code,
+                "warning",
+                warning.message,
+                warning.details,
+            )
+            for warning in coverage.warnings
+        ]
 
     @staticmethod
     def _corporate_universe_check(
@@ -636,6 +674,18 @@ class LiveDataReadinessService:
             ),
             "recent_feature_snapshots_available": (
                 "Build recent feature snapshots for the working bond universe."
+            ),
+            "financial_report_coverage_missing": (
+                "Import company financial reports before relying on strict credit diagnostics."
+            ),
+            "financial_report_coverage_low": (
+                "Expand company financial report coverage for the working universe."
+            ),
+            "financial_report_stale": (
+                "Refresh stale company financial reports before daily paper pilot review."
+            ),
+            "financial_ratio_coverage_low": (
+                "Rebuild feature snapshots after financial reports are available."
             ),
             "completed_model_run_available": (
                 "Train a model before generating predictions."

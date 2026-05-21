@@ -179,6 +179,36 @@ def test_overview_includes_severe_external_risk_alert(client: TestClient) -> Non
     assert "external_risk_severe" in alert_codes(payload)
 
 
+def test_overview_includes_financial_report_coverage_warning(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = Company(
+        name="Monitoring Coverage Company",
+        ticker="MCOV",
+        country="RU",
+        signal="neutral",
+    )
+    db_session.add(company)
+    db_session.flush()
+    db_session.add(
+        Bond(
+            company_id=company.id,
+            isin="RU000MCOV01",
+            secid="MCOV01",
+            name="Monitoring coverage bond",
+            currency="RUB",
+            signal="neutral",
+        )
+    )
+    db_session.commit()
+
+    response = client.get(f"{MONITORING_URL}/overview")
+
+    assert response.status_code == 200
+    assert "financial_report_coverage_missing" in alert_codes(response.json())
+
+
 def test_overview_with_active_schedule_and_completed_cycle(
     client: TestClient,
     db_session: Session,
@@ -413,6 +443,7 @@ def test_empty_portfolio_alert_includes_construction_diagnostics(
             "selected_count": 0,
             "excluded_count": 3,
             "exclusion_reason_counts": {"Blocked by risk assessment": 3},
+            "financial_data_gap_counts": {"financial_report_missing": 3},
         }
     }
     db_session.commit()
@@ -428,6 +459,9 @@ def test_empty_portfolio_alert_includes_construction_diagnostics(
     assert alert["details"]["exclusion_reason_counts"] == {
         "Blocked by risk assessment": 3
     }
+    assert alert["details"]["financial_data_gap_counts"] == {
+        "financial_report_missing": 3
+    }
 
 
 def test_zero_position_cycle_overview_alert(
@@ -441,6 +475,7 @@ def test_zero_position_cycle_overview_alert(
         "construction_summary": {
             "selected_count": 0,
             "exclusion_reason_counts": {"Blocked by risk assessment": 2},
+            "financial_data_gap_counts": {"financial_report_missing": 2},
         },
     }
     db_session.commit()
@@ -450,7 +485,10 @@ def test_zero_position_cycle_overview_alert(
     )
 
     assert response.status_code == 200
-    assert "recent_zero_position_cycles" in alert_codes(response.json())
+    codes = alert_codes(response.json())
+    assert "recent_zero_position_cycles" in codes
+    assert "zero_positions_due_to_risk_blocks" in codes
+    assert "zero_positions_due_to_financial_data_gaps" in codes
 
 
 def test_stale_running_cycle(

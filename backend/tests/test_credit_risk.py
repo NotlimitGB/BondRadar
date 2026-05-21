@@ -171,6 +171,33 @@ def test_missing_financial_report_does_not_crash(
     assert "Financial report is missing" in payload["missing_data"]
 
 
+def test_partial_non_bad_financial_data_is_not_distressed(
+    client: TestClient, db_session: Session
+) -> None:
+    company = create_company(db_session, "PART")
+    db_session.add(
+        FinancialReport(
+            company_id=company.id,
+            period_year=2025,
+            period_quarter=0,
+            revenue=Decimal("1000.00"),
+            equity=Decimal("500.00"),
+            net_profit=Decimal("20.00"),
+            signal=AnalysisSignal.NEUTRAL.value,
+        )
+    )
+    create_company_score(db_session, company, value=70)
+    db_session.commit()
+
+    response = client.post(f"/api/credit-risk/companies/{company.id}/calculate")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["credit_status"] in {"insufficient_data", "credit_watchlist"}
+    assert payload["risk_level"] != "critical"
+    assert "Too many important credit fields are missing" not in payload["risk_factors"]
+
+
 def test_insufficient_credit_data_does_not_become_confirmed_block(
     client: TestClient, db_session: Session
 ) -> None:
@@ -185,6 +212,44 @@ def test_insufficient_credit_data_does_not_become_confirmed_block(
     assert payload["decision_status"] == "insufficient_data"
     assert payload["risk_level"] == "unknown"
     assert payload["gates"]["credit_gate"] == "warning"
+
+
+def test_stressed_issuer_without_hard_blockers_is_watchlist_not_blocked(
+    client: TestClient, db_session: Session
+) -> None:
+    company = create_company(db_session, "STRS")
+    db_session.add(
+        FinancialReport(
+            company_id=company.id,
+            period_year=2025,
+            period_quarter=0,
+            revenue=Decimal("1000.00"),
+            ebitda=Decimal("100.00"),
+            net_debt=Decimal("400.00"),
+            total_debt=Decimal("450.00"),
+            cash=Decimal("100.00"),
+            equity=Decimal("300.00"),
+            short_term_debt=Decimal("120.00"),
+            operating_cash_flow=Decimal("20.00"),
+            net_profit=Decimal("5.00"),
+            interest_expense=Decimal("80.00"),
+            signal=AnalysisSignal.NEUTRAL.value,
+        )
+    )
+    create_company_score(db_session, company, value=55)
+    bond = create_bond(db_session, company, isin="RU000CRD011")
+    db_session.commit()
+
+    health = client.post(f"/api/credit-risk/companies/{company.id}/calculate")
+    assessment = client.post(f"/api/credit-risk/bonds/{bond.id}/assess")
+
+    assert health.status_code == 200
+    assert health.json()["credit_status"] == "credit_stressed"
+    assert health.json()["risk_level"] == "high"
+    assert assessment.status_code == 200
+    assert assessment.json()["decision_status"] == "watchlist"
+    assert assessment.json()["risk_level"] == "high"
+    assert assessment.json()["gates"]["credit_gate"] == "warning"
 
 
 def test_missing_company_score_does_not_crash(

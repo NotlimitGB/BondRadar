@@ -16,7 +16,11 @@ from app.models.company_credit_health_snapshot import CompanyCreditHealthSnapsho
 from app.models.enums import AnalysisSignal
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
-from app.services.ml_feature_builder import CREDIT_RISK_FEATURES, MLFeatureBuilder
+from app.services.ml_feature_builder import (
+    CREDIT_RISK_FEATURES,
+    FINANCIAL_REPORT_FEATURES,
+    MLFeatureBuilder,
+)
 
 
 def create_company(db: Session, ticker: str = "MLT") -> Company:
@@ -415,8 +419,17 @@ def test_credit_risk_features_can_be_enabled_or_disabled(
     disabled_run = client.get(f"/api/ml/runs/{disabled.json()['run_id']}").json()
     assert set(CREDIT_RISK_FEATURES).issubset(set(enabled_run["features"]))
     assert set(CREDIT_RISK_FEATURES).isdisjoint(set(disabled_run["features"]))
+    assert set(FINANCIAL_REPORT_FEATURES).issubset(set(enabled_run["features"]))
+    assert set(FINANCIAL_REPORT_FEATURES).issubset(set(disabled_run["features"]))
     assert enabled_run["params"]["include_credit_risk_features"] is True
     assert disabled_run["params"]["include_credit_risk_features"] is False
+    assert enabled_run["params"]["feature_groups"]["financial_report"] == (
+        FINANCIAL_REPORT_FEATURES
+    )
+    assert enabled_run["params"]["feature_groups"]["credit_risk"] == (
+        CREDIT_RISK_FEATURES
+    )
+    assert disabled_run["params"]["feature_groups"]["credit_risk"] == []
 
 
 def test_risk_feature_builder_uses_no_future_snapshots(
@@ -540,6 +553,7 @@ def test_predict_with_trained_model_and_upsert(
         assert Decimal("0") <= probability <= Decimal("1")
         assert prediction["predicted_label"] in allowed
         assert set(CREDIT_RISK_FEATURES).issubset(set(prediction["features"]))
+        assert set(FINANCIAL_REPORT_FEATURES).issubset(set(prediction["features"]))
     assert db_session.query(MLPrediction).filter_by(model_run_id=run_id).count() == 5
     assert listed.status_code == 200
     assert listed.json()["total"] == 5

@@ -87,6 +87,17 @@ class DatasetQualityNumericFeatureStats(BaseModel):
     avg: Decimal | None
 
 
+class DatasetQualityFinancialRatioCoverage(BaseModel):
+    feature_snapshot_count: int
+    snapshots_with_financial_report_id: int
+    snapshots_with_any_financial_ratio: int
+    snapshots_with_core_ratios: int
+    financial_report_id_ratio: float | None
+    any_financial_ratio_ratio: float | None
+    ratio_field_counts: dict[str, int]
+    average_missing_data_count: float | None
+
+
 class DatasetQualityBondCoverage(BaseModel):
     bond_id: int
     bond_name: str
@@ -120,5 +131,6 @@ class DatasetQualityReport(BaseModel):
     label_distribution: DatasetQualityLabelDistribution
     missing_features: list[DatasetQualityMissingFeature]
     numeric_feature_stats: list[DatasetQualityNumericFeatureStats]
+    financial_ratio_coverage: DatasetQualityFinancialRatioCoverage
     coverage_by_bond: list[DatasetQualityBondCoverage]
     coverage_by_company: list[DatasetQualityCompanyCoverage]

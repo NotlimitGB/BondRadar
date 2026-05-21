@@ -469,8 +469,6 @@ class CompanyCreditHealthService:
             flags.append("Debt to EBITDA is above 5")
         if company_score_value is not None and company_score_value < Decimal("30"):
             flags.append("Company score is below 30")
-        if missing_count >= 7:
-            flags.append("Too many important credit fields are missing")
         return flags
 
     @staticmethod
@@ -484,13 +482,17 @@ class CompanyCreditHealthService:
             return "insufficient_data"
         if critical_red_flags:
             return "credit_distressed"
+        if missing_count >= 5:
+            return "insufficient_data"
+        if missing_count >= 3 and score < 60:
+            return "credit_watchlist"
         if score >= 80:
             return "credit_stable"
         if score >= 60:
             return "credit_watchlist"
         if score >= 40:
             return "credit_stressed"
-        return "credit_distressed"
+        return "credit_stressed"
 
     @staticmethod
     def _risk_level(credit_status: str) -> str:

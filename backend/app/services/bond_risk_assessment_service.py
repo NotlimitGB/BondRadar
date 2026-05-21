@@ -351,9 +351,6 @@ class BondRiskAssessmentService:
         elif status_value == "insufficient_data":
             gates["credit_gate"] = "warning"
             warnings.append("Issuer credit status has insufficient data")
-        elif status_value == "credit_stressed" and credit_health.credit_health_score < 50:
-            gates["credit_gate"] = "blocked"
-            blocking_reasons.append("Issuer credit health is stressed")
         elif status_value in {"credit_stressed", "credit_watchlist"}:
             gates["credit_gate"] = "warning"
             warnings.append(f"Issuer credit status is {status_value}")

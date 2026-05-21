@@ -13,6 +13,8 @@ from app.models.bond import Bond
 from app.models.bond_feature_snapshot import BondFeatureSnapshot
 from app.models.bond_risk_assessment import BondRiskAssessment
 from app.models.company import Company
+from app.models.company_credit_health_snapshot import CompanyCreditHealthSnapshot
+from app.models.financial_report import FinancialReport
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
 from app.schemas.portfolio_construction import (
@@ -27,6 +29,10 @@ from app.schemas.portfolio_construction import (
     PortfolioConstraintReport,
 )
 from app.services.ml_feature_builder import RETURN_METHODS
+from app.services.financial_report_coverage_service import (
+    FINANCIAL_RATIO_FIELDS,
+    FinancialReportCoverageService,
+)
 
 
 HIGH_RISK_LEVELS = {"high", "critical"}
@@ -54,6 +60,7 @@ class RawPortfolioCandidate:
     risk_notes: list[str]
     has_feature_snapshot: bool
     has_risk_assessment: bool
+    financial_diagnostics: dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -155,6 +162,10 @@ class PortfolioConstructionService:
             selected=selected,
             excluded_count=len(excluded_reasons),
             exclusion_reason_counts=self._exclusion_reason_counts(excluded_reasons),
+            financial_data_gap_counts=self._financial_data_gap_counts(
+                candidates,
+                excluded_reasons,
+            ),
             capital=request.capital,
             issuer_weights=issuer_weights,
             high_risk_weight=high_risk_weight,
@@ -173,6 +184,7 @@ class PortfolioConstructionService:
                     as_of_date=as_of_date,
                     details={
                         "exclusion_reason_counts": summary.exclusion_reason_counts,
+                        "financial_data_gap_counts": summary.financial_data_gap_counts,
                     },
                 )
             )
@@ -315,11 +327,37 @@ class PortfolioConstructionService:
             as_of_date,
             [prediction.bond_id for prediction, *_ in rows],
         )
+        health = self._latest_health_by_company(
+            as_of_date,
+            [company.id for *_, company in rows],
+        )
+        report_ids = {
+            report_id
+            for _prediction, feature, _bond, company in rows
+            for report_id in [
+                None if feature is None else feature.financial_report_id,
+                (
+                    None
+                    if company.id not in health
+                    else health[company.id].financial_report_id
+                ),
+            ]
+            if report_id is not None
+        }
+        reports = self._reports_by_id(report_ids)
         candidates: list[RawPortfolioCandidate] = []
         for prediction, feature, bond, company in rows:
             risk = risks.get(prediction.bond_id)
+            credit_health = health.get(company.id)
             feature_liquidity = None if feature is None else feature.liquidity_score
             risk_liquidity = None if risk is None else risk.liquidity_score
+            report_id = (
+                feature.financial_report_id
+                if feature is not None and feature.financial_report_id is not None
+                else (
+                    None if credit_health is None else credit_health.financial_report_id
+                )
+            )
             candidates.append(
                 RawPortfolioCandidate(
                     bond_id=bond.id,
@@ -360,6 +398,13 @@ class PortfolioConstructionService:
                     risk_notes=[] if risk is None else self._risk_notes(risk),
                     has_feature_snapshot=feature is not None,
                     has_risk_assessment=risk is not None,
+                    financial_diagnostics=self._financial_diagnostics(
+                        feature=feature,
+                        credit_health=credit_health,
+                        risk=risk,
+                        report=reports.get(report_id),
+                        as_of_date=as_of_date,
+                    ),
                 )
             )
         return candidates
@@ -387,6 +432,40 @@ class PortfolioConstructionService:
         for risk in risks:
             risk_by_bond.setdefault(risk.bond_id, risk)
         return risk_by_bond
+
+    def _latest_health_by_company(
+        self,
+        as_of_date: date,
+        company_ids: list[int],
+    ) -> dict[int, CompanyCreditHealthSnapshot]:
+        if not company_ids:
+            return {}
+        health_by_company: dict[int, CompanyCreditHealthSnapshot] = {}
+        rows = self.db.execute(
+            select(CompanyCreditHealthSnapshot)
+            .where(
+                CompanyCreditHealthSnapshot.company_id.in_(set(company_ids)),
+                CompanyCreditHealthSnapshot.as_of_date <= as_of_date,
+            )
+            .order_by(
+                CompanyCreditHealthSnapshot.company_id.asc(),
+                CompanyCreditHealthSnapshot.as_of_date.desc(),
+                CompanyCreditHealthSnapshot.id.desc(),
+            )
+        ).scalars()
+        for row in rows:
+            health_by_company.setdefault(row.company_id, row)
+        return health_by_company
+
+    def _reports_by_id(self, report_ids: set[int]) -> dict[int, FinancialReport]:
+        if not report_ids:
+            return {}
+        return {
+            report.id: report
+            for report in self.db.execute(
+                select(FinancialReport).where(FinancialReport.id.in_(report_ids))
+            ).scalars()
+        }
 
     def _filter_candidate(
         self,
@@ -445,6 +524,7 @@ class PortfolioConstructionService:
         selected: list[PortfolioCandidate],
         excluded_count: int,
         exclusion_reason_counts: dict[str, int],
+        financial_data_gap_counts: dict[str, int],
         capital: Decimal,
         issuer_weights: dict[int, Decimal],
         high_risk_weight: Decimal,
@@ -503,6 +583,7 @@ class PortfolioConstructionService:
             max_issuer_weight=max(issuer_weights.values(), default=Decimal("0")),
             high_risk_weight=high_risk_weight,
             exclusion_reason_counts=exclusion_reason_counts,
+            financial_data_gap_counts=financial_data_gap_counts,
         )
 
     def _constraints(
@@ -637,6 +718,7 @@ class PortfolioConstructionService:
             required_risk_premium=candidate.required_risk_premium,
             selection_reasons=allocation.selection_reasons,
             risk_notes=candidate.risk_notes,
+            financial_diagnostics=candidate.financial_diagnostics,
         )
 
     @staticmethod
@@ -659,6 +741,7 @@ class PortfolioConstructionService:
             decision_status=candidate.decision_status,
             risk_level=candidate.risk_level,
             exclusion_reasons=reasons,
+            financial_diagnostics=candidate.financial_diagnostics,
         )
 
     @staticmethod
@@ -691,6 +774,80 @@ class PortfolioConstructionService:
         for reasons in excluded_reasons.values():
             for reason in reasons:
                 counts[reason] += 1
+        return dict(
+            sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        )
+
+    @staticmethod
+    def _financial_diagnostics(
+        *,
+        feature: BondFeatureSnapshot | None,
+        credit_health: CompanyCreditHealthSnapshot | None,
+        risk: BondRiskAssessment | None,
+        report: FinancialReport | None,
+        as_of_date: date,
+    ) -> dict[str, object]:
+        ratio_fields_present = [
+            field
+            for field in FINANCIAL_RATIO_FIELDS
+            if feature is not None and getattr(feature, field) is not None
+        ]
+        report_date = (
+            None
+            if report is None
+            else FinancialReportCoverageService._report_reference_date(report)
+        )
+        return {
+            "financial_report_id": (
+                feature.financial_report_id
+                if feature is not None and feature.financial_report_id is not None
+                else (
+                    None
+                    if credit_health is None
+                    else credit_health.financial_report_id
+                )
+            ),
+            "data_quality_level": (
+                None if credit_health is None else credit_health.data_quality_level
+            ),
+            "credit_status": (
+                (None if risk is None else risk.company_credit_status)
+                or (None if credit_health is None else credit_health.credit_status)
+            ),
+            "missing_data_count": (
+                None if feature is None else feature.missing_data_count
+            ),
+            "financial_ratio_fields_present": ratio_fields_present,
+            "financial_report_staleness_days": (
+                None if report_date is None else (as_of_date - report_date).days
+            ),
+        }
+
+    @staticmethod
+    def _financial_data_gap_counts(
+        candidates: list[RawPortfolioCandidate],
+        excluded_reasons: dict[int, list[str]],
+    ) -> dict[str, int]:
+        counts: dict[str, int] = defaultdict(int)
+        for candidate in candidates:
+            diagnostics = candidate.financial_diagnostics
+            reasons = excluded_reasons.get(candidate.bond_id, [])
+            if diagnostics.get("financial_report_id") is None:
+                counts["financial_report_missing"] += 1
+            if not diagnostics.get("financial_ratio_fields_present"):
+                counts["financial_ratios_missing"] += 1
+            if diagnostics.get("data_quality_level") in {"low", "insufficient"}:
+                counts[f"data_quality_{diagnostics['data_quality_level']}"] += 1
+            if diagnostics.get("credit_status") == "insufficient_data":
+                counts["credit_status_insufficient_data"] += 1
+            if "Insufficient credit risk data" in reasons:
+                counts["excluded_insufficient_credit_risk_data"] += 1
+            staleness = diagnostics.get("financial_report_staleness_days")
+            if isinstance(staleness, int) and staleness > 540:
+                counts["financial_report_stale"] += 1
         return dict(
             sorted(
                 counts.items(),

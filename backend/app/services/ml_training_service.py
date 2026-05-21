@@ -190,6 +190,9 @@ class MLTrainingService:
                 "horizon_days": request.horizon_days,
                 "return_method": request.return_method,
                 "include_credit_risk_features": request.include_credit_risk_features,
+                "feature_groups": MLFeatureBuilder.feature_groups(
+                    include_credit_risk_features=request.include_credit_risk_features
+                ),
                 "as_of_date_from": (
                     request.as_of_date_from.isoformat()
                     if request.as_of_date_from
@@ -358,6 +361,9 @@ class MLTrainingService:
             {
                 "model": pipeline,
                 "features": list(feature_names),
+                "feature_groups": MLFeatureBuilder.feature_groups(
+                    include_credit_risk_features=request.include_credit_risk_features
+                ),
                 "model_type": request.model_type,
                 "horizon_days": request.horizon_days,
                 "return_method": request.return_method,

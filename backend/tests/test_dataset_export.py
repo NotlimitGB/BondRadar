@@ -252,6 +252,10 @@ def test_quality_report_returns_stats(
     }
     assert numeric_by_feature["future_return"]["count"] == 2
     assert numeric_by_feature["future_return"]["missing_count"] == 1
+    ratio_coverage = payload["financial_ratio_coverage"]
+    assert ratio_coverage["feature_snapshot_count"] == 3
+    assert "interest_coverage" in ratio_coverage["ratio_field_counts"]
+    assert ratio_coverage["average_missing_data_count"] is not None
     assert len(payload["coverage_by_bond"]) == 2
     assert len(payload["coverage_by_company"]) == 2
 
@@ -272,6 +276,8 @@ def test_empty_dataset_export_and_quality_report(client: TestClient) -> None:
     assert payload["total_rows"] == 0
     assert payload["missing_features"] == []
     assert payload["numeric_feature_stats"] == []
+    assert payload["financial_ratio_coverage"]["feature_snapshot_count"] == 0
+    assert payload["financial_ratio_coverage"]["financial_report_id_ratio"] is None
     assert payload["coverage_by_bond"] == []
     assert payload["coverage_by_company"] == []
 

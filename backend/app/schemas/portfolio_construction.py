@@ -70,6 +70,7 @@ class PortfolioCandidate(BaseModel):
     required_risk_premium: Decimal | None
     selection_reasons: list[str]
     risk_notes: list[str]
+    financial_diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 
 class ExcludedPortfolioCandidate(BaseModel):
@@ -87,6 +88,7 @@ class ExcludedPortfolioCandidate(BaseModel):
     decision_status: str | None
     risk_level: str | None
     exclusion_reasons: list[str]
+    financial_diagnostics: dict[str, Any] = Field(default_factory=dict)
 
 
 class PortfolioConstructionSummary(BaseModel):
@@ -104,6 +106,7 @@ class PortfolioConstructionSummary(BaseModel):
     max_issuer_weight: Decimal
     high_risk_weight: Decimal
     exclusion_reason_counts: dict[str, int] = Field(default_factory=dict)
+    financial_data_gap_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class PortfolioConstructionResponse(BaseModel):

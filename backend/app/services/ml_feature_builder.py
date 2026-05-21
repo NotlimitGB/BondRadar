@@ -32,6 +32,16 @@ BASELINE_FEATURES = [
     "missing_data_count",
 ]
 
+FINANCIAL_REPORT_FEATURES = [
+    "net_debt_to_ebitda",
+    "debt_to_equity",
+    "interest_coverage",
+    "cash_to_short_term_debt",
+    "ocf_to_total_debt",
+    "net_profit_margin",
+    "missing_data_count",
+]
+
 CREDIT_RISK_FEATURES = [
     "credit_health_score",
     "credit_status_encoded",
@@ -85,6 +95,17 @@ class MLFeatureBuilder:
         if include_credit_risk_features:
             return [*BASELINE_FEATURES, *CREDIT_RISK_FEATURES]
         return list(BASELINE_FEATURES)
+
+    @staticmethod
+    def feature_groups(*, include_credit_risk_features: bool) -> dict[str, list[str]]:
+        groups = {
+            "baseline": list(BASELINE_FEATURES),
+            "financial_report": list(FINANCIAL_REPORT_FEATURES),
+            "credit_risk": (
+                list(CREDIT_RISK_FEATURES) if include_credit_risk_features else []
+            ),
+        }
+        return groups
 
     def vector(
         self,

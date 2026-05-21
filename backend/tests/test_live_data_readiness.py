@@ -15,6 +15,7 @@ from app.models.bond_return_label import BondReturnLabel
 from app.models.bond_risk_assessment import BondRiskAssessment
 from app.models.company import Company
 from app.models.enums import AnalysisSignal
+from app.models.financial_report import FinancialReport
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
 from app.models.paper_live_cycle_run import PaperLiveCycleRun
@@ -93,6 +94,29 @@ def create_bond(
     return bond
 
 
+def create_financial_report(db: Session, company: Company) -> FinancialReport:
+    report = FinancialReport(
+        company_id=company.id,
+        period_year=today().year,
+        period_quarter=0,
+        period_end_date=today(),
+        revenue=Decimal("1000.00"),
+        ebitda=Decimal("250.00"),
+        net_debt=Decimal("300.00"),
+        total_debt=Decimal("400.00"),
+        cash=Decimal("120.00"),
+        equity=Decimal("800.00"),
+        short_term_debt=Decimal("100.00"),
+        operating_cash_flow=Decimal("180.00"),
+        net_profit=Decimal("100.00"),
+        interest_expense=Decimal("50.00"),
+        signal=AnalysisSignal.NEUTRAL.value,
+    )
+    db.add(report)
+    db.flush()
+    return report
+
+
 def create_model_run(db: Session, *, index: int, created_at: datetime) -> MLModelRun:
     run = MLModelRun(
         status="completed",
@@ -121,6 +145,7 @@ def add_data_chain(
     *,
     as_of_date: date,
     run: MLModelRun,
+    reports_by_company: dict[int, FinancialReport],
 ) -> None:
     for index, bond in enumerate(bonds, start=1):
         db.add(
@@ -154,10 +179,17 @@ def add_data_chain(
             bond_id=bond.id,
             company_id=bond.company_id,
             as_of_date=as_of_date,
+            financial_report_id=reports_by_company[bond.company_id].id,
             yield_to_maturity=Decimal("12.000"),
             duration_years=Decimal("2.000"),
             liquidity_score=80,
             volume=Decimal("1000000.00"),
+            net_debt_to_ebitda=Decimal("1.200"),
+            debt_to_equity=Decimal("0.500"),
+            interest_coverage=Decimal("5.000"),
+            cash_to_short_term_debt=Decimal("1.100"),
+            ocf_to_total_debt=Decimal("0.300"),
+            net_profit_margin=Decimal("0.100"),
             missing_data_count=0,
             features_json={"test": True},
         )
@@ -213,7 +245,17 @@ def seed_dataset(
                 secid=f"OFZ{index:05d}",
             )
         )
-    add_data_chain(db, corporate_bonds + ofz_bonds, as_of_date=data_date, run=run)
+    reports_by_company = {
+        bond.company_id: create_financial_report(db, bond.company)
+        for bond in corporate_bonds + ofz_bonds
+    }
+    add_data_chain(
+        db,
+        corporate_bonds + ofz_bonds,
+        as_of_date=data_date,
+        run=run,
+        reports_by_company=reports_by_company,
+    )
     return corporate_bonds, ofz_bonds, run
 
 

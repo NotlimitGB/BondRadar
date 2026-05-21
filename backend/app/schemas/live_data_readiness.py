@@ -5,6 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.financial_report_coverage import FinancialReportCoverageResponse
+
 
 LIVE_DATA_READINESS_STATUSES = {"ready", "warning", "not_ready"}
 LIVE_DATA_READINESS_CHECK_STATUSES = {"passed", "warning", "failed"}
@@ -50,6 +52,8 @@ class LiveDataReadinessResponse(BaseModel):
     prediction_count_for_latest_run: int
     bonds_with_predictions_for_latest_run_count: int
     latest_prediction_date: date | None
+
+    financial_report_coverage: FinancialReportCoverageResponse | None = None
 
     checks: list[LiveDataReadinessCheck]
     warnings: list[LiveDataReadinessWarning]

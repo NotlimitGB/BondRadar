@@ -25,6 +25,7 @@ from app.schemas.paper_trading_live_monitoring import (
     LivePaperScheduleMonitoringSummary,
 )
 from app.services.external_risk_regime_service import ExternalRiskRegimeService
+from app.services.financial_report_coverage_service import FinancialReportCoverageService
 from app.services.paper_trading_report_service import PaperTradingReportService
 
 
@@ -88,11 +89,16 @@ class LivePaperMonitoringService:
             portfolio.status == "active" for portfolio in portfolios
         )
         external_risk_regime = ExternalRiskRegimeService(self.db).current(now=as_of_now)
+        financial_report_coverage = FinancialReportCoverageService(self.db).coverage(
+            as_of_date=as_of_now.date(),
+            active_only=True,
+        )
         alerts = (
             self._overview_alerts(
                 schedules=schedules,
                 recent_cycles=recent_cycles,
                 external_risk_regime=external_risk_regime,
+                financial_report_coverage=financial_report_coverage,
                 now=as_of_now,
             )
             if include_alerts
@@ -521,6 +527,10 @@ class LivePaperMonitoringService:
                         "exclusion_reason_counts",
                         {},
                     ),
+                    financial_data_gap_counts=construction_summary.get(
+                        "financial_data_gap_counts",
+                        {},
+                    ),
                 )
             )
         if (
@@ -544,9 +554,19 @@ class LivePaperMonitoringService:
         schedules: list[PaperLiveSchedule],
         recent_cycles: list[PaperLiveCycleRun],
         external_risk_regime: Any,
+        financial_report_coverage: Any,
         now: datetime,
     ) -> list[LivePaperMonitoringAlert]:
         alerts: list[LivePaperMonitoringAlert] = []
+        for warning in financial_report_coverage.warnings:
+            alerts.append(
+                self._alert(
+                    "warning",
+                    warning.code,
+                    warning.message,
+                    **warning.details,
+                )
+            )
         if external_risk_regime.mode == "elevated":
             alerts.append(
                 self._alert(
@@ -597,17 +617,42 @@ class LivePaperMonitoringService:
             cycle for cycle in recent_cycles if self._cycle_selected_zero_positions(cycle)
         ]
         if zero_position_cycles:
+            exclusion_reason_counts = self._merged_exclusion_reason_counts(
+                zero_position_cycles
+            )
+            financial_data_gap_counts = self._merged_financial_data_gap_counts(
+                zero_position_cycles
+            )
             alerts.append(
                 self._alert(
                     "warning",
                     "recent_zero_position_cycles",
                     "Recent live paper cycles selected zero positions",
                     cycle_ids=[cycle.id for cycle in zero_position_cycles],
-                    exclusion_reason_counts=self._merged_exclusion_reason_counts(
-                        zero_position_cycles
-                    ),
+                    exclusion_reason_counts=exclusion_reason_counts,
+                    financial_data_gap_counts=financial_data_gap_counts,
                 )
             )
+            if exclusion_reason_counts.get("Blocked by risk assessment", 0) > 0:
+                alerts.append(
+                    self._alert(
+                        "warning",
+                        "zero_positions_due_to_risk_blocks",
+                        "Recent zero-position cycles include risk gate exclusions",
+                        cycle_ids=[cycle.id for cycle in zero_position_cycles],
+                        exclusion_reason_counts=exclusion_reason_counts,
+                    )
+                )
+            if financial_data_gap_counts:
+                alerts.append(
+                    self._alert(
+                        "warning",
+                        "zero_positions_due_to_financial_data_gaps",
+                        "Recent zero-position cycles include financial data gaps",
+                        cycle_ids=[cycle.id for cycle in zero_position_cycles],
+                        financial_data_gap_counts=financial_data_gap_counts,
+                    )
+                )
         risk_override_schedules = [
             schedule.id
             for schedule in schedules
@@ -741,6 +786,26 @@ class LivePaperMonitoringService:
                 summary.get("construction_summary") or {}
             ).get("exclusion_reason_counts") or {}
             for reason, count in reason_counts.items():
+                counts[str(reason)] = counts.get(str(reason), 0) + int(count)
+        return dict(
+            sorted(
+                counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        )
+
+    @staticmethod
+    def _merged_financial_data_gap_counts(
+        cycles: list[PaperLiveCycleRun],
+    ) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for cycle in cycles:
+            summary = cycle.summary_json or {}
+            gap_counts = (summary.get("construction_summary") or {}).get(
+                "financial_data_gap_counts",
+                {},
+            )
+            for reason, count in gap_counts.items():
                 counts[str(reason)] = counts.get(str(reason), 0) + int(count)
         return dict(
             sorted(

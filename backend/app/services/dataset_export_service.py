@@ -20,6 +20,7 @@ from app.schemas.dataset_export import (
     DatasetExportRow,
     DatasetQualityBondCoverage,
     DatasetQualityCompanyCoverage,
+    DatasetQualityFinancialRatioCoverage,
     DatasetQualityLabelDistribution,
     DatasetQualityMissingFeature,
     DatasetQualityNumericFeatureStats,
@@ -59,8 +60,29 @@ NUMERIC_FEATURES = [
     "duration_years",
     "liquidity_score",
     "volume",
+    "net_debt_to_ebitda",
+    "debt_to_equity",
+    "interest_coverage",
+    "cash_to_short_term_debt",
+    "ocf_to_total_debt",
+    "net_profit_margin",
     "future_return",
     "missing_data_count",
+]
+
+FINANCIAL_RATIO_FEATURES = [
+    "net_debt_to_ebitda",
+    "debt_to_equity",
+    "interest_coverage",
+    "cash_to_short_term_debt",
+    "ocf_to_total_debt",
+    "net_profit_margin",
+]
+
+CORE_FINANCIAL_RATIO_FEATURES = [
+    "net_debt_to_ebitda",
+    "debt_to_equity",
+    "interest_coverage",
 ]
 
 
@@ -147,6 +169,7 @@ class DatasetExportService:
                 label_distribution=empty_distribution,
                 missing_features=[],
                 numeric_feature_stats=[],
+                financial_ratio_coverage=self._financial_ratio_coverage([]),
                 coverage_by_bond=[],
                 coverage_by_company=[],
             )
@@ -162,6 +185,7 @@ class DatasetExportService:
             label_distribution=label_distribution,
             missing_features=self._missing_features(rows),
             numeric_feature_stats=self._numeric_feature_stats(rows),
+            financial_ratio_coverage=self._financial_ratio_coverage(rows),
             coverage_by_bond=self._coverage_by_bond(rows),
             coverage_by_company=self._coverage_by_company(rows),
         )
@@ -388,6 +412,38 @@ class DatasetExportService:
                 )
             )
         return stats
+
+    @staticmethod
+    def _financial_ratio_coverage(
+        rows: list[DatasetExportRow],
+    ) -> DatasetQualityFinancialRatioCoverage:
+        total = len(rows)
+        ratio_field_counts = {
+            feature: sum(getattr(row, feature) is not None for row in rows)
+            for feature in FINANCIAL_RATIO_FEATURES
+        }
+        with_report_id = sum(row.financial_report_id is not None for row in rows)
+        with_any_ratio = sum(
+            any(getattr(row, feature) is not None for feature in FINANCIAL_RATIO_FEATURES)
+            for row in rows
+        )
+        with_core_ratios = sum(
+            all(getattr(row, feature) is not None for feature in CORE_FINANCIAL_RATIO_FEATURES)
+            for row in rows
+        )
+        missing_counts = [row.missing_data_count for row in rows]
+        return DatasetQualityFinancialRatioCoverage(
+            feature_snapshot_count=total,
+            snapshots_with_financial_report_id=with_report_id,
+            snapshots_with_any_financial_ratio=with_any_ratio,
+            snapshots_with_core_ratios=with_core_ratios,
+            financial_report_id_ratio=with_report_id / total if total else None,
+            any_financial_ratio_ratio=with_any_ratio / total if total else None,
+            ratio_field_counts=ratio_field_counts,
+            average_missing_data_count=(
+                sum(missing_counts) / total if total else None
+            ),
+        )
 
     @staticmethod
     def _coverage_by_bond(

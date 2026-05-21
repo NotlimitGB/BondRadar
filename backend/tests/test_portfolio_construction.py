@@ -374,9 +374,19 @@ def test_zero_position_diagnostics_group_exclusion_reasons(
     assert payload["summary"]["exclusion_reason_counts"][
         "Blocked by risk assessment"
     ] == len(bonds)
+    assert payload["summary"]["financial_data_gap_counts"][
+        "financial_report_missing"
+    ] == len(bonds)
+    assert payload["summary"]["financial_data_gap_counts"][
+        "financial_ratios_missing"
+    ] == len(bonds)
     assert payload["warnings"][0]["details"]["exclusion_reason_counts"][
         "Blocked by risk assessment"
     ] == len(bonds)
+    assert payload["warnings"][0]["details"]["financial_data_gap_counts"][
+        "financial_report_missing"
+    ] == len(bonds)
+    assert "financial_diagnostics" in payload["excluded_candidates"][0]
 
 
 def test_relaxed_risk_policy_can_select_blocked_candidates_for_analysis(
