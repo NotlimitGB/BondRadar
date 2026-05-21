@@ -15,6 +15,7 @@ from app.schemas.company_identity import (
     CompanyIdentityApplyRequest,
     CompanyIdentityApplyResult,
     CompanyIdentityApplyRow,
+    CompanyIdentityAffectedRowsSummary,
     CompanyIdentityDiagnosticsResult,
     CompanyIdentityDiagnosticsWarning,
     CompanyIdentityInputRow,
@@ -177,10 +178,13 @@ class IssuerIdentityService:
         errors: list[CompanyIdentityRowMessage] = []
         warnings: list[CompanyIdentityRowMessage] = []
         created = updated = company_updates = skipped = failed = 0
+        affected_company_ids: set[int] = set()
+        conflict_count = 0
 
         for preview_row, input_row in zip(preview.rows, request.rows, strict=False):
             if preview_row.errors:
                 failed += 1
+                conflict_count += len(preview_row.conflicts)
                 errors.extend(preview_row.errors)
                 rows.append(
                     CompanyIdentityApplyRow(
@@ -195,6 +199,7 @@ class IssuerIdentityService:
                 continue
             if preview_row.conflicts and not request.allow_conflicts:
                 failed += 1
+                conflict_count += len(preview_row.conflicts)
                 errors.extend(preview_row.conflicts)
                 rows.append(
                     CompanyIdentityApplyRow(
@@ -235,6 +240,8 @@ class IssuerIdentityService:
                 updated += 1
             if preview_row.would_update_company:
                 company_updates += 1
+            affected_company_ids.add(preview_row.company_id)
+            conflict_count += len(preview_row.conflicts)
             warnings.extend(preview_row.warnings)
             warnings.extend(preview_row.conflicts)
             rows.append(
@@ -257,6 +264,15 @@ class IssuerIdentityService:
             company_updates=company_updates,
             skipped=skipped,
             failed=failed,
+            affected_rows_summary=CompanyIdentityAffectedRowsSummary(
+                affected_company_ids=sorted(affected_company_ids),
+                created_profile_count=created,
+                updated_profile_count=updated,
+                updated_company_count=company_updates,
+                skipped_count=skipped,
+                conflict_count=conflict_count,
+                warning_count=len(warnings),
+            ),
             rows=rows,
             errors=errors,
             warnings=warnings,

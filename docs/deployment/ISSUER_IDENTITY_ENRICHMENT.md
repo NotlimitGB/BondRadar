@@ -29,6 +29,19 @@ task says otherwise.
 diagnostics -> target export -> manual review -> preview -> apply -> coverage recheck
 ```
 
+Local path policy:
+
+```text
+docs/examples/issuer_identity/     = synthetic examples safe for git
+data/issuer_identity/private/      = real operator data, ignored by git
+data/issuer_identity/staging/      = in-progress review files, ignored by git
+data/issuer_identity/reviewed/     = reviewed real data, ignored by git
+logs/issuer_identity/              = generated reports, ignored by git
+```
+
+Do not commit real reviewed identity CSV files, generated VDS/local logs, smoke
+test reports, or private operator files.
+
 Start with diagnostics:
 
 ```bash
@@ -57,11 +70,35 @@ docs/examples/issuer_identity/issuer_identity_template.csv
 docs/examples/issuer_identity/issuer_identity_template.json
 ```
 
+Batch rehearsal can generate a target list and review template before any
+reviewed file exists:
+
+```bash
+python scripts/issuer_identity_batch_rehearsal.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 20 \
+  --review-template-output logs/issuer_identity/priority_identity_review_template_task81.csv \
+  --json-output logs/issuer_identity/batch_rehearsal_task81.json \
+  --markdown-output logs/issuer_identity/batch_rehearsal_task81.md
+```
+
+Expected behavior:
+
+- diagnostics before is fetched;
+- targets are exported;
+- review template is generated;
+- preview/apply is not attempted without reviewed input;
+- report status is `passed` or `warning`;
+- next steps explain that the operator must fill the reviewed CSV manually.
+
 Dry-run and preview:
 
 ```bash
 python scripts/issuer_identity_import.py \
-  --input data/financial_reports/staging/issuer_identity_review.csv \
+  --input data/issuer_identity/staging/issuer_identity_review.csv \
   --format csv \
   --backend-url http://127.0.0.1:8000 \
   --dry-run \
@@ -73,7 +110,7 @@ Confirmed apply is non-default:
 
 ```bash
 python scripts/issuer_identity_import.py \
-  --input data/financial_reports/staging/issuer_identity_review.csv \
+  --input data/issuer_identity/reviewed/issuer_identity_review.csv \
   --format csv \
   --backend-url http://127.0.0.1:8000 \
   --execute yes \
@@ -81,6 +118,34 @@ python scripts/issuer_identity_import.py \
   --json-output logs/issuer_identity/import_apply.json \
   --markdown-output logs/issuer_identity/import_apply.md
 ```
+
+Batch preview without apply:
+
+```bash
+python scripts/issuer_identity_batch_rehearsal.py \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/issuer_identity/private/priority_identity_review.csv \
+  --format csv \
+  --execute-apply no \
+  --json-output logs/issuer_identity/batch_preview_task81.json \
+  --markdown-output logs/issuer_identity/batch_preview_task81.md
+```
+
+Confirmed batch apply requires both explicit flags:
+
+```bash
+python scripts/issuer_identity_batch_rehearsal.py \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/issuer_identity/reviewed/priority_identity_review.csv \
+  --format csv \
+  --execute-apply yes \
+  --confirm-apply yes \
+  --json-output logs/issuer_identity/batch_apply_task81.json \
+  --markdown-output logs/issuer_identity/batch_apply_task81.md
+```
+
+Create a PostgreSQL backup before confirmed apply. The script does not perform
+automatic rollback.
 
 ## MOEX Metadata Preview
 
@@ -121,3 +186,76 @@ If evidence is unclear:
 
 Identity cleanup is an operator review aid. It is not a credit-risk override and
 does not change virtual paper schedules.
+
+## Manual Review Quality Checklist
+
+For each reviewed row:
+
+- Did I identify the legal issuer, not just the brand?
+- Did I verify INN/OGRN from a reliable source?
+- Did I record `source_url` or `source_file_name`?
+- Did I avoid using bond short name as legal name?
+- If issuer is SPV/subsidiary, did I mark `issuer_role` correctly?
+- If parent/group differs from legal issuer, did I fill `issuer_group_name`
+  separately?
+- If uncertain, did I leave `identity_status` weak/unknown instead of guessing?
+
+## VDS Smoke Checklist
+
+Health:
+
+```bash
+curl -i http://127.0.0.1:8000/api/health
+```
+
+Diagnostics:
+
+```bash
+curl -sS "http://127.0.0.1:8000/api/companies/identity/diagnostics?active_only=true&limit=20" \
+  -o logs/issuer_identity/diagnostics_task81_vds.json
+```
+
+Batch rehearsal target/template generation only:
+
+```bash
+python3 scripts/issuer_identity_batch_rehearsal.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 20 \
+  --review-template-output logs/issuer_identity/priority_identity_review_template_task81_vds.csv \
+  --json-output logs/issuer_identity/batch_rehearsal_task81_vds.json \
+  --markdown-output logs/issuer_identity/batch_rehearsal_task81_vds.md
+```
+
+Confirm no schedule was activated:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+select
+  id,
+  name,
+  status,
+  use_current_date_as_of_date,
+  next_run_at,
+  last_run_at,
+  last_cycle_run_id,
+  run_count
+from paper_live_schedules
+order by id desc
+limit 5;
+"
+```
+
+Expected:
+
+```text
+/api/health = 200 OK
+identity diagnostics returns JSON
+batch rehearsal returns warning/passed, not failed
+review template file is generated
+paper schedule remains paused
+identity apply is not executed
+```

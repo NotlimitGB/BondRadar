@@ -118,6 +118,16 @@ class CompanyIdentityApplyRow(BaseModel):
     errors: list[CompanyIdentityRowMessage] = Field(default_factory=list)
 
 
+class CompanyIdentityAffectedRowsSummary(BaseModel):
+    affected_company_ids: list[int] = Field(default_factory=list)
+    created_profile_count: int = 0
+    updated_profile_count: int = 0
+    updated_company_count: int = 0
+    skipped_count: int = 0
+    conflict_count: int = 0
+    warning_count: int = 0
+
+
 class CompanyIdentityApplyResult(BaseModel):
     status: str
     total_rows: int
@@ -126,6 +136,7 @@ class CompanyIdentityApplyResult(BaseModel):
     company_updates: int
     skipped: int
     failed: int
+    affected_rows_summary: CompanyIdentityAffectedRowsSummary
     rows: list[CompanyIdentityApplyRow]
     errors: list[CompanyIdentityRowMessage] = Field(default_factory=list)
     warnings: list[CompanyIdentityRowMessage] = Field(default_factory=list)

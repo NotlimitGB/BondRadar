@@ -162,6 +162,8 @@ def test_identity_apply_creates_profile_and_safe_company_update(
     db_session: Session,
 ) -> None:
     company = _company(db_session)
+    bond = _bond(db_session, company)
+    original_bond_name = bond.name
 
     response = client.post(
         "/api/companies/identity/apply",
@@ -171,12 +173,25 @@ def test_identity_apply_creates_profile_and_safe_company_update(
     assert response.status_code == 200
     payload = response.json()
     assert payload["created"] == 1
+    assert payload["affected_rows_summary"] == {
+        "affected_company_ids": [company.id],
+        "created_profile_count": 1,
+        "updated_profile_count": 0,
+        "updated_company_count": 1,
+        "skipped_count": 0,
+        "conflict_count": 0,
+        "warning_count": 0,
+    }
     profile = db_session.execute(select(CompanyIdentityProfile)).scalar_one()
     assert profile.company_id == company.id
     assert profile.legal_name == "Synthetic Issuer LLC"
     db_session.refresh(company)
+    db_session.refresh(bond)
     assert company.name == "Synthetic Issuer"
     assert company.inn == "7700000001"
+    assert bond.name == original_bond_name
+    assert bond.company_id == company.id
+    assert len(db_session.execute(select(Company)).scalars().all()) == 1
 
 
 def test_identity_apply_blocks_inn_conflict_by_default(
@@ -223,3 +238,48 @@ def test_identity_apply_allow_conflicts_records_conflict_status(
     profile = db_session.execute(select(CompanyIdentityProfile)).scalar_one()
     assert profile.identity_status == "conflict"
     assert "Conflicts allowed" in (profile.review_notes or "")
+
+
+def test_identity_apply_blocks_verified_profile_conflict(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = _company(db_session, name="Reviewed Issuer", ticker="REV", inn="7700000001")
+    db_session.add(
+        CompanyIdentityProfile(
+            company_id=company.id,
+            legal_name="Reviewed Issuer LLC",
+            inn="7700000001",
+            ogrn="1027700000001",
+            issuer_role="legal_issuer",
+            identity_status="verified",
+            identity_source="manual_review",
+            review_status="accepted",
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/api/companies/identity/apply",
+        json={
+            "rows": [
+                _identity_row(
+                    company,
+                    legal_name="Different Issuer LLC",
+                    inn="7700000002",
+                    ogrn="1027700000002",
+                )
+            ],
+            "confirm_apply": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "failed"
+    codes = {item["code"] for item in payload["errors"]}
+    assert "verified_inn_conflict" in codes
+    assert "verified_ogrn_conflict" in codes
+    assert "verified_legal_name_conflict" in codes
+    profile = db_session.execute(select(CompanyIdentityProfile)).scalar_one()
+    assert profile.legal_name == "Reviewed Issuer LLC"

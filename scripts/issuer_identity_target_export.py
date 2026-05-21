@@ -25,6 +25,14 @@ OUTPUT_FIELDS = [
     "suggested_search_query",
     "notes",
 ]
+REASON_PRIORITY = {
+    "active paper position": 1,
+    "top ML prediction": 2,
+    "corporate bond universe": 3,
+    "recent bond universe": 4,
+    "unknown issuer identity": 5,
+    "missing inn": 6,
+}
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -60,7 +68,7 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
     targets: dict[int, dict[str, Any]] = {}
     backend = args.backend_url.rstrip("/")
     sources = (
-        ["unknown-companies", "paper-positions", "top-predictions", "bond-universe"]
+        ["paper-positions", "top-predictions", "bond-universe", "unknown-companies"]
         if args.source == "mixed"
         else [args.source]
     )
@@ -83,6 +91,7 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
     rows = sorted(
         targets.values(),
         key=lambda item: (
+            int(item.get("_priority") or 99),
             item.get("identity_status") not in {"unknown", "weak", "conflict"},
             -int(item.get("bonds_count") or 0),
             item.get("company_name") or "",
@@ -90,6 +99,7 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
     )[: max(1, args.limit)]
     for row in rows:
         row.pop("_reasons", None)
+        row.pop("_priority", None)
     status = "failed" if errors else "warning" if warnings else "passed"
     return {
         "status": status,
@@ -257,6 +267,7 @@ def _empty_target(row: dict[str, Any]) -> dict[str, Any]:
         "suggested_search_query": "",
         "notes": "",
         "_reasons": set(),
+        "_priority": 99,
     }
 
 
@@ -267,8 +278,14 @@ def _merge_target(target: dict[str, Any], row: dict[str, Any]) -> None:
     target["bonds_count"] += int(row.get("bonds_count") or 0)
     target["identity_status"] = row.get("identity_status") or target["identity_status"]
     target["identity_confidence"] = row.get("identity_confidence") or target.get("identity_confidence")
-    target["_reasons"].add(row.get("reason") or "identity review")
+    for reason in _split_reasons(row.get("reason") or "identity review"):
+        target["_reasons"].add(reason)
+    if not row.get("inn"):
+        target["_reasons"].add("missing inn")
+    if str(row.get("company_name") or "").startswith("Unknown issuer for "):
+        target["_reasons"].add("unknown issuer identity")
     target["reason"] = "; ".join(sorted(target["_reasons"]))
+    target["_priority"] = min(REASON_PRIORITY.get(reason, 99) for reason in target["_reasons"])
     for field in ("sample_secids", "sample_bond_names"):
         for value in row.get(field, []):
             if value and value not in target[field]:
@@ -285,6 +302,10 @@ def _suggested_query(item: dict[str, Any]) -> str:
     if secid:
         return f'"{secid}" issuer'
     return f'"{item.get("company_name") or ""}" issuer INN'
+
+
+def _split_reasons(value: str) -> list[str]:
+    return [item.strip() for item in str(value or "").split(";") if item.strip()]
 
 
 def _data_or_raise(result: Any) -> Any:

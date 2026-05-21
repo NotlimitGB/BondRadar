@@ -11,6 +11,14 @@ postgres_data/
 frontend/node_modules/
 frontend/dist/
 artifacts/
+logs/issuer_identity/
+logs/financial_reports/
+logs/ml300/
+logs/release_preflight_task*.json
 data/financial_reports/private/
 data/financial_reports/staging/
 !data/financial_reports/.gitkeep
+data/issuer_identity/private/
+data/issuer_identity/staging/
+data/issuer_identity/reviewed/
+!data/issuer_identity/.gitkeep
