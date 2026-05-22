@@ -1,0 +1,42 @@
+{
+  "note": "Template for operator-copied values from an official issuer report. Leave values null if they were not found.",
+  "canonical_company_id": null,
+  "period_year": null,
+  "period_quarter": 0,
+  "period_start_date": null,
+  "period_end_date": null,
+  "published_at": null,
+  "document_date": null,
+  "currency": "RUB",
+  "accounting_standard": "IFRS",
+  "consolidation_scope": "consolidated",
+  "value_scale": "million",
+  "source": "official_issuer_report",
+  "source_url": null,
+  "source_file_name": null,
+  "source_page": null,
+  "source_table": null,
+  "source_note": "Copy values only from official issuer or disclosure documents.",
+  "report_type": "annual",
+  "values": {
+    "revenue": null,
+    "ebitda": null,
+    "net_debt": null,
+    "total_debt": null,
+    "cash": null,
+    "equity": null,
+    "short_term_debt": null,
+    "operating_cash_flow": null,
+    "net_profit": null,
+    "interest_expense": null,
+    "debt_to_ebitda": null,
+    "interest_coverage": null
+  },
+  "evidence": {
+    "revenue": {
+      "page": null,
+      "table": null,
+      "note": "Leave null if not found."
+    }
+  }
+}

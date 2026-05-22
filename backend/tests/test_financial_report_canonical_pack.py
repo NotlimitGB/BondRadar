@@ -427,6 +427,16 @@ def test_preview_never_calls_ingest(tmp_path: Path) -> None:
         calls.append(url)
         if url.endswith("/ingest"):
             raise AssertionError("preview mode must not call ingest")
+        if url.endswith("/stats"):
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "financial_reports_count": 0,
+                    "financial_report_source_documents_count": 0,
+                    "financial_report_import_runs_count": 0,
+                },
+            )
         if url.endswith("/preview"):
             return import_script.HttpResult(
                 ok=True,
@@ -460,6 +470,10 @@ def test_preview_never_calls_ingest(tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert report["dry_run_import_report"]["status"] == "passed"
+    assert report["financial_reports_count_before"] == 0
+    assert report["financial_reports_count_after"] == 0
+    assert report["created_reports_count"] == 0
+    assert report["updated_reports_count"] == 0
     assert not any(url.endswith("/ingest") for url in calls)
     assert normalized.is_file()
 

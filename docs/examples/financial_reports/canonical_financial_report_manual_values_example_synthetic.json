@@ -1,0 +1,97 @@
+{
+  "note": "Synthetic manual-values example for workflow smoke only. Canonical company ID 18 is used only to match the first-row smoke template; values are not real issuer financials.",
+  "canonical_company_id": 18,
+  "period_year": 2025,
+  "period_quarter": 0,
+  "period_start_date": "2025-01-01",
+  "period_end_date": "2025-12-31",
+  "published_at": "2026-03-20",
+  "document_date": "2026-03-20",
+  "currency": "RUB",
+  "accounting_standard": "IFRS",
+  "consolidation_scope": "consolidated",
+  "value_scale": "million",
+  "source": "official_issuer_report",
+  "source_url": "https://example.com/synthetic-official-report.pdf",
+  "source_file_name": "synthetic-official-report.pdf",
+  "source_page": "42",
+  "source_table": "Synthetic consolidated statements",
+  "source_note": "Synthetic example only; not real issuer financial data.",
+  "report_type": "annual",
+  "values": {
+    "revenue": "1000",
+    "ebitda": "220",
+    "net_debt": "350",
+    "total_debt": "500",
+    "cash": "150",
+    "equity": "700",
+    "short_term_debt": "120",
+    "operating_cash_flow": "180",
+    "net_profit": "90",
+    "interest_expense": "40",
+    "debt_to_ebitda": null,
+    "interest_coverage": null
+  },
+  "evidence": {
+    "revenue": {
+      "page": "42",
+      "table": "Synthetic income statement",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "ebitda": {
+      "page": "43",
+      "table": "Synthetic management metrics",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "net_debt": {
+      "page": "44",
+      "table": "Synthetic debt note",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "total_debt": {
+      "page": "44",
+      "table": "Synthetic debt note",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "cash": {
+      "page": "44",
+      "table": "Synthetic debt note",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "equity": {
+      "page": "45",
+      "table": "Synthetic financial position",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "short_term_debt": {
+      "page": "44",
+      "table": "Synthetic debt note",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "operating_cash_flow": {
+      "page": "46",
+      "table": "Synthetic cash flow statement",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "net_profit": {
+      "page": "42",
+      "table": "Synthetic income statement",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    },
+    "interest_expense": {
+      "page": "47",
+      "table": "Synthetic finance costs note",
+      "note": "Synthetic value for workflow smoke only.",
+      "confidence": "synthetic"
+    }
+  }
+}

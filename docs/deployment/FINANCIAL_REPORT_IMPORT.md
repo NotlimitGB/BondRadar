@@ -583,6 +583,78 @@ python3 scripts/financial_report_canonical_pack.py \
 Do not run apply/import until the preview report is reviewed and a PostgreSQL
 backup exists.
 
+### Task 86: Official-Source Assisted Preview Only
+
+Task 86 adds an offline helper for filling a private canonical collection CSV
+from operator-copied official report values. The helper does not scrape sites
+and never calls backend import/apply endpoints.
+
+Use only official issuer annual/interim reports, official disclosure documents,
+or locally provided official files. If a value is not found, leave it empty and
+add an operator note. Do not use Wikipedia, market cap as equity, coupon
+payments as interest expense, dashes as zero, or mixed annual/quarterly values.
+
+#### Workflow A: Manual JSON -> CSV -> Preview
+
+Create a private manual-values JSON from an official report, then fill the
+private reviewed CSV:
+
+```bash
+python3 scripts/financial_report_official_source_fill.py \
+  --template-input data/financial_reports/private/canonical_first3_reports_task85.csv \
+  --manual-values-json data/financial_reports/private/rzd_2024_manual_values.json \
+  --output data/financial_reports/private/canonical_first3_reports_task86_preview.csv \
+  --evidence-output logs/financial_reports/rzd_2024_evidence_task86.json \
+  --markdown-output logs/financial_reports/rzd_2024_evidence_task86.md
+```
+
+Then run preview only:
+
+```bash
+python3 scripts/financial_report_canonical_pack.py \
+  --mode preview \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/financial_reports/private/canonical_first3_reports_task86_preview.csv \
+  --format csv \
+  --normalized-output logs/financial_reports/canonical_first3_normalized_task86.csv \
+  --normalized-format csv \
+  --json-output logs/financial_reports/canonical_pack_preview_task86_vds.json \
+  --markdown-output logs/financial_reports/canonical_pack_preview_task86_vds.md
+```
+
+#### Workflow B: Empty Template -> Manual CSV -> Preview
+
+You can also fill
+`data/financial_reports/private/canonical_first3_reports_task85.csv` directly
+from official issuer reports. Keep the file private, leave unknown values empty,
+fill `source_url` or `source_file_name`, and then run the same preview command
+above. Do not run apply/import from this workflow.
+
+#### Task 86 VDS Smoke
+
+Generate a synthetic helper output only:
+
+```bash
+python3 scripts/financial_report_official_source_fill.py \
+  --template-input data/financial_reports/private/canonical_first3_reports_task85.csv \
+  --manual-values-json docs/examples/financial_reports/canonical_financial_report_manual_values_example_synthetic.json \
+  --output logs/financial_reports/canonical_first3_reports_task86_synthetic_preview.csv \
+  --evidence-output logs/financial_reports/synthetic_evidence_task86.json \
+  --markdown-output logs/financial_reports/synthetic_evidence_task86.md
+```
+
+Preview is allowed against synthetic output only if the referenced canonical
+company IDs exist and the output is clearly treated as synthetic. Do not import.
+
+Check the database count before and after preview:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select count(*) from financial_reports;"
+```
+
+The count must remain unchanged.
+
 ### Confirmed Apply
 
 Before confirmed import on VDS, create a PostgreSQL backup. Then run apply only
