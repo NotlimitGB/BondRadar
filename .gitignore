@@ -22,3 +22,6 @@ data/issuer_identity/private/
 data/issuer_identity/staging/
 data/issuer_identity/reviewed/
 !data/issuer_identity/.gitkeep
+
+# Private operator work files
+private_work/
