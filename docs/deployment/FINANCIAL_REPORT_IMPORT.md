@@ -222,6 +222,63 @@ Recommended sequence:
 Keep paper schedules paused until coverage, rebuild, readiness, and manual
 review are complete. Risk override remains paper-only, explicit, and guarded.
 
+## Post-Import Financial Report Diagnostics
+
+After a report is imported, run read-only diagnostics before any rebuild or
+paper workflow. Diagnostics explain which report is selected, which raw fields
+are present, which derived metrics can be computed, and why scoring readiness
+may still be partial.
+
+For the first TMK canonical report:
+
+```bash
+python3 scripts/financial_report_diagnostics.py \
+  --backend-url http://127.0.0.1:8000 \
+  --company-ids 125 \
+  --json-output logs/financial_reports/tmk_financial_report_diagnostics_task90.json \
+  --markdown-output logs/financial_reports/tmk_financial_report_diagnostics_task90.md
+```
+
+Expected state for the first TMK diagnostics:
+
+```text
+has_financial_report = true
+latest_report_period_year = 2025
+latest_report_period_quarter = 0
+signal = insufficient_data
+safe_for_feature_pipeline = true
+safe_for_risk_scoring = false
+risk_scoring_readiness = partial
+missing fields include interest_expense and net_debt
+fallback net_debt can be computed as total_debt - cash
+```
+
+`covered_by_canonical` means collection coverage is satisfied by a canonical
+issuer report. `insufficient_data` means the report exists but still lacks
+some fields for stronger scoring or risk readiness. These are different
+concepts.
+
+The diagnostics script is read-only:
+
+```text
+import_executed = false
+paper_trading_called = false
+read_only = true
+paper_schedule_status = not_checked
+```
+
+Keep schedule safety as a direct VDS SQL check, not as a diagnostics API call:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+select id, name, status, use_current_date_as_of_date, next_run_at, last_run_at, last_cycle_run_id, run_count
+from paper_live_schedules
+order by id desc
+limit 5;
+"
+```
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

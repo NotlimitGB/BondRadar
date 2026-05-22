@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,9 @@ from app.schemas.financial_report_ingestion import (
 )
 from app.services.financial_report_ingestion_service import (
     FinancialReportIngestionService,
+)
+from app.services.financial_report_diagnostics_service import (
+    FinancialReportDiagnosticsService,
 )
 
 
@@ -39,6 +44,20 @@ def get_financial_report_stats(
     db: Session = Depends(get_db),
 ) -> FinancialReportStatsRead:
     return FinancialReportIngestionService(db).stats()
+
+
+@router.get("/diagnostics/company/{company_id}", response_model=dict[str, Any])
+def get_company_financial_report_diagnostics(
+    company_id: int,
+    include_duplicate_context: bool = Query(default=True),
+    include_derived_metrics: bool = Query(default=True),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    return FinancialReportDiagnosticsService(db).get_company_financial_report_diagnostics(
+        company_id,
+        include_duplicate_context=include_duplicate_context,
+        include_derived_metrics=include_derived_metrics,
+    )
 
 
 @router.get("/import-runs", response_model=list[FinancialReportImportRunRead])
