@@ -18,6 +18,9 @@ from app.services.financial_report_ingestion_service import (
 from app.services.financial_report_diagnostics_service import (
     FinancialReportDiagnosticsService,
 )
+from app.services.financial_scoring_preview_service import (
+    FinancialScoringPreviewService,
+)
 
 
 router = APIRouter()
@@ -57,6 +60,20 @@ def get_company_financial_report_diagnostics(
         company_id,
         include_duplicate_context=include_duplicate_context,
         include_derived_metrics=include_derived_metrics,
+    )
+
+
+@router.get("/scoring-preview/company/{company_id}", response_model=dict[str, Any])
+def get_company_financial_scoring_preview(
+    company_id: int,
+    include_diagnostics: bool = Query(default=True),
+    include_bond_context: bool = Query(default=True),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    return FinancialScoringPreviewService(db).get_company_financial_scoring_preview(
+        company_id,
+        include_diagnostics=include_diagnostics,
+        include_bond_context=include_bond_context,
     )
 
 

@@ -279,6 +279,62 @@ limit 5;
 "
 ```
 
+## Financial Scoring Preview / Dry Run
+
+After diagnostics, run a read-only financial scoring preview to see which
+financial factors would matter for scoring and risk review. This preview does
+not mutate company scores, bond scores, predictions, feature snapshots,
+financial reports, paper portfolios, or schedules.
+
+The concepts are separate:
+
+```text
+coverage_effective_status = covered_by_canonical
+means the issuer has a collected canonical report.
+
+risk_scoring_readiness = partial
+means the report is visible but lacks fields for full financial-aware risk scoring.
+
+financial scoring preview
+shows suggested risk factors but does not mutate scores.
+```
+
+Run the Task 91 preview for TMK:
+
+```bash
+python3 scripts/financial_scoring_preview.py \
+  --backend-url http://127.0.0.1:8000 \
+  --company-ids 125 \
+  --json-output logs/financial_reports/tmk_financial_scoring_preview_task91_vds.json \
+  --markdown-output logs/financial_reports/tmk_financial_scoring_preview_task91_vds.md
+```
+
+Expected TMK preview:
+
+```text
+has_financial_report = true
+risk_scoring_readiness = partial
+gross_debt_to_ebitda severity = high
+net_debt_to_ebitda_fallback severity = elevated
+interest_coverage missing because interest_expense is missing
+risk_penalty_points = 0
+score_adjustment_points = 0
+dry_run_only = true
+```
+
+The preview endpoint is:
+
+```text
+GET /api/financial-reports/scoring-preview/company/{company_id}
+```
+
+Optional query flags:
+
+```text
+include_diagnostics=true|false
+include_bond_context=true|false
+```
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
