@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.schemas.financial_report_ingestion import (
+    FinancialCollectionPriorityBatchRequest,
     FinancialReportImportRunRead,
     FinancialReportIngestRequest,
     FinancialReportIngestResult,
@@ -21,6 +22,9 @@ from app.services.financial_report_diagnostics_service import (
 )
 from app.services.financial_scoring_preview_service import (
     FinancialScoringPreviewService,
+)
+from app.services.financial_collection_priority_service import (
+    FinancialCollectionPriorityService,
 )
 
 
@@ -87,6 +91,19 @@ def get_batch_financial_scoring_preview(
         request.company_ids,
         include_diagnostics=request.include_diagnostics,
         include_bond_context=request.include_bond_context,
+    )
+
+
+@router.post("/collection-priority/batch", response_model=dict[str, Any])
+def get_batch_financial_collection_priority(
+    request: FinancialCollectionPriorityBatchRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    return FinancialCollectionPriorityService(db).get_batch_collection_priority(
+        request.company_ids,
+        source_presence=request.source_presence,
+        include_covered=request.include_covered,
+        exclude_government_like=request.exclude_government_like,
     )
 
 

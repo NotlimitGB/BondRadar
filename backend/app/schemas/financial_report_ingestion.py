@@ -111,6 +111,13 @@ class FinancialScoringPreviewBatchRequest(BaseModel):
     include_bond_context: bool = True
 
 
+class FinancialCollectionPriorityBatchRequest(BaseModel):
+    company_ids: list[int] = Field(..., min_length=1)
+    source_presence: dict[str, list[str]] | None = None
+    include_covered: bool = True
+    exclude_government_like: bool = True
+
+
 class FinancialReportImportRunRead(BaseModel):
     id: int
     source: str

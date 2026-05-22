@@ -419,6 +419,80 @@ Request shape:
 }
 ```
 
+## Financial Report Collection Priority Queue
+
+Use the collection priority queue to choose which issuer financial reports to
+collect next. The queue is a read-only planning report:
+
+```text
+This queue chooses which issuer financial reports to collect next.
+It is not an importer.
+It is not production scoring.
+It does not mutate scores, predictions, reports, schedules, or paper trading.
+Corporate issuers are prioritized.
+OFZ/government-like issuers are excluded or heavily de-prioritized.
+```
+
+Run the Task 93 queue on VDS:
+
+```bash
+python3 scripts/financial_collection_priority_queue.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --include-covered \
+  --exclude-government-like \
+  --json-output logs/financial_reports/collection_priority_queue_task93_vds.json \
+  --markdown-output logs/financial_reports/collection_priority_queue_task93_vds.md
+```
+
+For this script, `--source mixed` uses only the safe target sources
+`top-predictions` and `bond-universe`; it does not call paper-trading
+endpoints.
+
+Expected current state:
+
+```text
+financial_reports_count = 1
+read_only = true
+dry_run_only = true
+import_executed = false
+paper_trading_called = false
+would_mutate_scores = false
+would_trigger_paper_trading = false
+```
+
+Only TMK currently has a report. TMK should appear in
+`already_covered` with `risk_scoring_readiness = partial` and next fields such
+as `interest_expense` and `net_debt`. Most other target issuers are expected to
+be missing reports and ranked in `priority_queue`. OFZ/government-like issuers
+should appear in `excluded_or_deprioritized` when
+`--exclude-government-like` is used.
+
+The priority endpoint is:
+
+```text
+POST /api/financial-reports/collection-priority/batch
+```
+
+Request shape:
+
+```json
+{
+  "company_ids": [125],
+  "source_presence": {
+    "125": ["manual-id"]
+  },
+  "include_covered": true,
+  "exclude_government_like": true
+}
+```
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
