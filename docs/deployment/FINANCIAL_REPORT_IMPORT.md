@@ -414,6 +414,221 @@ python scripts/financial_report_post_ingest_rebuild.py \
 Do not use the imported data in paper pilot review until downstream rebuild and
 readiness checks have been reviewed.
 
+## First Canonical Financial Reports Pack
+
+Task 84 introduces a canonical issuer workflow for the first reviewed financial
+report pack. It is designed for a small operator-filled data pack and does not
+invent, scrape, or import financial values by default.
+
+First canonical target issuers:
+
+```text
+18  РЖД
+67  Мостотрест
+125 ТМК
+```
+
+Financial reports must be attached to canonical company IDs only. Do not attach
+reports to duplicate candidate company rows such as `Unknown issuer for RU...`.
+
+Safety defaults:
+
+- `targets` and `template` modes do not mutate data;
+- `preview` validates, normalizes, and calls preview/dry-run paths only;
+- `apply` requires `--execute-import yes --confirm-import yes`;
+- `paper-positions` is blocked in this canonical pack script;
+- `mixed` uses `top-predictions` and `bond-universe`, not paper endpoints;
+- non-official sources are blocked in `apply` unless
+  `--allow-non-official-source` is explicitly passed.
+
+### Laptop Setup
+
+From a fresh laptop clone:
+
+```bash
+git pull
+python -m venv .venv
+source .venv/Scripts/activate  # Git Bash on Windows
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+python -m compileall backend/app scripts
+python -m pytest backend/tests/test_financial_report_data_pack_scripts.py -q
+python -m pytest backend/tests/test_financial_report_canonical_targets.py -q
+```
+
+If the backend is not running locally, use only script modes that generate
+targets or templates. Preview and apply modes require `--backend-url` to point
+at a running backend.
+
+### Manual Source Collection
+
+Preferred sources, in order:
+
+1. official issuer annual IFRS report;
+2. official issuer interim IFRS report;
+3. official disclosure center or issuer documents;
+4. RAS only if IFRS is unavailable;
+5. management presentation only if explicitly labeled.
+
+Operator warnings:
+
+- do not use Wikipedia as a financial source;
+- do not enter market cap as equity;
+- do not enter coupon payments as interest expense;
+- do not convert million RUB twice;
+- do not enter dashes as zero;
+- do not mix annual and quarterly figures in one row;
+- do not attach duplicate issuer reports to duplicate company IDs;
+- use the canonical company ID from the collection template.
+
+### Generate First Canonical Template
+
+```bash
+python scripts/financial_report_canonical_pack.py \
+  --mode template \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --company-ids 18,67,125 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --collection-template-output data/financial_reports/private/canonical_first3_reports_task84.csv \
+  --json-output logs/financial_reports/canonical_pack_template_task84.json \
+  --markdown-output logs/financial_reports/canonical_pack_template_task84.md
+```
+
+The generated template pre-fills canonical issuer identity and duplicate
+context, but leaves financial values empty. Fill real values manually from
+official reports only.
+
+The same selection can be requested by name:
+
+```bash
+python scripts/financial_report_canonical_pack.py \
+  --mode template \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --company-names РЖД,Мостотрест,ТМК \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --collection-template-output data/financial_reports/private/canonical_first3_reports_task84.csv
+```
+
+Name matching fails safely if a name is ambiguous or missing.
+
+### Preview Filled Collection
+
+After the operator fills real values:
+
+```bash
+python scripts/financial_report_canonical_pack.py \
+  --mode preview \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/financial_reports/private/canonical_first3_reports_task84.csv \
+  --format csv \
+  --normalized-output logs/financial_reports/canonical_first3_normalized_task84.csv \
+  --normalized-format csv \
+  --json-output logs/financial_reports/canonical_pack_preview_task84.json \
+  --markdown-output logs/financial_reports/canonical_pack_preview_task84.md
+```
+
+Preview validates source evidence, normalizes `value_scale`, runs import
+dry-run with backend company preview, and records coverage before/after. It
+does not call the ingest endpoint.
+
+### Confirmed Apply
+
+Before confirmed import on VDS, create a PostgreSQL backup. Then run apply only
+after reviewing the preview report:
+
+```bash
+python scripts/financial_report_canonical_pack.py \
+  --mode apply \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/financial_reports/private/canonical_first3_reports_task84.csv \
+  --format csv \
+  --normalized-output logs/financial_reports/canonical_first3_normalized_task84.csv \
+  --normalized-format csv \
+  --execute-import yes \
+  --confirm-import yes \
+  --json-output logs/financial_reports/canonical_pack_apply_task84.json \
+  --markdown-output logs/financial_reports/canonical_pack_apply_task84.md
+```
+
+This script does not perform automatic rollback. To rollback, restore the
+backup or manually review rows in:
+
+- `financial_reports`;
+- `financial_report_source_documents`.
+
+Do not rebuild ML/features automatically after this task. Use the post-ingest
+rebuild plan separately after coverage and import reports are reviewed.
+
+### Task 84 VDS Smoke Checklist
+
+Health:
+
+```bash
+curl -i http://127.0.0.1:8000/api/health
+```
+
+Generate first canonical report template only:
+
+```bash
+python3 scripts/financial_report_canonical_pack.py \
+  --mode template \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --company-ids 18,67,125 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --collection-template-output data/financial_reports/private/canonical_first3_reports_task84.csv \
+  --json-output logs/financial_reports/canonical_pack_template_task84_vds.json \
+  --markdown-output logs/financial_reports/canonical_pack_template_task84_vds.md
+```
+
+Preview only after operator fills real data:
+
+```bash
+python3 scripts/financial_report_canonical_pack.py \
+  --mode preview \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/financial_reports/private/canonical_first3_reports_task84.csv \
+  --format csv \
+  --normalized-output logs/financial_reports/canonical_first3_normalized_task84.csv \
+  --normalized-format csv \
+  --json-output logs/financial_reports/canonical_pack_preview_task84_vds.json \
+  --markdown-output logs/financial_reports/canonical_pack_preview_task84_vds.md
+```
+
+Schedule safety:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "
+select id, name, status, use_current_date_as_of_date, next_run_at, last_run_at, last_cycle_run_id, run_count
+from paper_live_schedules
+order by id desc
+limit 5;
+"
+```
+
+Expected Task 84 smoke result:
+
+```text
+health = 200 OK
+template generation works
+no import executed
+financial_reports count does not change
+schedule remains paused
+```
+
 ## VDS Canonical Target Smoke
 
 ```bash
