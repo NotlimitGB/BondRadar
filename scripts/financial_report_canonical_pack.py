@@ -173,8 +173,15 @@ def _run_targets_or_template(
     args: argparse.Namespace,
     http_request: Any,
 ) -> dict[str, Any]:
+    backend = args.backend_url.rstrip("/")
+    financial_stats_before = None
+    financial_stats_after = None
+    stats_warnings: list[dict[str, Any]] = []
+    if args.source != "paper-positions":
+        financial_stats_before, stats_warnings = _financial_report_stats(backend, http_request)
     target_report = build_canonical_targets(args, http_request=http_request)
     warnings = list(target_report.get("warnings") or [])
+    warnings.extend(stats_warnings)
     errors = list(target_report.get("errors") or [])
     template_rows: list[dict[str, Any]] = []
 
@@ -190,13 +197,21 @@ def _run_targets_or_template(
                 output_format,
             )
 
+    if args.source != "paper-positions":
+        stats_after, after_warnings = _financial_report_stats(backend, http_request)
+        financial_stats_after = stats_after
+        warnings.extend(after_warnings)
+
     status = "failed" if errors else "warning" if warnings else "passed"
-    return {
+    report = {
         "status": status,
         "mode": args.mode,
         "source": args.source,
         "target_report": target_report,
         "safe_sources": target_report.get("safe_sources"),
+        "requested_company_ids": target_report.get("requested_company_ids"),
+        "selected_company_ids": target_report.get("selected_company_ids"),
+        "resolved_requested_company_ids": target_report.get("resolved_requested_company_ids"),
         "total_targets": target_report.get("total_targets", 0),
         "targets": target_report.get("targets") or [],
         "template_rows": template_rows,
@@ -204,10 +219,17 @@ def _run_targets_or_template(
         "collection_template_output": (
             None if args.collection_template_output is None else str(args.collection_template_output)
         ),
+        "import_executed": False,
+        "template_generated": args.mode == "template" and not errors,
+        "financial_values_expected_empty": args.mode == "template",
+        "financial_report_stats_before": financial_stats_before,
+        "financial_report_stats_after": financial_stats_after,
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps(args.mode, executed=False),
     }
+    report.update(_financial_count_fields(financial_stats_before, financial_stats_after))
+    return report
 
 
 def _run_preview(args: argparse.Namespace, http_request: Any) -> dict[str, Any]:
@@ -221,13 +243,18 @@ def _run_apply(args: argparse.Namespace, http_request: Any) -> dict[str, Any]:
     if args.confirm_import != "yes":
         errors.append({"message": "apply mode requires --confirm-import yes"})
     if errors:
-        return {
+        report = {
             "status": "failed",
             "mode": args.mode,
+            "import_executed": False,
+            "financial_report_stats_before": None,
+            "financial_report_stats_after": None,
             "warnings": [],
             "errors": errors,
             "next_steps": _next_steps(args.mode, executed=False),
         }
+        report.update(_financial_count_fields(None, None))
+        return report
     return _run_reviewed_pack(args, http_request=http_request, execute=True)
 
 
@@ -254,7 +281,12 @@ def _run_reviewed_pack(
             apply_report=None,
             coverage_after=None,
             import_executed=False,
+            financial_stats_before=None,
+            financial_stats_after=None,
         )
+
+    financial_stats_before, stats_warnings = _financial_report_stats(backend, http_request)
+    warnings.extend(stats_warnings)
 
     coverage_before = _coverage(backend, args, http_request)
     if not coverage_before.ok:
@@ -335,6 +367,8 @@ def _run_reviewed_pack(
                 "details": _http_report(coverage_after),
             }
         )
+    financial_stats_after, stats_warnings_after = _financial_report_stats(backend, http_request)
+    warnings.extend(stats_warnings_after)
 
     return _reviewed_report(
         args,
@@ -347,6 +381,8 @@ def _run_reviewed_pack(
         apply_report=apply_report,
         coverage_after=coverage_after,
         import_executed=import_executed,
+        financial_stats_before=financial_stats_before,
+        financial_stats_after=financial_stats_after,
     )
 
 
@@ -358,11 +394,15 @@ def build_canonical_targets(
     warnings: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     selected_ids = _parse_int_list(args.company_ids)
+    requested_company_ids = list(selected_ids)
 
     if args.source == "paper-positions":
         return {
             "status": "failed",
             "source": args.source,
+            "requested_company_ids": requested_company_ids,
+            "selected_company_ids": selected_ids,
+            "resolved_requested_company_ids": [],
             "total_targets": 0,
             "targets": [],
             "warnings": [],
@@ -379,8 +419,19 @@ def build_canonical_targets(
 
     try:
         selected_ids.extend(_resolve_company_names(args.company_names, args.backend_url, http_request))
+        requested_company_ids = list(selected_ids)
     except ValueError as exc:
         errors.append({"message": str(exc)})
+
+    backend = args.backend_url.rstrip("/")
+    resolved_requested_company_ids: list[dict[str, Any]] = []
+    if selected_ids:
+        selected_ids, resolved_requested_company_ids = _resolve_requested_company_ids(
+            selected_ids,
+            backend,
+            http_request,
+            warnings,
+        )
 
     rows_by_key: dict[int, dict[str, Any]] = {}
     if not errors:
@@ -419,7 +470,9 @@ def build_canonical_targets(
         "status": status,
         "source": args.source,
         "safe_sources": _safe_sources(args.source),
+        "requested_company_ids": requested_company_ids,
         "selected_company_ids": selected_ids,
+        "resolved_requested_company_ids": resolved_requested_company_ids,
         "total_targets": len(rows),
         "targets": rows,
         "warnings": warnings,
@@ -750,6 +803,32 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Source: `{report.get('source', '')}`",
     ]
 
+    if report.get("mode") == "template":
+        lines.extend(
+            [
+                "",
+                "## Template Mode Notice",
+                "",
+                "This mode only generates a reviewed collection template.",
+                "No financial report import was executed.",
+                "Financial metric fields are intentionally empty.",
+                "Fill values manually from official issuer reports before running preview.",
+            ]
+        )
+
+    if "financial_reports_count_before" in report:
+        lines.extend(
+            [
+                "",
+                "## Financial Report Counts",
+                "",
+                f"- Before: {report.get('financial_reports_count_before')}",
+                f"- After: {report.get('financial_reports_count_after')}",
+                f"- Created reports: {report.get('created_reports_count')}",
+                f"- Updated reports: {report.get('updated_reports_count')}",
+            ]
+        )
+
     target_report = report.get("target_report") or {}
     if target_report:
         lines.extend(
@@ -773,6 +852,25 @@ def render_markdown(report: dict[str, Any]) -> str:
                     samples=_csv_value(row.get("sample_secids")) or "",
                 )
             )
+
+    if report.get("mode") == "template":
+        lines.extend(
+            [
+                "",
+                "## Official Source Checklist",
+                "",
+                "For each row before preview:",
+                "- Use official issuer annual/interim report.",
+                "- Fill source_url or source_file_name.",
+                "- Do not use Wikipedia.",
+                "- Do not enter market cap as equity.",
+                "- Do not enter coupon payments as interest expense.",
+                "- Do not convert million RUB twice.",
+                "- Do not enter dashes as zero.",
+                "- Do not mix annual and quarterly periods in one row.",
+                "- Attach report to canonical_company_id only.",
+            ]
+        )
 
     validation = report.get("validation")
     if validation is not None:
@@ -884,9 +982,15 @@ def _reviewed_report(
     apply_report: dict[str, Any] | None,
     coverage_after: HttpResult | None,
     import_executed: bool,
+    financial_stats_before: dict[str, Any] | None,
+    financial_stats_after: dict[str, Any] | None,
 ) -> dict[str, Any]:
     status = "failed" if errors else "warning" if warnings else "passed"
-    return {
+    created_reports_count, updated_reports_count = _apply_report_counts(
+        apply_report,
+        import_executed=import_executed,
+    )
+    report = {
         "status": status,
         "mode": args.mode,
         "source": "operator_collection",
@@ -905,11 +1009,22 @@ def _reviewed_report(
         "ingest_report": apply_report,
         "coverage_after": None if coverage_after is None else _http_report(coverage_after),
         "import_executed": import_executed,
+        "financial_report_stats_before": financial_stats_before,
+        "financial_report_stats_after": financial_stats_after,
         "rollback_note": ROLLBACK_NOTE if import_executed else None,
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps(args.mode, executed=import_executed),
     }
+    report.update(
+        _financial_count_fields(
+            financial_stats_before,
+            financial_stats_after,
+            created_reports_count=created_reports_count,
+            updated_reports_count=updated_reports_count,
+        )
+    )
+    return report
 
 
 def _target_args(
@@ -1039,6 +1154,84 @@ def _resolve_company_names(
     return ids
 
 
+def _resolve_requested_company_ids(
+    selected_ids: list[int],
+    backend: str,
+    http_request: Any,
+    warnings: list[dict[str, Any]],
+) -> tuple[list[int], list[dict[str, Any]]]:
+    context = _canonical_group_context(backend, http_request, warnings)
+    by_candidate = context.get("by_candidate") or {}
+    resolved: list[int] = []
+    resolution_details: list[dict[str, Any]] = []
+    for requested_id in selected_ids:
+        mapping = by_candidate.get(int(requested_id))
+        if mapping and _accepted_duplicate_member(mapping.get("member") or {}):
+            group = mapping.get("group") or {}
+            canonical_id = int(group.get("canonical_company_id"))
+            warning = (
+                "Requested company is an accepted duplicate candidate; "
+                "using canonical company instead."
+            )
+            detail = {
+                "requested_company_id": int(requested_id),
+                "resolved_canonical_company_id": canonical_id,
+                "warning": warning,
+            }
+            resolution_details.append(detail)
+            warnings.append({"message": warning, **detail})
+            resolved.append(canonical_id)
+        else:
+            resolved.append(int(requested_id))
+    return _unique_ints(resolved), resolution_details
+
+
+def _canonical_group_context(
+    backend: str,
+    http_request: Any,
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    result = http_request(
+        "GET",
+        f"{backend}/api/companies/identity/canonical-groups?active_only=true",
+        None,
+    )
+    try:
+        data = _data_or_raise(result)
+    except Exception as exc:
+        warnings.append({"message": f"canonical duplicate guard was unavailable: {exc}"})
+        return {"by_candidate": {}, "groups_by_canonical": {}}
+    if not isinstance(data, dict):
+        return {"by_candidate": {}, "groups_by_canonical": {}}
+    by_candidate: dict[int, dict[str, Any]] = {}
+    groups_by_canonical: dict[int, dict[str, Any]] = {}
+    for group in data.get("groups") or []:
+        canonical_id = group.get("canonical_company_id")
+        if canonical_id is None:
+            continue
+        groups_by_canonical[int(canonical_id)] = group
+        for member in group.get("duplicate_members") or []:
+            member_id = member.get("company_id")
+            if member_id is None:
+                continue
+            by_candidate[int(member_id)] = {"group": group, "member": member}
+    return {"by_candidate": by_candidate, "groups_by_canonical": groups_by_canonical}
+
+
+def _accepted_duplicate_member(member: dict[str, Any]) -> bool:
+    mapping_status = str(member.get("duplicate_mapping_status") or "").casefold()
+    review_status = str(member.get("duplicate_review_status") or "").casefold()
+    return mapping_status == "accepted" or review_status in {"accepted", "reviewed"}
+
+
+def _unique_ints(values: list[int]) -> list[int]:
+    result: list[int] = []
+    for value in values:
+        if value not in result:
+            result.append(value)
+    return result
+
+
 def _coverage(backend: str, args: argparse.Namespace, http_request: Any) -> HttpResult:
     params = {
         "active_only": "true",
@@ -1055,6 +1248,76 @@ def _coverage(backend: str, args: argparse.Namespace, http_request: Any) -> Http
     if isinstance(result, HttpResult):
         return result
     return HttpResult(ok=True, status_code=200, data=result)
+
+
+def _financial_report_stats(
+    backend: str,
+    http_request: Any,
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    result = http_request("GET", f"{backend}/api/financial-reports/stats", None)
+    if isinstance(result, HttpResult):
+        if not result.ok:
+            return None, [
+                {
+                    "message": "financial report stats endpoint was unavailable",
+                    "details": _http_report(result),
+                }
+            ]
+        data = result.data
+    else:
+        data = result
+    if not isinstance(data, dict) or "financial_reports_count" not in data:
+        return None, [
+            {
+                "message": "financial report stats endpoint returned unexpected payload",
+                "details": data,
+            }
+        ]
+    return {
+        "financial_reports_count": _parse_int(data.get("financial_reports_count")) or 0,
+        "financial_report_source_documents_count": (
+            _parse_int(data.get("financial_report_source_documents_count")) or 0
+        ),
+        "financial_report_import_runs_count": (
+            _parse_int(data.get("financial_report_import_runs_count")) or 0
+        ),
+    }, []
+
+
+def _financial_count_fields(
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+    *,
+    created_reports_count: int = 0,
+    updated_reports_count: int = 0,
+) -> dict[str, Any]:
+    return {
+        "financial_reports_count_before": None
+        if before is None
+        else before.get("financial_reports_count"),
+        "financial_reports_count_after": None
+        if after is None
+        else after.get("financial_reports_count"),
+        "created_reports_count": created_reports_count,
+        "updated_reports_count": updated_reports_count,
+    }
+
+
+def _apply_report_counts(
+    apply_report: dict[str, Any] | None,
+    *,
+    import_executed: bool,
+) -> tuple[int, int]:
+    if not import_executed or not isinstance(apply_report, dict):
+        return 0, 0
+    ingest = apply_report.get("ingest") or {}
+    payload = ingest.get("json") if isinstance(ingest, dict) else None
+    if not isinstance(payload, dict):
+        payload = apply_report.get("ingest_report") or apply_report
+    return (
+        _parse_int(payload.get("created")) or 0,
+        _parse_int(payload.get("updated")) or 0,
+    )
 
 
 def _canonical_to_collection_row(row: dict[str, Any]) -> dict[str, Any]:
@@ -1191,7 +1454,11 @@ def _next_steps(mode: str, *, executed: bool) -> list[str]:
     if mode == "targets":
         return ["Generate a reviewed canonical collection template."]
     if mode == "template":
-        return ["Fill the template manually from official issuer reports, then run preview."]
+        return [
+            "Fill the collection template manually from official issuer reports.",
+            "Run mode=preview before any confirmed import.",
+            "Do not use Wikipedia or unofficial sources for financial values.",
+        ]
     if mode == "preview":
         return ["Review warnings and backend preview before any confirmed import."]
     if executed:

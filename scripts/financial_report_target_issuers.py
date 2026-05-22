@@ -172,10 +172,16 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
         reverse=True,
     )[: max(1, args.limit)]
     status = "failed" if errors else "warning" if warnings else "passed"
+    rollup_summary = (
+        _rollup_summary(raw_target_count, rows, canonical_context)
+        if _flag(args, "use_duplicate_mapping") or _flag(args, "rollup_duplicates")
+        else None
+    )
     return {
         "status": status,
         "source": args.source,
         "total_targets": len(rows),
+        "rollup_summary": rollup_summary,
         "rollup_comparison": _rollup_comparison(raw_target_count, rows)
         if _flag(args, "compare_rollup")
         else None,
@@ -257,6 +263,24 @@ def render_markdown(report: dict[str, Any]) -> str:
                 coverage=row.get("coverage_effective_status") or row.get("coverage_status") or "",
                 reason=row.get("source_reason") or "",
             )
+        )
+    rollup_summary = report.get("rollup_summary")
+    if isinstance(rollup_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Duplicate Rollup Summary",
+                "",
+                f"- Raw target count: {rollup_summary.get('raw_target_count', 0)}",
+                f"- Canonical target count: {rollup_summary.get('canonical_target_count', 0)}",
+                f"- Deduplicated count: {rollup_summary.get('deduplicated_count', 0)}",
+                f"- Duplicate member count: {rollup_summary.get('duplicate_member_count', 0)}",
+                f"- Canonical groups count: {rollup_summary.get('canonical_groups_count', 0)}",
+                (
+                    "- Targets with duplicates: "
+                    f"{rollup_summary.get('targets_with_duplicates_count', 0)}"
+                ),
+            ]
         )
     lines.extend(["", "## Warnings", ""])
     if report["warnings"]:
@@ -762,6 +786,25 @@ def _rollup_comparison(raw_count: int, rows: list[dict[str, Any]]) -> dict[str, 
         "canonical_target_count": canonical_count,
         "deduplicated_count": max(0, raw_count - canonical_count),
         "duplicate_member_count": duplicate_member_count,
+    }
+
+
+def _rollup_summary(
+    raw_count: int,
+    rows: list[dict[str, Any]],
+    context: dict[str, Any],
+) -> dict[str, int]:
+    canonical_count = len(rows)
+    duplicate_member_count = sum(int(row.get("duplicate_count") or 0) for row in rows)
+    return {
+        "raw_target_count": raw_count,
+        "canonical_target_count": canonical_count,
+        "deduplicated_count": max(0, raw_count - canonical_count),
+        "duplicate_member_count": duplicate_member_count,
+        "canonical_groups_count": len(context.get("groups_by_canonical") or {}),
+        "targets_with_duplicates_count": sum(
+            1 for row in rows if int(row.get("duplicate_count") or 0) > 0
+        ),
     }
 
 

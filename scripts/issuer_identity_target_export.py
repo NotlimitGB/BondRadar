@@ -35,6 +35,11 @@ OUTPUT_FIELDS = [
     "reason",
     "identity_status",
     "identity_confidence",
+    "legal_name",
+    "short_name",
+    "ogrn",
+    "issuer_group_name",
+    "issuer_role",
     "possible_canonical_company_id",
     "possible_canonical_company_name",
     "possible_duplicate_match_score",
@@ -124,6 +129,7 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
             canonical_context,
             include_duplicate_members=_flag(args, "include_duplicate_members"),
         )
+        _enrich_canonical_identity_rows(targets, backend, http_request)
 
     rows = sorted(
         targets.values(),
@@ -139,10 +145,16 @@ def build_report(args: argparse.Namespace, http_request: Any = None) -> dict[str
         row.pop("_priority", None)
     status = "failed" if errors else "warning" if warnings else "passed"
     rollup_comparison = _rollup_comparison(raw_target_count, rows)
+    rollup_summary = (
+        _rollup_summary(raw_target_count, rows, canonical_context)
+        if _flag(args, "use_duplicate_mapping") or _flag(args, "rollup_duplicates")
+        else None
+    )
     return {
         "status": status,
         "source": args.source,
         "total_targets": len(rows),
+        "rollup_summary": rollup_summary,
         "rollup_comparison": rollup_comparison if _flag(args, "compare_rollup") else None,
         "targets": rows,
         "warnings": warnings,
@@ -192,6 +204,24 @@ def render_markdown(report: dict[str, Any]) -> str:
                 reason=row.get("reason") or "",
                 query=row.get("suggested_search_query") or "",
             )
+        )
+    rollup_summary = report.get("rollup_summary")
+    if isinstance(rollup_summary, dict):
+        lines.extend(
+            [
+                "",
+                "## Duplicate Rollup Summary",
+                "",
+                f"- Raw target count: {rollup_summary.get('raw_target_count', 0)}",
+                f"- Canonical target count: {rollup_summary.get('canonical_target_count', 0)}",
+                f"- Deduplicated count: {rollup_summary.get('deduplicated_count', 0)}",
+                f"- Duplicate member count: {rollup_summary.get('duplicate_member_count', 0)}",
+                f"- Canonical groups count: {rollup_summary.get('canonical_groups_count', 0)}",
+                (
+                    "- Targets with duplicates: "
+                    f"{rollup_summary.get('targets_with_duplicates_count', 0)}"
+                ),
+            ]
         )
     lines.extend(["", "## Warnings", ""])
     if report["warnings"]:
@@ -245,6 +275,11 @@ def _unknown_company_targets(
                 "reason": "unknown issuer identity",
                 "identity_status": item.get("identity_status") or "unknown",
                 "identity_confidence": item.get("identity_confidence"),
+                "legal_name": item.get("legal_name"),
+                "short_name": item.get("short_name"),
+                "ogrn": item.get("ogrn"),
+                "issuer_group_name": item.get("issuer_group_name"),
+                "issuer_role": item.get("issuer_role"),
                 "suggested_search_query": _suggested_query(item),
                 "notes": "",
             }
@@ -286,6 +321,11 @@ def _financial_target_rows(
                 "reason": item.get("source_reason") or source,
                 "identity_status": item.get("identity_status") or "unknown",
                 "identity_confidence": item.get("identity_confidence"),
+                "legal_name": item.get("legal_name"),
+                "short_name": item.get("short_name"),
+                "ogrn": item.get("ogrn"),
+                "issuer_group_name": item.get("issuer_group_name"),
+                "issuer_role": item.get("issuer_role"),
                 "suggested_search_query": _suggested_query(item),
                 "notes": "needs review" if item.get("needs_identity_review") else "",
             }
@@ -318,6 +358,11 @@ def _empty_target(row: dict[str, Any]) -> dict[str, Any]:
         "reason": "",
         "identity_status": row.get("identity_status") or "unknown",
         "identity_confidence": row.get("identity_confidence"),
+        "legal_name": row.get("legal_name"),
+        "short_name": row.get("short_name"),
+        "ogrn": row.get("ogrn"),
+        "issuer_group_name": row.get("issuer_group_name"),
+        "issuer_role": row.get("issuer_role"),
         "possible_canonical_company_id": None,
         "possible_canonical_company_name": None,
         "possible_duplicate_match_score": None,
@@ -335,8 +380,15 @@ def _merge_target(target: dict[str, Any], row: dict[str, Any]) -> None:
     target["ticker"] = target.get("ticker") or row.get("ticker")
     target["inn"] = target.get("inn") or row.get("inn")
     target["bonds_count"] += int(row.get("bonds_count") or 0)
-    target["identity_status"] = row.get("identity_status") or target["identity_status"]
-    target["identity_confidence"] = row.get("identity_confidence") or target.get("identity_confidence")
+    row_status = row.get("identity_status")
+    current_status = target.get("identity_status")
+    if row_status and _identity_status_priority(row_status) >= _identity_status_priority(current_status):
+        target["identity_status"] = row_status
+        target["identity_confidence"] = row.get("identity_confidence") or target.get("identity_confidence")
+    elif not target.get("identity_confidence"):
+        target["identity_confidence"] = row.get("identity_confidence")
+    for field in ("legal_name", "short_name", "ogrn", "issuer_group_name", "issuer_role"):
+        target[field] = target.get(field) or row.get(field)
     for reason in _split_reasons(row.get("reason") or "identity review"):
         target["_reasons"].add(reason)
     if not row.get("inn"):
@@ -469,6 +521,11 @@ def _canonical_empty_target(
                 "inn": None if group is None else group.get("canonical_inn"),
                 "identity_status": None if group is None else group.get("canonical_identity_status"),
                 "identity_confidence": None,
+                "legal_name": None if group is None else group.get("canonical_legal_name"),
+                "short_name": None if group is None else group.get("canonical_short_name"),
+                "ogrn": None if group is None else group.get("canonical_ogrn"),
+                "issuer_group_name": None if group is None else group.get("canonical_issuer_group_name"),
+                "issuer_role": None if group is None else group.get("canonical_issuer_role"),
             }
         ),
         "source_reasons": set(),
@@ -507,6 +564,57 @@ def _rollup_comparison(raw_count: int, rows: list[dict[str, Any]]) -> dict[str, 
         "deduplicated_count": max(0, raw_count - canonical_count),
         "duplicate_member_count": duplicate_member_count,
     }
+
+
+def _rollup_summary(
+    raw_count: int,
+    rows: list[dict[str, Any]],
+    context: dict[str, Any],
+) -> dict[str, int]:
+    canonical_count = len(rows)
+    duplicate_member_count = sum(int(row.get("duplicate_count") or 0) for row in rows)
+    return {
+        "raw_target_count": raw_count,
+        "canonical_target_count": canonical_count,
+        "deduplicated_count": max(0, raw_count - canonical_count),
+        "duplicate_member_count": duplicate_member_count,
+        "canonical_groups_count": len(context.get("groups_by_canonical") or {}),
+        "targets_with_duplicates_count": sum(
+            1 for row in rows if int(row.get("duplicate_count") or 0) > 0
+        ),
+    }
+
+
+def _enrich_canonical_identity_rows(
+    targets: dict[int, dict[str, Any]],
+    backend: str,
+    http_request: Any,
+) -> None:
+    for row in targets.values():
+        canonical_id = row.get("canonical_company_id") or row.get("company_id")
+        if canonical_id is None or not row.get("is_canonical_target", True):
+            continue
+        company = _safe_get_json(http_request, f"{backend}/api/companies/{int(canonical_id)}", default={})
+        profile = _safe_get_json(
+            http_request,
+            f"{backend}/api/companies/identity/profiles/{int(canonical_id)}",
+            default={},
+        )
+        if not isinstance(company, dict):
+            company = {}
+        if not isinstance(profile, dict):
+            profile = {}
+        row["company_id"] = int(canonical_id)
+        row["canonical_company_id"] = int(canonical_id)
+        row["company_name"] = company.get("name") or row.get("company_name")
+        row["canonical_company_name"] = company.get("name") or row.get("canonical_company_name")
+        row["ticker"] = company.get("ticker") or row.get("ticker")
+        row["inn"] = profile.get("inn") or company.get("inn") or row.get("inn")
+        if profile.get("identity_status"):
+            row["identity_status"] = profile.get("identity_status")
+        row["identity_confidence"] = profile.get("identity_confidence") or row.get("identity_confidence")
+        for field in ("legal_name", "short_name", "ogrn", "issuer_group_name", "issuer_role"):
+            row[field] = profile.get(field) or row.get(field)
 
 
 def _duplicate_hints(
@@ -584,6 +692,13 @@ def _data_or_raise(result: Any) -> Any:
     return result
 
 
+def _safe_get_json(http_request: Any, url: str, default: Any = None) -> Any:
+    try:
+        return _data_or_raise(http_request("GET", url, None))
+    except Exception:
+        return default
+
+
 def _csv_value(value: Any) -> str:
     if isinstance(value, set):
         value = sorted(value)
@@ -599,6 +714,16 @@ def _float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _identity_status_priority(value: Any) -> int:
+    return {
+        "unknown": 0,
+        "weak": 1,
+        "conflict": 2,
+        "matched": 3,
+        "verified": 4,
+    }.get(str(value or "unknown").casefold(), 0)
 
 
 def _flag(args: argparse.Namespace, name: str) -> bool:

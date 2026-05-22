@@ -5,7 +5,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.company import Company
@@ -19,6 +19,7 @@ from app.schemas.financial_report_ingestion import (
     FinancialReportIngestWarning,
     FinancialReportPreviewResult,
     FinancialReportPreviewRow,
+    FinancialReportStatsRead,
     FinancialReportStructuredInput,
 )
 
@@ -248,6 +249,15 @@ class FinancialReportIngestionService:
             FinancialReportSourceDocument.id.desc(),
         ).limit(limit)
         return list(self.db.execute(stmt).scalars())
+
+    def stats(self) -> FinancialReportStatsRead:
+        return FinancialReportStatsRead(
+            financial_reports_count=self._count(FinancialReport),
+            financial_report_source_documents_count=self._count(
+                FinancialReportSourceDocument
+            ),
+            financial_report_import_runs_count=self._count(FinancialReportImportRun),
+        )
 
     def _process_row(
         self,
@@ -657,3 +667,6 @@ class FinancialReportIngestionService:
                 for warning in run.warnings_json
             ],
         )
+
+    def _count(self, model: type[Any]) -> int:
+        return int(self.db.scalar(select(func.count()).select_from(model)) or 0)

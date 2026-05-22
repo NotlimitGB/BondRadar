@@ -164,6 +164,8 @@ def run_flow(
             "validation": None,
             "preview": None,
             "apply": None,
+            "apply_executed": False,
+            "affected_rows_summary": _empty_affected_rows_summary(),
             "errors": [{"message": str(exc)}],
             "warnings": [],
             "next_steps": ["Fix the duplicate review input file, then rerun preview."],
@@ -213,6 +215,12 @@ def run_flow(
         or (isinstance(apply_result, dict) and apply_result.get("status") == "warning")
         else "passed"
     )
+    apply_executed = isinstance(apply_result, dict)
+    affected_rows_summary = (
+        _affected_rows_summary(apply_result, validation)
+        if apply_executed
+        else _empty_affected_rows_summary()
+    )
     return {
         "status": status_value,
         "input": str(input_path),
@@ -220,9 +228,11 @@ def run_flow(
         "validation": validation,
         "preview": preview,
         "apply": apply_result,
+        "apply_executed": apply_executed,
+        "affected_rows_summary": affected_rows_summary,
         "errors": errors,
         "warnings": warnings,
-        "next_steps": _next_steps(should_apply and apply_result is not None),
+        "next_steps": _next_steps(apply_executed),
     }
 
 
@@ -234,6 +244,7 @@ def write_markdown_report(report: dict[str, Any], path: Path) -> None:
 def render_markdown(report: dict[str, Any]) -> str:
     validation = report.get("validation") or {}
     apply_result = report.get("apply")
+    apply_executed = bool(report.get("apply_executed"))
     lines = [
         "# BondRadar Issuer Duplicate Review",
         "",
@@ -247,29 +258,41 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- Valid rows: {validation.get('valid_rows', 0)}",
         f"- Invalid rows: {validation.get('invalid_rows', 0)}",
     ]
-    if isinstance(apply_result, dict):
-        summary = apply_result.get("affected_rows_summary") or {}
+    if apply_executed and isinstance(apply_result, dict):
+        summary = report.get("affected_rows_summary") or {}
+        requested_by_pair = _rows_by_pair(validation.get("rows") or [])
         lines.extend(
             [
                 "",
                 "## Affected Duplicate Decisions",
                 "",
-                f"- Created decisions: {summary.get('created_candidate_count', 0)}",
-                f"- Updated decisions: {summary.get('updated_candidate_count', 0)}",
+                f"- Created decisions: {summary.get('created_count', 0)}",
+                f"- Updated decisions: {summary.get('updated_count', 0)}",
                 f"- Skipped rows: {summary.get('skipped_count', 0)}",
                 f"- Conflicts: {summary.get('conflict_count', 0)}",
                 "",
-                "| Canonical Company ID | Candidate Company ID | Action | Warnings |",
-                "| ---: | ---: | --- | --- |",
+                "| Canonical Company ID | Candidate Company ID | Action | Status | Review Status | Warnings |",
+                "| ---: | ---: | --- | --- | --- | --- |",
             ]
         )
         for row in apply_result.get("rows") or []:
+            requested = requested_by_pair.get(
+                (
+                    _parse_int(row.get("canonical_company_id")),
+                    _parse_int(row.get("candidate_company_id")),
+                ),
+                {},
+            )
             lines.append(
-                "| {canonical} | {candidate} | {action} | {warnings} |".format(
+                "| {canonical} | {candidate} | {action} | {status} | {review_status} | {warnings} |".format(
                     canonical=row.get("canonical_company_id"),
                     candidate=row.get("candidate_company_id"),
                     action=row.get("action") or "",
-                    warnings="; ".join(item.get("message", "") for item in row.get("warnings") or []),
+                    status=requested.get("status") or row.get("status") or "",
+                    review_status=(
+                        requested.get("review_status") or row.get("review_status") or ""
+                    ),
+                    warnings=_warning_text(row.get("warnings") or []),
                 )
             )
         lines.extend(
@@ -279,7 +302,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                 "",
                 "This script does not perform automatic rollback.",
                 "",
-                "Before applying duplicate review decisions on VDS, create a PostgreSQL backup.",
+                "Before applying duplicate decisions on VDS, create a PostgreSQL backup.",
                 "",
                 "To rollback, restore the backup or manually review affected rows in:",
                 "",
@@ -346,6 +369,120 @@ def _payload(
 
 def _payload_row(row: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in row.items() if value not in (None, "")}
+
+
+def _empty_affected_rows_summary() -> dict[str, Any]:
+    return {
+        "affected_canonical_company_ids": [],
+        "affected_candidate_company_ids": [],
+        "created_count": 0,
+        "updated_count": 0,
+        "skipped_count": 0,
+        "conflict_count": 0,
+        "warning_count": 0,
+    }
+
+
+def _affected_rows_summary(
+    apply_result: dict[str, Any] | None,
+    validation: dict[str, Any],
+) -> dict[str, Any]:
+    if not isinstance(apply_result, dict):
+        return _empty_affected_rows_summary()
+    backend_summary = apply_result.get("affected_rows_summary") or {}
+    rows = [row for row in apply_result.get("rows") or [] if isinstance(row, dict)]
+    fallback_rows = validation.get("rows") or []
+    source_rows = rows or fallback_rows
+    canonical_ids = sorted(
+        {
+            int(value)
+            for value in (
+                _parse_int(row.get("canonical_company_id"))
+                for row in source_rows
+                if isinstance(row, dict)
+            )
+            if value is not None
+        }
+    )
+    candidate_ids = sorted(
+        {
+            int(value)
+            for value in (
+                _parse_int(row.get("candidate_company_id"))
+                for row in source_rows
+                if isinstance(row, dict)
+            )
+            if value is not None
+        }
+    )
+    return {
+        "affected_canonical_company_ids": canonical_ids,
+        "affected_candidate_company_ids": candidate_ids,
+        "created_count": _summary_count(
+            backend_summary,
+            "created_count",
+            "created_candidate_count",
+            rows=rows,
+            actions={"created", "create"},
+        ),
+        "updated_count": _summary_count(
+            backend_summary,
+            "updated_count",
+            "updated_candidate_count",
+            rows=rows,
+            actions={"updated", "update"},
+        ),
+        "skipped_count": _summary_count(
+            backend_summary,
+            "skipped_count",
+            rows=rows,
+            actions={"skipped", "skip"},
+        ),
+        "conflict_count": _summary_count(
+            backend_summary,
+            "conflict_count",
+            rows=rows,
+            actions={"conflict"},
+        ),
+        "warning_count": int(
+            backend_summary.get("warning_count")
+            or len(apply_result.get("warnings") or [])
+            + sum(len(row.get("warnings") or []) for row in rows)
+        ),
+    }
+
+
+def _summary_count(
+    summary: dict[str, Any],
+    *keys: str,
+    rows: list[dict[str, Any]],
+    actions: set[str],
+) -> int:
+    for key in keys:
+        if key in summary and summary[key] is not None:
+            parsed = _parse_int(summary[key])
+            return parsed or 0
+    return sum(1 for row in rows if str(row.get("action") or "").casefold() in actions)
+
+
+def _rows_by_pair(rows: list[dict[str, Any]]) -> dict[tuple[int | None, int | None], dict[str, Any]]:
+    return {
+        (_parse_int(row.get("canonical_company_id")), _parse_int(row.get("candidate_company_id"))): row
+        for row in rows
+        if isinstance(row, dict)
+    }
+
+
+def _warning_text(warnings: list[Any]) -> str:
+    values: list[str] = []
+    for item in warnings:
+        if isinstance(item, dict):
+            text = item.get("message") or item.get("code")
+        else:
+            text = str(item)
+        if text:
+            values.append(str(text))
+    return "; ".join(values)
 
 
 def _http_data_or_warning(

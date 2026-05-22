@@ -99,6 +99,12 @@ class FinancialReportIngestResult(BaseModel):
     warnings: list[FinancialReportIngestWarning]
 
 
+class FinancialReportStatsRead(BaseModel):
+    financial_reports_count: int
+    financial_report_source_documents_count: int
+    financial_report_import_runs_count: int
+
+
 class FinancialReportImportRunRead(BaseModel):
     id: int
     source: str

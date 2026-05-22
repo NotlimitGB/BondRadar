@@ -121,6 +121,14 @@ def test_financial_targets_roll_up_duplicate_members_and_coverage_warning(
         "deduplicated_count": 1,
         "duplicate_member_count": 1,
     }
+    assert report["rollup_summary"] == {
+        "raw_target_count": 2,
+        "canonical_target_count": 1,
+        "deduplicated_count": 1,
+        "duplicate_member_count": 1,
+        "canonical_groups_count": 1,
+        "targets_with_duplicates_count": 1,
+    }
     row = report["targets"][0]
     assert row["company_id"] == 18
     assert row["canonical_company_id"] == 18
@@ -219,6 +227,14 @@ def test_financial_targets_outputs_write_with_rollup(tmp_path: Path) -> None:
             "deduplicated_count": 1,
             "duplicate_member_count": 1,
         },
+        "rollup_summary": {
+            "raw_target_count": 2,
+            "canonical_target_count": 1,
+            "deduplicated_count": 1,
+            "duplicate_member_count": 1,
+            "canonical_groups_count": 1,
+            "targets_with_duplicates_count": 1,
+        },
         "targets": [
             {
                 "company_id": 18,
@@ -267,5 +283,7 @@ def test_financial_targets_outputs_write_with_rollup(tmp_path: Path) -> None:
 
     assert json.loads(json_output.read_text(encoding="utf-8"))["total_targets"] == 1
     assert "duplicate_company_ids" in csv_output.read_text(encoding="utf-8")
-    assert "# BondRadar Financial Report Target Issuers" in markdown_output.read_text(encoding="utf-8")
+    markdown = markdown_output.read_text(encoding="utf-8")
+    assert "# BondRadar Financial Report Target Issuers" in markdown
+    assert "## Duplicate Rollup Summary" in markdown
     assert "operator_notes" in collection_output.read_text(encoding="utf-8")

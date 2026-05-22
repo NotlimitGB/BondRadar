@@ -179,6 +179,8 @@ def test_duplicate_review_dry_run_calls_preview_only(tmp_path: Path) -> None:
     )
 
     assert report["status"] == "passed"
+    assert report["apply_executed"] is False
+    assert report["affected_rows_summary"]["created_count"] == 0
     assert any(url.endswith("/duplicates/preview") for url in calls)
     assert not any(url.endswith("/duplicates/apply") for url in calls)
 
@@ -261,8 +263,22 @@ def test_duplicate_review_confirmed_execute_calls_apply_and_markdown_has_rollbac
     duplicate_review.write_markdown_report(report, markdown_output)
 
     assert report["status"] == "passed"
+    assert report["apply_executed"] is True
+    assert report["affected_rows_summary"] == {
+        "affected_canonical_company_ids": [18],
+        "affected_candidate_company_ids": [289],
+        "created_count": 1,
+        "updated_count": 0,
+        "skipped_count": 0,
+        "conflict_count": 0,
+        "warning_count": 0,
+    }
     assert any(url.endswith("/duplicates/apply") for url in calls)
-    assert "## Rollback Note" in markdown_output.read_text(encoding="utf-8")
+    markdown = markdown_output.read_text(encoding="utf-8")
+    assert "## Affected Duplicate Decisions" in markdown
+    assert "| Canonical Company ID | Candidate Company ID | Action | Status | Review Status | Warnings |" in markdown
+    assert "| 18 | 289 | created | accepted | reviewed |  |" in markdown
+    assert "## Rollback Note" in markdown
 
 
 def _write_review_csv(path: Path) -> None:

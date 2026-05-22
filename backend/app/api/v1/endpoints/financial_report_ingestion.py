@@ -7,6 +7,7 @@ from app.schemas.financial_report_ingestion import (
     FinancialReportIngestRequest,
     FinancialReportIngestResult,
     FinancialReportPreviewResult,
+    FinancialReportStatsRead,
     FinancialReportSourceDocumentRead,
 )
 from app.services.financial_report_ingestion_service import (
@@ -31,6 +32,13 @@ def ingest_financial_reports(
     db: Session = Depends(get_db),
 ) -> FinancialReportIngestResult:
     return FinancialReportIngestionService(db).ingest(request)
+
+
+@router.get("/stats", response_model=FinancialReportStatsRead)
+def get_financial_report_stats(
+    db: Session = Depends(get_db),
+) -> FinancialReportStatsRead:
+    return FinancialReportIngestionService(db).stats()
 
 
 @router.get("/import-runs", response_model=list[FinancialReportImportRunRead])

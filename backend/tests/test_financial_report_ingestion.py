@@ -183,6 +183,35 @@ def test_json_ingest_creates_report_source_document_and_run(
     assert run.total_rows == 1
 
 
+def test_financial_report_stats_counts_before_and_after_ingest(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, ticker="STAT", inn="7701000099")
+
+    before = client.get("/api/financial-reports/stats")
+    assert before.status_code == 200
+    assert before.json() == {
+        "financial_reports_count": 0,
+        "financial_report_source_documents_count": 0,
+        "financial_report_import_runs_count": 0,
+    }
+
+    ingest_response = client.post(
+        "/api/financial-reports/ingest",
+        json=ingest_payload(company),
+    )
+    assert ingest_response.status_code == 200
+
+    after = client.get("/api/financial-reports/stats")
+    assert after.status_code == 200
+    assert after.json() == {
+        "financial_reports_count": 1,
+        "financial_report_source_documents_count": 1,
+        "financial_report_import_runs_count": 1,
+    }
+
+
 def test_ingest_is_idempotent_and_skips_existing_by_default(
     client: TestClient,
     db_session: Session,

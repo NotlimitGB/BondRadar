@@ -40,6 +40,16 @@ def test_template_generation_uses_canonical_ids_and_no_paper_endpoints(
         calls.append(url)
         assert "/api/paper-trading" not in url
         path = url.replace("http://testserver", "")
+        if path == "/api/financial-reports/stats":
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "financial_reports_count": 0,
+                    "financial_report_source_documents_count": 0,
+                    "financial_report_import_runs_count": 0,
+                },
+            )
         if path.startswith("/api/ml/predictions?"):
             return import_script.HttpResult(
                 ok=True,
@@ -108,8 +118,24 @@ def test_template_generation_uses_canonical_ids_and_no_paper_endpoints(
         return import_script.HttpResult(ok=True, status_code=200, data=responses.get(path, []))
 
     report, exit_code = pack.run_pack(args, http_request=fake_http)
+    markdown = pack.render_markdown(report)
 
     assert exit_code == 0
+    assert report["import_executed"] is False
+    assert report["template_generated"] is True
+    assert report["financial_values_expected_empty"] is True
+    assert report["financial_reports_count_before"] == 0
+    assert report["financial_reports_count_after"] == 0
+    assert report["created_reports_count"] == 0
+    assert report["updated_reports_count"] == 0
+    assert report["next_steps"] == [
+        "Fill the collection template manually from official issuer reports.",
+        "Run mode=preview before any confirmed import.",
+        "Do not use Wikipedia or unofficial sources for financial values.",
+    ]
+    assert "## Template Mode Notice" in markdown
+    assert "No financial report import was executed." in markdown
+    assert "## Official Source Checklist" in markdown
     assert report["total_targets"] == 1
     assert report["safe_sources"] == ["top-predictions", "bond-universe"]
     assert not any("/api/paper-trading" in url for url in calls)
@@ -128,6 +154,166 @@ def test_template_generation_uses_canonical_ids_and_no_paper_endpoints(
     assert rows[0]["report_type"] == "annual"
     assert rows[0]["revenue"] == ""
     assert rows[0]["ebitda"] == ""
+
+
+def test_stats_unavailable_sets_null_counts_and_warning() -> None:
+    args = pack.parse_args(
+        [
+            "--mode",
+            "targets",
+            "--backend-url",
+            "http://testserver",
+            "--source",
+            "bond-universe",
+        ]
+    )
+
+    def fake_http(method: str, url: str, payload=None):
+        path = url.replace("http://testserver", "")
+        if path == "/api/financial-reports/stats":
+            return import_script.HttpResult(
+                ok=False,
+                status_code=404,
+                data={"detail": "not found"},
+                text="not found",
+            )
+        if path == "/api/bonds?skip=0&limit=200":
+            return import_script.HttpResult(ok=True, status_code=200, data=[])
+        if "/api/companies/identity/duplicates/diagnostics" in path:
+            return import_script.HttpResult(ok=True, status_code=200, data={"groups": []})
+        return import_script.HttpResult(ok=True, status_code=200, data={})
+
+    report, exit_code = pack.run_pack(args, http_request=fake_http)
+
+    assert exit_code == 0
+    assert report["financial_reports_count_before"] is None
+    assert report["financial_reports_count_after"] is None
+    assert any(
+        "financial report stats endpoint was unavailable" in item["message"]
+        for item in report["warnings"]
+    )
+
+
+def test_duplicate_candidate_company_id_resolves_to_canonical_template_row(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "canonical_template.csv"
+    args = pack.parse_args(
+        [
+            "--mode",
+            "template",
+            "--backend-url",
+            "http://testserver",
+            "--source",
+            "bond-universe",
+            "--company-ids",
+            "289",
+            "--use-duplicate-mapping",
+            "--rollup-duplicates",
+            "--include-duplicate-members",
+            "--collection-template-output",
+            str(output),
+        ]
+    )
+
+    def fake_http(method: str, url: str, payload=None):
+        path = url.replace("http://testserver", "")
+        if path == "/api/financial-reports/stats":
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "financial_reports_count": 0,
+                    "financial_report_source_documents_count": 0,
+                    "financial_report_import_runs_count": 0,
+                },
+            )
+        if path == "/api/companies/identity/canonical-groups?active_only=true":
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "groups": [
+                        {
+                            "canonical_company_id": 18,
+                            "canonical_company_name": "Synthetic Canonical",
+                            "canonical_ticker": "CAN",
+                            "canonical_inn": "7700000001",
+                            "canonical_identity_status": "matched",
+                            "duplicate_members": [
+                                {
+                                    "company_id": 289,
+                                    "company_name": "Unknown issuer for RU000SYN289",
+                                    "duplicate_mapping_status": "accepted",
+                                    "duplicate_review_status": "reviewed",
+                                    "duplicate_match_type": "bond_name_phrase",
+                                    "duplicate_match_score": "0.7500",
+                                }
+                            ],
+                        }
+                    ],
+                    "warnings": [],
+                },
+            )
+        if "/api/companies/identity/duplicates/diagnostics" in path:
+            return import_script.HttpResult(ok=True, status_code=200, data={"groups": []})
+        responses = {
+            "/api/bonds?skip=0&limit=200": [
+                {
+                    "id": 1,
+                    "company_id": 18,
+                    "secid": "RU000CAN001",
+                    "name": "Synthetic Canonical BO 001",
+                },
+                {
+                    "id": 2,
+                    "company_id": 289,
+                    "secid": "RU000DUP001",
+                    "name": "Synthetic Canonical BO 002",
+                },
+            ],
+            "/api/companies/18": {
+                "id": 18,
+                "name": "Synthetic Canonical",
+                "ticker": "CAN",
+                "inn": "7700000001",
+            },
+            "/api/companies/identity/profiles/18": {
+                "company_id": 18,
+                "identity_status": "matched",
+                "legal_name": "Synthetic Canonical LLC",
+                "short_name": "Synthetic Canonical",
+                "ogrn": "1027700000001",
+                "issuer_group_name": "Synthetic Group",
+                "issuer_role": "legal_issuer",
+            },
+            "/api/companies/18/reports?limit=1": [],
+            "/api/companies/289/reports?limit=1": [],
+        }
+        return import_script.HttpResult(ok=True, status_code=200, data=responses.get(path, []))
+
+    report, exit_code = pack.run_pack(args, http_request=fake_http)
+    rows = list(csv.DictReader(output.open(encoding="utf-8")))
+
+    assert exit_code == 0
+    assert report["requested_company_ids"] == [289]
+    assert report["selected_company_ids"] == [18]
+    assert report["resolved_requested_company_ids"] == [
+        {
+            "requested_company_id": 289,
+            "resolved_canonical_company_id": 18,
+            "warning": (
+                "Requested company is an accepted duplicate candidate; "
+                "using canonical company instead."
+            ),
+        }
+    ]
+    assert any(
+        "accepted duplicate candidate" in item["message"] for item in report["warnings"]
+    )
+    assert len(rows) == 1
+    assert rows[0]["canonical_company_id"] == "18"
+    assert rows[0]["duplicate_company_ids"] == "289"
 
 
 def test_paper_positions_source_fails_safely_without_calling_paper_api() -> None:

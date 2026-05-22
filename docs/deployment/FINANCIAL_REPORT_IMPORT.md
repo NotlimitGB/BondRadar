@@ -539,6 +539,50 @@ Preview validates source evidence, normalizes `value_scale`, runs import
 dry-run with backend company preview, and records coverage before/after. It
 does not call the ingest endpoint.
 
+### First Real Canonical Pack: Preview Only
+
+Use this operation for the first real values after the private template has
+been filled from official issuer reports. Keep the reviewed CSV under
+`data/financial_reports/private/`.
+
+1. Generate the template on VDS:
+
+```bash
+python3 scripts/financial_report_canonical_pack.py \
+  --mode template \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --company-ids 18,67,125 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --collection-template-output data/financial_reports/private/canonical_first3_reports_task84.csv \
+  --json-output logs/financial_reports/canonical_pack_template_task84_vds.json \
+  --markdown-output logs/financial_reports/canonical_pack_template_task84_vds.md
+```
+
+2. Fill only from official issuer annual/interim reports or official
+disclosure documents. Do not use Wikipedia or unofficial summaries.
+
+3. Run preview only:
+
+```bash
+python3 scripts/financial_report_canonical_pack.py \
+  --mode preview \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/financial_reports/private/canonical_first3_reports_task84.csv \
+  --format csv \
+  --normalized-output logs/financial_reports/canonical_first3_normalized_task85.csv \
+  --normalized-format csv \
+  --json-output logs/financial_reports/canonical_pack_preview_task85_vds.json \
+  --markdown-output logs/financial_reports/canonical_pack_preview_task85_vds.md
+```
+
+Do not run apply/import until the preview report is reviewed and a PostgreSQL
+backup exists.
+
 ### Confirmed Apply
 
 Before confirmed import on VDS, create a PostgreSQL backup. Then run apply only

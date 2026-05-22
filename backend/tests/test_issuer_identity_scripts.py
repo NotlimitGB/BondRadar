@@ -243,6 +243,33 @@ def test_identity_target_export_rolls_up_accepted_duplicates() -> None:
             )
         if "/duplicates/diagnostics" in url:
             return import_script.HttpResult(ok=True, status_code=200, data={"groups": []})
+        if url.endswith("/api/companies/18"):
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "id": 18,
+                    "name": "Synthetic Canonical",
+                    "ticker": "CAN",
+                    "inn": "7700000001",
+                },
+            )
+        if url.endswith("/api/companies/identity/profiles/18"):
+            return import_script.HttpResult(
+                ok=True,
+                status_code=200,
+                data={
+                    "company_id": 18,
+                    "identity_status": "matched",
+                    "identity_confidence": "0.9200",
+                    "legal_name": "Synthetic Canonical LLC",
+                    "short_name": "Synthetic Canonical",
+                    "inn": "7700000001",
+                    "ogrn": "1027700000001",
+                    "issuer_group_name": "Synthetic Group",
+                    "issuer_role": "legal_issuer",
+                },
+            )
         return import_script.HttpResult(
             ok=True,
             status_code=200,
@@ -273,11 +300,28 @@ def test_identity_target_export_rolls_up_accepted_duplicates() -> None:
         "deduplicated_count": 0,
         "duplicate_member_count": 1,
     }
+    assert report["rollup_summary"] == {
+        "raw_target_count": 1,
+        "canonical_target_count": 1,
+        "deduplicated_count": 0,
+        "duplicate_member_count": 1,
+        "canonical_groups_count": 1,
+        "targets_with_duplicates_count": 1,
+    }
     target = report["targets"][0]
     assert target["company_id"] == 18
     assert target["company_name"] == "Synthetic Canonical"
+    assert target["identity_status"] == "matched"
+    assert target["identity_confidence"] == "0.9200"
+    assert target["legal_name"] == "Synthetic Canonical LLC"
+    assert target["short_name"] == "Synthetic Canonical"
+    assert target["inn"] == "7700000001"
+    assert target["ogrn"] == "1027700000001"
+    assert target["issuer_group_name"] == "Synthetic Group"
+    assert target["issuer_role"] == "legal_issuer"
     assert target["duplicate_company_ids"] == [289]
     assert target["duplicate_sample_secids"] == ["RU000SYN289"]
+    assert "## Duplicate Rollup Summary" in target_export.render_markdown(report)
 
 
 def test_moex_enrich_defaults_to_preview_only() -> None:
