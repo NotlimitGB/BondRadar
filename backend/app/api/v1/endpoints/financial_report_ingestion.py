@@ -9,6 +9,7 @@ from app.schemas.financial_report_ingestion import (
     FinancialReportIngestRequest,
     FinancialReportIngestResult,
     FinancialReportPreviewResult,
+    FinancialScoringPreviewBatchRequest,
     FinancialReportStatsRead,
     FinancialReportSourceDocumentRead,
 )
@@ -74,6 +75,18 @@ def get_company_financial_scoring_preview(
         company_id,
         include_diagnostics=include_diagnostics,
         include_bond_context=include_bond_context,
+    )
+
+
+@router.post("/scoring-preview/batch", response_model=dict[str, Any])
+def get_batch_financial_scoring_preview(
+    request: FinancialScoringPreviewBatchRequest,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    return FinancialScoringPreviewService(db).get_batch_financial_scoring_preview(
+        request.company_ids,
+        include_diagnostics=request.include_diagnostics,
+        include_bond_context=request.include_bond_context,
     )
 
 

@@ -105,6 +105,12 @@ class FinancialReportStatsRead(BaseModel):
     financial_report_import_runs_count: int
 
 
+class FinancialScoringPreviewBatchRequest(BaseModel):
+    company_ids: list[int] = Field(..., min_length=1)
+    include_diagnostics: bool = True
+    include_bond_context: bool = True
+
+
 class FinancialReportImportRunRead(BaseModel):
     id: int
     source: str

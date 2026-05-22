@@ -335,6 +335,90 @@ include_diagnostics=true|false
 include_bond_context=true|false
 ```
 
+## Batch Financial Scoring Preview
+
+Use the batch preview before enabling any financial-aware scoring effects. This
+is an observability report only:
+
+```text
+This is not production scoring.
+This does not mutate bond scores.
+This does not mutate company scores.
+This does not mutate predictions.
+This does not retrain ML.
+This does not trigger paper trading.
+All suggested score/risk adjustments remain 0 and labelled preview_only.
+```
+
+Run a safe target-issuer batch preview:
+
+```bash
+python3 scripts/financial_scoring_preview.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --json-output logs/financial_reports/batch_financial_scoring_preview_task92_vds.json \
+  --markdown-output logs/financial_reports/batch_financial_scoring_preview_task92_vds.md
+```
+
+For this script, `--source mixed` is intentionally limited to safe target
+sources: `top-predictions` plus `bond-universe`. It does not use paper
+positions and does not call paper-trading endpoints.
+
+The batch report includes:
+
+```text
+has_report_count
+missing_report_count
+ready_count
+partial_count
+not_ready_count
+negative_factor_count
+fallback_metric_company_count
+preview_only_adjustment_count
+missing_fields_summary
+risk_factor_summary
+top_negative_preview_companies
+```
+
+Expected current production state:
+
+```text
+financial_reports_count = 1
+read_only = true
+dry_run_only = true
+import_executed = false
+paper_trading_called = false
+preview_only_adjustment_count = 0
+```
+
+Only TMK currently has a real imported official-source report. Most target
+issuers are expected to be missing_report / not_ready until more official
+financial reports are imported. If TMK is included in the selected targets, it
+should appear as partial because interest_expense and net_debt are missing and
+fallback net debt metrics are used only for preview.
+
+The batch endpoint is:
+
+```text
+POST /api/financial-reports/scoring-preview/batch
+```
+
+Request shape:
+
+```json
+{
+  "company_ids": [125],
+  "include_diagnostics": true,
+  "include_bond_context": true
+}
+```
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

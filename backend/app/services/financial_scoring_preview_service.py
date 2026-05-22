@@ -88,22 +88,144 @@ class FinancialScoringPreviewService:
         include_diagnostics: bool = True,
         include_bond_context: bool = True,
     ) -> dict[str, Any]:
+        return self.get_batch_financial_scoring_preview(
+            company_ids,
+            include_diagnostics=include_diagnostics,
+            include_bond_context=include_bond_context,
+        )
+
+    def get_batch_financial_scoring_preview(
+        self,
+        company_ids: list[int],
+        *,
+        include_diagnostics: bool = True,
+        include_bond_context: bool = True,
+    ) -> dict[str, Any]:
         companies = [
             self.get_company_financial_scoring_preview(
                 company_id,
-                include_diagnostics=include_diagnostics,
+                include_diagnostics=True,
                 include_bond_context=include_bond_context,
             )
             for company_id in company_ids
         ]
+        summary = self._batch_summary(companies)
+        top_negative = self._top_negative_preview_companies(companies)
+        missing_fields_summary = self._missing_fields_summary(companies)
+        risk_factor_summary = self._risk_factor_summary(companies)
+        if not include_diagnostics:
+            for company in companies:
+                company["diagnostics"] = None
         return {
             "status": "passed",
             "company_count": len(companies),
+            "summary": summary,
+            "top_negative_preview_companies": top_negative,
+            "missing_fields_summary": missing_fields_summary,
+            "risk_factor_summary": risk_factor_summary,
             "companies": companies,
             "read_only": True,
             "dry_run_only": True,
             "import_executed": False,
             "paper_trading_called": False,
+            "would_mutate_scores": False,
+            "would_trigger_paper_trading": False,
+        }
+
+    def _batch_summary(self, companies: list[dict[str, Any]]) -> dict[str, int]:
+        readiness_counts = {"ready": 0, "partial": 0, "not_ready": 0}
+        for company in companies:
+            readiness = (company.get("diagnostics_readiness") or {}).get(
+                "risk_scoring_readiness"
+            )
+            if readiness in readiness_counts:
+                readiness_counts[readiness] += 1
+            else:
+                readiness_counts["not_ready"] += 1
+        return {
+            "has_report_count": sum(
+                1 for company in companies if company.get("has_financial_report")
+            ),
+            "missing_report_count": sum(
+                1 for company in companies if not company.get("has_financial_report")
+            ),
+            "ready_count": readiness_counts["ready"],
+            "partial_count": readiness_counts["partial"],
+            "not_ready_count": readiness_counts["not_ready"],
+            "negative_factor_count": sum(
+                1
+                for company in companies
+                for factor in company.get("financial_risk_factors") or []
+                if factor.get("impact") == "negative"
+            ),
+            "fallback_metric_company_count": sum(
+                1 for company in companies if company.get("fallback_metrics_used")
+            ),
+            "preview_only_adjustment_count": 0,
+        }
+
+    def _top_negative_preview_companies(
+        self,
+        companies: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for company in companies:
+            factors = company.get("financial_risk_factors") or []
+            negative_count = sum(1 for factor in factors if factor.get("impact") == "negative")
+            high_count = sum(
+                1
+                for factor in factors
+                if factor.get("severity") in {"high", "critical"}
+            )
+            if negative_count == 0 and high_count == 0:
+                continue
+            rows.append(
+                {
+                    "company_id": company.get("company_id"),
+                    "company_name": company.get("company_name"),
+                    "canonical_company_id": company.get("canonical_company_id"),
+                    "canonical_company_name": company.get("canonical_company_name"),
+                    "risk_scoring_readiness": (
+                        company.get("diagnostics_readiness") or {}
+                    ).get("risk_scoring_readiness"),
+                    "negative_factor_count": negative_count,
+                    "high_factor_count": high_count,
+                    "blocking_reasons": company.get("blocking_reasons") or [],
+                }
+            )
+        return sorted(
+            rows,
+            key=lambda item: (
+                -(int(item.get("high_factor_count") or 0)),
+                -(int(item.get("negative_factor_count") or 0)),
+                int(item.get("company_id") or 0),
+            ),
+        )
+
+    @staticmethod
+    def _missing_fields_summary(companies: list[dict[str, Any]]) -> dict[str, int]:
+        summary: dict[str, int] = {}
+        for company in companies:
+            if not company.get("has_financial_report"):
+                continue
+            diagnostics = company.get("diagnostics") or {}
+            raw_fields = diagnostics.get("raw_fields") or {}
+            for field in raw_fields.get("missing") or []:
+                summary[field] = summary.get(field, 0) + 1
+        return dict(sorted(summary.items()))
+
+    @staticmethod
+    def _risk_factor_summary(companies: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
+        summary: dict[str, dict[str, int]] = {}
+        for company in companies:
+            for factor in company.get("financial_risk_factors") or []:
+                factor_name = str(factor.get("factor") or "unknown")
+                severity = str(factor.get("severity") or "unknown")
+                factor_summary = summary.setdefault(factor_name, {})
+                factor_summary[severity] = factor_summary.get(severity, 0) + 1
+        return {
+            factor: dict(sorted(severity_counts.items()))
+            for factor, severity_counts in sorted(summary.items())
         }
 
     def _risk_factors(self, diagnostics: dict[str, Any]) -> list[dict[str, Any]]:
