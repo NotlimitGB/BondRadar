@@ -302,6 +302,51 @@ For each reviewed row:
   separately?
 - If uncertain, did I leave `identity_status` weak/unknown instead of guessing?
 
+## Identity-First Financial Collection Queue
+
+After the financial collection priority queue is generated, run the
+identity-first queue before collecting official issuer reports. The priority
+queue ranks how valuable a report would be; the identity-first queue decides
+whether the issuer identity is strong enough to start financial collection.
+
+```text
+Known corporate issuers go to collection_ready.
+Unknown issuer rows go to identity_review_required.
+Government-like issuers remain excluded/deprioritized.
+Already covered issuers like TMK stay in already_covered with missing fields.
+```
+
+This step is planning/export only. It does not import identity profiles, apply
+duplicate mappings, import financial reports, mutate scores, update
+predictions, activate schedules, or call paper-trading endpoints.
+
+Run on VDS:
+
+```bash
+python3 scripts/identity_first_collection_queue.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --include-covered \
+  --exclude-government-like \
+  --json-output logs/financial_reports/identity_first_collection_queue_task94_vds.json \
+  --markdown-output logs/financial_reports/identity_first_collection_queue_task94_vds.md \
+  --identity-review-csv-output logs/financial_reports/identity_review_required_task94_vds.csv \
+  --collection-ready-csv-output logs/financial_reports/collection_ready_task94_vds.csv
+```
+
+Review `identity_review_required_task94_vds.csv` first. Rows named
+`Unknown issuer for ...`, rows with low classification confidence, weak
+identity status, missing legal name, or missing INN/OGRN must go through the
+normal identity review workflow before any financial report collection. Use
+`collection_ready_task94_vds.csv` for issuers that are known corporate issuers
+and ready for official-source report collection.
+
 ## VDS Smoke Checklist
 
 Health:

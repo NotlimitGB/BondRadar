@@ -493,6 +493,86 @@ Request shape:
 }
 ```
 
+## Identity-First Financial Collection Queue
+
+Use the identity-first queue after the collection priority queue. The priority
+queue ranks collection value; the identity-first queue decides whether a ranked
+issuer is safe for official financial report collection now or needs identity
+review first.
+
+```text
+Known corporate issuers go to collection_ready.
+Unknown issuer rows go to identity_review_required.
+Government-like issuers remain excluded/deprioritized.
+Already covered issuers like TMK stay in already_covered with missing fields.
+```
+
+Run the Task 94 identity-first queue on VDS:
+
+```bash
+python3 scripts/identity_first_collection_queue.py \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --include-covered \
+  --exclude-government-like \
+  --json-output logs/financial_reports/identity_first_collection_queue_task94_vds.json \
+  --markdown-output logs/financial_reports/identity_first_collection_queue_task94_vds.md \
+  --identity-review-csv-output logs/financial_reports/identity_review_required_task94_vds.csv \
+  --collection-ready-csv-output logs/financial_reports/collection_ready_task94_vds.csv
+```
+
+For this script, `--source mixed` uses only `top-predictions` and
+`bond-universe`. It does not use paper positions and does not call paper
+trading endpoints.
+
+Expected current state:
+
+```text
+financial_reports_count = 1
+read_only = true
+dry_run_only = true
+import_executed = false
+identity_apply_executed = false
+paper_trading_called = false
+would_mutate_scores = false
+would_trigger_paper_trading = false
+```
+
+Known corporate issuers such as RZD or Mostotrest should appear in
+`collection_ready` only when identity evidence is strong enough: non-generated
+issuer name, corporate classification, matched/verified identity or legal name
+plus INN/OGRN. Generated `Unknown issuer for ...` rows should appear in
+`identity_review_required` and be exported to the identity review CSV before
+any financial report collection starts. TMK should remain in `already_covered`
+with next fields such as `interest_expense` and `net_debt`.
+
+The identity-first endpoint is:
+
+```text
+POST /api/financial-reports/identity-first-collection/batch
+```
+
+Request shape:
+
+```json
+{
+  "company_ids": [18, 67, 125],
+  "source_presence": {
+    "18": ["top-predictions", "bond-universe"],
+    "67": ["top-predictions", "bond-universe"],
+    "125": ["manual-id"]
+  },
+  "include_covered": true,
+  "exclude_government_like": true
+}
+```
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
