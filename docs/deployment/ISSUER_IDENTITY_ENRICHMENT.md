@@ -347,6 +347,57 @@ normal identity review workflow before any financial report collection. Use
 `collection_ready_task94_vds.csv` for issuers that are known corporate issuers
 and ready for official-source report collection.
 
+## Official-Source Collection Pack for Collection-Ready Issuers
+
+After identity-first review, use the official-source collection pack to create
+financial collection templates only for `collection_ready` issuers. This keeps
+unknown issuers in identity review and prevents report collection for the wrong
+legal entity.
+
+```text
+Identity-first queue decides who is safe to collect.
+Official-source collection pack creates templates/checklists for those issuers.
+No financial values are invented.
+Real financial values must come from official issuer report/disclosure/auditor report.
+Preview must pass before any future import.
+```
+
+Run on VDS:
+
+```bash
+python3 scripts/financial_official_collection_pack.py \
+  --mode template \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --include-covered \
+  --exclude-government-like \
+  --period-year 2025 \
+  --period-quarter 0 \
+  --report-type annual \
+  --currency RUB \
+  --accounting-standard IFRS \
+  --consolidation-scope consolidated \
+  --value-scale million \
+  --max-issuers 2 \
+  --financial-template-output data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --evidence-template-output data/financial_reports/private/official_source_evidence_template_task95.json \
+  --source-checklist-output logs/financial_reports/official_source_checklist_task95.csv \
+  --json-output logs/financial_reports/official_collection_pack_task95.json \
+  --markdown-output logs/financial_reports/official_collection_pack_task95.md
+```
+
+The generated files are operator artifacts. Keep filled financial values in
+ignored private/log paths and run preview mode before any future import task.
+Future live BondRadar cycles may refresh market/risk/paper state every 1-2
+hours while the exchange is open, but this workflow does not implement or
+activate that scheduler.
+
 ## VDS Smoke Checklist
 
 Health:

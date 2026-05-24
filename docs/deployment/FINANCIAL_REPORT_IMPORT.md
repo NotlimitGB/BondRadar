@@ -573,6 +573,79 @@ Request shape:
 }
 ```
 
+## Official-Source Collection Pack for Collection-Ready Issuers
+
+The identity-first queue decides who is safe to collect. The official-source
+collection pack creates operator templates and checklists for those issuers.
+It does not invent financial values and does not import anything.
+
+Real financial values must come from official issuer reports, official
+disclosure systems, exchange disclosure, or auditor reports. Preview must pass
+before any future import task.
+
+Run the Task 95 template pack on VDS:
+
+```bash
+python3 scripts/financial_official_collection_pack.py \
+  --mode template \
+  --backend-url http://127.0.0.1:8000 \
+  --source mixed \
+  --model-run-id 2 \
+  --as-of-date 2026-05-19 \
+  --limit 50 \
+  --use-duplicate-mapping \
+  --rollup-duplicates \
+  --include-duplicate-members \
+  --include-covered \
+  --exclude-government-like \
+  --period-year 2025 \
+  --period-quarter 0 \
+  --report-type annual \
+  --currency RUB \
+  --accounting-standard IFRS \
+  --consolidation-scope consolidated \
+  --value-scale million \
+  --max-issuers 2 \
+  --financial-template-output data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --evidence-template-output data/financial_reports/private/official_source_evidence_template_task95.json \
+  --source-checklist-output logs/financial_reports/official_source_checklist_task95.csv \
+  --json-output logs/financial_reports/official_collection_pack_task95.json \
+  --markdown-output logs/financial_reports/official_collection_pack_task95.md
+```
+
+Run preview only after the operator fills official-source values:
+
+```bash
+python3 scripts/financial_official_collection_pack.py \
+  --mode preview \
+  --backend-url http://127.0.0.1:8000 \
+  --reviewed-input data/financial_reports/private/collection_ready_financial_filled_task95.csv \
+  --format csv \
+  --json-output logs/financial_reports/official_collection_preview_task95.json \
+  --markdown-output logs/financial_reports/official_collection_preview_task95.md
+```
+
+Expected current state:
+
+```text
+selected issuers include RZD and Mostotrest
+Unknown issuer rows are excluded
+TMK is excluded by default because it is already covered/partial
+financial values are empty in template mode
+source URLs are empty/operator_to_find in template mode
+read_only = true
+dry_run_only = true
+import_executed = false
+identity_apply_executed = false
+paper_trading_called = false
+would_mutate_scores = false
+would_trigger_paper_trading = false
+```
+
+Strategic note: future live BondRadar cycles should refresh market, risk,
+paper, and readiness state every 1-2 hours while the exchange is open, not
+once per day. This task does not implement or activate that scheduler.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
