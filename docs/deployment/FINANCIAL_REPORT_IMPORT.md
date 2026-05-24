@@ -714,6 +714,40 @@ import reports, mutate identities, change scores or predictions, activate
 schedules, or run paper trading. Keep filled private CSV/JSON values outside
 git-tracked paths.
 
+## Official-Source Discovery
+
+Use source discovery after Task 96 source-template when the intake file has
+empty URLs. This step is source-only: it may add official-looking issuer or
+disclosure landing page candidates, but it does not approve them as financial
+value evidence and does not extract numbers.
+
+Discover official source candidates:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-discover \
+  --source-intake-input data/financial_reports/private/official_source_intake_task96.json \
+  --source-intake-output data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --json-output logs/financial_reports/official_source_discovery_task97.json \
+  --markdown-output logs/financial_reports/official_source_discovery_task97.md
+```
+
+Validate discovered candidates:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-validate \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --json-output logs/financial_reports/official_source_validation_discovered_task97.json \
+  --markdown-output logs/financial_reports/official_source_validation_discovered_task97.md
+```
+
+`needs_operator_review` and `discovered_candidate` mean the source is useful for
+manual navigation only. Exact official annual/audited report URL, document
+title, and evidence notes are still required before `candidate-fill`. The
+workflow blocks Wikipedia/wiki, blogs, forums, social media, news/aggregator
+sources, and does not call import/apply endpoints.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

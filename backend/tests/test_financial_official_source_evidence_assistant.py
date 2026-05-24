@@ -52,6 +52,291 @@ def test_source_template_creates_intake_for_collection_ready_issuers(
     assert report["import_executed"] is False
 
 
+def test_source_discover_creates_official_like_candidates_without_values(
+    tmp_path: Path,
+) -> None:
+    financial_template, evidence_template, checklist = _write_task95_outputs(tmp_path)
+    intake = tmp_path / "official_source_intake.json"
+    discovered = tmp_path / "official_source_intake_discovered.json"
+    _build_source_template(financial_template, evidence_template, checklist, intake)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-discover",
+            "--source-intake-input",
+            str(intake),
+            "--source-intake-output",
+            str(discovered),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["issuer_count"] == 2
+    assert report["candidate_count"] == 6
+    assert report["needs_operator_review_count"] == 4
+    assert report["valid_official_source_count"] == 0
+    assert report["blocked_source_count"] == 0
+    assert report["import_executed"] is False
+
+    payload = json.loads(discovered.read_text(encoding="utf-8"))
+    assert [item["company_id"] for item in payload["issuer_sources"]] == [18, 67]
+    rzd_sources = payload["issuer_sources"][0]["source_candidates"]
+    assert rzd_sources[0]["source_type"] == "issuer_investor_relations"
+    assert rzd_sources[0]["url"] == "https://rzd.ru/"
+    assert rzd_sources[0]["status"] == "needs_operator_review"
+    assert rzd_sources[0]["confidence"] == "medium"
+    assert rzd_sources[1]["url"] == "https://www.e-disclosure.ru/"
+    assert rzd_sources[1]["status"] == "needs_operator_review"
+    assert rzd_sources[2]["source_type"] == "issuer_annual_report_pdf"
+    assert rzd_sources[2]["url"] == ""
+    assert rzd_sources[2]["status"] == "operator_to_find"
+    for issuer in payload["issuer_sources"]:
+        for source in issuer["source_candidates"]:
+            assert "revenue" not in source
+            assert "values" not in source
+
+
+def test_source_discover_unknown_issuer_does_not_invent_url(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "unknown_intake.json"
+    _write_source_intake(
+        intake,
+        [
+            {
+                "company_id": 777,
+                "company_name": "Unknown issuer for RU000TEST",
+                "canonical_company_id": 777,
+                "canonical_company_name": "Unknown issuer for RU000TEST",
+                "source_candidates": [
+                    {
+                        "source_type": "issuer_investor_relations",
+                        "url": "",
+                        "document_title": "",
+                        "document_date": "",
+                        "report_period": "2025",
+                        "status": "operator_to_fill",
+                        "notes": "Operator must identify issuer first.",
+                    }
+                ],
+            }
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-discover",
+            "--source-intake-input",
+            str(intake),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert any("no official source discovery hints" in item["message"] for item in report["warnings"])
+    for source in report["issuer_sources"][0]["source_candidates"]:
+        assert source["url"] == ""
+        assert source["status"] in {"operator_to_fill", "operator_to_find"}
+
+
+def test_source_discover_blocks_existing_wikipedia_source(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "blocked_intake.json"
+    _write_source_intake(
+        intake,
+        [
+            _source_issuer(
+                18,
+                "RZD",
+                "issuer_investor_relations",
+                "https://wikipedia.org/wiki/RZD",
+                "Wikipedia page",
+            )
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-discover",
+            "--source-intake-input",
+            str(intake),
+            "--allow-unknown-source",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["blocked_source_count"] == 1
+    blocked = report["issuer_sources"][0]["source_candidates"][0]
+    assert blocked["status"] == "blocked_source"
+    assert "Blocked source" in blocked["notes"]
+
+
+def test_source_discover_probe_is_optional_and_records_metadata(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    financial_template, evidence_template, checklist = _write_task95_outputs(tmp_path)
+    intake = tmp_path / "official_source_intake.json"
+    _build_source_template(financial_template, evidence_template, checklist, intake)
+    calls: list[str] = []
+
+    def fake_probe(url: str, *, timeout_seconds: float, max_bytes: int) -> dict:
+        calls.append(url)
+        return {
+            "status": "ok",
+            "http_status": 200,
+            "content_type": "text/html; charset=utf-8",
+            "error": None,
+        }
+
+    monkeypatch.setattr(assistant, "_probe_url", fake_probe)
+    no_probe_args = assistant.parse_args(
+        [
+            "--mode",
+            "source-discover",
+            "--source-intake-input",
+            str(intake),
+        ]
+    )
+    no_probe_report, _exit_code = assistant.run_assistant(no_probe_args)
+    assert calls == []
+    assert no_probe_report["discovered_candidate_count"] == 0
+
+    probe_args = assistant.parse_args(
+        [
+            "--mode",
+            "source-discover",
+            "--source-intake-input",
+            str(intake),
+            "--probe-urls",
+        ]
+    )
+    probe_report, exit_code = assistant.run_assistant(probe_args)
+
+    assert exit_code == 0
+    assert calls
+    assert probe_report["discovered_candidate_count"] == 4
+    first = probe_report["issuer_sources"][0]["source_candidates"][0]
+    assert first["status"] == "discovered_candidate"
+    assert first["probe_status"] == "ok"
+    assert first["probe_content_type"] == "text/html; charset=utf-8"
+
+
+def test_source_discover_probe_failure_warns_not_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    financial_template, evidence_template, checklist = _write_task95_outputs(tmp_path)
+    intake = tmp_path / "official_source_intake.json"
+    _build_source_template(financial_template, evidence_template, checklist, intake)
+
+    def fake_probe(url: str, *, timeout_seconds: float, max_bytes: int) -> dict:
+        return {
+            "status": "failed",
+            "http_status": None,
+            "content_type": None,
+            "error": "timeout",
+        }
+
+    monkeypatch.setattr(assistant, "_probe_url", fake_probe)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-discover",
+            "--source-intake-input",
+            str(intake),
+            "--probe-urls",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    first = report["issuer_sources"][0]["source_candidates"][0]
+    assert first["status"] == "needs_operator_review"
+    assert first["probe_status"] == "failed"
+    assert "operator review required" in first["notes"]
+    assert any("source probe failed" in item["message"] for item in report["warnings"])
+
+
+def test_source_validate_accepts_discovery_candidates_as_warnings(
+    tmp_path: Path,
+) -> None:
+    financial_template, evidence_template, checklist = _write_task95_outputs(tmp_path)
+    intake = tmp_path / "official_source_intake.json"
+    discovered = tmp_path / "official_source_intake_discovered.json"
+    _build_source_template(financial_template, evidence_template, checklist, intake)
+    discover_args = assistant.parse_args(
+        [
+            "--mode",
+            "source-discover",
+            "--source-intake-input",
+            str(intake),
+            "--source-intake-output",
+            str(discovered),
+        ]
+    )
+    assistant.run_assistant(discover_args)
+    validate_args = assistant.parse_args(
+        [
+            "--mode",
+            "source-validate",
+            "--source-intake-input",
+            str(discovered),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(validate_args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["invalid_source_count"] == 0
+    assert any("discovery candidate" in item["message"] for item in report["warnings"])
+
+
+def test_source_validate_exact_official_source_passes(
+    tmp_path: Path,
+) -> None:
+    source_intake = tmp_path / "exact_source.json"
+    _write_source_intake(
+        source_intake,
+        [
+            _source_issuer(
+                18,
+                "RZD",
+                "official_issuer_report",
+                "https://rzd.ru/investors/ifrs-2025.pdf",
+                "IFRS consolidated statements 2025",
+            )
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-validate",
+            "--source-intake-input",
+            str(source_intake),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "passed"
+    assert report["valid_source_count"] == 1
+    assert report["invalid_source_count"] == 0
+
+
 def test_source_validate_blocks_unofficial_and_unknown_domains(
     tmp_path: Path,
 ) -> None:

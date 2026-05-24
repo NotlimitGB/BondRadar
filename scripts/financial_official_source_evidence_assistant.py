@@ -15,7 +15,7 @@ import financial_official_collection_pack as collection_pack
 from financial_report_import import http_json, write_json_report
 
 
-MODE_CHOICES = ("source-template", "source-validate", "candidate-fill", "preview")
+MODE_CHOICES = ("source-template", "source-discover", "source-validate", "candidate-fill", "preview")
 FORMAT_CHOICES = ("csv", "json")
 ALLOWED_SOURCE_TYPES = {
     "issuer_investor_relations",
@@ -49,6 +49,21 @@ SOURCE_INTAKE_NOTES = {
     "issuer_investor_relations": "Prefer official issuer site annual IFRS consolidated report.",
     "official_disclosure": "Use official disclosure system if issuer site is unavailable.",
     "issuer_annual_report_pdf": "Use the issuer annual report PDF or audited IFRS report PDF.",
+}
+DISCOVERY_SOURCE_CONFIG = {
+    "issuer_domain_hints": {
+        "18": ["rzd.ru", "eng.rzd.ru", "e-disclosure.ru"],
+        "67": ["mostotrest.ru", "e-disclosure.ru"],
+    },
+    "blocked_domains": list(BLOCKED_SOURCE_HINTS),
+}
+DISCOVERY_STATUSES = {
+    "operator_to_fill",
+    "discovered_candidate",
+    "needs_operator_review",
+    "valid_official_source",
+    "invalid_source",
+    "blocked_source",
 }
 EVIDENCE_FINANCIAL_FIELDS = list(collection_pack.FIELDS_TO_COLLECT)
 ALL_FINANCIAL_FIELDS = list(collection_pack.FINANCIAL_FIELDS)
@@ -87,6 +102,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--json-output", type=Path, default=None)
     parser.add_argument("--markdown-output", type=Path, default=None)
     parser.add_argument("--allow-unknown-source", action="store_true")
+    parser.add_argument("--probe-urls", action="store_true")
+    parser.add_argument("--probe-timeout-seconds", type=float, default=10.0)
+    parser.add_argument("--max-probe-bytes", type=int, default=200000)
     parser.add_argument("--download-source-documents", action="store_true")
     parser.add_argument("--source-download-dir", type=Path, default=None)
     return parser.parse_args(argv)
@@ -100,6 +118,8 @@ def run_assistant(
     http_request = http_request or http_json
     if args.mode == "source-template":
         report = run_source_template(args)
+    elif args.mode == "source-discover":
+        report = run_source_discover(args)
     elif args.mode == "source-validate":
         report = run_source_validate(args)
     elif args.mode == "candidate-fill":
@@ -215,6 +235,299 @@ def build_source_intake_item(
     }
 
 
+def run_source_discover(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    issuer_sources: list[dict[str, Any]] = []
+    discovered_sources: list[dict[str, Any]] = []
+
+    if args.source_intake_input is None:
+        errors.append({"message": "source-discover mode requires --source-intake-input"})
+    if not errors:
+        try:
+            issuer_sources = load_source_intake(args.source_intake_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    if not errors:
+        for issuer in issuer_sources:
+            discovered, issuer_warnings = discover_issuer_sources(issuer, args)
+            discovered_sources.append(discovered)
+            warnings.extend(issuer_warnings)
+
+    flat_candidates = [
+        source
+        for issuer in discovered_sources
+        for source in issuer.get("source_candidates") or []
+    ]
+    candidate_count = len(flat_candidates)
+    discovered_count = sum(
+        1 for source in flat_candidates if source.get("status") == "discovered_candidate"
+    )
+    review_count = sum(
+        1 for source in flat_candidates if source.get("status") == "needs_operator_review"
+    )
+    valid_count = sum(
+        1 for source in flat_candidates if source.get("status") == "valid_official_source"
+    )
+    invalid_count = sum(
+        1 for source in flat_candidates if source.get("status") == "invalid_source"
+    )
+    blocked_count = sum(
+        1 for source in flat_candidates if source.get("status") == "blocked_source"
+    )
+
+    if not errors and args.source_intake_output is not None:
+        write_json_report(
+            {
+                "status": "discovered",
+                "mode": "source-discover",
+                "issuer_count": len(discovered_sources),
+                "issuer_sources": discovered_sources,
+                **SAFETY_FLAGS,
+            },
+            args.source_intake_output,
+        )
+
+    if errors:
+        status = "failed"
+    elif candidate_count and invalid_count + blocked_count == candidate_count:
+        status = "failed"
+    elif valid_count >= len(discovered_sources) and discovered_sources:
+        status = "passed"
+    else:
+        status = "warning"
+    return {
+        "status": status,
+        "mode": "source-discover",
+        "issuer_count": len(discovered_sources),
+        "candidate_count": candidate_count,
+        "discovered_candidate_count": discovered_count,
+        "needs_operator_review_count": review_count,
+        "valid_official_source_count": valid_count,
+        "invalid_source_count": invalid_count,
+        "blocked_source_count": blocked_count,
+        "issuer_sources": discovered_sources,
+        "source_intake_output": _path_value(args.source_intake_output),
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("source-discover", status),
+        **SAFETY_FLAGS,
+    }
+
+
+def discover_issuer_sources(
+    issuer: dict[str, Any],
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    warnings: list[dict[str, Any]] = []
+    issuer_copy = dict(issuer)
+    hints = _issuer_domain_hints(issuer)
+    if not hints:
+        warnings.append(
+            {
+                "company_id": issuer.get("company_id"),
+                "company_name": issuer.get("company_name"),
+                "message": "no official source discovery hints configured; leaving sources for operator",
+            }
+        )
+    candidates = issuer.get("source_candidates") or []
+    source_types = [source.get("source_type") for source in candidates]
+    for source_type in SOURCE_INTAKE_SOURCE_TYPES:
+        if source_type not in source_types:
+            candidates.append(
+                {
+                    "source_type": source_type,
+                    "url": "",
+                    "document_title": "",
+                    "document_date": "",
+                    "report_period": issuer.get("period_year") or "",
+                    "status": "operator_to_fill",
+                    "notes": SOURCE_INTAKE_NOTES[source_type],
+                }
+            )
+
+    discovered_candidates = [
+        discover_source_candidate(
+            issuer,
+            source,
+            hints=hints,
+            probe_urls=bool(args.probe_urls),
+            probe_timeout_seconds=float(args.probe_timeout_seconds),
+            max_probe_bytes=int(args.max_probe_bytes),
+        )
+        for source in candidates
+    ]
+    for source in discovered_candidates:
+        if source.get("probe_status") == "failed":
+            warnings.append(
+                {
+                    "company_id": issuer.get("company_id"),
+                    "company_name": issuer.get("company_name"),
+                    "source_type": source.get("source_type"),
+                    "url": source.get("url"),
+                    "message": "source probe failed; candidate requires operator review",
+                }
+            )
+    issuer_copy["source_candidates"] = discovered_candidates
+    return issuer_copy, warnings
+
+
+def discover_source_candidate(
+    issuer: dict[str, Any],
+    source: dict[str, Any],
+    *,
+    hints: list[str],
+    probe_urls: bool,
+    probe_timeout_seconds: float,
+    max_probe_bytes: int,
+) -> dict[str, Any]:
+    candidate = dict(source)
+    source_type = str(candidate.get("source_type") or "").strip()
+    url = str(candidate.get("url") or candidate.get("source_url") or "").strip()
+
+    if url:
+        _classify_existing_discovery_candidate(candidate)
+    elif source_type == "issuer_investor_relations":
+        domain = _issuer_site_domain(hints)
+        if domain:
+            candidate.update(
+                {
+                    "url": f"https://{domain}/",
+                    "status": "needs_operator_review",
+                    "confidence": "medium",
+                    "discovery_method": "configured_issuer_domain_hint",
+                    "notes": (
+                        "Official-looking issuer site landing page; operator must "
+                        "locate the exact annual/audited report source before values."
+                    ),
+                }
+            )
+        else:
+            _mark_operator_to_fill(candidate, "No issuer domain hint is configured.")
+    elif source_type == "official_disclosure":
+        disclosure_domain = _disclosure_domain(hints)
+        if disclosure_domain:
+            candidate.update(
+                {
+                    "url": f"https://www.{disclosure_domain}/"
+                    if disclosure_domain == "e-disclosure.ru"
+                    else f"https://{disclosure_domain}/",
+                    "status": "needs_operator_review",
+                    "confidence": "medium",
+                    "discovery_method": "configured_official_disclosure_hint",
+                    "notes": (
+                        "Official disclosure system candidate; operator must locate "
+                        "the issuer report page and exact document."
+                    ),
+                }
+            )
+        else:
+            _mark_operator_to_fill(candidate, "No official disclosure hint is configured.")
+    elif source_type == "issuer_annual_report_pdf":
+        candidate.update(
+            {
+                "url": "",
+                "status": "operator_to_find",
+                "confidence": "low",
+                "discovery_method": "exact_pdf_not_invented",
+                "notes": "Exact annual/audited report PDF is required before candidate-fill.",
+            }
+        )
+    else:
+        _mark_operator_to_fill(candidate, "Unsupported discovery source type.")
+
+    if probe_urls and candidate.get("url") and candidate.get("status") != "blocked_source":
+        probe = _probe_url(
+            str(candidate["url"]),
+            timeout_seconds=probe_timeout_seconds,
+            max_bytes=max_probe_bytes,
+        )
+        candidate["probe_status"] = probe.get("status")
+        candidate["probe_http_status"] = probe.get("http_status")
+        candidate["probe_content_type"] = probe.get("content_type")
+        candidate["probe_error"] = probe.get("error")
+        if probe.get("status") == "ok" and candidate.get("status") == "needs_operator_review":
+            candidate["status"] = "discovered_candidate"
+            candidate["confidence"] = "high"
+            candidate["notes"] = (
+                str(candidate.get("notes") or "")
+                + " Lightweight probe succeeded; still not approved for financial values."
+            ).strip()
+        elif probe.get("status") != "ok":
+            candidate["notes"] = (
+                str(candidate.get("notes") or "")
+                + " Probe failed or was inconclusive; operator review required."
+            ).strip()
+
+    _strip_financial_values(candidate)
+    return candidate
+
+
+def _classify_existing_discovery_candidate(candidate: dict[str, Any]) -> None:
+    source_type = str(candidate.get("source_type") or "").strip()
+    url = str(candidate.get("url") or candidate.get("source_url") or "").strip()
+    document_title = str(candidate.get("document_title") or "").strip()
+    document_date = str(candidate.get("document_date") or "").strip()
+    text = " ".join([source_type, url, document_title, str(candidate.get("notes") or "")])
+    if _has_blocked_source_hint(text):
+        candidate.update(
+            {
+                "status": "blocked_source",
+                "confidence": "none",
+                "discovery_method": "existing_source_blocked_domain",
+                "notes": "Blocked source; do not use for financial report evidence.",
+            }
+        )
+        return
+    classification = classify_source_url(url, allow_unknown_source=True)
+    if classification["status"] == "official" and source_type in ALLOWED_SOURCE_TYPES:
+        if document_title and document_date:
+            candidate.update(
+                {
+                    "status": "valid_official_source",
+                    "confidence": "high",
+                    "discovery_method": "existing_source_validated",
+                }
+            )
+        else:
+            candidate.update(
+                {
+                    "status": "needs_operator_review",
+                    "confidence": "medium",
+                    "discovery_method": "existing_official_like_source",
+                    "notes": (
+                        str(candidate.get("notes") or "")
+                        or "Official-looking source; exact document metadata must be confirmed."
+                    ),
+                }
+            )
+        return
+    candidate.update(
+        {
+            "status": "needs_operator_review",
+            "confidence": "low",
+            "discovery_method": "existing_unknown_domain",
+            "notes": (
+                str(candidate.get("notes") or "")
+                or "Source domain is not blocked but is not in the official allowlist; operator review required."
+            ),
+        }
+    )
+
+
+def _mark_operator_to_fill(candidate: dict[str, Any], notes: str) -> None:
+    candidate.update(
+        {
+            "url": "",
+            "status": "operator_to_fill",
+            "confidence": "low",
+            "discovery_method": "no_configured_hint",
+            "notes": notes,
+        }
+    )
+
+
 def run_source_validate(args: argparse.Namespace) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -285,6 +598,8 @@ def validate_source_candidate(
     report_period = str(source.get("report_period") or "").strip()
     expected_period = str(issuer.get("period_year") or issuer.get("report_period") or "").strip()
     source_text = " ".join([source_type, url, document_title, str(source.get("notes") or "")]).casefold()
+    source_status = str(source.get("status") or "").strip()
+    discovery_method = str(source.get("discovery_method") or "").strip()
 
     base = {
         "company_id": issuer.get("company_id"),
@@ -295,7 +610,15 @@ def validate_source_candidate(
     if source_type not in ALLOWED_SOURCE_TYPES:
         errors.append({**base, "message": "source_type is not allowed for Task 96 evidence"})
     if not url:
-        errors.append({**base, "message": "URL is required for source validation"})
+        if source_status in {"operator_to_find", "operator_to_fill"} and discovery_method:
+            warnings.append(
+                {
+                    **base,
+                    "message": "URL is still operator-provided; exact official source is required before values",
+                }
+            )
+        else:
+            errors.append({**base, "message": "URL is required for source validation"})
     if _has_blocked_source_hint(source_text):
         errors.append({**base, "message": "blocked source detected; unofficial source is not allowed"})
     if url and not _has_blocked_source_hint(source_text):
@@ -307,7 +630,20 @@ def validate_source_candidate(
         elif domain_check["status"] == "unknown_warning":
             warnings.append({**base, "message": domain_check["message"]})
     if not document_title:
-        errors.append({**base, "message": "document_title is required"})
+        if source_status == "needs_operator_review" and url:
+            warnings.append(
+                {
+                    **base,
+                    "message": (
+                        "document_title is missing because this is a discovery candidate; "
+                        "operator must confirm exact report evidence"
+                    ),
+                }
+            )
+        elif source_status in {"operator_to_find", "operator_to_fill"} and discovery_method:
+            warnings.append({**base, "message": "document_title is still operator-provided"})
+        else:
+            errors.append({**base, "message": "document_title is required"})
     if not document_date:
         warnings.append({**base, "message": "document_date is recommended when available"})
     if expected_period and report_period and report_period != expected_period:
@@ -762,18 +1098,29 @@ def write_markdown_report(report: dict[str, Any], path: Path) -> None:
 
 
 def render_markdown(report: dict[str, Any]) -> str:
+    title = (
+        "Official-Source Discovery"
+        if report.get("mode") == "source-discover"
+        else "Official-Source Evidence Assistant"
+    )
     lines = [
-        "# Official-Source Evidence Assistant",
+        f"# {title}",
         "",
         "## Overall Status",
         "",
         f"- mode: `{report.get('mode')}`",
         f"- status: `{report.get('status')}`",
         f"- issuer_count: {report.get('issuer_count', report.get('row_count', 0))}",
+        f"- candidate_count: {report.get('candidate_count', 0)}",
         f"- read_only: {report.get('read_only')}",
         f"- dry_run_only: {report.get('dry_run_only')}",
         f"- import_executed: {report.get('import_executed')}",
         "",
+    ]
+    if report.get("mode") == "source-discover":
+        lines.extend(_render_discovery_markdown_sections(report))
+    lines.extend(
+        [
         "## Source Validation",
         "",
         f"- valid sources: {report.get('valid_source_count', 0)}",
@@ -794,7 +1141,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Warnings",
         "",
-    ]
+        ]
+    )
     warnings = report.get("warnings") or []
     if warnings:
         lines.extend(f"- {_message_text(item)}" for item in warnings)
@@ -825,6 +1173,45 @@ def render_markdown(report: dict[str, Any]) -> str:
     )
     lines.extend(f"- {step}" for step in report.get("next_steps") or [])
     return "\n".join(lines) + "\n"
+
+
+def _render_discovery_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Issuer Sources",
+        "",
+        "| Company ID | Company | Source Type | URL | Status | Confidence | Method | Notes |",
+        "| ---: | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for issuer in report.get("issuer_sources") or []:
+        for source in issuer.get("source_candidates") or []:
+            rows += 1
+            lines.append(
+                "| {company_id} | {company_name} | {source_type} | {url} | {status} | {confidence} | {method} | {notes} |".format(
+                    company_id=issuer.get("company_id"),
+                    company_name=issuer.get("company_name") or "",
+                    source_type=source.get("source_type") or "",
+                    url=source.get("url") or "",
+                    status=source.get("status") or "",
+                    confidence=source.get("confidence") or "",
+                    method=source.get("discovery_method") or "",
+                    notes=str(source.get("notes") or "").replace("|", "/"),
+                )
+            )
+    if rows == 0:
+        lines.append("| None |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Validation Meaning",
+            "",
+            "- `discovered_candidate` is not approved as a financial value source.",
+            "- `needs_operator_review` requires manual confirmation of the exact report/document.",
+            "- Exact annual or audited report evidence is required before candidate-fill.",
+            "",
+        ]
+    )
+    return lines
 
 
 def classify_source_url(url: str, *, allow_unknown_source: bool = False) -> dict[str, str]:
@@ -887,6 +1274,47 @@ def _validate_source_for_candidate(
     if not values_present and not source_url and not source_file_name:
         warnings.append({"company_id": company_id, "message": "source_url is empty; no values will be filled"})
     return {"warnings": warnings, "errors": errors}
+
+
+def _issuer_domain_hints(issuer: dict[str, Any]) -> list[str]:
+    ids = {
+        str(issuer.get("canonical_company_id") or ""),
+        str(issuer.get("company_id") or ""),
+    }
+    for issuer_id in ids:
+        hints = DISCOVERY_SOURCE_CONFIG["issuer_domain_hints"].get(issuer_id)
+        if hints:
+            return list(hints)
+    name_text = " ".join(
+        str(issuer.get(field) or "")
+        for field in ("company_name", "canonical_company_name")
+    ).casefold()
+    if "rzd" in name_text or "ржд" in name_text:
+        return list(DISCOVERY_SOURCE_CONFIG["issuer_domain_hints"]["18"])
+    if "mostotrest" in name_text or "мостотрест" in name_text:
+        return list(DISCOVERY_SOURCE_CONFIG["issuer_domain_hints"]["67"])
+    return []
+
+
+def _issuer_site_domain(hints: list[str]) -> str | None:
+    for domain in hints:
+        if domain not in {"e-disclosure.ru", "disclosure.ru", "moex.com", "moex.ru"}:
+            return domain
+    return None
+
+
+def _disclosure_domain(hints: list[str]) -> str | None:
+    for domain in hints:
+        if domain in {"e-disclosure.ru", "disclosure.ru"}:
+            return domain
+    return None
+
+
+def _strip_financial_values(candidate: dict[str, Any]) -> None:
+    for field in ALL_FINANCIAL_FIELDS:
+        candidate.pop(field, None)
+    candidate.pop("values", None)
+    candidate.pop("field_evidence", None)
 
 
 def _source_from_manual_or_intake(
@@ -1030,6 +1458,43 @@ def _download_source_document(url: str, download_dir: Path) -> dict[str, Any]:
         "sha256": digest,
         "warnings": [],
         "errors": [],
+    }
+
+
+def _probe_url(
+    url: str,
+    *,
+    timeout_seconds: float,
+    max_bytes: int,
+) -> dict[str, Any]:
+    headers = {"User-Agent": "BondRadar-source-discovery-preview/1.0"}
+    for method in ("HEAD", "GET"):
+        try:
+            request = urllib.request.Request(url, method=method, headers=headers)
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                if method == "GET":
+                    response.read(max(1, max_bytes))
+                return {
+                    "status": "ok",
+                    "http_status": getattr(response, "status", None),
+                    "content_type": response.headers.get("Content-Type"),
+                    "error": None,
+                }
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_error = str(exc)
+            if method == "HEAD":
+                continue
+            return {
+                "status": "failed",
+                "http_status": getattr(exc, "code", None),
+                "content_type": None,
+                "error": last_error,
+            }
+    return {
+        "status": "failed",
+        "http_status": None,
+        "content_type": None,
+        "error": "probe failed",
     }
 
 

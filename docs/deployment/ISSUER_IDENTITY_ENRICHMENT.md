@@ -472,6 +472,38 @@ aggregator sources, market capitalization as equity, coupon payments as
 interest expense, and suspicious placeholder-zero rows. It does not import or
 apply financial reports or identity profiles.
 
+## Official-Source Discovery
+
+Task 97 source discovery can enrich the Task 96 intake with official-looking
+source candidates for known collection-ready issuers such as RZD and
+Mostotrest. It is still source-only: no financial values are extracted, no PDFs
+are parsed, and no import/apply endpoint is called.
+
+Discover source candidates:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-discover \
+  --source-intake-input data/financial_reports/private/official_source_intake_task96.json \
+  --source-intake-output data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --json-output logs/financial_reports/official_source_discovery_task97.json \
+  --markdown-output logs/financial_reports/official_source_discovery_task97.md
+```
+
+Validate discovered source candidates:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-validate \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --json-output logs/financial_reports/official_source_validation_discovered_task97.json \
+  --markdown-output logs/financial_reports/official_source_validation_discovered_task97.md
+```
+
+Discovery candidates are not approved value sources. Unknown issuer rows remain
+in identity review, landing pages require operator review, and exact official
+annual/audited report evidence is still required before candidate-fill.
+
 ## VDS Smoke Checklist
 
 Health:
