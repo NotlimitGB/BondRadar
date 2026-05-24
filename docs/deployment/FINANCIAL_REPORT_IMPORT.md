@@ -748,6 +748,41 @@ title, and evidence notes are still required before `candidate-fill`. The
 workflow blocks Wikipedia/wiki, blogs, forums, social media, news/aggregator
 sources, and does not call import/apply endpoints.
 
+## Exact Official Report Document Resolver
+
+After source discovery, resolve exact official report document metadata before
+entering any financial values. This step handles report URL/title/date/file
+metadata only. It does not extract values, OCR PDFs, parse report tables, import
+reports, or trade.
+
+Resolve document candidates from discovered source intake:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-resolve \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --source-intake-output data/financial_reports/private/official_source_intake_resolved_task98.json \
+  --document-output data/financial_reports/private/official_report_documents_task98.json \
+  --document-checklist-output logs/financial_reports/official_report_document_checklist_task98.csv \
+  --json-output logs/financial_reports/official_report_documents_task98.json \
+  --markdown-output logs/financial_reports/official_report_documents_task98.md
+```
+
+Validate exact official report documents:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-validate \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --json-output logs/financial_reports/official_report_document_validation_task98.json \
+  --markdown-output logs/financial_reports/official_report_document_validation_task98.md
+```
+
+Landing pages and disclosure homepages are navigation aids, not exact report
+evidence. Candidate-fill still requires an exact official annual/audited report
+page or PDF URL, document title, report period, source type, and operator review.
+Unknown domains remain review-only even with `--allow-unknown-source`.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

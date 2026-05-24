@@ -504,6 +504,40 @@ Discovery candidates are not approved value sources. Unknown issuer rows remain
 in identity review, landing pages require operator review, and exact official
 annual/audited report evidence is still required before candidate-fill.
 
+## Exact Official Report Document Resolver
+
+Once official-looking sources are discovered, resolve the exact annual/audited
+report document metadata before any financial value entry. This resolver works
+only with source/document metadata: URLs, titles, dates, file names, status, and
+operator review state.
+
+Resolve document candidates:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-resolve \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --source-intake-output data/financial_reports/private/official_source_intake_resolved_task98.json \
+  --document-output data/financial_reports/private/official_report_documents_task98.json \
+  --document-checklist-output logs/financial_reports/official_report_document_checklist_task98.csv \
+  --json-output logs/financial_reports/official_report_documents_task98.json \
+  --markdown-output logs/financial_reports/official_report_documents_task98.md
+```
+
+Validate exact report documents:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-validate \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --json-output logs/financial_reports/official_report_document_validation_task98.json \
+  --markdown-output logs/financial_reports/official_report_document_validation_task98.md
+```
+
+The resolver must not invent report PDFs or treat landing pages as final
+evidence. Exact report metadata is required before candidate-fill, and unknown
+or blocked domains remain outside the financial collection path.
+
 ## VDS Smoke Checklist
 
 Health:

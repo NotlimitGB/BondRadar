@@ -15,8 +15,18 @@ import financial_official_collection_pack as collection_pack
 from financial_report_import import http_json, write_json_report
 
 
-MODE_CHOICES = ("source-template", "source-discover", "source-validate", "candidate-fill", "preview")
+MODE_CHOICES = (
+    "source-template",
+    "source-discover",
+    "source-validate",
+    "document-resolve",
+    "document-validate",
+    "candidate-fill",
+    "preview",
+)
 FORMAT_CHOICES = ("csv", "json")
+DOCUMENT_REPORT_TYPES = ("annual", "quarterly")
+DOCUMENT_ACCOUNTING_STANDARDS = ("IFRS", "RAS", "unknown")
 ALLOWED_SOURCE_TYPES = {
     "issuer_investor_relations",
     "official_issuer_report",
@@ -67,6 +77,41 @@ DISCOVERY_STATUSES = {
 }
 EVIDENCE_FINANCIAL_FIELDS = list(collection_pack.FIELDS_TO_COLLECT)
 ALL_FINANCIAL_FIELDS = list(collection_pack.FINANCIAL_FIELDS)
+DOCUMENT_VALID_STATUSES = {
+    "reviewed_official_document",
+    "resolved_official_document",
+    "valid_official_document",
+}
+DOCUMENT_REVIEW_STATUSES = {
+    "operator_to_find",
+    "needs_operator_review",
+    "reviewed_official_document",
+    "resolved_official_document",
+    "valid_official_document",
+    "invalid_document",
+    "blocked_document",
+}
+DOCUMENT_CHECKLIST_FIELDS = [
+    "rank",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "report_period",
+    "report_type",
+    "accounting_standard",
+    "source_type",
+    "source_url",
+    "document_url",
+    "document_title",
+    "document_date",
+    "source_file_name",
+    "document_status",
+    "confidence",
+    "resolution_method",
+    "operator_action",
+    "notes",
+]
 SAFETY_FLAGS = {
     "read_only": True,
     "dry_run_only": True,
@@ -92,6 +137,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-checklist-input", type=Path, default=None)
     parser.add_argument("--source-intake-input", type=Path, default=None)
     parser.add_argument("--source-intake-output", type=Path, default=None)
+    parser.add_argument("--document-input", type=Path, default=None)
+    parser.add_argument("--document-intake-input", type=Path, default=None)
+    parser.add_argument("--document-output", type=Path, default=None)
+    parser.add_argument("--document-checklist-output", type=Path, default=None)
+    parser.add_argument("--report-period", default="2025")
+    parser.add_argument("--report-type", choices=DOCUMENT_REPORT_TYPES, default="annual")
+    parser.add_argument(
+        "--accounting-standard",
+        choices=DOCUMENT_ACCOUNTING_STANDARDS,
+        default="IFRS",
+    )
+    parser.add_argument("--prefer-audited", action="store_true", default=True)
+    parser.add_argument("--prefer-consolidated", action="store_true", default=True)
     parser.add_argument("--manual-values-json", type=Path, default=None)
     parser.add_argument("--manual-values-csv", type=Path, default=None)
     parser.add_argument("--candidate-input", type=Path, default=None)
@@ -105,6 +163,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--probe-urls", action="store_true")
     parser.add_argument("--probe-timeout-seconds", type=float, default=10.0)
     parser.add_argument("--max-probe-bytes", type=int, default=200000)
+    parser.add_argument("--download-documents", action="store_true")
+    parser.add_argument("--document-download-dir", type=Path, default=None)
     parser.add_argument("--download-source-documents", action="store_true")
     parser.add_argument("--source-download-dir", type=Path, default=None)
     return parser.parse_args(argv)
@@ -122,6 +182,10 @@ def run_assistant(
         report = run_source_discover(args)
     elif args.mode == "source-validate":
         report = run_source_validate(args)
+    elif args.mode == "document-resolve":
+        report = run_document_resolve(args)
+    elif args.mode == "document-validate":
+        report = run_document_validate(args)
     elif args.mode == "candidate-fill":
         report = run_candidate_fill(args)
     else:
@@ -664,6 +728,415 @@ def validate_source_candidate(
     }
 
 
+def run_document_resolve(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    issuer_sources: list[dict[str, Any]] = []
+    operator_documents: dict[tuple[str, str], list[dict[str, Any]]] = {}
+
+    if args.source_intake_input is None:
+        errors.append({"message": "document-resolve mode requires --source-intake-input"})
+    if not errors:
+        try:
+            issuer_sources = load_source_intake(args.source_intake_input)
+            operator_documents = load_document_intake_by_key(args.document_intake_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    issuers: list[dict[str, Any]] = []
+    resolved_source_intake: list[dict[str, Any]] = []
+    if not errors:
+        for issuer in issuer_sources:
+            issuer_key = _issuer_source_key(issuer)
+            resolved_issuer, source_issuer = resolve_issuer_documents(
+                issuer,
+                args,
+                operator_documents=(
+                    operator_documents.get((issuer_key, str(args.report_period)))
+                    or operator_documents.get((issuer_key, ""))
+                    or []
+                ),
+            )
+            issuers.append(resolved_issuer)
+            resolved_source_intake.append(source_issuer)
+            warnings.extend(resolved_issuer.get("warnings") or [])
+            errors.extend(resolved_issuer.get("errors") or [])
+
+    flat_documents = [
+        document
+        for issuer in issuers
+        for document in issuer.get("document_candidates") or []
+    ]
+    if args.download_documents and args.document_download_dir is not None:
+        for document in flat_documents:
+            if document.get("document_status") != "valid_official_document":
+                continue
+            download = _download_valid_document(document, args.document_download_dir)
+            document["download"] = download
+            warnings.extend(download.get("warnings") or [])
+            errors.extend(download.get("errors") or [])
+
+    document_candidate_count = len(flat_documents)
+    resolved_document_count = sum(
+        1
+        for document in flat_documents
+        if document.get("document_status") == "valid_official_document"
+    )
+    review_count = sum(
+        1
+        for document in flat_documents
+        if document.get("document_status") in {"operator_to_find", "needs_operator_review"}
+    )
+    invalid_count = sum(
+        1
+        for document in flat_documents
+        if document.get("document_status") in {"invalid_document", "blocked_document"}
+    )
+    if not errors and args.source_intake_output is not None:
+        write_json_report(
+            {
+                "status": "resolved",
+                "mode": "document-resolve",
+                "issuer_count": len(resolved_source_intake),
+                "issuer_sources": resolved_source_intake,
+                **SAFETY_FLAGS,
+            },
+            args.source_intake_output,
+        )
+    document_report = {
+        "status": "failed" if errors else "warning",
+        "mode": "document-resolve",
+        "issuer_count": len(issuers),
+        "document_candidate_count": document_candidate_count,
+        "resolved_document_count": resolved_document_count,
+        "needs_operator_review_count": review_count,
+        "invalid_document_count": invalid_count,
+        "issuers": issuers,
+        "warnings": warnings,
+        "errors": errors,
+        **SAFETY_FLAGS,
+    }
+    if not errors and resolved_document_count >= len(issuers) and issuers:
+        document_report["status"] = "passed"
+    elif errors:
+        document_report["status"] = "failed"
+    if args.document_output is not None:
+        write_json_report(document_report, args.document_output)
+    if args.document_checklist_output is not None:
+        write_document_checklist(issuers, args.document_checklist_output)
+    document_report["document_output"] = _path_value(args.document_output)
+    document_report["document_checklist_output"] = _path_value(args.document_checklist_output)
+    document_report["source_intake_output"] = _path_value(args.source_intake_output)
+    document_report["next_steps"] = _next_steps("document-resolve", document_report["status"])
+    return document_report
+
+
+def resolve_issuer_documents(
+    issuer: dict[str, Any],
+    args: argparse.Namespace,
+    *,
+    operator_documents: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    source_issuer = dict(issuer)
+    source_candidates = [dict(source) for source in issuer.get("source_candidates") or []]
+    documents: list[dict[str, Any]] = [
+        build_document_candidate_from_source(issuer, source, args)
+        for source in source_candidates
+    ]
+    for document in operator_documents:
+        merged = build_operator_document_candidate(issuer, document, args)
+        if args.allow_unknown_source and merged.get("document_url"):
+            classification = classify_source_url(str(merged["document_url"]), allow_unknown_source=True)
+            if classification["status"] == "unknown_warning":
+                merged["document_status"] = "needs_operator_review"
+                merged["confidence"] = "low"
+        validation = validate_document_candidate(
+            merged,
+            issuer=issuer,
+            allow_unknown_source=args.allow_unknown_source,
+            target_report_period=str(args.report_period),
+        )
+        merged["warnings"] = validation["warnings"]
+        merged["errors"] = validation["errors"]
+        if validation["errors"]:
+            merged["document_status"] = "invalid_document"
+        elif validation["domain_status"] == "unknown_warning":
+            merged["document_status"] = "needs_operator_review"
+            merged["confidence"] = "low"
+        else:
+            merged["document_status"] = "valid_official_document"
+            merged["confidence"] = "high"
+        _strip_financial_values(merged)
+        documents.append(merged)
+        _merge_document_into_source_candidates(source_candidates, merged)
+
+    issuer_errors = [
+        error
+        for document in documents
+        for error in document.get("errors") or []
+    ]
+    issuer_warnings = [
+        warning
+        for document in documents
+        for warning in document.get("warnings") or []
+    ]
+    source_issuer["source_candidates"] = source_candidates
+    resolved_issuer = {
+        "company_id": issuer.get("company_id"),
+        "company_name": issuer.get("company_name"),
+        "canonical_company_id": issuer.get("canonical_company_id"),
+        "canonical_company_name": issuer.get("canonical_company_name"),
+        "report_period": str(args.report_period),
+        "report_type": args.report_type,
+        "accounting_standard": args.accounting_standard,
+        "prefer_audited": bool(args.prefer_audited),
+        "prefer_consolidated": bool(args.prefer_consolidated),
+        "document_candidates": documents,
+        "recommended_operator_actions": _recommended_document_actions(args),
+        "warnings": issuer_warnings,
+        "errors": issuer_errors,
+    }
+    return resolved_issuer, source_issuer
+
+
+def build_document_candidate_from_source(
+    issuer: dict[str, Any],
+    source: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    source_type = str(source.get("source_type") or "").strip()
+    source_url = str(source.get("url") or source.get("source_url") or "").strip()
+    source_status = str(source.get("status") or "").strip()
+    document_url = ""
+    document_title = ""
+    document_date = ""
+    source_file_name = ""
+    document_status = "operator_to_find"
+    confidence = "low"
+    resolution_method = "landing_page_requires_operator"
+    notes = "Exact annual/audited report document must be selected before candidate-fill."
+
+    if source_url and source_status == "valid_official_source":
+        document_url = source_url
+        document_title = str(source.get("document_title") or "").strip()
+        document_date = str(source.get("document_date") or "").strip()
+        source_file_name = str(source.get("source_file_name") or _file_name_from_url(source_url) or "").strip()
+        document_status = "reviewed_official_document"
+        confidence = "medium"
+        resolution_method = "source_candidate_already_exact"
+        notes = "Existing source candidate appears exact; validation still required."
+    elif source_url and source_type in {"issuer_investor_relations", "official_disclosure"}:
+        document_status = "needs_operator_review"
+        confidence = "medium"
+    elif source_type == "issuer_annual_report_pdf":
+        document_status = "operator_to_find"
+        confidence = "low"
+        resolution_method = "exact_pdf_not_invented"
+
+    candidate = {
+        "source_type": source_type,
+        "source_url": source_url,
+        "document_url": document_url,
+        "document_title": document_title,
+        "document_date": document_date,
+        "report_period": str(args.report_period),
+        "report_type": args.report_type,
+        "accounting_standard": args.accounting_standard,
+        "source_file_name": source_file_name,
+        "document_status": document_status,
+        "confidence": confidence,
+        "resolution_method": resolution_method,
+        "operator_action": "select_exact_official_report_document",
+        "notes": notes,
+    }
+    _strip_financial_values(candidate)
+    return candidate
+
+
+def build_operator_document_candidate(
+    issuer: dict[str, Any],
+    document: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    candidate = {
+        "source_type": document.get("source_type") or "official_issuer_report",
+        "source_url": document.get("source_url") or document.get("document_url") or "",
+        "document_url": document.get("document_url") or "",
+        "document_title": document.get("document_title") or "",
+        "document_date": document.get("document_date") or "",
+        "report_period": str(document.get("report_period") or args.report_period),
+        "report_type": document.get("report_type") or args.report_type,
+        "accounting_standard": document.get("accounting_standard") or args.accounting_standard,
+        "source_file_name": document.get("source_file_name") or _file_name_from_url(document.get("document_url") or ""),
+        "document_status": document.get("document_status")
+        or (
+            "reviewed_official_document"
+            if document.get("operator_review_status") == "reviewed"
+            else "needs_operator_review"
+        ),
+        "confidence": document.get("confidence") or "medium",
+        "resolution_method": "operator_reviewed_exact_document",
+        "operator_action": "validate_exact_official_report_document",
+        "operator_review_status": document.get("operator_review_status"),
+        "notes": document.get("notes") or "Operator-provided exact official document candidate.",
+    }
+    for key, value in document.items():
+        if key not in candidate and key not in ALL_FINANCIAL_FIELDS and key != "values":
+            candidate[key] = value
+    _strip_financial_values(candidate)
+    return candidate
+
+
+def run_document_validate(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    issuers: list[dict[str, Any]] = []
+    if args.document_input is None:
+        errors.append({"message": "document-validate mode requires --document-input"})
+    if not errors:
+        try:
+            issuers = load_document_issuers(args.document_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    validation_results: list[dict[str, Any]] = []
+    for issuer in issuers:
+        for document in issuer.get("document_candidates") or []:
+            result = validate_document_candidate(
+                document,
+                issuer=issuer,
+                allow_unknown_source=args.allow_unknown_source,
+                target_report_period=str(args.report_period),
+            )
+            validation_results.append(result)
+            warnings.extend(result["warnings"])
+            errors.extend(result["errors"])
+
+    valid_count = sum(
+        1
+        for result in validation_results
+        if not result["errors"] and result.get("document_status") == "valid_official_document"
+    )
+    invalid_count = sum(1 for result in validation_results if result["errors"])
+    review_count = sum(
+        1
+        for result in validation_results
+        if result.get("document_status") in {"operator_to_find", "needs_operator_review"}
+        and not result["errors"]
+    )
+    status = "failed" if errors else "warning" if warnings or review_count else "passed"
+    return {
+        "status": status,
+        "mode": "document-validate",
+        "issuer_count": len(issuers),
+        "document_candidate_count": len(validation_results),
+        "valid_document_count": valid_count,
+        "invalid_document_count": invalid_count,
+        "needs_operator_review_count": review_count,
+        "document_results": validation_results,
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("document-validate", status),
+        **SAFETY_FLAGS,
+    }
+
+
+def validate_document_candidate(
+    document: dict[str, Any],
+    *,
+    issuer: dict[str, Any] | None = None,
+    allow_unknown_source: bool = False,
+    target_report_period: str | None = None,
+) -> dict[str, Any]:
+    issuer = issuer or {}
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    document_status = str(document.get("document_status") or "").strip()
+    source_type = str(document.get("source_type") or "").strip()
+    document_url = str(document.get("document_url") or "").strip()
+    document_title = str(document.get("document_title") or "").strip()
+    document_date = str(document.get("document_date") or "").strip()
+    report_period = str(document.get("report_period") or "").strip()
+    source_file_name = str(document.get("source_file_name") or "").strip()
+    base = {
+        "company_id": issuer.get("company_id"),
+        "company_name": issuer.get("company_name"),
+        "source_type": source_type,
+        "document_url": document_url,
+        "document_status": document_status,
+    }
+    forbidden_fields = [
+        field
+        for field in ALL_FINANCIAL_FIELDS
+        if document.get(field) not in (None, "")
+    ]
+    if forbidden_fields or document.get("values"):
+        errors.append(
+            {
+                **base,
+                "message": "financial values are forbidden in document metadata",
+                "fields": forbidden_fields or ["values"],
+            }
+        )
+    if source_type not in ALLOWED_SOURCE_TYPES:
+        errors.append({**base, "message": "source_type is not allowed for document evidence"})
+    if document_status not in DOCUMENT_REVIEW_STATUSES:
+        warnings.append({**base, "message": "document_status is not recognized; operator review required"})
+    if not document_url:
+        if document_status in DOCUMENT_VALID_STATUSES:
+            errors.append({**base, "message": "document_url is required for resolved official documents"})
+        else:
+            warnings.append({**base, "message": "document_url is missing; exact report document required"})
+    domain_status = None
+    if document_url:
+        classification = classify_source_url(document_url, allow_unknown_source=allow_unknown_source)
+        domain_status = classification["status"]
+        if classification["status"] == "blocked":
+            errors.append({**base, "message": classification["message"]})
+        elif classification["status"] == "unknown_error":
+            errors.append({**base, "message": classification["message"]})
+        elif classification["status"] == "unknown_warning":
+            warnings.append({**base, "message": classification["message"]})
+            if document_status in DOCUMENT_VALID_STATUSES:
+                errors.append(
+                    {
+                        **base,
+                        "message": "unknown domain cannot be marked valid_official_document",
+                    }
+                )
+    if document_url and _looks_like_landing_page(document_url):
+        message = "landing page is not exact annual/audited report evidence"
+        if document_status in DOCUMENT_VALID_STATUSES:
+            errors.append({**base, "message": message})
+        else:
+            warnings.append({**base, "message": message})
+    if document_status in DOCUMENT_VALID_STATUSES and not document_title:
+        errors.append({**base, "message": "document_title is required for exact documents"})
+    elif not document_title:
+        warnings.append({**base, "message": "document_title is missing; operator must confirm exact document"})
+    if not document_date:
+        warnings.append({**base, "message": "document_date is recommended when available"})
+    if document_url and not source_file_name:
+        warnings.append({**base, "message": "source_file_name is recommended"})
+    if target_report_period and report_period and report_period != target_report_period:
+        errors.append(
+            {
+                **base,
+                "message": "report_period does not match target period",
+                "report_period": report_period,
+                "target_report_period": target_report_period,
+            }
+        )
+    return {
+        **base,
+        "report_period": report_period,
+        "domain_status": domain_status,
+        "status": "invalid" if errors else "warning" if warnings else "valid",
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
 def run_candidate_fill(args: argparse.Namespace) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -1007,6 +1480,71 @@ def load_source_intake(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def load_document_intake_by_key(path: Path | None) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    if path is None:
+        return {}
+    if not path.is_file():
+        raise ValueError(f"document intake input does not exist: {path}")
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    documents = payload.get("documents") if isinstance(payload, dict) else payload
+    if not isinstance(documents, list) or not all(isinstance(item, dict) for item in documents):
+        raise ValueError("document intake JSON must contain documents")
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for document in documents:
+        key = str(document.get("canonical_company_id") or document.get("company_id") or "")
+        period = str(document.get("report_period") or "")
+        grouped.setdefault((key, period), []).append(document)
+    return grouped
+
+
+def load_document_issuers(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise ValueError(f"document input does not exist: {path}")
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    issuers = payload.get("issuers") if isinstance(payload, dict) else payload
+    if not isinstance(issuers, list) or not all(isinstance(item, dict) for item in issuers):
+        raise ValueError("document JSON must contain issuers")
+    return issuers
+
+
+def write_document_checklist(issuers: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=DOCUMENT_CHECKLIST_FIELDS)
+        writer.writeheader()
+        rank = 0
+        for issuer in issuers:
+            for document in issuer.get("document_candidates") or []:
+                rank += 1
+                writer.writerow(
+                    {
+                        "rank": rank,
+                        "company_id": _csv_value(issuer.get("company_id")),
+                        "company_name": _csv_value(issuer.get("company_name")),
+                        "canonical_company_id": _csv_value(issuer.get("canonical_company_id")),
+                        "canonical_company_name": _csv_value(issuer.get("canonical_company_name")),
+                        "report_period": _csv_value(document.get("report_period") or issuer.get("report_period")),
+                        "report_type": _csv_value(document.get("report_type") or issuer.get("report_type")),
+                        "accounting_standard": _csv_value(
+                            document.get("accounting_standard") or issuer.get("accounting_standard")
+                        ),
+                        "source_type": _csv_value(document.get("source_type")),
+                        "source_url": _csv_value(document.get("source_url")),
+                        "document_url": _csv_value(document.get("document_url")),
+                        "document_title": _csv_value(document.get("document_title")),
+                        "document_date": _csv_value(document.get("document_date")),
+                        "source_file_name": _csv_value(document.get("source_file_name")),
+                        "document_status": _csv_value(document.get("document_status")),
+                        "confidence": _csv_value(document.get("confidence")),
+                        "resolution_method": _csv_value(document.get("resolution_method")),
+                        "operator_action": _csv_value(document.get("operator_action")),
+                        "notes": _csv_value(document.get("notes")),
+                    }
+                )
+
+
 def load_manual_values_by_key(
     *,
     manual_values_json: Path | None,
@@ -1101,6 +1639,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
+        else "Exact Official Report Document Resolver"
+        if report.get("mode") in {"document-resolve", "document-validate"}
         else "Official-Source Evidence Assistant"
     )
     lines = [
@@ -1119,6 +1659,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     if report.get("mode") == "source-discover":
         lines.extend(_render_discovery_markdown_sections(report))
+    if report.get("mode") in {"document-resolve", "document-validate"}:
+        lines.extend(_render_document_markdown_sections(report))
     lines.extend(
         [
         "## Source Validation",
@@ -1208,6 +1750,65 @@ def _render_discovery_markdown_sections(report: dict[str, Any]) -> list[str]:
             "- `discovered_candidate` is not approved as a financial value source.",
             "- `needs_operator_review` requires manual confirmation of the exact report/document.",
             "- Exact annual or audited report evidence is required before candidate-fill.",
+            "",
+        ]
+    )
+    return lines
+
+
+def _render_document_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Document Status",
+        "",
+        f"- document_candidate_count: {report.get('document_candidate_count', 0)}",
+        f"- resolved_document_count: {report.get('resolved_document_count', report.get('valid_document_count', 0))}",
+        f"- needs_operator_review_count: {report.get('needs_operator_review_count', 0)}",
+        "",
+        "## Issuers",
+        "",
+        "| Company ID | Company | Source Type | Source URL | Document URL | Status | Confidence | Method | Action |",
+        "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    issuers = report.get("issuers") or []
+    for issuer in issuers:
+        for document in issuer.get("document_candidates") or []:
+            rows += 1
+            lines.append(
+                "| {company_id} | {company_name} | {source_type} | {source_url} | {document_url} | {status} | {confidence} | {method} | {action} |".format(
+                    company_id=issuer.get("company_id"),
+                    company_name=issuer.get("company_name") or "",
+                    source_type=document.get("source_type") or "",
+                    source_url=document.get("source_url") or "",
+                    document_url=document.get("document_url") or "",
+                    status=document.get("document_status") or "",
+                    confidence=document.get("confidence") or "",
+                    method=document.get("resolution_method") or "",
+                    action=document.get("operator_action") or "",
+                )
+            )
+    if rows == 0 and report.get("document_results"):
+        for result in report.get("document_results") or []:
+            rows += 1
+            lines.append(
+                "| {company_id} | {company_name} | {source_type} |  | {document_url} | {status} |  | validation |  |".format(
+                    company_id=result.get("company_id"),
+                    company_name=result.get("company_name") or "",
+                    source_type=result.get("source_type") or "",
+                    document_url=result.get("document_url") or "",
+                    status=result.get("document_status") or "",
+                )
+            )
+    if rows == 0:
+        lines.append("| None |  |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Document Validation Meaning",
+            "",
+            "- Landing page != exact report evidence.",
+            "- `needs_operator_review` is not valid for financial values.",
+            "- Exact annual/audited report URL and metadata are required before candidate-fill.",
             "",
         ]
     )
@@ -1315,6 +1916,117 @@ def _strip_financial_values(candidate: dict[str, Any]) -> None:
         candidate.pop(field, None)
     candidate.pop("values", None)
     candidate.pop("field_evidence", None)
+
+
+def _merge_document_into_source_candidates(
+    source_candidates: list[dict[str, Any]],
+    document: dict[str, Any],
+) -> None:
+    source_candidate = {
+        "source_type": document.get("source_type"),
+        "url": document.get("document_url"),
+        "document_title": document.get("document_title"),
+        "document_date": document.get("document_date"),
+        "source_file_name": document.get("source_file_name"),
+        "report_period": document.get("report_period"),
+        "status": "valid_official_source"
+        if document.get("document_status") == "valid_official_document"
+        else "needs_operator_review",
+        "confidence": document.get("confidence"),
+        "discovery_method": document.get("resolution_method"),
+        "notes": document.get("notes"),
+    }
+    _strip_financial_values(source_candidate)
+    for index, existing in enumerate(source_candidates):
+        if existing.get("source_type") == source_candidate["source_type"]:
+            source_candidates[index] = {**existing, **source_candidate}
+            return
+    source_candidates.append(source_candidate)
+
+
+def _recommended_document_actions(args: argparse.Namespace) -> list[str]:
+    audited = " audited" if args.prefer_audited else ""
+    consolidated = " consolidated" if args.prefer_consolidated else ""
+    return [
+        "Open official issuer/disclosure source.",
+        (
+            f"Find latest{audited}{consolidated} {args.accounting_standard} "
+            f"{args.report_type} report for {args.report_period}."
+        ),
+        "Copy exact report page/PDF URL, title, publication date, and file name.",
+        "Run document-validate before candidate-fill.",
+    ]
+
+
+def _file_name_from_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(str(url))
+    return Path(parsed.path).name
+
+
+def _looks_like_landing_page(url: str) -> bool:
+    parsed = urllib.parse.urlparse(str(url))
+    path = (parsed.path or "/").rstrip("/")
+    if path in {"", "/"}:
+        return True
+    lower_path = path.casefold()
+    if lower_path.endswith((".pdf", ".html", ".htm")):
+        return False
+    return lower_path.count("/") <= 1 and "report" not in lower_path and "отчет" not in lower_path
+
+
+def _download_valid_document(document: dict[str, Any], download_dir: Path) -> dict[str, Any]:
+    url = str(document.get("document_url") or "")
+    validation = validate_document_candidate(
+        document,
+        issuer={},
+        allow_unknown_source=False,
+        target_report_period=str(document.get("report_period") or ""),
+    )
+    if validation["errors"]:
+        return {
+            "url": url,
+            "local_path": None,
+            "sha256": None,
+            "size_bytes": None,
+            "content_type": None,
+            "warnings": [],
+            "errors": [
+                {
+                    "message": "document download refused because validation failed",
+                    "details": validation["errors"],
+                }
+            ],
+        }
+    download_dir.mkdir(parents=True, exist_ok=True)
+    headers = {"User-Agent": "BondRadar-document-resolver-preview/1.0"}
+    try:
+        request = urllib.request.Request(url, method="GET", headers=headers)
+        with urllib.request.urlopen(request, timeout=20) as response:
+            data = response.read()
+            content_type = response.headers.get("Content-Type")
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
+        return {
+            "url": url,
+            "local_path": None,
+            "sha256": None,
+            "size_bytes": None,
+            "content_type": None,
+            "warnings": [{"message": f"document download failed: {exc}", "url": url}],
+            "errors": [],
+        }
+    digest = hashlib.sha256(data).hexdigest()
+    file_name = document.get("source_file_name") or _file_name_from_url(url) or f"{digest}.bin"
+    output = download_dir / str(file_name)
+    output.write_bytes(data)
+    return {
+        "url": url,
+        "local_path": str(output),
+        "sha256": digest,
+        "size_bytes": len(data),
+        "content_type": content_type,
+        "warnings": [],
+        "errors": [],
+    }
 
 
 def _source_from_manual_or_intake(
@@ -1528,6 +2240,10 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Fill source intake with official issuer/disclosure/auditor URLs only."]
     if mode == "source-validate":
         return ["Use only validated official sources before adding financial values."]
+    if mode == "document-resolve":
+        return ["Review exact report document checklist before candidate-fill."]
+    if mode == "document-validate":
+        return ["Only valid official documents may be used in candidate-fill."]
     if mode == "candidate-fill":
         return ["Run preview mode; do not import until a separate controlled import task."]
     return ["Review preview output; import remains disabled in this workflow."]
