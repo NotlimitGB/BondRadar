@@ -398,6 +398,80 @@ Future live BondRadar cycles may refresh market/risk/paper state every 1-2
 hours while the exchange is open, but this workflow does not implement or
 activate that scheduler.
 
+## Official-Source Evidence Assistant
+
+Once issuers are `collection_ready`, use the official-source evidence assistant
+to separate source discovery and evidence-backed value entry from any future
+import. The assistant helps operators keep the chain explicit:
+
+```text
+known issuer identity
+official source candidate
+field evidence with page/table/note
+candidate file
+preview-only validation
+separate controlled import later
+```
+
+Unknown issuer rows must stay in identity review. Do not collect financial
+values for them until the legal issuer, INN/OGRN, and official source are
+confirmed.
+
+Create source intake from the Task 95 financial template and checklist:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-template \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --evidence-template-input data/financial_reports/private/official_source_evidence_template_task95.json \
+  --source-checklist-input logs/financial_reports/official_source_checklist_task95.csv \
+  --source-intake-output data/financial_reports/private/official_source_intake_task96.json \
+  --json-output logs/financial_reports/official_source_intake_task96.json \
+  --markdown-output logs/financial_reports/official_source_intake_task96.md
+```
+
+Validate source URLs before entering values:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-validate \
+  --source-intake-input data/financial_reports/private/official_source_intake_task96.json \
+  --json-output logs/financial_reports/official_source_validation_task96.json \
+  --markdown-output logs/financial_reports/official_source_validation_task96.md
+```
+
+Fill a candidate file from manual evidence only:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode candidate-fill \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --source-intake-input data/financial_reports/private/official_source_intake_task96.json \
+  --manual-values-json data/financial_reports/private/manual_values_task96.json \
+  --candidate-output data/financial_reports/private/collection_ready_financial_candidate_task96.csv \
+  --candidate-format csv \
+  --evidence-output logs/financial_reports/official_source_evidence_task96.json \
+  --json-output logs/financial_reports/official_source_candidate_fill_task96.json \
+  --markdown-output logs/financial_reports/official_source_candidate_fill_task96.md
+```
+
+Preview without import:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode preview \
+  --backend-url http://127.0.0.1:8000 \
+  --candidate-input data/financial_reports/private/collection_ready_financial_candidate_task96.csv \
+  --format csv \
+  --json-output logs/financial_reports/official_source_candidate_preview_task96.json \
+  --markdown-output logs/financial_reports/official_source_candidate_preview_task96.md
+```
+
+The assistant blocks Wikipedia/wiki, blogs, forums, social media, random
+aggregator sources, market capitalization as equity, coupon payments as
+interest expense, and suspicious placeholder-zero rows. It does not import or
+apply financial reports or identity profiles.
+
 ## VDS Smoke Checklist
 
 Health:

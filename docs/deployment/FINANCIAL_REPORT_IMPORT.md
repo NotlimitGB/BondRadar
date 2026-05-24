@@ -646,6 +646,74 @@ Strategic note: future live BondRadar cycles should refresh market, risk,
 paper, and readiness state every 1-2 hours while the exchange is open, not
 once per day. This task does not implement or activate that scheduler.
 
+## Official-Source Evidence Assistant
+
+After the official-source collection pack creates empty templates, use the
+evidence assistant to collect and validate official source candidates, then
+build a preview-only candidate file. This workflow prepares evidence-backed
+rows only; it does not import reports, mutate the database, or trade.
+
+Allowed value sources are official issuer reports, official disclosure systems,
+exchange disclosure, and auditor reports. Do not use Wikipedia, blogs, forums,
+social media, random aggregators, coupon schedules as interest expense, market
+capitalization as equity, or placeholder zeros as financial values.
+
+Create source intake from the Task 95 pack:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-template \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --evidence-template-input data/financial_reports/private/official_source_evidence_template_task95.json \
+  --source-checklist-input logs/financial_reports/official_source_checklist_task95.csv \
+  --source-intake-output data/financial_reports/private/official_source_intake_task96.json \
+  --json-output logs/financial_reports/official_source_intake_task96.json \
+  --markdown-output logs/financial_reports/official_source_intake_task96.md
+```
+
+Validate filled source intake before adding values:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode source-validate \
+  --source-intake-input data/financial_reports/private/official_source_intake_task96.json \
+  --json-output logs/financial_reports/official_source_validation_task96.json \
+  --markdown-output logs/financial_reports/official_source_validation_task96.md
+```
+
+Fill candidate rows only from evidence-backed manual values:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode candidate-fill \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --source-intake-input data/financial_reports/private/official_source_intake_task96.json \
+  --manual-values-json data/financial_reports/private/manual_values_task96.json \
+  --candidate-output data/financial_reports/private/collection_ready_financial_candidate_task96.csv \
+  --candidate-format csv \
+  --evidence-output logs/financial_reports/official_source_evidence_task96.json \
+  --json-output logs/financial_reports/official_source_candidate_fill_task96.json \
+  --markdown-output logs/financial_reports/official_source_candidate_fill_task96.md
+```
+
+Run preview only. This calls the read-only preview endpoint and never calls
+ingest/apply:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode preview \
+  --backend-url http://127.0.0.1:8000 \
+  --candidate-input data/financial_reports/private/collection_ready_financial_candidate_task96.csv \
+  --format csv \
+  --json-output logs/financial_reports/official_source_candidate_preview_task96.json \
+  --markdown-output logs/financial_reports/official_source_candidate_preview_task96.md
+```
+
+Task 96 prepares and validates evidence-backed candidate values. It does not
+import reports, mutate identities, change scores or predictions, activate
+schedules, or run paper trading. Keep filled private CSV/JSON values outside
+git-tracked paths.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
