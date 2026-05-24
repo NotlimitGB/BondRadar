@@ -783,6 +783,54 @@ evidence. Candidate-fill still requires an exact official annual/audited report
 page or PDF URL, document title, report period, source type, and operator review.
 Unknown domains remain review-only even with `--allow-unknown-source`.
 
+## Operator Exact Document Intake
+
+Task 99 creates and validates an operator-fillable exact document intake file.
+This is still document metadata only: no financial values are entered, no PDFs are
+OCRed or parsed, no reports are imported, and no trading or scoring state is
+changed.
+
+Create the exact document intake template:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-intake-template \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --document-intake-output data/financial_reports/private/exact_document_intake_task99.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_task99.csv \
+  --json-output logs/financial_reports/exact_document_intake_template_task99.json \
+  --markdown-output logs/financial_reports/exact_document_intake_template_task99.md
+```
+
+Validate a filled exact document intake:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-intake-validate \
+  --document-intake-input data/financial_reports/private/exact_document_intake_filled_task99.json \
+  --json-output logs/financial_reports/exact_document_intake_validation_task99.json \
+  --markdown-output logs/financial_reports/exact_document_intake_validation_task99.md
+```
+
+Resolve documents using reviewed exact intake:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-resolve \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_filled_task99.json \
+  --source-intake-output data/financial_reports/private/official_source_intake_resolved_task99.json \
+  --document-output data/financial_reports/private/official_report_documents_resolved_task99.json \
+  --document-checklist-output logs/financial_reports/official_report_document_checklist_task99.csv \
+  --json-output logs/financial_reports/official_report_documents_resolved_task99.json \
+  --markdown-output logs/financial_reports/official_report_documents_resolved_task99.md
+```
+
+The template intentionally leaves `document_url`, `document_title`, document
+date, and file name empty. Operators must paste exact official annual/audited
+report page or PDF metadata, mark the row reviewed, and validate it before any
+future candidate-fill step.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

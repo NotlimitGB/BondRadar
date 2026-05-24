@@ -21,6 +21,8 @@ MODE_CHOICES = (
     "source-validate",
     "document-resolve",
     "document-validate",
+    "document-intake-template",
+    "document-intake-validate",
     "candidate-fill",
     "preview",
 )
@@ -46,6 +48,9 @@ BLOCKED_SOURCE_HINTS = (
     "reddit",
     "forum",
     "blog",
+    "news",
+    "aggregator",
+    "social",
     "investing.com",
     "smart-lab",
     "banki.ru",
@@ -77,6 +82,7 @@ DISCOVERY_STATUSES = {
 }
 EVIDENCE_FINANCIAL_FIELDS = list(collection_pack.FIELDS_TO_COLLECT)
 ALL_FINANCIAL_FIELDS = list(collection_pack.FINANCIAL_FIELDS)
+FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS = set(ALL_FINANCIAL_FIELDS) | {"debt"}
 DOCUMENT_VALID_STATUSES = {
     "reviewed_official_document",
     "resolved_official_document",
@@ -91,6 +97,25 @@ DOCUMENT_REVIEW_STATUSES = {
     "invalid_document",
     "blocked_document",
 }
+DOCUMENT_INTAKE_UNRESOLVED_STATUSES = {"operator_to_find", "needs_operator_review"}
+DOCUMENT_INTAKE_TEMPLATE_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "report_period",
+    "report_type",
+    "accounting_standard",
+    "source_type",
+    "source_url_context",
+    "document_url",
+    "document_title",
+    "document_date",
+    "source_file_name",
+    "operator_review_status",
+    "notes",
+]
+DOCUMENT_INTAKE_REVIEWED_STATUSES = {"reviewed", "operator_reviewed"}
 DOCUMENT_CHECKLIST_FIELDS = [
     "rank",
     "company_id",
@@ -139,6 +164,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-intake-output", type=Path, default=None)
     parser.add_argument("--document-input", type=Path, default=None)
     parser.add_argument("--document-intake-input", type=Path, default=None)
+    parser.add_argument("--document-intake-output", type=Path, default=None)
+    parser.add_argument("--document-intake-csv-output", type=Path, default=None)
+    parser.add_argument("--document-intake-template-status", default="operator_to_fill")
+    parser.add_argument("--require-operator-reviewed", type=_parse_bool, default=True)
     parser.add_argument("--document-output", type=Path, default=None)
     parser.add_argument("--document-checklist-output", type=Path, default=None)
     parser.add_argument("--report-period", default="2025")
@@ -186,6 +215,10 @@ def run_assistant(
         report = run_document_resolve(args)
     elif args.mode == "document-validate":
         report = run_document_validate(args)
+    elif args.mode == "document-intake-template":
+        report = run_document_intake_template(args)
+    elif args.mode == "document-intake-validate":
+        report = run_document_intake_validate(args)
     elif args.mode == "candidate-fill":
         report = run_candidate_fill(args)
     else:
@@ -845,22 +878,16 @@ def resolve_issuer_documents(
     ]
     for document in operator_documents:
         merged = build_operator_document_candidate(issuer, document, args)
-        if args.allow_unknown_source and merged.get("document_url"):
-            classification = classify_source_url(str(merged["document_url"]), allow_unknown_source=True)
-            if classification["status"] == "unknown_warning":
-                merged["document_status"] = "needs_operator_review"
-                merged["confidence"] = "low"
-        validation = validate_document_candidate(
-            merged,
+        validation = validate_document_intake_item(
+            document,
+            args=args,
             issuer=issuer,
-            allow_unknown_source=args.allow_unknown_source,
-            target_report_period=str(args.report_period),
         )
         merged["warnings"] = validation["warnings"]
         merged["errors"] = validation["errors"]
         if validation["errors"]:
             merged["document_status"] = "invalid_document"
-        elif validation["domain_status"] == "unknown_warning":
+        elif validation["document_status"] == "needs_operator_review":
             merged["document_status"] = "needs_operator_review"
             merged["confidence"] = "low"
         else:
@@ -971,7 +998,7 @@ def build_operator_document_candidate(
         "document_status": document.get("document_status")
         or (
             "reviewed_official_document"
-            if document.get("operator_review_status") == "reviewed"
+            if document.get("operator_review_status") in DOCUMENT_INTAKE_REVIEWED_STATUSES
             else "needs_operator_review"
         ),
         "confidence": document.get("confidence") or "medium",
@@ -1041,6 +1068,209 @@ def run_document_validate(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def run_document_intake_template(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    issuers: list[dict[str, Any]] = []
+    if args.document_input is None:
+        errors.append({"message": "document-intake-template mode requires --document-input"})
+    if not errors:
+        try:
+            issuers = load_document_issuers(args.document_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    documents: list[dict[str, Any]] = []
+    if not errors:
+        for issuer in issuers:
+            item = build_document_intake_template_item(issuer, args)
+            if item is not None:
+                documents.append(item)
+
+    report = {
+        "status": "failed" if errors else "template",
+        "mode": "document-intake-template",
+        "issuer_count": len(documents),
+        "document_template_count": len(documents),
+        "documents": documents,
+        "warnings": warnings,
+        "errors": errors,
+        "document_intake_output": _path_value(args.document_intake_output),
+        "document_intake_csv_output": _path_value(args.document_intake_csv_output),
+        "next_steps": _next_steps("document-intake-template", "template" if not errors else "failed"),
+        **SAFETY_FLAGS,
+    }
+    if args.document_intake_output is not None and not errors:
+        write_json_report(report, args.document_intake_output)
+    if args.document_intake_csv_output is not None and not errors:
+        write_document_intake_csv(documents, args.document_intake_csv_output)
+    return report
+
+
+def build_document_intake_template_item(
+    issuer: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, Any] | None:
+    candidates = issuer.get("document_candidates") or []
+    unresolved = [
+        document
+        for document in candidates
+        if str(document.get("document_status") or "") in DOCUMENT_INTAKE_UNRESOLVED_STATUSES
+    ]
+    if not unresolved:
+        return None
+    source_context = _source_url_context(unresolved)
+    first = unresolved[0] if unresolved else {}
+    item = {
+        "company_id": issuer.get("company_id"),
+        "company_name": issuer.get("company_name"),
+        "canonical_company_id": issuer.get("canonical_company_id"),
+        "canonical_company_name": issuer.get("canonical_company_name"),
+        "report_period": str(first.get("report_period") or issuer.get("report_period") or args.report_period),
+        "report_type": first.get("report_type") or issuer.get("report_type") or args.report_type,
+        "accounting_standard": (
+            first.get("accounting_standard")
+            or issuer.get("accounting_standard")
+            or args.accounting_standard
+        ),
+        "source_type": "official_issuer_report",
+        "source_url_context": source_context,
+        "document_url": "",
+        "document_title": "",
+        "document_date": "",
+        "source_file_name": "",
+        "operator_review_status": args.document_intake_template_status,
+        "notes": "Paste exact official annual/audited report page or PDF URL. Do not paste landing page.",
+    }
+    _strip_financial_values(item)
+    return item
+
+
+def run_document_intake_validate(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    documents: list[dict[str, Any]] = []
+    if args.document_intake_input is None:
+        errors.append({"message": "document-intake-validate mode requires --document-intake-input"})
+    if not errors:
+        try:
+            documents = load_document_intake_items(args.document_intake_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    validation_results: list[dict[str, Any]] = []
+    for document in documents:
+        result = validate_document_intake_item(
+            document,
+            args=args,
+            issuer=_issuer_from_document_intake_item(document),
+        )
+        validation_results.append(result)
+        warnings.extend(result["warnings"])
+        errors.extend(result["errors"])
+
+    valid_count = sum(
+        1
+        for result in validation_results
+        if not result["errors"] and result.get("document_status") == "valid_official_document"
+    )
+    invalid_count = sum(1 for result in validation_results if result["errors"])
+    review_count = sum(
+        1
+        for result in validation_results
+        if not result["errors"] and result.get("document_status") == "needs_operator_review"
+    )
+    status = "failed" if errors else "warning" if warnings or review_count else "passed"
+    return {
+        "status": status,
+        "mode": "document-intake-validate",
+        "issuer_count": len({_document_company_key(item) for item in documents}),
+        "document_candidate_count": len(validation_results),
+        "valid_document_count": valid_count,
+        "invalid_document_count": invalid_count,
+        "needs_operator_review_count": review_count,
+        "document_results": validation_results,
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("document-intake-validate", status),
+        **SAFETY_FLAGS,
+    }
+
+
+def validate_document_intake_item(
+    document: dict[str, Any],
+    *,
+    args: argparse.Namespace,
+    issuer: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    issuer = issuer or {}
+    operator_review_status = str(document.get("operator_review_status") or "").strip()
+    document_url = str(document.get("document_url") or "").strip()
+    document_title = str(document.get("document_title") or "").strip()
+    report_period = str(document.get("report_period") or "").strip()
+    base = {
+        "company_id": issuer.get("company_id") or document.get("company_id"),
+        "company_name": issuer.get("company_name") or document.get("company_name"),
+        "source_type": document.get("source_type"),
+        "document_url": document_url,
+    }
+    document_status = (
+        "valid_official_document"
+        if operator_review_status in DOCUMENT_INTAKE_REVIEWED_STATUSES
+        else "needs_operator_review"
+    )
+    if document_url:
+        classification = classify_source_url(
+            document_url,
+            allow_unknown_source=args.allow_unknown_source,
+        )
+        if classification["status"] == "unknown_warning":
+            document_status = "needs_operator_review"
+    candidate = dict(document)
+    candidate["document_status"] = document.get("document_status") or document_status
+    candidate["source_url"] = document.get("source_url") or document_url
+    result = validate_document_candidate(
+        candidate,
+        issuer=issuer,
+        allow_unknown_source=args.allow_unknown_source,
+        target_report_period=str(args.report_period),
+    )
+    warnings = list(result["warnings"])
+    errors = list(result["errors"])
+    if args.require_operator_reviewed and operator_review_status not in DOCUMENT_INTAKE_REVIEWED_STATUSES:
+        errors.append(
+            {
+                **base,
+                "message": "operator_review_status must be reviewed or operator_reviewed",
+                "operator_review_status": operator_review_status,
+            }
+        )
+    if not document_url:
+        errors.append({**base, "message": "document_url is required for operator exact document intake"})
+    if not document_title:
+        errors.append({**base, "message": "document_title is required for operator exact document intake"})
+    if not report_period:
+        errors.append({**base, "message": "report_period is required for operator exact document intake"})
+    warnings.extend(_document_title_quality_warnings(candidate, base, args))
+    effective_status = candidate["document_status"]
+    if result.get("domain_status") == "unknown_warning":
+        effective_status = "needs_operator_review"
+    elif errors:
+        effective_status = "invalid_document"
+    elif effective_status in DOCUMENT_VALID_STATUSES:
+        effective_status = "valid_official_document"
+    else:
+        effective_status = "needs_operator_review"
+    return {
+        **result,
+        "document_status": effective_status,
+        "operator_review_status": operator_review_status,
+        "status": "invalid" if errors else "warning" if warnings else "valid",
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
 def validate_document_candidate(
     document: dict[str, Any],
     *,
@@ -1067,7 +1297,7 @@ def validate_document_candidate(
     }
     forbidden_fields = [
         field
-        for field in ALL_FINANCIAL_FIELDS
+        for field in FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS
         if document.get(field) not in (None, "")
     ]
     if forbidden_fields or document.get("values"):
@@ -1483,6 +1713,16 @@ def load_source_intake(path: Path) -> list[dict[str, Any]]:
 def load_document_intake_by_key(path: Path | None) -> dict[tuple[str, str], list[dict[str, Any]]]:
     if path is None:
         return {}
+    documents = load_document_intake_items(path)
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for document in documents:
+        key = str(document.get("canonical_company_id") or document.get("company_id") or "")
+        period = str(document.get("report_period") or "")
+        grouped.setdefault((key, period), []).append(document)
+    return grouped
+
+
+def load_document_intake_items(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         raise ValueError(f"document intake input does not exist: {path}")
     with path.open("r", encoding="utf-8") as handle:
@@ -1490,12 +1730,7 @@ def load_document_intake_by_key(path: Path | None) -> dict[tuple[str, str], list
     documents = payload.get("documents") if isinstance(payload, dict) else payload
     if not isinstance(documents, list) or not all(isinstance(item, dict) for item in documents):
         raise ValueError("document intake JSON must contain documents")
-    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    for document in documents:
-        key = str(document.get("canonical_company_id") or document.get("company_id") or "")
-        period = str(document.get("report_period") or "")
-        grouped.setdefault((key, period), []).append(document)
-    return grouped
+    return documents
 
 
 def load_document_issuers(path: Path) -> list[dict[str, Any]]:
@@ -1543,6 +1778,20 @@ def write_document_checklist(issuers: list[dict[str, Any]], path: Path) -> None:
                         "notes": _csv_value(document.get("notes")),
                     }
                 )
+
+
+def write_document_intake_csv(documents: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=DOCUMENT_INTAKE_TEMPLATE_FIELDS)
+        writer.writeheader()
+        for document in documents:
+            writer.writerow(
+                {
+                    field: _csv_value(document.get(field))
+                    for field in DOCUMENT_INTAKE_TEMPLATE_FIELDS
+                }
+            )
 
 
 def load_manual_values_by_key(
@@ -1639,6 +1888,10 @@ def render_markdown(report: dict[str, Any]) -> str:
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
+        else "Exact Document Intake Template"
+        if report.get("mode") == "document-intake-template"
+        else "Exact Document Intake Validation"
+        if report.get("mode") == "document-intake-validate"
         else "Exact Official Report Document Resolver"
         if report.get("mode") in {"document-resolve", "document-validate"}
         else "Official-Source Evidence Assistant"
@@ -1661,6 +1914,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_discovery_markdown_sections(report))
     if report.get("mode") in {"document-resolve", "document-validate"}:
         lines.extend(_render_document_markdown_sections(report))
+    if report.get("mode") in {"document-intake-template", "document-intake-validate"}:
+        lines.extend(_render_document_intake_markdown_sections(report))
     lines.extend(
         [
         "## Source Validation",
@@ -1815,6 +2070,63 @@ def _render_document_markdown_sections(report: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _render_document_intake_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Document Intake",
+        "",
+        f"- document_template_count: {report.get('document_template_count', 0)}",
+        f"- valid_document_count: {report.get('valid_document_count', 0)}",
+        f"- invalid_document_count: {report.get('invalid_document_count', 0)}",
+        f"- needs_operator_review_count: {report.get('needs_operator_review_count', 0)}",
+        "",
+        "## Documents To Fill",
+        "",
+        "| Company ID | Company | Period | Source Context | Document URL | Document Title | Operator Status |",
+        "| ---: | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for document in report.get("documents") or []:
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {period} | {context} | {url} | {title} | {status} |".format(
+                company_id=document.get("company_id"),
+                company_name=document.get("company_name") or "",
+                period=document.get("report_period") or "",
+                context=str(document.get("source_url_context") or "").replace("|", "/"),
+                url=document.get("document_url") or "",
+                title=document.get("document_title") or "",
+                status=document.get("operator_review_status") or "",
+            )
+        )
+    if rows == 0 and report.get("document_results"):
+        for result in report.get("document_results") or []:
+            rows += 1
+            lines.append(
+                "| {company_id} | {company_name} | {period} |  | {url} |  | {status} |".format(
+                    company_id=result.get("company_id"),
+                    company_name=result.get("company_name") or "",
+                    period=result.get("report_period") or "",
+                    url=result.get("document_url") or "",
+                    status=result.get("operator_review_status") or result.get("document_status") or "",
+                )
+            )
+    if rows == 0:
+        lines.append("| None |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Rules",
+            "",
+            "- Use exact official annual/audited report page or PDF.",
+            "- Do not use landing pages as final document evidence.",
+            "- Do not enter financial values.",
+            "- Do not use Wikipedia, blog, forum, social, news, or aggregator sources.",
+            "",
+        ]
+    )
+    return lines
+
+
 def classify_source_url(url: str, *, allow_unknown_source: bool = False) -> dict[str, str]:
     text = url.casefold()
     if _has_blocked_source_hint(text):
@@ -1912,10 +2224,63 @@ def _disclosure_domain(hints: list[str]) -> str | None:
 
 
 def _strip_financial_values(candidate: dict[str, Any]) -> None:
-    for field in ALL_FINANCIAL_FIELDS:
+    for field in FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS:
         candidate.pop(field, None)
     candidate.pop("values", None)
     candidate.pop("field_evidence", None)
+
+
+def _source_url_context(documents: list[dict[str, Any]]) -> str:
+    urls: list[str] = []
+    seen: set[str] = set()
+    for document in documents:
+        url = str(document.get("source_url") or document.get("url") or "").strip()
+        if not url or url in seen:
+            continue
+        classification = classify_source_url(url, allow_unknown_source=True)
+        if classification["status"] != "official":
+            continue
+        urls.append(url)
+        seen.add(url)
+    return " | ".join(urls)
+
+
+def _issuer_from_document_intake_item(document: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "company_id": document.get("company_id"),
+        "company_name": document.get("company_name"),
+        "canonical_company_id": document.get("canonical_company_id"),
+        "canonical_company_name": document.get("canonical_company_name"),
+    }
+
+
+def _document_company_key(document: dict[str, Any]) -> str:
+    return str(document.get("canonical_company_id") or document.get("company_id") or "")
+
+
+def _document_title_quality_warnings(
+    document: dict[str, Any],
+    base: dict[str, Any],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    title = str(document.get("document_title") or "").casefold()
+    if not title:
+        return []
+    warnings: list[dict[str, Any]] = []
+    if args.report_type == "annual" and not _contains_any(title, ("annual", "year", "год", "годов")):
+        warnings.append({**base, "message": "document_title does not clearly mention annual reporting"})
+    accounting_standard = str(document.get("accounting_standard") or args.accounting_standard or "").casefold()
+    if accounting_standard != "unknown" and accounting_standard not in title:
+        warnings.append({**base, "message": "document_title does not clearly mention accounting standard"})
+    if args.prefer_audited and not _contains_any(title, ("audit", "audited", "аудит")):
+        warnings.append({**base, "message": "document_title does not clearly mention audited status"})
+    if args.prefer_consolidated and not _contains_any(title, ("consolidated", "консолид")):
+        warnings.append({**base, "message": "document_title does not clearly mention consolidated scope"})
+    return warnings
+
+
+def _contains_any(text: str, needles: tuple[str, ...]) -> bool:
+    return any(needle in text for needle in needles)
 
 
 def _merge_document_into_source_candidates(
@@ -2244,6 +2609,10 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review exact report document checklist before candidate-fill."]
     if mode == "document-validate":
         return ["Only valid official documents may be used in candidate-fill."]
+    if mode == "document-intake-template":
+        return ["Fill exact document intake with reviewed official annual/audited report metadata."]
+    if mode == "document-intake-validate":
+        return ["Resolve documents with reviewed exact intake before candidate-fill."]
     if mode == "candidate-fill":
         return ["Run preview mode; do not import until a separate controlled import task."]
     return ["Review preview output; import remains disabled in this workflow."]
@@ -2257,6 +2626,17 @@ def _message_text(item: Any) -> str:
 
 def _path_value(path: Path | None) -> str | None:
     return None if path is None else str(path)
+
+
+def _parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().casefold()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    raise argparse.ArgumentTypeError("expected true/false")
 
 
 def _normalize_cell(value: Any) -> Any:

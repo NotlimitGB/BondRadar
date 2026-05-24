@@ -538,6 +538,54 @@ The resolver must not invent report PDFs or treat landing pages as final
 evidence. Exact report metadata is required before candidate-fill, and unknown
 or blocked domains remain outside the financial collection path.
 
+## Operator Exact Document Intake
+
+Task 99 adds the operator handoff after document resolution. It creates a
+fillable exact document intake file, validates reviewed exact report metadata,
+and then lets `document-resolve` merge valid documents into the resolved source
+intake. It does not extract financial values, import reports, mutate identity
+data, or trade.
+
+Create the exact document intake template:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-intake-template \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --document-intake-output data/financial_reports/private/exact_document_intake_task99.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_task99.csv \
+  --json-output logs/financial_reports/exact_document_intake_template_task99.json \
+  --markdown-output logs/financial_reports/exact_document_intake_template_task99.md
+```
+
+Validate reviewed exact document intake:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-intake-validate \
+  --document-intake-input data/financial_reports/private/exact_document_intake_filled_task99.json \
+  --json-output logs/financial_reports/exact_document_intake_validation_task99.json \
+  --markdown-output logs/financial_reports/exact_document_intake_validation_task99.md
+```
+
+Resolve documents with the reviewed intake:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-resolve \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_filled_task99.json \
+  --source-intake-output data/financial_reports/private/official_source_intake_resolved_task99.json \
+  --document-output data/financial_reports/private/official_report_documents_resolved_task99.json \
+  --document-checklist-output logs/financial_reports/official_report_document_checklist_task99.csv \
+  --json-output logs/financial_reports/official_report_documents_resolved_task99.json \
+  --markdown-output logs/financial_reports/official_report_documents_resolved_task99.md
+```
+
+Use only exact official annual/audited report pages or PDFs. Do not use
+landing pages, Wikipedia, blogs, forums, social media, news, or aggregators as
+final document evidence.
+
 ## VDS Smoke Checklist
 
 Health:

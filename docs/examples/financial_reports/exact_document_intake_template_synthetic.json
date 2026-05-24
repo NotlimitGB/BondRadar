@@ -1,0 +1,32 @@
+{
+  "status": "template",
+  "mode": "document-intake-template",
+  "issuer_count": 1,
+  "document_template_count": 1,
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "report_period": "2025",
+      "report_type": "annual",
+      "accounting_standard": "IFRS",
+      "source_type": "official_issuer_report",
+      "source_url_context": "https://issuer.example/ | https://disclosure.example/",
+      "document_url": "",
+      "document_title": "",
+      "document_date": "",
+      "source_file_name": "",
+      "operator_review_status": "operator_to_fill",
+      "notes": "Paste exact official annual/audited report page or PDF URL. Do not paste landing page."
+    }
+  ],
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false
+}
