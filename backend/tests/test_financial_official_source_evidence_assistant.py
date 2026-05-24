@@ -550,6 +550,326 @@ def test_document_intake_validate_unknown_allow_remains_review_required(
     assert report["needs_operator_review_count"] == 1
 
 
+def test_document_intake_fill_without_candidates_keeps_rows_unfilled(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    output = tmp_path / "exact_document_intake_filled.json"
+    csv_output = tmp_path / "exact_document_intake_filled.csv"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/ | https://www.e-disclosure.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ | https://www.e-disclosure.ru/"),
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-fill",
+            "--document-intake-input",
+            str(intake),
+            "--document-intake-output",
+            str(output),
+            "--document-intake-csv-output",
+            str(csv_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["issuer_count"] == 2
+    assert report["filled_document_count"] == 0
+    assert report["valid_document_count"] == 0
+    assert report["needs_operator_review_count"] == 2
+    assert any("candidate file not provided" in item["message"] for item in report["warnings"])
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    for item in payload["documents"]:
+        assert item["document_url"] == ""
+        assert item["operator_review_status"] == "operator_to_fill"
+        assert "revenue" not in item
+        assert "values" not in item
+    rows = list(csv.DictReader(csv_output.open(encoding="utf-8")))
+    assert len(rows) == 2
+    assert rows[0]["document_url"] == ""
+
+
+def test_document_intake_fill_with_valid_candidates_passes_validation(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "exact_document_candidates.json"
+    output = tmp_path / "exact_document_intake_filled.json"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/ | https://www.e-disclosure.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ | https://www.e-disclosure.ru/"),
+        ],
+    )
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            ),
+            _document_item(
+                67,
+                "https://mostotrest.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            ),
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-fill",
+            "--document-intake-input",
+            str(intake),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--document-intake-output",
+            str(output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "passed"
+    assert report["filled_document_count"] == 2
+    assert report["valid_document_count"] == 2
+    assert report["needs_operator_review_count"] == 0
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert all(item["operator_review_status"] == "operator_reviewed" for item in payload["documents"])
+    validate_args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-validate",
+            "--document-intake-input",
+            str(output),
+        ]
+    )
+    validate_report, validate_exit = assistant.run_assistant(validate_args)
+    assert validate_exit == 0
+    assert validate_report["status"] == "passed"
+    assert validate_report["valid_document_count"] == 2
+
+
+def test_document_intake_fill_unknown_allow_remains_review_required(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "unknown_candidates.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://example.com/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-fill",
+            "--document-intake-input",
+            str(intake),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--allow-unknown-source",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["valid_document_count"] == 0
+    assert report["needs_operator_review_count"] == 1
+    assert report["documents"][0]["operator_review_status"] == "needs_operator_review"
+
+
+def test_document_intake_fill_blocks_bad_source_and_financial_values(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "bad_candidates.json"
+    bad = _document_item(
+        18,
+        "https://wikipedia.org/wiki/RZD",
+        "Annual audited consolidated IFRS financial statements 2025",
+    )
+    bad["revenue"] = "1000"
+    bad["financial_values"] = {"cash": "100"}
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_document_intake(candidates, [bad])
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-fill",
+            "--document-intake-input",
+            str(intake),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--allow-unknown-source",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any("blocked unofficial source domain" in item["message"] for item in report["errors"])
+    assert any("financial values are forbidden" in item["message"] for item in report["errors"])
+
+
+def test_document_intake_fill_output_works_with_document_resolve(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "exact_document_candidates.json"
+    filled = tmp_path / "exact_document_intake_filled.json"
+    resolved = tmp_path / "resolved_source_intake.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+    )
+    fill_args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-fill",
+            "--document-intake-input",
+            str(intake),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--document-intake-output",
+            str(filled),
+        ]
+    )
+    fill_report, fill_exit = assistant.run_assistant(fill_args)
+    assert fill_exit == 0
+    assert fill_report["valid_document_count"] == 1
+
+    resolve_args = assistant.parse_args(
+        [
+            "--mode",
+            "document-resolve",
+            "--source-intake-input",
+            str(discovered),
+            "--document-intake-input",
+            str(filled),
+            "--source-intake-output",
+            str(resolved),
+        ]
+    )
+    resolve_report, resolve_exit = assistant.run_assistant(resolve_args)
+
+    assert resolve_exit == 0
+    assert resolve_report["resolved_document_count"] == 1
+    resolved_payload = json.loads(resolved.read_text(encoding="utf-8"))
+    assert any(
+        source.get("status") == "valid_official_source"
+        for source in resolved_payload["issuer_sources"][0]["source_candidates"]
+    )
+
+
+def test_document_intake_fill_probe_and_download_are_optional(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "exact_document_candidates.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+    )
+    probes: list[str] = []
+    downloads: list[str] = []
+
+    def fake_probe(url: str, *, timeout_seconds: float, max_bytes: int) -> dict:
+        probes.append(url)
+        return {
+            "status": "ok",
+            "http_status": 200,
+            "content_type": "application/pdf",
+            "error": None,
+        }
+
+    def fake_download(document: dict, download_dir: Path) -> dict:
+        downloads.append(document["document_url"])
+        return {
+            "url": document["document_url"],
+            "local_path": str(download_dir / "annual-ifrs-2025.pdf"),
+            "sha256": "abc123",
+            "size_bytes": 123,
+            "content_type": "application/pdf",
+            "warnings": [],
+            "errors": [],
+        }
+
+    monkeypatch.setattr(assistant, "_probe_url", fake_probe)
+    monkeypatch.setattr(assistant, "_download_valid_document", fake_download)
+    no_network_args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-fill",
+            "--document-intake-input",
+            str(intake),
+            "--exact-document-candidates-input",
+            str(candidates),
+        ]
+    )
+    no_network_report, _exit = assistant.run_assistant(no_network_args)
+    assert no_network_report["valid_document_count"] == 1
+    assert probes == []
+    assert downloads == []
+
+    network_args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-fill",
+            "--document-intake-input",
+            str(intake),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--probe-urls",
+            "--download-documents",
+            "--document-download-dir",
+            str(tmp_path / "downloads"),
+        ]
+    )
+    network_report, exit_code = assistant.run_assistant(network_args)
+
+    assert exit_code == 0
+    assert probes == ["https://rzd.ru/investors/annual-ifrs-2025.pdf"]
+    assert downloads == ["https://rzd.ru/investors/annual-ifrs-2025.pdf"]
+    assert network_report["documents"][0]["probe_status"] == "ok"
+    assert network_report["documents"][0]["download"]["sha256"] == "abc123"
+
+
 def test_document_resolve_accepts_operator_reviewed_status(
     tmp_path: Path,
 ) -> None:
@@ -1372,6 +1692,26 @@ def _document_item(company_id: int, document_url: str, title: str) -> dict:
         "source_file_name": Path(document_url).name or "report.pdf",
         "operator_review_status": "reviewed",
         "notes": "Official issuer PDF",
+    }
+
+
+def _empty_document_intake_item(company_id: int, name: str, source_context: str) -> dict:
+    return {
+        "company_id": company_id,
+        "company_name": name,
+        "canonical_company_id": company_id,
+        "canonical_company_name": name,
+        "report_period": "2025",
+        "report_type": "annual",
+        "accounting_standard": "IFRS",
+        "source_type": "official_issuer_report",
+        "source_url_context": source_context,
+        "document_url": "",
+        "document_title": "",
+        "document_date": "",
+        "source_file_name": "",
+        "operator_review_status": "operator_to_fill",
+        "notes": "Paste exact official annual/audited report page or PDF URL. Do not paste landing page.",
     }
 
 

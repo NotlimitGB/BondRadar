@@ -23,12 +23,15 @@ MODE_CHOICES = (
     "document-validate",
     "document-intake-template",
     "document-intake-validate",
+    "document-intake-fill",
     "candidate-fill",
     "preview",
 )
 FORMAT_CHOICES = ("csv", "json")
 DOCUMENT_REPORT_TYPES = ("annual", "quarterly")
 DOCUMENT_ACCOUNTING_STANDARDS = ("IFRS", "RAS", "unknown")
+DOCUMENT_INTAKE_FILL_SOURCES = ("local-candidates", "operator-candidates", "manual-candidates")
+DOCUMENT_CONFIDENCE_LEVELS = {"low": 1, "medium": 2, "high": 3}
 ALLOWED_SOURCE_TYPES = {
     "issuer_investor_relations",
     "official_issuer_report",
@@ -82,7 +85,10 @@ DISCOVERY_STATUSES = {
 }
 EVIDENCE_FINANCIAL_FIELDS = list(collection_pack.FIELDS_TO_COLLECT)
 ALL_FINANCIAL_FIELDS = list(collection_pack.FINANCIAL_FIELDS)
-FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS = set(ALL_FINANCIAL_FIELDS) | {"debt"}
+FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS = set(ALL_FINANCIAL_FIELDS) | {
+    "debt",
+    "financial_values",
+}
 DOCUMENT_VALID_STATUSES = {
     "reviewed_official_document",
     "resolved_official_document",
@@ -168,6 +174,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--document-intake-csv-output", type=Path, default=None)
     parser.add_argument("--document-intake-template-status", default="operator_to_fill")
     parser.add_argument("--require-operator-reviewed", type=_parse_bool, default=True)
+    parser.add_argument(
+        "--document-intake-fill-source",
+        choices=DOCUMENT_INTAKE_FILL_SOURCES,
+        default="local-candidates",
+    )
+    parser.add_argument("--exact-document-candidates-input", type=Path, default=None)
+    parser.add_argument("--allow-reviewed-candidates", type=_parse_bool, default=True)
+    parser.add_argument("--require-exact-document", type=_parse_bool, default=True)
+    parser.add_argument(
+        "--min-document-confidence",
+        choices=tuple(DOCUMENT_CONFIDENCE_LEVELS.keys()),
+        default="medium",
+    )
+    parser.add_argument("--prefer-official-issuer", type=_parse_bool, default=True)
+    parser.add_argument("--prefer-disclosure", type=_parse_bool, default=True)
     parser.add_argument("--document-output", type=Path, default=None)
     parser.add_argument("--document-checklist-output", type=Path, default=None)
     parser.add_argument("--report-period", default="2025")
@@ -219,6 +240,8 @@ def run_assistant(
         report = run_document_intake_template(args)
     elif args.mode == "document-intake-validate":
         report = run_document_intake_validate(args)
+    elif args.mode == "document-intake-fill":
+        report = run_document_intake_fill(args)
     elif args.mode == "candidate-fill":
         report = run_candidate_fill(args)
     else:
@@ -1197,6 +1220,243 @@ def run_document_intake_validate(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def run_document_intake_fill(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    documents: list[dict[str, Any]] = []
+    candidate_documents: list[dict[str, Any]] = []
+    source_context_by_key: dict[str, str] = {}
+    document_context_by_key: dict[str, str] = {}
+
+    if args.document_intake_input is None:
+        errors.append({"message": "document-intake-fill mode requires --document-intake-input"})
+    if not errors:
+        try:
+            documents = load_document_intake_file(args.document_intake_input)
+            source_context_by_key = load_source_context_by_key(args.source_intake_input)
+            document_context_by_key = load_document_context_by_key(args.document_output)
+            candidate_documents = load_exact_document_candidate_items(args.exact_document_candidates_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    if not errors and args.exact_document_candidates_input is None:
+        warnings.append({"message": "exact document candidate file not provided"})
+
+    candidates_by_key = _group_document_candidates(candidate_documents)
+    filled_documents: list[dict[str, Any]] = []
+    validation_results: list[dict[str, Any]] = []
+    if not errors:
+        for document in documents:
+            filled, result = fill_document_intake_item(
+                document,
+                args,
+                candidates=candidates_by_key.get(_document_period_key(document), []),
+                source_context=(
+                    document.get("source_url_context")
+                    or source_context_by_key.get(_document_company_key(document))
+                    or document_context_by_key.get(_document_company_key(document))
+                    or ""
+                ),
+            )
+            filled_documents.append(filled)
+            validation_results.append(result)
+            warnings.extend(result.get("warnings") or [])
+            errors.extend(result.get("errors") or [])
+
+    valid_count = sum(
+        1
+        for result in validation_results
+        if not result.get("errors") and result.get("document_status") == "valid_official_document"
+    )
+    invalid_count = sum(1 for result in validation_results if result.get("errors"))
+    filled_count = sum(
+        1
+        for document in filled_documents
+        if document.get("operator_review_status") == "operator_reviewed"
+        and document.get("document_url")
+    )
+    review_count = sum(
+        1
+        for document in filled_documents
+        if document.get("operator_review_status") != "operator_reviewed"
+        or not document.get("document_url")
+    )
+    if args.document_intake_output is not None and not errors:
+        write_json_report(
+            {
+                "status": "filled",
+                "mode": "document-intake-fill",
+                "issuer_count": len({_document_company_key(item) for item in filled_documents}),
+                "document_template_count": len(filled_documents),
+                "documents": filled_documents,
+                **SAFETY_FLAGS,
+            },
+            args.document_intake_output,
+        )
+    if args.document_intake_csv_output is not None and not errors:
+        write_document_intake_csv(filled_documents, args.document_intake_csv_output)
+
+    status = "failed" if errors else "passed" if valid_count and valid_count == len(filled_documents) else "warning"
+    report = {
+        "status": status,
+        "mode": "document-intake-fill",
+        "issuer_count": len({_document_company_key(item) for item in filled_documents}),
+        "document_template_count": len(filled_documents),
+        "filled_document_count": filled_count,
+        "valid_document_count": valid_count,
+        "needs_operator_review_count": review_count,
+        "invalid_document_count": invalid_count,
+        "documents": filled_documents,
+        "document_results": validation_results,
+        "warnings": warnings,
+        "errors": errors,
+        "document_intake_output": _path_value(args.document_intake_output),
+        "document_intake_csv_output": _path_value(args.document_intake_csv_output),
+        "next_steps": _next_steps("document-intake-fill", status),
+        **SAFETY_FLAGS,
+    }
+    return report
+
+
+def fill_document_intake_item(
+    document: dict[str, Any],
+    args: argparse.Namespace,
+    *,
+    candidates: list[dict[str, Any]],
+    source_context: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    base = _document_intake_base(document, source_context=source_context)
+    base_validation = _not_filled_result(base, "exact document candidate not provided")
+    if not candidates:
+        return base, base_validation
+
+    candidate_results = [
+        validate_fill_candidate(candidate, args=args, base_document=base)
+        for candidate in candidates
+    ]
+    valid_candidates = [
+        item
+        for item in candidate_results
+        if not item["result"]["errors"]
+        and item["result"].get("document_status") == "valid_official_document"
+    ]
+    review_candidates = [
+        item
+        for item in candidate_results
+        if not item["result"]["errors"]
+        and item["result"].get("document_status") == "needs_operator_review"
+    ]
+    error_results = [item["result"] for item in candidate_results if item["result"]["errors"]]
+    if valid_candidates:
+        selected = sorted(
+            valid_candidates,
+            key=lambda item: _candidate_sort_key(item["candidate"], args),
+            reverse=True,
+        )[0]
+        filled = merge_document_candidate(base, selected["candidate"], operator_status="operator_reviewed")
+        validation = validate_document_intake_item(
+            filled,
+            args=args,
+            issuer=_issuer_from_document_intake_item(filled),
+        )
+        _attach_optional_document_metadata(filled, validation, args)
+        return filled, validation
+
+    if review_candidates:
+        selected = sorted(
+            review_candidates,
+            key=lambda item: _candidate_sort_key(item["candidate"], args),
+            reverse=True,
+        )[0]
+        filled = merge_document_candidate(base, selected["candidate"], operator_status="needs_operator_review")
+        validation = selected["result"]
+        validation["warnings"] = list(validation.get("warnings") or []) + [
+            {
+                "company_id": base.get("company_id"),
+                "message": "candidate requires operator review before it can fill exact document intake",
+            }
+        ]
+        return filled, validation
+
+    if error_results:
+        return base, _combine_error_results(base, error_results)
+    return base, base_validation
+
+
+def validate_fill_candidate(
+    candidate: dict[str, Any],
+    *,
+    args: argparse.Namespace,
+    base_document: dict[str, Any],
+) -> dict[str, Any]:
+    normalized = merge_document_candidate(base_document, candidate, operator_status=None)
+    if not normalized.get("confidence"):
+        normalized["confidence"] = "high"
+    if not args.allow_reviewed_candidates:
+        normalized["operator_review_status"] = "needs_operator_review"
+    validation_payload = dict(normalized)
+    for field in FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS:
+        if candidate.get(field) not in (None, ""):
+            validation_payload[field] = candidate.get(field)
+    if candidate.get("values"):
+        validation_payload["values"] = candidate.get("values")
+    result = validate_document_intake_item(
+        validation_payload,
+        args=args,
+        issuer=_issuer_from_document_intake_item(validation_payload),
+    )
+    if _confidence_rank(normalized.get("confidence")) < _confidence_rank(args.min_document_confidence):
+        result["warnings"].append(
+            {
+                "company_id": normalized.get("company_id"),
+                "document_url": normalized.get("document_url"),
+                "message": "document confidence is below minimum threshold",
+                "confidence": normalized.get("confidence"),
+                "min_document_confidence": args.min_document_confidence,
+            }
+        )
+        if args.require_exact_document:
+            result["document_status"] = "needs_operator_review"
+    if result.get("document_status") == "needs_operator_review":
+        result["errors"] = []
+    return {"candidate": normalized, "result": result}
+
+
+def merge_document_candidate(
+    base: dict[str, Any],
+    candidate: dict[str, Any],
+    *,
+    operator_status: str | None,
+) -> dict[str, Any]:
+    merged = dict(base)
+    for field in (
+        "source_type",
+        "document_url",
+        "document_title",
+        "document_date",
+        "source_file_name",
+        "notes",
+    ):
+        value = candidate.get(field)
+        if value not in (None, ""):
+            merged[field] = value
+    merged["report_period"] = str(candidate.get("report_period") or merged.get("report_period") or "")
+    merged["report_type"] = candidate.get("report_type") or merged.get("report_type")
+    merged["accounting_standard"] = candidate.get("accounting_standard") or merged.get("accounting_standard")
+    if operator_status is not None:
+        merged["operator_review_status"] = operator_status
+    else:
+        merged["operator_review_status"] = (
+            candidate.get("operator_review_status")
+            or merged.get("operator_review_status")
+            or "operator_to_fill"
+        )
+    if candidate.get("confidence"):
+        merged["confidence"] = candidate.get("confidence")
+    _strip_financial_values(merged)
+    return merged
+
+
 def validate_document_intake_item(
     document: dict[str, Any],
     *,
@@ -1733,6 +1993,52 @@ def load_document_intake_items(path: Path) -> list[dict[str, Any]]:
     return documents
 
 
+def load_document_intake_file(path: Path) -> list[dict[str, Any]]:
+    if path.suffix.casefold() == ".csv":
+        return load_document_intake_csv(path)
+    return load_document_intake_items(path)
+
+
+def load_exact_document_candidate_items(path: Path | None) -> list[dict[str, Any]]:
+    if path is None:
+        return []
+    return load_document_intake_file(path)
+
+
+def load_document_intake_csv(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise ValueError(f"document intake CSV does not exist: {path}")
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if reader.fieldnames is None:
+            return []
+        return [
+            {key: _normalize_cell(value) for key, value in row.items() if key}
+            for row in reader
+        ]
+
+
+def load_source_context_by_key(path: Path | None) -> dict[str, str]:
+    if path is None:
+        return {}
+    result: dict[str, str] = {}
+    for issuer in load_source_intake(path):
+        key = _issuer_source_key(issuer)
+        sources = issuer.get("source_candidates") or []
+        result[key] = _source_url_context(sources)
+    return result
+
+
+def load_document_context_by_key(path: Path | None) -> dict[str, str]:
+    if path is None:
+        return {}
+    result: dict[str, str] = {}
+    for issuer in load_document_issuers(path):
+        key = _issuer_source_key(issuer)
+        result[key] = _source_url_context(issuer.get("document_candidates") or [])
+    return result
+
+
 def load_document_issuers(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         raise ValueError(f"document input does not exist: {path}")
@@ -1892,6 +2198,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "document-intake-template"
         else "Exact Document Intake Validation"
         if report.get("mode") == "document-intake-validate"
+        else "Exact Document Intake Fill"
+        if report.get("mode") == "document-intake-fill"
         else "Exact Official Report Document Resolver"
         if report.get("mode") in {"document-resolve", "document-validate"}
         else "Official-Source Evidence Assistant"
@@ -1914,7 +2222,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_discovery_markdown_sections(report))
     if report.get("mode") in {"document-resolve", "document-validate"}:
         lines.extend(_render_document_markdown_sections(report))
-    if report.get("mode") in {"document-intake-template", "document-intake-validate"}:
+    if report.get("mode") in {"document-intake-template", "document-intake-validate", "document-intake-fill"}:
         lines.extend(_render_document_intake_markdown_sections(report))
     lines.extend(
         [
@@ -2075,6 +2383,7 @@ def _render_document_intake_markdown_sections(report: dict[str, Any]) -> list[st
         "## Document Intake",
         "",
         f"- document_template_count: {report.get('document_template_count', 0)}",
+        f"- filled_document_count: {report.get('filled_document_count', 0)}",
         f"- valid_document_count: {report.get('valid_document_count', 0)}",
         f"- invalid_document_count: {report.get('invalid_document_count', 0)}",
         f"- needs_operator_review_count: {report.get('needs_operator_review_count', 0)}",
@@ -2228,6 +2537,143 @@ def _strip_financial_values(candidate: dict[str, Any]) -> None:
         candidate.pop(field, None)
     candidate.pop("values", None)
     candidate.pop("field_evidence", None)
+
+
+def _document_intake_base(document: dict[str, Any], *, source_context: str) -> dict[str, Any]:
+    base = {
+        field: document.get(field)
+        for field in DOCUMENT_INTAKE_TEMPLATE_FIELDS
+    }
+    base["source_url_context"] = source_context or document.get("source_url_context") or ""
+    base["operator_review_status"] = document.get("operator_review_status") or "operator_to_fill"
+    base["notes"] = document.get("notes") or "Exact official report document is still required."
+    _strip_financial_values(base)
+    return base
+
+
+def _not_filled_result(document: dict[str, Any], message: str) -> dict[str, Any]:
+    warning = {
+        "company_id": document.get("company_id"),
+        "company_name": document.get("company_name"),
+        "document_url": document.get("document_url"),
+        "document_status": "needs_operator_review",
+        "message": message,
+    }
+    return {
+        "company_id": document.get("company_id"),
+        "company_name": document.get("company_name"),
+        "source_type": document.get("source_type"),
+        "document_url": document.get("document_url") or "",
+        "document_status": "needs_operator_review",
+        "operator_review_status": document.get("operator_review_status") or "operator_to_fill",
+        "report_period": document.get("report_period") or "",
+        "domain_status": None,
+        "status": "warning",
+        "warnings": [warning],
+        "errors": [],
+    }
+
+
+def _group_document_candidates(documents: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for document in documents:
+        grouped.setdefault(_document_period_key(document), []).append(document)
+    return grouped
+
+
+def _document_period_key(document: dict[str, Any]) -> tuple[str, str]:
+    return (
+        _document_company_key(document),
+        str(document.get("report_period") or ""),
+    )
+
+
+def _candidate_sort_key(candidate: dict[str, Any], args: argparse.Namespace) -> tuple[int, int, int]:
+    source_type = str(candidate.get("source_type") or "")
+    official_issuer_bonus = 1 if args.prefer_official_issuer and source_type in {
+        "official_issuer_report",
+        "issuer_annual_report_pdf",
+    } else 0
+    disclosure_bonus = 1 if args.prefer_disclosure and source_type in {
+        "official_disclosure",
+        "exchange_disclosure",
+    } else 0
+    return (
+        official_issuer_bonus,
+        disclosure_bonus,
+        _confidence_rank(candidate.get("confidence") or "high"),
+    )
+
+
+def _confidence_rank(value: Any) -> int:
+    return DOCUMENT_CONFIDENCE_LEVELS.get(str(value or "").casefold(), 0)
+
+
+def _combine_error_results(
+    document: dict[str, Any],
+    results: list[dict[str, Any]],
+) -> dict[str, Any]:
+    errors = [
+        error
+        for result in results
+        for error in result.get("errors") or []
+    ]
+    warnings = [
+        warning
+        for result in results
+        for warning in result.get("warnings") or []
+    ]
+    return {
+        "company_id": document.get("company_id"),
+        "company_name": document.get("company_name"),
+        "source_type": document.get("source_type"),
+        "document_url": document.get("document_url") or "",
+        "document_status": "invalid_document",
+        "operator_review_status": document.get("operator_review_status") or "operator_to_fill",
+        "report_period": document.get("report_period") or "",
+        "domain_status": None,
+        "status": "invalid",
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
+def _attach_optional_document_metadata(
+    document: dict[str, Any],
+    validation: dict[str, Any],
+    args: argparse.Namespace,
+) -> None:
+    if not document.get("document_url"):
+        return
+    classification = classify_source_url(str(document["document_url"]), allow_unknown_source=False)
+    if classification["status"] != "official":
+        return
+    if args.probe_urls:
+        probe = _probe_url(
+            str(document["document_url"]),
+            timeout_seconds=args.probe_timeout_seconds,
+            max_bytes=args.max_probe_bytes,
+        )
+        document["probe"] = probe
+        document["probe_status"] = probe.get("status")
+        document["probe_http_status"] = probe.get("http_status")
+        document["probe_content_type"] = probe.get("content_type")
+        if probe.get("status") != "ok":
+            validation["warnings"].append(
+                {
+                    "company_id": document.get("company_id"),
+                    "document_url": document.get("document_url"),
+                    "message": "document probe failed",
+                    "error": probe.get("error"),
+                }
+            )
+    if args.download_documents and args.document_download_dir is not None:
+        candidate = dict(document)
+        candidate["document_status"] = "valid_official_document"
+        download = _download_valid_document(candidate, args.document_download_dir)
+        document["download"] = download
+        validation["warnings"].extend(download.get("warnings") or [])
+        validation["errors"].extend(download.get("errors") or [])
 
 
 def _source_url_context(documents: list[dict[str, Any]]) -> str:
@@ -2613,6 +3059,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Fill exact document intake with reviewed official annual/audited report metadata."]
     if mode == "document-intake-validate":
         return ["Resolve documents with reviewed exact intake before candidate-fill."]
+    if mode == "document-intake-fill":
+        return ["Validate filled exact document intake, then run document-resolve before candidate-fill."]
     if mode == "candidate-fill":
         return ["Run preview mode; do not import until a separate controlled import task."]
     return ["Review preview output; import remains disabled in this workflow."]

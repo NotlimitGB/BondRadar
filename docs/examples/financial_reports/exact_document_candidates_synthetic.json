@@ -1,0 +1,22 @@
+{
+  "status": "operator_reviewed",
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "report_period": "2025",
+      "report_type": "annual",
+      "accounting_standard": "IFRS",
+      "source_type": "official_issuer_report",
+      "source_url_context": "https://issuer.example/",
+      "document_url": "https://issuer.example/reports/synthetic-annual-ifrs-2025.pdf",
+      "document_title": "Annual audited consolidated IFRS financial statements 2025",
+      "document_date": "2026-03-15",
+      "source_file_name": "synthetic-annual-ifrs-2025.pdf",
+      "operator_review_status": "operator_reviewed",
+      "notes": "Synthetic official issuer report PDF example."
+    }
+  ]
+}

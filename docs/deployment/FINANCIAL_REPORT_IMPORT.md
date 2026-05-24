@@ -831,6 +831,56 @@ date, and file name empty. Operators must paste exact official annual/audited
 report page or PDF metadata, mark the row reviewed, and validate it before any
 future candidate-fill step.
 
+## Exact Official Document Intake Fill
+
+Task 100 fills exact document metadata from a private reviewed candidate file.
+It does not discover the open web, extract financial values, OCR or parse PDFs,
+import reports, or trade. If no reviewed exact candidate file is supplied, the
+filled intake remains unfilled with warnings.
+
+Fill exact document intake from reviewed candidates:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-intake-fill \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-output data/financial_reports/private/official_report_documents_task98.json \
+  --exact-document-candidates-input data/financial_reports/private/exact_document_candidates_task100.json \
+  --document-intake-output data/financial_reports/private/exact_document_intake_filled_task100.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_filled_task100.csv \
+  --json-output logs/financial_reports/exact_document_discovery_task100.json \
+  --markdown-output logs/financial_reports/exact_document_discovery_task100.md
+```
+
+Validate filled exact document intake:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-intake-validate \
+  --document-intake-input data/financial_reports/private/exact_document_intake_filled_task100.json \
+  --json-output logs/financial_reports/exact_document_intake_validation_task100.json \
+  --markdown-output logs/financial_reports/exact_document_intake_validation_task100.md
+```
+
+Resolve exact documents after validation:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-resolve \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_filled_task100.json \
+  --source-intake-output data/financial_reports/private/official_source_intake_resolved_task100.json \
+  --document-output data/financial_reports/private/official_report_documents_resolved_task100.json \
+  --document-checklist-output logs/financial_reports/official_report_document_checklist_task100.csv \
+  --json-output logs/financial_reports/official_report_documents_resolved_task100.json \
+  --markdown-output logs/financial_reports/official_report_documents_resolved_task100.md
+```
+
+Only exact reviewed official report pages or PDFs can fill rows. Unknown domains
+remain review-only even with `--allow-unknown-source`, and blocked domains or
+financial fields fail validation.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
