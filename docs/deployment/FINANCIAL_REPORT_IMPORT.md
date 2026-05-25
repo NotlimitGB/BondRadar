@@ -1273,6 +1273,57 @@ Only `document_kind = exact_report_document` with `filter_status = kept` can be
 fed to document intake. The mode still does not parse PDFs, OCR documents,
 extract values, import reports, trade, or mutate any database state.
 
+## Exact Document Discovery: Strict Period and Report-Type Gate
+
+Task 110 keeps `exact-document-discover-from-seeds` strict for target-period
+annual IFRS discovery. Wrong-year documents, interim/half-year/quarterly
+reports, and wrong-standard documents are diagnostics by default. They are not
+kept as target-period evidence and do not flow into `document-intake-fill`.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-second-level-crawl true \
+  --exact-document-max-crawl-depth 2 \
+  --exact-document-filter-legal-documents true \
+  --exact-document-filter-policy-documents true \
+  --exact-document-filter-generic-pdfs true \
+  --exact-document-filter-wrong-period true \
+  --exact-document-filter-interim-for-annual true \
+  --exact-document-filter-wrong-report-type true \
+  --exact-document-filter-wrong-standard true \
+  --exact-document-period-policy target-only \
+  --exact-document-target-period-required true \
+  --exact-document-allow-prior-year-fallback false \
+  --exact-document-include-category-pages false \
+  --exact-document-candidate-output data/financial_reports/private/exact_document_candidates_from_seeds_task110.json \
+  --exact-document-candidate-csv-output data/financial_reports/private/exact_document_candidates_from_seeds_task110.csv \
+  --run-document-intake-fill true \
+  --document-intake-output data/financial_reports/private/exact_document_intake_filled_task110.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_filled_task110.csv \
+  --run-document-intake-validate true \
+  --document-intake-validation-json-output logs/financial_reports/exact_document_intake_validation_task110.json \
+  --document-intake-validation-markdown-output logs/financial_reports/exact_document_intake_validation_task110.md \
+  --run-document-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task110.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task110.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task110.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task110.md
+```
+
+Default period policy is `target-only`: a 2025 annual IFRS request keeps only
+2025 annual IFRS exact documents. Old annual files, 1H/6M/9M/quarterly/interim
+files, and RAS/РСБУ files are filtered diagnostics. Prior-year fallback is
+disabled by default; when explicitly enabled it is operator-review support only
+and cannot satisfy the target-period quality gate or set
+`ready_for_value_extraction`.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

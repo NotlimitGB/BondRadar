@@ -1,0 +1,74 @@
+{
+  "status": "warning",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count_before_filter": 4,
+  "candidate_count_after_filter": 1,
+  "candidate_count": 1,
+  "filtered_wrong_period_count": 1,
+  "filtered_wrong_report_type_count": 1,
+  "filtered_wrong_standard_count": 1,
+  "target_period_document_count": 2,
+  "wrong_period_document_count": 1,
+  "annual_match_document_count": 3,
+  "interim_or_quarterly_document_count": 1,
+  "standard_match_document_count": 3,
+  "standard_mismatch_document_count": 1,
+  "kept_target_period_document_count": 1,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "https://issuer.example/reports/annual-ifrs-financial-statements-2025.pdf",
+      "document_title": "Annual audited IFRS financial statements 2025",
+      "document_kind": "exact_report_document",
+      "document_period_year": "2025",
+      "document_period_quarter": "",
+      "document_period_status": "target_period",
+      "period_confidence": "high",
+      "period_evidence": [
+        "year:2025"
+      ],
+      "report_type_match_status": "annual_match",
+      "type_evidence": [
+        "annual_signal"
+      ],
+      "accounting_standard_match_status": "standard_match",
+      "standard_evidence": [
+        "ifrs_signal"
+      ],
+      "fallback_status": "not_fallback",
+      "document_status": "valid_official_document",
+      "operator_review_status": "operator_reviewed",
+      "filter_status": "kept",
+      "filter_reasons": []
+    },
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "https://issuer.example/reports/annual-ifrs-financial-statements-2019.pdf",
+      "document_title": "Annual IFRS financial statements 2019",
+      "document_kind": "exact_report_document",
+      "document_period_year": "2019",
+      "document_period_status": "wrong_period",
+      "report_type_match_status": "annual_match",
+      "accounting_standard_match_status": "standard_match",
+      "fallback_status": "fallback_rejected_target_required",
+      "document_status": "filtered_document",
+      "operator_review_status": "operator_to_fill",
+      "filter_status": "filtered_wrong_period",
+      "filter_reasons": [
+        "document period does not match requested report period"
+      ]
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

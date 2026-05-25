@@ -1,0 +1,69 @@
+{
+  "status": "discovered",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count_before_filter": 3,
+  "candidate_count_after_filter": 1,
+  "candidate_count": 1,
+  "filtered_wrong_period_count": 1,
+  "filtered_wrong_report_type_count": 1,
+  "kept_target_period_document_count": 1,
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Bridge Issuer",
+      "inn": "7700000001",
+      "ogrn": "1027700000001",
+      "report_period": "2025",
+      "report_type": "annual",
+      "accounting_standard": "IFRS",
+      "source_type": "official_issuer_report",
+      "source_page_url": "https://issuer.example/investors/reports/",
+      "document_url": "https://issuer.example/reports/synthetic-annual-ifrs-financial-statements-2025.pdf",
+      "document_title": "Annual IFRS financial statements 2025",
+      "document_kind": "exact_report_document",
+      "document_period_year": "2025",
+      "document_period_quarter": "",
+      "document_period_status": "target_period",
+      "period_confidence": "high",
+      "period_evidence": [
+        "year:2025"
+      ],
+      "report_type_match_status": "annual_match",
+      "type_evidence": [
+        "annual_signal"
+      ],
+      "accounting_standard_match_status": "standard_match",
+      "standard_evidence": [
+        "ifrs_signal"
+      ],
+      "fallback_status": "not_fallback",
+      "crawl_depth": 2,
+      "parent_seed_url": "https://issuer.example/investors/reports/",
+      "source_chain": [
+        "https://issuer.example/investors/",
+        "https://issuer.example/investors/reports/",
+        "https://issuer.example/reports/synthetic-annual-ifrs-financial-statements-2025.pdf"
+      ],
+      "document_status": "valid_official_document",
+      "operator_review_status": "operator_reviewed",
+      "candidate_rank": 1,
+      "candidate_score": 165,
+      "raw_score": 165,
+      "final_score": 165,
+      "candidate_confidence": "high",
+      "filter_status": "kept",
+      "filter_reasons": [],
+      "score_reasons": [
+        "target report period",
+        "IFRS signal",
+        "annual report signal"
+      ],
+      "negative_reasons": []
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

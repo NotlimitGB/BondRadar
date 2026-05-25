@@ -183,6 +183,16 @@ EXACT_DOCUMENT_FROM_SEED_FIELDS = [
     "document_url",
     "document_title",
     "document_kind",
+    "document_period_year",
+    "document_period_quarter",
+    "document_period_status",
+    "period_confidence",
+    "period_evidence",
+    "report_type_match_status",
+    "type_evidence",
+    "accounting_standard_match_status",
+    "standard_evidence",
+    "fallback_status",
     "crawl_depth",
     "parent_seed_url",
     "source_chain",
@@ -590,7 +600,6 @@ EXACT_DOCUMENT_WRONG_TYPE_KINDS = {
     "user_agreement_document",
     "presentation_document",
     "prospectus_document",
-    "quarterly_or_interim_document",
     "news_or_press_document",
     "generic_navigation_page",
 }
@@ -611,6 +620,69 @@ EXACT_DOCUMENT_KIND_COUNTERS = {
     "generic_navigation_page": "generic_navigation_page_count",
     "unknown_document": "unknown_document_count",
 }
+EXACT_DOCUMENT_ANNUAL_TERMS = (
+    "annual",
+    "yearly",
+    "12m",
+    "12 months",
+    "12 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
+    "\u0433\u043e\u0434\u043e\u0432",
+    "\u0433\u043e\u0434\u043e\u0432\u0430\u044f",
+    "\u0433\u043e\u0434\u043e\u0432\u044b\u0435",
+    "\u0437\u0430 \u0433\u043e\u0434",
+    "31.12",
+    "31-12",
+)
+EXACT_DOCUMENT_INTERIM_TERMS = (
+    "1h",
+    "h1",
+    "half-year",
+    "half year",
+    "6m",
+    "6 months",
+    "6 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
+    "9m",
+    "9 months",
+    "9 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
+    "q1",
+    "q2",
+    "q3",
+    "q4",
+    "1q",
+    "2q",
+    "3q",
+    "4q",
+    "quarter",
+    "quarterly",
+    "3m",
+    "3 months",
+    "interim",
+    "condensed",
+    "\u043f\u043e\u043b\u0443\u0433\u043e\u0434",
+    "\u043a\u0432\u0430\u0440\u0442\u0430\u043b",
+    "\u043a\u0432\u0430\u0440\u0442\u0430\u043b\u044c\u043d",
+    "\u043f\u0440\u043e\u043c\u0435\u0436\u0443\u0442",
+    "\u0441\u043e\u043a\u0440\u0430\u0449\u0435\u043d",
+    "\u0441\u043e\u043a\u0440\u0430\u0449\u0451\u043d",
+)
+EXACT_DOCUMENT_IFRS_TERMS = (
+    "ifrs",
+    "\u043c\u0441\u0444\u043e",
+    "international financial reporting standards",
+    "consolidated financial statements",
+    "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
+    "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
+)
+EXACT_DOCUMENT_RAS_TERMS = (
+    "ras",
+    "\u0440\u0441\u0431\u0443",
+    "individual financial statements",
+    "standalone",
+    "\u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0441\u043a\u0430\u044f \u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
+    "\u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0441\u043a\u0430\u044f \u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
+    "\u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0441\u043a\u043e\u0439 \u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u0438",
+    "\u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0441\u043a\u043e\u0439 \u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u0438",
+)
 DOCUMENT_CHECKLIST_FIELDS = [
     "rank",
     "company_id",
@@ -843,6 +915,26 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exact-document-include-category-pages", type=_parse_bool, default=False)
     parser.add_argument("--exact-document-max-category-pages-per-issuer", type=int, default=5)
     parser.add_argument("--exact-document-max-second-level-links-per-page", type=int, default=300)
+    parser.add_argument(
+        "--exact-document-period-policy",
+        choices=("target-only", "target-or-prior-year-fallback", "diagnostic-all"),
+        default="target-only",
+    )
+    parser.add_argument("--exact-document-filter-wrong-period", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-filter-interim-for-annual", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-filter-wrong-report-type", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-filter-wrong-standard", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-include-wrong-period", type=_parse_bool, default=False)
+    parser.add_argument("--exact-document-include-wrong-report-type", type=_parse_bool, default=False)
+    parser.add_argument("--exact-document-allow-prior-year-fallback", type=_parse_bool, default=False)
+    parser.add_argument("--exact-document-max-prior-year-gap", type=int, default=1)
+    parser.add_argument("--exact-document-target-period-required", type=_parse_bool, default=True)
+    parser.add_argument(
+        "--exact-document-unknown-period-policy",
+        choices=("review-only", "filter", "diagnostic"),
+        default="review-only",
+    )
+    parser.add_argument("--exact-document-min-period-confidence", default="medium")
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -4975,6 +5067,21 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             f"- quarterly_or_interim_document_count: {report.get('quarterly_or_interim_document_count', 0)}",
             f"- generic_navigation_page_count: {report.get('generic_navigation_page_count', 0)}",
             "",
+            "## Period/Type/Standard Summary",
+            "",
+            f"- target_period_document_count: {report.get('target_period_document_count', 0)}",
+            f"- wrong_period_document_count: {report.get('wrong_period_document_count', 0)}",
+            f"- unknown_period_document_count: {report.get('unknown_period_document_count', 0)}",
+            f"- period_conflict_document_count: {report.get('period_conflict_document_count', 0)}",
+            f"- annual_match_document_count: {report.get('annual_match_document_count', 0)}",
+            f"- interim_or_quarterly_document_count: {report.get('interim_or_quarterly_document_count', 0)}",
+            f"- unknown_report_type_document_count: {report.get('unknown_report_type_document_count', 0)}",
+            f"- standard_match_document_count: {report.get('standard_match_document_count', 0)}",
+            f"- standard_mismatch_document_count: {report.get('standard_mismatch_document_count', 0)}",
+            f"- unknown_standard_document_count: {report.get('unknown_standard_document_count', 0)}",
+            f"- kept_target_period_document_count: {report.get('kept_target_period_document_count', 0)}",
+            f"- kept_fallback_document_count: {report.get('kept_fallback_document_count', 0)}",
+            "",
             "## Category Pages Followed",
             "",
             "| Company ID | Company | Category URL | Title | Kind | Depth | Followed |",
@@ -5002,24 +5109,26 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             "",
             "## Exact Document Candidates",
             "",
-            "| Company ID | Company | Rank | URL | Title | Kind | Depth | Parent | Source Page | Score | Confidence | Operator Status | Document Status | Reasons | Negative Reasons |",
-            "| ---: | --- | ---: | --- | --- | --- | ---: | --- | --- | ---: | --- | --- | --- | --- | --- |",
+            "| Company ID | Company | Rank | URL | Title | Kind | Period | Type | Standard | Depth | Parent | Score | Confidence | Operator Status | Document Status | Reasons | Negative Reasons |",
+            "| ---: | --- | ---: | --- | --- | --- | --- | --- | --- | ---: | --- | ---: | --- | --- | --- | --- | --- |",
         ]
     )
     rows = 0
     for document in report.get("documents") or []:
         rows += 1
         lines.append(
-            "| {company_id} | {company_name} | {rank} | {url} | {title} | {kind} | {depth} | {parent} | {source_page} | {score} | {confidence} | {operator_status} | {document_status} | {reasons} | {negative} |".format(
+            "| {company_id} | {company_name} | {rank} | {url} | {title} | {kind} | {period} | {type_status} | {standard} | {depth} | {parent} | {score} | {confidence} | {operator_status} | {document_status} | {reasons} | {negative} |".format(
                 company_id=document.get("company_id") or "",
                 company_name=str(document.get("company_name") or "").replace("|", "/"),
                 rank=document.get("candidate_rank") or "",
                 url=str(document.get("document_url") or "").replace("|", "/"),
                 title=str(document.get("document_title") or "").replace("|", "/"),
                 kind=document.get("document_kind") or "",
+                period=f"{document.get('document_period_year') or ''} {document.get('document_period_status') or ''}".strip(),
+                type_status=document.get("report_type_match_status") or "",
+                standard=document.get("accounting_standard_match_status") or "",
                 depth=document.get("crawl_depth") or "",
                 parent=str(document.get("parent_seed_url") or "").replace("|", "/"),
-                source_page=str(document.get("source_page_url") or "").replace("|", "/"),
                 score=document.get("candidate_score") or 0,
                 confidence=document.get("candidate_confidence") or "",
                 operator_status=document.get("operator_review_status") or "",
@@ -5029,7 +5138,91 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             )
         )
     if rows == 0:
-        lines.append("|  |  |  | No candidates |  |  |  |  |  |  |  |  |  |  |  |")
+        lines.append("|  |  |  | No candidates |  |  |  |  |  |  |  |  |  |  |  |  |  |")
+    wrong_period_documents = [
+        document
+        for document in report.get("documents") or []
+        if document.get("filter_status") in {"filtered_wrong_period", "filtered_wrong_report_type", "filtered_wrong_standard", "filtered_unknown_period"}
+    ]
+    lines.extend(
+        [
+            "",
+            "## Filtered Wrong Period Documents",
+            "",
+            "| URL | Title | Year | Period Status | Type Status | Standard Status | Filter Status | Filter Reasons |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if wrong_period_documents:
+        for document in wrong_period_documents:
+            lines.append(
+                "| {url} | {title} | {year} | {period} | {type_status} | {standard} | {filter_status} | {reasons} |".format(
+                    url=str(document.get("document_url") or "").replace("|", "/"),
+                    title=str(document.get("document_title") or "").replace("|", "/"),
+                    year=document.get("document_period_year") or "",
+                    period=document.get("document_period_status") or "",
+                    type_status=document.get("report_type_match_status") or "",
+                    standard=document.get("accounting_standard_match_status") or "",
+                    filter_status=document.get("filter_status") or "",
+                    reasons=_csv_value(document.get("filter_reasons")).replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |  |")
+    kept_target_documents = [
+        document
+        for document in report.get("documents") or []
+        if _exact_document_is_downstream_eligible(document)
+    ]
+    lines.extend(
+        [
+            "",
+            "## Kept Target-Period Documents",
+            "",
+            "| URL | Title | Year | Type Status | Standard Status | Score | Operator Status |",
+            "| --- | --- | --- | --- | --- | ---: | --- |",
+        ]
+    )
+    if kept_target_documents:
+        for document in kept_target_documents:
+            lines.append(
+                "| {url} | {title} | {year} | {type_status} | {standard} | {score} | {review} |".format(
+                    url=str(document.get("document_url") or "").replace("|", "/"),
+                    title=str(document.get("document_title") or "").replace("|", "/"),
+                    year=document.get("document_period_year") or "",
+                    type_status=document.get("report_type_match_status") or "",
+                    standard=document.get("accounting_standard_match_status") or "",
+                    score=document.get("candidate_score") or 0,
+                    review=document.get("operator_review_status") or "",
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |")
+    fallback_documents = [
+        document
+        for document in report.get("documents") or []
+        if document.get("fallback_status") == "fallback_candidate"
+    ]
+    if fallback_documents:
+        lines.extend(
+            [
+                "",
+                "## Fallback Candidates",
+                "",
+                "| URL | Title | Year | Filter Status | Operator Status |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for document in fallback_documents:
+            lines.append(
+                "| {url} | {title} | {year} | {filter_status} | {review} |".format(
+                    url=str(document.get("document_url") or "").replace("|", "/"),
+                    title=str(document.get("document_title") or "").replace("|", "/"),
+                    year=document.get("document_period_year") or "",
+                    filter_status=document.get("filter_status") or "",
+                    review=document.get("operator_review_status") or "",
+                )
+            )
     legal_documents = [
         document
         for document in report.get("documents") or []
@@ -5126,6 +5319,10 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             f"- filtered_low_score_count: {report.get('filtered_low_score_count', 0)}",
             f"- filtered_duplicate_count: {report.get('filtered_duplicate_count', 0)}",
             f"- filtered_wrong_document_type_count: {report.get('filtered_wrong_document_type_count', 0)}",
+            f"- filtered_wrong_period_count: {report.get('filtered_wrong_period_count', 0)}",
+            f"- filtered_wrong_report_type_count: {report.get('filtered_wrong_report_type_count', 0)}",
+            f"- filtered_wrong_standard_count: {report.get('filtered_wrong_standard_count', 0)}",
+            f"- filtered_unknown_period_count: {report.get('filtered_unknown_period_count', 0)}",
             "",
             "## Integrated Document Intake / Gate",
             "",
@@ -6135,12 +6332,184 @@ def _exact_document_category_page_types(args: argparse.Namespace) -> set[str]:
     return values or set(EXACT_DOCUMENT_CATEGORY_KINDS)
 
 
+def classify_exact_document_period(
+    document_url: str,
+    title: str,
+    source_page_url: str,
+    *,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    text = _exact_document_evidence_text(document_url, title)
+    target = str(getattr(args, "report_period", "") or "")
+    years = _extract_exact_document_years(text)
+    evidence: list[str] = []
+    period_year = ""
+    status = "unknown_period"
+    confidence = "low"
+    fallback_status = "not_fallback"
+    if years:
+        evidence.extend(f"year:{year}" for year in years)
+        if target and target in years:
+            period_year = target
+            status = "target_period"
+            confidence = "high" if len(years) == 1 else "medium"
+        elif len(years) > 1:
+            period_year = ",".join(years)
+            status = "period_conflict"
+            confidence = "low"
+        else:
+            period_year = years[0]
+            if _exact_document_prior_year_allowed(period_year, args):
+                status = "prior_period_fallback_candidate"
+                fallback_status = "fallback_candidate"
+                confidence = "medium"
+            else:
+                status = "wrong_period"
+                confidence = "high"
+    quarter = _infer_exact_document_period_quarter(text)
+    if quarter:
+        evidence.append(f"period_marker:{quarter}")
+        if not period_year and target and status == "unknown_period":
+            confidence = "medium"
+    if not years and target and str(getattr(args, "exact_document_period_policy", "")) == "diagnostic-all":
+        fallback_status = "not_fallback"
+    return {
+        "document_period_year": period_year,
+        "document_period_quarter": quarter,
+        "document_period_status": status,
+        "period_confidence": confidence,
+        "period_evidence": evidence,
+        "fallback_status": fallback_status,
+    }
+
+
+def classify_exact_document_report_type(
+    document_url: str,
+    title: str,
+    *,
+    args: argparse.Namespace,
+    period_quarter: str = "",
+) -> dict[str, Any]:
+    text = _exact_document_evidence_text(document_url, title)
+    evidence: list[str] = []
+    interim = _contains_any(text, EXACT_DOCUMENT_INTERIM_TERMS) or period_quarter in {"Q1", "Q2", "Q3", "Q4", "H1", "1H", "6M", "9M"}
+    annual = _contains_any(text, EXACT_DOCUMENT_ANNUAL_TERMS) or period_quarter in {"FY", "0"}
+    if re.search(r"(?:20\d{2})[_-]12(?:\D|$)", text):
+        annual = True
+        evidence.append("year_month_12")
+    if re.search(r"(?:31[.\-/]?12|12[.\-/]?31)", text):
+        annual = True
+        evidence.append("year_end_date")
+    if interim:
+        evidence.append("interim_or_quarterly_signal")
+    if annual:
+        evidence.append("annual_signal")
+    if str(getattr(args, "report_type", "") or "").casefold() == "annual":
+        if interim:
+            status = "interim_or_quarterly_mismatch"
+        elif annual:
+            status = "annual_match"
+        else:
+            status = "unknown_report_type"
+    else:
+        status = "unknown_report_type"
+    return {"report_type_match_status": status, "type_evidence": evidence}
+
+
+def classify_exact_document_accounting_standard(
+    document_url: str,
+    title: str,
+    *,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    text = _exact_document_evidence_text(document_url, title)
+    evidence: list[str] = []
+    target = str(getattr(args, "accounting_standard", "") or "").casefold()
+    ifrs = _contains_any(text, EXACT_DOCUMENT_IFRS_TERMS)
+    ras = _contains_any(text, EXACT_DOCUMENT_RAS_TERMS)
+    if ifrs:
+        evidence.append("ifrs_signal")
+    if ras:
+        evidence.append("ras_or_standalone_signal")
+    if target == "ifrs":
+        if ifrs:
+            status = "standard_match"
+        elif ras:
+            status = "standard_mismatch"
+        else:
+            status = "unknown_standard"
+    else:
+        status = "unknown_standard"
+    return {"accounting_standard_match_status": status, "standard_evidence": evidence}
+
+
+def _exact_document_evidence_text(document_url: str, title: str) -> str:
+    path = urllib.parse.urlparse(document_url).path
+    file_name = _file_name_from_url(document_url)
+    return f"{document_url} {path} {file_name} {title}".casefold()
+
+
+def _extract_exact_document_years(text: str) -> list[str]:
+    years: set[str] = set()
+    for match in re.finditer(r"(?<!\d)(20\d{2})(?!\d)", text):
+        years.add(match.group(1))
+    for match in re.finditer(r"(?<!\d)(20\d{2})(0[1-9]|1[0-2])([0-3]\d)(?!\d)", text):
+        years.add(match.group(1))
+    for match in re.finditer(r"(?<!\d)([0-3]\d)(0[1-9]|1[0-2])(20\d{2})(?!\d)", text):
+        years.add(match.group(3))
+    for match in re.finditer(r"(?<!\d)([0-3]?\d)[.\-/](0?[1-9]|1[0-2])[.\-/](20\d{2})(?!\d)", text):
+        years.add(match.group(3))
+    return sorted(years)
+
+
+def _infer_exact_document_period_quarter(text: str) -> str:
+    if re.search(r"(?<![a-z0-9])(?:q1|1q)(?![a-z0-9])", text) or re.search(r"(?:31[.\-/]?03|0331|3103)", text):
+        return "Q1"
+    if re.search(r"(?<![a-z0-9])(?:q2|2q)(?![a-z0-9])", text):
+        return "Q2"
+    if re.search(r"(?<![a-z0-9])(?:q3|3q)(?![a-z0-9])", text) or re.search(r"(?:30[.\-/]?09|0930|3009)", text):
+        return "Q3"
+    if re.search(r"(?<![a-z0-9])(?:q4|4q)(?![a-z0-9])", text):
+        return "Q4"
+    if re.search(r"(?<![a-z0-9])(?:1h|h1|6m)(?![a-z0-9])", text) or re.search(r"(?:30[.\-/]?06|0630|3006)", text):
+        return "H1"
+    if re.search(r"(?<![a-z0-9])9m(?![a-z0-9])", text):
+        return "9M"
+    if re.search(r"(?:31[.\-/]?12|1231|3112)", text) or re.search(r"(?:20\d{2})[_-]12(?:\D|$)", text):
+        return "FY"
+    if _contains_any(text, ("12m", "12 months", "12 \u043c\u0435\u0441\u044f\u0446\u0435\u0432")):
+        return "FY"
+    return ""
+
+
+def _exact_document_prior_year_allowed(period_year: str, args: argparse.Namespace) -> bool:
+    if not args.exact_document_allow_prior_year_fallback:
+        return False
+    if str(args.exact_document_period_policy) != "target-or-prior-year-fallback":
+        return False
+    try:
+        target = int(str(args.report_period))
+        year = int(str(period_year))
+    except (TypeError, ValueError):
+        return False
+    gap = target - year
+    return 0 < gap <= max(int(args.exact_document_max_prior_year_gap or 0), 0)
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
     if document.get("filter_status") != "kept":
         return False
     if document.get("document_kind") != "exact_report_document":
+        return False
+    if document.get("document_period_status") != "target_period":
+        return False
+    if document.get("report_type_match_status") == "interim_or_quarterly_mismatch":
+        return False
+    if document.get("accounting_standard_match_status") == "standard_mismatch":
+        return False
+    if document.get("fallback_status") != "not_fallback":
         return False
     return document.get("document_status") in {"valid_official_document", "needs_operator_review"}
 
@@ -6330,6 +6699,14 @@ def build_exact_document_candidate_from_seed_anchor(
     title = _candidate_title(anchor, document_url)
     source_type = _exact_document_source_type(seed, document_url, source_page_url)
     document_kind = classify_exact_document_kind(document_url, title, args=args)
+    period_classification = classify_exact_document_period(document_url, title, source_page_url, args=args)
+    type_classification = classify_exact_document_report_type(
+        document_url,
+        title,
+        args=args,
+        period_quarter=str(period_classification.get("document_period_quarter") or ""),
+    )
+    standard_classification = classify_exact_document_accounting_standard(document_url, title, args=args)
     score, reasons, negatives = score_exact_document_candidate_from_seed(
         document_url,
         title,
@@ -6372,6 +6749,9 @@ def build_exact_document_candidate_from_seed_anchor(
         and official
         and exact
         and strong
+        and period_classification.get("document_period_status") == "target_period"
+        and type_classification.get("report_type_match_status") == "annual_match"
+        and standard_classification.get("accounting_standard_match_status") == "standard_match"
         and score >= args.exact_document_auto_review_threshold
     ):
         document_status = "valid_official_document"
@@ -6401,6 +6781,9 @@ def build_exact_document_candidate_from_seed_anchor(
         "document_url": document_url,
         "document_title": title,
         "document_kind": document_kind,
+        **period_classification,
+        **type_classification,
+        **standard_classification,
         "crawl_depth": crawl_depth,
         "parent_seed_url": parent_seed_url or source_page_url,
         "source_chain": [*(source_chain or []), document_url],
@@ -6517,6 +6900,18 @@ def _select_top_exact_document_candidates(
     prepared = [dict(candidate) for candidate in candidates]
     for candidate in prepared:
         _apply_exact_document_candidate_filter(candidate, args=args)
+    issuers_with_target = {
+        str(item.get("company_id") or item.get("canonical_company_id") or "")
+        for item in prepared
+        if _exact_document_is_downstream_eligible(item)
+    }
+    for candidate in prepared:
+        issuer_key = str(candidate.get("company_id") or candidate.get("canonical_company_id") or "")
+        if candidate.get("filter_status") == "kept_fallback" and issuer_key in issuers_with_target:
+            candidate["fallback_status"] = "fallback_rejected_target_required"
+            candidate["document_status"] = "filtered_document"
+            candidate["operator_review_status"] = "operator_to_fill"
+            _mark_exact_document_candidate_filtered(candidate, "filtered_wrong_period", "target-period document exists; fallback rejected")
     before_count = sum(1 for item in prepared if item.get("document_url"))
 
     by_url: dict[tuple[str, str], dict[str, Any]] = {}
@@ -6553,6 +6948,26 @@ def _select_top_exact_document_candidates(
             and item.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS
             and item.get("filter_status") in {"category_page", "category_followed", "diagnostic_category_page"}
         )
+    if args.exact_document_period_policy == "target-or-prior-year-fallback" and args.exact_document_allow_prior_year_fallback:
+        output.extend(
+            item
+            for item in kept_candidates
+            if item.get("document_url") and item.get("filter_status") == "kept_fallback"
+        )
+    if args.exact_document_include_wrong_period:
+        output.extend(
+            item
+            for item in prepared
+            if item.get("document_url")
+            and item.get("filter_status") in {"filtered_wrong_period", "filtered_unknown_period"}
+        )
+    if args.exact_document_include_wrong_report_type:
+        output.extend(
+            item
+            for item in prepared
+            if item.get("document_url")
+            and item.get("filter_status") == "filtered_wrong_report_type"
+        )
     if args.exact_document_include_filtered:
         output.extend(
             item
@@ -6566,6 +6981,11 @@ def _select_top_exact_document_candidates(
     noise_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_noise")
     blocked_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_blocked")
     wrong_type_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_wrong_document_type")
+    wrong_period_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_wrong_period")
+    wrong_report_type_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_wrong_report_type")
+    wrong_standard_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_wrong_standard")
+    unknown_period_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_unknown_period")
+    kept_fallback_count = sum(1 for item in prepared if item.get("filter_status") == "kept_fallback")
     stats = {
         "candidate_count_before_filter": before_count,
         "candidate_count_after_filter": sum(1 for item in output if _exact_document_is_downstream_eligible(item)),
@@ -6575,6 +6995,11 @@ def _select_top_exact_document_candidates(
         "filtered_duplicate_count": duplicate_count,
         "filtered_blocked_count": blocked_count,
         "filtered_wrong_document_type_count": wrong_type_count,
+        "filtered_wrong_period_count": wrong_period_count,
+        "filtered_wrong_report_type_count": wrong_report_type_count,
+        "filtered_wrong_standard_count": wrong_standard_count,
+        "filtered_unknown_period_count": unknown_period_count,
+        "kept_fallback_document_count": kept_fallback_count,
         "top_ranked_candidate_count": sum(1 for item in output if _exact_document_is_downstream_eligible(item)),
     }
     return sorted(output, key=_exact_document_output_sort_key), stats
@@ -6585,6 +7010,11 @@ def _apply_exact_document_candidate_filter(candidate: dict[str, Any], *, args: a
         "filtered_blocked",
         "filtered_duplicate",
         "filtered_wrong_document_type",
+        "filtered_wrong_period",
+        "filtered_wrong_report_type",
+        "filtered_wrong_standard",
+        "filtered_unknown_period",
+        "kept_fallback",
         "category_followed",
         "diagnostic_category_page",
     }:
@@ -6616,6 +7046,68 @@ def _apply_exact_document_candidate_filter(candidate: dict[str, Any], *, args: a
         if "category/reporting page is not exact report evidence" not in reasons:
             reasons.append("category/reporting page is not exact report evidence")
         candidate["filter_reasons"] = reasons
+        return
+    period_status = str(candidate.get("document_period_status") or "unknown_period")
+    type_status = str(candidate.get("report_type_match_status") or "unknown_report_type")
+    standard_status = str(candidate.get("accounting_standard_match_status") or "unknown_standard")
+    if (
+        args.exact_document_filter_interim_for_annual
+        and str(args.report_type).casefold() == "annual"
+        and type_status == "interim_or_quarterly_mismatch"
+    ):
+        _mark_exact_document_candidate_filtered(candidate, "filtered_wrong_report_type", "interim/quarterly document cannot satisfy annual report request")
+        candidate["document_status"] = "filtered_document"
+        candidate["operator_review_status"] = "operator_to_fill"
+        return
+    if args.exact_document_filter_wrong_report_type and type_status == "report_type_conflict":
+        _mark_exact_document_candidate_filtered(candidate, "filtered_wrong_report_type", "report type evidence conflicts with requested report type")
+        candidate["document_status"] = "filtered_document"
+        candidate["operator_review_status"] = "operator_to_fill"
+        return
+    if args.exact_document_filter_wrong_period and period_status in {"wrong_period", "period_conflict"}:
+        status = "filtered_wrong_period"
+        reason = "document period does not match requested report period"
+        _mark_exact_document_candidate_filtered(candidate, status, reason)
+        candidate["document_status"] = "filtered_document"
+        candidate["operator_review_status"] = "operator_to_fill"
+        candidate["fallback_status"] = "fallback_rejected_target_required"
+        return
+    if args.exact_document_filter_wrong_standard and standard_status == "standard_mismatch":
+        _mark_exact_document_candidate_filtered(candidate, "filtered_wrong_standard", "accounting standard does not match requested standard")
+        candidate["document_status"] = "filtered_document"
+        candidate["operator_review_status"] = "operator_to_fill"
+        return
+    if (
+        args.exact_document_filter_wrong_standard
+        and str(args.accounting_standard).casefold() == "ifrs"
+        and standard_status == "unknown_standard"
+    ):
+        _mark_exact_document_candidate_filtered(candidate, "filtered_wrong_standard", "IFRS accounting standard evidence is missing")
+        candidate["document_status"] = "filtered_document"
+        candidate["operator_review_status"] = "operator_to_fill"
+        return
+    if period_status == "prior_period_fallback_candidate":
+        if args.exact_document_allow_prior_year_fallback and args.exact_document_period_policy == "target-or-prior-year-fallback":
+            candidate["filter_status"] = "kept_fallback"
+            candidate["document_status"] = "fallback_candidate"
+            candidate["operator_review_status"] = "needs_operator_review"
+            candidate["candidate_confidence"] = "medium"
+            candidate["confidence"] = "medium"
+            candidate["fallback_status"] = "fallback_candidate"
+            reasons = list(candidate.get("filter_reasons") or [])
+            if "prior-year fallback candidate; not target-period evidence" not in reasons:
+                reasons.append("prior-year fallback candidate; not target-period evidence")
+            candidate["filter_reasons"] = reasons
+            return
+        _mark_exact_document_candidate_filtered(candidate, "filtered_wrong_period", "prior-year fallback is disabled")
+        candidate["document_status"] = "filtered_document"
+        candidate["operator_review_status"] = "operator_to_fill"
+        candidate["fallback_status"] = "fallback_rejected_target_required"
+        return
+    if period_status == "unknown_period" and args.exact_document_target_period_required:
+        _mark_exact_document_candidate_filtered(candidate, "filtered_unknown_period", "target report period is required but document period is unknown")
+        candidate["document_status"] = "filtered_document"
+        candidate["operator_review_status"] = "operator_to_fill"
         return
     if document_kind != "exact_report_document":
         _mark_exact_document_candidate_filtered(candidate, "filtered_noise", "candidate is not classified as exact report document")
@@ -6779,6 +7271,16 @@ def _exact_document_not_found_candidate(issuer: dict[str, Any]) -> dict[str, Any
         "document_url": "",
         "document_title": "",
         "document_kind": "unknown_document",
+        "document_period_year": "",
+        "document_period_quarter": "",
+        "document_period_status": "unknown_period",
+        "period_confidence": "low",
+        "period_evidence": [],
+        "report_type_match_status": "unknown_report_type",
+        "type_evidence": [],
+        "accounting_standard_match_status": "unknown_standard",
+        "standard_evidence": [],
+        "fallback_status": "not_fallback",
         "crawl_depth": None,
         "parent_seed_url": "",
         "source_chain": [],
@@ -6938,6 +7440,7 @@ def _build_exact_document_discovery_report(
     candidate_count = sum(1 for item in documents if _exact_document_is_downstream_eligible(item))
     counter_documents = all_documents_for_counters if all_documents_for_counters is not None else documents
     kind_counts = _exact_document_kind_counts(counter_documents)
+    period_type_counts = _exact_document_period_type_counts(counter_documents)
     followed_category_pages = category_pages_followed or [
         item
         for item in documents
@@ -6959,8 +7462,14 @@ def _build_exact_document_discovery_report(
         "filtered_low_score_count": ranking_stats.get("filtered_low_score_count", 0),
         "filtered_duplicate_count": ranking_stats.get("filtered_duplicate_count", 0),
         "filtered_wrong_document_type_count": ranking_stats.get("filtered_wrong_document_type_count", 0),
+        "filtered_wrong_period_count": ranking_stats.get("filtered_wrong_period_count", 0),
+        "filtered_wrong_report_type_count": ranking_stats.get("filtered_wrong_report_type_count", 0),
+        "filtered_wrong_standard_count": ranking_stats.get("filtered_wrong_standard_count", 0),
+        "filtered_unknown_period_count": ranking_stats.get("filtered_unknown_period_count", 0),
+        "kept_fallback_document_count": ranking_stats.get("kept_fallback_document_count", 0),
         "top_ranked_candidate_count": ranking_stats.get("top_ranked_candidate_count", 0),
         **kind_counts,
+        **period_type_counts,
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -7003,6 +7512,57 @@ def _exact_document_kind_counts(documents: list[dict[str, Any]]) -> dict[str, in
             continue
         key = EXACT_DOCUMENT_KIND_COUNTERS.get(str(document.get("document_kind") or "unknown_document"), "unknown_document_count")
         counters[key] = counters.get(key, 0) + 1
+    return counters
+
+
+def _exact_document_period_type_counts(documents: list[dict[str, Any]]) -> dict[str, int]:
+    counters = {
+        "target_period_document_count": 0,
+        "wrong_period_document_count": 0,
+        "prior_period_fallback_candidate_count": 0,
+        "unknown_period_document_count": 0,
+        "period_conflict_document_count": 0,
+        "annual_match_document_count": 0,
+        "interim_or_quarterly_document_count": 0,
+        "unknown_report_type_document_count": 0,
+        "standard_match_document_count": 0,
+        "standard_mismatch_document_count": 0,
+        "unknown_standard_document_count": 0,
+        "kept_target_period_document_count": 0,
+        "kept_fallback_document_count": 0,
+    }
+    for document in documents:
+        if not document.get("document_url"):
+            continue
+        period_status = str(document.get("document_period_status") or "")
+        if period_status == "target_period":
+            counters["target_period_document_count"] += 1
+        elif period_status == "wrong_period":
+            counters["wrong_period_document_count"] += 1
+        elif period_status == "prior_period_fallback_candidate":
+            counters["prior_period_fallback_candidate_count"] += 1
+        elif period_status == "unknown_period":
+            counters["unknown_period_document_count"] += 1
+        elif period_status == "period_conflict":
+            counters["period_conflict_document_count"] += 1
+        type_status = str(document.get("report_type_match_status") or "")
+        if type_status == "annual_match":
+            counters["annual_match_document_count"] += 1
+        elif type_status == "interim_or_quarterly_mismatch":
+            counters["interim_or_quarterly_document_count"] += 1
+        elif type_status == "unknown_report_type":
+            counters["unknown_report_type_document_count"] += 1
+        standard_status = str(document.get("accounting_standard_match_status") or "")
+        if standard_status == "standard_match":
+            counters["standard_match_document_count"] += 1
+        elif standard_status == "standard_mismatch":
+            counters["standard_mismatch_document_count"] += 1
+        elif standard_status == "unknown_standard":
+            counters["unknown_standard_document_count"] += 1
+        if _exact_document_is_downstream_eligible(document):
+            counters["kept_target_period_document_count"] += 1
+        if document.get("filter_status") == "kept_fallback":
+            counters["kept_fallback_document_count"] += 1
     return counters
 
 
@@ -9165,6 +9725,14 @@ def _group_document_candidates(documents: list[dict[str, Any]]) -> dict[tuple[st
         if document.get("filter_status") and document.get("filter_status") != "kept":
             continue
         if document.get("document_kind") and document.get("document_kind") != "exact_report_document":
+            continue
+        if document.get("document_period_status") and document.get("document_period_status") != "target_period":
+            continue
+        if document.get("report_type_match_status") == "interim_or_quarterly_mismatch":
+            continue
+        if document.get("accounting_standard_match_status") == "standard_mismatch":
+            continue
+        if document.get("fallback_status") and document.get("fallback_status") != "not_fallback":
             continue
         if document.get("document_status") not in {None, "", "valid_official_document", "needs_operator_review"}:
             continue

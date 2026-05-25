@@ -1,0 +1,42 @@
+{
+  "status": "warning",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count_before_filter": 1,
+  "candidate_count_after_filter": 0,
+  "candidate_count": 0,
+  "prior_period_fallback_candidate_count": 1,
+  "kept_fallback_document_count": 1,
+  "ready_for_value_extraction": false,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "https://issuer.example/reports/synthetic-annual-ifrs-financial-statements-2024.pdf",
+      "document_title": "Annual IFRS financial statements 2024",
+      "document_kind": "exact_report_document",
+      "document_period_year": "2024",
+      "document_period_status": "prior_period_fallback_candidate",
+      "period_confidence": "medium",
+      "report_type_match_status": "annual_match",
+      "accounting_standard_match_status": "standard_match",
+      "fallback_status": "fallback_candidate",
+      "document_status": "fallback_candidate",
+      "operator_review_status": "needs_operator_review",
+      "filter_status": "kept_fallback",
+      "filter_reasons": [
+        "prior-year fallback candidate; not target-period evidence"
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "message": "Fallback document is diagnostic only and cannot satisfy target-period quality gate."
+    }
+  ],
+  "errors": []
+}

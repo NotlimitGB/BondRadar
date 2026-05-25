@@ -990,6 +990,56 @@ themselves. The workflow remains metadata-only: no PDF parsing, OCR, financial
 value extraction, report import, trading, identity mutation, score mutation, or
 schedule mutation.
 
+## Exact Document Discovery: Strict Period and Report-Type Gate
+
+Task 110 adds target-period, annual-report, and accounting-standard checks to
+`exact-document-discover-from-seeds`. For a 2025 annual IFRS request, old IFRS
+files, half-year/interim/quarterly files, and RAS/РСБУ files stay diagnostic
+only and cannot be passed into document intake.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-second-level-crawl true \
+  --exact-document-max-crawl-depth 2 \
+  --exact-document-filter-legal-documents true \
+  --exact-document-filter-policy-documents true \
+  --exact-document-filter-generic-pdfs true \
+  --exact-document-filter-wrong-period true \
+  --exact-document-filter-interim-for-annual true \
+  --exact-document-filter-wrong-report-type true \
+  --exact-document-filter-wrong-standard true \
+  --exact-document-period-policy target-only \
+  --exact-document-target-period-required true \
+  --exact-document-allow-prior-year-fallback false \
+  --exact-document-include-category-pages false \
+  --exact-document-candidate-output data/financial_reports/private/exact_document_candidates_from_seeds_task110.json \
+  --exact-document-candidate-csv-output data/financial_reports/private/exact_document_candidates_from_seeds_task110.csv \
+  --run-document-intake-fill true \
+  --document-intake-output data/financial_reports/private/exact_document_intake_filled_task110.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_filled_task110.csv \
+  --run-document-intake-validate true \
+  --document-intake-validation-json-output logs/financial_reports/exact_document_intake_validation_task110.json \
+  --document-intake-validation-markdown-output logs/financial_reports/exact_document_intake_validation_task110.md \
+  --run-document-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task110.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task110.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task110.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task110.md
+```
+
+Wrong-year documents are diagnostics, not exact target-period evidence.
+Interim, half-year, and quarterly reports do not satisfy annual report requests.
+Prior-year fallback is disabled by default and, if explicitly enabled, remains
+operator-review-only support that cannot pass the strict target-period quality
+gate.
+
 ## VDS Smoke Checklist
 
 Health:

@@ -1478,6 +1478,10 @@ def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
     assert document["document_status"] == "valid_official_document"
     assert document["candidate_score"] >= 95
     assert document["document_url"].endswith("mostotrest-annual-ifrs-financial-statements-2025.pdf")
+    assert document["document_period_year"] == "2025"
+    assert document["document_period_status"] == "target_period"
+    assert document["report_type_match_status"] == "annual_match"
+    assert document["accounting_standard_match_status"] == "standard_match"
     assert "revenue" not in json.dumps(report, ensure_ascii=False)
     payload = json.loads(candidate_output.read_text(encoding="utf-8"))
     assert payload["documents"][0]["document_url"] == document["document_url"]
@@ -1892,6 +1896,295 @@ def test_exact_document_discover_second_level_crawl_is_controlled(
     assert "https://mostotrest.ru/ru/invest/information-disclosure/accounting-statements/" in fetched
     assert not any(item.get("document_url", "").startswith("https://rzd.ru/") and item.get("filter_status") == "kept" for item in report["documents"])
     assert not any("user_agreement" in item.get("document_url", "") and item.get("filter_status") == "kept" for item in report["documents"])
+
+
+def test_exact_document_discover_filters_wrong_year_reports_by_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    filled_output = tmp_path / "exact_document_intake_filled.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/2019_12_Mostotrest_IFRS_Accounts.pdf">2019_12_Mostotrest_IFRS_Accounts.pdf</a>
+                <a href="/reports/Financial_Statements_2018_MOSTOTREST_RUS.pdf">IFRS annual financial statements 2018</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-wrong-period",
+            "true",
+            "--run-document-intake-fill",
+            "true",
+            "--document-intake-output",
+            str(filled_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    assert report["filtered_wrong_period_count"] >= 2
+    wrong = [item for item in report["documents"] if item.get("filter_status") == "filtered_wrong_period"]
+    assert {item["document_period_year"] for item in wrong} >= {"2019", "2018"}
+    assert all(item["document_period_status"] == "wrong_period" for item in wrong)
+    filled = json.loads(filled_output.read_text(encoding="utf-8"))
+    assert filled["documents"][0]["document_url"] == ""
+
+
+def test_exact_document_discover_filters_interim_reports_for_annual_mode(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/IFRS_1H2021.pdf">IFRS 1H2021</a>
+                <a href="/reports/IFRS_30062019_RUS.pdf">IFRS 30062019 RUS</a>
+                <a href="/reports/6m2017_Condensed_IFRS_FS_Mostotrest_RUS.pdf">6m2017 Condensed IFRS FS</a>
+                <a href="/reports/quarterly-ifrs-2025.pdf">Quarterly IFRS financial statements 2025</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-wrong-report-type",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    interim = [item for item in report["documents"] if item.get("filter_status") == "filtered_wrong_report_type"]
+    assert len(interim) >= 4
+    assert all(item["report_type_match_status"] == "interim_or_quarterly_mismatch" for item in interim)
+    assert not any(item["filter_status"] == "kept" for item in report["documents"] if item.get("document_url"))
+
+
+def test_exact_document_discover_unknown_period_is_not_downstream_eligible_by_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/ifrs-financial-statements.pdf">Annual IFRS financial statements</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    document = next(item for item in report["documents"] if item.get("document_url"))
+    assert document["document_period_status"] == "unknown_period"
+    assert document["filter_status"] == "filtered_unknown_period"
+    assert document["operator_review_status"] == "operator_to_fill"
+    assert report["filtered_unknown_period_count"] >= 1
+
+
+def test_exact_document_discover_prior_year_fallback_is_disabled_by_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-wrong-period",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    document = next(item for item in report["documents"] if item.get("document_url"))
+    assert document["document_period_year"] == "2024"
+    assert document["document_period_status"] == "wrong_period"
+    assert document["filter_status"] == "filtered_wrong_period"
+
+
+def test_exact_document_discover_prior_year_fallback_is_diagnostic_only_when_enabled(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-period-policy",
+            "target-or-prior-year-fallback",
+            "--exact-document-allow-prior-year-fallback",
+            "true",
+            "--run-document-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    fallback = next(item for item in report["documents"] if item.get("document_url"))
+    assert fallback["document_period_year"] == "2024"
+    assert fallback["document_period_status"] == "prior_period_fallback_candidate"
+    assert fallback["fallback_status"] == "fallback_candidate"
+    assert fallback["filter_status"] == "kept_fallback"
+    assert fallback["operator_review_status"] == "needs_operator_review"
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is False
+    assert gate["ready_for_value_extraction"] is False
+
+
+def test_exact_document_discover_filters_wrong_accounting_standard_for_ifrs_mode(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ras-financial-statements-2025.pdf">Годовая бухгалтерская отчетность по РСБУ за 2025 год</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    document = next(item for item in report["documents"] if item.get("document_url"))
+    assert document["document_period_status"] == "target_period"
+    assert document["accounting_standard_match_status"] == "standard_mismatch"
+    assert document["filter_status"] == "filtered_wrong_standard"
+    assert report["filtered_wrong_standard_count"] >= 1
 
 
 def test_exact_document_discover_from_reviewed_seeds_gate_required_issuers_remains_strict(
