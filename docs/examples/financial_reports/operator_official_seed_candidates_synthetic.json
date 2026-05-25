@@ -1,0 +1,38 @@
+{
+  "status": "discovered",
+  "mode": "operator-seed-candidate-discover",
+  "issuer_count": 1,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "candidates": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "candidate_seed_url": "https://www.moex.com/synthetic-issuer/reports",
+      "candidate_title": "Synthetic Rail Issuer reports INN 0000000001",
+      "candidate_source_url": "https://www.moex.com/",
+      "candidate_status": "operator_reviewed",
+      "operator_review_status": "operator_reviewed",
+      "candidate_score": 120,
+      "candidate_confidence": "high",
+      "discovery_method": "official_seed_anchor_scan",
+      "score_reasons": [
+        "official allowlisted domain",
+        "company name match",
+        "INN match"
+      ],
+      "negative_reasons": [],
+      "notes": "Synthetic candidate only."
+    }
+  ]
+}

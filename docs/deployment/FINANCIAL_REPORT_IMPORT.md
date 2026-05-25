@@ -1044,6 +1044,37 @@ figures, OCR output, parsed table values, search results, news, blogs, forums,
 social pages, or random aggregators. Unknown domains remain review-only even
 with `--allow-unknown-source` and cannot become high-confidence valid seeds.
 
+## Operator Official Seed Candidate Helper
+
+Task 105 proposes official seed candidates for the Task 104 operator seed
+template. It scans only allowlisted official seed/source pages, writes candidate
+metadata, can optionally autofill high-confidence rows, and can run
+`operator-seed-validate` on the autofill file. It does not extract financial
+values, import reports, mutate state, or trade. Candidate seeds do not bypass
+the exact document quality gate.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-candidate-discover \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_task104.json \
+  --seed-input data/financial_reports/private/official_seed_pack_task103.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --required-company-ids 18,67 \
+  --operator-seed-candidate-output data/financial_reports/private/operator_official_seed_candidates_task105.json \
+  --operator-seed-candidate-csv-output data/financial_reports/private/operator_official_seed_candidates_task105.csv \
+  --operator-seed-autofill-output data/financial_reports/private/operator_official_seed_autofill_task105.json \
+  --operator-seed-autofill-csv-output data/financial_reports/private/operator_official_seed_autofill_task105.csv \
+  --run-operator-seed-validate true \
+  --operator-seed-validation-json-output logs/financial_reports/operator_official_seed_validation_autofill_task105.json \
+  --operator-seed-validation-markdown-output logs/financial_reports/operator_official_seed_validation_autofill_task105.md \
+  --json-output logs/financial_reports/operator_official_seed_candidate_discovery_task105.json \
+  --markdown-output logs/financial_reports/operator_official_seed_candidate_discovery_task105.md
+```
+
+The helper must not use broad search results or invent e-disclosure profile IDs.
+If no high-confidence official candidates are found, autofill keeps rows empty
+and validation fails safely until an operator fills reviewed seed URLs.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

@@ -799,6 +799,36 @@ requirements, do not authorize financial value collection, and do not change
 `ready_for_value_extraction` unless the strict document quality gate later
 passes.
 
+## Operator Official Seed Candidate Helper
+
+Task 105 helps the operator fill official seed URLs after the Task 104 template
+is created. It proposes seed-page candidates from allowlisted official pages and
+identity context only. It does not apply identity changes, import financial
+reports, extract values, score bonds, alter predictions, activate schedules, or
+run paper trading.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-candidate-discover \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_task104.json \
+  --seed-input data/financial_reports/private/official_seed_pack_task103.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --required-company-ids 18,67 \
+  --operator-seed-candidate-output data/financial_reports/private/operator_official_seed_candidates_task105.json \
+  --operator-seed-candidate-csv-output data/financial_reports/private/operator_official_seed_candidates_task105.csv \
+  --operator-seed-autofill-output data/financial_reports/private/operator_official_seed_autofill_task105.json \
+  --operator-seed-autofill-csv-output data/financial_reports/private/operator_official_seed_autofill_task105.csv \
+  --run-operator-seed-validate true \
+  --operator-seed-validation-json-output logs/financial_reports/operator_official_seed_validation_autofill_task105.json \
+  --operator-seed-validation-markdown-output logs/financial_reports/operator_official_seed_validation_autofill_task105.md \
+  --json-output logs/financial_reports/operator_official_seed_candidate_discovery_task105.json \
+  --markdown-output logs/financial_reports/operator_official_seed_candidate_discovery_task105.md
+```
+
+Only official seed metadata is written. High-confidence autofill still feeds the
+strict `operator-seed-validate` and later exact-document quality gate workflows;
+it does not authorize value extraction by itself.
+
 ## VDS Smoke Checklist
 
 Health:

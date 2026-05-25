@@ -1,0 +1,2 @@
+company_id,company_name,canonical_company_id,canonical_company_name,inn,ogrn,seed_type,seed_url,operator_review_status,source_context,notes
+1001,Synthetic Rail Issuer,1001,Synthetic Rail Issuer,0000000001,1000000000001,issuer_reports,https://www.moex.com/synthetic-issuer/reports,operator_reviewed,https://www.moex.com/,Synthetic official-like candidate for documentation only.
