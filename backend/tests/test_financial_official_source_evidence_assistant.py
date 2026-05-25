@@ -1426,6 +1426,361 @@ def test_document_candidate_discover_network_failures_warn(
     assert any("failed to fetch official seed page" in item["message"] for item in report["warnings"])
 
 
+def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    candidate_output = tmp_path / "exact_document_candidates_from_seeds.json"
+    candidate_csv = tmp_path / "exact_document_candidates_from_seeds.csv"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/mostotrest-annual-ifrs-financial-statements-2025.pdf">
+                    Annual audited consolidated IFRS financial statements 2025
+                </a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-candidate-output",
+            str(candidate_output),
+            "--exact-document-candidate-csv-output",
+            str(candidate_csv),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "passed"
+    assert report["mode"] == "exact-document-discover-from-seeds"
+    assert report["candidate_count"] == 1
+    assert report["reviewed_candidate_count"] == 1
+    document = report["documents"][0]
+    assert document["operator_review_status"] == "operator_reviewed"
+    assert document["document_status"] == "valid_official_document"
+    assert document["candidate_score"] >= 95
+    assert document["document_url"].endswith("mostotrest-annual-ifrs-financial-statements-2025.pdf")
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+    payload = json.loads(candidate_output.read_text(encoding="utf-8"))
+    assert payload["documents"][0]["document_url"] == document["document_url"]
+    rows = list(csv.DictReader(candidate_csv.open(encoding="utf-8")))
+    assert rows[0]["document_url"] == document["document_url"]
+    assert report["read_only"] is True
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+
+
+def test_exact_document_discover_from_reviewed_seed_without_exact_docs_warns_and_gate_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/ru/invest/">Investors</a>
+                <a href="/ru/invest/information-disclosure/">Information disclosure</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--run-document-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["candidate_count"] == 0
+    assert any(item["document_status"] == "not_found" for item in report["documents"])
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is False
+    assert gate["ready_for_value_extraction"] is False
+
+
+def test_exact_document_discover_from_reviewed_seed_filters_bad_document_types(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ifrs-financial-statements-2025.pdf">Annual IFRS financial statements 2025</a>
+                <a href="/reports/presentation-ifrs-2025.pdf">Annual IFRS presentation 2025</a>
+                <a href="/reports/q1-ifrs-2025.pdf">Quarterly IFRS financial statements 2025</a>
+                <a href="/reports/prospectus-2025.pdf">Bond prospectus 2025</a>
+                <a href="https://wikipedia.org/wiki/Mostotrest">Annual IFRS financial statements 2025</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    kept = [item for item in report["documents"] if item.get("filter_status") == "kept" and item.get("document_url")]
+    assert len(kept) == 1
+    assert kept[0]["document_url"].endswith("annual-ifrs-financial-statements-2025.pdf")
+    assert kept[0]["candidate_rank"] == 1
+    filtered = [item for item in report["documents"] if str(item.get("filter_status", "")).startswith("filtered")]
+    assert filtered
+    assert report["blocked_candidate_count"] == 1
+    assert not any("presentation" in item["document_url"] and item["filter_status"] == "kept" for item in report["documents"])
+    assert not any("prospectus" in item["document_url"] and item["filter_status"] == "kept" for item in report["documents"])
+
+
+def test_exact_document_discover_from_reviewed_seeds_gate_required_issuers_remains_strict(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate_all.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/"),
+        ],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ifrs-financial-statements-2025.pdf">Annual IFRS financial statements 2025</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "18,67",
+            "--run-document-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 1
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is False
+    assert gate["ready_for_value_extraction"] is False
+    assert any(item["company_id"] == 18 and item["gate_status"] == "failed" for item in gate["required_issuers"])
+
+
+def test_exact_document_discover_from_reviewed_seeds_gate_can_pass_for_single_resolved_issuer(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate_mostotrest.json"
+    filled_output = tmp_path / "exact_document_intake_filled.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ifrs-financial-statements-2025.pdf">Annual IFRS financial statements 2025</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--run-document-intake-fill",
+            "true",
+            "--document-intake-output",
+            str(filled_output),
+            "--run-document-intake-validate",
+            "true",
+            "--run-document-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["document_intake_fill_report"]["valid_document_count"] == 1
+    assert report["document_intake_validation_report"]["valid_document_count"] == 1
+    filled = json.loads(filled_output.read_text(encoding="utf-8"))
+    assert filled["documents"][0]["document_url"].endswith("annual-ifrs-financial-statements-2025.pdf")
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is True
+    assert gate["ready_for_value_extraction"] is True
+    assert gate["ready_for_import"] is False
+
+
+def test_exact_document_discover_probe_and_download_are_optional(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ifrs-financial-statements-2025.pdf">Annual IFRS financial statements 2025</a>
+            """,
+        },
+    )
+    probes: list[str] = []
+    downloads: list[str] = []
+
+    def fake_probe(url: str, *, timeout_seconds: float, max_bytes: int) -> dict:
+        probes.append(url)
+        return {"status": "ok", "http_status": 200, "content_type": "application/pdf", "error": None}
+
+    def fake_download(document: dict, download_dir: Path) -> dict:
+        downloads.append(document["document_url"])
+        return {
+            "url": document["document_url"],
+            "local_path": str(download_dir / "annual-ifrs-financial-statements-2025.pdf"),
+            "sha256": "abc123",
+            "size_bytes": 123,
+            "content_type": "application/pdf",
+            "warnings": [],
+            "errors": [],
+        }
+
+    monkeypatch.setattr(assistant, "_probe_url", fake_probe)
+    monkeypatch.setattr(assistant, "_download_valid_document", fake_download)
+    no_network_args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+        ]
+    )
+    report, exit_code = assistant.run_assistant(no_network_args)
+    assert exit_code == 0
+    assert report["candidate_count"] == 1
+    assert probes == []
+    assert downloads == []
+
+    network_args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-probe-urls",
+            "true",
+            "--exact-document-download-documents",
+            "true",
+            "--exact-document-download-dir",
+            str(tmp_path / "downloads"),
+        ]
+    )
+    network_report, exit_code = assistant.run_assistant(network_args)
+
+    assert exit_code == 0
+    assert probes == ["https://mostotrest.ru/reports/annual-ifrs-financial-statements-2025.pdf"]
+    assert downloads == ["https://mostotrest.ru/reports/annual-ifrs-financial-statements-2025.pdf"]
+    assert network_report["documents"][0]["probe_status"] == "ok"
+    assert network_report["documents"][0]["download"]["sha256"] == "abc123"
+
+
 def test_official_seed_resolve_from_source_intake_builds_seed_pack(
     tmp_path: Path,
 ) -> None:
@@ -3915,6 +4270,88 @@ def _write_operator_seed_review(path: Path, review_items: list[dict]) -> None:
                 "read_only": True,
                 "dry_run_only": True,
                 "import_executed": False,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_reviewed_seed_pack(path: Path, *, include_rzd: bool = False) -> None:
+    issuers = []
+    if include_rzd:
+        issuers.append(
+            {
+                "company_id": 18,
+                "company_name": "RZD",
+                "canonical_company_id": 18,
+                "canonical_company_name": "RZD",
+                "inn": "7708503727",
+                "ogrn": "1037739877295",
+                "official_seeds": [
+                    {
+                        "seed_type": "issuer_reports",
+                        "seed_url": "https://rzd.ru/reports/",
+                        "seed_status": "valid_seed",
+                        "confidence": "high",
+                        "source": "operator_seed",
+                        "operator_review_status": "operator_reviewed",
+                        "reason": "Synthetic reviewed official seed.",
+                        "warnings": [],
+                        "errors": [],
+                    }
+                ],
+                "warnings": [],
+                "errors": [],
+            }
+        )
+    issuers.append(
+        {
+            "company_id": 67,
+            "company_name": "Mostotrest",
+            "canonical_company_id": 67,
+            "canonical_company_name": "Mostotrest",
+            "inn": "7701045732",
+            "ogrn": "1027739167246",
+            "official_seeds": [
+                {
+                    "seed_type": "issuer_reports",
+                    "seed_url": "https://mostotrest.ru/ru/invest/financial-results/",
+                    "seed_status": "valid_seed",
+                    "confidence": "high",
+                    "source": "operator_seed",
+                    "operator_review_status": "operator_reviewed",
+                    "reason": "Synthetic reviewed official seed.",
+                    "warnings": [],
+                    "errors": [],
+                },
+                {
+                    "seed_type": "official_disclosure_reports",
+                    "seed_url": "https://mostotrest.ru/ru/invest/information-disclosure/",
+                    "seed_status": "valid_seed",
+                    "confidence": "high",
+                    "source": "operator_seed",
+                    "operator_review_status": "operator_reviewed",
+                    "reason": "Synthetic reviewed official seed.",
+                    "warnings": [],
+                    "errors": [],
+                },
+            ],
+            "warnings": [],
+            "errors": [],
+        }
+    )
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "official-seed-resolve",
+                "issuer_count": len(issuers),
+                "issuers": issuers,
+                "read_only": True,
+                "dry_run_only": True,
+                "import_executed": False,
+                "paper_trading_called": False,
             },
             ensure_ascii=False,
         ),

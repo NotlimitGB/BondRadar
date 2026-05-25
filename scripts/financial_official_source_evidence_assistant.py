@@ -36,6 +36,7 @@ MODE_CHOICES = (
     "operator-seed-candidate-discover",
     "operator-seed-review-template",
     "operator-seed-promote-reviewed",
+    "exact-document-discover-from-seeds",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -166,6 +167,36 @@ DOCUMENT_CANDIDATE_FIELDS = [
     "source_page_url",
     "score_reasons",
     "negative_reasons",
+]
+EXACT_DOCUMENT_FROM_SEED_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "inn",
+    "ogrn",
+    "report_period",
+    "report_type",
+    "accounting_standard",
+    "source_type",
+    "source_page_url",
+    "document_url",
+    "document_title",
+    "document_date",
+    "source_file_name",
+    "document_status",
+    "operator_review_status",
+    "candidate_rank",
+    "candidate_score",
+    "raw_score",
+    "final_score",
+    "candidate_confidence",
+    "filter_status",
+    "filter_reasons",
+    "discovery_method",
+    "score_reasons",
+    "negative_reasons",
+    "notes",
 ]
 SEED_DEFAULT_TYPES = (
     "issuer_home",
@@ -420,6 +451,90 @@ SEED_FIELDS = [
 ]
 PROBABLE_ISSUER_SEED_PATHS = ("/investors/", "/reports/", "/investors/reports/")
 VALID_CANDIDATE_SEED_STATUSES = {"valid_seed", "needs_operator_review"}
+EXACT_DOCUMENT_REVIEWED_SEED_SOURCES = {"operator_seed", "reviewed_official_source", "reviewed_seed"}
+EXACT_DOCUMENT_DEFAULT_SEED_TYPES = (
+    "issuer_reports",
+    "official_disclosure_reports",
+    "official_disclosure_profile",
+)
+EXACT_DOCUMENT_POSITIVE_TERMS = (
+    "annual report",
+    "annual reports",
+    "annual financial statements",
+    "financial statements",
+    "consolidated financial statements",
+    "ifrs",
+    "audited",
+    "audit",
+    "auditor",
+    "reporting",
+    "report",
+    "pdf",
+    "download",
+    "\u0433\u043e\u0434\u043e\u0432\u043e\u0439 \u043e\u0442\u0447\u0435\u0442",
+    "\u0433\u043e\u0434\u043e\u0432\u043e\u0439 \u043e\u0442\u0447\u0451\u0442",
+    "\u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
+    "\u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
+    "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f",
+    "\u043c\u0441\u0444\u043e",
+    "\u0430\u0443\u0434\u0438\u0442",
+    "\u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
+    "\u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
+    "\u043e\u0442\u0447\u0435\u0442",
+    "\u043e\u0442\u0447\u0451\u0442",
+    "\u0441\u043a\u0430\u0447\u0430\u0442\u044c",
+)
+EXACT_DOCUMENT_PATH_TERMS = (
+    "annual",
+    "report",
+    "reports",
+    "ifrs",
+    "msfo",
+    "financial",
+    "statements",
+    "audit",
+    "audited",
+    "consolidated",
+    ".pdf",
+)
+EXACT_DOCUMENT_NEGATIVE_TERMS = (
+    "presentation",
+    "press release",
+    "press",
+    "news",
+    "coupon",
+    "bond terms",
+    "emission",
+    "prospectus",
+    "securities",
+    "quarterly",
+    "quarter",
+    "q1",
+    "q2",
+    "q3",
+    "q4",
+    "1q",
+    "2q",
+    "3q",
+    "4q",
+    "interim",
+    "archive",
+    "\u043f\u0440\u0435\u0437\u0435\u043d\u0442\u0430\u0446\u0438\u044f",
+    "\u043d\u043e\u0432\u043e\u0441\u0442\u044c",
+    "\u043d\u043e\u0432\u043e\u0441\u0442\u0438",
+    "\u043a\u0443\u043f\u043e\u043d",
+    "\u044d\u043c\u0438\u0441\u0441\u0438\u044f",
+    "\u044d\u043c\u0438\u0441\u0441\u0438\u043e\u043d\u043d\u044b\u0435",
+    "\u043f\u0440\u043e\u0441\u043f\u0435\u043a\u0442",
+    "\u043a\u0432\u0430\u0440\u0442\u0430\u043b",
+    "\u043a\u0432\u0430\u0440\u0442\u0430\u043b\u044c\u043d\u0430\u044f",
+    "1 \u043a\u0432\u0430\u0440\u0442\u0430\u043b",
+    "2 \u043a\u0432\u0430\u0440\u0442\u0430\u043b",
+    "3 \u043a\u0432\u0430\u0440\u0442\u0430\u043b",
+    "6 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
+    "9 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
+    "\u043f\u0440\u043e\u043c\u0435\u0436\u0443\u0442\u043e\u0447\u043d\u0430\u044f",
+)
 DOCUMENT_CHECKLIST_FIELDS = [
     "rank",
     "company_id",
@@ -612,6 +727,36 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--candidate-user-agent",
         default="BondRadar-document-candidate-discovery/1.0",
     )
+    parser.add_argument("--exact-document-candidate-output", type=Path, default=None)
+    parser.add_argument("--exact-document-candidate-csv-output", type=Path, default=None)
+    parser.add_argument(
+        "--exact-document-seed-types",
+        default="issuer_reports,official_disclosure_reports,official_disclosure_profile",
+    )
+    parser.add_argument("--exact-document-max-pages-per-issuer", type=int, default=10)
+    parser.add_argument("--exact-document-max-links-per-page", type=int, default=300)
+    parser.add_argument("--exact-document-top-n-per-issuer", type=int, default=10)
+    parser.add_argument("--exact-document-top-n-per-type", type=int, default=5)
+    parser.add_argument("--exact-document-min-score", type=int, default=70)
+    parser.add_argument("--exact-document-auto-review-threshold", type=int, default=95)
+    parser.add_argument("--exact-document-include-filtered", type=_parse_bool, default=False)
+    parser.add_argument("--exact-document-noise-filter", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-allowed-domains", default="")
+    parser.add_argument("--exact-document-blocked-domains", default="")
+    parser.add_argument("--exact-document-fetch-timeout-seconds", type=float, default=10.0)
+    parser.add_argument("--exact-document-max-response-bytes", type=int, default=1000000)
+    parser.add_argument(
+        "--exact-document-user-agent",
+        default="BondRadar-exact-document-discovery/1.0",
+    )
+    parser.add_argument("--exact-document-probe-urls", type=_parse_bool, default=False)
+    parser.add_argument("--exact-document-download-documents", type=_parse_bool, default=False)
+    parser.add_argument("--exact-document-download-dir", type=Path, default=None)
+    parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
+    parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
+    parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
+    parser.add_argument("--document-intake-validation-markdown-output", type=Path, default=None)
+    parser.add_argument("--run-document-quality-gate", type=_parse_bool, default=False)
     parser.add_argument("--run-quality-gate", type=_parse_bool, default=False)
     parser.add_argument("--quality-gate-json-output", type=Path, default=None)
     parser.add_argument("--quality-gate-markdown-output", type=Path, default=None)
@@ -669,6 +814,8 @@ def run_assistant(
         report = run_operator_seed_review_template(args)
     elif args.mode == "operator-seed-promote-reviewed":
         report = run_operator_seed_promote_reviewed(args)
+    elif args.mode == "exact-document-discover-from-seeds":
+        report = run_exact_document_discover_from_seeds(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -2961,6 +3108,282 @@ def run_document_candidate_discover(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    input_documents: list[dict[str, Any]] = []
+    seed_issuers: list[dict[str, Any]] = []
+    documents: list[dict[str, Any]] = []
+    reviewed_seeds_used: list[dict[str, Any]] = []
+    missing_issuers: list[dict[str, Any]] = []
+    blocked_candidate_count = 0
+
+    if args.seed_input is None:
+        errors.append({"message": "exact-document-discover-from-seeds mode requires --seed-input"})
+    if args.document_intake_input is None:
+        warnings.append({"message": "document intake input is not provided; integrated fill/gate will be unavailable"})
+    if not errors:
+        try:
+            seed_issuers = load_seed_pack_issuers(args.seed_input)
+            if args.document_intake_input is not None:
+                input_documents = load_document_intake_file(args.document_intake_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    if args.run_document_intake_fill and args.document_intake_input is None:
+        errors.append({"message": "run-document-intake-fill requires --document-intake-input"})
+    if args.run_document_intake_validate and args.document_intake_input is None:
+        errors.append({"message": "run-document-intake-validate requires --document-intake-input"})
+    if args.run_document_quality_gate and args.document_intake_input is None:
+        errors.append({"message": "run-document-quality-gate requires --document-intake-input"})
+
+    required_issuers = _parse_required_issuers(args, [*input_documents, *seed_issuers])
+    seed_types = _normalized_seed_types(args.exact_document_seed_types)
+    allowed_domains = _exact_document_allowed_domains(args)
+    blocked_hints = _exact_document_blocked_hints(args)
+    raw_documents: list[dict[str, Any]] = []
+
+    if not errors:
+        for required in required_issuers:
+            issuer = _exact_document_issuer_base(required, input_documents=input_documents, seed_issuers=seed_issuers)
+            seed_rows = _select_reviewed_exact_document_seeds(
+                issuer,
+                seed_issuers=seed_issuers,
+                seed_types=seed_types,
+                allowed_domains=allowed_domains,
+                blocked_hints=blocked_hints,
+                args=args,
+                warnings=warnings,
+                errors=errors,
+            )
+            if not seed_rows:
+                missing_issuers.append(
+                    {
+                        "company_id": issuer.get("company_id"),
+                        "company_name": issuer.get("company_name") or "",
+                        "reason": "no reviewed valid official seed pages available",
+                    }
+                )
+                warnings.append(
+                    {
+                        "company_id": issuer.get("company_id"),
+                        "company_name": issuer.get("company_name") or "",
+                        "message": "no reviewed valid official seed pages available",
+                    }
+                )
+                continue
+            for seed in seed_rows[: max(int(args.exact_document_max_pages_per_issuer or 0), 0)]:
+                reviewed_seeds_used.append(_exact_document_reviewed_seed_used(issuer, seed))
+                seed_url = str(seed.get("seed_url") or "")
+                fetch = _fetch_candidate_page(
+                    seed_url,
+                    timeout_seconds=args.exact_document_fetch_timeout_seconds,
+                    max_bytes=args.exact_document_max_response_bytes,
+                    user_agent=args.exact_document_user_agent,
+                )
+                if fetch.get("status") != "ok":
+                    warnings.append(
+                        {
+                            "company_id": issuer.get("company_id"),
+                            "source_page_url": seed_url,
+                            "message": "failed to fetch reviewed official seed page",
+                            "error": fetch.get("error"),
+                        }
+                    )
+                    continue
+                content_type = str(fetch.get("content_type") or "").casefold()
+                if "html" not in content_type:
+                    warnings.append(
+                        {
+                            "company_id": issuer.get("company_id"),
+                            "source_page_url": seed_url,
+                            "content_type": fetch.get("content_type"),
+                            "message": "reviewed seed response is not HTML; skipped anchor extraction",
+                        }
+                    )
+                    continue
+                anchors = _extract_html_anchors(str(fetch.get("body") or ""), seed_url)
+                for anchor in anchors[: max(int(args.exact_document_max_links_per_page or 0), 0)]:
+                    candidate, blocked = build_exact_document_candidate_from_seed_anchor(
+                        issuer,
+                        anchor,
+                        seed,
+                        seed_url,
+                        args=args,
+                        allowed_domains=allowed_domains,
+                        blocked_hints=blocked_hints,
+                    )
+                    if blocked:
+                        blocked_candidate_count += 1
+                    if candidate is not None:
+                        raw_documents.append(candidate)
+            if not any(
+                _matches_required_issuer(candidate, issuer)
+                and candidate.get("document_url")
+                and candidate.get("filter_status") == "kept"
+                for candidate in raw_documents
+            ):
+                missing_issuers.append(
+                    {
+                        "company_id": issuer.get("company_id"),
+                        "company_name": issuer.get("company_name") or "",
+                        "reason": "no exact official report documents found from reviewed seeds",
+                    }
+                )
+
+    selected_documents, ranking_stats = _select_top_exact_document_candidates(raw_documents, args=args)
+    kept_documents = [
+        item
+        for item in selected_documents
+        if item.get("document_url") and item.get("filter_status") == "kept"
+    ]
+    if not errors:
+        for issuer in required_issuers:
+            if not any(_matches_required_issuer(item, issuer) for item in kept_documents):
+                issuer_base = _exact_document_issuer_base(issuer, input_documents=input_documents, seed_issuers=seed_issuers)
+                selected_documents.append(_exact_document_not_found_candidate(issuer_base))
+
+    documents = sorted(selected_documents, key=_exact_document_output_sort_key)
+    kept_documents = [
+        item for item in documents if item.get("document_url") and item.get("filter_status") == "kept"
+    ]
+    _attach_exact_document_optional_metadata(kept_documents, args=args, warnings=warnings, errors=errors)
+
+    document_intake_fill_report: dict[str, Any] | None = None
+    document_intake_validation_report: dict[str, Any] | None = None
+    document_quality_gate_report: dict[str, Any] | None = None
+    candidate_output_path = args.exact_document_candidate_output
+
+    with tempfile.TemporaryDirectory(prefix="bondradar-exact-seed-docs-") as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        if candidate_output_path is None and (
+            args.run_document_intake_fill
+            or args.run_document_intake_validate
+            or args.run_document_quality_gate
+        ):
+            candidate_output_path = tmp_path / "exact_document_candidates_from_seeds.json"
+        if candidate_output_path is not None and not errors:
+            _write_exact_document_discovery_payload(
+                args,
+                candidate_output_path,
+                required_issuers=required_issuers,
+                documents=documents,
+                reviewed_seeds_used=reviewed_seeds_used,
+                missing_issuers=missing_issuers,
+                ranking_stats=ranking_stats,
+                blocked_candidate_count=blocked_candidate_count,
+                status="discovered",
+                warnings=warnings,
+                errors=errors,
+            )
+        if args.run_document_intake_fill and not errors and candidate_output_path is not None:
+            fill_output = args.document_intake_output or tmp_path / "exact_document_intake_filled_from_seeds.json"
+            fill_args = _clone_args(
+                args,
+                mode="document-intake-fill",
+                exact_document_candidates_input=candidate_output_path,
+                document_intake_output=fill_output,
+                probe_urls=args.exact_document_probe_urls,
+                download_documents=args.exact_document_download_documents,
+                document_download_dir=args.exact_document_download_dir,
+            )
+            document_intake_fill_report = run_document_intake_fill(fill_args)
+            if args.document_intake_output is None:
+                args = _clone_args(args, document_intake_output=fill_output)
+        if args.run_document_intake_validate and not errors:
+            validation_input = args.document_intake_output
+            if validation_input is None:
+                if document_intake_fill_report is None and candidate_output_path is not None:
+                    fill_output = tmp_path / "exact_document_intake_filled_for_validation.json"
+                    fill_args = _clone_args(
+                        args,
+                        mode="document-intake-fill",
+                        exact_document_candidates_input=candidate_output_path,
+                        document_intake_output=fill_output,
+                    )
+                    document_intake_fill_report = run_document_intake_fill(fill_args)
+                    validation_input = fill_output
+                else:
+                    validation_input = Path(str((document_intake_fill_report or {}).get("document_intake_output") or ""))
+            if validation_input is not None and str(validation_input):
+                validation_args = _clone_args(args, mode="document-intake-validate", document_intake_input=validation_input)
+                document_intake_validation_report = run_document_intake_validate(validation_args)
+                if args.document_intake_validation_json_output is not None:
+                    write_json_report(document_intake_validation_report, args.document_intake_validation_json_output)
+                if args.document_intake_validation_markdown_output is not None:
+                    write_markdown_report(document_intake_validation_report, args.document_intake_validation_markdown_output)
+        if args.run_document_quality_gate and not errors and candidate_output_path is not None:
+            source_intake_input = args.source_intake_input
+            if source_intake_input is None:
+                source_intake_input = tmp_path / "source_intake_from_reviewed_seed_documents.json"
+                write_json_report(
+                    {
+                        "status": "generated",
+                        "mode": "exact-document-discover-from-seeds",
+                        "issuer_count": len(required_issuers),
+                        "issuer_sources": _source_intake_from_exact_document_candidates(
+                            required_issuers,
+                            documents=kept_documents,
+                            reviewed_seeds_used=reviewed_seeds_used,
+                        ),
+                        **SAFETY_FLAGS,
+                    },
+                    source_intake_input,
+                )
+            gate_args = _clone_args(
+                args,
+                mode="document-quality-gate",
+                exact_document_candidates_input=candidate_output_path,
+                source_intake_input=source_intake_input,
+                probe_urls=args.exact_document_probe_urls,
+                download_documents=args.exact_document_download_documents,
+                document_download_dir=args.exact_document_download_dir,
+            )
+            document_quality_gate_report = run_document_quality_gate(gate_args)
+            if args.quality_gate_json_output is not None:
+                write_json_report(document_quality_gate_report, args.quality_gate_json_output)
+            if args.quality_gate_markdown_output is not None:
+                write_markdown_report(document_quality_gate_report, args.quality_gate_markdown_output)
+
+    reviewed_count = sum(1 for item in kept_documents if item.get("operator_review_status") == "operator_reviewed")
+    review_count = sum(1 for item in kept_documents if item.get("operator_review_status") == "needs_operator_review")
+    invalid_count = sum(
+        1
+        for item in raw_documents
+        if item.get("document_status") in {"invalid_document", "blocked_document"}
+    )
+    status = (
+        "failed"
+        if errors
+        else "passed"
+        if required_issuers and reviewed_count >= len(required_issuers)
+        else "warning"
+    )
+    report = _build_exact_document_discovery_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        documents=documents,
+        reviewed_seeds_used=reviewed_seeds_used,
+        missing_issuers=missing_issuers,
+        ranking_stats=ranking_stats,
+        blocked_candidate_count=blocked_candidate_count,
+        invalid_candidate_count=invalid_count,
+        reviewed_candidate_count=reviewed_count,
+        needs_operator_review_count=review_count,
+        document_intake_fill_report=document_intake_fill_report,
+        document_intake_validation_report=document_intake_validation_report,
+        document_quality_gate_report=document_quality_gate_report,
+        warnings=warnings,
+        errors=errors,
+    )
+    if args.exact_document_candidate_output is not None and not errors:
+        write_json_report(report, args.exact_document_candidate_output)
+    if args.exact_document_candidate_csv_output is not None and not errors:
+        write_exact_document_from_seed_csv(documents, args.exact_document_candidate_csv_output)
+    return report
+
+
 def fill_document_intake_item(
     document: dict[str, Any],
     args: argparse.Namespace,
@@ -3846,6 +4269,15 @@ def write_document_candidate_csv(documents: list[dict[str, Any]], path: Path) ->
             writer.writerow({field: _csv_value(document.get(field)) for field in DOCUMENT_CANDIDATE_FIELDS})
 
 
+def write_exact_document_from_seed_csv(documents: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=EXACT_DOCUMENT_FROM_SEED_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for document in documents:
+            writer.writerow({field: _csv_value(document.get(field)) for field in EXACT_DOCUMENT_FROM_SEED_FIELDS})
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -4008,6 +4440,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "operator-seed-review-template"
         else "Operator Seed Promotion"
         if report.get("mode") == "operator-seed-promote-reviewed"
+        else "Exact Official Report Document Discovery From Reviewed Seeds"
+        if report.get("mode") == "exact-document-discover-from-seeds"
         else "Official Seed Resolver"
         if report.get("mode") == "official-seed-resolve"
         else "Exact Official Report Document Resolver"
@@ -4050,6 +4484,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_operator_seed_review_template_markdown_sections(report))
     if report.get("mode") == "operator-seed-promote-reviewed":
         lines.extend(_render_operator_seed_promote_markdown_sections(report))
+    if report.get("mode") == "exact-document-discover-from-seeds":
+        lines.extend(_render_exact_document_from_seeds_markdown_sections(report))
     if report.get("mode") == "official-seed-resolve":
         lines.extend(_render_official_seed_markdown_sections(report))
     lines.extend(
@@ -4379,6 +4815,109 @@ def _render_document_candidate_discovery_markdown_sections(report: dict[str, Any
     else:
         lines.append("- None")
     lines.append("")
+    return lines
+
+
+def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) -> list[str]:
+    fill = report.get("document_intake_fill_report") or {}
+    validation = report.get("document_intake_validation_report") or {}
+    gate = report.get("document_quality_gate_report") or {}
+    lines = [
+        "## Reviewed Seeds Used",
+        "",
+        "| Company ID | Company | Seed Type | Seed URL | Seed Status | Confidence | Source |",
+        "| ---: | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for seed in report.get("reviewed_seeds_used") or []:
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {seed_type} | {seed_url} | {seed_status} | {confidence} | {source} |".format(
+                company_id=seed.get("company_id") or "",
+                company_name=str(seed.get("company_name") or "").replace("|", "/"),
+                seed_type=seed.get("seed_type") or "",
+                seed_url=str(seed.get("seed_url") or "").replace("|", "/"),
+                seed_status=seed.get("seed_status") or "",
+                confidence=seed.get("confidence") or "",
+                source=seed.get("source") or "",
+            )
+        )
+    if rows == 0:
+        lines.append("|  |  |  | No reviewed seeds used |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Exact Document Candidates",
+            "",
+            "| Company ID | Company | Rank | URL | Title | Source Page | Score | Confidence | Operator Status | Document Status | Reasons | Negative Reasons |",
+            "| ---: | --- | ---: | --- | --- | --- | ---: | --- | --- | --- | --- | --- |",
+        ]
+    )
+    rows = 0
+    for document in report.get("documents") or []:
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {rank} | {url} | {title} | {source_page} | {score} | {confidence} | {operator_status} | {document_status} | {reasons} | {negative} |".format(
+                company_id=document.get("company_id") or "",
+                company_name=str(document.get("company_name") or "").replace("|", "/"),
+                rank=document.get("candidate_rank") or "",
+                url=str(document.get("document_url") or "").replace("|", "/"),
+                title=str(document.get("document_title") or "").replace("|", "/"),
+                source_page=str(document.get("source_page_url") or "").replace("|", "/"),
+                score=document.get("candidate_score") or 0,
+                confidence=document.get("candidate_confidence") or "",
+                operator_status=document.get("operator_review_status") or "",
+                document_status=document.get("document_status") or "",
+                reasons=_csv_value(document.get("score_reasons")),
+                negative=_csv_value(document.get("negative_reasons")),
+            )
+        )
+    if rows == 0:
+        lines.append("|  |  |  | No candidates |  |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Missing Issuers",
+            "",
+            "| Company ID | Company | Reason |",
+            "| ---: | --- | --- |",
+        ]
+    )
+    missing_rows = 0
+    for item in report.get("missing_issuers") or []:
+        missing_rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {reason} |".format(
+                company_id=item.get("company_id") or "",
+                company_name=str(item.get("company_name") or "").replace("|", "/"),
+                reason=str(item.get("reason") or "").replace("|", "/"),
+            )
+        )
+    if missing_rows == 0:
+        lines.append("|  |  | None |")
+    lines.extend(
+        [
+            "",
+            "## Ranking And Filtering",
+            "",
+            f"- candidate_count_before_filter: {report.get('candidate_count_before_filter', 0)}",
+            f"- candidate_count_after_filter: {report.get('candidate_count_after_filter', 0)}",
+            f"- filtered_candidate_count: {report.get('filtered_candidate_count', 0)}",
+            f"- filtered_noise_count: {report.get('filtered_noise_count', 0)}",
+            f"- filtered_low_score_count: {report.get('filtered_low_score_count', 0)}",
+            f"- filtered_duplicate_count: {report.get('filtered_duplicate_count', 0)}",
+            "",
+            "## Integrated Document Intake / Gate",
+            "",
+            f"- document-intake-fill status: `{fill.get('status')}`",
+            f"- document-intake-validate status: `{validation.get('status')}`",
+            f"- document-quality-gate status: `{gate.get('status')}`",
+            f"- gate_passed: {gate.get('gate_passed')}",
+            f"- ready_for_value_extraction: {gate.get('ready_for_value_extraction')}",
+            f"- ready_for_import: {gate.get('ready_for_import')}",
+            "",
+        ]
+    )
     return lines
 
 
@@ -5158,6 +5697,788 @@ def _select_top_document_candidates(
         key=lambda item: int(item.get("candidate_score") or 0),
         reverse=True,
     )[:max_candidates]
+
+
+def _exact_document_allowed_domains(args: argparse.Namespace) -> set[str]:
+    domains = {domain.casefold() for domain in OFFICIAL_SOURCE_DOMAIN_HINTS}
+    domains.update(item.casefold() for item in _split_cli_list(args.exact_document_allowed_domains))
+    return domains
+
+
+def _exact_document_blocked_hints(args: argparse.Namespace) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            [
+                *BLOCKED_SOURCE_HINTS,
+                *(item.casefold() for item in _split_cli_list(args.exact_document_blocked_domains)),
+            ]
+        )
+    )
+
+
+def _exact_document_issuer_base(
+    required: dict[str, Any],
+    *,
+    input_documents: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    candidates = [
+        *_items_matching_required(input_documents, required),
+        *_items_matching_required(seed_issuers, required),
+    ]
+    chosen = candidates[0] if candidates else required
+    return {
+        "company_id": chosen.get("company_id") or required.get("company_id"),
+        "company_name": chosen.get("company_name") or required.get("company_name") or "",
+        "canonical_company_id": chosen.get("canonical_company_id") or chosen.get("company_id") or required.get("company_id"),
+        "canonical_company_name": chosen.get("canonical_company_name") or chosen.get("company_name") or required.get("company_name") or "",
+        "inn": chosen.get("inn") or "",
+        "ogrn": chosen.get("ogrn") or "",
+    }
+
+
+def _select_reviewed_exact_document_seeds(
+    issuer: dict[str, Any],
+    *,
+    seed_issuers: list[dict[str, Any]],
+    seed_types: set[str],
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+    args: argparse.Namespace,
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for seed_issuer in _items_matching_required(seed_issuers, issuer):
+        for raw_seed in seed_issuer.get("official_seeds") or []:
+            seed = dict(raw_seed)
+            seed_url = _normalize_candidate_url(str(seed.get("seed_url") or ""))
+            seed_type = _normalize_seed_type(seed.get("seed_type"), seed_url)
+            base = {
+                "company_id": issuer.get("company_id"),
+                "company_name": issuer.get("company_name") or "",
+                "seed_type": seed_type,
+                "seed_url": seed_url,
+            }
+            forbidden_fields = [
+                field
+                for field in FORBIDDEN_SEED_METADATA_FIELDS
+                if seed.get(field) not in (None, "")
+            ]
+            if forbidden_fields or seed.get("values") or seed.get("financial_values"):
+                errors.append(
+                    {
+                        **base,
+                        "message": "financial values are forbidden in reviewed seed metadata",
+                        "fields": forbidden_fields or ["values"],
+                    }
+                )
+                continue
+            if not seed_url or seed_type not in seed_types:
+                continue
+            if seed.get("seed_status") != "valid_seed":
+                continue
+            if _confidence_rank(seed.get("confidence")) < _confidence_rank("medium"):
+                continue
+            source = str(seed.get("source") or "")
+            reviewed = str(seed.get("operator_review_status") or "").strip() in DOCUMENT_INTAKE_REVIEWED_STATUSES
+            review_hint = "reviewed" in " ".join(
+                str(seed.get(field) or "")
+                for field in ("source", "reason", "notes", "resolution_method")
+            ).casefold()
+            if source not in EXACT_DOCUMENT_REVIEWED_SEED_SOURCES and not reviewed and not review_hint:
+                continue
+            classification = _classify_candidate_url(
+                seed_url,
+                allowed_domains=allowed_domains,
+                blocked_hints=blocked_hints,
+                allow_unknown_source=False,
+            )
+            if classification["status"] != "official":
+                warnings.append(
+                    {
+                        **base,
+                        "message": "reviewed seed skipped because it is not allowlisted official source",
+                        "classification": classification["status"],
+                    }
+                )
+                continue
+            if source == "generated_official_path" or _operator_seed_looks_generated(seed):
+                warnings.append({**base, "message": "generated/probable seed skipped for exact document discovery"})
+                continue
+            seed.update(
+                {
+                    "seed_url": seed_url,
+                    "seed_type": seed_type,
+                    "company_id": issuer.get("company_id"),
+                    "company_name": issuer.get("company_name") or "",
+                    "canonical_company_id": issuer.get("canonical_company_id") or issuer.get("company_id"),
+                    "canonical_company_name": issuer.get("canonical_company_name") or issuer.get("company_name") or "",
+                    "inn": issuer.get("inn") or "",
+                    "ogrn": issuer.get("ogrn") or "",
+                }
+            )
+            candidates.append(seed)
+    by_url: dict[str, dict[str, Any]] = {}
+    for seed in candidates:
+        url = str(seed.get("seed_url") or "")
+        existing = by_url.get(url)
+        if existing is None or _exact_document_seed_sort_key(seed) > _exact_document_seed_sort_key(existing):
+            by_url[url] = seed
+    return sorted(by_url.values(), key=_exact_document_seed_sort_key, reverse=True)
+
+
+def _exact_document_seed_sort_key(seed: dict[str, Any]) -> tuple[int, int, int, str]:
+    source_rank = 3 if seed.get("source") == "operator_seed" else 2 if "reviewed" in str(seed.get("source") or "") else 1
+    type_rank = {
+        "official_disclosure_reports": 5,
+        "issuer_reports": 4,
+        "official_disclosure_profile": 3,
+        "issuer_investor_relations": 2,
+    }.get(str(seed.get("seed_type") or ""), 1)
+    return (source_rank, type_rank, _confidence_rank(seed.get("confidence")), str(seed.get("seed_url") or ""))
+
+
+def _exact_document_reviewed_seed_used(issuer: dict[str, Any], seed: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "company_id": issuer.get("company_id"),
+        "company_name": issuer.get("company_name") or "",
+        "canonical_company_id": issuer.get("canonical_company_id") or issuer.get("company_id"),
+        "canonical_company_name": issuer.get("canonical_company_name") or issuer.get("company_name") or "",
+        "inn": issuer.get("inn") or "",
+        "ogrn": issuer.get("ogrn") or "",
+        "seed_type": seed.get("seed_type") or "",
+        "seed_url": seed.get("seed_url") or "",
+        "seed_status": seed.get("seed_status") or "",
+        "confidence": seed.get("confidence") or "",
+        "source": seed.get("source") or "",
+    }
+
+
+def build_exact_document_candidate_from_seed_anchor(
+    issuer: dict[str, Any],
+    anchor: dict[str, str],
+    seed: dict[str, Any],
+    source_page_url: str,
+    *,
+    args: argparse.Namespace,
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+) -> tuple[dict[str, Any] | None, bool]:
+    document_url = _normalize_candidate_url(anchor.get("href") or "")
+    if not document_url or _is_ignored_href(document_url):
+        return None, False
+    classification = _classify_candidate_url(
+        document_url,
+        allowed_domains=allowed_domains,
+        blocked_hints=blocked_hints,
+        allow_unknown_source=False,
+    )
+    title = _candidate_title(anchor, document_url)
+    source_type = _exact_document_source_type(seed, document_url, source_page_url)
+    score, reasons, negatives = score_exact_document_candidate_from_seed(
+        document_url,
+        title,
+        source_page_url,
+        args=args,
+        domain_status=classification["status"],
+    )
+    exact = _exact_document_is_document_like(document_url, title, args)
+    strong = _exact_document_has_strong_signals(document_url, title, args)
+    blocked = classification["status"] == "blocked"
+    official = classification["status"] == "official"
+    if blocked:
+        document_status = "blocked_document"
+        operator_status = "operator_to_fill"
+        confidence = "low"
+        filter_status = "filtered_blocked"
+        filter_reasons = ["blocked unofficial document URL"]
+    elif classification["status"] != "official":
+        document_status = "invalid_document"
+        operator_status = "operator_to_fill"
+        confidence = "low"
+        filter_status = "filtered_blocked"
+        filter_reasons = [classification["message"]]
+    elif official and exact and strong and score >= args.exact_document_auto_review_threshold:
+        document_status = "valid_official_document"
+        operator_status = "operator_reviewed"
+        confidence = "high"
+        filter_status = "kept"
+        filter_reasons = []
+    else:
+        document_status = "needs_operator_review"
+        operator_status = "needs_operator_review"
+        confidence = "medium" if score >= args.exact_document_min_score else "low"
+        filter_status = "kept"
+        filter_reasons = []
+    candidate = {
+        "company_id": issuer.get("company_id"),
+        "company_name": issuer.get("company_name") or "",
+        "canonical_company_id": issuer.get("canonical_company_id") or issuer.get("company_id"),
+        "canonical_company_name": issuer.get("canonical_company_name") or issuer.get("company_name") or "",
+        "inn": issuer.get("inn") or "",
+        "ogrn": issuer.get("ogrn") or "",
+        "report_period": str(args.report_period),
+        "report_type": args.report_type,
+        "accounting_standard": args.accounting_standard,
+        "source_type": source_type,
+        "source_url_context": source_page_url,
+        "source_page_url": source_page_url,
+        "document_url": document_url,
+        "document_title": title,
+        "document_date": "",
+        "source_file_name": _file_name_from_url(document_url),
+        "document_status": document_status,
+        "operator_review_status": operator_status,
+        "candidate_rank": None,
+        "candidate_score": score,
+        "raw_score": score,
+        "final_score": score,
+        "candidate_confidence": confidence,
+        "confidence": confidence,
+        "filter_status": filter_status,
+        "filter_reasons": filter_reasons,
+        "discovery_method": "reviewed_seed_anchor_scan",
+        "score_reasons": reasons,
+        "negative_reasons": negatives,
+        "notes": classification["message"],
+    }
+    _strip_financial_values(candidate)
+    return candidate, blocked
+
+
+def score_exact_document_candidate_from_seed(
+    document_url: str,
+    title: str,
+    source_page_url: str,
+    *,
+    args: argparse.Namespace,
+    domain_status: str,
+) -> tuple[int, list[str], list[str]]:
+    text = f"{document_url} {title}".casefold()
+    path = urllib.parse.urlparse(document_url).path.casefold()
+    source_host = _host(source_page_url)
+    document_host = _host(document_url)
+    score = 0
+    reasons: list[str] = []
+    negatives: list[str] = []
+
+    def add(points: int, reason: str) -> None:
+        nonlocal score
+        score += points
+        reasons.append(reason)
+
+    def subtract(points: int, reason: str) -> None:
+        nonlocal score
+        score -= points
+        negatives.append(reason)
+
+    if domain_status == "official":
+        add(20, "official allowlisted domain")
+    if source_host and source_host == document_host:
+        add(15, "same domain as reviewed seed")
+    if _url_is_pdf(document_url) or path.endswith((".doc", ".docx", ".xls", ".xlsx", ".zip")):
+        add(25, "document-like URL")
+    if str(args.report_period) and str(args.report_period) in text:
+        add(20, "target report period")
+    years = set(re.findall(r"20\d{2}", text))
+    if years and str(args.report_period) not in years:
+        subtract(55, "wrong report year")
+    if _contains_any(text, ("ifrs", "\u043c\u0441\u0444\u043e")):
+        add(20, "IFRS signal")
+    if _contains_any(text, ("annual", "yearly", "\u0433\u043e\u0434\u043e\u0432")):
+        add(20, "annual report signal")
+    if _contains_any(text, ("financial statements", "financial report", "statement", "\u0444\u0438\u043d\u0430\u043d\u0441", "\u043e\u0442\u0447\u0435\u0442")):
+        add(20, "financial reporting signal")
+    if _contains_any(text, ("consolidated", "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434")):
+        add(10, "consolidated signal")
+    if _contains_any(text, ("audited", "auditor", "audit", "\u0430\u0443\u0434")):
+        add(10, "audited report signal")
+    if _looks_like_report_document_url(document_url):
+        add(15, "report document path")
+    if _contains_any(path, EXACT_DOCUMENT_PATH_TERMS):
+        add(10, "report file/path signal")
+    if _contains_any(text, EXACT_DOCUMENT_NEGATIVE_TERMS):
+        subtract(50, "non-annual report document type")
+    if args.report_type == "annual" and _contains_any(
+        text,
+        (
+            "quarter",
+            "quarterly",
+            "q1",
+            "q2",
+            "q3",
+            "q4",
+            "\u043a\u0432\u0430\u0440\u0442\u0430\u043b",
+            "6 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
+            "9 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
+        ),
+    ):
+        subtract(35, "quarterly/interim document in annual mode")
+    if _exact_document_is_generic_page(document_url, title, args):
+        subtract(40, "generic seed page instead of exact document")
+    if not _contains_any(text, EXACT_DOCUMENT_POSITIVE_TERMS) and not _url_is_pdf(document_url):
+        subtract(30, "no exact report/document signal")
+    return max(score, 0), reasons, negatives
+
+
+def _select_top_exact_document_candidates(
+    candidates: list[dict[str, Any]],
+    *,
+    args: argparse.Namespace,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    prepared = [dict(candidate) for candidate in candidates]
+    for candidate in prepared:
+        _apply_exact_document_candidate_filter(candidate, args=args)
+    before_count = sum(1 for item in prepared if item.get("document_url"))
+
+    by_url: dict[tuple[str, str], dict[str, Any]] = {}
+    duplicate_count = 0
+    for candidate in sorted(prepared, key=_exact_document_candidate_sort_key, reverse=True):
+        if candidate.get("filter_status") == "filtered_blocked":
+            continue
+        key = (
+            str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
+            _normalized_operator_seed_candidate_url(str(candidate.get("document_url") or "")),
+        )
+        existing = by_url.get(key)
+        if existing is None:
+            by_url[key] = candidate
+            continue
+        duplicate_count += 1
+        _mark_exact_document_candidate_filtered(candidate, "filtered_duplicate", "duplicate document URL")
+    kept_candidates = list(by_url.values())
+    filtered_candidates = [
+        item for item in prepared if item.get("filter_status") != "kept" and item not in kept_candidates
+    ]
+    _apply_exact_document_top_n(kept_candidates, args=args)
+    _assign_exact_document_candidate_ranks(kept_candidates)
+    output = [
+        item
+        for item in kept_candidates
+        if item.get("filter_status") == "kept"
+    ]
+    if args.exact_document_include_filtered:
+        output.extend(
+            item
+            for item in prepared
+            if item.get("filter_status") != "kept"
+            and item.get("document_url")
+        )
+    low_score_count = sum(
+        1 for item in prepared if item.get("filter_status") == "filtered_low_score"
+    )
+    noise_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_noise")
+    blocked_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_blocked")
+    stats = {
+        "candidate_count_before_filter": before_count,
+        "candidate_count_after_filter": sum(1 for item in output if item.get("filter_status") == "kept" and item.get("document_url")),
+        "filtered_candidate_count": sum(1 for item in prepared if item.get("filter_status") != "kept"),
+        "filtered_noise_count": noise_count,
+        "filtered_low_score_count": low_score_count,
+        "filtered_duplicate_count": duplicate_count,
+        "filtered_blocked_count": blocked_count,
+        "top_ranked_candidate_count": sum(1 for item in output if item.get("filter_status") == "kept"),
+    }
+    return sorted(output, key=_exact_document_output_sort_key), stats
+
+
+def _apply_exact_document_candidate_filter(candidate: dict[str, Any], *, args: argparse.Namespace) -> None:
+    if candidate.get("filter_status") in {"filtered_blocked", "filtered_duplicate"}:
+        return
+    score = int(candidate.get("candidate_score") or candidate.get("final_score") or 0)
+    candidate["raw_score"] = int(candidate.get("raw_score") or score)
+    candidate["final_score"] = score
+    candidate["candidate_score"] = score
+    if candidate.get("document_status") in {"blocked_document", "invalid_document"}:
+        _mark_exact_document_candidate_filtered(candidate, "filtered_blocked", "blocked or invalid document URL")
+        return
+    if args.exact_document_noise_filter and _exact_document_noise(candidate, args=args):
+        _mark_exact_document_candidate_filtered(candidate, "filtered_noise", "non-annual report or generic navigation document")
+        return
+    if score < args.exact_document_min_score:
+        _mark_exact_document_candidate_filtered(candidate, "filtered_low_score", "candidate score below minimum")
+        return
+    candidate.setdefault("filter_status", "kept")
+    candidate.setdefault("filter_reasons", [])
+
+
+def _mark_exact_document_candidate_filtered(candidate: dict[str, Any], status: str, reason: str) -> None:
+    candidate["filter_status"] = status
+    reasons = list(candidate.get("filter_reasons") or [])
+    if reason not in reasons:
+        reasons.append(reason)
+    candidate["filter_reasons"] = reasons
+
+
+def _exact_document_noise(candidate: dict[str, Any], *, args: argparse.Namespace) -> bool:
+    text = f"{candidate.get('document_url') or ''} {candidate.get('document_title') or ''}".casefold()
+    if candidate.get("document_status") in {"blocked_document", "invalid_document"}:
+        return True
+    if _contains_any(text, EXACT_DOCUMENT_NEGATIVE_TERMS):
+        return True
+    if _exact_document_is_generic_page(str(candidate.get("document_url") or ""), str(candidate.get("document_title") or ""), args):
+        return True
+    return False
+
+
+def _apply_exact_document_top_n(candidates: list[dict[str, Any]], *, args: argparse.Namespace) -> None:
+    per_type_limit = max(int(args.exact_document_top_n_per_type or 0), 0)
+    if per_type_limit:
+        by_type: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        for candidate in candidates:
+            if candidate.get("filter_status") != "kept":
+                continue
+            key = (
+                str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
+                str(candidate.get("source_type") or ""),
+            )
+            by_type.setdefault(key, []).append(candidate)
+        for group in by_type.values():
+            ranked = sorted(group, key=_exact_document_candidate_sort_key, reverse=True)
+            for candidate in ranked[per_type_limit:]:
+                _mark_exact_document_candidate_filtered(candidate, "filtered_low_score", "outside top-N per source type")
+    per_issuer_limit = max(int(args.exact_document_top_n_per_issuer or 0), 0)
+    if per_issuer_limit:
+        by_issuer: dict[str, list[dict[str, Any]]] = {}
+        for candidate in candidates:
+            if candidate.get("filter_status") != "kept":
+                continue
+            key = str(candidate.get("company_id") or candidate.get("canonical_company_id") or "")
+            by_issuer.setdefault(key, []).append(candidate)
+        for group in by_issuer.values():
+            ranked = sorted(group, key=_exact_document_candidate_sort_key, reverse=True)
+            for candidate in ranked[per_issuer_limit:]:
+                _mark_exact_document_candidate_filtered(candidate, "filtered_low_score", "outside top-N per issuer")
+
+
+def _assign_exact_document_candidate_ranks(candidates: list[dict[str, Any]]) -> None:
+    by_group: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for candidate in candidates:
+        if candidate.get("filter_status") != "kept":
+            candidate["candidate_rank"] = None
+            continue
+        key = (
+            str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
+            str(candidate.get("source_type") or ""),
+        )
+        by_group.setdefault(key, []).append(candidate)
+    for group in by_group.values():
+        for rank, candidate in enumerate(sorted(group, key=_exact_document_candidate_sort_key, reverse=True), start=1):
+            candidate["candidate_rank"] = rank
+
+
+def _exact_document_candidate_sort_key(candidate: dict[str, Any]) -> tuple[int, int, int, int, int, str]:
+    score = int(candidate.get("final_score") or candidate.get("candidate_score") or 0)
+    reviewed = 1 if candidate.get("operator_review_status") == "operator_reviewed" else 0
+    exact = 1 if _exact_document_is_document_like(
+        str(candidate.get("document_url") or ""),
+        str(candidate.get("document_title") or ""),
+        argparse.Namespace(report_period=candidate.get("report_period") or ""),
+    ) else 0
+    path_len = -len(urllib.parse.urlparse(str(candidate.get("document_url") or "")).path)
+    return (score, reviewed, exact, _confidence_rank(candidate.get("candidate_confidence")), path_len, str(candidate.get("document_url") or ""))
+
+
+def _exact_document_output_sort_key(candidate: dict[str, Any]) -> tuple[str, str, int, int, str]:
+    return (
+        str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
+        str(candidate.get("source_type") or ""),
+        int(candidate.get("candidate_rank") or 9999),
+        -int(candidate.get("candidate_score") or 0),
+        str(candidate.get("document_url") or ""),
+    )
+
+
+def _exact_document_source_type(seed: dict[str, Any], document_url: str, source_page_url: str) -> str:
+    seed_type = str(seed.get("seed_type") or "")
+    host = _host(document_url) or _host(source_page_url)
+    if "disclosure" in host or seed_type.startswith("official_disclosure"):
+        return "official_disclosure"
+    return "official_issuer_report"
+
+
+def _exact_document_is_document_like(document_url: str, title: str, args: argparse.Namespace) -> bool:
+    text = f"{document_url} {title}".casefold()
+    if _url_is_pdf(document_url):
+        return True
+    if _looks_like_report_document_url(document_url):
+        return True
+    return _contains_any(text, ("annual report", "financial statements", "ifrs", "\u043c\u0441\u0444\u043e", "\u0433\u043e\u0434\u043e\u0432", "\u043e\u0442\u0447\u0435\u0442"))
+
+
+def _exact_document_has_strong_signals(document_url: str, title: str, args: argparse.Namespace) -> bool:
+    text = f"{document_url} {title}".casefold()
+    target_period = str(getattr(args, "report_period", "") or "")
+    if target_period and target_period not in text:
+        return False
+    annual = _contains_any(text, ("annual", "yearly", "\u0433\u043e\u0434\u043e\u0432"))
+    standard = _contains_any(text, ("ifrs", "\u043c\u0441\u0444\u043e", "financial statements", "\u0444\u0438\u043d\u0430\u043d\u0441"))
+    negative = _contains_any(text, EXACT_DOCUMENT_NEGATIVE_TERMS)
+    return bool(annual and standard and not negative and _exact_document_is_document_like(document_url, title, args))
+
+
+def _exact_document_is_generic_page(document_url: str, title: str, args: argparse.Namespace) -> bool:
+    if _url_is_pdf(document_url):
+        return False
+    path = urllib.parse.urlparse(document_url).path.casefold().rstrip("/")
+    text = f"{document_url} {title}".casefold()
+    if path in {"", "/", "/invest", "/investor", "/investors", "/reports", "/disclosure", "/information-disclosure"}:
+        return True
+    return _looks_like_landing_page(document_url) and not _contains_any(text, ("annual", "ifrs", "\u043c\u0441\u0444\u043e", "financial statements"))
+
+
+def _exact_document_not_found_candidate(issuer: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "company_id": issuer.get("company_id"),
+        "company_name": issuer.get("company_name") or "",
+        "canonical_company_id": issuer.get("canonical_company_id") or issuer.get("company_id"),
+        "canonical_company_name": issuer.get("canonical_company_name") or issuer.get("company_name") or "",
+        "inn": issuer.get("inn") or "",
+        "ogrn": issuer.get("ogrn") or "",
+        "report_period": "",
+        "report_type": "",
+        "accounting_standard": "",
+        "source_type": "official_issuer_report",
+        "source_page_url": "",
+        "source_url_context": "",
+        "document_url": "",
+        "document_title": "",
+        "document_date": "",
+        "source_file_name": "",
+        "document_status": "not_found",
+        "operator_review_status": "operator_to_fill",
+        "candidate_rank": None,
+        "candidate_score": 0,
+        "raw_score": 0,
+        "final_score": 0,
+        "candidate_confidence": "low",
+        "confidence": "low",
+        "filter_status": "kept",
+        "filter_reasons": [],
+        "discovery_method": "reviewed_seed_anchor_scan",
+        "score_reasons": [],
+        "negative_reasons": [],
+        "notes": "No exact official report document candidate found from reviewed seed pages.",
+    }
+
+
+def _attach_exact_document_optional_metadata(
+    documents: list[dict[str, Any]],
+    *,
+    args: argparse.Namespace,
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> None:
+    for document in documents:
+        document_url = str(document.get("document_url") or "")
+        if not document_url:
+            continue
+        classification = _classify_candidate_url(
+            document_url,
+            allowed_domains=_exact_document_allowed_domains(args),
+            blocked_hints=_exact_document_blocked_hints(args),
+            allow_unknown_source=False,
+        )
+        if classification["status"] != "official":
+            continue
+        if args.exact_document_probe_urls:
+            probe = _probe_url(
+                document_url,
+                timeout_seconds=args.exact_document_fetch_timeout_seconds,
+                max_bytes=args.exact_document_max_response_bytes,
+            )
+            document["probe"] = probe
+            document["probe_status"] = probe.get("status")
+            document["probe_http_status"] = probe.get("http_status")
+            document["probe_content_type"] = probe.get("content_type")
+            if probe.get("status") != "ok":
+                warnings.append(
+                    {
+                        "company_id": document.get("company_id"),
+                        "document_url": document_url,
+                        "message": "document probe failed",
+                        "error": probe.get("error"),
+                    }
+                )
+        if args.exact_document_download_documents and document.get("operator_review_status") == "operator_reviewed":
+            if args.exact_document_download_dir is None:
+                warnings.append(
+                    {
+                        "company_id": document.get("company_id"),
+                        "document_url": document_url,
+                        "message": "exact document download requested without --exact-document-download-dir",
+                    }
+                )
+                continue
+            download = _download_valid_document(document, args.exact_document_download_dir)
+            document["download"] = download
+            warnings.extend(download.get("warnings") or [])
+            errors.extend(download.get("errors") or [])
+
+
+def _source_intake_from_exact_document_candidates(
+    required_issuers: list[dict[str, Any]],
+    *,
+    documents: list[dict[str, Any]],
+    reviewed_seeds_used: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    issuers: list[dict[str, Any]] = []
+    for required in required_issuers:
+        document_matches = _items_matching_required(documents, required)
+        seed_matches = _items_matching_required(reviewed_seeds_used, required)
+        chosen = (document_matches or seed_matches or [required])[0]
+        source_candidates: list[dict[str, Any]] = []
+        for document in document_matches:
+            source_candidates.append(
+                {
+                    "source_type": document.get("source_type") or "official_issuer_report",
+                    "url": document.get("document_url") or "",
+                    "document_title": document.get("document_title") or "",
+                    "document_date": document.get("document_date") or "",
+                    "report_period": document.get("report_period") or "",
+                    "source_file_name": document.get("source_file_name") or "",
+                    "status": "valid_official_source"
+                    if document.get("operator_review_status") == "operator_reviewed"
+                    else "needs_operator_review",
+                    "notes": "Generated from exact-document-discover-from-seeds candidate.",
+                }
+            )
+        for seed in seed_matches:
+            source_candidates.append(
+                {
+                    "source_type": "official_disclosure" if str(seed.get("seed_type") or "").startswith("official_disclosure") else "issuer_investor_relations",
+                    "url": seed.get("seed_url") or "",
+                    "document_title": "",
+                    "document_date": "",
+                    "report_period": "",
+                    "source_file_name": "",
+                    "status": "needs_operator_review",
+                    "notes": "Reviewed seed page used for exact document discovery.",
+                }
+            )
+        issuers.append(
+            {
+                "company_id": chosen.get("company_id") or required.get("company_id"),
+                "company_name": chosen.get("company_name") or required.get("company_name") or "",
+                "canonical_company_id": chosen.get("canonical_company_id") or chosen.get("company_id") or required.get("company_id"),
+                "canonical_company_name": chosen.get("canonical_company_name") or chosen.get("company_name") or required.get("company_name") or "",
+                "period_year": str(chosen.get("report_period") or ""),
+                "source_candidates": source_candidates,
+            }
+        )
+    return issuers
+
+
+def _build_exact_document_discovery_report(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    required_issuers: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
+    reviewed_seeds_used: list[dict[str, Any]],
+    missing_issuers: list[dict[str, Any]],
+    ranking_stats: dict[str, int],
+    blocked_candidate_count: int,
+    invalid_candidate_count: int,
+    reviewed_candidate_count: int,
+    needs_operator_review_count: int,
+    document_intake_fill_report: dict[str, Any] | None,
+    document_intake_validation_report: dict[str, Any] | None,
+    document_quality_gate_report: dict[str, Any] | None,
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    candidate_count = sum(1 for item in documents if item.get("document_url") and item.get("filter_status") == "kept")
+    return {
+        "status": status,
+        "mode": "exact-document-discover-from-seeds",
+        "issuer_count": len(required_issuers),
+        "candidate_count_before_filter": ranking_stats.get("candidate_count_before_filter", 0),
+        "candidate_count_after_filter": ranking_stats.get("candidate_count_after_filter", 0),
+        "candidate_count": candidate_count,
+        "reviewed_candidate_count": reviewed_candidate_count,
+        "needs_operator_review_count": needs_operator_review_count,
+        "invalid_candidate_count": invalid_candidate_count,
+        "blocked_candidate_count": blocked_candidate_count,
+        "filtered_candidate_count": ranking_stats.get("filtered_candidate_count", 0),
+        "filtered_noise_count": ranking_stats.get("filtered_noise_count", 0),
+        "filtered_low_score_count": ranking_stats.get("filtered_low_score_count", 0),
+        "filtered_duplicate_count": ranking_stats.get("filtered_duplicate_count", 0),
+        "top_ranked_candidate_count": ranking_stats.get("top_ranked_candidate_count", 0),
+        "reviewed_seeds_used": reviewed_seeds_used,
+        "missing_issuers": missing_issuers,
+        "documents": documents,
+        "document_intake_fill_report": document_intake_fill_report,
+        "document_intake_validation_report": document_intake_validation_report,
+        "document_quality_gate_report": document_quality_gate_report,
+        "exact_document_candidate_output": _path_value(args.exact_document_candidate_output),
+        "exact_document_candidate_csv_output": _path_value(args.exact_document_candidate_csv_output),
+        "document_intake_output": _path_value(args.document_intake_output),
+        "document_intake_csv_output": _path_value(args.document_intake_csv_output),
+        "document_intake_validation_json_output": _path_value(args.document_intake_validation_json_output),
+        "document_intake_validation_markdown_output": _path_value(args.document_intake_validation_markdown_output),
+        "quality_gate_json_output": _path_value(args.quality_gate_json_output),
+        "quality_gate_markdown_output": _path_value(args.quality_gate_markdown_output),
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("exact-document-discover-from-seeds", status),
+        **SAFETY_FLAGS,
+    }
+
+
+def _write_exact_document_discovery_payload(
+    args: argparse.Namespace,
+    path: Path,
+    *,
+    required_issuers: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
+    reviewed_seeds_used: list[dict[str, Any]],
+    missing_issuers: list[dict[str, Any]],
+    ranking_stats: dict[str, int],
+    blocked_candidate_count: int,
+    status: str,
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> None:
+    reviewed_count = sum(
+        1
+        for item in documents
+        if item.get("document_url")
+        and item.get("filter_status") == "kept"
+        and item.get("operator_review_status") == "operator_reviewed"
+    )
+    review_count = sum(
+        1
+        for item in documents
+        if item.get("document_url")
+        and item.get("filter_status") == "kept"
+        and item.get("operator_review_status") == "needs_operator_review"
+    )
+    invalid_count = sum(
+        1
+        for item in documents
+        if item.get("document_status") in {"invalid_document", "blocked_document"}
+    )
+    report = _build_exact_document_discovery_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        documents=documents,
+        reviewed_seeds_used=reviewed_seeds_used,
+        missing_issuers=missing_issuers,
+        ranking_stats=ranking_stats,
+        blocked_candidate_count=blocked_candidate_count,
+        invalid_candidate_count=invalid_count,
+        reviewed_candidate_count=reviewed_count,
+        needs_operator_review_count=review_count,
+        document_intake_fill_report=None,
+        document_intake_validation_report=None,
+        document_quality_gate_report=None,
+        warnings=warnings,
+        errors=errors,
+    )
+    write_json_report(report, path)
 
 
 def _fetch_candidate_page(
@@ -7258,6 +8579,10 @@ def _not_filled_result(document: dict[str, Any], message: str) -> dict[str, Any]
 def _group_document_candidates(documents: list[dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for document in documents:
+        if not document.get("document_url") and document.get("document_status") == "not_found":
+            continue
+        if document.get("filter_status") and document.get("filter_status") != "kept":
+            continue
         grouped.setdefault(_document_period_key(document), []).append(document)
     return grouped
 
@@ -7758,6 +9083,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Fill operator_decision for reviewed seed candidates, then run operator-seed-promote-reviewed."]
     if mode == "operator-seed-promote-reviewed":
         return ["Validate promoted reviewed seeds, then use them with official-seed-resolve; exact documents still require the quality gate."]
+    if mode == "exact-document-discover-from-seeds":
+        return ["Review exact document candidates, then run document-intake-fill, document-intake-validate, and the strict document quality gate."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":

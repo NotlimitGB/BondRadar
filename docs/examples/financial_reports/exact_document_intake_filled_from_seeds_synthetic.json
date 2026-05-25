@@ -1,0 +1,33 @@
+{
+  "status": "filled",
+  "mode": "document-intake-fill",
+  "issuer_count": 1,
+  "document_template_count": 1,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Bridge Issuer",
+      "report_period": "2025",
+      "report_type": "annual",
+      "accounting_standard": "IFRS",
+      "source_type": "official_issuer_report",
+      "source_url_context": "https://issuer.example/investors/reports/",
+      "document_url": "https://issuer.example/reports/synthetic-bridge-annual-ifrs-financial-statements-2025.pdf",
+      "document_title": "Annual audited consolidated IFRS financial statements 2025",
+      "document_date": "",
+      "source_file_name": "synthetic-bridge-annual-ifrs-financial-statements-2025.pdf",
+      "operator_review_status": "operator_reviewed",
+      "confidence": "high",
+      "notes": "Synthetic exact official report document candidate filled from reviewed seed discovery."
+    }
+  ]
+}

@@ -910,6 +910,42 @@ exact report evidence, and they do not make `ready_for_value_extraction` true.
 Pending, rejected, unknown, blocked, or financial-value-bearing review rows are
 not promoted.
 
+## Exact Document Discovery From Reviewed Seeds
+
+Task 108 starts from the reviewed seed pack and proposes exact official report
+document candidates. It stays read-only and metadata-only: no identity rows,
+reports, scores, predictions, schedules, paper state, OCR output, parsed tables,
+or financial values are changed.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-candidate-output data/financial_reports/private/exact_document_candidates_from_seeds_task108.json \
+  --exact-document-candidate-csv-output data/financial_reports/private/exact_document_candidates_from_seeds_task108.csv \
+  --run-document-intake-fill true \
+  --document-intake-output data/financial_reports/private/exact_document_intake_filled_task108.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_filled_task108.csv \
+  --run-document-intake-validate true \
+  --document-intake-validation-json-output logs/financial_reports/exact_document_intake_validation_task108.json \
+  --document-intake-validation-markdown-output logs/financial_reports/exact_document_intake_validation_task108.md \
+  --run-document-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task108.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task108.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task108.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task108.md
+```
+
+Reviewed seed pages are navigation sources only. Exact document candidates must
+still pass document intake validation and the strict quality gate. If required
+issuers are missing exact reviewed documents, `ready_for_value_extraction`
+remains `false`.
+
 ## VDS Smoke Checklist
 
 Health:

@@ -1186,6 +1186,46 @@ Pending, rejected, missing, blocked, unknown, or financial-value-bearing review
 rows are not promoted. Unknown domains cannot become reviewed seeds even with
 `--allow-unknown-source`.
 
+## Exact Document Discovery From Reviewed Seeds
+
+Task 108 uses reviewed official seed pages to discover exact official report
+document candidates. It scans only allowlisted reviewed seed pages, extracts
+HTML anchors, scores annual IFRS/consolidated/audited report links, and filters
+presentations, news, prospectuses, quarterly documents, and generic navigation
+pages. It does not parse PDFs, OCR documents, extract financial values, import
+reports, trade, or change readiness outside the strict document quality gate.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-candidate-output data/financial_reports/private/exact_document_candidates_from_seeds_task108.json \
+  --exact-document-candidate-csv-output data/financial_reports/private/exact_document_candidates_from_seeds_task108.csv \
+  --run-document-intake-fill true \
+  --document-intake-output data/financial_reports/private/exact_document_intake_filled_task108.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_filled_task108.csv \
+  --run-document-intake-validate true \
+  --document-intake-validation-json-output logs/financial_reports/exact_document_intake_validation_task108.json \
+  --document-intake-validation-markdown-output logs/financial_reports/exact_document_intake_validation_task108.md \
+  --run-document-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task108.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task108.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task108.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task108.md
+```
+
+The output candidate JSON/CSV is compatible with `document-intake-fill`.
+`--exact-document-probe-urls` and `--exact-document-download-documents` are
+disabled by default. If downloads are enabled, save only to private/ignored
+directories and never commit downloaded documents. If one required issuer is
+still unresolved, the quality gate must fail and `ready_for_value_extraction`
+must remain `false`.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
