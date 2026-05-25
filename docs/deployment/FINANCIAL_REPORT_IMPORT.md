@@ -881,6 +881,37 @@ Only exact reviewed official report pages or PDFs can fill rows. Unknown domains
 remain review-only even with `--allow-unknown-source`, and blocked domains or
 financial fields fail validation.
 
+## Exact Document Quality Gate
+
+Task 101 runs the resolve-ready gate before any future financial value
+collection. It reuses exact document intake fill, intake validation, and document
+resolve, then fails unless every required issuer has exactly one valid reviewed
+official document. The gate does not extract values, import reports, mutate
+state, or trade.
+
+Run the quality gate:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-quality-gate \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --exact-document-candidates-input data/financial_reports/private/exact_document_candidates_task101.json \
+  --required-company-ids 18,67 \
+  --document-intake-output data/financial_reports/private/exact_document_intake_gate_task101.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_gate_task101.csv \
+  --source-intake-output data/financial_reports/private/official_source_intake_resolved_gate_task101.json \
+  --document-output data/financial_reports/private/official_report_documents_gate_task101.json \
+  --document-checklist-output logs/financial_reports/official_report_document_checklist_gate_task101.csv \
+  --json-output logs/financial_reports/exact_document_quality_gate_task101.json \
+  --markdown-output logs/financial_reports/exact_document_quality_gate_task101.md
+```
+
+If no exact reviewed candidate file is supplied, the gate fails safely. Only a
+full pass sets `ready_for_value_extraction=true`; `ready_for_import` remains
+`false` in all cases.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

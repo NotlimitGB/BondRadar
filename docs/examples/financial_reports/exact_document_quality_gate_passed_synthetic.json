@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "mode": "document-quality-gate",
+  "issuer_count": 2,
+  "required_issuer_count": 2,
+  "covered_required_issuer_count": 2,
+  "filled_document_count": 2,
+  "valid_document_count": 2,
+  "resolved_document_count": 2,
+  "needs_operator_review_count": 0,
+  "invalid_document_count": 0,
+  "gate_passed": true,
+  "ready_for_value_extraction": true,
+  "ready_for_import": false,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "required_issuers": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "document_status": "valid_official_document",
+      "gate_status": "passed",
+      "reason": "exact reviewed official document is resolve-ready",
+      "document_url": "https://issuer.example/reports/synthetic-rail-annual-ifrs-2025.pdf",
+      "document_title": "Annual audited consolidated IFRS financial statements 2025"
+    },
+    {
+      "company_id": 1002,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_status": "valid_official_document",
+      "gate_status": "passed",
+      "reason": "exact reviewed official document is resolve-ready",
+      "document_url": "https://issuer.example/reports/synthetic-bridge-annual-ifrs-2025.pdf",
+      "document_title": "Annual audited consolidated IFRS financial statements 2025"
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

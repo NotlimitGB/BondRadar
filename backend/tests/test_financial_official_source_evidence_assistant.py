@@ -870,6 +870,330 @@ def test_document_intake_fill_probe_and_download_are_optional(
     assert network_report["documents"][0]["download"]["sha256"] == "abc123"
 
 
+def test_document_quality_gate_without_candidates_fails_safely(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    output = tmp_path / "gate_report.json"
+    markdown = tmp_path / "gate_report.md"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/ | https://www.e-disclosure.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ | https://www.e-disclosure.ru/"),
+        ],
+    )
+    exit_code = assistant.main(
+        [
+            "--mode",
+            "document-quality-gate",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--required-company-ids",
+            "18,67",
+            "--json-output",
+            str(output),
+            "--markdown-output",
+            str(markdown),
+        ]
+    )
+
+    assert exit_code == 1
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["status"] == "failed"
+    assert report["gate_passed"] is False
+    assert report["ready_for_value_extraction"] is False
+    assert report["ready_for_import"] is False
+    assert report["required_issuer_count"] == 2
+    assert report["covered_required_issuer_count"] == 0
+    assert report["valid_document_count"] == 0
+    assert report["resolved_document_count"] == 0
+    assert report["needs_operator_review_count"] == 2
+    assert report["read_only"] is True
+    assert any("candidate file is required" in item["message"] for item in report["errors"])
+    assert "Exact Document Quality Gate" in markdown.read_text(encoding="utf-8")
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+
+
+def test_document_quality_gate_with_valid_candidates_passes(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "exact_document_candidates.json"
+    filled = tmp_path / "exact_document_intake_gate.json"
+    resolved_source = tmp_path / "resolved_source_intake.json"
+    document_output = tmp_path / "resolved_documents.json"
+    checklist = tmp_path / "document_checklist.csv"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/ | https://www.e-disclosure.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ | https://www.e-disclosure.ru/"),
+        ],
+    )
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            ),
+            _document_item(
+                67,
+                "https://mostotrest.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            ),
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-quality-gate",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--required-company-ids",
+            "18,67",
+            "--document-intake-output",
+            str(filled),
+            "--source-intake-output",
+            str(resolved_source),
+            "--document-output",
+            str(document_output),
+            "--document-checklist-output",
+            str(checklist),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "passed"
+    assert report["gate_passed"] is True
+    assert report["ready_for_value_extraction"] is True
+    assert report["ready_for_import"] is False
+    assert report["covered_required_issuer_count"] == 2
+    assert report["filled_document_count"] == 2
+    assert report["valid_document_count"] == 2
+    assert report["resolved_document_count"] == 2
+    assert report["needs_operator_review_count"] == 0
+    assert report["invalid_document_count"] == 0
+    assert report["fill_report"]["status"] == "passed"
+    assert report["validation_report"]["status"] == "passed"
+    assert report["resolve_report"]["status"] == "passed"
+    assert filled.is_file()
+    assert resolved_source.is_file()
+    assert document_output.is_file()
+    assert checklist.is_file()
+
+
+def test_document_quality_gate_missing_required_issuer_fails(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "exact_document_candidates.json"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/"),
+        ],
+    )
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-quality-gate",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--required-company-ids",
+            "18,67",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert report["covered_required_issuer_count"] == 1
+    missing = [item for item in report["required_issuers"] if item["company_id"] == 67][0]
+    assert missing["gate_status"] == "failed"
+    assert "missing" in missing["reason"]
+
+
+def test_document_quality_gate_unknown_source_cannot_pass(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "unknown_candidates.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://example.com/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+    )
+    default_args = assistant.parse_args(
+        [
+            "--mode",
+            "document-quality-gate",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+    allow_args = assistant.parse_args(
+        [
+            "--mode",
+            "document-quality-gate",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--required-company-ids",
+            "18",
+            "--allow-unknown-source",
+        ]
+    )
+
+    default_report, default_exit = assistant.run_assistant(default_args)
+    allow_report, allow_exit = assistant.run_assistant(allow_args)
+
+    assert default_exit == 1
+    assert default_report["status"] == "failed"
+    assert any("official allowlist" in item["message"] for item in default_report["errors"])
+    assert allow_exit == 1
+    assert allow_report["status"] == "failed"
+    assert allow_report["valid_document_count"] == 0
+    assert allow_report["ready_for_value_extraction"] is False
+    assert allow_report["required_issuers"][0]["document_status"] != "valid_official_document"
+
+
+def test_document_quality_gate_blocks_bad_source_and_financial_values(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "bad_candidates.json"
+    bad = _document_item(
+        18,
+        "https://wikipedia.org/wiki/RZD",
+        "Annual audited consolidated IFRS financial statements 2025",
+    )
+    bad["values"] = {"revenue": {"value": "1"}}
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_document_intake(candidates, [bad])
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-quality-gate",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--required-company-ids",
+            "18",
+            "--allow-unknown-source",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert report["ready_for_value_extraction"] is False
+    assert any("blocked unofficial source domain" in item["message"] for item in report["errors"])
+    assert any("financial values are forbidden" in item["message"] for item in report["errors"])
+
+
+def test_document_quality_gate_partial_gate_warns_only(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidates = tmp_path / "exact_document_candidates.json"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/"),
+        ],
+    )
+    _write_document_intake(
+        candidates,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-quality-gate",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--exact-document-candidates-input",
+            str(candidates),
+            "--required-company-ids",
+            "18,67",
+            "--allow-partial-gate",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["gate_passed"] is False
+    assert report["ready_for_value_extraction"] is False
+    assert report["ready_for_import"] is False
+    assert report["covered_required_issuer_count"] == 1
+    assert report["errors"] == []
+    assert any("missing" in item["message"] for item in report["warnings"])
+
+
 def test_document_resolve_accepts_operator_reviewed_status(
     tmp_path: Path,
 ) -> None:

@@ -5,6 +5,7 @@ import csv
 import hashlib
 import json
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,6 +25,7 @@ MODE_CHOICES = (
     "document-intake-template",
     "document-intake-validate",
     "document-intake-fill",
+    "document-quality-gate",
     "candidate-fill",
     "preview",
 )
@@ -189,6 +191,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--prefer-official-issuer", type=_parse_bool, default=True)
     parser.add_argument("--prefer-disclosure", type=_parse_bool, default=True)
+    parser.add_argument("--required-company-ids", default="")
+    parser.add_argument("--required-company-names", default="")
+    parser.add_argument("--require-all-required-issuers", type=_parse_bool, default=True)
+    parser.add_argument("--require-one-valid-document-per-issuer", type=_parse_bool, default=True)
+    parser.add_argument("--require-document-resolve", type=_parse_bool, default=True)
+    parser.add_argument("--fail-on-unresolved-documents", type=_parse_bool, default=True)
+    parser.add_argument("--fail-on-needs-operator-review", type=_parse_bool, default=True)
+    parser.add_argument("--allow-partial-gate", type=_parse_bool, default=False)
     parser.add_argument("--document-output", type=Path, default=None)
     parser.add_argument("--document-checklist-output", type=Path, default=None)
     parser.add_argument("--report-period", default="2025")
@@ -242,6 +252,8 @@ def run_assistant(
         report = run_document_intake_validate(args)
     elif args.mode == "document-intake-fill":
         report = run_document_intake_fill(args)
+    elif args.mode == "document-quality-gate":
+        report = run_document_quality_gate(args)
     elif args.mode == "candidate-fill":
         report = run_candidate_fill(args)
     else:
@@ -1318,6 +1330,197 @@ def run_document_intake_fill(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def run_document_quality_gate(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    input_documents: list[dict[str, Any]] = []
+    filled_documents: list[dict[str, Any]] = []
+    resolved_source_intake: list[dict[str, Any]] = []
+
+    if args.document_intake_input is None:
+        errors.append({"message": "document-quality-gate mode requires --document-intake-input"})
+    if args.source_intake_input is None and args.require_document_resolve:
+        errors.append({"message": "document-quality-gate mode requires --source-intake-input"})
+    if not errors:
+        try:
+            input_documents = load_document_intake_file(args.document_intake_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    required_issuers = _parse_required_issuers(args, input_documents)
+    if not required_issuers and args.require_all_required_issuers:
+        errors.append({"message": "at least one required issuer is needed for quality gate"})
+    if args.exact_document_candidates_input is None:
+        errors.append({"message": "exact document candidate file is required for quality gate"})
+
+    fill_report: dict[str, Any] = {}
+    validation_report: dict[str, Any] = {}
+    resolve_report: dict[str, Any] = {}
+    with tempfile.TemporaryDirectory(prefix="bondradar-document-gate-") as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        filled_output = args.document_intake_output or tmp_path / "exact_document_intake_gate.json"
+        source_output = args.source_intake_output or tmp_path / "official_source_intake_resolved_gate.json"
+        document_output = args.document_output or tmp_path / "official_report_documents_gate.json"
+
+        fill_args = _clone_args(
+            args,
+            document_intake_output=filled_output,
+            document_output=args.document_input,
+        )
+        fill_report = run_document_intake_fill(fill_args)
+        warnings.extend(fill_report.get("warnings") or [])
+        errors.extend(fill_report.get("errors") or [])
+
+        if filled_output.is_file():
+            try:
+                filled_documents = load_document_intake_file(filled_output)
+            except Exception as exc:
+                errors.append({"message": f"failed to read filled exact document intake: {exc}"})
+        else:
+            errors.append({"message": "document-intake-fill did not produce filled exact document intake"})
+
+        if filled_output.is_file():
+            validation_args = _clone_args(args, document_intake_input=filled_output)
+            validation_report = run_document_intake_validate(validation_args)
+            warnings.extend(validation_report.get("warnings") or [])
+        else:
+            validation_report = {
+                "status": "failed",
+                "mode": "document-intake-validate",
+                "issuer_count": 0,
+                "document_candidate_count": 0,
+                "valid_document_count": 0,
+                "invalid_document_count": 0,
+                "needs_operator_review_count": 0,
+                "document_results": [],
+                "warnings": [],
+                "errors": [{"message": "filled exact document intake is unavailable for validation"}],
+                **SAFETY_FLAGS,
+            }
+        if args.require_document_resolve and filled_output.is_file():
+            resolve_args = _clone_args(
+                args,
+                document_intake_input=filled_output,
+                source_intake_output=source_output,
+                document_output=document_output,
+            )
+            resolve_report = run_document_resolve(resolve_args)
+            warnings.extend(resolve_report.get("warnings") or [])
+            if source_output.is_file():
+                try:
+                    resolved_source_intake = load_source_intake(source_output)
+                except Exception as exc:
+                    errors.append({"message": f"failed to read resolved source intake: {exc}"})
+        elif args.require_document_resolve:
+            resolve_report = {
+                "status": "failed",
+                "mode": "document-resolve",
+                "issuer_count": 0,
+                "resolved_document_count": 0,
+                "needs_operator_review_count": 0,
+                "invalid_document_count": 0,
+                "issuers": [],
+                "warnings": [],
+                "errors": [{"message": "filled exact document intake is unavailable for document-resolve"}],
+                **SAFETY_FLAGS,
+            }
+
+    validation_errors = validation_report.get("errors") or []
+    resolve_errors = resolve_report.get("errors") or []
+    severe_pipeline_errors = [
+        error
+        for error in [*(fill_report.get("errors") or []), *validation_errors, *resolve_errors]
+        if not _is_unresolved_document_gate_error(error)
+    ]
+    errors.extend(severe_pipeline_errors)
+
+    required_statuses = _build_required_issuer_gate_statuses(
+        required_issuers,
+        input_documents=input_documents,
+        filled_documents=filled_documents,
+        validation_report=validation_report,
+        resolve_report=resolve_report,
+        resolved_source_intake=resolved_source_intake,
+        args=args,
+    )
+    covered_required_count = sum(1 for item in required_statuses if item["gate_status"] == "passed")
+    filled_required_count = sum(1 for item in required_statuses if item.get("filled"))
+    valid_required_count = sum(
+        1 for item in required_statuses if item.get("valid_document_count", 0) == 1
+    )
+    resolved_required_count = sum(
+        1 for item in required_statuses if item.get("resolved_document_count", 0) >= 1
+    )
+    review_required_count = sum(
+        1
+        for item in required_statuses
+        if item.get("document_status") in {"missing", "needs_operator_review"}
+    )
+    invalid_required_count = sum(
+        1 for item in required_statuses if item.get("document_status") == "invalid_document"
+    )
+
+    required_blockers = [
+        _required_issuer_error(item)
+        for item in required_statuses
+        if item["gate_status"] != "passed"
+    ]
+    if args.allow_partial_gate and covered_required_count > 0:
+        warnings.extend(required_blockers)
+    else:
+        errors.extend(required_blockers)
+
+    gate_passed = (
+        not errors
+        and bool(required_statuses)
+        and covered_required_count == len(required_statuses)
+        and valid_required_count >= len(required_statuses)
+        and resolved_required_count >= len(required_statuses)
+        and review_required_count == 0
+        and invalid_required_count == 0
+        and _safety_flags_clean(fill_report)
+        and _safety_flags_clean(validation_report)
+        and _safety_flags_clean(resolve_report)
+    )
+    partial_warning = (
+        args.allow_partial_gate
+        and not gate_passed
+        and covered_required_count > 0
+        and covered_required_count < len(required_statuses)
+        and not severe_pipeline_errors
+    )
+    status = "passed" if gate_passed else "warning" if partial_warning else "failed"
+    report = {
+        "status": status,
+        "mode": "document-quality-gate",
+        "issuer_count": len({_document_company_key(item) for item in filled_documents}),
+        "required_issuer_count": len(required_statuses),
+        "covered_required_issuer_count": covered_required_count,
+        "filled_document_count": filled_required_count,
+        "valid_document_count": valid_required_count,
+        "resolved_document_count": resolved_required_count,
+        "needs_operator_review_count": review_required_count,
+        "invalid_document_count": invalid_required_count,
+        "gate_passed": gate_passed,
+        "ready_for_value_extraction": gate_passed,
+        "ready_for_import": False,
+        "required_issuers": required_statuses,
+        "fill_report": fill_report,
+        "validation_report": validation_report,
+        "resolve_report": resolve_report,
+        "warnings": warnings,
+        "errors": [] if partial_warning and not severe_pipeline_errors else errors,
+        "document_intake_output": _path_value(args.document_intake_output),
+        "document_intake_csv_output": _path_value(args.document_intake_csv_output),
+        "source_intake_output": _path_value(args.source_intake_output),
+        "document_output": _path_value(args.document_output),
+        "document_checklist_output": _path_value(args.document_checklist_output),
+        "next_steps": _next_steps("document-quality-gate", status),
+        **SAFETY_FLAGS,
+    }
+    return report
+
+
 def fill_document_intake_item(
     document: dict[str, Any],
     args: argparse.Namespace,
@@ -2200,6 +2403,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "document-intake-validate"
         else "Exact Document Intake Fill"
         if report.get("mode") == "document-intake-fill"
+        else "Exact Document Quality Gate"
+        if report.get("mode") == "document-quality-gate"
         else "Exact Official Report Document Resolver"
         if report.get("mode") in {"document-resolve", "document-validate"}
         else "Official-Source Evidence Assistant"
@@ -2224,6 +2429,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_document_markdown_sections(report))
     if report.get("mode") in {"document-intake-template", "document-intake-validate", "document-intake-fill"}:
         lines.extend(_render_document_intake_markdown_sections(report))
+    if report.get("mode") == "document-quality-gate":
+        lines.extend(_render_document_quality_gate_markdown_sections(report))
     lines.extend(
         [
         "## Source Validation",
@@ -2436,6 +2643,67 @@ def _render_document_intake_markdown_sections(report: dict[str, Any]) -> list[st
     return lines
 
 
+def _render_document_quality_gate_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Quality Gate",
+        "",
+        f"- gate_passed: {report.get('gate_passed')}",
+        f"- ready_for_value_extraction: {report.get('ready_for_value_extraction')}",
+        f"- ready_for_import: {report.get('ready_for_import')}",
+        f"- required_issuer_count: {report.get('required_issuer_count', 0)}",
+        f"- covered_required_issuer_count: {report.get('covered_required_issuer_count', 0)}",
+        f"- filled_document_count: {report.get('filled_document_count', 0)}",
+        f"- valid_document_count: {report.get('valid_document_count', 0)}",
+        f"- resolved_document_count: {report.get('resolved_document_count', 0)}",
+        f"- needs_operator_review_count: {report.get('needs_operator_review_count', 0)}",
+        f"- invalid_document_count: {report.get('invalid_document_count', 0)}",
+        "",
+        "## Required Issuers",
+        "",
+        "| Company ID | Company | Document Status | Gate Status | Reason | URL | Title |",
+        "| ---: | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for item in report.get("required_issuers") or []:
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {document_status} | {gate_status} | {reason} | {url} | {title} |".format(
+                company_id=item.get("company_id") or "",
+                company_name=str(item.get("company_name") or "").replace("|", "/"),
+                document_status=item.get("document_status") or "",
+                gate_status=item.get("gate_status") or "",
+                reason=str(item.get("reason") or "").replace("|", "/"),
+                url=str(item.get("document_url") or "").replace("|", "/"),
+                title=str(item.get("document_title") or "").replace("|", "/"),
+            )
+        )
+    if rows == 0:
+        lines.append("|  |  |  |  | No required issuers |  |  |")
+    fill_report = report.get("fill_report") or {}
+    validation_report = report.get("validation_report") or {}
+    resolve_report = report.get("resolve_report") or {}
+    lines.extend(
+        [
+            "",
+            "## Pipeline Steps",
+            "",
+            f"- document-intake-fill status: `{fill_report.get('status')}`",
+            f"- document-intake-validate status: `{validation_report.get('status')}`",
+            f"- document-resolve status: `{resolve_report.get('status')}`",
+            "",
+            "## Blocking Issues",
+            "",
+        ]
+    )
+    blockers = report.get("errors") or []
+    if blockers:
+        lines.extend(f"- {_message_text(item)}" for item in blockers)
+    else:
+        lines.append("- None")
+    lines.append("")
+    return lines
+
+
 def classify_source_url(url: str, *, allow_unknown_source: bool = False) -> dict[str, str]:
     text = url.casefold()
     if _has_blocked_source_hint(text):
@@ -2537,6 +2805,262 @@ def _strip_financial_values(candidate: dict[str, Any]) -> None:
         candidate.pop(field, None)
     candidate.pop("values", None)
     candidate.pop("field_evidence", None)
+
+
+def _clone_args(args: argparse.Namespace, **updates: Any) -> argparse.Namespace:
+    values = vars(args).copy()
+    values.update(updates)
+    return argparse.Namespace(**values)
+
+
+def _parse_required_issuers(
+    args: argparse.Namespace,
+    input_documents: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    ids = _split_cli_list(args.required_company_ids)
+    names = _split_cli_list(args.required_company_names)
+    required: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for index, company_id in enumerate(ids):
+        matched = _first_matching_company_id(input_documents, company_id)
+        item = {
+            "company_id": _maybe_int(company_id),
+            "company_name": (
+                names[index]
+                if index < len(names)
+                else matched.get("company_name") or matched.get("canonical_company_name") or ""
+            ),
+        }
+        key = (str(item["company_id"] or ""), _normalize_name(str(item["company_name"] or "")))
+        if key not in seen:
+            seen.add(key)
+            required.append(item)
+    for name in names[len(ids):]:
+        item = {"company_id": None, "company_name": name}
+        key = ("", _normalize_name(name))
+        if key not in seen:
+            seen.add(key)
+            required.append(item)
+    if required:
+        return required
+    for document in input_documents:
+        item = {
+            "company_id": _maybe_int(_document_company_key(document)),
+            "company_name": document.get("company_name") or document.get("canonical_company_name") or "",
+        }
+        key = (str(item["company_id"] or ""), _normalize_name(str(item["company_name"] or "")))
+        if key not in seen:
+            seen.add(key)
+            required.append(item)
+    return required
+
+
+def _build_required_issuer_gate_statuses(
+    required_issuers: list[dict[str, Any]],
+    *,
+    input_documents: list[dict[str, Any]],
+    filled_documents: list[dict[str, Any]],
+    validation_report: dict[str, Any],
+    resolve_report: dict[str, Any],
+    resolved_source_intake: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    validation_results = validation_report.get("document_results") or []
+    resolve_issuers = resolve_report.get("issuers") or []
+    required_statuses: list[dict[str, Any]] = []
+    for required in required_issuers:
+        input_matches = _items_matching_required(input_documents, required)
+        filled_matches = _items_matching_required(filled_documents, required)
+        validation_matches = _items_matching_required(validation_results, required)
+        resolve_matches = _items_matching_required(resolve_issuers, required)
+        source_matches = _items_matching_required(resolved_source_intake, required)
+        valid_matches = [
+            item
+            for item in validation_matches
+            if not item.get("errors")
+            and item.get("document_status") == "valid_official_document"
+        ]
+        severe_errors = [
+            error
+            for item in validation_matches
+            for error in item.get("errors") or []
+            if not _is_unresolved_document_gate_error(error)
+        ]
+        resolved_valid_documents = [
+            document
+            for issuer in resolve_matches
+            for document in issuer.get("document_candidates") or []
+            if document.get("document_status") == "valid_official_document"
+        ]
+        filled = any(
+            item.get("document_url")
+            and item.get("operator_review_status") in DOCUMENT_INTAKE_REVIEWED_STATUSES
+            for item in filled_matches
+        )
+        reason = _required_gate_reason(
+            required,
+            input_matches=input_matches,
+            filled_matches=filled_matches,
+            validation_matches=validation_matches,
+            valid_matches=valid_matches,
+            resolved_valid_documents=resolved_valid_documents,
+            resolve_matches=resolve_matches,
+            source_matches=source_matches,
+            severe_errors=severe_errors,
+            args=args,
+        )
+        gate_status = "passed" if reason == "" else "failed"
+        if severe_errors:
+            document_status = "invalid_document"
+        elif gate_status == "passed":
+            document_status = "valid_official_document"
+        elif filled:
+            document_status = "needs_operator_review"
+        else:
+            document_status = "missing"
+        chosen = (valid_matches or filled_matches or input_matches or [{}])[0]
+        required_statuses.append(
+            {
+                "company_id": required.get("company_id") or chosen.get("company_id"),
+                "company_name": required.get("company_name") or chosen.get("company_name") or "",
+                "document_status": document_status,
+                "gate_status": gate_status,
+                "reason": reason or "exact reviewed official document is resolve-ready",
+                "document_url": chosen.get("document_url") or "",
+                "document_title": chosen.get("document_title") or "",
+                "filled": bool(filled),
+                "input_present": bool(input_matches),
+                "filled_present": bool(filled_matches),
+                "validation_present": bool(validation_matches),
+                "resolve_present": bool(resolve_matches),
+                "resolved_source_present": bool(source_matches),
+                "valid_document_count": len(valid_matches),
+                "resolved_document_count": len(resolved_valid_documents),
+            }
+        )
+    return required_statuses
+
+
+def _required_gate_reason(
+    required: dict[str, Any],
+    *,
+    input_matches: list[dict[str, Any]],
+    filled_matches: list[dict[str, Any]],
+    validation_matches: list[dict[str, Any]],
+    valid_matches: list[dict[str, Any]],
+    resolved_valid_documents: list[dict[str, Any]],
+    resolve_matches: list[dict[str, Any]],
+    source_matches: list[dict[str, Any]],
+    severe_errors: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> str:
+    label = required.get("company_id") or required.get("company_name") or "required issuer"
+    if args.require_all_required_issuers and not input_matches:
+        return f"missing required issuer in input exact document intake: {label}"
+    if args.require_all_required_issuers and not filled_matches:
+        return f"missing required issuer in filled exact document intake: {label}"
+    if args.require_all_required_issuers and not validation_matches:
+        return f"missing required issuer in validation results: {label}"
+    if severe_errors:
+        return _message_text(severe_errors[0])
+    if args.require_one_valid_document_per_issuer and len(valid_matches) == 0:
+        return "exact reviewed official document is missing"
+    if args.require_one_valid_document_per_issuer and len(valid_matches) > 1:
+        return "required issuer has more than one valid official document"
+    if args.require_document_resolve and not resolve_matches:
+        return f"missing required issuer in document-resolve output: {label}"
+    if args.require_document_resolve and source_matches == [] and not resolve_matches:
+        return f"missing required issuer in resolved source intake: {label}"
+    if args.fail_on_unresolved_documents and len(resolved_valid_documents) == 0:
+        return "document-resolve did not produce a valid official document"
+    if args.fail_on_needs_operator_review:
+        unresolved = [
+            item
+            for item in validation_matches
+            if item.get("document_status") == "needs_operator_review"
+        ]
+        if unresolved:
+            return "exact document still needs operator review"
+    return ""
+
+
+def _required_issuer_error(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "company_id": item.get("company_id"),
+        "company_name": item.get("company_name"),
+        "document_status": item.get("document_status"),
+        "message": item.get("reason") or "required issuer did not pass quality gate",
+    }
+
+
+def _is_unresolved_document_gate_error(error: dict[str, Any]) -> bool:
+    message = _message_text(error).casefold()
+    return any(
+        phrase in message
+        for phrase in (
+            "operator_review_status must be reviewed",
+            "document_url is required",
+            "document_title is required",
+            "document_url is missing",
+            "document_title is missing",
+            "exact document candidate not provided",
+            "exact document candidate file not provided",
+            "exact reviewed official document is missing",
+        )
+    )
+
+
+def _items_matching_required(
+    items: list[dict[str, Any]],
+    required: dict[str, Any],
+) -> list[dict[str, Any]]:
+    return [item for item in items if _matches_required_issuer(item, required)]
+
+
+def _matches_required_issuer(item: dict[str, Any], required: dict[str, Any]) -> bool:
+    required_id = str(required.get("company_id") or "").strip()
+    item_id = _document_company_key(item)
+    if required_id and item_id == required_id:
+        return True
+    required_name = _normalize_name(str(required.get("company_name") or ""))
+    if not required_name:
+        return False
+    item_names = {
+        _normalize_name(str(item.get("company_name") or "")),
+        _normalize_name(str(item.get("canonical_company_name") or "")),
+    }
+    return required_name in item_names
+
+
+def _first_matching_company_id(
+    documents: list[dict[str, Any]],
+    company_id: str,
+) -> dict[str, Any]:
+    for document in documents:
+        if _document_company_key(document) == str(company_id):
+            return document
+    return {}
+
+
+def _split_cli_list(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def _normalize_name(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
+def _maybe_int(value: Any) -> int | str | None:
+    if value in (None, ""):
+        return None
+    text = str(value)
+    return int(text) if text.isdigit() else text
+
+
+def _safety_flags_clean(report: dict[str, Any]) -> bool:
+    return all(report.get(key) == expected for key, expected in SAFETY_FLAGS.items())
 
 
 def _document_intake_base(document: dict[str, Any], *, source_context: str) -> dict[str, Any]:
@@ -3061,6 +3585,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Resolve documents with reviewed exact intake before candidate-fill."]
     if mode == "document-intake-fill":
         return ["Validate filled exact document intake, then run document-resolve before candidate-fill."]
+    if mode == "document-quality-gate":
+        return ["Run financial value collection only after this gate passes; import remains disabled."]
     if mode == "candidate-fill":
         return ["Run preview mode; do not import until a separate controlled import task."]
     return ["Review preview output; import remains disabled in this workflow."]

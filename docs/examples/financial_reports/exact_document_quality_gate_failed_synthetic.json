@@ -1,0 +1,52 @@
+{
+  "status": "failed",
+  "mode": "document-quality-gate",
+  "issuer_count": 2,
+  "required_issuer_count": 2,
+  "covered_required_issuer_count": 0,
+  "filled_document_count": 0,
+  "valid_document_count": 0,
+  "resolved_document_count": 0,
+  "needs_operator_review_count": 2,
+  "invalid_document_count": 0,
+  "gate_passed": false,
+  "ready_for_value_extraction": false,
+  "ready_for_import": false,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "required_issuers": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "document_status": "missing",
+      "gate_status": "failed",
+      "reason": "exact reviewed official document is missing",
+      "document_url": "",
+      "document_title": ""
+    },
+    {
+      "company_id": 1002,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_status": "missing",
+      "gate_status": "failed",
+      "reason": "exact reviewed official document is missing",
+      "document_url": "",
+      "document_title": ""
+    }
+  ],
+  "warnings": [
+    {
+      "message": "exact document candidate file not provided"
+    }
+  ],
+  "errors": [
+    {
+      "message": "exact document candidate file is required for quality gate"
+    }
+  ]
+}
