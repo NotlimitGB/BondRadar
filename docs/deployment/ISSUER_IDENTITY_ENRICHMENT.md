@@ -1077,6 +1077,38 @@ Historical reports are visible only as `diagnostic_only` fallback metadata.
 They do not pass the target-period quality gate and cannot make
 `ready_for_value_extraction` or `ready_for_import` true.
 
+## Availability Diagnostics Operator View
+
+Task 112 adds optional JSON/CSV/Markdown exports that flatten the Task 111
+availability diagnostics into one operator-readable row per required issuer.
+The exports do not recompute classification independently and do not change the
+strict Task 110/111 gate behavior.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-period-policy target-only \
+  --exact-document-target-period-required true \
+  --exact-document-availability-current-date 2026-05-25 \
+  --availability-operator-summary-output logs/financial_reports/availability_operator_summary_task112.json \
+  --availability-operator-summary-csv-output logs/financial_reports/availability_operator_summary_task112.csv \
+  --availability-operator-summary-markdown-output logs/financial_reports/availability_operator_summary_task112.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task112.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task112.md
+```
+
+Use the operator summary when smoke-checking availability without recursive JSON
+searches. It exposes status counts, operator action counts, readiness counts,
+and flattened per-issuer fields such as `recommended_next_step`,
+`historical_fallback_scope`, `can_use_as_target_period_evidence`, and
+`ready_for_value_extraction`.
+
 ## VDS Smoke Checklist
 
 Health:

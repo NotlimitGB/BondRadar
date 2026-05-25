@@ -273,6 +273,44 @@ OPERATOR_SEED_CANDIDATE_FIELDS = [
     "negative_reasons",
     "notes",
 ]
+AVAILABILITY_OPERATOR_SUMMARY_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "availability_status",
+    "availability_reason_codes",
+    "exact_target_period_document_count",
+    "target_period_document_count",
+    "historical_annual_ifrs_document_count",
+    "interim_or_quarterly_document_count",
+    "wrong_standard_document_count",
+    "placeholder_not_found_count",
+    "operator_review_required_count",
+    "latest_available_period",
+    "latest_available_report_type",
+    "latest_available_standard",
+    "latest_available_document_url",
+    "can_use_as_target_period_evidence",
+    "historical_fallback_allowed",
+    "historical_fallback_scope",
+    "operator_action",
+    "reporting_policy_name",
+    "target_period_end_date",
+    "expected_availability_date",
+    "availability_current_date",
+    "within_grace_window",
+    "gate_status",
+    "gate_passed",
+    "gate_reason",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "recommended_next_step",
+    "operator_note",
+]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -945,6 +983,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exact-document-availability-policy-name", default="annual_ifrs_grace_window")
     parser.add_argument("--exact-document-annual-ifrs-grace-days", type=int, default=180)
     parser.add_argument("--exact-document-availability-current-date", default="")
+    parser.add_argument("--availability-operator-summary-output", type=Path, default=None)
+    parser.add_argument("--availability-operator-summary-csv-output", type=Path, default=None)
+    parser.add_argument("--availability-operator-summary-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3611,6 +3652,26 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
         write_json_report(report, args.exact_document_candidate_output)
     if args.exact_document_candidate_csv_output is not None and not errors:
         write_exact_document_from_seed_csv(documents, args.exact_document_candidate_csv_output)
+    availability_operator_report = _build_availability_operator_summary_report(
+        args,
+        status=status,
+        target_reporting_period_availability=target_reporting_period_availability,
+        document_quality_gate_report=document_quality_gate_report,
+        warnings=warnings,
+        errors=errors,
+    )
+    if args.availability_operator_summary_output is not None and not errors:
+        write_json_report(availability_operator_report, args.availability_operator_summary_output)
+    if args.availability_operator_summary_csv_output is not None and not errors:
+        write_availability_operator_summary_csv(
+            availability_operator_report["issuers"],
+            args.availability_operator_summary_csv_output,
+        )
+    if args.availability_operator_summary_markdown_output is not None and not errors:
+        write_availability_operator_summary_markdown(
+            availability_operator_report,
+            args.availability_operator_summary_markdown_output,
+        )
     return report
 
 
@@ -4508,6 +4569,20 @@ def write_exact_document_from_seed_csv(documents: list[dict[str, Any]], path: Pa
             writer.writerow({field: _csv_value(document.get(field)) for field in EXACT_DOCUMENT_FROM_SEED_FIELDS})
 
 
+def write_availability_operator_summary_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=AVAILABILITY_OPERATOR_SUMMARY_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in AVAILABILITY_OPERATOR_SUMMARY_FIELDS})
+
+
+def write_availability_operator_summary_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_availability_operator_summary_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -4772,6 +4847,92 @@ def render_markdown(report: dict[str, Any]) -> str:
     )
     lines.extend(f"- {step}" for step in report.get("next_steps") or [])
     return "\n".join(lines) + "\n"
+
+
+def render_availability_operator_summary_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Availability Operator Summary",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- target_reporting_period: {report.get('target_reporting_period')}",
+        f"- required_report_type: {report.get('required_report_type')}",
+        f"- required_standard: {report.get('required_standard')}",
+        "",
+    ]
+    lines.extend(_render_availability_operator_view_sections(report.get("summary") or {}, report.get("issuers") or []))
+    lines.extend(
+        [
+            "## Safety",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- identity_apply_executed: {report.get('identity_apply_executed')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_availability_operator_view_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "## Target Reporting Period Availability - Operator View",
+        "",
+        f"- availability rows: {summary.get('target_reporting_period_availability_count', len(rows))}",
+        f"- target evidence available: {summary.get('target_evidence_available_count', 0)}",
+        f"- historical fallback diagnostic only: {summary.get('historical_fallback_diagnostic_only_count', 0)}",
+        f"- extraction ready: {summary.get('extraction_ready_count', 0)}",
+        f"- import ready: {summary.get('import_ready_count', 0)}",
+        "",
+        "### Availability Status Counts",
+        "",
+    ]
+    status_counts = summary.get("availability_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Operator Action Counts", ""])
+    action_counts = summary.get("operator_action_counts") or {}
+    if action_counts:
+        lines.extend(f"- {key}: {value}" for key, value in action_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Per-Issuer Operator Rows",
+            "",
+            "| Company | Target | Availability | Reasons | Historical fallback | Target evidence | Gate | Extraction ready | Operator action | Next step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| {company} | {target} {report_type} {standard} | {availability} | {reasons} | {fallback} | {target_evidence} | {gate} | {ready} | {action} | {next_step} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    target=row.get("target_reporting_period") or "",
+                    report_type=row.get("required_report_type") or "",
+                    standard=row.get("required_standard") or "",
+                    availability=row.get("availability_status") or "",
+                    reasons=_csv_value(row.get("availability_reason_codes")).replace("|", "/"),
+                    fallback=row.get("historical_fallback_scope") or "none",
+                    target_evidence=row.get("can_use_as_target_period_evidence"),
+                    gate=row.get("gate_status") or "",
+                    ready=row.get("ready_for_value_extraction"),
+                    action=row.get("operator_action") or "",
+                    next_step=row.get("recommended_next_step") or "",
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
 
 
 def _render_discovery_markdown_sections(report: dict[str, Any]) -> list[str]:
@@ -5105,6 +5266,16 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             f"- kept_target_period_document_count: {report.get('kept_target_period_document_count', 0)}",
             f"- kept_fallback_document_count: {report.get('kept_fallback_document_count', 0)}",
             "",
+        ]
+    )
+    lines.extend(
+        _render_availability_operator_view_sections(
+            report.get("availability_operator_summary") or {},
+            report.get("availability_operator_rows") or [],
+        )
+    )
+    lines.extend(
+        [
             "## Availability Policy",
             "",
             "| Company ID | Company | Target | Status | Reasons | Exact Target Docs | Historical Annual IFRS | Interim/Quarterly | Wrong Standard | Placeholder | Operator Review | Expected Availability | Current Date | Within Window | Fallback Scope | Target Evidence | Operator Action |",
@@ -6906,6 +7077,165 @@ def _annotate_exact_document_availability(
         document["operator_action"] = _exact_document_availability_operator_action(status)
 
 
+def _availability_operator_next_step(status: str) -> str:
+    return {
+        "exact_target_period_document_found": "proceed_to_quality_gate_or_extraction_preview",
+        "target_period_likely_not_yet_published_by_policy_window": "wait_for_target_period_publication_or_review_official_sources",
+        "only_historical_annual_ifrs_available": "keep_historical_report_as_diagnostic_only_and_continue_target_search",
+        "only_interim_or_quarterly_available": "do_not_use_interim_as_annual_evidence",
+        "only_wrong_standard_available": "search_for_ifrs_report_or_mark_ifrs_unavailable",
+        "operator_exact_document_review_required": "review_exact_document_candidate",
+        "placeholder_not_found": "fill_exact_official_document_url_or_improve_official_sources",
+        "no_usable_official_report_candidates": "improve_official_source_coverage",
+        "target_period_document_not_found": "improve_official_source_coverage",
+    }.get(status, "improve_official_source_coverage")
+
+
+def _availability_operator_note(row: dict[str, Any]) -> str:
+    status = str(row.get("availability_status") or "")
+    if row.get("ready_for_value_extraction"):
+        return "strict quality gate passed; target-period extraction preview may proceed"
+    if row.get("can_use_as_target_period_evidence") and row.get("gate_status") == "quality_gate_not_run":
+        return "target evidence is available; run strict quality gate before extraction preview"
+    if row.get("gate_status") == "quality_gate_not_run":
+        gate_note = "quality_gate_not_run"
+    else:
+        gate_note = str(row.get("gate_reason") or row.get("gate_status") or "")
+    if status == "target_period_likely_not_yet_published_by_policy_window":
+        return f"target report may still be inside policy grace window; {gate_note}"
+    if status == "only_historical_annual_ifrs_available":
+        return f"historical fallback is diagnostic only; {gate_note}"
+    if status == "placeholder_not_found":
+        return f"operator must provide exact official document URL or improve official sources; {gate_note}"
+    return gate_note or "not ready for extraction"
+
+
+def _gate_status_for_availability_item(
+    item: dict[str, Any],
+    document_quality_gate_report: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if not document_quality_gate_report:
+        return {
+            "gate_status": "quality_gate_not_run",
+            "gate_passed": False,
+            "gate_reason": "quality_gate_not_run",
+            "ready_for_value_extraction": False,
+            "ready_for_import": False,
+        }
+    matches = _items_matching_required(document_quality_gate_report.get("required_issuers") or [], item)
+    matched = matches[0] if matches else {}
+    gate_status = str(matched.get("gate_status") or "missing_from_quality_gate")
+    per_issuer_passed = gate_status == "passed"
+    overall_ready = bool(document_quality_gate_report.get("ready_for_value_extraction"))
+    overall_import_ready = bool(document_quality_gate_report.get("ready_for_import"))
+    return {
+        "gate_status": gate_status,
+        "gate_passed": per_issuer_passed,
+        "gate_reason": matched.get("reason") or ("missing required issuer in quality gate report" if not matches else ""),
+        "ready_for_value_extraction": bool(overall_ready and per_issuer_passed),
+        "ready_for_import": bool(overall_import_ready and per_issuer_passed),
+    }
+
+
+def _build_availability_operator_rows(
+    availability: list[dict[str, Any]],
+    *,
+    document_quality_gate_report: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in availability:
+        policy = item.get("reporting_window_policy") or {}
+        gate = _gate_status_for_availability_item(item, document_quality_gate_report)
+        status = str(item.get("availability_status") or "")
+        row = {
+            "company_id": item.get("company_id"),
+            "company_name": item.get("company_name") or "",
+            "canonical_company_id": item.get("canonical_company_id") or item.get("company_id"),
+            "canonical_company_name": item.get("canonical_company_name") or item.get("company_name") or "",
+            "target_reporting_period": item.get("target_reporting_period") or "",
+            "required_report_type": item.get("required_report_type") or "",
+            "required_standard": item.get("required_standard") or "",
+            "availability_status": status,
+            "availability_reason_codes": list(item.get("availability_reason_codes") or []),
+            "exact_target_period_document_count": item.get("exact_target_period_document_count", 0),
+            "target_period_document_count": item.get("target_period_document_count", 0),
+            "historical_annual_ifrs_document_count": item.get("historical_annual_ifrs_document_count", 0),
+            "interim_or_quarterly_document_count": item.get("interim_or_quarterly_document_count", 0),
+            "wrong_standard_document_count": item.get("wrong_standard_document_count", 0),
+            "placeholder_not_found_count": item.get("placeholder_not_found_count", 0),
+            "operator_review_required_count": item.get("operator_review_required_count", 0),
+            "latest_available_period": item.get("latest_available_period") or "",
+            "latest_available_report_type": item.get("latest_available_report_type") or "",
+            "latest_available_standard": item.get("latest_available_standard") or "",
+            "latest_available_document_url": item.get("latest_available_document_url") or "",
+            "can_use_as_target_period_evidence": bool(item.get("can_use_as_target_period_evidence")),
+            "historical_fallback_allowed": bool(item.get("historical_fallback_allowed")),
+            "historical_fallback_scope": item.get("historical_fallback_scope") or "none",
+            "operator_action": item.get("operator_action") or "",
+            "reporting_policy_name": policy.get("policy_name") or "",
+            "target_period_end_date": policy.get("target_period_end_date") or "",
+            "expected_availability_date": policy.get("expected_availability_date") or "",
+            "availability_current_date": policy.get("current_date") or "",
+            "within_grace_window": bool(policy.get("within_grace_window")),
+            **gate,
+            "recommended_next_step": _availability_operator_next_step(status),
+        }
+        row["operator_note"] = _availability_operator_note(row)
+        rows.append(row)
+    return rows
+
+
+def _count_by_key(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        value = str(row.get(key) or "")
+        if not value:
+            continue
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _build_availability_operator_summary_report(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    target_reporting_period_availability: list[dict[str, Any]] | None,
+    document_quality_gate_report: dict[str, Any] | None,
+    warnings: list[dict[str, Any]] | None = None,
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    availability = target_reporting_period_availability or []
+    rows = _build_availability_operator_rows(
+        availability,
+        document_quality_gate_report=document_quality_gate_report,
+    )
+    first_policy = (availability[0].get("reporting_window_policy") if availability else {}) or {}
+    summary = {
+        "target_reporting_period_availability_count": len(availability),
+        "availability_policy_name": first_policy.get("policy_name") or getattr(args, "exact_document_availability_policy_name", ""),
+        "availability_current_date": first_policy.get("current_date") or "",
+        "annual_ifrs_grace_days": first_policy.get("grace_days", getattr(args, "exact_document_annual_ifrs_grace_days", 180)),
+        "availability_status_counts": _count_by_key(rows, "availability_status"),
+        "target_evidence_available_count": sum(1 for row in rows if row.get("can_use_as_target_period_evidence")),
+        "historical_fallback_diagnostic_only_count": sum(1 for row in rows if row.get("historical_fallback_scope") == "diagnostic_only"),
+        "operator_action_counts": _count_by_key(rows, "operator_action"),
+        "extraction_ready_count": sum(1 for row in rows if row.get("ready_for_value_extraction")),
+        "import_ready_count": sum(1 for row in rows if row.get("ready_for_import")),
+    }
+    return {
+        "status": status,
+        "mode": "availability-operator-summary",
+        "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+        "required_report_type": str(getattr(args, "report_type", "") or ""),
+        "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+        "summary": summary,
+        "issuers": rows,
+        "warnings": warnings or [],
+        "errors": errors or [],
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -7863,6 +8193,15 @@ def _build_exact_document_discovery_report(
         for item in documents
         if item.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS and item.get("category_followed")
     ]
+    availability_operator_report = _build_availability_operator_summary_report(
+        args,
+        status=status,
+        target_reporting_period_availability=target_reporting_period_availability,
+        document_quality_gate_report=document_quality_gate_report,
+        warnings=warnings,
+        errors=errors,
+    )
+    availability_summary = availability_operator_report["summary"]
     return {
         "status": status,
         "mode": "exact-document-discover-from-seeds",
@@ -7888,6 +8227,9 @@ def _build_exact_document_discovery_report(
         **kind_counts,
         **period_type_counts,
         "target_reporting_period_availability": target_reporting_period_availability or [],
+        **availability_summary,
+        "availability_operator_summary": availability_summary,
+        "availability_operator_rows": availability_operator_report["issuers"],
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -7903,6 +8245,9 @@ def _build_exact_document_discovery_report(
         "document_intake_validation_markdown_output": _path_value(args.document_intake_validation_markdown_output),
         "quality_gate_json_output": _path_value(args.quality_gate_json_output),
         "quality_gate_markdown_output": _path_value(args.quality_gate_markdown_output),
+        "availability_operator_summary_output": _path_value(args.availability_operator_summary_output),
+        "availability_operator_summary_csv_output": _path_value(args.availability_operator_summary_csv_output),
+        "availability_operator_summary_markdown_output": _path_value(args.availability_operator_summary_markdown_output),
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps("exact-document-discover-from-seeds", status),

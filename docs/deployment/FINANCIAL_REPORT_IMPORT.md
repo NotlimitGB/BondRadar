@@ -1365,6 +1365,39 @@ Historical fallback remains `diagnostic_only` and never sets
 values, import reports, trade, mutate identities, mutate scores, or change
 schedules.
 
+## Availability Diagnostics Operator View
+
+Task 112 adds flattened operator exports for the Task 111 availability policy.
+The exports are optional and are generated from the canonical
+`target_reporting_period_availability` diagnostics; they do not change which
+documents are eligible for document intake or the strict quality gate.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-period-policy target-only \
+  --exact-document-target-period-required true \
+  --exact-document-availability-current-date 2026-05-25 \
+  --availability-operator-summary-output logs/financial_reports/availability_operator_summary_task112.json \
+  --availability-operator-summary-csv-output logs/financial_reports/availability_operator_summary_task112.csv \
+  --availability-operator-summary-markdown-output logs/financial_reports/availability_operator_summary_task112.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task112.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task112.md
+```
+
+The main discovery JSON now includes stable top-level availability counts and
+operator action counts, plus flattened `availability_operator_rows`. The
+separate CSV/Markdown exports show one row per required issuer with the
+availability status, reason codes, diagnostic fallback scope, target-evidence
+flag, gate/readiness flags, and recommended next step. Historical fallback
+remains diagnostic-only and cannot make extraction or import ready.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

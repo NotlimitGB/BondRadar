@@ -1487,6 +1487,12 @@ def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
     assert availability["availability_status"] == "exact_target_period_document_found"
     assert availability["can_use_as_target_period_evidence"] is True
     assert availability["historical_fallback_scope"] == "none"
+    assert report["target_reporting_period_availability_count"] == 1
+    assert report["availability_status_counts"]["exact_target_period_document_found"] == 1
+    operator_row = report["availability_operator_rows"][0]
+    assert operator_row["recommended_next_step"] == "proceed_to_quality_gate_or_extraction_preview"
+    assert operator_row["gate_status"] == "quality_gate_not_run"
+    assert operator_row["ready_for_value_extraction"] is False
     assert "revenue" not in json.dumps(report, ensure_ascii=False)
     payload = json.loads(candidate_output.read_text(encoding="utf-8"))
     assert payload["documents"][0]["document_url"] == document["document_url"]
@@ -2297,6 +2303,11 @@ def test_exact_document_discover_from_reviewed_seeds_gate_can_pass_for_single_re
     assert gate["gate_passed"] is True
     assert gate["ready_for_value_extraction"] is True
     assert gate["ready_for_import"] is False
+    assert report["extraction_ready_count"] == 1
+    assert report["import_ready_count"] == 0
+    operator_row = report["availability_operator_rows"][0]
+    assert operator_row["gate_status"] == "passed"
+    assert operator_row["ready_for_value_extraction"] is True
 
 
 def test_exact_document_availability_policy_historical_inside_grace_window(
@@ -2425,6 +2436,107 @@ def test_exact_document_availability_policy_no_usable_official_candidates(
     assert availability["can_use_as_target_period_evidence"] is False
     assert availability["historical_fallback_allowed"] is False
     assert availability["historical_fallback_scope"] == "none"
+
+
+def test_exact_document_availability_operator_summary_exports_flat_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    summary_json = tmp_path / "availability_summary.json"
+    summary_csv = tmp_path / "availability_summary.csv"
+    summary_md = tmp_path / "availability_summary.md"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=True)
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/"),
+        ],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://rzd.ru/reports/": "",
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>
+            """,
+            "https://mostotrest.ru/ru/invest/information-disclosure/": "",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "18,67",
+            "--exact-document-availability-current-date",
+            "2026-05-25",
+            "--availability-operator-summary-output",
+            str(summary_json),
+            "--availability-operator-summary-csv-output",
+            str(summary_csv),
+            "--availability-operator-summary-markdown-output",
+            str(summary_md),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["target_reporting_period_availability_count"] == 2
+    assert report["availability_policy_name"] == "annual_ifrs_grace_window"
+    assert report["availability_current_date"] == "2026-05-25"
+    assert report["annual_ifrs_grace_days"] == 180
+    assert report["availability_status_counts"]["placeholder_not_found"] == 1
+    assert report["availability_status_counts"]["target_period_likely_not_yet_published_by_policy_window"] == 1
+    assert report["target_evidence_available_count"] == 0
+    assert report["historical_fallback_diagnostic_only_count"] == 1
+    assert report["extraction_ready_count"] == 0
+    assert report["import_ready_count"] == 0
+    assert report["operator_action_counts"]["operator_to_find_official_exact_document"] == 1
+    assert report["operator_action_counts"]["wait_for_target_period_publication_or_review_official_sources"] == 1
+
+    rows = {str(row["company_id"]): row for row in report["availability_operator_rows"]}
+    assert set(rows) == {"18", "67"}
+    assert rows["18"]["availability_status"] == "placeholder_not_found"
+    assert rows["18"]["recommended_next_step"] == "fill_exact_official_document_url_or_improve_official_sources"
+    assert rows["18"]["can_use_as_target_period_evidence"] is False
+    assert rows["18"]["gate_status"] == "quality_gate_not_run"
+    placeholder = next(item for item in report["documents"] if item.get("company_id") == 18)
+    assert placeholder["filter_status"] == "placeholder_not_found"
+    assert rows["67"]["availability_status"] == "target_period_likely_not_yet_published_by_policy_window"
+    assert rows["67"]["historical_fallback_scope"] == "diagnostic_only"
+    assert rows["67"]["recommended_next_step"] == "wait_for_target_period_publication_or_review_official_sources"
+    assert rows["67"]["ready_for_value_extraction"] is False
+
+    exported = json.loads(summary_json.read_text(encoding="utf-8"))
+    assert exported["mode"] == "availability-operator-summary"
+    assert exported["summary"]["target_reporting_period_availability_count"] == 2
+    assert len(exported["issuers"]) == 2
+    csv_rows = list(csv.DictReader(summary_csv.open(encoding="utf-8")))
+    assert len(csv_rows) == 2
+    assert {
+        "availability_status",
+        "availability_reason_codes",
+        "historical_fallback_scope",
+        "can_use_as_target_period_evidence",
+        "operator_action",
+        "recommended_next_step",
+        "ready_for_value_extraction",
+        "ready_for_import",
+    }.issubset(set(csv_rows[0]))
+    markdown = summary_md.read_text(encoding="utf-8")
+    assert "Target Reporting Period Availability" in markdown
+    assert "placeholder_not_found" in markdown
+    assert "target_period_likely_not_yet_published_by_policy_window" in markdown
+    assert "diagnostic_only" in markdown
+    assert "False" in markdown or "false" in markdown
 
 
 def test_exact_document_discover_probe_and_download_are_optional(
