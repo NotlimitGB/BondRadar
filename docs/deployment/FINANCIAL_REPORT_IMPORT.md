@@ -1324,6 +1324,47 @@ disabled by default; when explicitly enabled it is operator-review support only
 and cannot satisfy the target-period quality gate or set
 `ready_for_value_extraction`.
 
+## Target Reporting Period Availability Policy
+
+Task 111 adds a diagnostics-only availability policy to
+`exact-document-discover-from-seeds`. The strict Task 110 gate is unchanged:
+only exact target-period annual IFRS documents may flow into
+`document-intake-fill` and the document quality gate. Historical annual IFRS
+reports, interim/half-year/quarterly reports, RAS/РСБУ reports, ambiguous
+candidates, and placeholder rows remain diagnostics only.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-period-policy target-only \
+  --exact-document-target-period-required true \
+  --exact-document-availability-policy-name annual_ifrs_grace_window \
+  --exact-document-annual-ifrs-grace-days 180 \
+  --exact-document-availability-current-date 2026-05-25 \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task111.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task111.md
+```
+
+The policy reports one `target_reporting_period_availability` row per required
+issuer. It distinguishes exact target documents, likely-not-yet-published
+target annual IFRS reports inside the configured 180-day grace window,
+historical-only annual IFRS availability, interim-only availability,
+wrong-standard availability, operator review needs, placeholder `not_found`
+rows, and no usable official candidates. The grace-window status is a policy
+inference only, not an official statement that a report is unpublished.
+
+Historical fallback remains `diagnostic_only` and never sets
+`can_use_as_target_period_evidence`, `ready_for_value_extraction`, or
+`ready_for_import`. The mode still does not parse PDFs, OCR documents, extract
+values, import reports, trade, mutate identities, mutate scores, or change
+schedules.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

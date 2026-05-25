@@ -1040,6 +1040,43 @@ Prior-year fallback is disabled by default and, if explicitly enabled, remains
 operator-review-only support that cannot pass the strict target-period quality
 gate.
 
+## Target Reporting Period Availability Policy
+
+Task 111 adds a diagnostics-only availability policy to the reviewed-seed exact
+document discovery report. It explains why the strict target-period annual IFRS
+gate remains closed without accepting older, interim, RAS/РСБУ, ambiguous, or
+placeholder documents as evidence.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-period-policy target-only \
+  --exact-document-target-period-required true \
+  --exact-document-availability-policy-name annual_ifrs_grace_window \
+  --exact-document-annual-ifrs-grace-days 180 \
+  --exact-document-availability-current-date 2026-05-25 \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task111.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task111.md
+```
+
+Each required issuer gets a `target_reporting_period_availability` row with the
+target period, required report type, required standard, reason codes, counts for
+exact target documents, historical annual IFRS documents, interim/quarterly
+documents, wrong-standard documents, placeholders, and operator-review-required
+candidates. The default annual IFRS window is 180 days after December 31 of the
+target period, and `--exact-document-availability-current-date` makes smoke
+replays and tests deterministic.
+
+Historical reports are visible only as `diagnostic_only` fallback metadata.
+They do not pass the target-period quality gate and cannot make
+`ready_for_value_extraction` or `ready_for_import` true.
+
 ## VDS Smoke Checklist
 
 Health:

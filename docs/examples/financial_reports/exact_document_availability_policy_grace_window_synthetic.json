@@ -1,0 +1,65 @@
+{
+  "status": "warning",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count": 0,
+  "target_reporting_period_availability": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "target_reporting_period": "2025",
+      "required_report_type": "annual",
+      "required_standard": "IFRS",
+      "availability_status": "target_period_likely_not_yet_published_by_policy_window",
+      "availability_reason_codes": [
+        "target_period_likely_not_yet_published_by_policy_window",
+        "exact_target_period_document_not_found",
+        "target_period_document_not_found",
+        "within_reporting_grace_window",
+        "historical_annual_ifrs_available"
+      ],
+      "exact_target_period_document_count": 0,
+      "target_period_document_count": 0,
+      "historical_annual_ifrs_document_count": 1,
+      "interim_or_quarterly_document_count": 0,
+      "wrong_standard_document_count": 0,
+      "placeholder_not_found_count": 1,
+      "operator_review_required_count": 0,
+      "latest_available_period": "2024",
+      "latest_available_report_type": "annual",
+      "latest_available_standard": "IFRS",
+      "latest_available_document_url": "https://issuer.example/reports/annual-ifrs-financial-statements-2024.pdf",
+      "can_use_as_target_period_evidence": false,
+      "historical_fallback_allowed": true,
+      "historical_fallback_scope": "diagnostic_only",
+      "operator_action": "wait_for_target_period_publication_or_review_official_sources",
+      "reporting_window_policy": {
+        "policy_name": "annual_ifrs_grace_window",
+        "target_period_end_date": "2025-12-31",
+        "grace_days": 180,
+        "expected_availability_date": "2026-06-29",
+        "current_date": "2026-05-25",
+        "within_grace_window": true
+      }
+    }
+  ],
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "",
+      "document_status": "not_found",
+      "operator_review_status": "operator_to_fill",
+      "filter_status": "placeholder_not_found",
+      "availability_status": "placeholder_not_found",
+      "can_use_as_target_period_evidence": false
+    }
+  ],
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false
+}

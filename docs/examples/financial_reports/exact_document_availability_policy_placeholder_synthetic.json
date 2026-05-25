@@ -1,0 +1,66 @@
+{
+  "status": "warning",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count": 0,
+  "target_reporting_period_availability": [
+    {
+      "company_id": 1002,
+      "company_name": "Synthetic Rail Issuer",
+      "target_reporting_period": "2025",
+      "required_report_type": "annual",
+      "required_standard": "IFRS",
+      "availability_status": "placeholder_not_found",
+      "availability_reason_codes": [
+        "placeholder_not_found",
+        "exact_target_period_document_not_found",
+        "target_period_document_not_found"
+      ],
+      "exact_target_period_document_count": 0,
+      "target_period_document_count": 0,
+      "historical_annual_ifrs_document_count": 0,
+      "interim_or_quarterly_document_count": 0,
+      "wrong_standard_document_count": 0,
+      "placeholder_not_found_count": 1,
+      "operator_review_required_count": 0,
+      "latest_available_period": "",
+      "latest_available_report_type": "",
+      "latest_available_standard": "",
+      "latest_available_document_url": "",
+      "can_use_as_target_period_evidence": false,
+      "historical_fallback_allowed": false,
+      "historical_fallback_scope": "none",
+      "operator_action": "operator_to_find_official_exact_document",
+      "reporting_window_policy": {
+        "policy_name": "annual_ifrs_grace_window",
+        "target_period_end_date": "2025-12-31",
+        "grace_days": 180,
+        "expected_availability_date": "2026-06-29",
+        "current_date": "2026-07-15",
+        "within_grace_window": false
+      }
+    }
+  ],
+  "documents": [
+    {
+      "company_id": 1002,
+      "company_name": "Synthetic Rail Issuer",
+      "document_url": "",
+      "document_status": "not_found",
+      "operator_review_status": "operator_to_fill",
+      "filter_status": "placeholder_not_found",
+      "availability_status": "placeholder_not_found",
+      "can_use_as_target_period_evidence": false,
+      "historical_fallback_allowed": false,
+      "historical_fallback_scope": "none",
+      "operator_action": "operator_to_find_official_exact_document"
+    }
+  ],
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false
+}

@@ -1482,6 +1482,11 @@ def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
     assert document["document_period_status"] == "target_period"
     assert document["report_type_match_status"] == "annual_match"
     assert document["accounting_standard_match_status"] == "standard_match"
+    assert document["can_use_as_target_period_evidence"] is True
+    availability = _availability_for(report)
+    assert availability["availability_status"] == "exact_target_period_document_found"
+    assert availability["can_use_as_target_period_evidence"] is True
+    assert availability["historical_fallback_scope"] == "none"
     assert "revenue" not in json.dumps(report, ensure_ascii=False)
     payload = json.loads(candidate_output.read_text(encoding="utf-8"))
     assert payload["documents"][0]["document_url"] == document["document_url"]
@@ -2292,6 +2297,134 @@ def test_exact_document_discover_from_reviewed_seeds_gate_can_pass_for_single_re
     assert gate["gate_passed"] is True
     assert gate["ready_for_value_extraction"] is True
     assert gate["ready_for_import"] is False
+
+
+def test_exact_document_availability_policy_historical_inside_grace_window(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>',
+        current_date="2026-05-25",
+    )
+
+    availability = _availability_for(report)
+    assert availability["availability_status"] == "target_period_likely_not_yet_published_by_policy_window"
+    assert availability["can_use_as_target_period_evidence"] is False
+    assert availability["historical_fallback_allowed"] is True
+    assert availability["historical_fallback_scope"] == "diagnostic_only"
+    assert availability["latest_available_period"] == "2024"
+    assert availability["reporting_window_policy"]["expected_availability_date"] == "2026-06-29"
+    assert availability["reporting_window_policy"]["within_grace_window"] is True
+
+
+def test_exact_document_availability_policy_historical_after_grace_window(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>',
+        current_date="2026-07-15",
+    )
+
+    availability = _availability_for(report)
+    assert availability["availability_status"] == "only_historical_annual_ifrs_available"
+    assert availability["can_use_as_target_period_evidence"] is False
+    assert availability["historical_fallback_allowed"] is True
+    assert availability["historical_fallback_scope"] == "diagnostic_only"
+    assert availability["latest_available_document_url"].endswith("annual-ifrs-financial-statements-2024.pdf")
+
+
+def test_exact_document_availability_policy_only_interim_available(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html="""
+            <a href="/reports/IFRS_1H2025.pdf">IFRS 1H2025</a>
+            <a href="/reports/quarterly-ifrs-2025.pdf">Quarterly IFRS financial statements 2025</a>
+        """,
+    )
+
+    availability = _availability_for(report)
+    assert availability["availability_status"] == "only_interim_or_quarterly_available"
+    assert availability["can_use_as_target_period_evidence"] is False
+    assert availability["interim_or_quarterly_document_count"] >= 2
+
+
+def test_exact_document_availability_policy_only_wrong_standard_available(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ras-financial-statements-2025.pdf">Annual RAS financial statements 2025</a>',
+    )
+
+    availability = _availability_for(report)
+    assert availability["availability_status"] == "only_wrong_standard_available"
+    assert availability["can_use_as_target_period_evidence"] is False
+    assert availability["wrong_standard_document_count"] >= 1
+
+
+def test_exact_document_availability_policy_operator_review_required_for_ambiguous_target_doc(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/ifrs-financial-statements-2025.pdf">IFRS financial statements 2025</a>',
+    )
+
+    availability = _availability_for(report)
+    assert availability["availability_status"] == "operator_exact_document_review_required"
+    assert availability["operator_action"] == "review_exact_document_candidate"
+    assert availability["can_use_as_target_period_evidence"] is False
+    assert availability["operator_review_required_count"] >= 1
+
+
+def test_exact_document_availability_policy_placeholder_not_found_row(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html="",
+    )
+
+    availability = _availability_for(report)
+    placeholder = next(item for item in report["documents"] if item.get("document_status") == "not_found")
+    assert placeholder["filter_status"] == "placeholder_not_found"
+    assert placeholder["availability_status"] == "placeholder_not_found"
+    assert placeholder["can_use_as_target_period_evidence"] is False
+    assert availability["availability_status"] == "placeholder_not_found"
+    assert availability["can_use_as_target_period_evidence"] is False
+
+
+def test_exact_document_availability_policy_no_usable_official_candidates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="https://wikipedia.org/wiki/Fictional">Annual report 2025</a>',
+    )
+
+    availability = _availability_for(report)
+    assert availability["availability_status"] == "no_usable_official_report_candidates"
+    assert availability["can_use_as_target_period_evidence"] is False
+    assert availability["historical_fallback_allowed"] is False
+    assert availability["historical_fallback_scope"] == "none"
 
 
 def test_exact_document_discover_probe_and_download_are_optional(
@@ -5209,6 +5342,59 @@ def _mock_candidate_fetch(monkeypatch, pages: dict[str, str]) -> None:
         }
 
     monkeypatch.setattr(assistant, "_fetch_candidate_page", fake_fetch)
+
+
+def _availability_for(report: dict, company_id: int = 67) -> dict:
+    return next(
+        item
+        for item in report.get("target_reporting_period_availability", [])
+        if str(item.get("company_id")) == str(company_id)
+    )
+
+
+def _run_availability_discovery(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    seed_html: str,
+    current_date: str = "2026-07-15",
+    extra_args: list[str] | None = None,
+) -> dict:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {"https://mostotrest.ru/ru/invest/financial-results/": seed_html},
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-filtered",
+            "true",
+            "--exact-document-include-wrong-period",
+            "true",
+            "--exact-document-include-wrong-report-type",
+            "true",
+            "--exact-document-availability-current-date",
+            current_date,
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == 0
+    return report
 
 
 def _write_document_report(path: Path, issuers: list[dict]) -> None:

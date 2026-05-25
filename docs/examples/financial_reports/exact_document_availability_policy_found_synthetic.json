@@ -1,0 +1,67 @@
+{
+  "status": "passed",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count": 1,
+  "target_reporting_period_availability": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "target_reporting_period": "2025",
+      "required_report_type": "annual",
+      "required_standard": "IFRS",
+      "availability_status": "exact_target_period_document_found",
+      "availability_reason_codes": [
+        "exact_target_period_document_found"
+      ],
+      "exact_target_period_document_count": 1,
+      "target_period_document_count": 1,
+      "historical_annual_ifrs_document_count": 0,
+      "interim_or_quarterly_document_count": 0,
+      "wrong_standard_document_count": 0,
+      "placeholder_not_found_count": 0,
+      "operator_review_required_count": 0,
+      "latest_available_period": "",
+      "latest_available_report_type": "",
+      "latest_available_standard": "",
+      "latest_available_document_url": "",
+      "can_use_as_target_period_evidence": true,
+      "historical_fallback_allowed": false,
+      "historical_fallback_scope": "none",
+      "operator_action": "proceed_to_strict_quality_gate",
+      "reporting_window_policy": {
+        "policy_name": "annual_ifrs_grace_window",
+        "target_period_end_date": "2025-12-31",
+        "grace_days": 180,
+        "expected_availability_date": "2026-06-29",
+        "current_date": "2026-07-15",
+        "within_grace_window": false
+      }
+    }
+  ],
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "https://issuer.example/reports/annual-ifrs-financial-statements-2025.pdf",
+      "document_title": "Annual audited IFRS financial statements 2025",
+      "document_kind": "exact_report_document",
+      "document_period_year": "2025",
+      "document_period_status": "target_period",
+      "report_type_match_status": "annual_match",
+      "accounting_standard_match_status": "standard_match",
+      "filter_status": "kept",
+      "document_status": "valid_official_document",
+      "operator_review_status": "operator_reviewed",
+      "availability_status": "exact_target_period_document_found",
+      "can_use_as_target_period_evidence": true
+    }
+  ],
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false
+}

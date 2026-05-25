@@ -11,6 +11,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Sequence
@@ -193,6 +194,12 @@ EXACT_DOCUMENT_FROM_SEED_FIELDS = [
     "accounting_standard_match_status",
     "standard_evidence",
     "fallback_status",
+    "availability_status",
+    "availability_reason_codes",
+    "can_use_as_target_period_evidence",
+    "historical_fallback_allowed",
+    "historical_fallback_scope",
+    "operator_action",
     "crawl_depth",
     "parent_seed_url",
     "source_chain",
@@ -935,6 +942,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default="review-only",
     )
     parser.add_argument("--exact-document-min-period-confidence", default="medium")
+    parser.add_argument("--exact-document-availability-policy-name", default="annual_ifrs_grace_window")
+    parser.add_argument("--exact-document-annual-ifrs-grace-days", type=int, default=180)
+    parser.add_argument("--exact-document-availability-current-date", default="")
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3451,6 +3461,17 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
         item for item in documents if _exact_document_is_downstream_eligible(item)
     ]
     _attach_exact_document_optional_metadata(kept_documents, args=args, warnings=warnings, errors=errors)
+    target_reporting_period_availability = _build_target_reporting_period_availability(
+        args,
+        required_issuers,
+        documents=documents,
+        raw_documents=raw_documents,
+    )
+    _annotate_exact_document_availability(
+        documents,
+        target_reporting_period_availability,
+        args=args,
+    )
 
     document_intake_fill_report: dict[str, Any] | None = None
     document_intake_validation_report: dict[str, Any] | None = None
@@ -3477,6 +3498,7 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
                 missing_issuers=missing_issuers,
                 ranking_stats=ranking_stats,
                 blocked_candidate_count=blocked_candidate_count,
+                target_reporting_period_availability=target_reporting_period_availability,
                 status="discovered",
                 warnings=warnings,
                 errors=errors,
@@ -3578,6 +3600,7 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
         invalid_candidate_count=invalid_count,
         reviewed_candidate_count=reviewed_count,
         needs_operator_review_count=review_count,
+        target_reporting_period_availability=target_reporting_period_availability,
         document_intake_fill_report=document_intake_fill_report,
         document_intake_validation_report=document_intake_validation_report,
         document_quality_gate_report=document_quality_gate_report,
@@ -5082,6 +5105,44 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             f"- kept_target_period_document_count: {report.get('kept_target_period_document_count', 0)}",
             f"- kept_fallback_document_count: {report.get('kept_fallback_document_count', 0)}",
             "",
+            "## Availability Policy",
+            "",
+            "| Company ID | Company | Target | Status | Reasons | Exact Target Docs | Historical Annual IFRS | Interim/Quarterly | Wrong Standard | Placeholder | Operator Review | Expected Availability | Current Date | Within Window | Fallback Scope | Target Evidence | Operator Action |",
+            "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    availability_rows = 0
+    for item in report.get("target_reporting_period_availability") or []:
+        availability_rows += 1
+        policy = item.get("reporting_window_policy") or {}
+        lines.append(
+            "| {company_id} | {company_name} | {target} {report_type} {standard} | {status} | {reasons} | {exact_count} | {historical_count} | {interim_count} | {wrong_standard_count} | {placeholder_count} | {operator_count} | {expected} | {current} | {within} | {fallback} | {evidence} | {action} |".format(
+                company_id=item.get("company_id") or "",
+                company_name=str(item.get("company_name") or "").replace("|", "/"),
+                target=item.get("target_reporting_period") or "",
+                report_type=item.get("required_report_type") or "",
+                standard=item.get("required_standard") or "",
+                status=item.get("availability_status") or "",
+                reasons=_csv_value(item.get("availability_reason_codes")).replace("|", "/"),
+                exact_count=item.get("exact_target_period_document_count", 0),
+                historical_count=item.get("historical_annual_ifrs_document_count", 0),
+                interim_count=item.get("interim_or_quarterly_document_count", 0),
+                wrong_standard_count=item.get("wrong_standard_document_count", 0),
+                placeholder_count=item.get("placeholder_not_found_count", 0),
+                operator_count=item.get("operator_review_required_count", 0),
+                expected=policy.get("expected_availability_date") or "",
+                current=policy.get("current_date") or "",
+                within=policy.get("within_grace_window"),
+                fallback=item.get("historical_fallback_scope") or "none",
+                evidence=item.get("can_use_as_target_period_evidence"),
+                action=item.get("operator_action") or "",
+            )
+        )
+    if availability_rows == 0:
+        lines.append("|  |  |  | No availability policy rows |  |  |  |  |  |  |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
             "## Category Pages Followed",
             "",
             "| Company ID | Company | Category URL | Title | Kind | Depth | Followed |",
@@ -6496,6 +6557,355 @@ def _exact_document_prior_year_allowed(period_year: str, args: argparse.Namespac
     return 0 < gap <= max(int(args.exact_document_max_prior_year_gap or 0), 0)
 
 
+def _parse_exact_document_availability_current_date(args: argparse.Namespace) -> date:
+    value = str(getattr(args, "exact_document_availability_current_date", "") or "").strip()
+    if value:
+        return date.fromisoformat(value)
+    return date.today()
+
+
+def _exact_document_target_period_end_date(args: argparse.Namespace) -> date | None:
+    try:
+        year = int(str(getattr(args, "report_period", "") or ""))
+    except (TypeError, ValueError):
+        return None
+    return date(year, 12, 31)
+
+
+def _exact_document_reporting_window_policy(args: argparse.Namespace) -> dict[str, Any]:
+    grace_days = max(int(getattr(args, "exact_document_annual_ifrs_grace_days", 180) or 0), 0)
+    current_date = _parse_exact_document_availability_current_date(args)
+    period_end = _exact_document_target_period_end_date(args)
+    if period_end is None:
+        expected = None
+        within = False
+    else:
+        expected = period_end + timedelta(days=grace_days)
+        within = current_date < expected
+    return {
+        "policy_name": getattr(args, "exact_document_availability_policy_name", "annual_ifrs_grace_window"),
+        "target_period_end_date": period_end.isoformat() if period_end is not None else "",
+        "grace_days": grace_days,
+        "expected_availability_date": expected.isoformat() if expected is not None else "",
+        "current_date": current_date.isoformat(),
+        "within_grace_window": within,
+        "policy_inference": (
+            "Conservative policy inference only; this is not an official non-publication statement."
+            if within
+            else "Outside the configured conservative availability window."
+        ),
+    }
+
+
+def _exact_document_int_year(value: Any) -> int | None:
+    text = str(value or "").strip()
+    if re.fullmatch(r"20\d{2}", text):
+        return int(text)
+    return None
+
+
+def _exact_document_unique_url_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
+    for item in items:
+        url = str(item.get("document_url") or "")
+        if not url:
+            continue
+        key = _normalized_operator_seed_candidate_url(url)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    return unique
+
+
+def _exact_document_is_historical_annual_ifrs(document: dict[str, Any], args: argparse.Namespace) -> bool:
+    year = _exact_document_int_year(document.get("document_period_year"))
+    target = _exact_document_int_year(getattr(args, "report_period", ""))
+    return bool(
+        document.get("document_kind") == "exact_report_document"
+        and year is not None
+        and target is not None
+        and year < target
+        and document.get("report_type_match_status") == "annual_match"
+        and document.get("accounting_standard_match_status") == "standard_match"
+    )
+
+
+def _exact_document_is_interim_or_quarterly(document: dict[str, Any]) -> bool:
+    return bool(
+        document.get("document_kind") == "quarterly_or_interim_document"
+        or document.get("report_type_match_status") == "interim_or_quarterly_mismatch"
+        or document.get("filter_status") == "filtered_wrong_report_type"
+    )
+
+
+def _exact_document_is_wrong_standard_candidate(document: dict[str, Any]) -> bool:
+    return bool(
+        document.get("document_kind") == "exact_report_document"
+        and document.get("document_period_status") == "target_period"
+        and document.get("accounting_standard_match_status") == "standard_mismatch"
+    )
+
+
+def _exact_document_requires_operator_review_for_availability(document: dict[str, Any]) -> bool:
+    if document.get("document_kind") != "exact_report_document":
+        return False
+    if document.get("document_period_status") != "target_period":
+        return False
+    if document.get("report_type_match_status") == "interim_or_quarterly_mismatch":
+        return False
+    if document.get("accounting_standard_match_status") == "standard_mismatch":
+        return False
+    if _exact_document_is_downstream_eligible(document):
+        return False
+    return bool(
+        document.get("operator_review_status") == "needs_operator_review"
+        or document.get("report_type_match_status") in {"unknown_report_type", "report_type_conflict"}
+        or document.get("accounting_standard_match_status") == "unknown_standard"
+        or document.get("document_status") in {"needs_operator_review", "filtered_document"}
+    )
+
+
+def _exact_document_latest_historical(items: list[dict[str, Any]], args: argparse.Namespace) -> dict[str, Any] | None:
+    historical = [item for item in items if _exact_document_is_historical_annual_ifrs(item, args)]
+    if not historical:
+        return None
+    return sorted(
+        historical,
+        key=lambda item: (
+            _exact_document_int_year(item.get("document_period_year")) or 0,
+            int(item.get("candidate_score") or item.get("final_score") or 0),
+            str(item.get("document_url") or ""),
+        ),
+        reverse=True,
+    )[0]
+
+
+def _exact_document_availability_operator_action(status: str) -> str:
+    return {
+        "exact_target_period_document_found": "proceed_to_strict_quality_gate",
+        "target_period_document_not_found": "continue_official_source_discovery",
+        "target_period_likely_not_yet_published_by_policy_window": "wait_for_target_period_publication_or_review_official_sources",
+        "only_historical_annual_ifrs_available": "review_historical_diagnostic_only_or_wait_for_target_period",
+        "only_interim_or_quarterly_available": "do_not_use_interim_for_annual_target_period",
+        "only_wrong_standard_available": "find_ifrs_annual_report",
+        "operator_exact_document_review_required": "review_exact_document_candidate",
+        "placeholder_not_found": "operator_to_find_official_exact_document",
+        "no_usable_official_report_candidates": "continue_official_source_discovery",
+    }.get(status, "continue_official_source_discovery")
+
+
+def _exact_document_availability_reason_codes(
+    status: str,
+    *,
+    exact_target_count: int,
+    target_period_count: int,
+    historical_count: int,
+    interim_count: int,
+    wrong_standard_count: int,
+    placeholder_count: int,
+    operator_review_count: int,
+    within_grace_window: bool,
+) -> list[str]:
+    reasons: list[str] = []
+    if exact_target_count == 0:
+        reasons.append("exact_target_period_document_not_found")
+    if target_period_count == 0:
+        reasons.append("target_period_document_not_found")
+    if within_grace_window:
+        reasons.append("within_reporting_grace_window")
+    if historical_count:
+        reasons.append("historical_annual_ifrs_available")
+    if interim_count:
+        reasons.append("interim_or_quarterly_available")
+    if wrong_standard_count:
+        reasons.append("wrong_standard_available")
+    if placeholder_count:
+        reasons.append("placeholder_not_found")
+    if operator_review_count:
+        reasons.append("operator_review_required")
+    status_reason = {
+        "exact_target_period_document_found": "exact_target_period_document_found",
+        "target_period_likely_not_yet_published_by_policy_window": "target_period_likely_not_yet_published_by_policy_window",
+        "only_historical_annual_ifrs_available": "only_historical_annual_ifrs_available",
+        "only_interim_or_quarterly_available": "only_interim_or_quarterly_available",
+        "only_wrong_standard_available": "only_wrong_standard_available",
+        "operator_exact_document_review_required": "operator_exact_document_review_required",
+        "placeholder_not_found": "placeholder_not_found",
+        "no_usable_official_report_candidates": "no_usable_official_report_candidates",
+        "target_period_document_not_found": "target_period_document_not_found",
+    }.get(status)
+    if status_reason:
+        reasons.insert(0, status_reason)
+    return list(dict.fromkeys(reasons))
+
+
+def _build_target_reporting_period_availability(
+    args: argparse.Namespace,
+    required_issuers: list[dict[str, Any]],
+    *,
+    documents: list[dict[str, Any]],
+    raw_documents: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    reporting_window = _exact_document_reporting_window_policy(args)
+    availability: list[dict[str, Any]] = []
+    for required in required_issuers:
+        issuer_documents = _items_matching_required([*raw_documents, *documents], required)
+        unique_documents = _exact_document_unique_url_items(issuer_documents)
+        placeholder_count = sum(
+            1
+            for item in issuer_documents
+            if not item.get("document_url") and item.get("document_status") == "not_found"
+        )
+        exact_target_documents = [
+            item
+            for item in unique_documents
+            if _exact_document_is_downstream_eligible(item)
+        ]
+        target_period_documents = [
+            item
+            for item in unique_documents
+            if item.get("document_period_status") == "target_period"
+        ]
+        historical_documents = [
+            item for item in unique_documents if _exact_document_is_historical_annual_ifrs(item, args)
+        ]
+        interim_documents = [
+            item for item in unique_documents if _exact_document_is_interim_or_quarterly(item)
+        ]
+        wrong_standard_documents = [
+            item for item in unique_documents if _exact_document_is_wrong_standard_candidate(item)
+        ]
+        operator_review_documents = [
+            item for item in unique_documents if _exact_document_requires_operator_review_for_availability(item)
+        ]
+
+        exact_target_count = len(exact_target_documents)
+        target_period_count = len(target_period_documents)
+        historical_count = len(historical_documents)
+        interim_count = len(interim_documents)
+        wrong_standard_count = len(wrong_standard_documents)
+        operator_review_count = len(operator_review_documents)
+        latest_historical = _exact_document_latest_historical(unique_documents, args)
+        within_grace_window = bool(reporting_window.get("within_grace_window"))
+
+        if exact_target_count:
+            status = "exact_target_period_document_found"
+        elif operator_review_count:
+            status = "operator_exact_document_review_required"
+        elif historical_count and within_grace_window:
+            status = "target_period_likely_not_yet_published_by_policy_window"
+        elif historical_count:
+            status = "only_historical_annual_ifrs_available"
+        elif wrong_standard_count and not interim_count:
+            status = "only_wrong_standard_available"
+        elif interim_count and not wrong_standard_count:
+            status = "only_interim_or_quarterly_available"
+        elif wrong_standard_count:
+            status = "only_wrong_standard_available"
+        elif interim_count:
+            status = "only_interim_or_quarterly_available"
+        elif placeholder_count and not unique_documents:
+            status = "placeholder_not_found"
+        elif target_period_count == 0 and unique_documents:
+            status = "target_period_document_not_found"
+        else:
+            status = "no_usable_official_report_candidates"
+
+        can_use = status == "exact_target_period_document_found"
+        historical_fallback_allowed = bool(historical_count)
+        fallback_scope = "diagnostic_only" if historical_fallback_allowed else "none"
+        reason_codes = _exact_document_availability_reason_codes(
+            status,
+            exact_target_count=exact_target_count,
+            target_period_count=target_period_count,
+            historical_count=historical_count,
+            interim_count=interim_count,
+            wrong_standard_count=wrong_standard_count,
+            placeholder_count=placeholder_count,
+            operator_review_count=operator_review_count,
+            within_grace_window=within_grace_window,
+        )
+        availability.append(
+            {
+                "company_id": required.get("company_id"),
+                "company_name": required.get("company_name") or "",
+                "canonical_company_id": required.get("canonical_company_id") or required.get("company_id"),
+                "canonical_company_name": required.get("canonical_company_name") or required.get("company_name") or "",
+                "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+                "required_report_type": str(getattr(args, "report_type", "") or ""),
+                "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+                "availability_status": status,
+                "availability_reason_codes": reason_codes,
+                "exact_target_period_document_count": exact_target_count,
+                "target_period_document_count": target_period_count,
+                "historical_annual_ifrs_document_count": historical_count,
+                "interim_or_quarterly_document_count": interim_count,
+                "wrong_standard_document_count": wrong_standard_count,
+                "placeholder_not_found_count": placeholder_count,
+                "operator_review_required_count": operator_review_count,
+                "latest_available_period": latest_historical.get("document_period_year") if latest_historical else "",
+                "latest_available_report_type": "annual" if latest_historical else "",
+                "latest_available_standard": "IFRS" if latest_historical else "",
+                "latest_available_document_url": latest_historical.get("document_url") if latest_historical else "",
+                "can_use_as_target_period_evidence": can_use,
+                "historical_fallback_allowed": historical_fallback_allowed,
+                "historical_fallback_scope": fallback_scope,
+                "operator_action": _exact_document_availability_operator_action(status),
+                "reporting_window_policy": dict(reporting_window),
+            }
+        )
+    return availability
+
+
+def _availability_by_issuer(
+    availability: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for item in availability:
+        key = str(item.get("canonical_company_id") or item.get("company_id") or "")
+        if key:
+            grouped[key] = item
+    return grouped
+
+
+def _exact_document_row_availability_status(document: dict[str, Any], issuer_policy: dict[str, Any] | None, args: argparse.Namespace) -> str:
+    if not document.get("document_url") and document.get("document_status") == "not_found":
+        return "placeholder_not_found"
+    if _exact_document_is_downstream_eligible(document):
+        return "exact_target_period_document_found"
+    if _exact_document_is_historical_annual_ifrs(document, args):
+        return "only_historical_annual_ifrs_available"
+    if _exact_document_is_interim_or_quarterly(document):
+        return "only_interim_or_quarterly_available"
+    if _exact_document_is_wrong_standard_candidate(document):
+        return "only_wrong_standard_available"
+    if _exact_document_requires_operator_review_for_availability(document):
+        return "operator_exact_document_review_required"
+    return str((issuer_policy or {}).get("availability_status") or "no_usable_official_report_candidates")
+
+
+def _annotate_exact_document_availability(
+    documents: list[dict[str, Any]],
+    availability: list[dict[str, Any]],
+    *,
+    args: argparse.Namespace,
+) -> None:
+    by_issuer = _availability_by_issuer(availability)
+    for document in documents:
+        key = str(document.get("canonical_company_id") or document.get("company_id") or "")
+        policy = by_issuer.get(key, {})
+        status = _exact_document_row_availability_status(document, policy, args)
+        can_use = _exact_document_is_downstream_eligible(document)
+        document["availability_status"] = status
+        document["availability_reason_codes"] = list(policy.get("availability_reason_codes") or [])
+        document["can_use_as_target_period_evidence"] = can_use
+        document["historical_fallback_allowed"] = bool(policy.get("historical_fallback_allowed"))
+        document["historical_fallback_scope"] = policy.get("historical_fallback_scope") or "none"
+        document["operator_action"] = _exact_document_availability_operator_action(status)
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -6505,9 +6915,9 @@ def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
         return False
     if document.get("document_period_status") != "target_period":
         return False
-    if document.get("report_type_match_status") == "interim_or_quarterly_mismatch":
+    if document.get("report_type_match_status") != "annual_match":
         return False
-    if document.get("accounting_standard_match_status") == "standard_mismatch":
+    if document.get("accounting_standard_match_status") != "standard_match":
         return False
     if document.get("fallback_status") != "not_fallback":
         return False
@@ -7296,8 +7706,14 @@ def _exact_document_not_found_candidate(issuer: dict[str, Any]) -> dict[str, Any
         "final_score": 0,
         "candidate_confidence": "low",
         "confidence": "low",
-        "filter_status": "kept",
-        "filter_reasons": [],
+        "filter_status": "placeholder_not_found",
+        "filter_reasons": ["placeholder not_found row; not target-period evidence"],
+        "availability_status": "placeholder_not_found",
+        "availability_reason_codes": ["placeholder_not_found", "exact_target_period_document_not_found"],
+        "can_use_as_target_period_evidence": False,
+        "historical_fallback_allowed": False,
+        "historical_fallback_scope": "none",
+        "operator_action": "operator_to_find_official_exact_document",
         "discovery_method": "reviewed_seed_anchor_scan",
         "score_reasons": [],
         "negative_reasons": [],
@@ -7429,6 +7845,7 @@ def _build_exact_document_discovery_report(
     invalid_candidate_count: int,
     reviewed_candidate_count: int,
     needs_operator_review_count: int,
+    target_reporting_period_availability: list[dict[str, Any]] | None,
     document_intake_fill_report: dict[str, Any] | None,
     document_intake_validation_report: dict[str, Any] | None,
     document_quality_gate_report: dict[str, Any] | None,
@@ -7470,6 +7887,7 @@ def _build_exact_document_discovery_report(
         "top_ranked_candidate_count": ranking_stats.get("top_ranked_candidate_count", 0),
         **kind_counts,
         **period_type_counts,
+        "target_reporting_period_availability": target_reporting_period_availability or [],
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -7576,6 +7994,7 @@ def _write_exact_document_discovery_payload(
     missing_issuers: list[dict[str, Any]],
     ranking_stats: dict[str, int],
     blocked_candidate_count: int,
+    target_reporting_period_availability: list[dict[str, Any]] | None,
     status: str,
     warnings: list[dict[str, Any]],
     errors: list[dict[str, Any]],
@@ -7612,6 +8031,7 @@ def _write_exact_document_discovery_payload(
         invalid_candidate_count=invalid_count,
         reviewed_candidate_count=reviewed_count,
         needs_operator_review_count=review_count,
+        target_reporting_period_availability=target_reporting_period_availability,
         document_intake_fill_report=None,
         document_intake_validation_report=None,
         document_quality_gate_report=None,
@@ -9728,9 +10148,9 @@ def _group_document_candidates(documents: list[dict[str, Any]]) -> dict[tuple[st
             continue
         if document.get("document_period_status") and document.get("document_period_status") != "target_period":
             continue
-        if document.get("report_type_match_status") == "interim_or_quarterly_mismatch":
+        if document.get("report_type_match_status") and document.get("report_type_match_status") != "annual_match":
             continue
-        if document.get("accounting_standard_match_status") == "standard_mismatch":
+        if document.get("accounting_standard_match_status") and document.get("accounting_standard_match_status") != "standard_match":
             continue
         if document.get("fallback_status") and document.get("fallback_status") != "not_fallback":
             continue
