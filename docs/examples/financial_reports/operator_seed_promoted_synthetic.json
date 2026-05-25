@@ -1,0 +1,27 @@
+{
+  "status": "operator_reviewed",
+  "mode": "operator-seed-promote-reviewed",
+  "issuer_count": 1,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "seeds": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "seed_url": "https://www.moex.com/synthetic-issuer/investors/reports",
+      "operator_review_status": "operator_reviewed",
+      "source_context": "https://www.moex.com/",
+      "notes": "Promoted from Task 107 operator review."
+    }
+  ]
+}

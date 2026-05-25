@@ -1113,6 +1113,79 @@ Filtered rows include `filter_status`, `filter_reasons`, `raw_score`, and
 never enter autofill. Candidate seeds still do not extract values, import
 reports, trade, or bypass the exact document quality gate.
 
+## Operator Seed Review Promotion
+
+Task 107 lets an operator approve ranked official seed candidates without hand
+editing JSON seed files. The review step creates a private checklist from Task
+106 candidates. The promotion step converts only explicit `approve` decisions
+into reviewed operator seed rows. It still approves navigation seed pages only:
+no values are extracted, no reports are imported, no trades run, and
+`ready_for_value_extraction` remains controlled by the exact document quality
+gate.
+
+Create the review checklist:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-review-template \
+  --operator-seed-candidate-input data/financial_reports/private/operator_official_seed_candidates_task106.json \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_task104.json \
+  --required-company-ids 18,67 \
+  --operator-seed-review-output data/financial_reports/private/operator_official_seed_review_task107.json \
+  --operator-seed-review-csv-output data/financial_reports/private/operator_official_seed_review_task107.csv \
+  --json-output logs/financial_reports/operator_official_seed_review_template_task107.json \
+  --markdown-output logs/financial_reports/operator_official_seed_review_template_task107.md
+```
+
+The operator edits the private review file and sets `operator_decision =
+approve` only for verified official issuer/disclosure/reporting seed pages.
+RZD or any other unresolved issuer should remain `pending` unless an official
+reviewed URL is provided.
+
+Promote approved rows and validate the promoted seed file:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-promote-reviewed \
+  --operator-seed-review-input data/financial_reports/private/operator_official_seed_review_filled_task107.json \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_task104.json \
+  --required-company-ids 18,67 \
+  --operator-seed-output data/financial_reports/private/operator_official_seed_promoted_task107.json \
+  --operator-seed-csv-output data/financial_reports/private/operator_official_seed_promoted_task107.csv \
+  --run-operator-seed-validate true \
+  --operator-seed-validation-json-output logs/financial_reports/operator_official_seed_validation_promoted_task107.json \
+  --operator-seed-validation-markdown-output logs/financial_reports/operator_official_seed_validation_promoted_task107.md \
+  --json-output logs/financial_reports/operator_official_seed_promote_task107.json \
+  --markdown-output logs/financial_reports/operator_official_seed_promote_task107.md
+```
+
+Feed reviewed seeds into the existing strict resolver and gate:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode official-seed-resolve \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_promoted_task107.json \
+  --required-company-ids 18,67 \
+  --seed-output data/financial_reports/private/official_seed_pack_task107.json \
+  --seed-csv-output data/financial_reports/private/official_seed_pack_task107.csv \
+  --run-candidate-discovery true \
+  --candidate-output data/financial_reports/private/exact_document_candidates_task107.json \
+  --candidate-csv-output data/financial_reports/private/exact_document_candidates_task107.csv \
+  --run-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task107.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task107.md \
+  --json-output logs/financial_reports/official_seed_resolve_task107.json \
+  --markdown-output logs/financial_reports/official_seed_resolve_task107.md
+```
+
+Pending, rejected, missing, blocked, unknown, or financial-value-bearing review
+rows are not promoted. Unknown domains cannot become reviewed seeds even with
+`--allow-unknown-source`.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

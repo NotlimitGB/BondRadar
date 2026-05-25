@@ -2332,6 +2332,298 @@ def test_operator_seed_candidate_autofill_caps_review_needed(
     assert all("ticket" not in seed.get("notes", "").casefold() for seed in autofill["seeds"])
 
 
+def test_operator_seed_review_template_from_ranked_candidates_preserves_missing_rows(
+    tmp_path: Path,
+) -> None:
+    candidate_input = tmp_path / "ranked_candidates.json"
+    operator_seed = tmp_path / "operator_seed_template.json"
+    review_output = tmp_path / "operator_seed_review.json"
+    review_csv = tmp_path / "operator_seed_review.csv"
+    _write_operator_seed_candidates(candidate_input, _task107_candidate_rows())
+    _write_operator_seeds(
+        operator_seed,
+        [
+            *_operator_seed_template_rows(seed_types=["official_disclosure_profile", "official_disclosure_reports", "issuer_reports"]),
+            *_operator_seed_template_rows_for(
+                67,
+                "Mostotrest",
+                "7701045732",
+                "1027739167246",
+                seed_types=["official_disclosure_profile", "official_disclosure_reports", "issuer_reports"],
+                source_context="https://mostotrest.ru/",
+            ),
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-review-template",
+            "--operator-seed-candidate-input",
+            str(candidate_input),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18,67",
+            "--operator-seed-review-output",
+            str(review_output),
+            "--operator-seed-review-csv-output",
+            str(review_csv),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "template"
+    assert report["candidate_review_item_count"] == 2
+    assert report["missing_review_item_count"] == 4
+    candidate_items = [item for item in report["review_items"] if item["candidate_seed_url"]]
+    assert {item["seed_type"] for item in candidate_items} == {"issuer_reports", "official_disclosure_reports"}
+    assert all(item["operator_decision"] == "pending" for item in candidate_items)
+    assert all(item["operator_review_status"] == "needs_operator_review" for item in candidate_items)
+    assert any(item["company_id"] == 18 and item["review_status"] == "missing_candidate" for item in report["review_items"])
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+    assert report["read_only"] is True
+    assert report["import_executed"] is False
+    rows = list(csv.DictReader(review_csv.open(encoding="utf-8")))
+    assert rows
+    assert "operator_decision" in rows[0]
+    payload = json.loads(review_output.read_text(encoding="utf-8"))
+    assert payload["review_items"][0]["promotion_status"] == "not_promoted"
+
+
+def test_operator_seed_promote_reviewed_approved_official_candidate_validates(
+    tmp_path: Path,
+) -> None:
+    review_input = tmp_path / "operator_seed_review.json"
+    operator_seed = tmp_path / "operator_seed_template.json"
+    promoted_output = tmp_path / "operator_seed_promoted.json"
+    promoted_csv = tmp_path / "operator_seed_promoted.csv"
+    validation_output = tmp_path / "operator_seed_validation.json"
+    _write_operator_seed_review(review_input, [_task107_review_item(decision="approve")])
+    _write_operator_seeds(
+        operator_seed,
+        _operator_seed_template_rows_for(
+            67,
+            "Mostotrest",
+            "7701045732",
+            "1027739167246",
+            seed_types=["issuer_reports"],
+            source_context="https://mostotrest.ru/",
+        ),
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-promote-reviewed",
+            "--operator-seed-review-input",
+            str(review_input),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "67",
+            "--operator-seed-output",
+            str(promoted_output),
+            "--operator-seed-csv-output",
+            str(promoted_csv),
+            "--run-operator-seed-validate",
+            "true",
+            "--operator-seed-validation-json-output",
+            str(validation_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "passed"
+    assert report["promoted_seed_count"] == 1
+    assert report["approved_count"] == 1
+    promoted = json.loads(promoted_output.read_text(encoding="utf-8"))
+    assert promoted["seeds"][0]["seed_url"] == "https://mostotrest.ru/ru/invest/financial-results/"
+    assert promoted["seeds"][0]["operator_review_status"] == "operator_reviewed"
+    validation = json.loads(validation_output.read_text(encoding="utf-8"))
+    assert validation["valid_seed_count"] == 1
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+    assert promoted_csv.is_file()
+
+
+def test_operator_seed_promote_reviewed_without_approvals_warns(
+    tmp_path: Path,
+) -> None:
+    review_input = tmp_path / "operator_seed_review.json"
+    operator_seed = tmp_path / "operator_seed_template.json"
+    promoted_output = tmp_path / "operator_seed_promoted.json"
+    _write_operator_seed_review(review_input, [_task107_review_item(decision="pending")])
+    _write_operator_seeds(
+        operator_seed,
+        _operator_seed_template_rows_for(
+            67,
+            "Mostotrest",
+            "7701045732",
+            "1027739167246",
+            seed_types=["issuer_reports"],
+            source_context="https://mostotrest.ru/",
+        ),
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-promote-reviewed",
+            "--operator-seed-review-input",
+            str(review_input),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "67",
+            "--operator-seed-output",
+            str(promoted_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["promoted_seed_count"] == 0
+    promoted = json.loads(promoted_output.read_text(encoding="utf-8"))
+    assert promoted["seeds"][0]["seed_url"] == ""
+    assert promoted["seeds"][0]["operator_review_status"] == "operator_to_fill"
+
+
+def test_operator_seed_promote_reviewed_invalid_approvals_fail(
+    tmp_path: Path,
+) -> None:
+    review_input = tmp_path / "bad_review.json"
+    operator_seed = tmp_path / "operator_seed_template.json"
+    rows = [
+        _task107_review_item(decision="approve", url=""),
+        _task107_review_item(decision="approve", url="https://wikipedia.org/wiki/Mostotrest"),
+        _task107_review_item(decision="approve", url="https://issuer.example/reports/"),
+        _task107_review_item(decision="approve", extra={"revenue": "100"}),
+        _task107_review_item(decision="approve", url="", candidate_status="not_found", review_status="missing_candidate"),
+    ]
+    _write_operator_seed_review(review_input, rows)
+    _write_operator_seeds(
+        operator_seed,
+        _operator_seed_template_rows_for(
+            67,
+            "Mostotrest",
+            "7701045732",
+            "1027739167246",
+            seed_types=["issuer_reports"],
+            source_context="https://mostotrest.ru/",
+        ),
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-promote-reviewed",
+            "--operator-seed-review-input",
+            str(review_input),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "67",
+            "--allow-unknown-source",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert report["invalid_review_item_count"] == 5
+    messages = " ".join(item["message"] for item in report["errors"])
+    assert "approve requires candidate_seed_url" in messages
+    assert "blocked unofficial source domain" in messages
+    assert "source URL domain is not in the official allowlist" in messages
+    assert "financial values are forbidden" in messages
+    assert "cannot approve a not_found review row" in messages
+
+
+def test_operator_seed_promote_reviewed_dedupes_and_official_seed_resolve_consumes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    review_input = tmp_path / "operator_seed_review.json"
+    operator_seed = tmp_path / "operator_seed_template.json"
+    promoted_output = tmp_path / "operator_seed_promoted.json"
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate.json"
+    _write_operator_seed_review(
+        review_input,
+        [
+            _task107_review_item(decision="approve"),
+            _task107_review_item(decision="approve"),
+        ],
+    )
+    _write_operator_seeds(
+        operator_seed,
+        _operator_seed_template_rows_for(
+            67,
+            "Mostotrest",
+            "7701045732",
+            "1027739167246",
+            seed_types=["issuer_reports"],
+            source_context="https://mostotrest.ru/",
+        ),
+    )
+    promote_args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-promote-reviewed",
+            "--operator-seed-review-input",
+            str(review_input),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "67",
+            "--operator-seed-output",
+            str(promoted_output),
+        ]
+    )
+    promote_report, promote_exit = assistant.run_assistant(promote_args)
+    assert promote_exit == 0
+    assert promote_report["promoted_seed_count"] == 1
+    promoted = json.loads(promoted_output.read_text(encoding="utf-8"))
+    assert sum(seed["seed_url"] == "https://mostotrest.ru/ru/invest/financial-results/" for seed in promoted["seeds"]) == 1
+
+    _write_document_intake(intake, [_empty_document_intake_item(67, "Mostotrest", "")])
+    _mock_candidate_fetch(monkeypatch, {"https://mostotrest.ru/ru/invest/financial-results/": "<html></html>"})
+    resolve_args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--operator-seed-input",
+            str(promoted_output),
+            "--required-company-ids",
+            "67",
+            "--run-candidate-discovery",
+            "true",
+            "--run-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+    resolve_report, resolve_exit = assistant.run_assistant(resolve_args)
+
+    assert resolve_exit == 0
+    assert any(
+        seed["source"] == "operator_seed"
+        and seed["seed_status"] == "valid_seed"
+        and seed["seed_url"] == "https://mostotrest.ru/ru/invest/financial-results/"
+        for issuer in resolve_report["issuers"]
+        for seed in issuer["official_seeds"]
+    )
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is False
+    assert gate["ready_for_value_extraction"] is False
+
+
 def test_official_seed_resolve_uses_operator_seed_for_discovery_and_gate(
     tmp_path: Path,
     monkeypatch,
@@ -3567,6 +3859,173 @@ def _operator_seed_template_rows(seed_types: list[str] | None = None) -> list[di
         }
         for seed_type in (seed_types or ["official_disclosure_profile", "official_disclosure_reports", "issuer_reports"])
     ]
+
+
+def _operator_seed_template_rows_for(
+    company_id: int,
+    company_name: str,
+    inn: str,
+    ogrn: str,
+    *,
+    seed_types: list[str] | None = None,
+    source_context: str = "",
+) -> list[dict]:
+    return [
+        {
+            "company_id": company_id,
+            "company_name": company_name,
+            "canonical_company_id": company_id,
+            "canonical_company_name": company_name,
+            "inn": inn,
+            "ogrn": ogrn,
+            "seed_type": seed_type,
+            "seed_url": "",
+            "operator_review_status": "operator_to_fill",
+            "source_context": source_context,
+            "notes": "Synthetic operator seed template row.",
+        }
+        for seed_type in (seed_types or ["official_disclosure_profile", "official_disclosure_reports", "issuer_reports"])
+    ]
+
+
+def _write_operator_seed_candidates(path: Path, candidates: list[dict]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-seed-candidate-discover",
+                "candidates": candidates,
+                "read_only": True,
+                "dry_run_only": True,
+                "import_executed": False,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_operator_seed_review(path: Path, review_items: list[dict]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "status": "template",
+                "mode": "operator-seed-review-template",
+                "review_items": review_items,
+                "read_only": True,
+                "dry_run_only": True,
+                "import_executed": False,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _task107_candidate_rows() -> list[dict]:
+    return [
+        {
+            "company_id": 67,
+            "company_name": "Mostotrest",
+            "canonical_company_id": 67,
+            "canonical_company_name": "Mostotrest",
+            "inn": "7701045732",
+            "ogrn": "1027739167246",
+            "seed_type": "issuer_reports",
+            "candidate_seed_url": "https://mostotrest.ru/ru/invest/financial-results/",
+            "candidate_title": "Financial results",
+            "candidate_source_url": "https://mostotrest.ru/",
+            "candidate_rank": 1,
+            "candidate_score": 145,
+            "candidate_confidence": "medium",
+            "candidate_status": "needs_operator_review",
+            "operator_review_status": "needs_operator_review",
+            "filter_status": "kept",
+            "score_reasons": ["issuer_reports path signal"],
+            "negative_reasons": [],
+            "notes": "Synthetic useful candidate.",
+        },
+        {
+            "company_id": 67,
+            "company_name": "Mostotrest",
+            "canonical_company_id": 67,
+            "canonical_company_name": "Mostotrest",
+            "inn": "7701045732",
+            "ogrn": "1027739167246",
+            "seed_type": "official_disclosure_reports",
+            "candidate_seed_url": "https://mostotrest.ru/ru/invest/information-disclosure/",
+            "candidate_title": "Information disclosure",
+            "candidate_source_url": "https://mostotrest.ru/",
+            "candidate_rank": 1,
+            "candidate_score": 130,
+            "candidate_confidence": "medium",
+            "candidate_status": "needs_operator_review",
+            "operator_review_status": "needs_operator_review",
+            "filter_status": "kept",
+            "score_reasons": ["disclosure signal"],
+            "negative_reasons": [],
+            "notes": "Synthetic useful candidate.",
+        },
+        {
+            "company_id": 67,
+            "company_name": "Mostotrest",
+            "canonical_company_id": 67,
+            "canonical_company_name": "Mostotrest",
+            "inn": "7701045732",
+            "ogrn": "1027739167246",
+            "seed_type": "issuer_reports",
+            "candidate_seed_url": "https://mostotrest.ru/ru/news/",
+            "candidate_title": "News",
+            "candidate_source_url": "https://mostotrest.ru/",
+            "candidate_rank": None,
+            "candidate_score": 0,
+            "candidate_confidence": "low",
+            "candidate_status": "not_found",
+            "operator_review_status": "operator_to_fill",
+            "filter_status": "filtered_noise",
+            "score_reasons": [],
+            "negative_reasons": ["noise navigation page"],
+            "notes": "Synthetic noisy candidate.",
+        },
+    ]
+
+
+def _task107_review_item(
+    *,
+    decision: str,
+    url: str = "https://mostotrest.ru/ru/invest/financial-results/",
+    candidate_status: str = "needs_operator_review",
+    review_status: str = "pending_review",
+    extra: dict | None = None,
+) -> dict:
+    item = {
+        "company_id": 67,
+        "company_name": "Mostotrest",
+        "canonical_company_id": 67,
+        "canonical_company_name": "Mostotrest",
+        "inn": "7701045732",
+        "ogrn": "1027739167246",
+        "seed_type": "issuer_reports",
+        "candidate_seed_url": url,
+        "candidate_title": "Financial results",
+        "candidate_source_url": "https://mostotrest.ru/",
+        "candidate_rank": 1,
+        "candidate_score": 145,
+        "candidate_confidence": "medium",
+        "candidate_status": candidate_status,
+        "operator_decision": decision,
+        "operator_review_status": "operator_reviewed" if decision == "approve" else "needs_operator_review",
+        "review_status": review_status,
+        "review_notes": "Synthetic operator review.",
+        "suggested_action": "approve_if_official_seed_page",
+        "promotion_status": "not_promoted",
+        "score_reasons": ["issuer_reports path signal"],
+        "negative_reasons": [],
+        "notes": "Synthetic review item.",
+    }
+    if extra:
+        item.update(extra)
+    return item
 
 
 def _write_seed_pack(path: Path) -> None:

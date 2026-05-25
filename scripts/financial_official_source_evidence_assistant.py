@@ -34,6 +34,8 @@ MODE_CHOICES = (
     "operator-seed-validate",
     "operator-seed-merge",
     "operator-seed-candidate-discover",
+    "operator-seed-review-template",
+    "operator-seed-promote-reviewed",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -213,6 +215,32 @@ OPERATOR_SEED_CANDIDATE_FIELDS = [
     "filter_status",
     "filter_reasons",
     "discovery_method",
+    "score_reasons",
+    "negative_reasons",
+    "notes",
+]
+OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
+OPERATOR_SEED_REVIEW_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "inn",
+    "ogrn",
+    "seed_type",
+    "candidate_seed_url",
+    "candidate_title",
+    "candidate_source_url",
+    "candidate_rank",
+    "candidate_score",
+    "candidate_confidence",
+    "candidate_status",
+    "operator_decision",
+    "operator_review_status",
+    "review_status",
+    "review_notes",
+    "suggested_action",
+    "promotion_status",
     "score_reasons",
     "negative_reasons",
     "notes",
@@ -530,6 +558,23 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--operator-seed-autofill-output", type=Path, default=None)
     parser.add_argument("--operator-seed-autofill-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-seed-candidate-input", type=Path, default=None)
+    parser.add_argument("--operator-seed-review-input", type=Path, default=None)
+    parser.add_argument("--operator-seed-review-output", type=Path, default=None)
+    parser.add_argument("--operator-seed-review-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-seed-review-status", default="pending_review")
+    parser.add_argument("--operator-seed-review-include-missing", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-review-include-not-found", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-review-top-n-per-issuer", type=int, default=20)
+    parser.add_argument("--operator-seed-review-top-n-per-type", type=int, default=5)
+    parser.add_argument("--operator-seed-review-default-decision", default="pending")
+    parser.add_argument("--operator-seed-review-auto-approve-reviewed", type=_parse_bool, default=False)
+    parser.add_argument("--operator-seed-review-auto-approve-threshold", type=int, default=999)
+    parser.add_argument("--operator-seed-promotion-require-approve", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-promotion-allow-needs-review", type=_parse_bool, default=False)
+    parser.add_argument("--operator-seed-promotion-include-rejected", type=_parse_bool, default=False)
+    parser.add_argument("--operator-seed-promotion-dedupe", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-promotion-strict", type=_parse_bool, default=True)
     parser.add_argument("--run-operator-seed-validate", type=_parse_bool, default=False)
     parser.add_argument("--operator-seed-validation-json-output", type=Path, default=None)
     parser.add_argument("--operator-seed-validation-markdown-output", type=Path, default=None)
@@ -620,6 +665,10 @@ def run_assistant(
         report = run_operator_seed_merge(args)
     elif args.mode == "operator-seed-candidate-discover":
         report = run_operator_seed_candidate_discover(args)
+    elif args.mode == "operator-seed-review-template":
+        report = run_operator_seed_review_template(args)
+    elif args.mode == "operator-seed-promote-reviewed":
+        report = run_operator_seed_promote_reviewed(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -2351,6 +2400,185 @@ def run_operator_seed_candidate_discover(args: argparse.Namespace) -> dict[str, 
     return report
 
 
+def run_operator_seed_review_template(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
+    operator_seed_rows: list[dict[str, Any]] = []
+    if args.operator_seed_candidate_input is None:
+        errors.append({"message": "operator-seed-review-template mode requires --operator-seed-candidate-input"})
+    if args.operator_seed_input is None:
+        errors.append({"message": "operator-seed-review-template mode requires --operator-seed-input"})
+    if not errors:
+        try:
+            candidates = load_operator_seed_candidate_items(args.operator_seed_candidate_input)
+            operator_seed_rows = load_operator_seed_items(args.operator_seed_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    required_issuers = _operator_seed_required_issuers(
+        args,
+        input_documents=operator_seed_rows,
+        seed_issuers=[],
+        financial_rows=[],
+    )
+    review_items: list[dict[str, Any]] = []
+    if args.operator_seed_review_default_decision not in OPERATOR_SEED_REVIEW_DECISIONS:
+        errors.append({"message": "operator seed review default decision is not supported"})
+    if not errors:
+        candidate_items = _operator_seed_review_candidate_items(
+            candidates,
+            required_issuers=required_issuers,
+            args=args,
+            errors=errors,
+        )
+        review_items.extend(candidate_items)
+        if args.operator_seed_review_include_missing:
+            review_items.extend(
+                _operator_seed_review_missing_items(
+                    operator_seed_rows,
+                    review_items=review_items,
+                    required_issuers=required_issuers,
+                    args=args,
+                )
+            )
+
+    candidate_review_count = sum(1 for item in review_items if item.get("candidate_seed_url"))
+    missing_review_count = sum(1 for item in review_items if item.get("review_status") == "missing_candidate")
+    status = "failed" if errors else "template"
+    report = {
+        "status": status,
+        "mode": "operator-seed-review-template",
+        "issuer_count": len(required_issuers),
+        "review_item_count": len(review_items),
+        "candidate_review_item_count": candidate_review_count,
+        "missing_review_item_count": missing_review_count,
+        "review_items": review_items,
+        "warnings": warnings,
+        "errors": errors,
+        "operator_seed_candidate_input": _path_value(args.operator_seed_candidate_input),
+        "operator_seed_input": _path_value(args.operator_seed_input),
+        "operator_seed_review_output": _path_value(args.operator_seed_review_output),
+        "operator_seed_review_csv_output": _path_value(args.operator_seed_review_csv_output),
+        "next_steps": _next_steps("operator-seed-review-template", status),
+        **SAFETY_FLAGS,
+    }
+    if args.operator_seed_review_output is not None and not errors:
+        write_json_report(report, args.operator_seed_review_output)
+    if args.operator_seed_review_csv_output is not None and not errors:
+        write_operator_seed_review_csv(review_items, args.operator_seed_review_csv_output)
+    return report
+
+
+def run_operator_seed_promote_reviewed(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    review_items: list[dict[str, Any]] = []
+    operator_seed_rows: list[dict[str, Any]] = []
+    if args.operator_seed_review_input is None:
+        errors.append({"message": "operator-seed-promote-reviewed mode requires --operator-seed-review-input"})
+    if args.operator_seed_input is None:
+        errors.append({"message": "operator-seed-promote-reviewed mode requires --operator-seed-input"})
+    if not errors:
+        try:
+            review_items = load_operator_seed_review_items(args.operator_seed_review_input)
+            operator_seed_rows = load_operator_seed_items(args.operator_seed_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    required_issuers = _operator_seed_required_issuers(
+        args,
+        input_documents=[*operator_seed_rows, *review_items],
+        seed_issuers=[],
+        financial_rows=[],
+    )
+    promotion_results: list[dict[str, Any]] = []
+    promoted_seed_rows: list[dict[str, Any]] = []
+    if not errors:
+        for index, item in enumerate(review_items, start=1):
+            result = _operator_seed_promotion_result(item, row_index=index, args=args)
+            promotion_results.append(result)
+            warnings.extend(result.get("warnings") or [])
+            errors.extend(result.get("errors") or [])
+            if result.get("promotion_status") in {"promoted", "needs_more_review"}:
+                promoted_seed_rows.append(result["seed"])
+
+    promoted_seed_rows = _dedupe_promoted_operator_seed_rows(promoted_seed_rows) if args.operator_seed_promotion_dedupe else promoted_seed_rows
+    seeds = _apply_promotions_to_operator_seed_rows(operator_seed_rows, promoted_seed_rows)
+    approved_count = sum(1 for item in promotion_results if item.get("operator_decision") == "approve")
+    promoted_count = sum(1 for item in promoted_seed_rows if item.get("operator_review_status") == "operator_reviewed")
+    pending_count = sum(1 for item in promotion_results if item.get("operator_decision") in {"pending", "needs_more_review"})
+    rejected_count = sum(1 for item in promotion_results if item.get("operator_decision") == "reject")
+    invalid_count = sum(1 for item in promotion_results if item.get("promotion_status") == "invalid")
+
+    operator_seed_validation_report: dict[str, Any] | None = None
+    if args.operator_seed_output is not None and not errors:
+        write_json_report(
+            {
+                "status": "operator_reviewed" if promoted_count else "template",
+                "mode": "operator-seed-promote-reviewed",
+                "issuer_count": len(required_issuers),
+                "seeds": seeds,
+                **SAFETY_FLAGS,
+            },
+            args.operator_seed_output,
+        )
+    if args.operator_seed_csv_output is not None and not errors:
+        write_operator_seed_csv(seeds, args.operator_seed_csv_output)
+    if args.run_operator_seed_validate and not errors:
+        if args.operator_seed_output is not None:
+            validation_input = args.operator_seed_output
+        else:
+            with tempfile.TemporaryDirectory(prefix="bondradar-operator-seed-promoted-") as tmp_dir:
+                validation_input = Path(tmp_dir) / "operator_seed_promoted.json"
+                write_json_report({"status": "operator_reviewed", "seeds": seeds}, validation_input)
+                validation_args = _clone_args(args, mode="operator-seed-validate", operator_seed_input=validation_input)
+                operator_seed_validation_report = run_operator_seed_validate(validation_args)
+        if operator_seed_validation_report is None:
+            validation_args = _clone_args(args, mode="operator-seed-validate", operator_seed_input=validation_input)
+            operator_seed_validation_report = run_operator_seed_validate(validation_args)
+        if args.operator_seed_validation_json_output is not None:
+            write_json_report(operator_seed_validation_report, args.operator_seed_validation_json_output)
+        if args.operator_seed_validation_markdown_output is not None:
+            write_markdown_report(operator_seed_validation_report, args.operator_seed_validation_markdown_output)
+        if operator_seed_validation_report.get("errors"):
+            warnings.append(
+                {
+                    "message": "operator seed validation reported errors for promoted output",
+                    "validation_status": operator_seed_validation_report.get("status"),
+                }
+            )
+
+    if not errors and promoted_count == 0:
+        warnings.append({"message": "no approved operator seed review rows were promoted"})
+    status = "failed" if errors else "warning" if warnings or promoted_count == 0 else "passed"
+    report = {
+        "status": status,
+        "mode": "operator-seed-promote-reviewed",
+        "issuer_count": len(required_issuers),
+        "review_item_count": len(review_items),
+        "approved_count": approved_count,
+        "promoted_seed_count": promoted_count,
+        "pending_count": pending_count,
+        "rejected_count": rejected_count,
+        "invalid_review_item_count": invalid_count,
+        "seeds": seeds,
+        "promotion_results": promotion_results,
+        "not_promoted_items": [item for item in promotion_results if item.get("promotion_status") != "promoted"],
+        "operator_seed_validation_report": operator_seed_validation_report,
+        "warnings": warnings,
+        "errors": errors,
+        "operator_seed_review_input": _path_value(args.operator_seed_review_input),
+        "operator_seed_output": _path_value(args.operator_seed_output),
+        "operator_seed_csv_output": _path_value(args.operator_seed_csv_output),
+        "operator_seed_validation_json_output": _path_value(args.operator_seed_validation_json_output),
+        "operator_seed_validation_markdown_output": _path_value(args.operator_seed_validation_markdown_output),
+        "next_steps": _next_steps("operator-seed-promote-reviewed", status),
+        **SAFETY_FLAGS,
+    }
+    return report
+
+
 def run_official_seed_resolve(args: argparse.Namespace) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -3482,6 +3710,40 @@ def load_operator_seed_items(path: Path) -> list[dict[str, Any]]:
     return seeds
 
 
+def load_operator_seed_candidate_items(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise ValueError(f"operator seed candidate input does not exist: {path}")
+    if path.suffix.casefold() == ".csv":
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames is None:
+                return []
+            return [{key: _normalize_cell(value) for key, value in row.items() if key} for row in reader]
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    candidates = payload.get("candidates") if isinstance(payload, dict) else payload
+    if not isinstance(candidates, list) or not all(isinstance(item, dict) for item in candidates):
+        raise ValueError("operator seed candidate JSON must contain candidates")
+    return candidates
+
+
+def load_operator_seed_review_items(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise ValueError(f"operator seed review input does not exist: {path}")
+    if path.suffix.casefold() == ".csv":
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames is None:
+                return []
+            return [{key: _normalize_cell(value) for key, value in row.items() if key} for row in reader]
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    review_items = payload.get("review_items") if isinstance(payload, dict) else payload
+    if not isinstance(review_items, list) or not all(isinstance(item, dict) for item in review_items):
+        raise ValueError("operator seed review JSON must contain review_items")
+    return review_items
+
+
 def load_seed_pack_issuers(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         raise ValueError(f"seed input does not exist: {path}")
@@ -3621,6 +3883,15 @@ def write_operator_seed_candidate_csv(candidates: list[dict[str, Any]], path: Pa
             writer.writerow({field: _csv_value(candidate.get(field)) for field in OPERATOR_SEED_CANDIDATE_FIELDS})
 
 
+def write_operator_seed_review_csv(review_items: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_SEED_REVIEW_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for item in review_items:
+            writer.writerow({field: _csv_value(item.get(field)) for field in OPERATOR_SEED_REVIEW_FIELDS})
+
+
 def load_manual_values_by_key(
     *,
     manual_values_json: Path | None,
@@ -3733,6 +4004,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "operator-seed-merge"
         else "Operator Official Seed Candidate Discovery"
         if report.get("mode") == "operator-seed-candidate-discover"
+        else "Operator Seed Review Template"
+        if report.get("mode") == "operator-seed-review-template"
+        else "Operator Seed Promotion"
+        if report.get("mode") == "operator-seed-promote-reviewed"
         else "Official Seed Resolver"
         if report.get("mode") == "official-seed-resolve"
         else "Exact Official Report Document Resolver"
@@ -3771,6 +4046,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_operator_seed_merge_markdown_sections(report))
     if report.get("mode") == "operator-seed-candidate-discover":
         lines.extend(_render_operator_seed_candidate_markdown_sections(report))
+    if report.get("mode") == "operator-seed-review-template":
+        lines.extend(_render_operator_seed_review_template_markdown_sections(report))
+    if report.get("mode") == "operator-seed-promote-reviewed":
+        lines.extend(_render_operator_seed_promote_markdown_sections(report))
     if report.get("mode") == "official-seed-resolve":
         lines.extend(_render_official_seed_markdown_sections(report))
     lines.extend(
@@ -4317,6 +4596,150 @@ def _render_operator_seed_candidate_markdown_sections(report: dict[str, Any]) ->
     else:
         lines.append("- None")
     lines.append("")
+    return lines
+
+
+def _render_operator_seed_review_template_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Review Items",
+        "",
+        f"- review_item_count: {report.get('review_item_count', 0)}",
+        f"- candidate_review_item_count: {report.get('candidate_review_item_count', 0)}",
+        f"- missing_review_item_count: {report.get('missing_review_item_count', 0)}",
+        "",
+        "| Company ID | Company | Seed Type | Rank | Score | Candidate URL | Title | Decision | Review Status | Suggested Action |",
+        "| ---: | --- | --- | ---: | ---: | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    missing: list[dict[str, Any]] = []
+    for item in report.get("review_items") or []:
+        if item.get("review_status") == "missing_candidate":
+            missing.append(item)
+            continue
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {seed_type} | {rank} | {score} | {url} | {title} | {decision} | {status} | {action} |".format(
+                company_id=item.get("company_id") or "",
+                company_name=str(item.get("company_name") or "").replace("|", "/"),
+                seed_type=item.get("seed_type") or "",
+                rank=item.get("candidate_rank") or "",
+                score=item.get("candidate_score") or 0,
+                url=str(item.get("candidate_seed_url") or "").replace("|", "/"),
+                title=str(item.get("candidate_title") or "").replace("|", "/"),
+                decision=item.get("operator_decision") or "",
+                status=item.get("review_status") or "",
+                action=item.get("suggested_action") or "",
+            )
+        )
+    if rows == 0:
+        lines.append("|  |  |  |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Missing Items",
+            "",
+            "| Company ID | Company | Seed Type | Suggested Action |",
+            "| ---: | --- | --- | --- |",
+        ]
+    )
+    if missing:
+        for item in missing:
+            lines.append(
+                "| {company_id} | {company_name} | {seed_type} | {action} |".format(
+                    company_id=item.get("company_id") or "",
+                    company_name=str(item.get("company_name") or "").replace("|", "/"),
+                    seed_type=item.get("seed_type") or "",
+                    action=item.get("suggested_action") or "",
+                )
+            )
+    else:
+        lines.append("|  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Rules",
+            "",
+            "- Approve only official issuer/disclosure/reporting seed pages.",
+            "- Do not approve search/news/blog/forum/social pages.",
+            "- Do not approve exact financial values.",
+            "- Seed approval does not bypass exact document quality gate.",
+            "",
+        ]
+    )
+    return lines
+
+
+def _render_operator_seed_promote_markdown_sections(report: dict[str, Any]) -> list[str]:
+    validation = report.get("operator_seed_validation_report") or {}
+    lines = [
+        "## Promotion Summary",
+        "",
+        f"- review_item_count: {report.get('review_item_count', 0)}",
+        f"- approved_count: {report.get('approved_count', 0)}",
+        f"- promoted_seed_count: {report.get('promoted_seed_count', 0)}",
+        f"- pending_count: {report.get('pending_count', 0)}",
+        f"- rejected_count: {report.get('rejected_count', 0)}",
+        f"- invalid_review_item_count: {report.get('invalid_review_item_count', 0)}",
+        "",
+        "## Promoted Seeds",
+        "",
+        "| Company ID | Company | Seed Type | Seed URL | Operator Status |",
+        "| ---: | --- | --- | --- | --- |",
+    ]
+    promoted_rows = [
+        item
+        for item in report.get("seeds") or []
+        if item.get("seed_url") and item.get("operator_review_status") == "operator_reviewed"
+    ]
+    if promoted_rows:
+        for item in promoted_rows:
+            lines.append(
+                "| {company_id} | {company_name} | {seed_type} | {url} | {status} |".format(
+                    company_id=item.get("company_id") or "",
+                    company_name=str(item.get("company_name") or "").replace("|", "/"),
+                    seed_type=item.get("seed_type") or "",
+                    url=str(item.get("seed_url") or "").replace("|", "/"),
+                    status=item.get("operator_review_status") or "",
+                )
+            )
+    else:
+        lines.append("|  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Not Promoted",
+            "",
+            "| Company ID | Company | Seed Type | Decision | Status | Reason |",
+            "| ---: | --- | --- | --- | --- | --- |",
+        ]
+    )
+    not_promoted = report.get("not_promoted_items") or []
+    if not_promoted:
+        for item in not_promoted:
+            lines.append(
+                "| {company_id} | {company_name} | {seed_type} | {decision} | {status} | {reason} |".format(
+                    company_id=item.get("company_id") or "",
+                    company_name=str(item.get("company_name") or "").replace("|", "/"),
+                    seed_type=item.get("seed_type") or "",
+                    decision=item.get("operator_decision") or "",
+                    status=item.get("promotion_status") or "",
+                    reason=str(item.get("promotion_reason") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Validation",
+            "",
+            f"- operator-seed-validate status: `{validation.get('status')}`",
+            f"- valid_seed_count: {validation.get('valid_seed_count')}",
+            f"- invalid_seed_count: {validation.get('invalid_seed_count')}",
+            f"- needs_operator_review_count: {validation.get('needs_operator_review_count')}",
+            "",
+        ]
+    )
     return lines
 
 
@@ -5532,6 +5955,354 @@ def _operator_seed_template_notes(seed_type: str) -> str:
         ),
     }
     return notes.get(seed_type, "Paste reviewed official seed page URL only. Do not paste financial values.")
+
+
+def _operator_seed_review_candidate_items(
+    candidates: list[dict[str, Any]],
+    *,
+    required_issuers: list[dict[str, Any]],
+    args: argparse.Namespace,
+    errors: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    review_items: list[dict[str, Any]] = []
+    for candidate in candidates:
+        forbidden_fields = _forbidden_seed_metadata_fields(candidate)
+        if forbidden_fields:
+            errors.append(
+                {
+                    "company_id": candidate.get("company_id"),
+                    "candidate_seed_url": candidate.get("candidate_seed_url") or "",
+                    "message": "financial values are forbidden in operator seed review metadata",
+                    "fields": forbidden_fields,
+                }
+            )
+            continue
+        if not _candidate_matches_required_any(candidate, required_issuers):
+            continue
+        if candidate.get("filter_status") not in {None, "", "kept"}:
+            continue
+        if candidate.get("candidate_status") not in {"needs_operator_review", "operator_reviewed"}:
+            continue
+        if not candidate.get("candidate_seed_url"):
+            continue
+        review_items.append(_operator_seed_review_item_from_candidate(candidate, args=args))
+    review_items = _dedupe_operator_seed_review_items(review_items)
+    review_items = _limit_operator_seed_review_items(review_items, args=args)
+    return review_items
+
+
+def _operator_seed_review_item_from_candidate(candidate: dict[str, Any], *, args: argparse.Namespace) -> dict[str, Any]:
+    score = int(candidate.get("final_score") or candidate.get("candidate_score") or 0)
+    auto_approve = bool(
+        args.operator_seed_review_auto_approve_reviewed
+        and candidate.get("operator_review_status") == "operator_reviewed"
+        and score >= int(args.operator_seed_review_auto_approve_threshold or 0)
+    )
+    operator_decision = "approve" if auto_approve else str(args.operator_seed_review_default_decision or "pending")
+    operator_review_status = "operator_reviewed" if auto_approve else "needs_operator_review"
+    review_status = "operator_reviewed" if auto_approve else args.operator_seed_review_status
+    item = {
+        "company_id": candidate.get("company_id"),
+        "company_name": candidate.get("company_name") or "",
+        "canonical_company_id": candidate.get("canonical_company_id") or candidate.get("company_id"),
+        "canonical_company_name": candidate.get("canonical_company_name") or candidate.get("company_name") or "",
+        "inn": candidate.get("inn") or "",
+        "ogrn": candidate.get("ogrn") or "",
+        "seed_type": _normalize_seed_type(candidate.get("seed_type"), str(candidate.get("candidate_seed_url") or "")),
+        "candidate_seed_url": candidate.get("candidate_seed_url") or "",
+        "candidate_title": candidate.get("candidate_title") or "",
+        "candidate_source_url": candidate.get("candidate_source_url") or "",
+        "candidate_rank": candidate.get("candidate_rank"),
+        "candidate_score": score,
+        "candidate_confidence": candidate.get("candidate_confidence") or "low",
+        "candidate_status": candidate.get("candidate_status") or "",
+        "operator_decision": operator_decision,
+        "operator_review_status": operator_review_status,
+        "review_status": review_status,
+        "review_notes": "",
+        "suggested_action": "approve_if_official_seed_page",
+        "promotion_status": "not_promoted",
+        "score_reasons": candidate.get("score_reasons") or [],
+        "negative_reasons": candidate.get("negative_reasons") or [],
+        "notes": "Review official seed URL. Do not approve if this is not an issuer/disclosure/reporting seed page.",
+    }
+    _strip_financial_values(item)
+    return item
+
+
+def _operator_seed_review_missing_items(
+    operator_seed_rows: list[dict[str, Any]],
+    *,
+    review_items: list[dict[str, Any]],
+    required_issuers: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    existing = {
+        (
+            str(item.get("company_id") or item.get("canonical_company_id") or ""),
+            str(item.get("seed_type") or ""),
+        )
+        for item in review_items
+    }
+    missing: list[dict[str, Any]] = []
+    for row in operator_seed_rows:
+        if not _candidate_matches_required_any(row, required_issuers):
+            continue
+        seed_type = _normalize_seed_type(row.get("seed_type"))
+        key = (str(row.get("company_id") or row.get("canonical_company_id") or ""), seed_type)
+        if key in existing and not args.operator_seed_review_include_not_found:
+            continue
+        if key in existing:
+            continue
+        item = {
+            "company_id": row.get("company_id"),
+            "company_name": row.get("company_name") or "",
+            "canonical_company_id": row.get("canonical_company_id") or row.get("company_id"),
+            "canonical_company_name": row.get("canonical_company_name") or row.get("company_name") or "",
+            "inn": row.get("inn") or "",
+            "ogrn": row.get("ogrn") or "",
+            "seed_type": seed_type,
+            "candidate_seed_url": "",
+            "candidate_title": "",
+            "candidate_source_url": row.get("source_context") or "",
+            "candidate_rank": None,
+            "candidate_score": 0,
+            "candidate_confidence": "low",
+            "candidate_status": "not_found",
+            "operator_decision": "pending",
+            "operator_review_status": "operator_to_fill",
+            "review_status": "missing_candidate",
+            "review_notes": "",
+            "suggested_action": "operator_to_find_official_seed",
+            "promotion_status": "not_promoted",
+            "score_reasons": [],
+            "negative_reasons": ["missing official seed candidate"],
+            "notes": "No official seed candidate found; operator must find an official seed URL manually.",
+        }
+        _strip_financial_values(item)
+        missing.append(item)
+    return missing
+
+
+def _dedupe_operator_seed_review_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for item in items:
+        key = (
+            str(item.get("company_id") or item.get("canonical_company_id") or ""),
+            str(item.get("seed_type") or ""),
+            _normalize_candidate_url(str(item.get("candidate_seed_url") or "")),
+        )
+        existing = by_key.get(key)
+        if existing is None or _operator_seed_review_sort_key(item) > _operator_seed_review_sort_key(existing):
+            by_key[key] = item
+    return sorted(by_key.values(), key=_operator_seed_review_sort_key, reverse=True)
+
+
+def _limit_operator_seed_review_items(items: list[dict[str, Any]], *, args: argparse.Namespace) -> list[dict[str, Any]]:
+    per_type: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for item in items:
+        key = (
+            str(item.get("company_id") or item.get("canonical_company_id") or ""),
+            str(item.get("seed_type") or ""),
+        )
+        per_type.setdefault(key, []).append(item)
+    kept_ids: set[int] = set()
+    type_limit = max(int(args.operator_seed_review_top_n_per_type or 0), 0)
+    for group in per_type.values():
+        ranked = sorted(group, key=_operator_seed_review_sort_key, reverse=True)
+        for item in ranked[: type_limit or None]:
+            kept_ids.add(id(item))
+    per_issuer: dict[str, list[dict[str, Any]]] = {}
+    for item in items:
+        if id(item) not in kept_ids:
+            continue
+        company_id = str(item.get("company_id") or item.get("canonical_company_id") or "")
+        per_issuer.setdefault(company_id, []).append(item)
+    final_ids: set[int] = set()
+    issuer_limit = max(int(args.operator_seed_review_top_n_per_issuer or 0), 0)
+    for group in per_issuer.values():
+        ranked = sorted(group, key=_operator_seed_review_sort_key, reverse=True)
+        for item in ranked[: issuer_limit or None]:
+            final_ids.add(id(item))
+    return [item for item in items if id(item) in final_ids]
+
+
+def _operator_seed_review_sort_key(item: dict[str, Any]) -> tuple[int, int, int, str]:
+    reviewed_rank = 1 if item.get("candidate_status") == "operator_reviewed" else 0
+    rank = int(item.get("candidate_rank") or 999999)
+    return (
+        int(item.get("candidate_score") or 0),
+        reviewed_rank,
+        -rank,
+        str(item.get("candidate_seed_url") or ""),
+    )
+
+
+def _candidate_matches_required_any(item: dict[str, Any], required_issuers: list[dict[str, Any]]) -> bool:
+    return not required_issuers or any(_matches_required_issuer(item, required) for required in required_issuers)
+
+
+def _operator_seed_promotion_result(item: dict[str, Any], *, row_index: int, args: argparse.Namespace) -> dict[str, Any]:
+    decision = str(item.get("operator_decision") or "pending").strip().casefold()
+    seed_url = _normalize_candidate_url(str(item.get("candidate_seed_url") or item.get("seed_url") or ""))
+    seed_type = _normalize_seed_type(item.get("seed_type"), seed_url)
+    base = {
+        "row_index": row_index,
+        "company_id": item.get("company_id"),
+        "company_name": item.get("company_name") or "",
+        "canonical_company_id": item.get("canonical_company_id") or item.get("company_id"),
+        "canonical_company_name": item.get("canonical_company_name") or item.get("company_name") or "",
+        "inn": item.get("inn") or "",
+        "ogrn": item.get("ogrn") or "",
+        "seed_type": seed_type,
+        "candidate_seed_url": seed_url,
+        "candidate_title": item.get("candidate_title") or "",
+        "candidate_source_url": item.get("candidate_source_url") or "",
+        "operator_decision": decision,
+        "review_status": item.get("review_status") or "",
+        "promotion_status": "not_promoted",
+        "promotion_reason": "",
+        "warnings": [],
+        "errors": [],
+    }
+    errors: list[dict[str, Any]] = []
+    if decision not in OPERATOR_SEED_REVIEW_DECISIONS:
+        errors.append({**base, "message": "operator_decision is not supported"})
+    forbidden_fields = _forbidden_seed_metadata_fields(item)
+    if forbidden_fields:
+        errors.append({**base, "message": "financial values are forbidden in operator seed review metadata", "fields": forbidden_fields})
+    if decision != "approve":
+        if decision == "needs_more_review" and args.operator_seed_promotion_allow_needs_review and seed_url:
+            review_seed = _operator_seed_review_item_to_seed(item, seed_url=seed_url, seed_type=seed_type, reviewed=False)
+            base["promotion_status"] = "needs_more_review"
+            base["promotion_reason"] = "review item retained as needs_operator_review"
+            base["seed"] = review_seed
+        elif decision == "reject" and args.operator_seed_promotion_include_rejected:
+            base["promotion_reason"] = "operator rejected seed candidate"
+        else:
+            base["promotion_reason"] = f"operator decision {decision or 'pending'} is not promoted"
+        if errors:
+            base["promotion_status"] = "invalid"
+            base["errors"] = errors
+        _strip_financial_values(base)
+        return base
+
+    if not seed_url:
+        errors.append({**base, "message": "approve requires candidate_seed_url"})
+    if item.get("candidate_status") == "not_found" or item.get("review_status") == "missing_candidate":
+        errors.append({**base, "message": "cannot approve a not_found review row"})
+    if seed_type not in OPERATOR_SEED_ALLOWED_TYPES:
+        errors.append({**base, "message": "seed_type is not allowed"})
+    classification = _classify_candidate_url(
+        seed_url,
+        allowed_domains=_seed_allowed_domains(args),
+        blocked_hints=_seed_blocked_hints(args),
+        allow_unknown_source=False,
+    ) if seed_url else {"status": "unknown_error", "message": "seed URL is missing"}
+    if classification["status"] != "official":
+        errors.append({**base, "message": classification["message"]})
+    if errors:
+        base["promotion_status"] = "invalid"
+        base["errors"] = errors
+        _strip_financial_values(base)
+        return base
+    seed = _operator_seed_review_item_to_seed(item, seed_url=seed_url, seed_type=seed_type, reviewed=True)
+    base["promotion_status"] = "promoted"
+    base["promotion_reason"] = "approved official seed candidate promoted"
+    base["seed"] = seed
+    _strip_financial_values(base)
+    return base
+
+
+def _operator_seed_review_item_to_seed(
+    item: dict[str, Any],
+    *,
+    seed_url: str,
+    seed_type: str,
+    reviewed: bool,
+) -> dict[str, Any]:
+    seed = {
+        "company_id": item.get("company_id"),
+        "company_name": item.get("company_name") or "",
+        "canonical_company_id": item.get("canonical_company_id") or item.get("company_id"),
+        "canonical_company_name": item.get("canonical_company_name") or item.get("company_name") or "",
+        "inn": item.get("inn") or "",
+        "ogrn": item.get("ogrn") or "",
+        "seed_type": seed_type,
+        "seed_url": seed_url,
+        "operator_review_status": "operator_reviewed" if reviewed else "needs_operator_review",
+        "source_context": item.get("candidate_source_url") or "",
+        "notes": "Promoted from Task 107 operator review." if reviewed else "Retained from Task 107 operator review for more review.",
+    }
+    _strip_financial_values(seed)
+    return seed
+
+
+def _dedupe_promoted_operator_seed_rows(seeds: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for seed in seeds:
+        key = (
+            str(seed.get("company_id") or seed.get("canonical_company_id") or ""),
+            str(seed.get("seed_type") or ""),
+            _normalize_candidate_url(str(seed.get("seed_url") or "")),
+        )
+        existing = by_key.get(key)
+        if existing is None or _operator_seed_candidate_rank({"operator_review_status": seed.get("operator_review_status"), "candidate_score": 1}) > _operator_seed_candidate_rank({"operator_review_status": existing.get("operator_review_status"), "candidate_score": 1}):
+            by_key[key] = seed
+    return list(by_key.values())
+
+
+def _apply_promotions_to_operator_seed_rows(
+    template_rows: list[dict[str, Any]],
+    promoted_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    output = [{field: row.get(field) or "" for field in OPERATOR_SEED_FIELDS} for row in template_rows]
+    used_indexes: set[int] = set()
+    for seed in promoted_rows:
+        target_index = None
+        for index, row in enumerate(output):
+            if index in used_indexes:
+                continue
+            if (
+                str(row.get("company_id") or row.get("canonical_company_id") or "")
+                == str(seed.get("company_id") or seed.get("canonical_company_id") or "")
+                and _normalize_seed_type(row.get("seed_type")) == _normalize_seed_type(seed.get("seed_type"))
+            ):
+                target_index = index
+                break
+        item = {field: seed.get(field) or "" for field in OPERATOR_SEED_FIELDS}
+        if target_index is None:
+            output.append(item)
+        else:
+            output[target_index] = {**output[target_index], **item}
+            used_indexes.add(target_index)
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for row in output:
+        key = (
+            str(row.get("company_id") or row.get("canonical_company_id") or ""),
+            str(row.get("seed_type") or ""),
+            _normalize_candidate_url(str(row.get("seed_url") or "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        _strip_financial_values(row)
+        deduped.append(row)
+    return deduped
+
+
+def _forbidden_seed_metadata_fields(item: dict[str, Any]) -> list[str]:
+    fields = [
+        field
+        for field in FORBIDDEN_SEED_METADATA_FIELDS
+        if item.get(field) not in (None, "")
+    ]
+    if item.get("values") not in (None, "", []):
+        fields.append("values")
+    if item.get("field_evidence") not in (None, "", []):
+        fields.append("field_evidence")
+    return fields
 
 
 def _build_operator_seed_validation_report(
@@ -6983,6 +7754,10 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use the merged seed pack for official-seed-resolve or controlled candidate discovery."]
     if mode == "operator-seed-candidate-discover":
         return ["Review candidate seeds, validate autofill if written, then use reviewed seeds with official-seed-resolve."]
+    if mode == "operator-seed-review-template":
+        return ["Fill operator_decision for reviewed seed candidates, then run operator-seed-promote-reviewed."]
+    if mode == "operator-seed-promote-reviewed":
+        return ["Validate promoted reviewed seeds, then use them with official-seed-resolve; exact documents still require the quality gate."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":

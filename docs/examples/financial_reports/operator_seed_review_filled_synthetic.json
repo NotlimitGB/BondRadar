@@ -1,0 +1,36 @@
+{
+  "status": "operator_reviewed",
+  "mode": "operator-seed-review-template",
+  "review_items": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "candidate_seed_url": "https://www.moex.com/synthetic-issuer/investors/reports",
+      "candidate_title": "Synthetic Rail Issuer annual reports",
+      "candidate_source_url": "https://www.moex.com/",
+      "candidate_rank": 1,
+      "candidate_score": 130,
+      "candidate_confidence": "medium",
+      "candidate_status": "needs_operator_review",
+      "operator_decision": "approve",
+      "operator_review_status": "operator_reviewed",
+      "review_status": "operator_reviewed",
+      "review_notes": "Synthetic example approval for an official seed page.",
+      "suggested_action": "approve_if_official_seed_page",
+      "promotion_status": "not_promoted",
+      "score_reasons": [
+        "issuer_reports path signal"
+      ],
+      "negative_reasons": [],
+      "notes": "Synthetic filled review item."
+    }
+  ],
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false
+}

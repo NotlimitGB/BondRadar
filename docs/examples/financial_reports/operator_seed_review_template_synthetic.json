@@ -1,0 +1,73 @@
+{
+  "status": "template",
+  "mode": "operator-seed-review-template",
+  "issuer_count": 2,
+  "review_item_count": 2,
+  "candidate_review_item_count": 1,
+  "missing_review_item_count": 1,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "review_items": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "candidate_seed_url": "https://www.moex.com/synthetic-issuer/investors/reports",
+      "candidate_title": "Synthetic Rail Issuer annual reports",
+      "candidate_source_url": "https://www.moex.com/",
+      "candidate_rank": 1,
+      "candidate_score": 130,
+      "candidate_confidence": "medium",
+      "candidate_status": "needs_operator_review",
+      "operator_decision": "pending",
+      "operator_review_status": "needs_operator_review",
+      "review_status": "pending_review",
+      "review_notes": "",
+      "suggested_action": "approve_if_official_seed_page",
+      "promotion_status": "not_promoted",
+      "score_reasons": [
+        "issuer_reports path signal"
+      ],
+      "negative_reasons": [],
+      "notes": "Review official seed URL. Do not approve if this is not an issuer/disclosure/reporting seed page."
+    },
+    {
+      "company_id": 1002,
+      "company_name": "Synthetic Bridge Issuer",
+      "canonical_company_id": 1002,
+      "canonical_company_name": "Synthetic Bridge Issuer",
+      "inn": "0000000002",
+      "ogrn": "1000000000002",
+      "seed_type": "official_disclosure_profile",
+      "candidate_seed_url": "",
+      "candidate_title": "",
+      "candidate_source_url": "https://www.moex.com/",
+      "candidate_rank": null,
+      "candidate_score": 0,
+      "candidate_confidence": "low",
+      "candidate_status": "not_found",
+      "operator_decision": "pending",
+      "operator_review_status": "operator_to_fill",
+      "review_status": "missing_candidate",
+      "review_notes": "",
+      "suggested_action": "operator_to_find_official_seed",
+      "promotion_status": "not_promoted",
+      "score_reasons": [],
+      "negative_reasons": [
+        "missing official seed candidate"
+      ],
+      "notes": "No official seed candidate found; operator must find an official seed URL manually."
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

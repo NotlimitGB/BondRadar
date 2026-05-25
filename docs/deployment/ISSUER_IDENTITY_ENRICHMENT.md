@@ -867,6 +867,49 @@ Autofill only uses kept ranked candidates and caps review-needed rows with
 source metadata only and does not change identities, reports, scores,
 predictions, schedules, paper state, or value-extraction readiness.
 
+## Operator Seed Review Promotion
+
+Task 107 turns ranked seed candidates into an operator review checklist and then
+promotes only explicit approvals into reviewed operator seed rows. The workflow
+is still metadata-only: it does not apply identity changes, extract values,
+import reports, score bonds, alter predictions, activate schedules, or run
+paper trading.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-review-template \
+  --operator-seed-candidate-input data/financial_reports/private/operator_official_seed_candidates_task106.json \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_task104.json \
+  --required-company-ids 18,67 \
+  --operator-seed-review-output data/financial_reports/private/operator_official_seed_review_task107.json \
+  --operator-seed-review-csv-output data/financial_reports/private/operator_official_seed_review_task107.csv \
+  --json-output logs/financial_reports/operator_official_seed_review_template_task107.json \
+  --markdown-output logs/financial_reports/operator_official_seed_review_template_task107.md
+```
+
+After operator review, promote only approved official seed pages:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-promote-reviewed \
+  --operator-seed-review-input data/financial_reports/private/operator_official_seed_review_filled_task107.json \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_task104.json \
+  --required-company-ids 18,67 \
+  --operator-seed-output data/financial_reports/private/operator_official_seed_promoted_task107.json \
+  --operator-seed-csv-output data/financial_reports/private/operator_official_seed_promoted_task107.csv \
+  --run-operator-seed-validate true \
+  --operator-seed-validation-json-output logs/financial_reports/operator_official_seed_validation_promoted_task107.json \
+  --operator-seed-validation-markdown-output logs/financial_reports/operator_official_seed_validation_promoted_task107.md \
+  --json-output logs/financial_reports/operator_official_seed_promote_task107.json \
+  --markdown-output logs/financial_reports/operator_official_seed_promote_task107.md
+```
+
+Then use the promoted seed file with `official-seed-resolve` and the existing
+candidate discovery / document quality gate flow. Approved seed pages are not
+exact report evidence, and they do not make `ready_for_value_extraction` true.
+Pending, rejected, unknown, blocked, or financial-value-bearing review rows are
+not promoted.
+
 ## VDS Smoke Checklist
 
 Health:
