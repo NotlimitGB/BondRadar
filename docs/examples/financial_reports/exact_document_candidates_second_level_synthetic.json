@@ -1,0 +1,61 @@
+{
+  "status": "discovered",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count_before_filter": 3,
+  "candidate_count_after_filter": 1,
+  "candidate_count": 1,
+  "reviewed_candidate_count": 1,
+  "needs_operator_review_count": 0,
+  "filtered_candidate_count": 2,
+  "filtered_wrong_document_type_count": 1,
+  "exact_report_document_count": 1,
+  "category_page_count": 1,
+  "user_agreement_document_count": 1,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Bridge Issuer",
+      "inn": "7700000001",
+      "ogrn": "1027700000001",
+      "report_period": "2025",
+      "report_type": "annual",
+      "accounting_standard": "IFRS",
+      "source_type": "official_issuer_report",
+      "source_page_url": "https://issuer.example/investors/reports/annual/",
+      "document_url": "https://issuer.example/reports/synthetic-bridge-annual-ifrs-financial-statements-2025.pdf",
+      "document_title": "Annual audited consolidated IFRS financial statements 2025",
+      "document_kind": "exact_report_document",
+      "crawl_depth": 2,
+      "parent_seed_url": "https://issuer.example/investors/reports/annual/",
+      "source_chain": [
+        "https://issuer.example/investors/reports/",
+        "https://issuer.example/investors/reports/annual/",
+        "https://issuer.example/reports/synthetic-bridge-annual-ifrs-financial-statements-2025.pdf"
+      ],
+      "is_category_page": false,
+      "category_followed": false,
+      "document_status": "valid_official_document",
+      "operator_review_status": "operator_reviewed",
+      "candidate_rank": 1,
+      "candidate_score": 165,
+      "raw_score": 165,
+      "final_score": 165,
+      "candidate_confidence": "high",
+      "filter_status": "kept",
+      "filter_reasons": [],
+      "score_reasons": [
+        "exact report document kind"
+      ],
+      "negative_reasons": []
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

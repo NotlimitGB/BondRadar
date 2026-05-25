@@ -946,6 +946,50 @@ still pass document intake validation and the strict quality gate. If required
 issuers are missing exact reviewed documents, `ready_for_value_extraction`
 remains `false`.
 
+## Exact Document Discovery: Second-Level Crawl and Legal PDF Filter
+
+Task 109 refines the same `exact-document-discover-from-seeds` command. The
+mode classifies every link by `document_kind`, filters privacy/cookie/user
+agreement/legal-policy PDFs, and follows only official same-domain reporting
+category pages within a fixed depth and page budget.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-second-level-crawl true \
+  --exact-document-max-crawl-depth 2 \
+  --exact-document-filter-legal-documents true \
+  --exact-document-filter-policy-documents true \
+  --exact-document-filter-generic-pdfs true \
+  --exact-document-include-category-pages false \
+  --exact-document-candidate-output data/financial_reports/private/exact_document_candidates_from_seeds_task109.json \
+  --exact-document-candidate-csv-output data/financial_reports/private/exact_document_candidates_from_seeds_task109.csv \
+  --run-document-intake-fill true \
+  --document-intake-output data/financial_reports/private/exact_document_intake_filled_task109.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_filled_task109.csv \
+  --run-document-intake-validate true \
+  --document-intake-validation-json-output logs/financial_reports/exact_document_intake_validation_task109.json \
+  --document-intake-validation-markdown-output logs/financial_reports/exact_document_intake_validation_task109.md \
+  --run-document-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task109.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task109.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task109.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task109.md
+```
+
+Privacy/cookie/user-agreement/legal PDFs are never exact report documents.
+Category/reporting pages can be followed to discover exact annual IFRS/МСФО
+report documents, but category pages do not pass the document quality gate by
+themselves. The workflow remains metadata-only: no PDF parsing, OCR, financial
+value extraction, report import, trading, identity mutation, score mutation, or
+schedule mutation.
+
 ## VDS Smoke Checklist
 
 Health:

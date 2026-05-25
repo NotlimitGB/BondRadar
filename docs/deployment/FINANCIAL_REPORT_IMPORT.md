@@ -1226,6 +1226,53 @@ directories and never commit downloaded documents. If one required issuer is
 still unresolved, the quality gate must fail and `ready_for_value_extraction`
 must remain `false`.
 
+## Exact Document Discovery: Second-Level Crawl and Legal PDF Filter
+
+Task 109 keeps the same `exact-document-discover-from-seeds` mode, but adds a
+document-kind classifier and a controlled second-level crawl from official
+reporting category pages. Privacy, cookie, user-agreement, legal-policy,
+presentation, prospectus, quarterly/interim, news, and generic navigation links
+are diagnostics only. They are never exact report evidence and never flow into
+`document-intake-fill`.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --exact-document-second-level-crawl true \
+  --exact-document-max-crawl-depth 2 \
+  --exact-document-filter-legal-documents true \
+  --exact-document-filter-policy-documents true \
+  --exact-document-filter-generic-pdfs true \
+  --exact-document-include-category-pages false \
+  --exact-document-candidate-output data/financial_reports/private/exact_document_candidates_from_seeds_task109.json \
+  --exact-document-candidate-csv-output data/financial_reports/private/exact_document_candidates_from_seeds_task109.csv \
+  --run-document-intake-fill true \
+  --document-intake-output data/financial_reports/private/exact_document_intake_filled_task109.json \
+  --document-intake-csv-output data/financial_reports/private/exact_document_intake_filled_task109.csv \
+  --run-document-intake-validate true \
+  --document-intake-validation-json-output logs/financial_reports/exact_document_intake_validation_task109.json \
+  --document-intake-validation-markdown-output logs/financial_reports/exact_document_intake_validation_task109.md \
+  --run-document-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task109.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task109.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task109.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task109.md
+```
+
+Category pages such as annual reports, accounting statements, disclosure
+reports, and financial-results pages can be followed when they are official,
+same-domain, score above the category threshold, and stay within the configured
+depth/page limits. Category pages do not pass the quality gate by themselves.
+Only `document_kind = exact_report_document` with `filter_status = kept` can be
+fed to document intake. The mode still does not parse PDFs, OCR documents,
+extract values, import reports, trade, or mutate any database state.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

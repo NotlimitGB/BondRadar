@@ -1589,6 +1589,311 @@ def test_exact_document_discover_from_reviewed_seed_filters_bad_document_types(
     assert not any("prospectus" in item["document_url"] and item["filter_status"] == "kept" for item in report["documents"])
 
 
+def test_exact_document_discover_filters_legal_policy_pdfs_from_seed_pages(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    filled_output = tmp_path / "exact_document_intake_filled.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/upload/files/policy_conf.pdf">Политика конфиденциальности</a>
+                <a href="/upload/files/user_agreement.pdf">Пользовательское соглашение</a>
+                <a href="/upload/files/policy_cookies.pdf">Политика использования cookie-файлов</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-filtered",
+            "true",
+            "--run-document-intake-fill",
+            "true",
+            "--document-intake-output",
+            str(filled_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    assert report["filtered_wrong_document_type_count"] >= 3
+    assert report["privacy_policy_document_count"] >= 1
+    assert report["cookie_policy_document_count"] >= 1
+    assert report["user_agreement_document_count"] >= 1
+    legal_docs = [item for item in report["documents"] if item.get("document_url")]
+    assert {item["document_kind"] for item in legal_docs} >= {
+        "privacy_policy_document",
+        "cookie_policy_document",
+        "user_agreement_document",
+    }
+    assert all(item["filter_status"] == "filtered_wrong_document_type" for item in legal_docs)
+    filled = json.loads(filled_output.read_text(encoding="utf-8"))
+    assert filled["documents"][0]["document_url"] == ""
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+
+
+def test_exact_document_discover_follows_category_pages_to_depth_two_pdf(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/ru/invest/information-disclosure/issuer-reports/">Годовые отчеты эмитента</a>
+                <a href="/ru/invest/information-disclosure/accounting-statements/">Годовая бухгалтерская (финансовая) отчетность</a>
+            """,
+            "https://mostotrest.ru/ru/invest/information-disclosure/issuer-reports/": """
+                <a href="/upload/reports/annual-ifrs-financial-statements-2025.pdf">
+                    Годовая консолидированная финансовая отчетность по МСФО за 2025 год
+                </a>
+            """,
+            "https://mostotrest.ru/ru/invest/information-disclosure/accounting-statements/": """
+                <a href="/upload/reports/annual-ifrs-financial-statements-2025.pdf">
+                    Годовая консолидированная финансовая отчетность по МСФО за 2025 год
+                </a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-category-pages",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 1
+    assert report["exact_report_document_count"] >= 1
+    assert report["category_page_count"] >= 2
+    assert report["category_pages_followed"]
+    category_docs = [item for item in report["documents"] if item.get("is_category_page")]
+    assert category_docs
+    assert all(item["document_status"] == "category_page" for item in category_docs)
+    exact_docs = [item for item in report["documents"] if item.get("document_kind") == "exact_report_document"]
+    assert len(exact_docs) == 1
+    exact = exact_docs[0]
+    assert exact["crawl_depth"] == 2
+    assert exact["parent_seed_url"].endswith("/information-disclosure/issuer-reports/") or exact["parent_seed_url"].endswith("/information-disclosure/accounting-statements/")
+    assert exact["source_chain"][0] == "https://mostotrest.ru/ru/invest/financial-results/"
+    assert exact["source_chain"][-1].endswith("annual-ifrs-financial-statements-2025.pdf")
+    assert exact["operator_review_status"] == "operator_reviewed"
+
+
+def test_exact_document_discover_category_pages_alone_do_not_flow_to_gate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate.json"
+    filled_output = tmp_path / "exact_document_intake_filled.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/ru/invest/information-disclosure/accounting-statements/">Годовая бухгалтерская (финансовая) отчетность</a>
+            """,
+            "https://mostotrest.ru/ru/invest/information-disclosure/accounting-statements/": """
+                <a href="/ru/invest/">Инвесторам</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--run-document-intake-fill",
+            "true",
+            "--document-intake-output",
+            str(filled_output),
+            "--run-document-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 0
+    filled = json.loads(filled_output.read_text(encoding="utf-8"))
+    assert filled["documents"][0]["document_url"] == ""
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is False
+    assert gate["ready_for_value_extraction"] is False
+
+
+def test_exact_document_discover_depth_two_pdf_can_pass_single_issuer_gate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate.json"
+    filled_output = tmp_path / "exact_document_intake_filled.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://mostotrest.ru/ru/invest/financial-results/": """
+                <a href="/ru/invest/information-disclosure/accounting-statements/">Годовая бухгалтерская (финансовая) отчетность</a>
+            """,
+            "https://mostotrest.ru/ru/invest/information-disclosure/accounting-statements/": """
+                <a href="/upload/reports/annual-ifrs-financial-statements-2025.pdf">
+                    Annual audited consolidated IFRS financial statements 2025
+                </a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--run-document-intake-fill",
+            "true",
+            "--document-intake-output",
+            str(filled_output),
+            "--run-document-intake-validate",
+            "true",
+            "--run-document-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_count"] == 1
+    assert report["document_intake_fill_report"]["valid_document_count"] == 1
+    assert report["document_intake_validation_report"]["valid_document_count"] == 1
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is True
+    assert gate["ready_for_value_extraction"] is True
+    assert gate["ready_for_import"] is False
+
+
+def test_exact_document_discover_second_level_crawl_is_controlled(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+    pages = {
+        "https://mostotrest.ru/ru/invest/financial-results/": """
+            <a href="/ru/invest/information-disclosure/accounting-statements/">Годовая бухгалтерская (финансовая) отчетность</a>
+            <a href="https://rzd.ru/reports/accounting-statements/">Годовая бухгалтерская (финансовая) отчетность</a>
+            <a href="/upload/files/user_agreement.pdf">Пользовательское соглашение</a>
+        """,
+        "https://mostotrest.ru/ru/invest/information-disclosure/accounting-statements/": """
+            <a href="/upload/reports/annual-ifrs-financial-statements-2025.pdf">Annual IFRS financial statements 2025</a>
+        """,
+        "https://rzd.ru/reports/accounting-statements/": """
+            <a href="https://rzd.ru/reports/rzd-annual-ifrs-2025.pdf">Annual IFRS financial statements 2025</a>
+        """,
+    }
+    fetched: list[str] = []
+
+    def fake_fetch(url: str, *, timeout_seconds: float, max_bytes: int, user_agent: str) -> dict:
+        fetched.append(url)
+        return {
+            "status": "ok",
+            "url": url,
+            "http_status": 200,
+            "content_type": "text/html; charset=utf-8",
+            "body": pages.get(url, "<html></html>"),
+            "size_bytes": len(pages.get(url, "")),
+        }
+
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", fake_fetch)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert "https://rzd.ru/reports/accounting-statements/" not in fetched
+    assert "https://mostotrest.ru/ru/invest/information-disclosure/accounting-statements/" in fetched
+    assert not any(item.get("document_url", "").startswith("https://rzd.ru/") and item.get("filter_status") == "kept" for item in report["documents"])
+    assert not any("user_agreement" in item.get("document_url", "") and item.get("filter_status") == "kept" for item in report["documents"])
+
+
 def test_exact_document_discover_from_reviewed_seeds_gate_required_issuers_remains_strict(
     tmp_path: Path,
     monkeypatch,

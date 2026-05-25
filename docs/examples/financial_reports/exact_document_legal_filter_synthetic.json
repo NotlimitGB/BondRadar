@@ -1,0 +1,60 @@
+{
+  "status": "warning",
+  "mode": "exact-document-discover-from-seeds",
+  "issuer_count": 1,
+  "candidate_count_before_filter": 3,
+  "candidate_count_after_filter": 0,
+  "candidate_count": 0,
+  "filtered_candidate_count": 3,
+  "filtered_wrong_document_type_count": 3,
+  "privacy_policy_document_count": 1,
+  "cookie_policy_document_count": 1,
+  "user_agreement_document_count": 1,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "documents": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "https://issuer.example/files/privacy-policy.pdf",
+      "document_title": "Privacy policy",
+      "document_kind": "privacy_policy_document",
+      "document_status": "invalid_document",
+      "operator_review_status": "operator_to_fill",
+      "filter_status": "filtered_wrong_document_type",
+      "filter_reasons": [
+        "wrong document type for exact annual report"
+      ]
+    },
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "https://issuer.example/files/cookie-policy.pdf",
+      "document_title": "Cookie policy",
+      "document_kind": "cookie_policy_document",
+      "document_status": "invalid_document",
+      "operator_review_status": "operator_to_fill",
+      "filter_status": "filtered_wrong_document_type",
+      "filter_reasons": [
+        "wrong document type for exact annual report"
+      ]
+    },
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Bridge Issuer",
+      "document_url": "https://issuer.example/files/user-agreement.pdf",
+      "document_title": "User agreement",
+      "document_kind": "user_agreement_document",
+      "document_status": "invalid_document",
+      "operator_review_status": "operator_to_fill",
+      "filter_status": "filtered_wrong_document_type",
+      "filter_reasons": [
+        "wrong document type for exact annual report"
+      ]
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

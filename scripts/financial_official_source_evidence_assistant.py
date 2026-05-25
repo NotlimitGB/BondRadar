@@ -182,6 +182,12 @@ EXACT_DOCUMENT_FROM_SEED_FIELDS = [
     "source_page_url",
     "document_url",
     "document_title",
+    "document_kind",
+    "crawl_depth",
+    "parent_seed_url",
+    "source_chain",
+    "is_category_page",
+    "category_followed",
     "document_date",
     "source_file_name",
     "document_status",
@@ -535,6 +541,76 @@ EXACT_DOCUMENT_NEGATIVE_TERMS = (
     "9 \u043c\u0435\u0441\u044f\u0446\u0435\u0432",
     "\u043f\u0440\u043e\u043c\u0435\u0436\u0443\u0442\u043e\u0447\u043d\u0430\u044f",
 )
+EXACT_DOCUMENT_LEGAL_POLICY_TERMS = (
+    "privacy policy",
+    "personal data",
+    "data protection",
+    "cookies",
+    "cookie policy",
+    "terms of use",
+    "terms and conditions",
+    "user agreement",
+    "agreement",
+    "confidentiality",
+    "legal information",
+    "site policy",
+    "policy_conf",
+    "privacy",
+    "cookie",
+    "cookies",
+    "user_agreement",
+    "terms",
+    "personal-data",
+    "personal_data",
+    "confidential",
+    "\u043f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u0438",
+    "\u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446\u0438\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c",
+    "\u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0435 \u0434\u0430\u043d\u043d\u044b\u0435",
+    "\u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u043f\u0435\u0440\u0441\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0445 \u0434\u0430\u043d\u043d\u044b\u0445",
+    "\u043a\u0443\u043a\u0438",
+    "\u0444\u0430\u0439\u043b\u044b cookie",
+    "\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u043e\u0435 \u0441\u043e\u0433\u043b\u0430\u0448\u0435\u043d\u0438\u0435",
+    "\u0443\u0441\u043b\u043e\u0432\u0438\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f",
+    "\u043f\u0440\u0430\u0432\u043e\u0432\u0430\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f",
+    "\u043f\u043e\u043b\u0438\u0442\u0438\u043a\u0430 \u0441\u0430\u0439\u0442\u0430",
+    "\u0441\u043e\u0433\u043b\u0430\u0441\u0438\u0435 \u043d\u0430 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0443",
+    "\u0441\u043e\u0433\u043b\u0430\u0441\u0438\u0435 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f",
+)
+EXACT_DOCUMENT_CATEGORY_KINDS = {
+    "report_category_page",
+    "financial_results_page",
+    "accounting_statements_page",
+    "disclosure_category_page",
+}
+EXACT_DOCUMENT_FINAL_KINDS = {"exact_report_document"}
+EXACT_DOCUMENT_WRONG_TYPE_KINDS = {
+    "legal_policy_document",
+    "privacy_policy_document",
+    "cookie_policy_document",
+    "user_agreement_document",
+    "presentation_document",
+    "prospectus_document",
+    "quarterly_or_interim_document",
+    "news_or_press_document",
+    "generic_navigation_page",
+}
+EXACT_DOCUMENT_KIND_COUNTERS = {
+    "exact_report_document": "exact_report_document_count",
+    "report_category_page": "category_page_count",
+    "financial_results_page": "category_page_count",
+    "accounting_statements_page": "category_page_count",
+    "disclosure_category_page": "category_page_count",
+    "legal_policy_document": "legal_policy_document_count",
+    "privacy_policy_document": "privacy_policy_document_count",
+    "cookie_policy_document": "cookie_policy_document_count",
+    "user_agreement_document": "user_agreement_document_count",
+    "presentation_document": "presentation_document_count",
+    "prospectus_document": "prospectus_document_count",
+    "quarterly_or_interim_document": "quarterly_or_interim_document_count",
+    "news_or_press_document": "news_or_press_document_count",
+    "generic_navigation_page": "generic_navigation_page_count",
+    "unknown_document": "unknown_document_count",
+}
 DOCUMENT_CHECKLIST_FIELDS = [
     "rank",
     "company_id",
@@ -752,6 +828,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exact-document-probe-urls", type=_parse_bool, default=False)
     parser.add_argument("--exact-document-download-documents", type=_parse_bool, default=False)
     parser.add_argument("--exact-document-download-dir", type=Path, default=None)
+    parser.add_argument("--exact-document-second-level-crawl", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-max-crawl-depth", type=int, default=2)
+    parser.add_argument("--exact-document-category-page-min-score", type=int, default=80)
+    parser.add_argument(
+        "--exact-document-category-page-types",
+        default="issuer_reports,accounting_statements,financial_results,disclosure_reports",
+    )
+    parser.add_argument("--exact-document-follow-category-pages", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-follow-same-domain-only", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-filter-legal-documents", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-filter-policy-documents", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-filter-generic-pdfs", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-include-category-pages", type=_parse_bool, default=False)
+    parser.add_argument("--exact-document-max-category-pages-per-issuer", type=int, default=5)
+    parser.add_argument("--exact-document-max-second-level-links-per-page", type=int, default=300)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3212,15 +3303,30 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
                         args=args,
                         allowed_domains=allowed_domains,
                         blocked_hints=blocked_hints,
+                        crawl_depth=1,
+                        parent_seed_url=seed_url,
+                        source_chain=[seed_url],
                     )
                     if blocked:
                         blocked_candidate_count += 1
                     if candidate is not None:
                         raw_documents.append(candidate)
+            if args.exact_document_second_level_crawl and args.exact_document_follow_category_pages:
+                crawled_documents, crawled_blocked_count = _crawl_exact_document_category_pages(
+                    issuer,
+                    raw_documents,
+                    args=args,
+                    allowed_domains=allowed_domains,
+                    blocked_hints=blocked_hints,
+                    warnings=warnings,
+                )
+                blocked_candidate_count += crawled_blocked_count
+                raw_documents.extend(crawled_documents)
             if not any(
                 _matches_required_issuer(candidate, issuer)
                 and candidate.get("document_url")
                 and candidate.get("filter_status") == "kept"
+                and candidate.get("document_kind") == "exact_report_document"
                 for candidate in raw_documents
             ):
                 missing_issuers.append(
@@ -3232,10 +3338,15 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
                 )
 
     selected_documents, ranking_stats = _select_top_exact_document_candidates(raw_documents, args=args)
+    category_pages_followed = [
+        item
+        for item in raw_documents
+        if item.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS and item.get("category_followed")
+    ]
     kept_documents = [
         item
         for item in selected_documents
-        if item.get("document_url") and item.get("filter_status") == "kept"
+        if _exact_document_is_downstream_eligible(item)
     ]
     if not errors:
         for issuer in required_issuers:
@@ -3245,7 +3356,7 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
 
     documents = sorted(selected_documents, key=_exact_document_output_sort_key)
     kept_documents = [
-        item for item in documents if item.get("document_url") and item.get("filter_status") == "kept"
+        item for item in documents if _exact_document_is_downstream_eligible(item)
     ]
     _attach_exact_document_optional_metadata(kept_documents, args=args, warnings=warnings, errors=errors)
 
@@ -3268,6 +3379,8 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
                 candidate_output_path,
                 required_issuers=required_issuers,
                 documents=documents,
+                category_pages_followed=category_pages_followed,
+                all_documents_for_counters=raw_documents,
                 reviewed_seeds_used=reviewed_seeds_used,
                 missing_issuers=missing_issuers,
                 ranking_stats=ranking_stats,
@@ -3364,6 +3477,8 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
         status=status,
         required_issuers=required_issuers,
         documents=documents,
+        category_pages_followed=category_pages_followed,
+        all_documents_for_counters=raw_documents,
         reviewed_seeds_used=reviewed_seeds_used,
         missing_issuers=missing_issuers,
         ranking_stats=ranking_stats,
@@ -4847,22 +4962,63 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
     lines.extend(
         [
             "",
+            "## Document Kind Summary",
+            "",
+            f"- exact_report_document_count: {report.get('exact_report_document_count', 0)}",
+            f"- category_page_count: {report.get('category_page_count', 0)}",
+            f"- legal_policy_document_count: {report.get('legal_policy_document_count', 0)}",
+            f"- privacy_policy_document_count: {report.get('privacy_policy_document_count', 0)}",
+            f"- cookie_policy_document_count: {report.get('cookie_policy_document_count', 0)}",
+            f"- user_agreement_document_count: {report.get('user_agreement_document_count', 0)}",
+            f"- presentation_document_count: {report.get('presentation_document_count', 0)}",
+            f"- prospectus_document_count: {report.get('prospectus_document_count', 0)}",
+            f"- quarterly_or_interim_document_count: {report.get('quarterly_or_interim_document_count', 0)}",
+            f"- generic_navigation_page_count: {report.get('generic_navigation_page_count', 0)}",
+            "",
+            "## Category Pages Followed",
+            "",
+            "| Company ID | Company | Category URL | Title | Kind | Depth | Followed |",
+            "| ---: | --- | --- | --- | --- | ---: | --- |",
+        ]
+    )
+    category_rows = 0
+    for document in report.get("category_pages_followed") or []:
+        category_rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {url} | {title} | {kind} | {depth} | {followed} |".format(
+                company_id=document.get("company_id") or "",
+                company_name=str(document.get("company_name") or "").replace("|", "/"),
+                url=str(document.get("document_url") or "").replace("|", "/"),
+                title=str(document.get("document_title") or "").replace("|", "/"),
+                kind=document.get("document_kind") or "",
+                depth=document.get("crawl_depth") or "",
+                followed=document.get("category_followed"),
+            )
+        )
+    if category_rows == 0:
+        lines.append("|  |  | None |  |  |  |  |")
+    lines.extend(
+        [
+            "",
             "## Exact Document Candidates",
             "",
-            "| Company ID | Company | Rank | URL | Title | Source Page | Score | Confidence | Operator Status | Document Status | Reasons | Negative Reasons |",
-            "| ---: | --- | ---: | --- | --- | --- | ---: | --- | --- | --- | --- | --- |",
+            "| Company ID | Company | Rank | URL | Title | Kind | Depth | Parent | Source Page | Score | Confidence | Operator Status | Document Status | Reasons | Negative Reasons |",
+            "| ---: | --- | ---: | --- | --- | --- | ---: | --- | --- | ---: | --- | --- | --- | --- | --- |",
         ]
     )
     rows = 0
     for document in report.get("documents") or []:
         rows += 1
         lines.append(
-            "| {company_id} | {company_name} | {rank} | {url} | {title} | {source_page} | {score} | {confidence} | {operator_status} | {document_status} | {reasons} | {negative} |".format(
+            "| {company_id} | {company_name} | {rank} | {url} | {title} | {kind} | {depth} | {parent} | {source_page} | {score} | {confidence} | {operator_status} | {document_status} | {reasons} | {negative} |".format(
                 company_id=document.get("company_id") or "",
                 company_name=str(document.get("company_name") or "").replace("|", "/"),
                 rank=document.get("candidate_rank") or "",
                 url=str(document.get("document_url") or "").replace("|", "/"),
                 title=str(document.get("document_title") or "").replace("|", "/"),
+                kind=document.get("document_kind") or "",
+                depth=document.get("crawl_depth") or "",
+                parent=str(document.get("parent_seed_url") or "").replace("|", "/"),
                 source_page=str(document.get("source_page_url") or "").replace("|", "/"),
                 score=document.get("candidate_score") or 0,
                 confidence=document.get("candidate_confidence") or "",
@@ -4873,7 +5029,70 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             )
         )
     if rows == 0:
-        lines.append("|  |  |  | No candidates |  |  |  |  |  |  |  |  |")
+        lines.append("|  |  |  | No candidates |  |  |  |  |  |  |  |  |  |  |  |")
+    legal_documents = [
+        document
+        for document in report.get("documents") or []
+        if document.get("document_kind") in {
+            "legal_policy_document",
+            "privacy_policy_document",
+            "cookie_policy_document",
+            "user_agreement_document",
+        }
+    ]
+    lines.extend(
+        [
+            "",
+            "## Filtered Legal/Policy Documents",
+            "",
+            "| URL | Title | Kind | Filter Status | Filter Reasons |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    if legal_documents:
+        for document in legal_documents:
+            lines.append(
+                "| {url} | {title} | {kind} | {status} | {reasons} |".format(
+                    url=str(document.get("document_url") or "").replace("|", "/"),
+                    title=str(document.get("document_title") or "").replace("|", "/"),
+                    kind=document.get("document_kind") or "",
+                    status=document.get("filter_status") or "",
+                    reasons=_csv_value(document.get("filter_reasons")).replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |")
+    second_level_documents = [
+        document
+        for document in report.get("documents") or []
+        if int(document.get("crawl_depth") or 0) >= 2 and document.get("document_url")
+    ]
+    lines.extend(
+        [
+            "",
+            "## Second-Level Candidates",
+            "",
+            "| Company ID | Company | URL | Title | Kind | Depth | Parent | Score | Operator Status |",
+            "| ---: | --- | --- | --- | --- | ---: | --- | ---: | --- |",
+        ]
+    )
+    if second_level_documents:
+        for document in second_level_documents:
+            lines.append(
+                "| {company_id} | {company_name} | {url} | {title} | {kind} | {depth} | {parent} | {score} | {review} |".format(
+                    company_id=document.get("company_id") or "",
+                    company_name=str(document.get("company_name") or "").replace("|", "/"),
+                    url=str(document.get("document_url") or "").replace("|", "/"),
+                    title=str(document.get("document_title") or "").replace("|", "/"),
+                    kind=document.get("document_kind") or "",
+                    depth=document.get("crawl_depth") or "",
+                    parent=str(document.get("parent_seed_url") or "").replace("|", "/"),
+                    score=document.get("candidate_score") or 0,
+                    review=document.get("operator_review_status") or "",
+                )
+            )
+    else:
+        lines.append("|  |  | None |  |  |  |  |  |  |")
     lines.extend(
         [
             "",
@@ -4906,6 +5125,7 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
             f"- filtered_noise_count: {report.get('filtered_noise_count', 0)}",
             f"- filtered_low_score_count: {report.get('filtered_low_score_count', 0)}",
             f"- filtered_duplicate_count: {report.get('filtered_duplicate_count', 0)}",
+            f"- filtered_wrong_document_type_count: {report.get('filtered_wrong_document_type_count', 0)}",
             "",
             "## Integrated Document Intake / Gate",
             "",
@@ -5855,6 +6075,236 @@ def _exact_document_reviewed_seed_used(issuer: dict[str, Any], seed: dict[str, A
     }
 
 
+def classify_exact_document_kind(document_url: str, title: str, *, args: argparse.Namespace) -> str:
+    text = f"{document_url} {title}".casefold()
+    path = urllib.parse.urlparse(document_url).path.casefold()
+    file_name = _file_name_from_url(document_url).casefold()
+    combined = f"{text} {path} {file_name}"
+    if args.exact_document_filter_policy_documents and _contains_any(combined, ("cookie", "cookies", "\u043a\u0443\u043a\u0438")):
+        return "cookie_policy_document"
+    if args.exact_document_filter_policy_documents and _contains_any(combined, ("privacy", "policy_conf", "confidential", "\u043a\u043e\u043d\u0444\u0438\u0434\u0435\u043d\u0446")):
+        return "privacy_policy_document"
+    if args.exact_document_filter_legal_documents and _contains_any(combined, ("user_agreement", "terms", "agreement", "\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044c\u0441\u043a\u043e\u0435 \u0441\u043e\u0433\u043b\u0430\u0448\u0435\u043d\u0438\u0435", "\u0443\u0441\u043b\u043e\u0432\u0438\u044f")):
+        return "user_agreement_document"
+    if args.exact_document_filter_legal_documents and _contains_any(combined, EXACT_DOCUMENT_LEGAL_POLICY_TERMS):
+        return "legal_policy_document"
+    if _contains_any(combined, ("presentation", "\u043f\u0440\u0435\u0437\u0435\u043d\u0442")):
+        return "presentation_document"
+    if _contains_any(combined, ("prospectus", "emission", "bond terms", "\u043f\u0440\u043e\u0441\u043f\u0435\u043a\u0442", "\u044d\u043c\u0438\u0441\u0441")):
+        return "prospectus_document"
+    if _contains_any(combined, ("quarter", "quarterly", "q1", "q2", "q3", "q4", "1q", "2q", "3q", "4q", "\u043a\u0432\u0430\u0440\u0442\u0430\u043b", "6 \u043c\u0435\u0441\u044f\u0446\u0435\u0432", "9 \u043c\u0435\u0441\u044f\u0446\u0435\u0432", "\u043f\u0440\u043e\u043c\u0435\u0436\u0443\u0442")):
+        return "quarterly_or_interim_document"
+    if _contains_any(combined, ("press", "news", "\u043d\u043e\u0432\u043e\u0441")):
+        return "news_or_press_document"
+    if _contains_any(combined, ("financial-results", "financial_results", "financial results", "\u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u044b\u0435 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442", "\u043c\u0441\u0444\u043e")) and not _url_is_pdf(document_url):
+        return "financial_results_page"
+    if _contains_any(combined, ("accounting-statements", "accounting_statements", "\u0431\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0441\u043a", "\u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c", "\u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c")) and not _url_is_pdf(document_url):
+        return "accounting_statements_page"
+    if _contains_any(combined, ("issuer-reports", "annual reports", "\u0433\u043e\u0434\u043e\u0432\u044b\u0435 \u043e\u0442\u0447\u0435\u0442", "\u0433\u043e\u0434\u043e\u0432\u044b\u0435 \u043e\u0442\u0447\u0451\u0442", "\u044d\u043c\u0438\u0442\u0435\u043d\u0442")) and not _url_is_pdf(document_url):
+        return "report_category_page"
+    if _contains_any(combined, ("disclosure", "messages", "\u0440\u0430\u0441\u043a\u0440\u044b\u0442\u0438\u0435", "\u0441\u043e\u043e\u0431\u0449\u0435\u043d")) and not _url_is_pdf(document_url):
+        return "disclosure_category_page"
+    if _exact_document_has_strong_signals(document_url, title, args) or (
+        _url_is_pdf(document_url)
+        and _contains_any(combined, ("annual", "ifrs", "\u043c\u0441\u0444\u043e", "financial", "statements", "\u0433\u043e\u0434\u043e\u0432", "\u0444\u0438\u043d\u0430\u043d\u0441"))
+    ):
+        return "exact_report_document"
+    if _url_is_pdf(document_url) and args.exact_document_filter_generic_pdfs:
+        return "generic_navigation_page"
+    if _exact_document_is_generic_page(document_url, title, args):
+        return "generic_navigation_page"
+    return "unknown_document"
+
+
+def _exact_document_category_page_types(args: argparse.Namespace) -> set[str]:
+    mapping = {
+        "issuer_reports": "report_category_page",
+        "report_category_page": "report_category_page",
+        "accounting_statements": "accounting_statements_page",
+        "accounting_statements_page": "accounting_statements_page",
+        "financial_results": "financial_results_page",
+        "financial_results_page": "financial_results_page",
+        "disclosure_reports": "disclosure_category_page",
+        "disclosure_category_page": "disclosure_category_page",
+    }
+    values: set[str] = set()
+    for item in _split_cli_list(args.exact_document_category_page_types):
+        kind = mapping.get(item.casefold(), item.casefold())
+        if kind in EXACT_DOCUMENT_CATEGORY_KINDS:
+            values.add(kind)
+    return values or set(EXACT_DOCUMENT_CATEGORY_KINDS)
+
+
+def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
+    if not document.get("document_url"):
+        return False
+    if document.get("filter_status") != "kept":
+        return False
+    if document.get("document_kind") != "exact_report_document":
+        return False
+    return document.get("document_status") in {"valid_official_document", "needs_operator_review"}
+
+
+def _exact_document_can_follow_category(
+    candidate: dict[str, Any],
+    *,
+    args: argparse.Namespace,
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+) -> tuple[bool, str]:
+    document_url = str(candidate.get("document_url") or "")
+    if not document_url:
+        return False, "empty category URL"
+    if candidate.get("document_kind") not in _exact_document_category_page_types(args):
+        return False, "category kind is not enabled"
+    if int(candidate.get("candidate_score") or 0) < int(args.exact_document_category_page_min_score or 0):
+        return False, "category page score below follow threshold"
+    if int(candidate.get("crawl_depth") or 1) >= int(args.exact_document_max_crawl_depth or 0):
+        return False, "max crawl depth reached"
+    classification = _classify_candidate_url(
+        document_url,
+        allowed_domains=allowed_domains,
+        blocked_hints=blocked_hints,
+        allow_unknown_source=False,
+    )
+    if classification["status"] != "official":
+        return False, "category URL is not allowlisted official source"
+    return True, "eligible category page"
+
+
+def _crawl_exact_document_category_pages(
+    issuer: dict[str, Any],
+    raw_documents: list[dict[str, Any]],
+    *,
+    args: argparse.Namespace,
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+    warnings: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    crawled_documents: list[dict[str, Any]] = []
+    blocked_count = 0
+    max_pages = max(int(args.exact_document_max_category_pages_per_issuer or 0), 0)
+    max_depth = max(int(args.exact_document_max_crawl_depth or 0), 0)
+    if max_depth < 2 or max_pages == 0:
+        return crawled_documents, blocked_count
+
+    category_candidates: list[dict[str, Any]] = []
+    for candidate in raw_documents:
+        if not _matches_required_issuer(candidate, issuer):
+            continue
+        should_follow, reason = _exact_document_can_follow_category(
+            candidate,
+            args=args,
+            allowed_domains=allowed_domains,
+            blocked_hints=blocked_hints,
+        )
+        if not should_follow:
+            if candidate.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS:
+                candidate.setdefault("filter_reasons", []).append(reason)
+            continue
+        category_candidates.append(candidate)
+
+    visited_pages: set[str] = set()
+    category_queue = sorted(category_candidates, key=_exact_document_candidate_sort_key, reverse=True)[:max_pages]
+    followed_count = 0
+    while category_queue and followed_count < max_pages:
+        category = category_queue.pop(0)
+        category_url = str(category.get("document_url") or "")
+        normalized_category_url = _normalized_operator_seed_candidate_url(category_url)
+        if not normalized_category_url or normalized_category_url in visited_pages:
+            continue
+        visited_pages.add(normalized_category_url)
+        parent_seed_url = str(category.get("parent_seed_url") or category.get("source_page_url") or category_url)
+        if args.exact_document_follow_same_domain_only and _host(category_url) != _host(parent_seed_url):
+            category.setdefault("filter_reasons", []).append("category page skipped because it is outside reviewed seed domain")
+            continue
+        category["category_followed"] = True
+        category["filter_status"] = "category_followed"
+        category["document_status"] = "category_page"
+        category["operator_review_status"] = "needs_operator_review"
+        followed_count += 1
+        fetch = _fetch_candidate_page(
+            category_url,
+            timeout_seconds=args.exact_document_fetch_timeout_seconds,
+            max_bytes=args.exact_document_max_response_bytes,
+            user_agent=args.exact_document_user_agent,
+        )
+        if fetch.get("status") != "ok":
+            warnings.append(
+                {
+                    "company_id": issuer.get("company_id"),
+                    "source_page_url": category_url,
+                    "message": "failed to fetch exact document category page",
+                    "error": fetch.get("error"),
+                }
+            )
+            continue
+        content_type = str(fetch.get("content_type") or "").casefold()
+        if "html" not in content_type:
+            warnings.append(
+                {
+                    "company_id": issuer.get("company_id"),
+                    "source_page_url": category_url,
+                    "content_type": fetch.get("content_type"),
+                    "message": "category page response is not HTML; skipped anchor extraction",
+                }
+            )
+            continue
+        source_chain = [str(item) for item in category.get("source_chain") or []]
+        if not source_chain:
+            source_chain = [parent_seed_url, category_url]
+        anchors = _extract_html_anchors(str(fetch.get("body") or ""), category_url)
+        for anchor in anchors[: max(int(args.exact_document_max_second_level_links_per_page or 0), 0)]:
+            child_url = _normalize_candidate_url(anchor.get("href") or "")
+            if not child_url or _is_ignored_href(child_url):
+                continue
+            if args.exact_document_follow_same_domain_only and _host(child_url) != _host(category_url):
+                continue
+            child_kind = classify_exact_document_kind(child_url, _candidate_title(anchor, child_url), args=args)
+            if child_kind in {
+                "legal_policy_document",
+                "privacy_policy_document",
+                "cookie_policy_document",
+                "user_agreement_document",
+                "news_or_press_document",
+                "generic_navigation_page",
+            }:
+                # Still build the diagnostic candidate below; it will be filtered and excluded downstream.
+                pass
+            child_candidate, blocked = build_exact_document_candidate_from_seed_anchor(
+                issuer,
+                anchor,
+                {"seed_type": category.get("source_type") or "issuer_reports"},
+                category_url,
+                args=args,
+                allowed_domains=allowed_domains,
+                blocked_hints=blocked_hints,
+                crawl_depth=int(category.get("crawl_depth") or 1) + 1,
+                parent_seed_url=category_url,
+                source_chain=source_chain,
+            )
+            if blocked:
+                blocked_count += 1
+            if child_candidate is None:
+                continue
+            crawled_documents.append(child_candidate)
+            if (
+                args.exact_document_second_level_crawl
+                and child_candidate.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS
+                and int(child_candidate.get("crawl_depth") or 1) < max_depth
+                and followed_count + len(category_queue) < max_pages
+            ):
+                should_follow, _ = _exact_document_can_follow_category(
+                    child_candidate,
+                    args=args,
+                    allowed_domains=allowed_domains,
+                    blocked_hints=blocked_hints,
+                )
+                if should_follow:
+                    category_queue.append(child_candidate)
+    return crawled_documents, blocked_count
+
+
 def build_exact_document_candidate_from_seed_anchor(
     issuer: dict[str, Any],
     anchor: dict[str, str],
@@ -5864,6 +6314,9 @@ def build_exact_document_candidate_from_seed_anchor(
     args: argparse.Namespace,
     allowed_domains: set[str],
     blocked_hints: tuple[str, ...],
+    crawl_depth: int = 1,
+    parent_seed_url: str = "",
+    source_chain: list[str] | None = None,
 ) -> tuple[dict[str, Any] | None, bool]:
     document_url = _normalize_candidate_url(anchor.get("href") or "")
     if not document_url or _is_ignored_href(document_url):
@@ -5876,30 +6329,51 @@ def build_exact_document_candidate_from_seed_anchor(
     )
     title = _candidate_title(anchor, document_url)
     source_type = _exact_document_source_type(seed, document_url, source_page_url)
+    document_kind = classify_exact_document_kind(document_url, title, args=args)
     score, reasons, negatives = score_exact_document_candidate_from_seed(
         document_url,
         title,
         source_page_url,
         args=args,
         domain_status=classification["status"],
+        document_kind=document_kind,
     )
     exact = _exact_document_is_document_like(document_url, title, args)
     strong = _exact_document_has_strong_signals(document_url, title, args)
     blocked = classification["status"] == "blocked"
     official = classification["status"] == "official"
+    is_category_page = document_kind in EXACT_DOCUMENT_CATEGORY_KINDS
     if blocked:
         document_status = "blocked_document"
         operator_status = "operator_to_fill"
         confidence = "low"
         filter_status = "filtered_blocked"
         filter_reasons = ["blocked unofficial document URL"]
+    elif document_kind in EXACT_DOCUMENT_WRONG_TYPE_KINDS:
+        document_status = "invalid_document"
+        operator_status = "operator_to_fill"
+        confidence = "low"
+        filter_status = "filtered_wrong_document_type"
+        filter_reasons = [f"{document_kind} is not an exact annual report document"]
     elif classification["status"] != "official":
         document_status = "invalid_document"
         operator_status = "operator_to_fill"
         confidence = "low"
         filter_status = "filtered_blocked"
         filter_reasons = [classification["message"]]
-    elif official and exact and strong and score >= args.exact_document_auto_review_threshold:
+    elif is_category_page:
+        document_status = "category_page"
+        operator_status = "needs_operator_review"
+        confidence = "medium" if score >= args.exact_document_category_page_min_score else "low"
+        filter_status = "category_page"
+        filter_reasons = ["category/reporting page is a crawl source, not exact report evidence"]
+    elif (
+        document_kind == "exact_report_document"
+        and official
+        and exact
+        and strong
+        and score >= args.exact_document_auto_review_threshold
+    ):
         document_status = "valid_official_document"
         operator_status = "operator_reviewed"
         confidence = "high"
@@ -5926,6 +6400,12 @@ def build_exact_document_candidate_from_seed_anchor(
         "source_page_url": source_page_url,
         "document_url": document_url,
         "document_title": title,
+        "document_kind": document_kind,
+        "crawl_depth": crawl_depth,
+        "parent_seed_url": parent_seed_url or source_page_url,
+        "source_chain": [*(source_chain or []), document_url],
+        "is_category_page": is_category_page,
+        "category_followed": False,
         "document_date": "",
         "source_file_name": _file_name_from_url(document_url),
         "document_status": document_status,
@@ -5954,6 +6434,7 @@ def score_exact_document_candidate_from_seed(
     *,
     args: argparse.Namespace,
     domain_status: str,
+    document_kind: str | None = None,
 ) -> tuple[int, list[str], list[str]]:
     text = f"{document_url} {title}".casefold()
     path = urllib.parse.urlparse(document_url).path.casefold()
@@ -5998,6 +6479,12 @@ def score_exact_document_candidate_from_seed(
         add(15, "report document path")
     if _contains_any(path, EXACT_DOCUMENT_PATH_TERMS):
         add(10, "report file/path signal")
+    if document_kind == "exact_report_document":
+        add(20, "exact report document kind")
+    if document_kind in EXACT_DOCUMENT_CATEGORY_KINDS:
+        add(10, "report category page")
+    if document_kind in EXACT_DOCUMENT_WRONG_TYPE_KINDS:
+        subtract(90, f"{document_kind} is not exact report evidence")
     if _contains_any(text, EXACT_DOCUMENT_NEGATIVE_TERMS):
         subtract(50, "non-annual report document type")
     if args.report_type == "annual" and _contains_any(
@@ -6056,8 +6543,16 @@ def _select_top_exact_document_candidates(
     output = [
         item
         for item in kept_candidates
-        if item.get("filter_status") == "kept"
+        if _exact_document_is_downstream_eligible(item)
     ]
+    if args.exact_document_include_category_pages:
+        output.extend(
+            item
+            for item in kept_candidates
+            if item.get("document_url")
+            and item.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS
+            and item.get("filter_status") in {"category_page", "category_followed", "diagnostic_category_page"}
+        )
     if args.exact_document_include_filtered:
         output.extend(
             item
@@ -6070,28 +6565,61 @@ def _select_top_exact_document_candidates(
     )
     noise_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_noise")
     blocked_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_blocked")
+    wrong_type_count = sum(1 for item in prepared if item.get("filter_status") == "filtered_wrong_document_type")
     stats = {
         "candidate_count_before_filter": before_count,
-        "candidate_count_after_filter": sum(1 for item in output if item.get("filter_status") == "kept" and item.get("document_url")),
+        "candidate_count_after_filter": sum(1 for item in output if _exact_document_is_downstream_eligible(item)),
         "filtered_candidate_count": sum(1 for item in prepared if item.get("filter_status") != "kept"),
         "filtered_noise_count": noise_count,
         "filtered_low_score_count": low_score_count,
         "filtered_duplicate_count": duplicate_count,
         "filtered_blocked_count": blocked_count,
-        "top_ranked_candidate_count": sum(1 for item in output if item.get("filter_status") == "kept"),
+        "filtered_wrong_document_type_count": wrong_type_count,
+        "top_ranked_candidate_count": sum(1 for item in output if _exact_document_is_downstream_eligible(item)),
     }
     return sorted(output, key=_exact_document_output_sort_key), stats
 
 
 def _apply_exact_document_candidate_filter(candidate: dict[str, Any], *, args: argparse.Namespace) -> None:
-    if candidate.get("filter_status") in {"filtered_blocked", "filtered_duplicate"}:
+    if candidate.get("filter_status") in {
+        "filtered_blocked",
+        "filtered_duplicate",
+        "filtered_wrong_document_type",
+        "category_followed",
+        "diagnostic_category_page",
+    }:
         return
     score = int(candidate.get("candidate_score") or candidate.get("final_score") or 0)
     candidate["raw_score"] = int(candidate.get("raw_score") or score)
     candidate["final_score"] = score
     candidate["candidate_score"] = score
+    document_kind = str(candidate.get("document_kind") or "unknown_document")
     if candidate.get("document_status") in {"blocked_document", "invalid_document"}:
-        _mark_exact_document_candidate_filtered(candidate, "filtered_blocked", "blocked or invalid document URL")
+        status = "filtered_wrong_document_type" if document_kind in EXACT_DOCUMENT_WRONG_TYPE_KINDS else "filtered_blocked"
+        reason = "wrong document type for exact annual report" if status == "filtered_wrong_document_type" else "blocked or invalid document URL"
+        _mark_exact_document_candidate_filtered(candidate, status, reason)
+        candidate["operator_review_status"] = "operator_to_fill"
+        return
+    if document_kind in EXACT_DOCUMENT_WRONG_TYPE_KINDS:
+        _mark_exact_document_candidate_filtered(candidate, "filtered_wrong_document_type", "wrong document type for exact annual report")
+        candidate["document_status"] = "invalid_document"
+        candidate["operator_review_status"] = "operator_to_fill"
+        return
+    if document_kind in EXACT_DOCUMENT_CATEGORY_KINDS:
+        candidate["document_status"] = "category_page"
+        candidate["operator_review_status"] = "needs_operator_review"
+        if candidate.get("category_followed"):
+            candidate["filter_status"] = "category_followed"
+        else:
+            candidate["filter_status"] = "diagnostic_category_page"
+        reasons = list(candidate.get("filter_reasons") or [])
+        if "category/reporting page is not exact report evidence" not in reasons:
+            reasons.append("category/reporting page is not exact report evidence")
+        candidate["filter_reasons"] = reasons
+        return
+    if document_kind != "exact_report_document":
+        _mark_exact_document_candidate_filtered(candidate, "filtered_noise", "candidate is not classified as exact report document")
+        candidate["operator_review_status"] = "operator_to_fill"
         return
     if args.exact_document_noise_filter and _exact_document_noise(candidate, args=args):
         _mark_exact_document_candidate_filtered(candidate, "filtered_noise", "non-annual report or generic navigation document")
@@ -6113,9 +6641,13 @@ def _mark_exact_document_candidate_filtered(candidate: dict[str, Any], status: s
 
 def _exact_document_noise(candidate: dict[str, Any], *, args: argparse.Namespace) -> bool:
     text = f"{candidate.get('document_url') or ''} {candidate.get('document_title') or ''}".casefold()
+    if candidate.get("document_kind") in EXACT_DOCUMENT_WRONG_TYPE_KINDS:
+        return True
     if candidate.get("document_status") in {"blocked_document", "invalid_document"}:
         return True
     if _contains_any(text, EXACT_DOCUMENT_NEGATIVE_TERMS):
+        return True
+    if _contains_any(text, EXACT_DOCUMENT_LEGAL_POLICY_TERMS):
         return True
     if _exact_document_is_generic_page(str(candidate.get("document_url") or ""), str(candidate.get("document_title") or ""), args):
         return True
@@ -6168,16 +6700,18 @@ def _assign_exact_document_candidate_ranks(candidates: list[dict[str, Any]]) -> 
             candidate["candidate_rank"] = rank
 
 
-def _exact_document_candidate_sort_key(candidate: dict[str, Any]) -> tuple[int, int, int, int, int, str]:
+def _exact_document_candidate_sort_key(candidate: dict[str, Any]) -> tuple[int, int, int, int, int, int, str]:
     score = int(candidate.get("final_score") or candidate.get("candidate_score") or 0)
     reviewed = 1 if candidate.get("operator_review_status") == "operator_reviewed" else 0
+    kind = str(candidate.get("document_kind") or "")
+    exact_kind = 1 if kind == "exact_report_document" else 0
     exact = 1 if _exact_document_is_document_like(
         str(candidate.get("document_url") or ""),
         str(candidate.get("document_title") or ""),
         argparse.Namespace(report_period=candidate.get("report_period") or ""),
     ) else 0
     path_len = -len(urllib.parse.urlparse(str(candidate.get("document_url") or "")).path)
-    return (score, reviewed, exact, _confidence_rank(candidate.get("candidate_confidence")), path_len, str(candidate.get("document_url") or ""))
+    return (score, reviewed, exact_kind, exact, _confidence_rank(candidate.get("candidate_confidence")), path_len, str(candidate.get("document_url") or ""))
 
 
 def _exact_document_output_sort_key(candidate: dict[str, Any]) -> tuple[str, str, int, int, str]:
@@ -6244,6 +6778,12 @@ def _exact_document_not_found_candidate(issuer: dict[str, Any]) -> dict[str, Any
         "source_url_context": "",
         "document_url": "",
         "document_title": "",
+        "document_kind": "unknown_document",
+        "crawl_depth": None,
+        "parent_seed_url": "",
+        "source_chain": [],
+        "is_category_page": False,
+        "category_followed": False,
         "document_date": "",
         "source_file_name": "",
         "document_status": "not_found",
@@ -6325,7 +6865,11 @@ def _source_intake_from_exact_document_candidates(
 ) -> list[dict[str, Any]]:
     issuers: list[dict[str, Any]] = []
     for required in required_issuers:
-        document_matches = _items_matching_required(documents, required)
+        document_matches = [
+            item
+            for item in _items_matching_required(documents, required)
+            if _exact_document_is_downstream_eligible(item)
+        ]
         seed_matches = _items_matching_required(reviewed_seeds_used, required)
         chosen = (document_matches or seed_matches or [required])[0]
         source_candidates: list[dict[str, Any]] = []
@@ -6388,8 +6932,17 @@ def _build_exact_document_discovery_report(
     document_quality_gate_report: dict[str, Any] | None,
     warnings: list[dict[str, Any]],
     errors: list[dict[str, Any]],
+    category_pages_followed: list[dict[str, Any]] | None = None,
+    all_documents_for_counters: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    candidate_count = sum(1 for item in documents if item.get("document_url") and item.get("filter_status") == "kept")
+    candidate_count = sum(1 for item in documents if _exact_document_is_downstream_eligible(item))
+    counter_documents = all_documents_for_counters if all_documents_for_counters is not None else documents
+    kind_counts = _exact_document_kind_counts(counter_documents)
+    followed_category_pages = category_pages_followed or [
+        item
+        for item in documents
+        if item.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS and item.get("category_followed")
+    ]
     return {
         "status": status,
         "mode": "exact-document-discover-from-seeds",
@@ -6405,8 +6958,11 @@ def _build_exact_document_discovery_report(
         "filtered_noise_count": ranking_stats.get("filtered_noise_count", 0),
         "filtered_low_score_count": ranking_stats.get("filtered_low_score_count", 0),
         "filtered_duplicate_count": ranking_stats.get("filtered_duplicate_count", 0),
+        "filtered_wrong_document_type_count": ranking_stats.get("filtered_wrong_document_type_count", 0),
         "top_ranked_candidate_count": ranking_stats.get("top_ranked_candidate_count", 0),
+        **kind_counts,
         "reviewed_seeds_used": reviewed_seeds_used,
+        "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
         "documents": documents,
         "document_intake_fill_report": document_intake_fill_report,
@@ -6427,6 +6983,29 @@ def _build_exact_document_discovery_report(
     }
 
 
+def _exact_document_kind_counts(documents: list[dict[str, Any]]) -> dict[str, int]:
+    counters = {
+        "exact_report_document_count": 0,
+        "category_page_count": 0,
+        "legal_policy_document_count": 0,
+        "privacy_policy_document_count": 0,
+        "cookie_policy_document_count": 0,
+        "user_agreement_document_count": 0,
+        "presentation_document_count": 0,
+        "prospectus_document_count": 0,
+        "quarterly_or_interim_document_count": 0,
+        "news_or_press_document_count": 0,
+        "generic_navigation_page_count": 0,
+        "unknown_document_count": 0,
+    }
+    for document in documents:
+        if not document.get("document_url"):
+            continue
+        key = EXACT_DOCUMENT_KIND_COUNTERS.get(str(document.get("document_kind") or "unknown_document"), "unknown_document_count")
+        counters[key] = counters.get(key, 0) + 1
+    return counters
+
+
 def _write_exact_document_discovery_payload(
     args: argparse.Namespace,
     path: Path,
@@ -6440,24 +7019,24 @@ def _write_exact_document_discovery_payload(
     status: str,
     warnings: list[dict[str, Any]],
     errors: list[dict[str, Any]],
+    category_pages_followed: list[dict[str, Any]] | None = None,
+    all_documents_for_counters: list[dict[str, Any]] | None = None,
 ) -> None:
     reviewed_count = sum(
         1
         for item in documents
-        if item.get("document_url")
-        and item.get("filter_status") == "kept"
+        if _exact_document_is_downstream_eligible(item)
         and item.get("operator_review_status") == "operator_reviewed"
     )
     review_count = sum(
         1
         for item in documents
-        if item.get("document_url")
-        and item.get("filter_status") == "kept"
+        if _exact_document_is_downstream_eligible(item)
         and item.get("operator_review_status") == "needs_operator_review"
     )
     invalid_count = sum(
         1
-        for item in documents
+        for item in (all_documents_for_counters or documents)
         if item.get("document_status") in {"invalid_document", "blocked_document"}
     )
     report = _build_exact_document_discovery_report(
@@ -6465,6 +7044,7 @@ def _write_exact_document_discovery_payload(
         status=status,
         required_issuers=required_issuers,
         documents=documents,
+        category_pages_followed=category_pages_followed,
         reviewed_seeds_used=reviewed_seeds_used,
         missing_issuers=missing_issuers,
         ranking_stats=ranking_stats,
@@ -6477,6 +7057,7 @@ def _write_exact_document_discovery_payload(
         document_quality_gate_report=None,
         warnings=warnings,
         errors=errors,
+        all_documents_for_counters=all_documents_for_counters,
     )
     write_json_report(report, path)
 
@@ -8582,6 +9163,10 @@ def _group_document_candidates(documents: list[dict[str, Any]]) -> dict[tuple[st
         if not document.get("document_url") and document.get("document_status") == "not_found":
             continue
         if document.get("filter_status") and document.get("filter_status") != "kept":
+            continue
+        if document.get("document_kind") and document.get("document_kind") != "exact_report_document":
+            continue
+        if document.get("document_status") not in {None, "", "valid_official_document", "needs_operator_review"}:
             continue
         grouped.setdefault(_document_period_key(document), []).append(document)
     return grouped
