@@ -4,11 +4,13 @@ import argparse
 import csv
 import hashlib
 import json
+import re
 import sys
 import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -26,6 +28,7 @@ MODE_CHOICES = (
     "document-intake-validate",
     "document-intake-fill",
     "document-quality-gate",
+    "document-candidate-discover",
     "candidate-fill",
     "preview",
 )
@@ -33,6 +36,7 @@ FORMAT_CHOICES = ("csv", "json")
 DOCUMENT_REPORT_TYPES = ("annual", "quarterly")
 DOCUMENT_ACCOUNTING_STANDARDS = ("IFRS", "RAS", "unknown")
 DOCUMENT_INTAKE_FILL_SOURCES = ("local-candidates", "operator-candidates", "manual-candidates")
+DOCUMENT_CANDIDATE_DISCOVERY_SOURCES = ("official-source-intake", "document-report", "manual-seeds")
 DOCUMENT_CONFIDENCE_LEVELS = {"low": 1, "medium": 2, "high": 3}
 ALLOWED_SOURCE_TYPES = {
     "issuer_investor_relations",
@@ -42,7 +46,9 @@ ALLOWED_SOURCE_TYPES = {
     "auditor_report",
     "issuer_annual_report_pdf",
 }
-OFFICIAL_SOURCE_DOMAIN_HINTS = tuple(collection_pack.OFFICIAL_SOURCE_DOMAIN_HINTS)
+OFFICIAL_SOURCE_DOMAIN_HINTS = tuple(
+    dict.fromkeys([*collection_pack.OFFICIAL_SOURCE_DOMAIN_HINTS, "disclosure.ru"])
+)
 BLOCKED_SOURCE_HINTS = (
     "wikipedia",
     "wikimedia",
@@ -124,6 +130,15 @@ DOCUMENT_INTAKE_TEMPLATE_FIELDS = [
     "notes",
 ]
 DOCUMENT_INTAKE_REVIEWED_STATUSES = {"reviewed", "operator_reviewed"}
+DOCUMENT_CANDIDATE_FIELDS = [
+    *DOCUMENT_INTAKE_TEMPLATE_FIELDS,
+    "candidate_score",
+    "candidate_confidence",
+    "discovery_method",
+    "source_page_url",
+    "score_reasons",
+    "negative_reasons",
+]
 DOCUMENT_CHECKLIST_FIELDS = [
     "rank",
     "company_id",
@@ -214,6 +229,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--manual-values-csv", type=Path, default=None)
     parser.add_argument("--candidate-input", type=Path, default=None)
     parser.add_argument("--candidate-output", type=Path, default=None)
+    parser.add_argument("--candidate-csv-output", type=Path, default=None)
+    parser.add_argument(
+        "--candidate-discovery-source",
+        choices=DOCUMENT_CANDIDATE_DISCOVERY_SOURCES,
+        default="official-source-intake",
+    )
+    parser.add_argument("--max-pages-per-issuer", type=int, default=10)
+    parser.add_argument("--max-links-per-page", type=int, default=200)
+    parser.add_argument("--max-candidate-links", type=int, default=20)
+    parser.add_argument("--candidate-min-score", type=int, default=60)
+    parser.add_argument("--candidate-auto-review-threshold", type=int, default=90)
+    parser.add_argument("--candidate-require-pdf-or-report-page", type=_parse_bool, default=True)
+    parser.add_argument("--candidate-allow-landing-pages", type=_parse_bool, default=False)
+    parser.add_argument("--candidate-allowed-domains", default="")
+    parser.add_argument("--candidate-blocked-domains", default="")
+    parser.add_argument("--candidate-fetch-timeout-seconds", type=float, default=10.0)
+    parser.add_argument("--candidate-max-response-bytes", type=int, default=500000)
+    parser.add_argument(
+        "--candidate-user-agent",
+        default="BondRadar-document-candidate-discovery/1.0",
+    )
+    parser.add_argument("--run-quality-gate", type=_parse_bool, default=False)
+    parser.add_argument("--quality-gate-json-output", type=Path, default=None)
+    parser.add_argument("--quality-gate-markdown-output", type=Path, default=None)
     parser.add_argument("--candidate-format", choices=FORMAT_CHOICES, default="csv")
     parser.add_argument("--format", choices=FORMAT_CHOICES, default="csv")
     parser.add_argument("--evidence-output", type=Path, default=None)
@@ -254,6 +293,8 @@ def run_assistant(
         report = run_document_intake_fill(args)
     elif args.mode == "document-quality-gate":
         report = run_document_quality_gate(args)
+    elif args.mode == "document-candidate-discover":
+        report = run_document_candidate_discover(args)
     elif args.mode == "candidate-fill":
         report = run_candidate_fill(args)
     else:
@@ -1521,6 +1562,175 @@ def run_document_quality_gate(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def run_document_candidate_discover(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    input_documents: list[dict[str, Any]] = []
+    source_issuers: list[dict[str, Any]] = []
+    document_issuers: list[dict[str, Any]] = []
+    documents: list[dict[str, Any]] = []
+    blocked_candidate_count = 0
+
+    if args.document_intake_input is None:
+        errors.append({"message": "document-candidate-discover mode requires --document-intake-input"})
+    if args.source_intake_input is None:
+        warnings.append({"message": "source intake input is not provided; using exact intake context only"})
+    if not errors:
+        try:
+            input_documents = load_document_intake_file(args.document_intake_input)
+            if args.source_intake_input is not None:
+                source_issuers = load_source_intake(args.source_intake_input)
+            if args.document_input is not None:
+                document_issuers = load_document_issuers(args.document_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    required_issuers = _parse_required_issuers(args, input_documents)
+    allowed_domains = _candidate_allowed_domains(args)
+    blocked_hints = _candidate_blocked_hints(args)
+    if not errors:
+        for issuer in required_issuers:
+            seed_urls = build_candidate_seed_urls(
+                issuer,
+                input_documents=input_documents,
+                source_issuers=source_issuers,
+                document_issuers=document_issuers,
+                args=args,
+                allowed_domains=allowed_domains,
+                blocked_hints=blocked_hints,
+                warnings=warnings,
+            )
+            issuer_candidates: list[dict[str, Any]] = []
+            for seed_url in seed_urls[: max(args.max_pages_per_issuer, 0)]:
+                fetch = _fetch_candidate_page(
+                    seed_url,
+                    timeout_seconds=args.candidate_fetch_timeout_seconds,
+                    max_bytes=args.candidate_max_response_bytes,
+                    user_agent=args.candidate_user_agent,
+                )
+                if fetch.get("status") != "ok":
+                    warnings.append(
+                        {
+                            "company_id": issuer.get("company_id"),
+                            "source_page_url": seed_url,
+                            "message": "failed to fetch official seed page",
+                            "error": fetch.get("error"),
+                        }
+                    )
+                    continue
+                content_type = str(fetch.get("content_type") or "").casefold()
+                if "html" not in content_type:
+                    warnings.append(
+                        {
+                            "company_id": issuer.get("company_id"),
+                            "source_page_url": seed_url,
+                            "content_type": fetch.get("content_type"),
+                            "message": "seed response is not HTML; skipped anchor extraction",
+                        }
+                    )
+                    continue
+                anchors = _extract_html_anchors(str(fetch.get("body") or ""), seed_url)
+                for anchor in anchors[: max(args.max_links_per_page, 0)]:
+                    candidate, blocked = build_document_candidate_from_anchor(
+                        issuer,
+                        anchor,
+                        seed_url,
+                        source_context=_source_url_context_from_strings(seed_urls),
+                        args=args,
+                        allowed_domains=allowed_domains,
+                        blocked_hints=blocked_hints,
+                    )
+                    if blocked:
+                        blocked_candidate_count += 1
+                    if candidate is not None:
+                        issuer_candidates.append(candidate)
+            documents.extend(
+                _select_top_document_candidates(
+                    issuer_candidates,
+                    max_candidates=max(args.max_candidate_links, 0),
+                )
+            )
+            if not issuer_candidates:
+                warnings.append(
+                    {
+                        "company_id": issuer.get("company_id"),
+                        "company_name": issuer.get("company_name"),
+                        "message": "no exact official document candidates found",
+                    }
+                )
+
+    reviewed_count = sum(1 for item in documents if item.get("operator_review_status") == "operator_reviewed")
+    review_count = sum(1 for item in documents if item.get("operator_review_status") == "needs_operator_review")
+    if args.candidate_output is not None and not errors:
+        write_json_report(
+            {
+                "status": "discovered",
+                "mode": "document-candidate-discover",
+                "issuer_count": len(required_issuers),
+                "documents": documents,
+                **SAFETY_FLAGS,
+            },
+            args.candidate_output,
+        )
+    if args.candidate_csv_output is not None and not errors:
+        write_document_candidate_csv(documents, args.candidate_csv_output)
+
+    quality_gate_report: dict[str, Any] | None = None
+    if args.run_quality_gate and not errors:
+        with tempfile.TemporaryDirectory(prefix="bondradar-candidate-gate-") as tmp_dir:
+            candidate_path = args.candidate_output or Path(tmp_dir) / "exact_document_candidates.json"
+            if not candidate_path.is_file():
+                write_json_report(
+                    {
+                        "status": "discovered",
+                        "mode": "document-candidate-discover",
+                        "issuer_count": len(required_issuers),
+                        "documents": documents,
+                        **SAFETY_FLAGS,
+                    },
+                    candidate_path,
+                )
+            gate_args = _clone_args(
+                args,
+                mode="document-quality-gate",
+                exact_document_candidates_input=candidate_path,
+                document_output=args.document_input,
+            )
+            quality_gate_report = run_document_quality_gate(gate_args)
+            if args.quality_gate_json_output is not None:
+                write_json_report(quality_gate_report, args.quality_gate_json_output)
+            if args.quality_gate_markdown_output is not None:
+                write_markdown_report(quality_gate_report, args.quality_gate_markdown_output)
+
+    status = (
+        "failed"
+        if errors
+        else "passed"
+        if reviewed_count >= len(required_issuers) and required_issuers
+        else "warning"
+    )
+    report = {
+        "status": status,
+        "mode": "document-candidate-discover",
+        "issuer_count": len(required_issuers),
+        "candidate_count": len(documents),
+        "reviewed_candidate_count": reviewed_count,
+        "needs_operator_review_count": review_count,
+        "blocked_candidate_count": blocked_candidate_count,
+        "documents": documents,
+        "quality_gate_report": quality_gate_report,
+        "candidate_output": _path_value(args.candidate_output),
+        "candidate_csv_output": _path_value(args.candidate_csv_output),
+        "quality_gate_json_output": _path_value(args.quality_gate_json_output),
+        "quality_gate_markdown_output": _path_value(args.quality_gate_markdown_output),
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("document-candidate-discover", status),
+        **SAFETY_FLAGS,
+    }
+    return report
+
+
 def fill_document_intake_item(
     document: dict[str, Any],
     args: argparse.Namespace,
@@ -2303,6 +2513,15 @@ def write_document_intake_csv(documents: list[dict[str, Any]], path: Path) -> No
             )
 
 
+def write_document_candidate_csv(documents: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=DOCUMENT_CANDIDATE_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for document in documents:
+            writer.writerow({field: _csv_value(document.get(field)) for field in DOCUMENT_CANDIDATE_FIELDS})
+
+
 def load_manual_values_by_key(
     *,
     manual_values_json: Path | None,
@@ -2405,6 +2624,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "document-intake-fill"
         else "Exact Document Quality Gate"
         if report.get("mode") == "document-quality-gate"
+        else "Exact Official Document Candidate Discovery"
+        if report.get("mode") == "document-candidate-discover"
         else "Exact Official Report Document Resolver"
         if report.get("mode") in {"document-resolve", "document-validate"}
         else "Official-Source Evidence Assistant"
@@ -2431,6 +2652,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_document_intake_markdown_sections(report))
     if report.get("mode") == "document-quality-gate":
         lines.extend(_render_document_quality_gate_markdown_sections(report))
+    if report.get("mode") == "document-candidate-discover":
+        lines.extend(_render_document_candidate_discovery_markdown_sections(report))
     lines.extend(
         [
         "## Source Validation",
@@ -2704,6 +2927,63 @@ def _render_document_quality_gate_markdown_sections(report: dict[str, Any]) -> l
     return lines
 
 
+def _render_document_candidate_discovery_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Candidate Discovery",
+        "",
+        f"- candidate_count: {report.get('candidate_count', 0)}",
+        f"- reviewed_candidate_count: {report.get('reviewed_candidate_count', 0)}",
+        f"- needs_operator_review_count: {report.get('needs_operator_review_count', 0)}",
+        f"- blocked_candidate_count: {report.get('blocked_candidate_count', 0)}",
+        "",
+        "## Issuer Candidates",
+        "",
+        "| Company ID | Company | URL | Title | Score | Confidence | Operator Status | Source Page | Reasons | Negative Reasons |",
+        "| ---: | --- | --- | --- | ---: | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for document in report.get("documents") or []:
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {url} | {title} | {score} | {confidence} | {status} | {source_page} | {reasons} | {negative} |".format(
+                company_id=document.get("company_id") or "",
+                company_name=str(document.get("company_name") or "").replace("|", "/"),
+                url=str(document.get("document_url") or "").replace("|", "/"),
+                title=str(document.get("document_title") or "").replace("|", "/"),
+                score=document.get("candidate_score") or 0,
+                confidence=document.get("candidate_confidence") or "",
+                status=document.get("operator_review_status") or "",
+                source_page=str(document.get("source_page_url") or "").replace("|", "/"),
+                reasons=_csv_value(document.get("score_reasons")),
+                negative=_csv_value(document.get("negative_reasons")),
+            )
+        )
+    if rows == 0:
+        lines.append("|  |  |  |  |  |  |  |  |  |  |")
+    gate = report.get("quality_gate_report") or {}
+    lines.extend(
+        [
+            "",
+            "## Quality Gate",
+            "",
+            f"- gate status: `{gate.get('status')}`",
+            f"- gate_passed: {gate.get('gate_passed')}",
+            f"- ready_for_value_extraction: {gate.get('ready_for_value_extraction')}",
+            f"- ready_for_import: {gate.get('ready_for_import')}",
+            "",
+            "## Blocking Issues",
+            "",
+        ]
+    )
+    blockers = report.get("errors") or report.get("warnings") or []
+    if blockers:
+        lines.extend(f"- {_message_text(item)}" for item in blockers)
+    else:
+        lines.append("- None")
+    lines.append("")
+    return lines
+
+
 def classify_source_url(url: str, *, allow_unknown_source: bool = False) -> dict[str, str]:
     text = url.casefold()
     if _has_blocked_source_hint(text):
@@ -2805,6 +3085,398 @@ def _strip_financial_values(candidate: dict[str, Any]) -> None:
         candidate.pop(field, None)
     candidate.pop("values", None)
     candidate.pop("field_evidence", None)
+
+
+class _AnchorExtractor(HTMLParser):
+    def __init__(self, base_url: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.base_url = base_url
+        self.anchors: list[dict[str, str]] = []
+        self._current: dict[str, str] | None = None
+        self._text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.casefold() != "a":
+            return
+        attr_map = {key.casefold(): value or "" for key, value in attrs}
+        href = attr_map.get("href", "").strip()
+        if not href:
+            return
+        self._current = {
+            "href": urllib.parse.urljoin(self.base_url, href),
+            "title": attr_map.get("title", "").strip(),
+        }
+        self._text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._current is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.casefold() != "a" or self._current is None:
+            return
+        text = " ".join(" ".join(self._text).split())
+        self.anchors.append({**self._current, "text": text})
+        self._current = None
+        self._text = []
+
+
+def build_candidate_seed_urls(
+    issuer: dict[str, Any],
+    *,
+    input_documents: list[dict[str, Any]],
+    source_issuers: list[dict[str, Any]],
+    document_issuers: list[dict[str, Any]],
+    args: argparse.Namespace,
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+    warnings: list[dict[str, Any]],
+) -> list[str]:
+    urls: list[str] = []
+    for document in _items_matching_required(input_documents, issuer):
+        urls.extend(_split_source_context_urls(str(document.get("source_url_context") or "")))
+        if document.get("document_url"):
+            urls.append(str(document["document_url"]))
+    if args.candidate_discovery_source in {"official-source-intake", "manual-seeds"}:
+        for source_issuer in _items_matching_required(source_issuers, issuer):
+            for source in source_issuer.get("source_candidates") or []:
+                url = source.get("url") or source.get("source_url")
+                if url:
+                    urls.append(str(url))
+    if args.candidate_discovery_source in {"document-report", "manual-seeds"} or document_issuers:
+        for document_issuer in _items_matching_required(document_issuers, issuer):
+            for document in document_issuer.get("document_candidates") or []:
+                for key in ("source_url", "document_url"):
+                    if document.get(key):
+                        urls.append(str(document[key]))
+    seed_urls: list[str] = []
+    seen: set[str] = set()
+    for raw_url in urls:
+        url = _normalize_candidate_url(raw_url)
+        if not url or url in seen:
+            continue
+        classification = _classify_candidate_url(
+            url,
+            allowed_domains=allowed_domains,
+            blocked_hints=blocked_hints,
+            allow_unknown_source=False,
+        )
+        if classification["status"] != "official":
+            warnings.append(
+                {
+                    "company_id": issuer.get("company_id"),
+                    "source_url": url,
+                    "message": "seed URL skipped because it is not allowlisted official source",
+                    "classification": classification["status"],
+                }
+            )
+            continue
+        seen.add(url)
+        seed_urls.append(url)
+    return seed_urls
+
+
+def build_document_candidate_from_anchor(
+    issuer: dict[str, Any],
+    anchor: dict[str, str],
+    source_page_url: str,
+    *,
+    source_context: str,
+    args: argparse.Namespace,
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+) -> tuple[dict[str, Any] | None, bool]:
+    document_url = _normalize_candidate_url(anchor.get("href") or "")
+    if not document_url or _is_ignored_href(document_url):
+        return None, False
+    classification = _classify_candidate_url(
+        document_url,
+        allowed_domains=allowed_domains,
+        blocked_hints=blocked_hints,
+        allow_unknown_source=args.allow_unknown_source,
+    )
+    if classification["status"] == "blocked":
+        return None, True
+    if classification["status"] == "unknown_error":
+        return None, False
+    title = _candidate_title(anchor, document_url)
+    score, score_reasons, negative_reasons = score_document_candidate(
+        document_url,
+        title,
+        source_page_url,
+        args=args,
+        domain_status=classification["status"],
+    )
+    if score < args.candidate_min_score:
+        return None, False
+    exact = _is_exact_document_candidate(document_url, title, args)
+    strong = _has_strong_document_signals(document_url, title, args)
+    official = classification["status"] == "official"
+    operator_status = "needs_operator_review"
+    if (
+        official
+        and exact
+        and strong
+        and score >= args.candidate_auto_review_threshold
+    ):
+        operator_status = "operator_reviewed"
+    confidence = "high" if score >= args.candidate_auto_review_threshold else "medium"
+    candidate = {
+        "company_id": issuer.get("company_id"),
+        "company_name": issuer.get("company_name"),
+        "canonical_company_id": issuer.get("canonical_company_id") or issuer.get("company_id"),
+        "canonical_company_name": issuer.get("canonical_company_name") or issuer.get("company_name"),
+        "report_period": str(args.report_period),
+        "report_type": args.report_type,
+        "accounting_standard": args.accounting_standard,
+        "source_type": _candidate_source_type(document_url, source_page_url),
+        "source_url_context": source_context,
+        "document_url": document_url,
+        "document_title": title,
+        "document_date": "",
+        "source_file_name": _file_name_from_url(document_url),
+        "operator_review_status": operator_status,
+        "notes": classification["message"],
+        "candidate_score": score,
+        "candidate_confidence": confidence,
+        "confidence": confidence,
+        "discovery_method": "official_domain_anchor_scan",
+        "source_page_url": source_page_url,
+        "score_reasons": score_reasons,
+        "negative_reasons": negative_reasons,
+    }
+    _strip_financial_values(candidate)
+    return candidate, False
+
+
+def score_document_candidate(
+    document_url: str,
+    title: str,
+    source_page_url: str,
+    *,
+    args: argparse.Namespace,
+    domain_status: str,
+) -> tuple[int, list[str], list[str]]:
+    text = f"{document_url} {title}".casefold()
+    score = 0
+    reasons: list[str] = []
+    negatives: list[str] = []
+
+    def add(points: int, reason: str) -> None:
+        nonlocal score
+        score += points
+        reasons.append(reason)
+
+    def subtract(points: int, reason: str) -> None:
+        nonlocal score
+        score -= points
+        negatives.append(reason)
+
+    if str(args.report_period) in text:
+        add(25, "target report period")
+    years = set(re.findall(r"20\d{2}", text))
+    if years and str(args.report_period) not in years:
+        subtract(60, "unrelated report year")
+    if _contains_any(text, ("annual", "yearly", "\u0433\u043e\u0434\u043e\u0432", "\u0433\u043e\u0434\u043e\u0432\u0430")):
+        add(15, "annual report signal")
+    if _contains_any(text, ("ifrs", "\u043c\u0441\u0444\u043e")):
+        add(15, "IFRS signal")
+    if _contains_any(text, ("consolidated", "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434")):
+        add(10, "consolidated signal")
+    if _contains_any(text, ("audited", "auditor", "audit", "\u0430\u0443\u0434")):
+        add(10, "audited report signal")
+    if _contains_any(text, ("financial statements", "financial report", "statement", "\u0444\u0438\u043d\u0430\u043d\u0441", "\u043e\u0442\u0447\u0435\u0442")):
+        add(15, "financial reporting signal")
+    if _url_is_pdf(document_url):
+        add(15, "PDF document")
+    if _looks_like_report_document_url(document_url):
+        add(10, "report page path")
+    if domain_status == "official":
+        add(10, "official allowlisted domain")
+    if _candidate_source_type(document_url, source_page_url) == "official_disclosure":
+        add(5, "official disclosure domain")
+    if _contains_any(text, ("presentation", "presentaci", "\u043f\u0440\u0435\u0437\u0435\u043d\u0442")):
+        subtract(60, "presentation document")
+    if _contains_any(text, ("press", "news", "novosti", "\u043d\u043e\u0432\u043e\u0441")):
+        subtract(60, "news or press release")
+    if _contains_any(text, ("coupon", "bond terms", "emission", "prospectus", "securities", "\u043a\u0443\u043f\u043e\u043d", "\u043f\u0440\u043e\u0441\u043f\u0435\u043a\u0442")):
+        subtract(60, "bond/prospectus document")
+    if args.report_type == "annual" and _contains_any(text, ("quarter", "quarterly", "q1", "q2", "q3", "q4")):
+        subtract(45, "quarterly document in annual mode")
+    if _looks_like_landing_page(document_url) and not args.candidate_allow_landing_pages:
+        subtract(40, "landing page only")
+    return max(score, 0), reasons, negatives
+
+
+def _select_top_document_candidates(
+    candidates: list[dict[str, Any]],
+    *,
+    max_candidates: int,
+) -> list[dict[str, Any]]:
+    by_url: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        url = str(candidate.get("document_url") or "")
+        existing = by_url.get(url)
+        if existing is None or int(candidate.get("candidate_score") or 0) > int(existing.get("candidate_score") or 0):
+            by_url[url] = candidate
+    return sorted(
+        by_url.values(),
+        key=lambda item: int(item.get("candidate_score") or 0),
+        reverse=True,
+    )[:max_candidates]
+
+
+def _fetch_candidate_page(
+    url: str,
+    *,
+    timeout_seconds: float,
+    max_bytes: int,
+    user_agent: str,
+) -> dict[str, Any]:
+    request = urllib.request.Request(url, method="GET", headers={"User-Agent": user_agent})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            data = response.read(max_bytes + 1)
+            content_type = response.headers.get("Content-Type") or ""
+            status = getattr(response, "status", 200)
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
+        return {"status": "error", "url": url, "error": str(exc)}
+    if len(data) > max_bytes:
+        return {"status": "error", "url": url, "error": "response exceeded max bytes"}
+    body = data.decode("utf-8", errors="replace")
+    return {
+        "status": "ok",
+        "url": url,
+        "http_status": status,
+        "content_type": content_type,
+        "body": body,
+        "size_bytes": len(data),
+    }
+
+
+def _extract_html_anchors(html: str, base_url: str) -> list[dict[str, str]]:
+    parser = _AnchorExtractor(base_url)
+    parser.feed(html)
+    return parser.anchors
+
+
+def _candidate_allowed_domains(args: argparse.Namespace) -> set[str]:
+    domains = {domain.casefold() for domain in OFFICIAL_SOURCE_DOMAIN_HINTS}
+    domains.update(item.casefold() for item in _split_cli_list(args.candidate_allowed_domains))
+    return domains
+
+
+def _candidate_blocked_hints(args: argparse.Namespace) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            [
+                *BLOCKED_SOURCE_HINTS,
+                *(item.casefold() for item in _split_cli_list(args.candidate_blocked_domains)),
+            ]
+        )
+    )
+
+
+def _classify_candidate_url(
+    url: str,
+    *,
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+    allow_unknown_source: bool,
+) -> dict[str, str]:
+    text = url.casefold()
+    host = _host(url)
+    if not host:
+        return {"status": "unknown_error", "message": "source URL host is missing"}
+    if any(hint in text for hint in blocked_hints):
+        return {"status": "blocked", "message": "blocked unofficial source domain"}
+    if any(host == domain or host.endswith(f".{domain}") for domain in allowed_domains):
+        return {"status": "official", "message": "recognized official-like source domain"}
+    if allow_unknown_source:
+        return {
+            "status": "unknown_warning",
+            "message": "source URL domain is not in the official allowlist; operator review required",
+        }
+    return {"status": "unknown_error", "message": "source URL domain is not in the official allowlist"}
+
+
+def _split_source_context_urls(value: str) -> list[str]:
+    normalized = value.replace("|", ";").replace(",", ";")
+    return [item.strip() for item in normalized.split(";") if item.strip()]
+
+
+def _normalize_candidate_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(str(url).strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path or "/", "", parsed.query, ""))
+
+
+def _is_ignored_href(url: str) -> bool:
+    lowered = str(url).casefold()
+    return lowered.startswith(("mailto:", "tel:", "javascript:"))
+
+
+def _candidate_title(anchor: dict[str, str], document_url: str) -> str:
+    return (
+        anchor.get("text")
+        or anchor.get("title")
+        or urllib.parse.unquote(_file_name_from_url(document_url))
+        or document_url
+    ).strip()
+
+
+def _source_url_context_from_strings(urls: list[str]) -> str:
+    seen: set[str] = set()
+    result: list[str] = []
+    for url in urls:
+        if url and url not in seen:
+            seen.add(url)
+            result.append(url)
+    return " | ".join(result)
+
+
+def _candidate_source_type(document_url: str, source_page_url: str) -> str:
+    host = _host(document_url) or _host(source_page_url)
+    if "moex" in host:
+        return "exchange_disclosure"
+    if "disclosure" in host:
+        return "official_disclosure"
+    return "official_issuer_report"
+
+
+def _url_is_pdf(url: str) -> bool:
+    return urllib.parse.urlparse(str(url)).path.casefold().endswith(".pdf")
+
+
+def _looks_like_report_document_url(url: str) -> bool:
+    path = urllib.parse.urlparse(str(url)).path.casefold()
+    return _url_is_pdf(url) or _contains_any(path, ("report", "annual", "ifrs", "statement", "disclosure", "otchet"))
+
+
+def _is_exact_document_candidate(url: str, title: str, args: argparse.Namespace) -> bool:
+    text = f"{url} {title}".casefold()
+    if _looks_like_landing_page(url) and not args.candidate_allow_landing_pages:
+        return False
+    if args.candidate_require_pdf_or_report_page and not (_url_is_pdf(url) or _looks_like_report_document_url(url)):
+        return False
+    return str(args.report_period) in text and _contains_any(
+        text,
+        ("annual", "yearly", "ifrs", "financial statements", "report", "\u043c\u0441\u0444\u043e", "\u043e\u0442\u0447\u0435\u0442"),
+    )
+
+
+def _has_strong_document_signals(url: str, title: str, args: argparse.Namespace) -> bool:
+    text = f"{url} {title}".casefold()
+    period_ok = str(args.report_period) in text
+    annual_ok = args.report_type != "annual" or _contains_any(text, ("annual", "yearly", "\u0433\u043e\u0434\u043e\u0432"))
+    standard_ok = args.accounting_standard == "unknown" or _contains_any(
+        text,
+        (args.accounting_standard.casefold(), "\u043c\u0441\u0444\u043e"),
+    )
+    report_ok = _contains_any(text, ("financial statements", "financial report", "report", "\u043e\u0442\u0447\u0435\u0442"))
+    bad = _contains_any(text, ("presentation", "press", "news", "prospectus", "coupon", "quarter"))
+    return period_ok and annual_ok and standard_ok and report_ok and not bad
 
 
 def _clone_args(args: argparse.Namespace, **updates: Any) -> argparse.Namespace:
@@ -3587,6 +4259,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Validate filled exact document intake, then run document-resolve before candidate-fill."]
     if mode == "document-quality-gate":
         return ["Run financial value collection only after this gate passes; import remains disabled."]
+    if mode == "document-candidate-discover":
+        return ["Review discovered exact document candidates or run the quality gate before value collection."]
     if mode == "candidate-fill":
         return ["Run preview mode; do not import until a separate controlled import task."]
     return ["Review preview output; import remains disabled in this workflow."]

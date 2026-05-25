@@ -668,6 +668,41 @@ If no exact reviewed candidate file is supplied, the gate fails safely. Only a
 full pass sets `ready_for_value_extraction=true`; `ready_for_import` remains
 `false` in all cases.
 
+## Controlled Official Document Candidate Discovery
+
+Task 102 searches only allowlisted official source pages for exact report
+document candidates. It does not use search engines, parse PDFs for values,
+extract financial values, import reports, mutate identity state, or trade.
+Uncertain links remain operator-review candidates and must still pass the exact
+document quality gate before any value collection.
+
+Run controlled official candidate discovery:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode document-candidate-discover \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --candidate-output data/financial_reports/private/exact_document_candidates_task102.json \
+  --candidate-csv-output data/financial_reports/private/exact_document_candidates_task102.csv \
+  --run-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task102.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task102.md \
+  --json-output logs/financial_reports/exact_document_candidate_discovery_task102.json \
+  --markdown-output logs/financial_reports/exact_document_candidate_discovery_task102.md
+```
+
+The crawler fetches only allowlisted official seed pages, extracts HTML anchors,
+scores document-looking links, and writes candidates compatible with
+`document-intake-fill` and `document-quality-gate`. If exact reviewed documents
+are not found for every required issuer, the quality gate remains failed and
+`ready_for_value_extraction=false`.
+
 ## VDS Smoke Checklist
 
 Health:

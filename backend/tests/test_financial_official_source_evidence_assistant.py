@@ -1194,6 +1194,238 @@ def test_document_quality_gate_partial_gate_warns_only(
     assert any("missing" in item["message"] for item in report["warnings"])
 
 
+def test_document_candidate_discover_mocked_official_html_runs_quality_gate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidate_output = tmp_path / "exact_document_candidates.json"
+    candidate_csv = tmp_path / "exact_document_candidates.csv"
+    gate_output = tmp_path / "quality_gate.json"
+    gate_markdown = tmp_path / "quality_gate.md"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/ | https://www.e-disclosure.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ | https://www.e-disclosure.ru/"),
+        ],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://rzd.ru/": '<a href="/reports/rzd-annual-ifrs-2025.pdf">Annual audited consolidated IFRS financial statements 2025</a>',
+            "https://mostotrest.ru/": '<a href="/reports/mostotrest-annual-ifrs-2025.pdf">Annual audited consolidated IFRS financial statements 2025</a>',
+            "https://www.e-disclosure.ru/": "<html></html>",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-candidate-discover",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--required-company-ids",
+            "18,67",
+            "--candidate-output",
+            str(candidate_output),
+            "--candidate-csv-output",
+            str(candidate_csv),
+            "--run-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+            "--quality-gate-markdown-output",
+            str(gate_markdown),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "passed"
+    assert report["candidate_count"] == 2
+    assert report["reviewed_candidate_count"] == 2
+    assert report["blocked_candidate_count"] == 0
+    assert all(item["operator_review_status"] == "operator_reviewed" for item in report["documents"])
+    assert all(item["candidate_score"] >= 90 for item in report["documents"])
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+    candidate_payload = json.loads(candidate_output.read_text(encoding="utf-8"))
+    assert len(candidate_payload["documents"]) == 2
+    rows = list(csv.DictReader(candidate_csv.open(encoding="utf-8")))
+    assert len(rows) == 2
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is True
+    assert gate["ready_for_value_extraction"] is True
+    assert gate["ready_for_import"] is False
+    assert "Exact Document Quality Gate" in gate_markdown.read_text(encoding="utf-8")
+
+
+def test_document_candidate_discover_without_exact_links_warns_and_gate_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    gate_output = tmp_path / "quality_gate.json"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/"),
+        ],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://rzd.ru/": '<a href="/investors/">Investors</a>',
+            "https://mostotrest.ru/": '<a href="/investors/">Investors</a>',
+            "https://www.e-disclosure.ru/": "<html></html>",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-candidate-discover",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--required-company-ids",
+            "18,67",
+            "--run-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["candidate_count"] == 0
+    assert any("no exact official document candidates found" in item["message"] for item in report["warnings"])
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is False
+    assert gate["ready_for_value_extraction"] is False
+
+
+def test_document_candidate_discover_blocks_and_quarantines_external_links(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://rzd.ru/": """
+                <a href="https://wikipedia.org/wiki/RZD">Annual audited consolidated IFRS financial statements 2025</a>
+                <a href="https://example.com/report-annual-ifrs-2025.pdf">Annual audited consolidated IFRS financial statements 2025</a>
+            """,
+            "https://www.e-disclosure.ru/": "<html></html>",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-candidate-discover",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--required-company-ids",
+            "18",
+            "--allow-unknown-source",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["blocked_candidate_count"] == 1
+    assert report["candidate_count"] == 1
+    assert report["documents"][0]["operator_review_status"] == "needs_operator_review"
+    assert report["documents"][0]["document_url"].startswith("https://example.com/")
+
+
+def test_document_candidate_discover_scoring_rejects_bad_documents(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://rzd.ru/": """
+                <a href="/reports/presentation-ifrs-2025.pdf">Annual IFRS presentation 2025</a>
+                <a href="/reports/q4-ifrs-2025.pdf">Quarterly IFRS financial statements 2025</a>
+                <a href="/reports/annual-ifrs-2024.pdf">Annual audited consolidated IFRS financial statements 2024</a>
+                <a href="/reports/prospectus-2025.pdf">Bond prospectus 2025</a>
+            """,
+            "https://www.e-disclosure.ru/": "<html></html>",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-candidate-discover",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["candidate_count"] == 0
+
+
+def test_document_candidate_discover_network_failures_warn(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+
+    def fake_fetch(url: str, *, timeout_seconds: float, max_bytes: int, user_agent: str) -> dict:
+        return {"status": "error", "url": url, "error": "timeout"}
+
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", fake_fetch)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-candidate-discover",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["candidate_count"] == 0
+    assert any("failed to fetch official seed page" in item["message"] for item in report["warnings"])
+
+
 def test_document_resolve_accepts_operator_reviewed_status(
     tmp_path: Path,
 ) -> None:
@@ -2037,6 +2269,23 @@ def _empty_document_intake_item(company_id: int, name: str, source_context: str)
         "operator_review_status": "operator_to_fill",
         "notes": "Paste exact official annual/audited report page or PDF URL. Do not paste landing page.",
     }
+
+
+def _mock_candidate_fetch(monkeypatch, pages: dict[str, str]) -> None:
+    calls: list[str] = []
+
+    def fake_fetch(url: str, *, timeout_seconds: float, max_bytes: int, user_agent: str) -> dict:
+        calls.append(url)
+        return {
+            "status": "ok",
+            "url": url,
+            "http_status": 200,
+            "content_type": "text/html; charset=utf-8",
+            "body": pages.get(url, "<html></html>"),
+            "size_bytes": len(pages.get(url, "")),
+        }
+
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", fake_fetch)
 
 
 def _write_document_report(path: Path, issuers: list[dict]) -> None:
