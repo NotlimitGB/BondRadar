@@ -981,6 +981,69 @@ operator-reviewed disclosure profile seeds. Generated issuer paths such as
 `/investors/` or `/reports/` are navigation seeds only; they are not exact
 document evidence and cannot make the quality gate pass by themselves.
 
+## Operator Official Seed Intake
+
+Task 104 adds an operator-fillable seed intake for exact official navigation
+pages: issuer investor/reporting pages, official disclosure profile/report
+pages, and official-like exchange issuer pages. This improves navigation for
+candidate discovery only. It does not extract values, import reports, mutate
+identity data, score bonds, activate schedules, or trade. The exact document
+quality gate remains strict.
+
+Create an operator-fillable seed template:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-template \
+  --seed-input data/financial_reports/private/official_seed_pack_task103.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --required-company-ids 18,67 \
+  --operator-seed-output data/financial_reports/private/operator_official_seed_task104.json \
+  --operator-seed-csv-output data/financial_reports/private/operator_official_seed_task104.csv \
+  --json-output logs/financial_reports/operator_official_seed_template_task104.json \
+  --markdown-output logs/financial_reports/operator_official_seed_template_task104.md
+```
+
+Validate filled operator seeds:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-validate \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_filled_task104.json \
+  --required-company-ids 18,67 \
+  --json-output logs/financial_reports/operator_official_seed_validation_task104.json \
+  --markdown-output logs/financial_reports/operator_official_seed_validation_task104.md
+```
+
+Resolve official seeds with reviewed operator input, then run discovery/gate:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode official-seed-resolve \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_filled_task104.json \
+  --required-company-ids 18,67 \
+  --seed-output data/financial_reports/private/official_seed_pack_task104.json \
+  --seed-csv-output data/financial_reports/private/official_seed_pack_task104.csv \
+  --run-candidate-discovery true \
+  --candidate-output data/financial_reports/private/exact_document_candidates_task104.json \
+  --candidate-csv-output data/financial_reports/private/exact_document_candidates_task104.csv \
+  --run-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task104.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task104.md \
+  --json-output logs/financial_reports/official_seed_resolve_task104.json \
+  --markdown-output logs/financial_reports/official_seed_resolve_task104.md
+```
+
+Operator seed intake accepts only official seed metadata. Do not paste financial
+figures, OCR output, parsed table values, search results, news, blogs, forums,
+social pages, or random aggregators. Unknown domains remain review-only even
+with `--allow-unknown-source` and cannot become high-confidence valid seeds.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

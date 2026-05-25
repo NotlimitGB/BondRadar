@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import hashlib
 import json
@@ -29,6 +30,9 @@ MODE_CHOICES = (
     "document-intake-fill",
     "document-quality-gate",
     "document-candidate-discover",
+    "operator-seed-template",
+    "operator-seed-validate",
+    "operator-seed-merge",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -54,6 +58,11 @@ BLOCKED_SOURCE_HINTS = (
     "wikipedia",
     "wikimedia",
     "wikiwand",
+    "google.",
+    "yandex.",
+    "bing.com",
+    "duckduckgo",
+    "yahoo.",
     "vk.com",
     "telegram",
     "t.me",
@@ -97,6 +106,14 @@ ALL_FINANCIAL_FIELDS = list(collection_pack.FINANCIAL_FIELDS)
 FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS = set(ALL_FINANCIAL_FIELDS) | {
     "debt",
     "financial_values",
+}
+FORBIDDEN_SEED_METADATA_FIELDS = FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS | {
+    "exact_extracted_report_values",
+    "field_evidence",
+    "financial_metrics",
+    "ocr_output",
+    "parsed_table_values",
+    "report_values",
 }
 DOCUMENT_VALID_STATUSES = {
     "reviewed_official_document",
@@ -148,6 +165,25 @@ SEED_DEFAULT_TYPES = (
     "official_disclosure_profile",
     "official_disclosure_reports",
 )
+OPERATOR_SEED_DEFAULT_REQUIRED_TYPES = (
+    "official_disclosure_profile",
+    "official_disclosure_reports",
+    "issuer_reports",
+)
+OPERATOR_SEED_ALLOWED_TYPES = set(SEED_DEFAULT_TYPES) | {"manual_official_seed"}
+OPERATOR_SEED_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "inn",
+    "ogrn",
+    "seed_type",
+    "seed_url",
+    "operator_review_status",
+    "source_context",
+    "notes",
+]
 SEED_TYPE_ALIASES = {
     "issuer_home": "issuer_home",
     "issuer_reports": "issuer_reports",
@@ -277,6 +313,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--seed-output", type=Path, default=None)
     parser.add_argument("--seed-csv-output", type=Path, default=None)
     parser.add_argument("--operator-seed-input", type=Path, default=None)
+    parser.add_argument("--operator-seed-output", type=Path, default=None)
+    parser.add_argument("--operator-seed-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-seed-template-status", default="operator_to_fill")
+    parser.add_argument(
+        "--operator-seed-required-types",
+        default="official_disclosure_profile,official_disclosure_reports,issuer_reports",
+    )
+    parser.add_argument("--operator-seed-prefer-disclosure", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-prefer-issuer-site", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-require-reviewed", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-validate-only", type=_parse_bool, default=False)
     parser.add_argument("--seed-allowed-domains", default="")
     parser.add_argument("--seed-blocked-domains", default="")
     parser.add_argument(
@@ -356,6 +403,12 @@ def run_assistant(
         report = run_document_quality_gate(args)
     elif args.mode == "document-candidate-discover":
         report = run_document_candidate_discover(args)
+    elif args.mode == "operator-seed-template":
+        report = run_operator_seed_template(args)
+    elif args.mode == "operator-seed-validate":
+        report = run_operator_seed_validate(args)
+    elif args.mode == "operator-seed-merge":
+        report = run_operator_seed_merge(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -1625,6 +1678,195 @@ def run_document_quality_gate(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def run_operator_seed_template(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    input_documents: list[dict[str, Any]] = []
+    seed_issuers: list[dict[str, Any]] = []
+    financial_rows: list[dict[str, Any]] = []
+
+    try:
+        if args.document_intake_input is not None:
+            input_documents = load_document_intake_file(args.document_intake_input)
+        else:
+            warnings.append({"message": "document intake input is not provided; issuer context is reduced"})
+        if args.seed_input is not None:
+            seed_issuers = load_seed_pack_issuers(args.seed_input)
+        else:
+            warnings.append({"message": "seed input is not provided; source context is reduced"})
+        if args.financial_template_input is not None:
+            financial_rows = load_template_rows(args.financial_template_input)
+        else:
+            warnings.append({"message": "financial template input is not provided; INN/OGRN enrichment skipped"})
+    except Exception as exc:
+        errors.append({"message": str(exc)})
+
+    required_issuers = _operator_seed_required_issuers(
+        args,
+        input_documents=input_documents,
+        seed_issuers=seed_issuers,
+        financial_rows=financial_rows,
+    )
+    seed_types = _operator_seed_required_types(args.operator_seed_required_types, args=args)
+    if not required_issuers and not errors:
+        errors.append({"message": "operator-seed-template mode requires required issuers or input issuer context"})
+    if not seed_types and not errors:
+        errors.append({"message": "operator seed required types are empty"})
+
+    seeds: list[dict[str, Any]] = []
+    if not errors:
+        for required in required_issuers:
+            issuer = _operator_seed_issuer_base(
+                required,
+                input_documents=input_documents,
+                seed_issuers=seed_issuers,
+                financial_rows=financial_rows,
+            )
+            source_context = _operator_seed_source_context(
+                issuer,
+                seed_issuers=seed_issuers,
+                input_documents=input_documents,
+            )
+            if not issuer.get("inn") or not issuer.get("ogrn"):
+                warnings.append(
+                    {
+                        "company_id": issuer.get("company_id"),
+                        "company_name": issuer.get("company_name"),
+                        "message": "INN/OGRN missing for operator seed template row",
+                    }
+                )
+            for seed_type in seed_types:
+                item = {
+                    "company_id": issuer.get("company_id"),
+                    "company_name": issuer.get("company_name") or "",
+                    "canonical_company_id": issuer.get("canonical_company_id"),
+                    "canonical_company_name": issuer.get("canonical_company_name") or "",
+                    "inn": issuer.get("inn") or "",
+                    "ogrn": issuer.get("ogrn") or "",
+                    "seed_type": seed_type,
+                    "seed_url": "",
+                    "operator_review_status": args.operator_seed_template_status,
+                    "source_context": source_context,
+                    "notes": _operator_seed_template_notes(seed_type),
+                }
+                _strip_financial_values(item)
+                seeds.append(item)
+
+    status = "failed" if errors else "template"
+    report = {
+        "status": status,
+        "mode": "operator-seed-template",
+        "issuer_count": len(required_issuers) if not errors else 0,
+        "seed_template_count": len(seeds),
+        "seeds": seeds,
+        "warnings": warnings,
+        "errors": errors,
+        "operator_seed_output": _path_value(args.operator_seed_output),
+        "operator_seed_csv_output": _path_value(args.operator_seed_csv_output),
+        "next_steps": _next_steps("operator-seed-template", status),
+        **SAFETY_FLAGS,
+    }
+    if args.operator_seed_output is not None and not errors:
+        write_json_report(report, args.operator_seed_output)
+    if args.operator_seed_csv_output is not None and not errors:
+        write_operator_seed_csv(seeds, args.operator_seed_csv_output)
+    return report
+
+
+def run_operator_seed_validate(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    seeds: list[dict[str, Any]] = []
+    if args.operator_seed_input is None:
+        errors.append({"message": "operator-seed-validate mode requires --operator-seed-input"})
+    if not errors:
+        try:
+            seeds = load_operator_seed_items(args.operator_seed_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    report = _build_operator_seed_validation_report(args, seeds=seeds, load_errors=errors)
+    report["warnings"] = [*warnings, *(report.get("warnings") or [])]
+    return report
+
+
+def run_operator_seed_merge(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    seed_issuers: list[dict[str, Any]] = []
+    operator_seeds: list[dict[str, Any]] = []
+
+    if args.seed_input is None:
+        errors.append({"message": "operator-seed-merge mode requires --seed-input"})
+    if args.operator_seed_input is None:
+        errors.append({"message": "operator-seed-merge mode requires --operator-seed-input"})
+    if not errors:
+        try:
+            seed_issuers = load_seed_pack_issuers(args.seed_input)
+            operator_seeds = load_operator_seed_items(args.operator_seed_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    validation_report = _build_operator_seed_validation_report(args, seeds=operator_seeds, load_errors=errors)
+    validation_results = validation_report.get("seeds") or []
+    merged_issuers = copy.deepcopy(seed_issuers)
+    existing_seed_count = sum(len(issuer.get("official_seeds") or []) for issuer in seed_issuers)
+
+    if not args.operator_seed_validate_only:
+        for result in validation_results:
+            if not _operator_seed_merge_eligible(result, args=args):
+                continue
+            issuer = _find_or_create_seed_issuer(merged_issuers, result)
+            issuer.setdefault("official_seeds", []).append(_operator_seed_result_to_official_seed(result))
+        for issuer in merged_issuers:
+            issuer["official_seeds"] = _dedupe_validated_seeds(issuer.get("official_seeds") or [])
+
+    merged_seed_count = sum(len(issuer.get("official_seeds") or []) for issuer in merged_issuers)
+    valid_merged_count = sum(
+        1
+        for issuer in merged_issuers
+        for seed in issuer.get("official_seeds") or []
+        if seed.get("source") == "operator_seed" and seed.get("seed_status") == "valid_seed"
+    )
+    review_needed_merged_count = sum(
+        1
+        for issuer in merged_issuers
+        for seed in issuer.get("official_seeds") or []
+        if seed.get("source") == "operator_seed" and seed.get("seed_status") == "needs_operator_review"
+    )
+    invalid_rejected_count = sum(
+        1 for item in validation_results if item.get("seed_status") in {"invalid_seed", "blocked_seed"}
+    )
+    warnings.extend(validation_report.get("warnings") or [])
+    errors.extend(validation_report.get("errors") or [])
+    status = "failed" if errors else "warning" if warnings or review_needed_merged_count else "passed"
+    report = {
+        "status": status,
+        "mode": "operator-seed-merge",
+        "issuer_count": len(merged_issuers),
+        "existing_seed_count": existing_seed_count,
+        "operator_seed_count": len(operator_seeds),
+        "merged_seed_count": merged_seed_count,
+        "valid_merged_count": valid_merged_count,
+        "review_needed_count": review_needed_merged_count,
+        "invalid_rejected_count": invalid_rejected_count,
+        "validate_only": bool(args.operator_seed_validate_only),
+        "issuers": merged_issuers,
+        "validation_report": validation_report,
+        "warnings": warnings,
+        "errors": errors,
+        "seed_output": _path_value(args.seed_output),
+        "seed_csv_output": _path_value(args.seed_csv_output),
+        "next_steps": _next_steps("operator-seed-merge", status),
+        **SAFETY_FLAGS,
+    }
+    if args.seed_output is not None and not args.operator_seed_validate_only:
+        write_json_report(report, args.seed_output)
+    if args.seed_csv_output is not None and not args.operator_seed_validate_only:
+        write_seed_csv(merged_issuers, args.seed_csv_output)
+    return report
+
+
 def run_official_seed_resolve(args: argparse.Namespace) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -2877,6 +3119,15 @@ def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
                 writer.writerow({field: _csv_value(row.get(field)) for field in SEED_FIELDS})
 
 
+def write_operator_seed_csv(seeds: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_SEED_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for seed in seeds:
+            writer.writerow({field: _csv_value(seed.get(field)) for field in OPERATOR_SEED_FIELDS})
+
+
 def load_manual_values_by_key(
     *,
     manual_values_json: Path | None,
@@ -2981,6 +3232,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "document-quality-gate"
         else "Exact Official Document Candidate Discovery"
         if report.get("mode") == "document-candidate-discover"
+        else "Operator Official Seed Template"
+        if report.get("mode") == "operator-seed-template"
+        else "Operator Official Seed Validation"
+        if report.get("mode") == "operator-seed-validate"
+        else "Operator Official Seed Merge"
+        if report.get("mode") == "operator-seed-merge"
         else "Official Seed Resolver"
         if report.get("mode") == "official-seed-resolve"
         else "Exact Official Report Document Resolver"
@@ -3011,6 +3268,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_document_quality_gate_markdown_sections(report))
     if report.get("mode") == "document-candidate-discover":
         lines.extend(_render_document_candidate_discovery_markdown_sections(report))
+    if report.get("mode") == "operator-seed-template":
+        lines.extend(_render_operator_seed_template_markdown_sections(report))
+    if report.get("mode") == "operator-seed-validate":
+        lines.extend(_render_operator_seed_validation_markdown_sections(report))
+    if report.get("mode") == "operator-seed-merge":
+        lines.extend(_render_operator_seed_merge_markdown_sections(report))
     if report.get("mode") == "official-seed-resolve":
         lines.extend(_render_official_seed_markdown_sections(report))
     lines.extend(
@@ -3343,6 +3606,121 @@ def _render_document_candidate_discovery_markdown_sections(report: dict[str, Any
     return lines
 
 
+def _render_operator_seed_template_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Seeds To Fill",
+        "",
+        f"- seed_template_count: {report.get('seed_template_count', 0)}",
+        "",
+        "| Company ID | Company | INN | OGRN | Seed Type | Seed URL | Operator Status | Source Context | Operator Action |",
+        "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for seed in report.get("seeds") or []:
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {inn} | {ogrn} | {seed_type} | {seed_url} | {status} | {context} | {notes} |".format(
+                company_id=seed.get("company_id") or "",
+                company_name=str(seed.get("company_name") or "").replace("|", "/"),
+                inn=seed.get("inn") or "",
+                ogrn=seed.get("ogrn") or "",
+                seed_type=seed.get("seed_type") or "",
+                seed_url=seed.get("seed_url") or "",
+                status=seed.get("operator_review_status") or "",
+                context=str(seed.get("source_context") or "").replace("|", "/"),
+                notes=str(seed.get("notes") or "").replace("|", "/"),
+            )
+        )
+    if rows == 0:
+        lines.append("|  |  |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Rules",
+            "",
+            "- Use official issuer/disclosure/MOEX pages only.",
+            "- Do not use search results.",
+            "- Do not use news/blog/forum/social pages.",
+            "- Do not paste financial values.",
+            "- Do not paste exact financial figures.",
+            "- Seed pages do not bypass exact document quality gate.",
+            "",
+        ]
+    )
+    return lines
+
+
+def _render_operator_seed_validation_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Operator Seed Validation",
+        "",
+        f"- valid_seed_count: {report.get('valid_seed_count', 0)}",
+        f"- needs_operator_review_count: {report.get('needs_operator_review_count', 0)}",
+        f"- invalid_seed_count: {report.get('invalid_seed_count', 0)}",
+        "",
+        "| Company ID | Company | INN | OGRN | Seed Type | Seed URL | Status | Confidence | Operator Status |",
+        "| ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for seed in report.get("seeds") or []:
+        rows += 1
+        lines.append(
+            "| {company_id} | {company_name} | {inn} | {ogrn} | {seed_type} | {seed_url} | {status} | {confidence} | {review} |".format(
+                company_id=seed.get("company_id") or "",
+                company_name=str(seed.get("company_name") or "").replace("|", "/"),
+                inn=seed.get("inn") or "",
+                ogrn=seed.get("ogrn") or "",
+                seed_type=seed.get("seed_type") or "",
+                seed_url=str(seed.get("seed_url") or "").replace("|", "/"),
+                status=seed.get("seed_status") or "",
+                confidence=seed.get("confidence") or "",
+                review=seed.get("operator_review_status") or "",
+            )
+        )
+    if rows == 0:
+        lines.append("|  |  |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Blocking Issues",
+            "",
+        ]
+    )
+    blockers = report.get("errors") or []
+    if blockers:
+        lines.extend(f"- {_message_text(item)}" for item in blockers)
+    else:
+        lines.append("- None")
+    lines.append("")
+    return lines
+
+
+def _render_operator_seed_merge_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Operator Seed Merge",
+        "",
+        f"- existing seed count: {report.get('existing_seed_count', 0)}",
+        f"- operator seed count: {report.get('operator_seed_count', 0)}",
+        f"- merged seed count: {report.get('merged_seed_count', 0)}",
+        f"- valid merged count: {report.get('valid_merged_count', 0)}",
+        f"- review-needed count: {report.get('review_needed_count', 0)}",
+        f"- invalid rejected count: {report.get('invalid_rejected_count', 0)}",
+        "",
+    ]
+    validation = report.get("validation_report") or {}
+    lines.extend(
+        [
+            "## Validation Summary",
+            "",
+            f"- valid_seed_count: {validation.get('valid_seed_count', 0)}",
+            f"- needs_operator_review_count: {validation.get('needs_operator_review_count', 0)}",
+            f"- invalid_seed_count: {validation.get('invalid_seed_count', 0)}",
+            "",
+        ]
+    )
+    return lines
+
+
 def _render_official_seed_markdown_sections(report: dict[str, Any]) -> list[str]:
     lines = [
         "## Official Seeds",
@@ -3507,7 +3885,7 @@ def _disclosure_domain(hints: list[str]) -> str | None:
 
 
 def _strip_financial_values(candidate: dict[str, Any]) -> None:
-    for field in FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS:
+    for field in FORBIDDEN_SEED_METADATA_FIELDS:
         candidate.pop(field, None)
     candidate.pop("values", None)
     candidate.pop("field_evidence", None)
@@ -3811,6 +4189,392 @@ def _candidate_blocked_hints(args: argparse.Namespace) -> tuple[str, ...]:
     )
 
 
+def _operator_seed_required_types(value: str | None, *, args: argparse.Namespace) -> list[str]:
+    raw_values = _split_cli_list(value) or list(OPERATOR_SEED_DEFAULT_REQUIRED_TYPES)
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for item in raw_values:
+        canonical = SEED_TYPE_ALIASES.get(item.strip().casefold().replace("-", "_"))
+        if canonical and canonical in OPERATOR_SEED_ALLOWED_TYPES and canonical not in seen:
+            seen.add(canonical)
+            normalized.append(canonical)
+    if not normalized:
+        normalized = list(OPERATOR_SEED_DEFAULT_REQUIRED_TYPES)
+
+    def sort_key(seed_type: str) -> tuple[int, int]:
+        original_index = normalized.index(seed_type)
+        if args.operator_seed_prefer_disclosure and seed_type.startswith("official_disclosure"):
+            return (0, original_index)
+        if args.operator_seed_prefer_issuer_site and seed_type.startswith("issuer_"):
+            return (1, original_index)
+        return (2, original_index)
+
+    return sorted(normalized, key=sort_key)
+
+
+def _operator_seed_required_issuers(
+    args: argparse.Namespace,
+    *,
+    input_documents: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
+    financial_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    ids = _split_cli_list(args.required_company_ids)
+    names = _split_cli_list(args.required_company_names)
+    sources = [*input_documents, *seed_issuers, *financial_rows]
+    required: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(item: dict[str, Any]) -> None:
+        key = (str(item.get("company_id") or ""), _normalize_name(str(item.get("company_name") or "")))
+        if key in seen:
+            return
+        seen.add(key)
+        required.append(item)
+
+    for index, company_id in enumerate(ids):
+        matched = _first_matching_company_id(sources, company_id)
+        add(
+            {
+                "company_id": _maybe_int(company_id),
+                "company_name": (
+                    names[index]
+                    if index < len(names)
+                    else matched.get("company_name") or matched.get("canonical_company_name") or ""
+                ),
+            }
+        )
+    for name in names[len(ids):]:
+        add({"company_id": None, "company_name": name})
+    if required:
+        return required
+    for source in sources:
+        add(
+            {
+                "company_id": _maybe_int(_document_company_key(source)),
+                "company_name": source.get("company_name") or source.get("canonical_company_name") or "",
+            }
+        )
+    return required
+
+
+def _operator_seed_issuer_base(
+    required: dict[str, Any],
+    *,
+    input_documents: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
+    financial_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    candidates = [
+        *_items_matching_required(input_documents, required),
+        *_items_matching_required(seed_issuers, required),
+        *_items_matching_required(financial_rows, required),
+    ]
+    chosen = candidates[0] if candidates else required
+    identity = (_items_matching_required(financial_rows, required) or _items_matching_required(seed_issuers, required) or [{}])[0]
+    return {
+        "company_id": chosen.get("company_id") or required.get("company_id"),
+        "company_name": chosen.get("company_name") or required.get("company_name") or "",
+        "canonical_company_id": chosen.get("canonical_company_id") or chosen.get("company_id") or required.get("company_id"),
+        "canonical_company_name": chosen.get("canonical_company_name") or chosen.get("company_name") or required.get("company_name") or "",
+        "inn": identity.get("inn") or "",
+        "ogrn": identity.get("ogrn") or "",
+    }
+
+
+def _operator_seed_source_context(
+    issuer: dict[str, Any],
+    *,
+    seed_issuers: list[dict[str, Any]],
+    input_documents: list[dict[str, Any]],
+) -> str:
+    preferred_urls: list[str] = []
+    fallback_urls: list[str] = []
+    for seed_issuer in _items_matching_required(seed_issuers, issuer):
+        for seed in seed_issuer.get("official_seeds") or []:
+            url = str(seed.get("seed_url") or "").strip()
+            if not url:
+                continue
+            if seed.get("seed_status") == "valid_seed" and seed.get("source") != "generated_official_path":
+                preferred_urls.append(url)
+            elif seed.get("seed_status") in {"valid_seed", "needs_operator_review"}:
+                fallback_urls.append(url)
+    if not preferred_urls:
+        for document in _items_matching_required(input_documents, issuer):
+            fallback_urls.extend(_split_source_context_urls(str(document.get("source_url_context") or "")))
+    return _source_url_context_from_strings((preferred_urls or fallback_urls)[:6])
+
+
+def _operator_seed_template_notes(seed_type: str) -> str:
+    notes = {
+        "official_disclosure_profile": (
+            "Paste exact official disclosure company profile URL. Do not paste search results, "
+            "news, blogs, or financial values."
+        ),
+        "official_disclosure_reports": (
+            "Paste exact official disclosure reports/messages page URL. Do not paste report values."
+        ),
+        "issuer_reports": (
+            "Paste exact official issuer annual reports/reporting page URL. Do not paste financial values."
+        ),
+        "issuer_investor_relations": (
+            "Paste exact official issuer investor relations page URL. Do not paste search results or figures."
+        ),
+    }
+    return notes.get(seed_type, "Paste reviewed official seed page URL only. Do not paste financial values.")
+
+
+def _build_operator_seed_validation_report(
+    args: argparse.Namespace,
+    *,
+    seeds: list[dict[str, Any]],
+    load_errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = list(load_errors)
+    required_issuers = _operator_seed_required_issuers(
+        args,
+        input_documents=seeds,
+        seed_issuers=[],
+        financial_rows=[],
+    )
+    duplicate_keys = _operator_seed_duplicate_keys(seeds)
+    results: list[dict[str, Any]] = []
+    if not load_errors:
+        for index, seed in enumerate(seeds, start=1):
+            result = validate_operator_seed_item(
+                seed,
+                row_index=index,
+                args=args,
+                duplicate_keys=duplicate_keys,
+            )
+            results.append(result)
+            warnings.extend(result.get("warnings") or [])
+            errors.extend(result.get("errors") or [])
+        required_types = set(_operator_seed_required_types(args.operator_seed_required_types, args=args))
+        for required in required_issuers:
+            issuer_results = _items_matching_required(results, required)
+            for seed_type in required_types:
+                if not any(item.get("seed_type") == seed_type for item in issuer_results):
+                    warnings.append(
+                        {
+                            "company_id": required.get("company_id"),
+                            "company_name": required.get("company_name"),
+                            "seed_type": seed_type,
+                            "message": "required operator seed type is missing",
+                        }
+                    )
+
+    valid_count = sum(1 for item in results if item.get("seed_status") == "valid_seed")
+    review_count = sum(1 for item in results if item.get("seed_status") == "needs_operator_review")
+    invalid_count = sum(1 for item in results if item.get("seed_status") in {"invalid_seed", "blocked_seed"})
+    blocked_count = sum(1 for item in results if item.get("seed_status") == "blocked_seed")
+    status = "failed" if errors else "warning" if warnings or review_count else "passed"
+    return {
+        "status": status,
+        "mode": "operator-seed-validate",
+        "issuer_count": len(required_issuers),
+        "seed_count": len(results),
+        "valid_seed_count": valid_count,
+        "needs_operator_review_count": review_count,
+        "invalid_seed_count": invalid_count,
+        "blocked_seed_count": blocked_count,
+        "seeds": results,
+        "warnings": warnings,
+        "errors": errors,
+        "operator_seed_input": _path_value(args.operator_seed_input),
+        "next_steps": _next_steps("operator-seed-validate", status),
+        **SAFETY_FLAGS,
+    }
+
+
+def validate_operator_seed_item(
+    seed: dict[str, Any],
+    *,
+    row_index: int,
+    args: argparse.Namespace,
+    duplicate_keys: set[tuple[str, str, str]],
+) -> dict[str, Any]:
+    seed_url = _normalize_candidate_url(str(seed.get("seed_url") or seed.get("url") or ""))
+    raw_seed_type = str(seed.get("seed_type") or "").strip()
+    seed_type = _normalize_seed_type(raw_seed_type, seed_url, str(seed.get("source_type") or ""))
+    operator_review_status = str(seed.get("operator_review_status") or "").strip()
+    issuer = {
+        "company_id": seed.get("company_id"),
+        "company_name": seed.get("company_name") or "",
+        "canonical_company_id": seed.get("canonical_company_id") or seed.get("company_id"),
+        "canonical_company_name": seed.get("canonical_company_name") or seed.get("company_name") or "",
+    }
+    allowed_domains = _seed_allowed_domains(args)
+    blocked_hints = _seed_blocked_hints(args)
+    validation_seed = {
+        **seed,
+        "seed_type": seed_type,
+        "seed_url": seed_url,
+        "source": "operator_seed",
+        "reason": str(seed.get("notes") or "operator-provided official seed"),
+    }
+    validation = validate_official_seed_candidate(
+        validation_seed,
+        issuer=issuer,
+        args=args,
+        allowed_domains=allowed_domains,
+        blocked_hints=blocked_hints,
+    )
+    result = {
+        "row_index": row_index,
+        "company_id": seed.get("company_id"),
+        "company_name": seed.get("company_name") or "",
+        "canonical_company_id": seed.get("canonical_company_id") or seed.get("company_id"),
+        "canonical_company_name": seed.get("canonical_company_name") or seed.get("company_name") or "",
+        "inn": seed.get("inn") or "",
+        "ogrn": seed.get("ogrn") or "",
+        "seed_type": validation.get("seed_type") or seed_type,
+        "seed_url": validation.get("seed_url") or seed_url,
+        "seed_status": validation.get("seed_status") or "invalid_seed",
+        "confidence": validation.get("confidence") or "low",
+        "source": "operator_seed",
+        "reason": validation.get("reason") or str(seed.get("notes") or "operator-provided official seed"),
+        "operator_review_status": operator_review_status,
+        "source_context": seed.get("source_context") or "",
+        "notes": seed.get("notes") or "",
+        "domain_status": "",
+        "warnings": list(validation.get("warnings") or []),
+        "errors": list(validation.get("errors") or []),
+    }
+    extra_errors: list[dict[str, Any]] = []
+    extra_warnings: list[dict[str, Any]] = []
+    base = {
+        "row_index": row_index,
+        "company_id": seed.get("company_id"),
+        "company_name": seed.get("company_name") or "",
+        "seed_type": result["seed_type"],
+        "seed_url": result["seed_url"],
+    }
+    if seed.get("company_id") in (None, ""):
+        extra_errors.append({**base, "message": "company_id is required"})
+    if not raw_seed_type:
+        extra_errors.append({**base, "message": "seed_type is required"})
+    elif result["seed_type"] not in OPERATOR_SEED_ALLOWED_TYPES:
+        extra_errors.append({**base, "message": "seed_type is not allowed"})
+    if args.operator_seed_require_reviewed and operator_review_status not in DOCUMENT_INTAKE_REVIEWED_STATUSES:
+        extra_errors.append({**base, "message": "operator_review_status must be reviewed or operator_reviewed"})
+    if seed_url:
+        classification = _classify_candidate_url(
+            seed_url,
+            allowed_domains=allowed_domains,
+            blocked_hints=blocked_hints,
+            allow_unknown_source=args.allow_unknown_source,
+        )
+        result["domain_status"] = classification["status"]
+        inferred_type = _normalize_seed_type("", seed_url, str(seed.get("source_type") or ""))
+        if _looks_like_generic_seed_page(seed_url):
+            extra_warnings.append({**base, "message": "seed_url is official-like but looks like generic home page"})
+        if inferred_type != result["seed_type"] and inferred_type not in {"issuer_home", "official_disclosure_home"}:
+            extra_warnings.append({**base, "message": "seed_type does not match URL path"})
+    key = (
+        str(seed.get("company_id") or seed.get("canonical_company_id") or ""),
+        str(result["seed_type"] or ""),
+        str(result["seed_url"] or ""),
+    )
+    if key in duplicate_keys:
+        extra_warnings.append({**base, "message": "duplicate seed for same company/type/url"})
+    if _operator_seed_looks_generated(seed):
+        extra_warnings.append({**base, "message": "seed looks generated/probable; operator must confirm exact page"})
+    if seed.get("inn") in (None, "") or seed.get("ogrn") in (None, ""):
+        extra_warnings.append({**base, "message": "INN/OGRN missing for operator seed"})
+    if extra_errors and result["seed_status"] != "blocked_seed":
+        result["seed_status"] = "invalid_seed"
+        result["confidence"] = "low"
+    result["warnings"].extend(extra_warnings)
+    result["errors"].extend(extra_errors)
+    _strip_financial_values(result)
+    return result
+
+
+def _operator_seed_duplicate_keys(seeds: list[dict[str, Any]]) -> set[tuple[str, str, str]]:
+    counts: dict[tuple[str, str, str], int] = {}
+    for seed in seeds:
+        seed_url = _normalize_candidate_url(str(seed.get("seed_url") or seed.get("url") or ""))
+        if not seed_url:
+            continue
+        key = (
+            str(seed.get("company_id") or seed.get("canonical_company_id") or ""),
+            _normalize_seed_type(seed.get("seed_type"), seed_url, str(seed.get("source_type") or "")),
+            seed_url,
+        )
+        counts[key] = counts.get(key, 0) + 1
+    return {key for key, count in counts.items() if count > 1}
+
+
+def _operator_seed_looks_generated(seed: dict[str, Any]) -> bool:
+    text = " ".join(
+        str(seed.get(field) or "")
+        for field in ("source", "reason", "notes", "discovery_method")
+    ).casefold()
+    return "generated" in text or "probable" in text
+
+
+def _looks_like_generic_seed_page(url: str) -> bool:
+    parsed = urllib.parse.urlparse(str(url))
+    path = (parsed.path or "/").rstrip("/")
+    if path in {"", "/"}:
+        return True
+    lower_path = path.casefold()
+    return lower_path in {"/investors", "/investor", "/ir", "/reports", "/disclosure"}
+
+
+def _operator_seed_merge_eligible(result: dict[str, Any], *, args: argparse.Namespace) -> bool:
+    if result.get("errors"):
+        return False
+    if result.get("operator_review_status") not in DOCUMENT_INTAKE_REVIEWED_STATUSES:
+        return False
+    if result.get("seed_status") == "valid_seed":
+        return True
+    return bool(
+        args.allow_unknown_source
+        and result.get("seed_status") == "needs_operator_review"
+        and result.get("domain_status") == "unknown_warning"
+    )
+
+
+def _find_or_create_seed_issuer(issuers: list[dict[str, Any]], result: dict[str, Any]) -> dict[str, Any]:
+    for issuer in issuers:
+        if _matches_required_issuer(issuer, result):
+            return issuer
+    issuer = {
+        "company_id": result.get("company_id"),
+        "company_name": result.get("company_name") or "",
+        "canonical_company_id": result.get("canonical_company_id") or result.get("company_id"),
+        "canonical_company_name": result.get("canonical_company_name") or result.get("company_name") or "",
+        "inn": result.get("inn") or "",
+        "ogrn": result.get("ogrn") or "",
+        "official_seeds": [],
+        "warnings": [],
+        "errors": [],
+    }
+    issuers.append(issuer)
+    return issuer
+
+
+def _operator_seed_result_to_official_seed(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "seed_type": result.get("seed_type") or "",
+        "seed_url": result.get("seed_url") or "",
+        "seed_status": result.get("seed_status") or "",
+        "confidence": result.get("confidence") or "low",
+        "source": "operator_seed",
+        "reason": result.get("notes") or result.get("reason") or "operator-provided official seed",
+        "operator_review_status": result.get("operator_review_status") or "",
+        "source_context": result.get("source_context") or "",
+        "probe_status": "",
+        "http_status": None,
+        "content_type": "",
+        "warnings": result.get("warnings") or [],
+        "errors": [],
+    }
+
+
 def _classify_candidate_url(
     url: str,
     *,
@@ -4045,10 +4809,10 @@ def validate_official_seed_candidate(
     }
     forbidden_fields = [
         field
-        for field in FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS
+        for field in FORBIDDEN_SEED_METADATA_FIELDS
         if seed.get(field) not in (None, "")
     ]
-    if forbidden_fields or seed.get("values"):
+    if forbidden_fields or seed.get("values") or seed.get("field_evidence"):
         errors.append(
             {
                 "company_id": issuer.get("company_id"),
@@ -4114,8 +4878,9 @@ def validate_official_seed_candidate(
             base["confidence"] = "high"
             if seed.get("source") == "generated_official_path":
                 base["seed_status"] = "valid_seed"
-    if errors and base["seed_status"] == "needs_operator_review":
+    if errors and base["seed_status"] != "blocked_seed":
         base["seed_status"] = "invalid_seed"
+        base["confidence"] = "low"
     return base
 
 
@@ -5000,6 +5765,12 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Run financial value collection only after this gate passes; import remains disabled."]
     if mode == "document-candidate-discover":
         return ["Review discovered exact document candidates or run the quality gate before value collection."]
+    if mode == "operator-seed-template":
+        return ["Fill seed_url with reviewed official navigation pages, then run operator-seed-validate."]
+    if mode == "operator-seed-validate":
+        return ["Use reviewed valid seeds with official-seed-resolve; exact documents still require the quality gate."]
+    if mode == "operator-seed-merge":
+        return ["Use the merged seed pack for official-seed-resolve or controlled candidate discovery."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":

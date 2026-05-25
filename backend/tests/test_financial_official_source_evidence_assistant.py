@@ -1478,6 +1478,461 @@ def test_official_seed_resolve_from_source_intake_builds_seed_pack(
     assert {"issuer_home", "official_disclosure_home"} & {row["seed_type"] for row in rows}
 
 
+def test_operator_seed_template_writes_fillable_json_and_csv(
+    tmp_path: Path,
+) -> None:
+    financial_template, _, _ = _write_task95_outputs(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    seed_pack = tmp_path / "official_seed_pack.json"
+    output = tmp_path / "operator_seed_template.json"
+    csv_output = tmp_path / "operator_seed_template.csv"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/ | https://www.e-disclosure.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ | https://www.e-disclosure.ru/"),
+        ],
+    )
+    _write_seed_pack(seed_pack)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-template",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--financial-template-input",
+            str(financial_template),
+            "--required-company-ids",
+            "18,67",
+            "--operator-seed-output",
+            str(output),
+            "--operator-seed-csv-output",
+            str(csv_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["status"] == "template"
+    assert report["issuer_count"] == 2
+    assert report["seed_template_count"] == 6
+    assert all(seed["seed_url"] == "" for seed in report["seeds"])
+    assert {seed["inn"] for seed in report["seeds"]} >= {"7708503727", "7701045732"}
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+    assert report["read_only"] is True
+    assert report["dry_run_only"] is True
+    assert report["import_executed"] is False
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["seeds"][0]["operator_review_status"] == "operator_to_fill"
+    rzd_contexts = [seed["source_context"] for seed in payload["seeds"] if seed["company_id"] == 18]
+    assert any("https://www.e-disclosure.ru/" in context for context in rzd_contexts)
+    assert all("https://rzd.ru/reports/" not in context for context in rzd_contexts)
+    rows = list(csv.DictReader(csv_output.open(encoding="utf-8")))
+    assert rows
+    assert rows[0].keys() == {
+        "company_id",
+        "company_name",
+        "canonical_company_id",
+        "canonical_company_name",
+        "inn",
+        "ogrn",
+        "seed_type",
+        "seed_url",
+        "operator_review_status",
+        "source_context",
+        "notes",
+    }
+
+
+def test_operator_seed_validate_accepts_reviewed_official_seeds(
+    tmp_path: Path,
+) -> None:
+    operator_seed = tmp_path / "operator_seed.json"
+    _write_operator_seeds(
+        operator_seed,
+        [
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "inn": "7708503727",
+                "ogrn": "1037739877295",
+                "seed_type": "official_disclosure_profile",
+                "seed_url": "https://www.e-disclosure.ru/portal/company.aspx?id=1",
+                "operator_review_status": "operator_reviewed",
+                "notes": "Synthetic official disclosure profile page",
+            },
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "inn": "7708503727",
+                "ogrn": "1037739877295",
+                "seed_type": "issuer_reports",
+                "seed_url": "https://rzd.ru/reports/annual/",
+                "operator_review_status": "reviewed",
+                "notes": "Synthetic issuer annual reports page",
+            },
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-validate",
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["valid_seed_count"] == 2
+    assert report["invalid_seed_count"] == 0
+    assert all(seed["seed_status"] == "valid_seed" for seed in report["seeds"])
+
+
+def test_operator_seed_validate_blocks_missing_unreviewed_unsafe_and_financial_values(
+    tmp_path: Path,
+) -> None:
+    operator_seed = tmp_path / "bad_operator_seed.json"
+    _write_operator_seeds(
+        operator_seed,
+        [
+            {
+                "company_id": 18,
+                "seed_type": "issuer_reports",
+                "seed_url": "",
+                "operator_review_status": "operator_reviewed",
+            },
+            {
+                "company_id": 18,
+                "seed_type": "issuer_reports",
+                "seed_url": "https://rzd.ru/reports/annual/",
+                "operator_review_status": "operator_to_fill",
+            },
+            {
+                "company_id": 18,
+                "seed_type": "issuer_reports",
+                "seed_url": "https://wikipedia.org/wiki/RZD",
+                "operator_review_status": "operator_reviewed",
+            },
+            {
+                "company_id": 18,
+                "seed_type": "issuer_reports",
+                "seed_url": "https://www.google.com/search?q=rzd+annual+report",
+                "operator_review_status": "operator_reviewed",
+            },
+            {
+                "company_id": 18,
+                "seed_type": "issuer_reports",
+                "seed_url": "https://rzd.ru/news/annual-report",
+                "operator_review_status": "operator_reviewed",
+            },
+            {
+                "company_id": 18,
+                "seed_type": "issuer_reports",
+                "seed_url": "https://rzd.ru/reports/annual/",
+                "operator_review_status": "operator_reviewed",
+                "revenue": "100",
+            },
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-validate",
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    messages = " ".join(item["message"] for item in report["errors"])
+    assert "seed_url is required" in messages
+    assert "operator_review_status must be reviewed" in messages
+    assert "blocked unofficial source domain" in messages
+    assert "financial values are forbidden" in messages
+
+
+def test_operator_seed_validate_unknown_domain_requires_allow_unknown(
+    tmp_path: Path,
+) -> None:
+    operator_seed = tmp_path / "unknown_operator_seed.json"
+    _write_operator_seeds(
+        operator_seed,
+        [
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "inn": "7708503727",
+                "ogrn": "1037739877295",
+                "seed_type": "issuer_reports",
+                "seed_url": "https://issuer.example/reports/annual/",
+                "operator_review_status": "operator_reviewed",
+            }
+        ],
+    )
+    default_args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-validate",
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+    default_report, default_exit = assistant.run_assistant(default_args)
+    assert default_exit == 1
+    assert default_report["seeds"][0]["seed_status"] == "invalid_seed"
+
+    allow_args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-validate",
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18",
+            "--allow-unknown-source",
+        ]
+    )
+    allow_report, allow_exit = assistant.run_assistant(allow_args)
+
+    assert allow_exit == 0
+    assert allow_report["status"] == "warning"
+    assert allow_report["valid_seed_count"] == 0
+    assert allow_report["seeds"][0]["seed_status"] == "needs_operator_review"
+    assert allow_report["seeds"][0]["confidence"] == "low"
+
+
+def test_operator_seed_merge_preserves_dedupes_and_rejects_invalid(
+    tmp_path: Path,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    operator_seed = tmp_path / "operator_seed.json"
+    merged_output = tmp_path / "merged_seed_pack.json"
+    merged_csv = tmp_path / "merged_seed_pack.csv"
+    _write_seed_pack(seed_pack)
+    _write_operator_seeds(
+        operator_seed,
+        [
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "inn": "7708503727",
+                "ogrn": "1037739877295",
+                "seed_type": "official_disclosure_profile",
+                "seed_url": "https://www.e-disclosure.ru/portal/company.aspx?id=1",
+                "operator_review_status": "operator_reviewed",
+            },
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "inn": "7708503727",
+                "ogrn": "1037739877295",
+                "seed_type": "official_disclosure_profile",
+                "seed_url": "https://www.e-disclosure.ru/portal/company.aspx?id=1",
+                "operator_review_status": "operator_reviewed",
+            },
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "inn": "7708503727",
+                "ogrn": "1037739877295",
+                "seed_type": "issuer_reports",
+                "seed_url": "https://issuer.example/reports/annual/",
+                "operator_review_status": "operator_reviewed",
+            },
+            {
+                "company_id": 18,
+                "seed_type": "issuer_reports",
+                "seed_url": "https://wikipedia.org/wiki/RZD",
+                "operator_review_status": "operator_reviewed",
+            },
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-merge",
+            "--seed-input",
+            str(seed_pack),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--seed-output",
+            str(merged_output),
+            "--seed-csv-output",
+            str(merged_csv),
+            "--allow-unknown-source",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["invalid_rejected_count"] == 1
+    assert report["valid_merged_count"] == 1
+    assert report["review_needed_count"] == 1
+    merged = json.loads(merged_output.read_text(encoding="utf-8"))
+    rzd_seeds = merged["issuers"][0]["official_seeds"]
+    assert any(seed["seed_url"] == "https://rzd.ru/" for seed in rzd_seeds)
+    assert sum(seed["seed_url"] == "https://www.e-disclosure.ru/portal/company.aspx?id=1" for seed in rzd_seeds) == 1
+    assert any(
+        seed["seed_url"] == "https://issuer.example/reports/annual/"
+        and seed["seed_status"] == "needs_operator_review"
+        for seed in rzd_seeds
+    )
+    assert all("wikipedia" not in seed["seed_url"] for seed in rzd_seeds)
+    assert merged_csv.is_file()
+
+
+def test_official_seed_resolve_uses_operator_seed_for_discovery_and_gate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    operator_seed = tmp_path / "operator_seed.json"
+    gate_output = tmp_path / "quality_gate.json"
+    discovered = _build_discovered_intake(tmp_path)
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "")])
+    _write_operator_seeds(
+        operator_seed,
+        [
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "seed_type": "issuer_reports",
+                "seed_url": "https://rzd.ru/operator-reports/",
+                "operator_review_status": "operator_reviewed",
+            }
+        ],
+    )
+    calls: list[str] = []
+
+    def fake_fetch(url: str, *, timeout_seconds: float, max_bytes: int, user_agent: str) -> dict:
+        calls.append(url)
+        return {
+            "status": "ok",
+            "url": url,
+            "http_status": 200,
+            "content_type": "text/html; charset=utf-8",
+            "body": '<a href="/investors/">Investors</a>',
+            "size_bytes": 32,
+        }
+
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", fake_fetch)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18",
+            "--run-candidate-discovery",
+            "true",
+            "--run-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert "https://rzd.ru/operator-reports/" in calls
+    assert any(
+        seed["source"] == "operator_seed" and seed["seed_url"] == "https://rzd.ru/operator-reports/"
+        for issuer in report["issuers"]
+        for seed in issuer["official_seeds"]
+    )
+    assert report["candidate_discovery_report"]["candidate_count"] == 0
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is False
+    assert gate["ready_for_value_extraction"] is False
+
+
+def test_official_seed_resolve_operator_seed_gate_can_pass_with_mocked_exact_pdf(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    operator_seed = tmp_path / "operator_seed.json"
+    gate_output = tmp_path / "quality_gate.json"
+    discovered = _build_discovered_intake(tmp_path)
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "")])
+    _write_operator_seeds(
+        operator_seed,
+        [
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "seed_type": "issuer_reports",
+                "seed_url": "https://rzd.ru/operator-reports/",
+                "operator_review_status": "operator_reviewed",
+            }
+        ],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://rzd.ru/operator-reports/": '<a href="/reports/rzd-annual-ifrs-2025.pdf">Annual audited consolidated IFRS financial statements 2025</a>',
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18",
+            "--run-candidate-discovery",
+            "true",
+            "--run-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["candidate_discovery_report"]["candidate_count"] == 1
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is True
+    assert gate["ready_for_value_extraction"] is True
+    assert gate["ready_for_import"] is False
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+
+
 def test_official_seed_resolve_operator_seed_validation(
     tmp_path: Path,
 ) -> None:
@@ -2557,6 +3012,100 @@ def _write_operator_seeds(path: Path, seeds: list[dict]) -> None:
             {
                 "status": "operator_reviewed",
                 "seeds": seeds,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_seed_pack(path: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "official-seed-resolve",
+                "issuer_count": 2,
+                "issuers": [
+                    {
+                        "company_id": 18,
+                        "company_name": "RZD",
+                        "canonical_company_id": 18,
+                        "canonical_company_name": "RZD",
+                        "inn": "7708503727",
+                        "ogrn": "1037739877295",
+                        "official_seeds": [
+                            {
+                                "seed_type": "official_disclosure_home",
+                                "seed_url": "https://www.e-disclosure.ru/",
+                                "seed_status": "valid_seed",
+                                "confidence": "medium",
+                                "source": "source_intake",
+                                "reason": "official disclosure home",
+                                "warnings": [],
+                                "errors": [],
+                            },
+                            {
+                                "seed_type": "issuer_home",
+                                "seed_url": "https://rzd.ru/",
+                                "seed_status": "valid_seed",
+                                "confidence": "medium",
+                                "source": "source_intake",
+                                "reason": "official issuer home",
+                                "warnings": [],
+                                "errors": [],
+                            },
+                            {
+                                "seed_type": "issuer_reports",
+                                "seed_url": "https://rzd.ru/reports/",
+                                "seed_status": "needs_operator_review",
+                                "confidence": "medium",
+                                "source": "generated_official_path",
+                                "reason": "probable issuer reporting seed generated from official issuer home",
+                                "warnings": [],
+                                "errors": [],
+                            },
+                        ],
+                        "warnings": [],
+                        "errors": [],
+                    },
+                    {
+                        "company_id": 67,
+                        "company_name": "Mostotrest",
+                        "canonical_company_id": 67,
+                        "canonical_company_name": "Mostotrest",
+                        "inn": "7701045732",
+                        "ogrn": "1027739167246",
+                        "official_seeds": [
+                            {
+                                "seed_type": "official_disclosure_home",
+                                "seed_url": "https://www.e-disclosure.ru/",
+                                "seed_status": "valid_seed",
+                                "confidence": "medium",
+                                "source": "source_intake",
+                                "reason": "official disclosure home",
+                                "warnings": [],
+                                "errors": [],
+                            },
+                            {
+                                "seed_type": "issuer_home",
+                                "seed_url": "https://mostotrest.ru/",
+                                "seed_status": "valid_seed",
+                                "confidence": "medium",
+                                "source": "source_intake",
+                                "reason": "official issuer home",
+                                "warnings": [],
+                                "errors": [],
+                            },
+                        ],
+                        "warnings": [],
+                        "errors": [],
+                    },
+                ],
+                "read_only": True,
+                "dry_run_only": True,
+                "import_executed": False,
+                "paper_trading_called": False,
             },
             ensure_ascii=False,
         ),

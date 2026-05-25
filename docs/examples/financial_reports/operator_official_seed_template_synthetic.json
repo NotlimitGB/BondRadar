@@ -1,0 +1,56 @@
+{
+  "status": "template",
+  "mode": "operator-seed-template",
+  "issuer_count": 1,
+  "seed_template_count": 3,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "seeds": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "official_disclosure_profile",
+      "seed_url": "",
+      "operator_review_status": "operator_to_fill",
+      "source_context": "https://issuer.example/ | https://disclosure.example/",
+      "notes": "Paste exact official disclosure company profile URL. Do not paste search results, news, blogs, or financial values."
+    },
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "official_disclosure_reports",
+      "seed_url": "",
+      "operator_review_status": "operator_to_fill",
+      "source_context": "https://issuer.example/ | https://disclosure.example/",
+      "notes": "Paste exact official disclosure reports/messages page URL. Do not paste report values."
+    },
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "seed_url": "",
+      "operator_review_status": "operator_to_fill",
+      "source_context": "https://issuer.example/ | https://disclosure.example/",
+      "notes": "Paste exact official issuer annual reports/reporting page URL. Do not paste financial values."
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

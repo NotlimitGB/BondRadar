@@ -1,0 +1,70 @@
+{
+  "status": "warning",
+  "mode": "operator-seed-merge",
+  "issuer_count": 1,
+  "existing_seed_count": 1,
+  "operator_seed_count": 2,
+  "merged_seed_count": 3,
+  "valid_merged_count": 1,
+  "review_needed_count": 1,
+  "invalid_rejected_count": 0,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "issuers": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "official_seeds": [
+        {
+          "seed_type": "issuer_home",
+          "seed_url": "https://issuer.example/",
+          "seed_status": "needs_operator_review",
+          "confidence": "medium",
+          "source": "source_intake",
+          "reason": "synthetic existing issuer home",
+          "warnings": [],
+          "errors": []
+        },
+        {
+          "seed_type": "issuer_reports",
+          "seed_url": "https://www.moex.com/synthetic-issuer/reports/1001",
+          "seed_status": "valid_seed",
+          "confidence": "high",
+          "source": "operator_seed",
+          "reason": "operator-provided official seed",
+          "warnings": [],
+          "errors": []
+        },
+        {
+          "seed_type": "issuer_reports",
+          "seed_url": "https://issuer.example/reports/",
+          "seed_status": "needs_operator_review",
+          "confidence": "low",
+          "source": "operator_seed",
+          "reason": "operator-provided unknown seed retained for review only",
+          "warnings": [
+            {
+              "message": "source URL domain is not in the official allowlist; operator review required"
+            }
+          ],
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "message": "source URL domain is not in the official allowlist; operator review required"
+    }
+  ],
+  "errors": []
+}

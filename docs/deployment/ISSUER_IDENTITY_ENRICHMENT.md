@@ -736,6 +736,69 @@ Generated issuer paths such as `/investors/` or `/reports/` are only navigation
 seeds. They are not exact report evidence and cannot weaken the exact document
 quality gate.
 
+## Operator Official Seed Intake
+
+Task 104 lets an operator provide reviewed official navigation seed pages after
+identity-first collection targets are known. The workflow records seed metadata
+only: company identity fields, seed type, seed URL, review status, context, and
+notes. It does not apply identity profiles, duplicate mappings, financial
+reports, scores, predictions, schedules, or paper state.
+
+Create an operator-fillable seed template:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-template \
+  --seed-input data/financial_reports/private/official_seed_pack_task103.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --required-company-ids 18,67 \
+  --operator-seed-output data/financial_reports/private/operator_official_seed_task104.json \
+  --operator-seed-csv-output data/financial_reports/private/operator_official_seed_task104.csv \
+  --json-output logs/financial_reports/operator_official_seed_template_task104.json \
+  --markdown-output logs/financial_reports/operator_official_seed_template_task104.md
+```
+
+Validate filled operator seeds:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-validate \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_filled_task104.json \
+  --required-company-ids 18,67 \
+  --json-output logs/financial_reports/operator_official_seed_validation_task104.json \
+  --markdown-output logs/financial_reports/operator_official_seed_validation_task104.md
+```
+
+Resolve official seeds with reviewed operator input, then run discovery/gate:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode official-seed-resolve \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_filled_task104.json \
+  --required-company-ids 18,67 \
+  --seed-output data/financial_reports/private/official_seed_pack_task104.json \
+  --seed-csv-output data/financial_reports/private/official_seed_pack_task104.csv \
+  --run-candidate-discovery true \
+  --candidate-output data/financial_reports/private/exact_document_candidates_task104.json \
+  --candidate-csv-output data/financial_reports/private/exact_document_candidates_task104.csv \
+  --run-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task104.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task104.md \
+  --json-output logs/financial_reports/official_seed_resolve_task104.json \
+  --markdown-output logs/financial_reports/official_seed_resolve_task104.md
+```
+
+Use only official issuer, disclosure, or official-like exchange pages. Seed
+pages remain navigation aids; they do not bypass exact reviewed document
+requirements, do not authorize financial value collection, and do not change
+`ready_for_value_extraction` unless the strict document quality gate later
+passes.
+
 ## VDS Smoke Checklist
 
 Health:

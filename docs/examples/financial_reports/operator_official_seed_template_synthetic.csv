@@ -1,0 +1,4 @@
+company_id,company_name,canonical_company_id,canonical_company_name,inn,ogrn,seed_type,seed_url,operator_review_status,source_context,notes
+1001,Synthetic Rail Issuer,1001,Synthetic Rail Issuer,0000000001,1000000000001,official_disclosure_profile,,operator_to_fill,https://issuer.example/ | https://disclosure.example/,"Paste exact official disclosure company profile URL. Do not paste search results, news, blogs, or financial values."
+1001,Synthetic Rail Issuer,1001,Synthetic Rail Issuer,0000000001,1000000000001,official_disclosure_reports,,operator_to_fill,https://issuer.example/ | https://disclosure.example/,"Paste exact official disclosure reports/messages page URL. Do not paste report values."
+1001,Synthetic Rail Issuer,1001,Synthetic Rail Issuer,0000000001,1000000000001,issuer_reports,,operator_to_fill,https://issuer.example/ | https://disclosure.example/,"Paste exact official issuer annual reports/reporting page URL. Do not paste financial values."

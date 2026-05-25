@@ -1,0 +1,59 @@
+{
+  "status": "warning",
+  "mode": "operator-seed-validate",
+  "issuer_count": 1,
+  "seed_count": 2,
+  "valid_seed_count": 1,
+  "needs_operator_review_count": 1,
+  "invalid_seed_count": 0,
+  "blocked_seed_count": 0,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "seeds": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "seed_url": "https://www.moex.com/synthetic-issuer/reports/1001",
+      "seed_status": "valid_seed",
+      "confidence": "high",
+      "operator_review_status": "operator_reviewed",
+      "warnings": [],
+      "errors": []
+    },
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "seed_url": "https://issuer.example/reports/",
+      "seed_status": "needs_operator_review",
+      "confidence": "low",
+      "operator_review_status": "operator_reviewed",
+      "warnings": [
+        {
+          "message": "source URL domain is not in the official allowlist; operator review required"
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "warnings": [
+    {
+      "message": "source URL domain is not in the official allowlist; operator review required"
+    }
+  ],
+  "errors": []
+}
