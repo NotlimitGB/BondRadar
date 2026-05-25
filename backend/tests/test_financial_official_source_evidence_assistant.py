@@ -1426,6 +1426,323 @@ def test_document_candidate_discover_network_failures_warn(
     assert any("failed to fetch official seed page" in item["message"] for item in report["warnings"])
 
 
+def test_official_seed_resolve_from_source_intake_builds_seed_pack(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    financial_template, _, _ = _write_task95_outputs(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    seed_output = tmp_path / "official_seed_pack.json"
+    seed_csv = tmp_path / "official_seed_pack.csv"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/ | https://www.e-disclosure.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ | https://www.e-disclosure.ru/"),
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--financial-template-input",
+            str(financial_template),
+            "--required-company-ids",
+            "18,67",
+            "--seed-output",
+            str(seed_output),
+            "--seed-csv-output",
+            str(seed_csv),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["mode"] == "official-seed-resolve"
+    assert report["issuer_count"] == 2
+    assert report["seed_count"] >= 4
+    assert report["valid_seed_count"] >= 2
+    assert all(issuer["official_seeds"] for issuer in report["issuers"])
+    assert {issuer["inn"] for issuer in report["issuers"]} >= {"7708503727", "7701045732"}
+    assert "revenue" not in json.dumps(report, ensure_ascii=False)
+    assert report["read_only"] is True
+    assert report["import_executed"] is False
+    assert seed_output.is_file()
+    rows = list(csv.DictReader(seed_csv.open(encoding="utf-8")))
+    assert rows
+    assert {"issuer_home", "official_disclosure_home"} & {row["seed_type"] for row in rows}
+
+
+def test_official_seed_resolve_operator_seed_validation(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    operator_seed = tmp_path / "operator_seed.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_operator_seeds(
+        operator_seed,
+        [
+            {
+                "company_id": 18,
+                "canonical_company_id": 18,
+                "company_name": "RZD",
+                "seed_type": "official_disclosure_profile",
+                "seed_url": "https://www.e-disclosure.ru/portal/company.aspx?id=1",
+                "operator_review_status": "operator_reviewed",
+                "notes": "Official disclosure profile page",
+            }
+        ],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--operator-seed-input",
+            str(operator_seed),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    operator_seeds = [
+        seed
+        for issuer in report["issuers"]
+        for seed in issuer["official_seeds"]
+        if seed["source"] == "operator_seed"
+    ]
+    assert operator_seeds
+    assert operator_seeds[0]["seed_status"] == "valid_seed"
+    assert operator_seeds[0]["confidence"] == "high"
+
+
+def test_official_seed_resolve_blocks_unknown_and_financial_operator_seed(
+    tmp_path: Path,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    blocked_seed = tmp_path / "blocked_seed.json"
+    unknown_seed = tmp_path / "unknown_seed.json"
+    financial_seed = tmp_path / "financial_seed.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    _write_operator_seeds(
+        blocked_seed,
+        [
+            {
+                "company_id": 18,
+                "seed_url": "https://wikipedia.org/wiki/RZD",
+                "operator_review_status": "operator_reviewed",
+            }
+        ],
+    )
+    _write_operator_seeds(
+        unknown_seed,
+        [
+            {
+                "company_id": 18,
+                "seed_url": "https://issuer.example/profile",
+                "operator_review_status": "operator_reviewed",
+            }
+        ],
+    )
+    _write_operator_seeds(
+        financial_seed,
+        [
+            {
+                "company_id": 18,
+                "seed_url": "https://rzd.ru/investors/",
+                "operator_review_status": "operator_reviewed",
+                "revenue": "100",
+            }
+        ],
+    )
+
+    blocked_args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--operator-seed-input",
+            str(blocked_seed),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+    blocked_report, blocked_exit = assistant.run_assistant(blocked_args)
+    assert blocked_exit == 1
+    assert any("blocked unofficial source domain" in item["message"] for item in blocked_report["errors"])
+
+    unknown_args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--operator-seed-input",
+            str(unknown_seed),
+            "--required-company-ids",
+            "18",
+            "--allow-unknown-source",
+        ]
+    )
+    unknown_report, unknown_exit = assistant.run_assistant(unknown_args)
+    assert unknown_exit == 0
+    unknown_operator_seed = [
+        seed
+        for issuer in unknown_report["issuers"]
+        for seed in issuer["official_seeds"]
+        if seed["source"] == "operator_seed"
+    ][0]
+    assert unknown_operator_seed["seed_status"] == "needs_operator_review"
+
+    financial_args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--operator-seed-input",
+            str(financial_seed),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+    financial_report, financial_exit = assistant.run_assistant(financial_args)
+    assert financial_exit == 1
+    assert any("financial values are forbidden" in item["message"] for item in financial_report["errors"])
+
+
+def test_official_seed_resolve_probe_controls_network_and_upgrades_generated_seed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/")])
+    calls: list[str] = []
+
+    def fake_fetch(url: str, *, timeout_seconds: float, max_bytes: int, user_agent: str) -> dict:
+        calls.append(url)
+        return {
+            "status": "ok",
+            "url": url,
+            "http_status": 200,
+            "content_type": "text/html; charset=utf-8",
+            "body": "<html></html>",
+        }
+
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", fake_fetch)
+    no_probe_args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "18",
+        ]
+    )
+    assistant.run_assistant(no_probe_args)
+    assert calls == []
+
+    probe_args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "18",
+            "--seed-probe-urls",
+            "true",
+        ]
+    )
+    report, exit_code = assistant.run_assistant(probe_args)
+
+    assert exit_code == 0
+    assert calls
+    generated = [
+        seed
+        for issuer in report["issuers"]
+        for seed in issuer["official_seeds"]
+        if seed["source"] == "generated_official_path" and seed["seed_url"].endswith("/investors/")
+    ][0]
+    assert generated["seed_status"] == "valid_seed"
+    assert generated["confidence"] == "high"
+
+
+def test_official_seed_resolve_runs_candidate_discovery_and_quality_gate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    intake = tmp_path / "exact_document_intake.json"
+    candidate_output = tmp_path / "exact_document_candidates.json"
+    candidate_csv = tmp_path / "exact_document_candidates.csv"
+    gate_output = tmp_path / "quality_gate.json"
+    seed_output = tmp_path / "official_seed_pack.json"
+    _write_document_intake(
+        intake,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/"),
+        ],
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://rzd.ru/reports/": '<a href="/reports/rzd-annual-ifrs-2025.pdf">Annual audited consolidated IFRS financial statements 2025</a>',
+            "https://mostotrest.ru/reports/": '<a href="/reports/mostotrest-annual-ifrs-2025.pdf">Annual audited consolidated IFRS financial statements 2025</a>',
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "official-seed-resolve",
+            "--document-intake-input",
+            str(intake),
+            "--source-intake-input",
+            str(discovered),
+            "--required-company-ids",
+            "18,67",
+            "--seed-output",
+            str(seed_output),
+            "--run-candidate-discovery",
+            "true",
+            "--candidate-output",
+            str(candidate_output),
+            "--candidate-csv-output",
+            str(candidate_csv),
+            "--run-quality-gate",
+            "true",
+            "--quality-gate-json-output",
+            str(gate_output),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    discovery = report["candidate_discovery_report"]
+    assert discovery["candidate_count"] == 2
+    assert discovery["reviewed_candidate_count"] == 2
+    gate = json.loads(gate_output.read_text(encoding="utf-8"))
+    assert gate["gate_passed"] is True
+    assert gate["ready_for_value_extraction"] is True
+    assert gate["ready_for_import"] is False
+    assert seed_output.is_file()
+    assert candidate_output.is_file()
+    assert candidate_csv.is_file()
+
+
 def test_document_resolve_accepts_operator_reviewed_status(
     tmp_path: Path,
 ) -> None:
@@ -2227,6 +2544,19 @@ def _write_document_intake(path: Path, documents: list[dict]) -> None:
             {
                 "status": "operator_reviewed",
                 "documents": documents,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_operator_seeds(path: Path, seeds: list[dict]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "status": "operator_reviewed",
+                "seeds": seeds,
             },
             ensure_ascii=False,
         ),

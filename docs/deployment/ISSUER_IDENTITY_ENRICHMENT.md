@@ -703,6 +703,39 @@ scores document-looking links, and writes candidates compatible with
 are not found for every required issuer, the quality gate remains failed and
 `ready_for_value_extraction=false`.
 
+## Official Seed Resolver
+
+Task 103 resolves better official navigation seeds before candidate discovery.
+It can enrich the seed report with INN/OGRN from the Task 95-like financial
+template, but it does not apply identity changes, extract financial values,
+import reports, mutate state, or trade.
+
+Run official seed resolution with candidate discovery and the strict gate:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode official-seed-resolve \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --required-company-ids 18,67 \
+  --seed-output data/financial_reports/private/official_seed_pack_task103.json \
+  --seed-csv-output data/financial_reports/private/official_seed_pack_task103.csv \
+  --run-candidate-discovery true \
+  --candidate-output data/financial_reports/private/exact_document_candidates_task103.json \
+  --candidate-csv-output data/financial_reports/private/exact_document_candidates_task103.csv \
+  --run-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task103.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task103.md \
+  --json-output logs/financial_reports/official_seed_resolve_task103.json \
+  --markdown-output logs/financial_reports/official_seed_resolve_task103.md
+```
+
+Generated issuer paths such as `/investors/` or `/reports/` are only navigation
+seeds. They are not exact report evidence and cannot weaken the exact document
+quality gate.
+
 ## VDS Smoke Checklist
 
 Health:

@@ -1,0 +1,3 @@
+company_id,company_name,canonical_company_id,canonical_company_name,inn,ogrn,seed_type,seed_url,seed_status,confidence,source,reason,probe_status,http_status,content_type,warnings,errors
+1001,Synthetic Rail Issuer,1001,Synthetic Rail Issuer,0000000001,1000000000001,issuer_home,https://issuer.example/,valid_seed,medium,source_intake,official issuer domain from source intake,,,,,
+1001,Synthetic Rail Issuer,1001,Synthetic Rail Issuer,0000000001,1000000000001,issuer_reports,https://issuer.example/reports/,needs_operator_review,medium,generated_official_path,probable issuer reporting seed generated from official issuer home,,,,,

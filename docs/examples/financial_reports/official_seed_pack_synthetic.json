@@ -1,0 +1,58 @@
+{
+  "status": "warning",
+  "mode": "official-seed-resolve",
+  "issuer_count": 2,
+  "seed_count": 4,
+  "valid_seed_count": 2,
+  "needs_operator_review_count": 2,
+  "invalid_seed_count": 0,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "issuers": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "official_seeds": [
+        {
+          "seed_type": "issuer_home",
+          "seed_url": "https://issuer.example/",
+          "seed_status": "valid_seed",
+          "confidence": "medium",
+          "source": "source_intake",
+          "reason": "official issuer domain from source intake",
+          "probe_status": "",
+          "http_status": null,
+          "content_type": "",
+          "warnings": [],
+          "errors": []
+        },
+        {
+          "seed_type": "issuer_reports",
+          "seed_url": "https://issuer.example/reports/",
+          "seed_status": "needs_operator_review",
+          "confidence": "medium",
+          "source": "generated_official_path",
+          "reason": "probable issuer reporting seed generated from official issuer home",
+          "probe_status": "",
+          "http_status": null,
+          "content_type": "",
+          "warnings": [],
+          "errors": []
+        }
+      ],
+      "warnings": [],
+      "errors": []
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

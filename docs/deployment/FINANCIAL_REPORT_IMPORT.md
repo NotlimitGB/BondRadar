@@ -947,6 +947,40 @@ scores document-looking links, and writes candidates compatible with
 are not found for every required issuer, the quality gate remains failed and
 `ready_for_value_extraction=false`.
 
+## Official Seed Resolver
+
+Task 103 resolves better official navigation seeds before candidate discovery.
+It uses only existing local official-source data, optional Task 95 identity
+fields, and optional operator-reviewed seed files. It does not invent exact
+report URLs, extract values, import reports, mutate state, or trade.
+
+Run official seed resolution with candidate discovery and the strict gate:
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode official-seed-resolve \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --source-intake-input data/financial_reports/private/official_source_intake_discovered_task97.json \
+  --document-input data/financial_reports/private/official_report_documents_task98.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --required-company-ids 18,67 \
+  --seed-output data/financial_reports/private/official_seed_pack_task103.json \
+  --seed-csv-output data/financial_reports/private/official_seed_pack_task103.csv \
+  --run-candidate-discovery true \
+  --candidate-output data/financial_reports/private/exact_document_candidates_task103.json \
+  --candidate-csv-output data/financial_reports/private/exact_document_candidates_task103.csv \
+  --run-quality-gate true \
+  --quality-gate-json-output logs/financial_reports/exact_document_quality_gate_task103.json \
+  --quality-gate-markdown-output logs/financial_reports/exact_document_quality_gate_task103.md \
+  --json-output logs/financial_reports/official_seed_resolve_task103.json \
+  --markdown-output logs/financial_reports/official_seed_resolve_task103.md
+```
+
+The seed pack may include issuer home, investor/reporting, disclosure home, and
+operator-reviewed disclosure profile seeds. Generated issuer paths such as
+`/investors/` or `/reports/` are navigation seeds only; they are not exact
+document evidence and cannot make the quality gate pass by themselves.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

@@ -1,0 +1,14 @@
+{
+  "status": "operator_reviewed",
+  "seeds": [
+    {
+      "company_id": 1001,
+      "canonical_company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "seed_type": "official_disclosure_profile",
+      "seed_url": "https://disclosure.example/portal/company.aspx?id=1001",
+      "operator_review_status": "operator_reviewed",
+      "notes": "Synthetic official disclosure profile page."
+    }
+  ]
+}

@@ -29,6 +29,7 @@ MODE_CHOICES = (
     "document-intake-fill",
     "document-quality-gate",
     "document-candidate-discover",
+    "official-seed-resolve",
     "candidate-fill",
     "preview",
 )
@@ -139,6 +140,48 @@ DOCUMENT_CANDIDATE_FIELDS = [
     "score_reasons",
     "negative_reasons",
 ]
+SEED_DEFAULT_TYPES = (
+    "issuer_home",
+    "issuer_reports",
+    "issuer_investor_relations",
+    "official_disclosure_home",
+    "official_disclosure_profile",
+    "official_disclosure_reports",
+)
+SEED_TYPE_ALIASES = {
+    "issuer_home": "issuer_home",
+    "issuer_reports": "issuer_reports",
+    "issuer_investor_relations": "issuer_investor_relations",
+    "investor_relations": "issuer_investor_relations",
+    "official_disclosure": "official_disclosure_home",
+    "official_disclosure_home": "official_disclosure_home",
+    "disclosure_profile": "official_disclosure_profile",
+    "official_disclosure_profile": "official_disclosure_profile",
+    "disclosure_reports": "official_disclosure_reports",
+    "official_disclosure_reports": "official_disclosure_reports",
+    "manual_official_seed": "manual_official_seed",
+}
+SEED_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "inn",
+    "ogrn",
+    "seed_type",
+    "seed_url",
+    "seed_status",
+    "confidence",
+    "source",
+    "reason",
+    "probe_status",
+    "http_status",
+    "content_type",
+    "warnings",
+    "errors",
+]
+PROBABLE_ISSUER_SEED_PATHS = ("/investors/", "/reports/", "/investors/reports/")
+VALID_CANDIDATE_SEED_STATUSES = {"valid_seed", "needs_operator_review"}
 DOCUMENT_CHECKLIST_FIELDS = [
     "rank",
     "company_id",
@@ -230,6 +273,24 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--candidate-input", type=Path, default=None)
     parser.add_argument("--candidate-output", type=Path, default=None)
     parser.add_argument("--candidate-csv-output", type=Path, default=None)
+    parser.add_argument("--seed-input", type=Path, default=None)
+    parser.add_argument("--seed-output", type=Path, default=None)
+    parser.add_argument("--seed-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-seed-input", type=Path, default=None)
+    parser.add_argument("--seed-allowed-domains", default="")
+    parser.add_argument("--seed-blocked-domains", default="")
+    parser.add_argument(
+        "--seed-types",
+        default="issuer_home,issuer_reports,investor_relations,official_disclosure,disclosure_profile,disclosure_reports",
+    )
+    parser.add_argument("--seed-probe-urls", type=_parse_bool, default=False)
+    parser.add_argument("--seed-fetch-timeout-seconds", type=float, default=10.0)
+    parser.add_argument("--seed-max-response-bytes", type=int, default=500000)
+    parser.add_argument(
+        "--seed-user-agent",
+        default="BondRadar-official-seed-resolver/1.0",
+    )
+    parser.add_argument("--run-candidate-discovery", type=_parse_bool, default=False)
     parser.add_argument(
         "--candidate-discovery-source",
         choices=DOCUMENT_CANDIDATE_DISCOVERY_SOURCES,
@@ -295,6 +356,8 @@ def run_assistant(
         report = run_document_quality_gate(args)
     elif args.mode == "document-candidate-discover":
         report = run_document_candidate_discover(args)
+    elif args.mode == "official-seed-resolve":
+        report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
         report = run_candidate_fill(args)
     else:
@@ -1562,12 +1625,222 @@ def run_document_quality_gate(args: argparse.Namespace) -> dict[str, Any]:
     return report
 
 
+def run_official_seed_resolve(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    input_documents: list[dict[str, Any]] = []
+    source_issuers: list[dict[str, Any]] = []
+    document_issuers: list[dict[str, Any]] = []
+    financial_rows: list[dict[str, Any]] = []
+    operator_seeds: list[dict[str, Any]] = []
+
+    if args.document_intake_input is None:
+        errors.append({"message": "official-seed-resolve mode requires --document-intake-input"})
+    if not errors:
+        try:
+            input_documents = load_document_intake_file(args.document_intake_input)
+            if args.source_intake_input is not None:
+                source_issuers = load_source_intake(args.source_intake_input)
+            else:
+                warnings.append({"message": "source intake input is not provided; using exact intake context only"})
+            if args.document_input is not None:
+                document_issuers = load_document_issuers(args.document_input)
+            else:
+                warnings.append({"message": "document resolver output is not provided; seed context is reduced"})
+            if args.financial_template_input is not None:
+                financial_rows = load_template_rows(args.financial_template_input)
+            else:
+                warnings.append({"message": "financial template input is not provided; INN/OGRN enrichment skipped"})
+            if args.operator_seed_input is not None:
+                operator_seeds = load_operator_seed_items(args.operator_seed_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    required_issuers = _parse_required_issuers(args, input_documents) if input_documents else []
+    if not required_issuers and not errors:
+        warnings.append({"message": "no issuers found for official seed resolution"})
+
+    seed_types = _normalized_seed_types(args.seed_types)
+    allowed_domains = _seed_allowed_domains(args)
+    blocked_hints = _seed_blocked_hints(args)
+    issuers: list[dict[str, Any]] = []
+    if not errors:
+        for required in required_issuers:
+            issuer = _official_seed_issuer_base(
+                required,
+                input_documents=input_documents,
+                source_issuers=source_issuers,
+                document_issuers=document_issuers,
+                financial_rows=financial_rows,
+            )
+            issuer_warnings: list[dict[str, Any]] = []
+            issuer_errors: list[dict[str, Any]] = []
+            raw_seeds = collect_official_seed_candidates(
+                issuer,
+                input_documents=input_documents,
+                source_issuers=source_issuers,
+                document_issuers=document_issuers,
+                operator_seeds=operator_seeds,
+                seed_types=seed_types,
+            )
+            official_seeds = _dedupe_validated_seeds(
+                [
+                    validate_official_seed_candidate(
+                        raw_seed,
+                        issuer=issuer,
+                        args=args,
+                        allowed_domains=allowed_domains,
+                        blocked_hints=blocked_hints,
+                    )
+                    for raw_seed in raw_seeds
+                ]
+            )
+            for seed in official_seeds:
+                issuer_warnings.extend(seed.get("warnings") or [])
+                issuer_errors.extend(seed.get("errors") or [])
+            if not official_seeds:
+                issuer_warnings.append(
+                    {
+                        "company_id": issuer.get("company_id"),
+                        "company_name": issuer.get("company_name"),
+                        "message": "no official seed URLs resolved for issuer",
+                    }
+                )
+            issuers.append(
+                {
+                    **issuer,
+                    "official_seeds": official_seeds,
+                    "warnings": issuer_warnings,
+                    "errors": issuer_errors,
+                }
+            )
+            warnings.extend(issuer_warnings)
+            errors.extend(issuer_errors)
+
+    seed_count = sum(len(issuer.get("official_seeds") or []) for issuer in issuers)
+    valid_seed_count = sum(
+        1
+        for issuer in issuers
+        for seed in issuer.get("official_seeds") or []
+        if seed.get("seed_status") == "valid_seed"
+    )
+    review_seed_count = sum(
+        1
+        for issuer in issuers
+        for seed in issuer.get("official_seeds") or []
+        if seed.get("seed_status") == "needs_operator_review"
+    )
+    invalid_seed_count = sum(
+        1
+        for issuer in issuers
+        for seed in issuer.get("official_seeds") or []
+        if seed.get("seed_status") in {"invalid_seed", "blocked_seed"}
+    )
+    blocked_seed_count = sum(
+        1
+        for issuer in issuers
+        for seed in issuer.get("official_seeds") or []
+        if seed.get("seed_status") == "blocked_seed"
+    )
+    seed_pack_status = (
+        "failed"
+        if errors
+        else "passed"
+        if issuers and all(
+            any(seed.get("seed_status") == "valid_seed" for seed in issuer.get("official_seeds") or [])
+            for issuer in issuers
+        )
+        else "warning"
+    )
+    seed_pack_report = {
+        "status": seed_pack_status,
+        "mode": "official-seed-resolve",
+        "issuer_count": len(issuers),
+        "seed_count": seed_count,
+        "valid_seed_count": valid_seed_count,
+        "needs_operator_review_count": review_seed_count,
+        "invalid_seed_count": invalid_seed_count,
+        "blocked_seed_count": blocked_seed_count,
+        "issuers": issuers,
+        "warnings": warnings,
+        "errors": errors,
+        "seed_output": _path_value(args.seed_output),
+        "seed_csv_output": _path_value(args.seed_csv_output),
+        "next_steps": _next_steps("official-seed-resolve", seed_pack_status),
+        **SAFETY_FLAGS,
+    }
+
+    if args.seed_output is not None:
+        write_json_report(seed_pack_report, args.seed_output)
+    if args.seed_csv_output is not None:
+        write_seed_csv(issuers, args.seed_csv_output)
+
+    candidate_discovery_report: dict[str, Any] | None = None
+    if args.run_quality_gate and not args.run_candidate_discovery:
+        warnings.append(
+            {
+                "message": "run-quality-gate requested without run-candidate-discovery; quality gate skipped",
+            }
+        )
+    if args.run_candidate_discovery and not errors:
+        with tempfile.TemporaryDirectory(prefix="bondradar-official-seeds-") as tmp_dir:
+            seed_input = args.seed_output or Path(tmp_dir) / "official_seed_pack.json"
+            if not seed_input.is_file():
+                write_json_report(seed_pack_report, seed_input)
+            discovery_args = _clone_args(
+                args,
+                mode="document-candidate-discover",
+                seed_input=seed_input,
+            )
+            candidate_discovery_report = run_document_candidate_discover(discovery_args)
+            warnings.extend(candidate_discovery_report.get("warnings") or [])
+            if candidate_discovery_report.get("errors"):
+                errors.extend(candidate_discovery_report.get("errors") or [])
+
+    quality_gate_report = (
+        (candidate_discovery_report or {}).get("quality_gate_report")
+        if candidate_discovery_report
+        else None
+    )
+    status = (
+        "failed"
+        if errors
+        else "warning"
+        if warnings
+        or (
+            candidate_discovery_report is not None
+            and candidate_discovery_report.get("status") != "passed"
+        )
+        or (
+            quality_gate_report is not None
+            and not quality_gate_report.get("gate_passed")
+        )
+        else seed_pack_status
+    )
+    report = {
+        **seed_pack_report,
+        "status": status,
+        "candidate_discovery_report": candidate_discovery_report,
+        "quality_gate_report": quality_gate_report,
+        "candidate_output": _path_value(args.candidate_output),
+        "candidate_csv_output": _path_value(args.candidate_csv_output),
+        "seed_input": _path_value(args.seed_input),
+        "quality_gate_json_output": _path_value(args.quality_gate_json_output),
+        "quality_gate_markdown_output": _path_value(args.quality_gate_markdown_output),
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("official-seed-resolve", status),
+    }
+    return report
+
+
 def run_document_candidate_discover(args: argparse.Namespace) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     input_documents: list[dict[str, Any]] = []
     source_issuers: list[dict[str, Any]] = []
     document_issuers: list[dict[str, Any]] = []
+    seed_issuers: list[dict[str, Any]] = []
     documents: list[dict[str, Any]] = []
     blocked_candidate_count = 0
 
@@ -1582,6 +1855,8 @@ def run_document_candidate_discover(args: argparse.Namespace) -> dict[str, Any]:
                 source_issuers = load_source_intake(args.source_intake_input)
             if args.document_input is not None:
                 document_issuers = load_document_issuers(args.document_input)
+            if args.seed_input is not None:
+                seed_issuers = load_seed_pack_issuers(args.seed_input)
         except Exception as exc:
             errors.append({"message": str(exc)})
 
@@ -1595,6 +1870,7 @@ def run_document_candidate_discover(args: argparse.Namespace) -> dict[str, Any]:
                 input_documents=input_documents,
                 source_issuers=source_issuers,
                 document_issuers=document_issuers,
+                seed_issuers=seed_issuers,
                 args=args,
                 allowed_domains=allowed_domains,
                 blocked_hints=blocked_hints,
@@ -2463,6 +2739,66 @@ def load_document_issuers(path: Path) -> list[dict[str, Any]]:
     return issuers
 
 
+def load_operator_seed_items(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise ValueError(f"operator seed input does not exist: {path}")
+    if path.suffix.casefold() == ".csv":
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames is None:
+                return []
+            return [{key: _normalize_cell(value) for key, value in row.items() if key} for row in reader]
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    seeds = payload.get("seeds") if isinstance(payload, dict) else payload
+    if not isinstance(seeds, list) or not all(isinstance(item, dict) for item in seeds):
+        raise ValueError("operator seed JSON must contain seeds")
+    return seeds
+
+
+def load_seed_pack_issuers(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise ValueError(f"seed input does not exist: {path}")
+    if path.suffix.casefold() == ".csv":
+        grouped: dict[str, dict[str, Any]] = {}
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames is None:
+                return []
+            for raw in reader:
+                row = {key: _normalize_cell(value) for key, value in raw.items() if key}
+                key = str(row.get("canonical_company_id") or row.get("company_id") or "")
+                issuer = grouped.setdefault(
+                    key,
+                    {
+                        "company_id": _maybe_int(row.get("company_id")),
+                        "company_name": row.get("company_name") or "",
+                        "canonical_company_id": _maybe_int(row.get("canonical_company_id") or row.get("company_id")),
+                        "canonical_company_name": row.get("canonical_company_name") or row.get("company_name") or "",
+                        "inn": row.get("inn") or "",
+                        "ogrn": row.get("ogrn") or "",
+                        "official_seeds": [],
+                    },
+                )
+                issuer["official_seeds"].append(
+                    {
+                        "seed_type": row.get("seed_type") or "",
+                        "seed_url": row.get("seed_url") or "",
+                        "seed_status": row.get("seed_status") or "",
+                        "confidence": row.get("confidence") or "",
+                        "source": row.get("source") or "",
+                        "reason": row.get("reason") or "",
+                    }
+                )
+        return list(grouped.values())
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    issuers = payload.get("issuers") if isinstance(payload, dict) else payload
+    if not isinstance(issuers, list) or not all(isinstance(item, dict) for item in issuers):
+        raise ValueError("seed JSON must contain issuers")
+    return issuers
+
+
 def write_document_checklist(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -2520,6 +2856,25 @@ def write_document_candidate_csv(documents: list[dict[str, Any]], path: Path) ->
         writer.writeheader()
         for document in documents:
             writer.writerow({field: _csv_value(document.get(field)) for field in DOCUMENT_CANDIDATE_FIELDS})
+
+
+def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=SEED_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for issuer in issuers:
+            for seed in issuer.get("official_seeds") or []:
+                row = {
+                    "company_id": issuer.get("company_id"),
+                    "company_name": issuer.get("company_name"),
+                    "canonical_company_id": issuer.get("canonical_company_id"),
+                    "canonical_company_name": issuer.get("canonical_company_name"),
+                    "inn": issuer.get("inn"),
+                    "ogrn": issuer.get("ogrn"),
+                    **seed,
+                }
+                writer.writerow({field: _csv_value(row.get(field)) for field in SEED_FIELDS})
 
 
 def load_manual_values_by_key(
@@ -2626,6 +2981,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "document-quality-gate"
         else "Exact Official Document Candidate Discovery"
         if report.get("mode") == "document-candidate-discover"
+        else "Official Seed Resolver"
+        if report.get("mode") == "official-seed-resolve"
         else "Exact Official Report Document Resolver"
         if report.get("mode") in {"document-resolve", "document-validate"}
         else "Official-Source Evidence Assistant"
@@ -2654,6 +3011,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_document_quality_gate_markdown_sections(report))
     if report.get("mode") == "document-candidate-discover":
         lines.extend(_render_document_candidate_discovery_markdown_sections(report))
+    if report.get("mode") == "official-seed-resolve":
+        lines.extend(_render_official_seed_markdown_sections(report))
     lines.extend(
         [
         "## Source Validation",
@@ -2984,6 +3343,73 @@ def _render_document_candidate_discovery_markdown_sections(report: dict[str, Any
     return lines
 
 
+def _render_official_seed_markdown_sections(report: dict[str, Any]) -> list[str]:
+    lines = [
+        "## Official Seeds",
+        "",
+        f"- seed_count: {report.get('seed_count', 0)}",
+        f"- valid_seed_count: {report.get('valid_seed_count', 0)}",
+        f"- needs_operator_review_count: {report.get('needs_operator_review_count', 0)}",
+        f"- invalid_seed_count: {report.get('invalid_seed_count', 0)}",
+        "",
+        "## Issuer Seeds",
+        "",
+        "| Company ID | Company | INN | OGRN | Seed Type | Seed URL | Status | Confidence | Source | Reason |",
+        "| ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    rows = 0
+    for issuer in report.get("issuers") or []:
+        for seed in issuer.get("official_seeds") or []:
+            rows += 1
+            lines.append(
+                "| {company_id} | {company_name} | {inn} | {ogrn} | {seed_type} | {seed_url} | {status} | {confidence} | {source} | {reason} |".format(
+                    company_id=issuer.get("company_id") or "",
+                    company_name=str(issuer.get("company_name") or "").replace("|", "/"),
+                    inn=issuer.get("inn") or "",
+                    ogrn=issuer.get("ogrn") or "",
+                    seed_type=seed.get("seed_type") or "",
+                    seed_url=str(seed.get("seed_url") or "").replace("|", "/"),
+                    status=seed.get("seed_status") or "",
+                    confidence=seed.get("confidence") or "",
+                    source=seed.get("source") or "",
+                    reason=str(seed.get("reason") or "").replace("|", "/"),
+                )
+            )
+    if rows == 0:
+        lines.append("|  |  |  |  |  |  |  |  |  |  |")
+    discovery = report.get("candidate_discovery_report") or {}
+    gate = report.get("quality_gate_report") or {}
+    lines.extend(
+        [
+            "",
+            "## Candidate Discovery",
+            "",
+            f"- candidate discovery status: `{discovery.get('status')}`",
+            f"- candidate_count: {discovery.get('candidate_count')}",
+            f"- reviewed_candidate_count: {discovery.get('reviewed_candidate_count')}",
+            f"- needs_operator_review_count: {discovery.get('needs_operator_review_count')}",
+            f"- blocked_candidate_count: {discovery.get('blocked_candidate_count')}",
+            "",
+            "## Quality Gate",
+            "",
+            f"- gate status: `{gate.get('status')}`",
+            f"- gate_passed: {gate.get('gate_passed')}",
+            f"- ready_for_value_extraction: {gate.get('ready_for_value_extraction')}",
+            f"- ready_for_import: {gate.get('ready_for_import')}",
+            "",
+            "## Blocking Issues",
+            "",
+        ]
+    )
+    blockers = report.get("errors") or report.get("warnings") or []
+    if blockers:
+        lines.extend(f"- {_message_text(item)}" for item in blockers)
+    else:
+        lines.append("- None")
+    lines.append("")
+    return lines
+
+
 def classify_source_url(url: str, *, allow_unknown_source: bool = False) -> dict[str, str]:
     text = url.casefold()
     if _has_blocked_source_hint(text):
@@ -3127,6 +3553,7 @@ def build_candidate_seed_urls(
     input_documents: list[dict[str, Any]],
     source_issuers: list[dict[str, Any]],
     document_issuers: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
     args: argparse.Namespace,
     allowed_domains: set[str],
     blocked_hints: tuple[str, ...],
@@ -3149,6 +3576,13 @@ def build_candidate_seed_urls(
                 for key in ("source_url", "document_url"):
                     if document.get(key):
                         urls.append(str(document[key]))
+    for seed_issuer in _items_matching_required(seed_issuers, issuer):
+        for seed in seed_issuer.get("official_seeds") or []:
+            if seed.get("seed_status") not in VALID_CANDIDATE_SEED_STATUSES:
+                continue
+            url = seed.get("seed_url")
+            if url:
+                urls.append(str(url))
     seed_urls: list[str] = []
     seen: set[str] = set()
     for raw_url in urls:
@@ -3398,6 +3832,311 @@ def _classify_candidate_url(
             "message": "source URL domain is not in the official allowlist; operator review required",
         }
     return {"status": "unknown_error", "message": "source URL domain is not in the official allowlist"}
+
+
+def _normalized_seed_types(value: str | None) -> set[str]:
+    raw_values = _split_cli_list(value)
+    if not raw_values:
+        return set(SEED_DEFAULT_TYPES)
+    normalized: set[str] = set()
+    for item in raw_values:
+        canonical = SEED_TYPE_ALIASES.get(item.strip().casefold().replace("-", "_"))
+        if canonical:
+            normalized.add(canonical)
+    return normalized or set(SEED_DEFAULT_TYPES)
+
+
+def _normalize_seed_type(value: Any, url: str = "", source_type: str = "") -> str:
+    raw = str(value or "").strip().casefold().replace("-", "_")
+    if raw in SEED_TYPE_ALIASES:
+        return SEED_TYPE_ALIASES[raw]
+    source = str(source_type or "").casefold()
+    host = _host(url)
+    path = urllib.parse.urlparse(str(url)).path.casefold()
+    if "disclosure" in host:
+        if "company" in path or "issuer" in path or "emitent" in path:
+            return "official_disclosure_profile"
+        if "event" in path or "report" in path or "account" in path:
+            return "official_disclosure_reports"
+        return "official_disclosure_home"
+    if source == "official_disclosure":
+        return "official_disclosure_home"
+    if "invest" in path or source == "issuer_investor_relations":
+        return "issuer_investor_relations"
+    if _contains_any(path, ("report", "annual", "ifrs", "otchet")):
+        return "issuer_reports"
+    return "issuer_home"
+
+
+def _seed_allowed_domains(args: argparse.Namespace) -> set[str]:
+    domains = {domain.casefold() for domain in OFFICIAL_SOURCE_DOMAIN_HINTS}
+    domains.update(item.casefold() for item in _split_cli_list(args.seed_allowed_domains))
+    return domains
+
+
+def _seed_blocked_hints(args: argparse.Namespace) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            [
+                *BLOCKED_SOURCE_HINTS,
+                *(item.casefold() for item in _split_cli_list(args.seed_blocked_domains)),
+            ]
+        )
+    )
+
+
+def _official_seed_issuer_base(
+    required: dict[str, Any],
+    *,
+    input_documents: list[dict[str, Any]],
+    source_issuers: list[dict[str, Any]],
+    document_issuers: list[dict[str, Any]],
+    financial_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    candidates = [
+        *_items_matching_required(input_documents, required),
+        *_items_matching_required(source_issuers, required),
+        *_items_matching_required(document_issuers, required),
+        *_items_matching_required(financial_rows, required),
+    ]
+    chosen = candidates[0] if candidates else required
+    identity = (_items_matching_required(financial_rows, required) or [{}])[0]
+    return {
+        "company_id": chosen.get("company_id") or required.get("company_id"),
+        "company_name": chosen.get("company_name") or required.get("company_name") or "",
+        "canonical_company_id": chosen.get("canonical_company_id") or chosen.get("company_id") or required.get("company_id"),
+        "canonical_company_name": chosen.get("canonical_company_name") or chosen.get("company_name") or required.get("company_name") or "",
+        "inn": identity.get("inn") or "",
+        "ogrn": identity.get("ogrn") or "",
+        "legal_name": identity.get("legal_name") or identity.get("canonical_company_name") or "",
+    }
+
+
+def collect_official_seed_candidates(
+    issuer: dict[str, Any],
+    *,
+    input_documents: list[dict[str, Any]],
+    source_issuers: list[dict[str, Any]],
+    document_issuers: list[dict[str, Any]],
+    operator_seeds: list[dict[str, Any]],
+    seed_types: set[str],
+) -> list[dict[str, Any]]:
+    seeds: list[dict[str, Any]] = []
+
+    def add_seed(
+        url: Any,
+        *,
+        seed_type: str = "",
+        source_type: str = "",
+        source: str,
+        reason: str,
+        operator_review_status: str = "",
+        notes: str = "",
+        extra: dict[str, Any] | None = None,
+    ) -> None:
+        seed_url = _normalize_candidate_url(str(url or ""))
+        if not seed_url:
+            return
+        canonical_type = _normalize_seed_type(seed_type, seed_url, source_type)
+        if source != "operator_seed" and canonical_type not in seed_types:
+            return
+        payload = dict(extra or {})
+        payload.update(
+            {
+                "seed_type": canonical_type,
+                "seed_url": seed_url,
+                "source": source,
+                "source_type": source_type,
+                "reason": reason,
+                "operator_review_status": operator_review_status,
+                "notes": notes,
+            }
+        )
+        seeds.append(payload)
+
+    for document in _items_matching_required(input_documents, issuer):
+        for url in _split_source_context_urls(str(document.get("source_url_context") or "")):
+            add_seed(
+                url,
+                source_type=str(document.get("source_type") or ""),
+                source="document_intake",
+                reason="official seed from exact document intake source context",
+            )
+        if document.get("document_url"):
+            add_seed(
+                document.get("document_url"),
+                source_type=str(document.get("source_type") or ""),
+                source="document_intake",
+                reason="existing document URL carried as navigation seed",
+            )
+    for source_issuer in _items_matching_required(source_issuers, issuer):
+        for source_candidate in source_issuer.get("source_candidates") or []:
+            add_seed(
+                source_candidate.get("url") or source_candidate.get("source_url"),
+                source_type=str(source_candidate.get("source_type") or ""),
+                source="source_intake",
+                reason="official source URL from discovered source intake",
+            )
+    for document_issuer in _items_matching_required(document_issuers, issuer):
+        for document in document_issuer.get("document_candidates") or []:
+            for key in ("source_url", "document_url"):
+                add_seed(
+                    document.get(key),
+                    source_type=str(document.get("source_type") or ""),
+                    source="document_report",
+                    reason="official seed from exact document resolver output",
+                )
+    for seed in _items_matching_required(operator_seeds, issuer):
+        add_seed(
+            seed.get("seed_url") or seed.get("url"),
+            seed_type=str(seed.get("seed_type") or "manual_official_seed"),
+            source="operator_seed",
+            reason=str(seed.get("notes") or "operator-provided official seed"),
+            operator_review_status=str(seed.get("operator_review_status") or ""),
+            notes=str(seed.get("notes") or ""),
+            extra=seed,
+        )
+
+    home_urls = [
+        seed["seed_url"]
+        for seed in seeds
+        if seed["source"] != "operator_seed"
+        and urllib.parse.urlparse(seed["seed_url"]).path in {"", "/"}
+        and _host(seed["seed_url"]) not in {"e-disclosure.ru", "disclosure.ru", "moex.com", "moex.ru"}
+    ]
+    for home_url in home_urls:
+        parsed = urllib.parse.urlparse(home_url)
+        root = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, "/", "", "", ""))
+        for path in PROBABLE_ISSUER_SEED_PATHS:
+            add_seed(
+                urllib.parse.urljoin(root, path),
+                seed_type="issuer_reports" if "report" in path else "issuer_investor_relations",
+                source_type="issuer_investor_relations",
+                source="generated_official_path",
+                reason="probable issuer reporting seed generated from official issuer home",
+            )
+    return seeds
+
+
+def validate_official_seed_candidate(
+    seed: dict[str, Any],
+    *,
+    issuer: dict[str, Any],
+    args: argparse.Namespace,
+    allowed_domains: set[str],
+    blocked_hints: tuple[str, ...],
+) -> dict[str, Any]:
+    seed_url = _normalize_candidate_url(str(seed.get("seed_url") or ""))
+    seed_type = _normalize_seed_type(seed.get("seed_type"), seed_url, str(seed.get("source_type") or ""))
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    base = {
+        "seed_type": seed_type,
+        "seed_url": seed_url,
+        "seed_status": "invalid_seed",
+        "confidence": "low",
+        "source": seed.get("source") or "",
+        "reason": seed.get("reason") or "",
+        "probe_status": "",
+        "http_status": None,
+        "content_type": "",
+        "warnings": warnings,
+        "errors": errors,
+    }
+    forbidden_fields = [
+        field
+        for field in FORBIDDEN_DOCUMENT_FINANCIAL_FIELDS
+        if seed.get(field) not in (None, "")
+    ]
+    if forbidden_fields or seed.get("values"):
+        errors.append(
+            {
+                "company_id": issuer.get("company_id"),
+                "seed_url": seed_url,
+                "message": "financial values are forbidden in official seed metadata",
+                "fields": forbidden_fields or ["values"],
+            }
+        )
+    if not seed_url:
+        errors.append({"company_id": issuer.get("company_id"), "message": "seed_url is required"})
+        return base
+    classification = _classify_candidate_url(
+        seed_url,
+        allowed_domains=allowed_domains,
+        blocked_hints=blocked_hints,
+        allow_unknown_source=args.allow_unknown_source,
+    )
+    if classification["status"] == "blocked":
+        base["seed_status"] = "blocked_seed"
+        errors.append({"company_id": issuer.get("company_id"), "seed_url": seed_url, "message": classification["message"]})
+    elif classification["status"] == "unknown_error":
+        base["seed_status"] = "invalid_seed"
+        errors.append({"company_id": issuer.get("company_id"), "seed_url": seed_url, "message": classification["message"]})
+    elif classification["status"] == "unknown_warning":
+        base["seed_status"] = "needs_operator_review"
+        base["confidence"] = "low"
+        warnings.append({"company_id": issuer.get("company_id"), "seed_url": seed_url, "message": classification["message"]})
+    else:
+        operator_reviewed = str(seed.get("operator_review_status") or "").strip() in DOCUMENT_INTAKE_REVIEWED_STATUSES
+        generated = seed.get("source") == "generated_official_path"
+        base["seed_status"] = "needs_operator_review" if generated else "valid_seed"
+        base["confidence"] = "high" if operator_reviewed else "medium"
+        if seed.get("source") == "operator_seed" and not operator_reviewed:
+            base["seed_status"] = "needs_operator_review"
+            base["confidence"] = "medium"
+            warnings.append(
+                {
+                    "company_id": issuer.get("company_id"),
+                    "seed_url": seed_url,
+                    "message": "operator seed is not reviewed; operator review required",
+                }
+            )
+    if args.seed_probe_urls and classification["status"] == "official":
+        probe = _fetch_candidate_page(
+            seed_url,
+            timeout_seconds=args.seed_fetch_timeout_seconds,
+            max_bytes=args.seed_max_response_bytes,
+            user_agent=args.seed_user_agent,
+        )
+        base["probe_status"] = probe.get("status")
+        base["http_status"] = probe.get("http_status")
+        base["content_type"] = probe.get("content_type") or ""
+        if probe.get("status") != "ok":
+            warnings.append(
+                {
+                    "company_id": issuer.get("company_id"),
+                    "seed_url": seed_url,
+                    "message": "seed probe failed",
+                    "error": probe.get("error"),
+                }
+            )
+        elif "html" in str(probe.get("content_type") or "").casefold():
+            base["confidence"] = "high"
+            if seed.get("source") == "generated_official_path":
+                base["seed_status"] = "valid_seed"
+    if errors and base["seed_status"] == "needs_operator_review":
+        base["seed_status"] = "invalid_seed"
+    return base
+
+
+def _dedupe_validated_seeds(seeds: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for seed in seeds:
+        key = (str(seed.get("seed_type") or ""), str(seed.get("seed_url") or ""))
+        existing = by_key.get(key)
+        if existing is None or _seed_sort_key(seed) > _seed_sort_key(existing):
+            by_key[key] = seed
+    return sorted(by_key.values(), key=_seed_sort_key, reverse=True)
+
+
+def _seed_sort_key(seed: dict[str, Any]) -> tuple[int, int, str]:
+    status_rank = {
+        "valid_seed": 3,
+        "needs_operator_review": 2,
+        "invalid_seed": 1,
+        "blocked_seed": 0,
+    }.get(str(seed.get("seed_status") or ""), 0)
+    return (status_rank, _confidence_rank(seed.get("confidence")), str(seed.get("seed_url") or ""))
 
 
 def _split_source_context_urls(value: str) -> list[str]:
@@ -4261,6 +5000,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Run financial value collection only after this gate passes; import remains disabled."]
     if mode == "document-candidate-discover":
         return ["Review discovered exact document candidates or run the quality gate before value collection."]
+    if mode == "official-seed-resolve":
+        return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
         return ["Run preview mode; do not import until a separate controlled import task."]
     return ["Review preview output; import remains disabled in this workflow."]
