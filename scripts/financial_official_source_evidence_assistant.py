@@ -205,13 +205,159 @@ OPERATOR_SEED_CANDIDATE_FIELDS = [
     "candidate_source_url",
     "candidate_status",
     "operator_review_status",
+    "candidate_rank",
     "candidate_score",
+    "raw_score",
+    "final_score",
     "candidate_confidence",
+    "filter_status",
+    "filter_reasons",
     "discovery_method",
     "score_reasons",
     "negative_reasons",
     "notes",
 ]
+OPERATOR_SEED_RELEVANCE_TERMS = (
+    "investor",
+    "investors",
+    "investment",
+    "financial results",
+    "financial statements",
+    "financial reporting",
+    "annual reports",
+    "reports",
+    "reporting",
+    "disclosure",
+    "information disclosure",
+    "issuer profile",
+    "company profile",
+    "securities",
+    "bondholders",
+    "shareholders",
+    "ir",
+    "инвестор",
+    "инвесторам",
+    "инвесторы",
+    "финансовые результаты",
+    "финансовая отчетность",
+    "финансовая отчётность",
+    "отчетность",
+    "отчётность",
+    "годовой отчет",
+    "годовой отчёт",
+    "годовые отчеты",
+    "годовые отчёты",
+    "раскрытие информации",
+    "раскрытие",
+    "эмитент",
+    "карточка эмитента",
+    "акционерам",
+    "облигации",
+    "ценные бумаги",
+)
+OPERATOR_SEED_TYPE_RELEVANCE_TERMS = {
+    "official_disclosure_profile": (
+        "company.aspx",
+        "emitent",
+        "issuer",
+        "profile",
+        "card",
+        "карточка",
+        "эмитент",
+        "раскрытие информации",
+        "e-disclosure",
+    ),
+    "official_disclosure_reports": (
+        "messages",
+        "message",
+        "disclosure",
+        "reports",
+        "reporting",
+        "events",
+        "сообщения",
+        "отчетность",
+        "отчётность",
+        "раскрытие",
+        "существенные факты",
+    ),
+    "issuer_reports": (
+        "invest",
+        "investor",
+        "reports",
+        "financial-results",
+        "financial_results",
+        "financial results",
+        "annual",
+        "reporting",
+        "отчетность",
+        "отчётность",
+        "годовой",
+        "финансовые результаты",
+        "инвесторам",
+    ),
+}
+OPERATOR_SEED_NOISE_TERMS = (
+    "ticket",
+    "tickets",
+    "buy ticket",
+    "train",
+    "trains",
+    "route",
+    "routes",
+    "station",
+    "stations",
+    "online board",
+    "schedule",
+    "timetable",
+    "passenger",
+    "cargo",
+    "freight",
+    "vacancy",
+    "career",
+    "press",
+    "news",
+    "contacts",
+    "history",
+    "about",
+    "activity",
+    "objects",
+    "projects",
+    "gallery",
+    "photo",
+    "video",
+    "map",
+    "login",
+    "search",
+    "купить билет",
+    "билет",
+    "билеты",
+    "поезд",
+    "поезда",
+    "маршрут",
+    "маршруты",
+    "вокзал",
+    "вокзалы",
+    "онлайн-табло",
+    "движение поездов",
+    "пассажирам",
+    "грузовые перевозки",
+    "груз",
+    "вакансии",
+    "карьера",
+    "пресс",
+    "новости",
+    "контакты",
+    "история",
+    "о компании",
+    "деятельность",
+    "объекты",
+    "проекты",
+    "галерея",
+    "фото",
+    "видео",
+    "карта",
+    "поиск",
+)
 SEED_TYPE_ALIASES = {
     "issuer_home": "issuer_home",
     "issuer_reports": "issuer_reports",
@@ -365,6 +511,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--operator-seed-candidate-min-score", type=int, default=60)
     parser.add_argument("--operator-seed-candidate-auto-review-threshold", type=int, default=90)
+    parser.add_argument("--operator-seed-candidate-top-n-per-issuer", type=int, default=20)
+    parser.add_argument("--operator-seed-candidate-top-n-per-type", type=int, default=5)
+    parser.add_argument("--operator-seed-candidate-include-filtered", type=_parse_bool, default=False)
+    parser.add_argument("--operator-seed-candidate-noise-filter", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-candidate-min-title-signal", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-candidate-min-path-signal", type=_parse_bool, default=False)
+    parser.add_argument("--operator-seed-candidate-deduplicate-paths", type=_parse_bool, default=True)
+    parser.add_argument("--operator-seed-candidate-max-autofill-review-needed", type=int, default=3)
     parser.add_argument("--operator-seed-candidate-allowed-domains", default="")
     parser.add_argument("--operator-seed-candidate-blocked-domains", default="")
     parser.add_argument("--operator-seed-candidate-probe-urls", type=_parse_bool, default=False)
@@ -1931,7 +2085,17 @@ def run_operator_seed_candidate_discover(args: argparse.Namespace) -> dict[str, 
     seed_issuers: list[dict[str, Any]] = []
     financial_rows: list[dict[str, Any]] = []
     candidates: list[dict[str, Any]] = []
-    blocked_candidate_count = 0
+    ranking_stats = {
+        "candidate_count_before_filter": 0,
+        "candidate_count_after_filter": 0,
+        "filtered_candidate_count": 0,
+        "filtered_noise_count": 0,
+        "filtered_low_score_count": 0,
+        "filtered_duplicate_count": 0,
+        "top_ranked_candidate_count": 0,
+        "invalid_candidate_count": 0,
+        "blocked_candidate_count": 0,
+    }
 
     if args.operator_seed_input is None:
         errors.append({"message": "operator-seed-candidate-discover mode requires --operator-seed-input"})
@@ -1978,8 +2142,6 @@ def run_operator_seed_candidate_discover(args: argparse.Namespace) -> dict[str, 
                     discovery_method="manual_candidate",
                     page_text="",
                 )
-                if candidate.get("candidate_status") == "blocked_candidate":
-                    blocked_candidate_count += 1
                 candidates.append(candidate)
         else:
             for required in required_issuers:
@@ -2050,12 +2212,25 @@ def run_operator_seed_candidate_discover(args: argparse.Namespace) -> dict[str, 
                                 discovery_method="official_seed_anchor_scan",
                                 page_text=body,
                             )
-                            if candidate.get("candidate_status") == "blocked_candidate":
-                                blocked_candidate_count += 1
-                            if candidate.get("candidate_seed_url") and int(candidate.get("candidate_score") or 0) >= args.operator_seed_candidate_min_score:
+                            if candidate.get("candidate_seed_url"):
                                 issuer_candidates.append(candidate)
-                selected = _select_top_operator_seed_candidates(issuer_candidates)
-                candidates.extend(selected)
+                candidates.extend(issuer_candidates)
+
+        candidates, ranking_stats = _select_top_operator_seed_candidates(candidates, args=args)
+        if not manual:
+            kept_candidates = [
+                item
+                for item in candidates
+                if item.get("candidate_seed_url") and item.get("filter_status") == "kept"
+            ]
+            for required in required_issuers:
+                issuer = _operator_seed_issuer_base(
+                    required,
+                    input_documents=operator_seed_rows,
+                    seed_issuers=seed_issuers,
+                    financial_rows=financial_rows,
+                )
+                template_rows = _items_matching_required(operator_seed_rows, issuer)
                 for template in template_rows:
                     seed_type = _normalize_seed_type(template.get("seed_type"))
                     if seed_type not in candidate_types:
@@ -2063,21 +2238,24 @@ def run_operator_seed_candidate_discover(args: argparse.Namespace) -> dict[str, 
                     if not any(
                         _matches_required_issuer(candidate, issuer)
                         and candidate.get("seed_type") == seed_type
-                        for candidate in selected
+                        for candidate in kept_candidates
                     ):
                         candidates.append(_operator_seed_not_found_candidate(template, issuer=issuer))
 
-    candidate_rows_with_url = [item for item in candidates if item.get("candidate_seed_url")]
+    candidate_rows_with_url = [
+        item
+        for item in candidates
+        if item.get("candidate_seed_url") and item.get("filter_status") == "kept"
+    ]
     reviewed_count = sum(1 for item in candidate_rows_with_url if item.get("operator_review_status") == "operator_reviewed")
     review_count = sum(1 for item in candidate_rows_with_url if item.get("operator_review_status") == "needs_operator_review")
-    invalid_count = sum(1 for item in candidate_rows_with_url if item.get("candidate_status") == "invalid_candidate")
-    blocked_count = blocked_candidate_count + sum(
-        1 for item in candidate_rows_with_url if item.get("candidate_status") == "blocked_candidate"
-    )
+    invalid_count = ranking_stats["invalid_candidate_count"]
+    blocked_count = ranking_stats["blocked_candidate_count"]
 
-    autofill_seeds = build_operator_seed_autofill(operator_seed_rows, candidates)
+    autofill_seeds = build_operator_seed_autofill(operator_seed_rows, candidates, args=args)
     autofill_reviewed_count = sum(1 for item in autofill_seeds if item.get("operator_review_status") == "operator_reviewed")
     autofill_review_needed_count = sum(1 for item in autofill_seeds if item.get("operator_review_status") == "needs_operator_review")
+    autofill_candidate_count = autofill_reviewed_count + autofill_review_needed_count
     operator_seed_validation_report: dict[str, Any] | None = None
 
     if args.operator_seed_candidate_output is not None and not errors:
@@ -2144,8 +2322,16 @@ def run_operator_seed_candidate_discover(args: argparse.Namespace) -> dict[str, 
         "needs_operator_review_count": review_count,
         "invalid_candidate_count": invalid_count,
         "blocked_candidate_count": blocked_count,
+        "candidate_count_before_filter": ranking_stats["candidate_count_before_filter"],
+        "candidate_count_after_filter": ranking_stats["candidate_count_after_filter"],
+        "filtered_candidate_count": ranking_stats["filtered_candidate_count"],
+        "filtered_noise_count": ranking_stats["filtered_noise_count"],
+        "filtered_low_score_count": ranking_stats["filtered_low_score_count"],
+        "filtered_duplicate_count": ranking_stats["filtered_duplicate_count"],
+        "top_ranked_candidate_count": ranking_stats["top_ranked_candidate_count"],
         "candidates": candidates,
         "autofill_output_written": bool(args.operator_seed_autofill_output and not errors),
+        "autofill_candidate_count": autofill_candidate_count,
         "autofill_reviewed_count": autofill_reviewed_count,
         "autofill_review_needed_count": autofill_review_needed_count,
         "operator_seed_validation_report": operator_seed_validation_report,
@@ -4035,6 +4221,16 @@ def _render_operator_seed_merge_markdown_sections(report: dict[str, Any]) -> lis
 def _render_operator_seed_candidate_markdown_sections(report: dict[str, Any]) -> list[str]:
     validation = report.get("operator_seed_validation_report") or {}
     lines = [
+        "## Ranking Summary",
+        "",
+        f"- candidate_count_before_filter: {report.get('candidate_count_before_filter', 0)}",
+        f"- candidate_count_after_filter: {report.get('candidate_count_after_filter', 0)}",
+        f"- filtered_candidate_count: {report.get('filtered_candidate_count', 0)}",
+        f"- filtered_noise_count: {report.get('filtered_noise_count', 0)}",
+        f"- filtered_low_score_count: {report.get('filtered_low_score_count', 0)}",
+        f"- filtered_duplicate_count: {report.get('filtered_duplicate_count', 0)}",
+        f"- top_ranked_candidate_count: {report.get('top_ranked_candidate_count', 0)}",
+        "",
         "## Candidates",
         "",
         f"- reviewed_candidate_count: {report.get('reviewed_candidate_count', 0)}",
@@ -4042,36 +4238,66 @@ def _render_operator_seed_candidate_markdown_sections(report: dict[str, Any]) ->
         f"- invalid_candidate_count: {report.get('invalid_candidate_count', 0)}",
         f"- blocked_candidate_count: {report.get('blocked_candidate_count', 0)}",
         "",
-        "| Company ID | Company | INN | OGRN | Seed Type | Candidate URL | Title | Source URL | Status | Operator Status | Score | Confidence |",
-        "| ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---: | --- |",
+        "## Top Candidates",
+        "",
+        "| Company ID | Company | Seed Type | Rank | Candidate URL | Title | Final Score | Status | Operator Status | Score Reasons | Negative Reasons |",
+        "| ---: | --- | --- | ---: | --- | --- | ---: | --- | --- | --- | --- |",
     ]
     rows = 0
     for candidate in report.get("candidates") or []:
+        if candidate.get("candidate_seed_url") and candidate.get("filter_status") != "kept":
+            continue
         rows += 1
         lines.append(
-            "| {company_id} | {company_name} | {inn} | {ogrn} | {seed_type} | {url} | {title} | {source} | {status} | {review} | {score} | {confidence} |".format(
+            "| {company_id} | {company_name} | {seed_type} | {rank} | {url} | {title} | {score} | {status} | {review} | {reasons} | {negatives} |".format(
                 company_id=candidate.get("company_id") or "",
                 company_name=str(candidate.get("company_name") or "").replace("|", "/"),
-                inn=candidate.get("inn") or "",
-                ogrn=candidate.get("ogrn") or "",
                 seed_type=candidate.get("seed_type") or "",
+                rank=candidate.get("candidate_rank") or "",
                 url=str(candidate.get("candidate_seed_url") or "").replace("|", "/"),
                 title=str(candidate.get("candidate_title") or "").replace("|", "/"),
-                source=str(candidate.get("candidate_source_url") or "").replace("|", "/"),
+                score=candidate.get("final_score", candidate.get("candidate_score", 0)) or 0,
                 status=candidate.get("candidate_status") or "",
                 review=candidate.get("operator_review_status") or "",
-                score=candidate.get("candidate_score") or 0,
-                confidence=candidate.get("candidate_confidence") or "",
+                reasons=_csv_value(candidate.get("score_reasons") or []).replace("|", "/"),
+                negatives=_csv_value(candidate.get("negative_reasons") or []).replace("|", "/"),
             )
         )
     if rows == 0:
-        lines.append("|  |  |  |  |  |  |  |  |  |  |  |  |")
+        lines.append("|  |  |  |  |  |  |  |  |  |  |  |")
+    filtered_candidates = [
+        candidate
+        for candidate in report.get("candidates") or []
+        if candidate.get("candidate_seed_url") and candidate.get("filter_status") != "kept"
+    ]
+    if filtered_candidates:
+        lines.extend(
+            [
+                "",
+                "## Filtered Candidates",
+                "",
+                "| Candidate URL | Title | Filter Status | Filter Reasons | Raw Score | Final Score |",
+                "| --- | --- | --- | --- | ---: | ---: |",
+            ]
+        )
+        for candidate in filtered_candidates:
+            lines.append(
+                "| {url} | {title} | {status} | {reasons} | {raw} | {final} |".format(
+                    url=str(candidate.get("candidate_seed_url") or "").replace("|", "/"),
+                    title=str(candidate.get("candidate_title") or "").replace("|", "/"),
+                    status=candidate.get("filter_status") or "",
+                    reasons=_csv_value(candidate.get("filter_reasons") or []).replace("|", "/"),
+                    raw=candidate.get("raw_score") or 0,
+                    final=candidate.get("final_score", candidate.get("candidate_score", 0)) or 0,
+                )
+            )
     lines.extend(
         [
             "",
             "## Autofill",
             "",
             f"- autofill_output_written: {report.get('autofill_output_written')}",
+            f"- autofill_candidate_count: {report.get('autofill_candidate_count', 0)}",
             f"- autofill_reviewed_count: {report.get('autofill_reviewed_count', 0)}",
             f"- autofill_review_needed_count: {report.get('autofill_review_needed_count', 0)}",
             "",
@@ -4656,15 +4882,22 @@ def build_operator_seed_candidate_from_url(
         blocked_hints=blocked_hints,
         allow_unknown_source=args.allow_unknown_source,
     )
-    score, score_reasons, negative_reasons, strong_match = score_operator_seed_candidate(
+    score_result = score_operator_seed_candidate(
         issuer,
         seed_type,
         seed_url,
         candidate_title,
         source_url,
+        args=args,
         domain_status=classification["status"],
         page_text=page_text,
     )
+    score = int(score_result["final_score"])
+    raw_score = int(score_result["raw_score"])
+    score_reasons = list(score_result["score_reasons"])
+    negative_reasons = list(score_result["negative_reasons"])
+    filter_reasons = list(score_result["filter_reasons"])
+    strong_match = bool(score_result["strong_match"])
     official = classification["status"] == "official"
     unknown = classification["status"] == "unknown_warning"
     if classification["status"] == "blocked":
@@ -4679,7 +4912,14 @@ def build_operator_seed_candidate_from_url(
         candidate_status = "needs_operator_review"
         operator_review_status = "needs_operator_review"
         confidence = "low"
-    elif official and strong_match and not _url_is_pdf(seed_url) and score >= args.operator_seed_candidate_auto_review_threshold:
+    elif (
+        official
+        and strong_match
+        and not _url_is_pdf(seed_url)
+        and not score_result["wrong_seed_type"]
+        and not score_result["noise_without_relevance"]
+        and score >= args.operator_seed_candidate_auto_review_threshold
+    ):
         candidate_status = "operator_reviewed"
         operator_review_status = "operator_reviewed"
         confidence = "high"
@@ -4704,8 +4944,13 @@ def build_operator_seed_candidate_from_url(
         "candidate_source_url": source_url,
         "candidate_status": candidate_status,
         "operator_review_status": operator_review_status,
+        "candidate_rank": None,
         "candidate_score": score,
+        "raw_score": raw_score,
+        "final_score": score,
         "candidate_confidence": confidence,
+        "filter_status": "kept",
+        "filter_reasons": filter_reasons,
         "discovery_method": discovery_method,
         "score_reasons": score_reasons,
         "negative_reasons": negative_reasons,
@@ -4723,6 +4968,7 @@ def build_operator_seed_candidate_from_url(
         candidate["probe_content_type"] = probe.get("content_type") or ""
         if probe.get("status") != "ok":
             candidate["negative_reasons"] = [*negative_reasons, "candidate probe failed"]
+            candidate["filter_reasons"] = [*filter_reasons, "candidate probe failed"]
     _strip_financial_values(candidate)
     return candidate
 
@@ -4734,17 +4980,22 @@ def score_operator_seed_candidate(
     candidate_title: str,
     source_url: str,
     *,
+    args: argparse.Namespace,
     domain_status: str,
     page_text: str,
-) -> tuple[int, list[str], list[str], bool]:
+) -> dict[str, Any]:
     host = _host(candidate_url)
     source_host = _host(source_url)
-    path = urllib.parse.urlparse(candidate_url).path.casefold()
+    parsed = urllib.parse.urlparse(candidate_url)
+    path = urllib.parse.unquote(parsed.path or "/").casefold()
+    path_words = re.sub(r"[_\-/]+", " ", path)
+    title_text = str(candidate_title or "").casefold()
     text = f"{candidate_url} {candidate_title}".casefold()
-    page_folded = str(page_text or "").casefold()
+    signal_text = f"{path} {path_words} {title_text}"
     score = 0
     reasons: list[str] = []
     negatives: list[str] = []
+    filter_reasons: list[str] = []
 
     def add(points: int, reason: str) -> None:
         nonlocal score
@@ -4757,13 +5008,13 @@ def score_operator_seed_candidate(
         negatives.append(reason)
 
     if domain_status == "official":
-        add(20, "official allowlisted domain")
+        add(10, "official allowlisted domain")
     elif domain_status == "unknown_warning":
         subtract(15, "unknown domain review only")
     if seed_type.startswith("official_disclosure") and "disclosure" in host:
-        add(25, "official disclosure domain for disclosure seed")
+        add(20, "official disclosure domain for disclosure seed")
     if seed_type.startswith("issuer_") and host and host == source_host and "disclosure" not in host:
-        add(20, "issuer official domain for issuer seed")
+        add(15, "issuer official domain for issuer seed")
 
     names = [
         str(issuer.get("company_name") or ""),
@@ -4776,60 +5027,277 @@ def score_operator_seed_candidate(
         for token in re.split(r"[\s\"'.,()/\\_-]+", name.casefold())
         if len(token) >= 3
     ]
-    matched_name = any(token in text or token in page_folded for token in name_tokens)
+    matched_name = any(token in text for token in name_tokens)
     inn = str(issuer.get("inn") or "").strip()
     ogrn = str(issuer.get("ogrn") or "").strip()
-    matched_inn = bool(inn and (inn in text or inn in page_folded))
-    matched_ogrn = bool(ogrn and (ogrn in text or ogrn in page_folded))
+    matched_inn = bool(inn and inn in text)
+    matched_ogrn = bool(ogrn and ogrn in text)
     if matched_name:
-        add(25, "company name match")
+        add(18, "company name match")
     if matched_inn:
-        add(30, "INN match")
+        add(35, "INN match")
     if matched_ogrn:
         add(25, "OGRN match")
     if not (matched_name or matched_inn or matched_ogrn):
-        subtract(35, "no company signal")
+        subtract(20, "no company signal")
 
-    if seed_type == "official_disclosure_profile" and _contains_any(path, ("company", "emitent", "issuer", "card", "profile")):
-        add(25, "profile-like disclosure path")
-    if seed_type == "official_disclosure_reports" and _contains_any(path, ("event", "message", "report", "account", "disclosure")):
-        add(25, "reports/messages disclosure path")
-    if seed_type == "issuer_reports" and _contains_any(path, ("report", "annual", "financial", "ifrs", "otchet")):
-        add(25, "issuer reports path")
+    title_signal = _contains_any(title_text, OPERATOR_SEED_RELEVANCE_TERMS)
+    path_signal = _contains_any(f"{path} {path_words}", OPERATOR_SEED_RELEVANCE_TERMS)
+    seed_terms = OPERATOR_SEED_TYPE_RELEVANCE_TERMS.get(seed_type, ())
+    seed_title_signal = _contains_any(title_text, seed_terms)
+    seed_path_signal = _contains_any(f"{path} {path_words}", seed_terms)
+    if title_signal:
+        add(20, "title seed relevance signal")
+    if path_signal:
+        add(25, "path seed relevance signal")
+    if seed_title_signal:
+        add(30, f"{seed_type} title signal")
+    if seed_path_signal:
+        add(45, f"{seed_type} path signal")
+    if _contains_any(signal_text, ("financial-results", "financial results", "финансовые результаты")):
+        reasons.append("financial-results signal")
+    if _contains_any(signal_text, ("information-disclosure", "information disclosure", "disclosure", "раскрытие")):
+        reasons.append("disclosure signal")
     if _contains_any(path, ("company.aspx", "emitent", "profile")):
-        add(15, "company profile URL shape")
-    if _contains_any(path, ("reports", "reporting", "messages", "disclosure", "events")):
-        add(15, "reports/messages URL shape")
+        add(20, "company profile URL shape")
+    if _contains_any(path, ("reports", "reporting", "messages", "disclosure", "events", "financial-results")):
+        add(20, "reports/messages URL shape")
+
+    has_relevance_signal = bool(title_signal or path_signal or seed_title_signal or seed_path_signal)
+    raw_score = max(score, 0)
+
     if _looks_like_generic_seed_page(candidate_url):
         subtract(30, "generic homepage only")
+        filter_reasons.append("generic homepage only")
     if _contains_any(text, ("search", "google", "yandex", "news", "press", "blog", "forum", "social", "telegram")):
         subtract(60, "search/news/blog/forum/social URL")
+        filter_reasons.append("search/news/blog/forum/social URL")
+    noise_without_relevance = bool(args.operator_seed_candidate_noise_filter and _contains_any(signal_text, OPERATOR_SEED_NOISE_TERMS) and not has_relevance_signal)
+    if noise_without_relevance:
+        subtract(90, "noise navigation page without seed relevance")
+        filter_reasons.append("noise navigation page without seed relevance")
+    if args.operator_seed_candidate_min_title_signal and not (title_signal or seed_title_signal or matched_name or matched_inn or matched_ogrn):
+        subtract(20, "missing title seed relevance")
+        filter_reasons.append("missing title seed relevance")
+    if args.operator_seed_candidate_min_path_signal and not (path_signal or seed_path_signal):
+        subtract(20, "missing path seed relevance")
+        filter_reasons.append("missing path seed relevance")
+    wrong_seed_type = False
     if seed_type == "official_disclosure_profile" and _url_is_pdf(candidate_url):
-        subtract(80, "exact PDF document is not profile seed")
+        wrong_seed_type = True
+        subtract(100, "exact PDF document is not profile seed")
+        filter_reasons.append("exact PDF document is not profile seed")
     if seed_type == "official_disclosure_profile" and _contains_any(path, ("annual", "ifrs", "financial-statement")):
+        wrong_seed_type = True
         subtract(40, "report document path is not profile seed")
+        filter_reasons.append("report document path is not profile seed")
     if seed_type == "issuer_reports" and _url_is_pdf(candidate_url):
         subtract(45, "exact PDF needs operator review; seed page preferred")
+        filter_reasons.append("exact PDF needs operator review; seed page preferred")
 
-    return max(score, 0), reasons, negatives, bool(matched_name or matched_inn or matched_ogrn)
+    return {
+        "raw_score": raw_score,
+        "final_score": max(score, 0),
+        "score_reasons": reasons,
+        "negative_reasons": negatives,
+        "filter_reasons": filter_reasons,
+        "strong_match": bool(matched_name or matched_inn or matched_ogrn),
+        "has_relevance_signal": has_relevance_signal,
+        "has_title_signal": bool(title_signal or seed_title_signal),
+        "has_path_signal": bool(path_signal or seed_path_signal),
+        "noise_without_relevance": noise_without_relevance,
+        "wrong_seed_type": wrong_seed_type,
+    }
 
 
-def _select_top_operator_seed_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+def _select_top_operator_seed_candidates(
+    candidates: list[dict[str, Any]],
+    *,
+    args: argparse.Namespace,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    prepared = [copy.deepcopy(candidate) for candidate in candidates if candidate.get("candidate_seed_url")]
+    stats = {
+        "candidate_count_before_filter": len(prepared),
+        "candidate_count_after_filter": 0,
+        "filtered_candidate_count": 0,
+        "filtered_noise_count": 0,
+        "filtered_low_score_count": 0,
+        "filtered_duplicate_count": 0,
+        "top_ranked_candidate_count": 0,
+        "invalid_candidate_count": 0,
+        "blocked_candidate_count": 0,
+    }
+    for candidate in prepared:
+        _apply_operator_seed_candidate_filter(candidate, args=args)
+
+    best_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for candidate in sorted(prepared, key=_operator_seed_candidate_sort_key, reverse=True):
+        if candidate.get("filter_status") not in {"kept", "filtered_low_score"}:
+            continue
+        key = _operator_seed_candidate_dedupe_key(candidate, args=args)
+        existing = best_by_key.get(key)
+        if existing is None:
+            best_by_key[key] = candidate
+            continue
+        _mark_operator_seed_candidate_filtered(
+            candidate,
+            "filtered_duplicate",
+            "duplicate normalized candidate URL",
+        )
+
+    kept_candidates = [item for item in prepared if item.get("filter_status") == "kept"]
+    _apply_operator_seed_candidate_top_n(kept_candidates, args=args)
+    kept_candidates = [item for item in prepared if item.get("filter_status") == "kept"]
+    _assign_operator_seed_candidate_ranks(kept_candidates)
+
+    stats["candidate_count_after_filter"] = len(kept_candidates)
+    stats["top_ranked_candidate_count"] = len(kept_candidates)
+    filtered = [item for item in prepared if item.get("filter_status") != "kept"]
+    stats["filtered_candidate_count"] = len(filtered)
+    stats["filtered_noise_count"] = sum(1 for item in filtered if item.get("filter_status") == "filtered_noise")
+    stats["filtered_low_score_count"] = sum(1 for item in filtered if item.get("filter_status") == "filtered_low_score")
+    stats["filtered_duplicate_count"] = sum(1 for item in filtered if item.get("filter_status") == "filtered_duplicate")
+    stats["invalid_candidate_count"] = sum(1 for item in prepared if item.get("candidate_status") == "invalid_candidate")
+    stats["blocked_candidate_count"] = sum(1 for item in prepared if item.get("candidate_status") == "blocked_candidate")
+
+    output = kept_candidates
+    if args.operator_seed_candidate_include_filtered:
+        output = [*kept_candidates, *filtered]
+    return sorted(output, key=_operator_seed_candidate_output_sort_key), stats
+
+
+def _apply_operator_seed_candidate_filter(candidate: dict[str, Any], *, args: argparse.Namespace) -> None:
+    score = int(candidate.get("final_score") or candidate.get("candidate_score") or 0)
+    negative_reasons = [str(item) for item in candidate.get("negative_reasons") or []]
+    filter_reasons = [str(item) for item in candidate.get("filter_reasons") or []]
+    status = str(candidate.get("candidate_status") or "")
+    if status == "blocked_candidate":
+        _mark_operator_seed_candidate_filtered(candidate, "filtered_blocked", "blocked official seed candidate URL")
+        return
+    if status == "invalid_candidate":
+        _mark_operator_seed_candidate_filtered(candidate, "filtered_low_score", "invalid or unknown official seed candidate URL")
+        return
+    if any("not profile seed" in reason for reason in negative_reasons + filter_reasons):
+        _mark_operator_seed_candidate_filtered(candidate, "filtered_wrong_seed_type", "candidate URL does not match requested seed type")
+        return
+    if any("noise navigation page" in reason for reason in negative_reasons + filter_reasons):
+        _mark_operator_seed_candidate_filtered(candidate, "filtered_noise", "noise navigation page")
+        return
+    if score < args.operator_seed_candidate_min_score:
+        _mark_operator_seed_candidate_filtered(candidate, "filtered_low_score", "candidate score below minimum")
+        return
+    candidate["filter_status"] = "kept"
+    candidate["filter_reasons"] = []
+
+
+def _mark_operator_seed_candidate_filtered(candidate: dict[str, Any], status: str, reason: str) -> None:
+    candidate["filter_status"] = status
+    reasons = [str(item) for item in candidate.get("filter_reasons") or []]
+    if reason not in reasons:
+        reasons.append(reason)
+    candidate["filter_reasons"] = reasons
+    if status == "filtered_noise":
+        candidate["candidate_status"] = "not_found"
+        candidate["operator_review_status"] = "operator_to_fill"
+    elif status == "filtered_low_score" and candidate.get("candidate_status") not in {"invalid_candidate", "blocked_candidate"}:
+        candidate["candidate_status"] = "not_found"
+        candidate["operator_review_status"] = "operator_to_fill"
+
+
+def _operator_seed_candidate_dedupe_key(
+    candidate: dict[str, Any],
+    *,
+    args: argparse.Namespace,
+) -> tuple[str, str, str]:
+    normalized_url = _normalized_operator_seed_candidate_url(str(candidate.get("candidate_seed_url") or ""))
+    if args.operator_seed_candidate_deduplicate_paths:
+        parsed = urllib.parse.urlparse(normalized_url)
+        path = (parsed.path or "/").rstrip("/") or "/"
+        normalized_url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+    return (
+        str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
+        str(candidate.get("seed_type") or ""),
+        normalized_url,
+    )
+
+
+def _normalized_operator_seed_candidate_url(url: str) -> str:
+    parsed = urllib.parse.urlparse(str(url).strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return ""
+    scheme = parsed.scheme.casefold()
+    host = parsed.netloc.casefold()
+    path = parsed.path or "/"
+    if path != "/":
+        path = path.rstrip("/")
+    return urllib.parse.urlunparse((scheme, host, path or "/", "", parsed.query, ""))
+
+
+def _apply_operator_seed_candidate_top_n(candidates: list[dict[str, Any]], *, args: argparse.Namespace) -> None:
+    by_type: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for candidate in candidates:
         key = (
             str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
             str(candidate.get("seed_type") or ""),
-            str(candidate.get("candidate_seed_url") or ""),
         )
-        existing = by_key.get(key)
-        if existing is None or int(candidate.get("candidate_score") or 0) > int(existing.get("candidate_score") or 0):
-            by_key[key] = candidate
-    return sorted(
-        by_key.values(),
-        key=lambda item: int(item.get("candidate_score") or 0),
-        reverse=True,
-    )
+        by_type.setdefault(key, []).append(candidate)
+    per_type_limit = max(int(args.operator_seed_candidate_top_n_per_type or 0), 0)
+    for group in by_type.values():
+        ranked = sorted(group, key=_operator_seed_candidate_sort_key, reverse=True)
+        for index, candidate in enumerate(ranked, start=1):
+            if per_type_limit and index > per_type_limit:
+                _mark_operator_seed_candidate_filtered(candidate, "filtered_low_score", "outside top-N per seed type")
+
+    by_issuer: dict[str, list[dict[str, Any]]] = {}
+    for candidate in candidates:
+        if candidate.get("filter_status") != "kept":
+            continue
+        company_id = str(candidate.get("company_id") or candidate.get("canonical_company_id") or "")
+        by_issuer.setdefault(company_id, []).append(candidate)
+    per_issuer_limit = max(int(args.operator_seed_candidate_top_n_per_issuer or 0), 0)
+    for group in by_issuer.values():
+        ranked = sorted(group, key=_operator_seed_candidate_sort_key, reverse=True)
+        for index, candidate in enumerate(ranked, start=1):
+            if per_issuer_limit and index > per_issuer_limit:
+                _mark_operator_seed_candidate_filtered(candidate, "filtered_low_score", "outside top-N per issuer")
+
+
+def _assign_operator_seed_candidate_ranks(candidates: list[dict[str, Any]]) -> None:
+    by_type: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for candidate in candidates:
+        key = (
+            str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
+            str(candidate.get("seed_type") or ""),
+        )
+        by_type.setdefault(key, []).append(candidate)
+    for group in by_type.values():
+        for rank, candidate in enumerate(sorted(group, key=_operator_seed_candidate_sort_key, reverse=True), start=1):
+            candidate["candidate_rank"] = rank
+
+
+def _operator_seed_candidate_sort_key(candidate: dict[str, Any]) -> tuple[int, int, int, int, int, str]:
+    score = int(candidate.get("final_score") or candidate.get("candidate_score") or 0)
+    reviewed_rank = 1 if candidate.get("operator_review_status") == "operator_reviewed" else 0
+    exact_rank = _operator_seed_candidate_exact_type_rank(candidate)
+    path = urllib.parse.urlparse(str(candidate.get("candidate_seed_url") or "")).path or "/"
+    path_specificity = min(path.count("/"), 20)
+    path_length_rank = -len(path)
+    return (score, reviewed_rank, exact_rank, path_specificity, path_length_rank, str(candidate.get("candidate_seed_url") or ""))
+
+
+def _operator_seed_candidate_exact_type_rank(candidate: dict[str, Any]) -> int:
+    seed_type = str(candidate.get("seed_type") or "")
+    text = f"{candidate.get('candidate_seed_url') or ''} {candidate.get('candidate_title') or ''}".casefold()
+    terms = OPERATOR_SEED_TYPE_RELEVANCE_TERMS.get(seed_type, ())
+    return 1 if _contains_any(text, terms) else 0
+
+
+def _operator_seed_candidate_output_sort_key(candidate: dict[str, Any]) -> tuple[str, str, int, int, str]:
+    company_id = str(candidate.get("company_id") or candidate.get("canonical_company_id") or "")
+    seed_type = str(candidate.get("seed_type") or "")
+    rank = int(candidate.get("candidate_rank") or 999999)
+    kept = 0 if candidate.get("filter_status") == "kept" else 1
+    return (company_id, seed_type, kept, rank, str(candidate.get("candidate_seed_url") or ""))
 
 
 def _operator_seed_not_found_candidate(template: dict[str, Any], *, issuer: dict[str, Any]) -> dict[str, Any]:
@@ -4846,8 +5314,13 @@ def _operator_seed_not_found_candidate(template: dict[str, Any], *, issuer: dict
         "candidate_source_url": template.get("source_context") or "",
         "candidate_status": "not_found",
         "operator_review_status": "operator_to_fill",
+        "candidate_rank": None,
         "candidate_score": 0,
+        "raw_score": 0,
+        "final_score": 0,
         "candidate_confidence": "low",
+        "filter_status": "kept",
+        "filter_reasons": [],
         "discovery_method": "official_seed_anchor_scan",
         "score_reasons": [],
         "negative_reasons": ["missing official candidate"],
@@ -4857,10 +5330,20 @@ def _operator_seed_not_found_candidate(template: dict[str, Any], *, issuer: dict
     return candidate
 
 
-def build_operator_seed_autofill(template_rows: list[dict[str, Any]], candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def build_operator_seed_autofill(
+    template_rows: list[dict[str, Any]],
+    candidates: list[dict[str, Any]],
+    *,
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
     best_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    review_needed_keys: set[tuple[str, str]] = set()
     for candidate in candidates:
         if not candidate.get("candidate_seed_url"):
+            continue
+        if candidate.get("filter_status") != "kept":
+            continue
+        if _url_is_pdf(str(candidate.get("candidate_seed_url") or "")):
             continue
         if candidate.get("candidate_status") not in {"operator_reviewed", "needs_operator_review"}:
             continue
@@ -4871,6 +5354,23 @@ def build_operator_seed_autofill(template_rows: list[dict[str, Any]], candidates
         existing = best_by_key.get(key)
         if existing is None or _operator_seed_candidate_rank(candidate) > _operator_seed_candidate_rank(existing):
             best_by_key[key] = candidate
+    review_needed_limit = max(int(args.operator_seed_candidate_max_autofill_review_needed or 0), 0)
+    review_needed_candidates = sorted(
+        [
+            candidate
+            for candidate in best_by_key.values()
+            if candidate.get("operator_review_status") == "needs_operator_review"
+        ],
+        key=_operator_seed_candidate_sort_key,
+        reverse=True,
+    )
+    for candidate in review_needed_candidates[:review_needed_limit]:
+        review_needed_keys.add(
+            (
+                str(candidate.get("company_id") or candidate.get("canonical_company_id") or ""),
+                str(candidate.get("seed_type") or ""),
+            )
+        )
     autofill: list[dict[str, Any]] = []
     for row in template_rows:
         seed_type = _normalize_seed_type(row.get("seed_type"))
@@ -4878,7 +5378,10 @@ def build_operator_seed_autofill(template_rows: list[dict[str, Any]], candidates
         candidate = best_by_key.get(key)
         item = {field: row.get(field) or "" for field in OPERATOR_SEED_FIELDS}
         item["seed_type"] = seed_type
-        if candidate is not None:
+        if candidate is not None and (
+            candidate.get("operator_review_status") == "operator_reviewed"
+            or key in review_needed_keys
+        ):
             item["seed_url"] = candidate.get("candidate_seed_url") or ""
             item["operator_review_status"] = candidate.get("operator_review_status") or "needs_operator_review"
             item["notes"] = candidate.get("notes") or candidate.get("candidate_title") or item.get("notes") or ""

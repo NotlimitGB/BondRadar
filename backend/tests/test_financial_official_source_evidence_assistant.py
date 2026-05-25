@@ -2045,7 +2045,9 @@ def test_operator_seed_candidate_manual_unknown_domain_review_only(
     )
     default_report, default_exit = assistant.run_assistant(default_args)
     assert default_exit == 0
-    assert default_report["candidates"][0]["candidate_status"] == "invalid_candidate"
+    assert default_report["candidate_count"] == 0
+    assert default_report["invalid_candidate_count"] == 1
+    assert default_report["candidates"] == []
 
     allow_args = assistant.parse_args(
         [
@@ -2064,6 +2066,270 @@ def test_operator_seed_candidate_manual_unknown_domain_review_only(
     assert allow_exit == 0
     assert allow_report["candidates"][0]["candidate_status"] == "needs_operator_review"
     assert allow_report["candidates"][0]["operator_review_status"] == "needs_operator_review"
+
+
+def test_operator_seed_candidate_noise_filter_suppresses_passenger_pages(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template = tmp_path / "operator_seed_template.json"
+    seed_pack = tmp_path / "official_seed_pack.json"
+    _write_operator_seeds(template, _operator_seed_template_rows(seed_types=["issuer_reports"]))
+    _write_seed_pack(seed_pack)
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://www.e-disclosure.ru/": "<html></html>",
+            "https://rzd.ru/": """
+                <a href="/ru/9269">Купить билет</a>
+                <a href="/ru/9316">Поезда и маршруты</a>
+                <a href="/ru/11497">Онлайн-табло вокзалов</a>
+                <a href="/investors/reports/">Инвесторам — годовая отчетность RZD</a>
+            """,
+            "https://rzd.ru/reports/": "<html></html>",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-candidate-discover",
+            "--operator-seed-input",
+            str(template),
+            "--seed-input",
+            str(seed_pack),
+            "--required-company-ids",
+            "18",
+            "--operator-seed-candidate-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    kept_urls = {
+        item["candidate_seed_url"]
+        for item in report["candidates"]
+        if item.get("candidate_seed_url") and item.get("filter_status") == "kept"
+    }
+    assert "https://rzd.ru/investors/reports/" in kept_urls
+    assert "https://rzd.ru/ru/9269" not in kept_urls
+    assert "https://rzd.ru/ru/9316" not in kept_urls
+    assert "https://rzd.ru/ru/11497" not in kept_urls
+    assert report["filtered_noise_count"] >= 3
+
+
+def test_operator_seed_candidate_official_domain_generic_page_is_insufficient(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template = tmp_path / "operator_seed_template.json"
+    seed_pack = tmp_path / "official_seed_pack.json"
+    _write_operator_seeds(template, _operator_seed_template_rows(seed_types=["issuer_reports"]))
+    _write_seed_pack(seed_pack)
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://www.e-disclosure.ru/": "<html></html>",
+            "https://rzd.ru/": '<a href="/about/">RZD</a>',
+            "https://rzd.ru/reports/": "<html></html>",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-candidate-discover",
+            "--operator-seed-input",
+            str(template),
+            "--seed-input",
+            str(seed_pack),
+            "--required-company-ids",
+            "18",
+            "--operator-seed-candidate-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    generic = [
+        item
+        for item in report["candidates"]
+        if item.get("candidate_seed_url") == "https://rzd.ru/about/"
+    ][0]
+    assert generic["final_score"] < 60
+    assert generic["filter_status"] in {"filtered_low_score", "filtered_noise"}
+    assert report["candidate_count"] == 0
+
+
+def test_operator_seed_candidate_mostotrest_reporting_pages_rank_high(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template = tmp_path / "operator_seed_template.json"
+    seed_pack = tmp_path / "official_seed_pack.json"
+    rows = [
+        {
+            "company_id": 67,
+            "company_name": "Mostotrest",
+            "canonical_company_id": 67,
+            "canonical_company_name": "Mostotrest",
+            "inn": "7701045732",
+            "ogrn": "1027739167246",
+            "seed_type": "issuer_reports",
+            "seed_url": "",
+            "operator_review_status": "operator_to_fill",
+            "source_context": "https://mostotrest.ru/",
+            "notes": "Synthetic operator seed template row.",
+        }
+    ]
+    _write_operator_seeds(template, rows)
+    _write_seed_pack(seed_pack)
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://www.e-disclosure.ru/": "<html></html>",
+            "https://mostotrest.ru/": """
+                <a href="/ru/about/">Mostotrest</a>
+                <a href="/ru/activity/">Mostotrest activity</a>
+                <a href="/ru/invest/information-disclosure/">Mostotrest information disclosure</a>
+                <a href="/ru/invest/financial-results/">Mostotrest financial results INN 7701045732</a>
+            """,
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-candidate-discover",
+            "--operator-seed-input",
+            str(template),
+            "--seed-input",
+            str(seed_pack),
+            "--required-company-ids",
+            "67",
+            "--operator-seed-candidate-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    kept = [
+        item
+        for item in report["candidates"]
+        if item.get("candidate_seed_url") and item.get("filter_status") == "kept"
+    ]
+    financial = [item for item in kept if item["candidate_seed_url"].endswith("/ru/invest/financial-results/")][0]
+    disclosure = [item for item in kept if item["candidate_seed_url"].endswith("/ru/invest/information-disclosure/")][0]
+    generic_scores = [
+        item["final_score"]
+        for item in report["candidates"]
+        if item.get("candidate_seed_url", "").endswith(("/ru/about/", "/ru/activity/"))
+    ]
+    assert financial["final_score"] >= 90
+    assert financial["candidate_rank"] == 1
+    assert disclosure["final_score"] > max(generic_scores)
+    assert any("financial" in reason for reason in financial["score_reasons"])
+    assert any("disclosure" in reason for reason in disclosure["score_reasons"])
+
+
+def test_operator_seed_candidate_top_n_and_include_filtered(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template = tmp_path / "operator_seed_template.json"
+    seed_pack = tmp_path / "official_seed_pack.json"
+    _write_operator_seeds(template, _operator_seed_template_rows(seed_types=["issuer_reports"]))
+    _write_seed_pack(seed_pack)
+    links = "\n".join(
+        f'<a href="/investors/reports/{index}/">RZD annual reports {index}</a>'
+        for index in range(8)
+    )
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://www.e-disclosure.ru/": "<html></html>",
+            "https://rzd.ru/": links,
+            "https://rzd.ru/reports/": "<html></html>",
+        },
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-candidate-discover",
+            "--operator-seed-input",
+            str(template),
+            "--seed-input",
+            str(seed_pack),
+            "--required-company-ids",
+            "18",
+            "--operator-seed-candidate-top-n-per-type",
+            "2",
+            "--operator-seed-candidate-include-filtered",
+            "true",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    kept = [item for item in report["candidates"] if item.get("filter_status") == "kept" and item.get("candidate_seed_url")]
+    filtered = [item for item in report["candidates"] if item.get("filter_status") != "kept" and item.get("candidate_seed_url")]
+    assert len(kept) == 2
+    assert report["candidate_count"] == 2
+    assert filtered
+    assert report["filtered_low_score_count"] >= 6
+
+
+def test_operator_seed_candidate_autofill_caps_review_needed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    template = tmp_path / "operator_seed_template.json"
+    seed_pack = tmp_path / "official_seed_pack.json"
+    rows = _operator_seed_template_rows(
+        seed_types=["issuer_reports", "issuer_investor_relations", "official_disclosure_reports"]
+    )
+    _write_operator_seeds(template, rows)
+    _write_seed_pack(seed_pack)
+    _mock_candidate_fetch(
+        monkeypatch,
+        {
+            "https://www.e-disclosure.ru/": '<a href="/portal/events.aspx">RZD disclosure reports</a>',
+            "https://rzd.ru/": """
+                <a href="/investors/reports/">Annual reports</a>
+                <a href="/investors/">Investor relations</a>
+            """,
+            "https://rzd.ru/reports/": "<html></html>",
+        },
+    )
+    autofill_output = tmp_path / "autofill.json"
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-seed-candidate-discover",
+            "--operator-seed-input",
+            str(template),
+            "--seed-input",
+            str(seed_pack),
+            "--required-company-ids",
+            "18",
+            "--operator-seed-autofill-output",
+            str(autofill_output),
+            "--operator-seed-candidate-max-autofill-review-needed",
+            "1",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["autofill_review_needed_count"] <= 1
+    autofill = json.loads(autofill_output.read_text(encoding="utf-8"))
+    assert sum(1 for seed in autofill["seeds"] if seed["operator_review_status"] == "needs_operator_review") <= 1
+    assert all("ticket" not in seed.get("notes", "").casefold() for seed in autofill["seeds"])
 
 
 def test_official_seed_resolve_uses_operator_seed_for_discovery_and_gate(

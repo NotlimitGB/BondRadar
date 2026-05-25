@@ -1075,6 +1075,44 @@ The helper must not use broad search results or invent e-disclosure profile IDs.
 If no high-confidence official candidates are found, autofill keeps rows empty
 and validation fails safely until an operator fills reviewed seed URLs.
 
+## Operator Seed Candidate Ranking and Noise Filter
+
+Task 106 keeps the candidate helper operator-friendly by ranking seed-page
+candidates and filtering noisy official-site navigation. Official domain alone
+is not enough: investor, reporting, annual-report, disclosure, profile, or
+financial-results signals must appear in the candidate title or path. Passenger,
+ticket, train, station, contact, history, generic activity, project, search,
+news, blog, forum, and social pages are filtered out by default.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode operator-seed-candidate-discover \
+  --operator-seed-input data/financial_reports/private/operator_official_seed_task104.json \
+  --seed-input data/financial_reports/private/official_seed_pack_task103.json \
+  --financial-template-input data/financial_reports/private/collection_ready_financial_template_task95.csv \
+  --required-company-ids 18,67 \
+  --operator-seed-candidate-top-n-per-issuer 20 \
+  --operator-seed-candidate-top-n-per-type 5 \
+  --operator-seed-candidate-include-filtered false \
+  --operator-seed-candidate-noise-filter true \
+  --operator-seed-candidate-max-autofill-review-needed 3 \
+  --operator-seed-candidate-output data/financial_reports/private/operator_official_seed_candidates_task106.json \
+  --operator-seed-candidate-csv-output data/financial_reports/private/operator_official_seed_candidates_task106.csv \
+  --operator-seed-autofill-output data/financial_reports/private/operator_official_seed_autofill_task106.json \
+  --operator-seed-autofill-csv-output data/financial_reports/private/operator_official_seed_autofill_task106.csv \
+  --run-operator-seed-validate true \
+  --operator-seed-validation-json-output logs/financial_reports/operator_official_seed_validation_autofill_task106.json \
+  --operator-seed-validation-markdown-output logs/financial_reports/operator_official_seed_validation_autofill_task106.md \
+  --json-output logs/financial_reports/operator_official_seed_candidate_discovery_task106.json \
+  --markdown-output logs/financial_reports/operator_official_seed_candidate_discovery_task106.md
+```
+
+Use `--operator-seed-candidate-include-filtered true` only for diagnostics.
+Filtered rows include `filter_status`, `filter_reasons`, `raw_score`, and
+`final_score`. Autofill remains conservative and capped; filtered/noise rows
+never enter autofill. Candidate seeds still do not extract values, import
+reports, trade, or bypass the exact document quality gate.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

@@ -1,0 +1,93 @@
+{
+  "status": "warning",
+  "mode": "operator-seed-candidate-discover",
+  "issuer_count": 1,
+  "candidate_count_before_filter": 3,
+  "candidate_count_after_filter": 1,
+  "candidate_count": 1,
+  "reviewed_candidate_count": 1,
+  "needs_operator_review_count": 0,
+  "invalid_candidate_count": 0,
+  "blocked_candidate_count": 0,
+  "filtered_candidate_count": 2,
+  "filtered_noise_count": 1,
+  "filtered_low_score_count": 1,
+  "filtered_duplicate_count": 0,
+  "top_ranked_candidate_count": 1,
+  "autofill_output_written": true,
+  "autofill_candidate_count": 1,
+  "autofill_reviewed_count": 1,
+  "autofill_review_needed_count": 0,
+  "read_only": true,
+  "dry_run_only": true,
+  "import_executed": false,
+  "paper_trading_called": false,
+  "identity_apply_executed": false,
+  "would_mutate_scores": false,
+  "would_trigger_paper_trading": false,
+  "candidates": [
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "candidate_seed_url": "https://www.moex.com/synthetic-issuer/investors/reports",
+      "candidate_title": "Synthetic Rail Issuer annual reports INN 0000000001",
+      "candidate_source_url": "https://www.moex.com/",
+      "candidate_status": "operator_reviewed",
+      "operator_review_status": "operator_reviewed",
+      "candidate_rank": 1,
+      "candidate_score": 130,
+      "raw_score": 130,
+      "final_score": 130,
+      "candidate_confidence": "high",
+      "filter_status": "kept",
+      "filter_reasons": [],
+      "discovery_method": "official_seed_anchor_scan",
+      "score_reasons": [
+        "official allowlisted domain",
+        "company name match",
+        "INN match",
+        "issuer_reports path signal"
+      ],
+      "negative_reasons": [],
+      "notes": "Synthetic ranked candidate for documentation only."
+    },
+    {
+      "company_id": 1001,
+      "company_name": "Synthetic Rail Issuer",
+      "canonical_company_id": 1001,
+      "canonical_company_name": "Synthetic Rail Issuer",
+      "inn": "0000000001",
+      "ogrn": "1000000000001",
+      "seed_type": "issuer_reports",
+      "candidate_seed_url": "https://www.moex.com/synthetic-issuer/tickets",
+      "candidate_title": "Buy tickets",
+      "candidate_source_url": "https://www.moex.com/",
+      "candidate_status": "not_found",
+      "operator_review_status": "operator_to_fill",
+      "candidate_rank": null,
+      "candidate_score": 0,
+      "raw_score": 25,
+      "final_score": 0,
+      "candidate_confidence": "low",
+      "filter_status": "filtered_noise",
+      "filter_reasons": [
+        "noise navigation page"
+      ],
+      "discovery_method": "official_seed_anchor_scan",
+      "score_reasons": [
+        "official allowlisted domain"
+      ],
+      "negative_reasons": [
+        "noise navigation page without seed relevance"
+      ],
+      "notes": "Synthetic filtered row for documentation only."
+    }
+  ],
+  "warnings": [],
+  "errors": []
+}

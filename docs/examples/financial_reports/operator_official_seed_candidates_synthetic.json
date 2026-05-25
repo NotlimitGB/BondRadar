@@ -23,8 +23,13 @@
       "candidate_source_url": "https://www.moex.com/",
       "candidate_status": "operator_reviewed",
       "operator_review_status": "operator_reviewed",
+      "candidate_rank": 1,
       "candidate_score": 120,
+      "raw_score": 120,
+      "final_score": 120,
       "candidate_confidence": "high",
+      "filter_status": "kept",
+      "filter_reasons": [],
       "discovery_method": "official_seed_anchor_scan",
       "score_reasons": [
         "official allowlisted domain",
