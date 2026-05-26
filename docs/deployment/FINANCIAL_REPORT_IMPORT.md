@@ -1344,7 +1344,8 @@ python3 scripts/financial_official_source_evidence_assistant.py \
   --accounting-standard IFRS \
   --exact-document-period-policy target-only \
   --exact-document-target-period-required true \
-  --exact-document-availability-policy-name annual_ifrs_grace_window \
+  --exact-document-availability-policy-name annual_ifrs_deadline_aware_grace_window \
+  --exact-document-annual-ifrs-primary-deadline-days 120 \
   --exact-document-annual-ifrs-grace-days 180 \
   --exact-document-availability-current-date 2026-05-25 \
   --json-output logs/financial_reports/exact_document_discover_from_seeds_task111.json \
@@ -1352,12 +1353,21 @@ python3 scripts/financial_official_source_evidence_assistant.py \
 ```
 
 The policy reports one `target_reporting_period_availability` row per required
-issuer. It distinguishes exact target documents, likely-not-yet-published
-target annual IFRS reports inside the configured 180-day grace window,
-historical-only annual IFRS availability, interim-only availability,
-wrong-standard availability, operator review needs, placeholder `not_found`
-rows, and no usable official candidates. The grace-window status is a policy
-inference only, not an official statement that a report is unpublished.
+issuer. It distinguishes exact target documents, missing target annual IFRS
+before the primary expected deadline, missing target annual IFRS after the
+primary deadline but inside the conservative grace window, missing target
+annual IFRS after the conservative grace window, historical-only annual IFRS
+availability, interim-only availability, wrong-standard availability, operator
+review needs, placeholder `not_found` rows, and no usable official candidates.
+The deadline status is a configurable policy inference only, not an official
+statement that a report is unpublished.
+
+For the default annual IFRS policy:
+
+```text
+primary_expected_deadline_date = period_end + 120 days
+expected_availability_date = period_end + 180 days
+```
 
 Historical fallback remains `diagnostic_only` and never sets
 `can_use_as_target_period_evidence`, `ready_for_value_extraction`, or
@@ -1383,6 +1393,8 @@ python3 scripts/financial_official_source_evidence_assistant.py \
   --accounting-standard IFRS \
   --exact-document-period-policy target-only \
   --exact-document-target-period-required true \
+  --exact-document-annual-ifrs-primary-deadline-days 120 \
+  --exact-document-annual-ifrs-grace-days 180 \
   --exact-document-availability-current-date 2026-05-25 \
   --availability-operator-summary-output logs/financial_reports/availability_operator_summary_task112.json \
   --availability-operator-summary-csv-output logs/financial_reports/availability_operator_summary_task112.csv \
@@ -1395,8 +1407,9 @@ The main discovery JSON now includes stable top-level availability counts and
 operator action counts, plus flattened `availability_operator_rows`. The
 separate CSV/Markdown exports show one row per required issuer with the
 availability status, reason codes, diagnostic fallback scope, target-evidence
-flag, gate/readiness flags, and recommended next step. Historical fallback
-remains diagnostic-only and cannot make extraction or import ready.
+flag, deadline status, primary/conservative deadline dates, gate/readiness
+flags, and recommended next step. Historical fallback remains diagnostic-only
+and cannot make extraction or import ready.
 
 ## Operator Review Action Queue
 
@@ -1414,6 +1427,9 @@ python3 scripts/financial_official_source_evidence_assistant.py \
   --report-period 2025 \
   --report-type annual \
   --accounting-standard IFRS \
+  --exact-document-annual-ifrs-primary-deadline-days 120 \
+  --exact-document-annual-ifrs-grace-days 180 \
+  --exact-document-availability-current-date 2026-05-25 \
   --operator-review-queue-output logs/financial_reports/operator_review_queue_task113.json \
   --operator-review-queue-csv-output logs/financial_reports/operator_review_queue_task113.csv \
   --operator-review-queue-markdown-output logs/financial_reports/operator_review_queue_task113.md \
@@ -1424,7 +1440,10 @@ python3 scripts/financial_official_source_evidence_assistant.py \
 Each queue row has a deterministic `action_id`, action type, priority, status,
 blocking flags, operator instruction, and recommended next step. Historical
 fallback remains `diagnostic_only`, and readiness still comes only from the
-strict quality gate.
+strict quality gate. With the deadline-aware policy, a May 2026 smoke for
+target period 2025 should show the primary expected deadline as passed while
+the conservative grace window may still be open; target evidence and extraction
+readiness remain false unless the strict exact-document quality gate passes.
 
 ## First Real Data Pack Workflow
 

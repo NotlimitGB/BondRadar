@@ -1459,6 +1459,8 @@ def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
             str(intake),
             "--required-company-ids",
             "67",
+            "--exact-document-availability-current-date",
+            "2026-05-25",
             "--exact-document-candidate-output",
             str(candidate_output),
             "--exact-document-candidate-csv-output",
@@ -1487,6 +1489,8 @@ def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
     assert availability["availability_status"] == "exact_target_period_document_found"
     assert availability["can_use_as_target_period_evidence"] is True
     assert availability["historical_fallback_scope"] == "none"
+    assert availability["reporting_window_policy"]["primary_expected_deadline_date"] == "2026-04-30"
+    assert availability["reporting_window_policy"]["deadline_status"] == "after_primary_deadline_within_grace_window"
     assert report["target_reporting_period_availability_count"] == 1
     assert report["availability_status_counts"]["exact_target_period_document_found"] == 1
     operator_row = report["availability_operator_rows"][0]
@@ -2317,7 +2321,33 @@ def test_exact_document_discover_from_reviewed_seeds_gate_can_pass_for_single_re
     assert operator_row["ready_for_value_extraction"] is True
 
 
-def test_exact_document_availability_policy_historical_inside_grace_window(
+def test_exact_document_availability_policy_before_primary_deadline(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>',
+        current_date="2026-03-01",
+    )
+
+    availability = _availability_for(report)
+    policy = availability["reporting_window_policy"]
+    assert availability["availability_status"] == "target_period_likely_not_yet_published_before_primary_deadline"
+    assert availability["can_use_as_target_period_evidence"] is False
+    assert policy["primary_expected_deadline_date"] == "2026-04-30"
+    assert policy["before_primary_deadline"] is True
+    assert policy["after_primary_deadline"] is False
+    assert policy["within_grace_window"] is True
+    action = _queue_action_for(report)
+    assert action["queue_action_type"] == "wait_until_primary_deadline"
+    assert action["queue_priority"] == "low"
+    assert action["queue_status"] == "waiting"
+    assert action["manual_review_required"] is False
+
+
+def test_exact_document_availability_policy_after_primary_inside_grace_window(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -2329,21 +2359,24 @@ def test_exact_document_availability_policy_historical_inside_grace_window(
     )
 
     availability = _availability_for(report)
-    assert availability["availability_status"] == "target_period_likely_not_yet_published_by_policy_window"
+    assert availability["availability_status"] == "target_period_not_found_after_primary_deadline_within_grace_window"
     assert availability["can_use_as_target_period_evidence"] is False
     assert availability["historical_fallback_allowed"] is True
     assert availability["historical_fallback_scope"] == "diagnostic_only"
     assert availability["latest_available_period"] == "2024"
+    assert availability["reporting_window_policy"]["primary_expected_deadline_date"] == "2026-04-30"
     assert availability["reporting_window_policy"]["expected_availability_date"] == "2026-06-29"
+    assert availability["reporting_window_policy"]["after_primary_deadline"] is True
     assert availability["reporting_window_policy"]["within_grace_window"] is True
+    assert availability["reporting_window_policy"]["after_conservative_grace_window"] is False
     action = _queue_action_for(report)
-    assert action["queue_action_type"] == "wait_or_recheck_publication"
+    assert action["queue_action_type"] == "review_sources_or_wait_grace"
     assert action["queue_priority"] == "medium"
-    assert action["queue_status"] == "waiting"
-    assert action["manual_review_required"] is False
+    assert action["queue_status"] == "open"
+    assert action["manual_review_required"] is True
     assert action["is_blocking_next_stage"] is True
     assert action["blocked_stage"] == "value_extraction"
-    assert action["can_unblock_extraction"] is False
+    assert action["can_unblock_extraction"] is True
     assert action["expected_availability_date"] == "2026-06-29"
 
 
@@ -2364,6 +2397,9 @@ def test_exact_document_availability_policy_historical_after_grace_window(
     assert availability["historical_fallback_allowed"] is True
     assert availability["historical_fallback_scope"] == "diagnostic_only"
     assert availability["latest_available_document_url"].endswith("annual-ifrs-financial-statements-2024.pdf")
+    assert availability["reporting_window_policy"]["after_primary_deadline"] is True
+    assert availability["reporting_window_policy"]["within_grace_window"] is False
+    assert availability["reporting_window_policy"]["after_conservative_grace_window"] is True
     action = _queue_action_for(report)
     assert action["historical_fallback_scope"] == "diagnostic_only"
     assert action["target_evidence_available"] is False
@@ -2445,6 +2481,7 @@ def test_exact_document_availability_policy_placeholder_not_found_row(
         tmp_path,
         monkeypatch,
         seed_html="",
+        current_date="2026-05-25",
     )
 
     availability = _availability_for(report)
@@ -2454,6 +2491,9 @@ def test_exact_document_availability_policy_placeholder_not_found_row(
     assert placeholder["can_use_as_target_period_evidence"] is False
     assert availability["availability_status"] == "placeholder_not_found"
     assert availability["can_use_as_target_period_evidence"] is False
+    assert availability["reporting_window_policy"]["after_primary_deadline"] is True
+    assert availability["reporting_window_policy"]["within_grace_window"] is True
+    assert "after_primary_deadline" in availability["availability_reason_codes"]
     action = _queue_action_for(report)
     assert action["queue_action_type"] == "fill_exact_document_url"
     assert action["queue_priority"] == "high"
@@ -2476,12 +2516,15 @@ def test_exact_document_availability_policy_no_usable_official_candidates(
     )
 
     availability = _availability_for(report)
-    assert availability["availability_status"] == "no_usable_official_report_candidates"
+    assert availability["availability_status"] == "target_period_not_found_after_conservative_grace_window"
     assert availability["can_use_as_target_period_evidence"] is False
     assert availability["historical_fallback_allowed"] is False
     assert availability["historical_fallback_scope"] == "none"
+    assert availability["reporting_window_policy"]["after_conservative_grace_window"] is True
     action = _queue_action_for(report)
-    assert action["queue_action_type"] == "improve_official_source_coverage"
+    assert action["queue_action_type"] == "escalate_missing_target_report"
+    assert action["queue_priority"] == "high"
+    assert action["manual_review_required"] is True
 
 
 def test_exact_document_availability_operator_summary_exports_flat_rows(
@@ -2545,26 +2588,30 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
 
     assert exit_code == 0
     assert report["target_reporting_period_availability_count"] == 2
-    assert report["availability_policy_name"] == "annual_ifrs_grace_window"
+    assert report["availability_policy_name"] == "annual_ifrs_deadline_aware_grace_window"
     assert report["availability_current_date"] == "2026-05-25"
+    assert report["annual_ifrs_primary_deadline_days"] == 120
+    assert report["primary_expected_deadline_date"] == "2026-04-30"
     assert report["annual_ifrs_grace_days"] == 180
     assert report["availability_status_counts"]["placeholder_not_found"] == 1
-    assert report["availability_status_counts"]["target_period_likely_not_yet_published_by_policy_window"] == 1
+    assert report["availability_status_counts"]["target_period_not_found_after_primary_deadline_within_grace_window"] == 1
+    assert report["deadline_status_counts"]["after_primary_deadline_within_grace_window"] == 2
+    assert report["availability_primary_deadline_status_counts"]["after_primary_deadline_within_grace_window"] == 2
     assert report["target_evidence_available_count"] == 0
     assert report["historical_fallback_diagnostic_only_count"] == 1
     assert report["extraction_ready_count"] == 0
     assert report["import_ready_count"] == 0
     assert report["operator_action_counts"]["operator_to_find_official_exact_document"] == 1
-    assert report["operator_action_counts"]["wait_for_target_period_publication_or_review_official_sources"] == 1
+    assert report["operator_action_counts"]["review_official_sources_or_wait_until_conservative_grace_date"] == 1
     assert report["operator_review_queue_count"] == 2
     assert report["operator_review_queue_blocking_count"] == 2
-    assert report["operator_review_queue_manual_action_count"] == 1
-    assert report["operator_review_queue_wait_action_count"] == 1
+    assert report["operator_review_queue_manual_action_count"] == 2
+    assert report["operator_review_queue_wait_action_count"] == 0
     assert report["operator_review_queue_noop_count"] == 0
     assert report["operator_review_queue_priority_counts"]["high"] == 1
     assert report["operator_review_queue_priority_counts"]["medium"] == 1
     assert report["operator_review_queue_action_type_counts"]["fill_exact_document_url"] == 1
-    assert report["operator_review_queue_action_type_counts"]["wait_or_recheck_publication"] == 1
+    assert report["operator_review_queue_action_type_counts"]["review_sources_or_wait_grace"] == 1
 
     rows = {str(row["company_id"]): row for row in report["availability_operator_rows"]}
     assert set(rows) == {"18", "67"}
@@ -2574,9 +2621,12 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert rows["18"]["gate_status"] == "quality_gate_not_run"
     placeholder = next(item for item in report["documents"] if item.get("company_id") == 18)
     assert placeholder["filter_status"] == "placeholder_not_found"
-    assert rows["67"]["availability_status"] == "target_period_likely_not_yet_published_by_policy_window"
+    assert rows["67"]["availability_status"] == "target_period_not_found_after_primary_deadline_within_grace_window"
     assert rows["67"]["historical_fallback_scope"] == "diagnostic_only"
-    assert rows["67"]["recommended_next_step"] == "wait_for_target_period_publication_or_review_official_sources"
+    assert rows["67"]["recommended_next_step"] == "review_official_sources_or_wait_until_conservative_grace_date"
+    assert rows["67"]["primary_expected_deadline_date"] == "2026-04-30"
+    assert rows["67"]["after_primary_deadline"] is True
+    assert rows["67"]["within_conservative_grace_window"] is True
     assert rows["67"]["ready_for_value_extraction"] is False
     actions = {str(row["company_id"]): row for row in report["operator_review_queue"]}
     assert actions["18"]["action_id"] == "financial_report:18:2025:annual:IFRS:fill_exact_document_url"
@@ -2588,14 +2638,16 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert actions["18"]["blocked_stage"] == "value_extraction"
     assert actions["18"]["can_unblock_extraction"] is True
     assert "Do not paste a landing page" in actions["18"]["operator_instruction"]
-    assert actions["67"]["action_id"] == "financial_report:67:2025:annual:IFRS:wait_or_recheck_publication"
-    assert actions["67"]["queue_action_type"] == "wait_or_recheck_publication"
+    assert actions["67"]["action_id"] == "financial_report:67:2025:annual:IFRS:review_sources_or_wait_grace"
+    assert actions["67"]["queue_action_type"] == "review_sources_or_wait_grace"
     assert actions["67"]["queue_priority"] == "medium"
-    assert actions["67"]["queue_status"] == "waiting"
-    assert actions["67"]["manual_review_required"] is False
+    assert actions["67"]["queue_status"] == "open"
+    assert actions["67"]["manual_review_required"] is True
     assert actions["67"]["is_blocking_next_stage"] is True
     assert actions["67"]["blocked_stage"] == "value_extraction"
-    assert actions["67"]["can_unblock_extraction"] is False
+    assert actions["67"]["can_unblock_extraction"] is True
+    assert actions["67"]["primary_expected_deadline_date"] == "2026-04-30"
+    assert actions["67"]["deadline_status"] == "after_primary_deadline_within_grace_window"
     assert actions["67"]["expected_availability_date"] == "2026-06-29"
 
     exported = json.loads(summary_json.read_text(encoding="utf-8"))
@@ -2613,11 +2665,16 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
         "recommended_next_step",
         "ready_for_value_extraction",
         "ready_for_import",
+        "primary_expected_deadline_date",
+        "after_primary_deadline",
+        "within_conservative_grace_window",
+        "deadline_status",
     }.issubset(set(csv_rows[0]))
     markdown = summary_md.read_text(encoding="utf-8")
     assert "Target Reporting Period Availability" in markdown
     assert "placeholder_not_found" in markdown
-    assert "target_period_likely_not_yet_published_by_policy_window" in markdown
+    assert "target_period_not_found_after_primary_deadline_within_grace_window" in markdown
+    assert "2026-04-30" in markdown
     assert "diagnostic_only" in markdown
     assert "False" in markdown or "false" in markdown
     queue_exported = json.loads(queue_json.read_text(encoding="utf-8"))
@@ -2637,13 +2694,17 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
         "can_unblock_extraction",
         "operator_instruction",
         "recommended_next_step",
+        "primary_expected_deadline_date",
+        "within_conservative_grace_window",
+        "deadline_status",
     }.issubset(set(queue_csv_rows[0]))
     queue_markdown = queue_md.read_text(encoding="utf-8")
     assert "Operator Review Action Queue" in queue_markdown
     assert "Queue Priority Counts" in queue_markdown
     assert "Queue Action Type Counts" in queue_markdown
     assert "fill_exact_document_url" in queue_markdown
-    assert "wait_or_recheck_publication" in queue_markdown
+    assert "review_sources_or_wait_grace" in queue_markdown
+    assert "after_primary_deadline_within_grace_window" in queue_markdown
 
 
 def test_exact_document_discover_probe_and_download_are_optional(

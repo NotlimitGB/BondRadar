@@ -1058,7 +1058,8 @@ python3 scripts/financial_official_source_evidence_assistant.py \
   --accounting-standard IFRS \
   --exact-document-period-policy target-only \
   --exact-document-target-period-required true \
-  --exact-document-availability-policy-name annual_ifrs_grace_window \
+  --exact-document-availability-policy-name annual_ifrs_deadline_aware_grace_window \
+  --exact-document-annual-ifrs-primary-deadline-days 120 \
   --exact-document-annual-ifrs-grace-days 180 \
   --exact-document-availability-current-date 2026-05-25 \
   --json-output logs/financial_reports/exact_document_discover_from_seeds_task111.json \
@@ -1066,12 +1067,13 @@ python3 scripts/financial_official_source_evidence_assistant.py \
 ```
 
 Each required issuer gets a `target_reporting_period_availability` row with the
-target period, required report type, required standard, reason codes, counts for
-exact target documents, historical annual IFRS documents, interim/quarterly
-documents, wrong-standard documents, placeholders, and operator-review-required
-candidates. The default annual IFRS window is 180 days after December 31 of the
-target period, and `--exact-document-availability-current-date` makes smoke
-replays and tests deterministic.
+target period, required report type, required standard, reason codes, deadline
+status, counts for exact target documents, historical annual IFRS documents,
+interim/quarterly documents, wrong-standard documents, placeholders, and
+operator-review-required candidates. The default annual IFRS policy uses a
+primary expected deadline 120 days after December 31 and a conservative grace
+window 180 days after December 31. `--exact-document-availability-current-date`
+makes smoke replays and tests deterministic.
 
 Historical reports are visible only as `diagnostic_only` fallback metadata.
 They do not pass the target-period quality gate and cannot make
@@ -1095,6 +1097,8 @@ python3 scripts/financial_official_source_evidence_assistant.py \
   --accounting-standard IFRS \
   --exact-document-period-policy target-only \
   --exact-document-target-period-required true \
+  --exact-document-annual-ifrs-primary-deadline-days 120 \
+  --exact-document-annual-ifrs-grace-days 180 \
   --exact-document-availability-current-date 2026-05-25 \
   --availability-operator-summary-output logs/financial_reports/availability_operator_summary_task112.json \
   --availability-operator-summary-csv-output logs/financial_reports/availability_operator_summary_task112.csv \
@@ -1106,7 +1110,8 @@ python3 scripts/financial_official_source_evidence_assistant.py \
 Use the operator summary when smoke-checking availability without recursive JSON
 searches. It exposes status counts, operator action counts, readiness counts,
 and flattened per-issuer fields such as `recommended_next_step`,
-`historical_fallback_scope`, `can_use_as_target_period_evidence`, and
+`historical_fallback_scope`, `can_use_as_target_period_evidence`,
+`primary_expected_deadline_date`, `deadline_status`, and
 `ready_for_value_extraction`.
 
 ## Operator Review Action Queue
@@ -1125,6 +1130,9 @@ python3 scripts/financial_official_source_evidence_assistant.py \
   --report-period 2025 \
   --report-type annual \
   --accounting-standard IFRS \
+  --exact-document-annual-ifrs-primary-deadline-days 120 \
+  --exact-document-annual-ifrs-grace-days 180 \
+  --exact-document-availability-current-date 2026-05-25 \
   --operator-review-queue-output logs/financial_reports/operator_review_queue_task113.json \
   --operator-review-queue-csv-output logs/financial_reports/operator_review_queue_task113.csv \
   --operator-review-queue-markdown-output logs/financial_reports/operator_review_queue_task113.md
@@ -1132,6 +1140,10 @@ python3 scripts/financial_official_source_evidence_assistant.py \
 
 The main discovery JSON also exposes top-level queue counts so smoke scripts can
 check blocking/manual/wait actions without recursively searching nested JSON.
+With the deadline-aware policy, a May 2026 smoke for target period 2025 should
+show the primary expected deadline as passed while the conservative grace window
+may still be open; target evidence and extraction readiness remain false unless
+the strict exact-document quality gate passes.
 
 ## VDS Smoke Checklist
 

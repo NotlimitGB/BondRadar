@@ -300,9 +300,16 @@ AVAILABILITY_OPERATOR_SUMMARY_FIELDS = [
     "operator_action",
     "reporting_policy_name",
     "target_period_end_date",
+    "primary_deadline_days",
+    "primary_expected_deadline_date",
     "expected_availability_date",
     "availability_current_date",
+    "before_primary_deadline",
+    "after_primary_deadline",
     "within_grace_window",
+    "within_conservative_grace_window",
+    "after_conservative_grace_window",
+    "deadline_status",
     "gate_status",
     "gate_passed",
     "gate_reason",
@@ -344,9 +351,16 @@ OPERATOR_REVIEW_QUEUE_FIELDS = [
     "latest_available_standard",
     "latest_available_document_url",
     "reporting_policy_name",
+    "primary_deadline_days",
+    "primary_expected_deadline_date",
     "expected_availability_date",
     "availability_current_date",
+    "before_primary_deadline",
+    "after_primary_deadline",
     "within_grace_window",
+    "within_conservative_grace_window",
+    "after_conservative_grace_window",
+    "deadline_status",
     "operator_instruction",
     "operator_note",
     "source_context",
@@ -1020,7 +1034,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default="review-only",
     )
     parser.add_argument("--exact-document-min-period-confidence", default="medium")
-    parser.add_argument("--exact-document-availability-policy-name", default="annual_ifrs_grace_window")
+    parser.add_argument("--exact-document-availability-policy-name", default="annual_ifrs_deadline_aware_grace_window")
+    parser.add_argument("--exact-document-annual-ifrs-primary-deadline-days", type=int, default=120)
     parser.add_argument("--exact-document-annual-ifrs-grace-days", type=int, default=180)
     parser.add_argument("--exact-document-availability-current-date", default="")
     parser.add_argument("--availability-operator-summary-output", type=Path, default=None)
@@ -4992,6 +5007,9 @@ def _render_availability_operator_view_sections(summary: dict[str, Any], rows: l
         f"- historical fallback diagnostic only: {summary.get('historical_fallback_diagnostic_only_count', 0)}",
         f"- extraction ready: {summary.get('extraction_ready_count', 0)}",
         f"- import ready: {summary.get('import_ready_count', 0)}",
+        f"- primary expected deadline: {summary.get('primary_expected_deadline_date', '')}",
+        f"- conservative expected availability: {summary.get('expected_availability_date', '')}",
+        f"- current date: {summary.get('availability_current_date', '')}",
         "",
         "### Availability Status Counts",
         "",
@@ -4999,6 +5017,12 @@ def _render_availability_operator_view_sections(summary: dict[str, Any], rows: l
     status_counts = summary.get("availability_status_counts") or {}
     if status_counts:
         lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Deadline Status Counts", ""])
+    deadline_counts = summary.get("deadline_status_counts") or {}
+    if deadline_counts:
+        lines.extend(f"- {key}: {value}" for key, value in deadline_counts.items())
     else:
         lines.append("- none")
     lines.extend(["", "### Operator Action Counts", ""])
@@ -5012,19 +5036,20 @@ def _render_availability_operator_view_sections(summary: dict[str, Any], rows: l
             "",
             "### Per-Issuer Operator Rows",
             "",
-            "| Company | Target | Availability | Reasons | Historical fallback | Target evidence | Gate | Extraction ready | Operator action | Next step |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Company | Target | Availability | Deadline | Reasons | Historical fallback | Target evidence | Gate | Extraction ready | Operator action | Next step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     if rows:
         for row in rows:
             lines.append(
-                "| {company} | {target} {report_type} {standard} | {availability} | {reasons} | {fallback} | {target_evidence} | {gate} | {ready} | {action} | {next_step} |".format(
+                "| {company} | {target} {report_type} {standard} | {availability} | {deadline} | {reasons} | {fallback} | {target_evidence} | {gate} | {ready} | {action} | {next_step} |".format(
                     company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
                     target=row.get("target_reporting_period") or "",
                     report_type=row.get("required_report_type") or "",
                     standard=row.get("required_standard") or "",
                     availability=row.get("availability_status") or "",
+                    deadline=row.get("deadline_status") or "",
                     reasons=_csv_value(row.get("availability_reason_codes")).replace("|", "/"),
                     fallback=row.get("historical_fallback_scope") or "none",
                     target_evidence=row.get("can_use_as_target_period_evidence"),
@@ -5035,7 +5060,7 @@ def _render_availability_operator_view_sections(summary: dict[str, Any], rows: l
                 )
             )
     else:
-        lines.append("| None |  |  |  |  |  |  |  |  |  |")
+        lines.append("| None |  |  |  |  |  |  |  |  |  |  |")
     lines.append("")
     return lines
 
@@ -5069,20 +5094,21 @@ def _render_operator_review_queue_sections(summary: dict[str, Any], rows: list[d
             "",
             "### Per-Action Queue",
             "",
-            "| Priority | Status | Company | Target | Action Type | Blocking | Blocked Stage | Instruction | Next Step |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Priority | Status | Company | Target | Deadline | Action Type | Blocking | Blocked Stage | Instruction | Next Step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     if rows:
         for row in rows:
             lines.append(
-                "| {priority} | {status} | {company} | {target} {report_type} {standard} | {action_type} | {blocking} | {blocked_stage} | {instruction} | {next_step} |".format(
+                "| {priority} | {status} | {company} | {target} {report_type} {standard} | {deadline} | {action_type} | {blocking} | {blocked_stage} | {instruction} | {next_step} |".format(
                     priority=row.get("queue_priority") or "",
                     status=row.get("queue_status") or "",
                     company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
                     target=row.get("target_reporting_period") or "",
                     report_type=row.get("required_report_type") or "",
                     standard=row.get("required_standard") or "",
+                    deadline=row.get("deadline_status") or "",
                     action_type=row.get("queue_action_type") or "",
                     blocking=row.get("is_blocking_next_stage"),
                     blocked_stage=row.get("blocked_stage") or "",
@@ -5091,7 +5117,7 @@ def _render_operator_review_queue_sections(summary: dict[str, Any], rows: list[d
                 )
             )
     else:
-        lines.append("| None |  |  |  |  |  |  |  |  |")
+        lines.append("| None |  |  |  |  |  |  |  |  |  |")
     lines.append("")
     return lines
 
@@ -5445,8 +5471,8 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
         [
             "## Availability Policy",
             "",
-            "| Company ID | Company | Target | Status | Reasons | Exact Target Docs | Historical Annual IFRS | Interim/Quarterly | Wrong Standard | Placeholder | Operator Review | Expected Availability | Current Date | Within Window | Fallback Scope | Target Evidence | Operator Action |",
-            "| ---: | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |",
+            "| Company ID | Company | Target | Status | Deadline | Reasons | Exact Target Docs | Historical Annual IFRS | Interim/Quarterly | Wrong Standard | Placeholder | Operator Review | Primary Deadline | Expected Availability | Current Date | After Primary | Within Grace | After Grace | Fallback Scope | Target Evidence | Operator Action |",
+            "| ---: | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     availability_rows = 0
@@ -5454,13 +5480,14 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
         availability_rows += 1
         policy = item.get("reporting_window_policy") or {}
         lines.append(
-            "| {company_id} | {company_name} | {target} {report_type} {standard} | {status} | {reasons} | {exact_count} | {historical_count} | {interim_count} | {wrong_standard_count} | {placeholder_count} | {operator_count} | {expected} | {current} | {within} | {fallback} | {evidence} | {action} |".format(
+            "| {company_id} | {company_name} | {target} {report_type} {standard} | {status} | {deadline} | {reasons} | {exact_count} | {historical_count} | {interim_count} | {wrong_standard_count} | {placeholder_count} | {operator_count} | {primary} | {expected} | {current} | {after_primary} | {within} | {after_grace} | {fallback} | {evidence} | {action} |".format(
                 company_id=item.get("company_id") or "",
                 company_name=str(item.get("company_name") or "").replace("|", "/"),
                 target=item.get("target_reporting_period") or "",
                 report_type=item.get("required_report_type") or "",
                 standard=item.get("required_standard") or "",
                 status=item.get("availability_status") or "",
+                deadline=policy.get("deadline_status") or "",
                 reasons=_csv_value(item.get("availability_reason_codes")).replace("|", "/"),
                 exact_count=item.get("exact_target_period_document_count", 0),
                 historical_count=item.get("historical_annual_ifrs_document_count", 0),
@@ -5468,16 +5495,19 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
                 wrong_standard_count=item.get("wrong_standard_document_count", 0),
                 placeholder_count=item.get("placeholder_not_found_count", 0),
                 operator_count=item.get("operator_review_required_count", 0),
+                primary=policy.get("primary_expected_deadline_date") or "",
                 expected=policy.get("expected_availability_date") or "",
                 current=policy.get("current_date") or "",
-                within=policy.get("within_grace_window"),
+                after_primary=policy.get("after_primary_deadline"),
+                within=policy.get("within_conservative_grace_window", policy.get("within_grace_window")),
+                after_grace=policy.get("after_conservative_grace_window"),
                 fallback=item.get("historical_fallback_scope") or "none",
                 evidence=item.get("can_use_as_target_period_evidence"),
                 action=item.get("operator_action") or "",
             )
         )
     if availability_rows == 0:
-        lines.append("|  |  |  | No availability policy rows |  |  |  |  |  |  |  |  |  |  |  |  |  |")
+        lines.append("|  |  |  | No availability policy rows |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |")
     lines.extend(
         [
             "",
@@ -6911,27 +6941,47 @@ def _exact_document_target_period_end_date(args: argparse.Namespace) -> date | N
 
 
 def _exact_document_reporting_window_policy(args: argparse.Namespace) -> dict[str, Any]:
+    primary_days = max(int(getattr(args, "exact_document_annual_ifrs_primary_deadline_days", 120) or 0), 0)
     grace_days = max(int(getattr(args, "exact_document_annual_ifrs_grace_days", 180) or 0), 0)
     current_date = _parse_exact_document_availability_current_date(args)
     period_end = _exact_document_target_period_end_date(args)
     if period_end is None:
+        primary_expected = None
         expected = None
+        before_primary = False
+        after_primary = False
         within = False
+        after_grace = False
+        deadline_status = "unknown_deadline"
     else:
+        primary_expected = period_end + timedelta(days=primary_days)
         expected = period_end + timedelta(days=grace_days)
-        within = current_date < expected
+        before_primary = current_date <= primary_expected
+        after_primary = current_date > primary_expected
+        within = current_date <= expected
+        after_grace = current_date > expected
+        if before_primary:
+            deadline_status = "before_primary_deadline"
+        elif within:
+            deadline_status = "after_primary_deadline_within_grace_window"
+        else:
+            deadline_status = "after_conservative_grace_window"
     return {
-        "policy_name": getattr(args, "exact_document_availability_policy_name", "annual_ifrs_grace_window"),
+        "policy_name": getattr(args, "exact_document_availability_policy_name", "annual_ifrs_deadline_aware_grace_window"),
         "target_period_end_date": period_end.isoformat() if period_end is not None else "",
+        "primary_deadline_days": primary_days,
+        "primary_expected_deadline_date": primary_expected.isoformat() if primary_expected is not None else "",
         "grace_days": grace_days,
         "expected_availability_date": expected.isoformat() if expected is not None else "",
         "current_date": current_date.isoformat(),
+        "before_primary_deadline": before_primary,
+        "after_primary_deadline": after_primary,
         "within_grace_window": within,
-        "policy_inference": (
-            "Conservative policy inference only; this is not an official non-publication statement."
-            if within
-            else "Outside the configured conservative availability window."
-        ),
+        "within_conservative_grace_window": within,
+        "after_grace_window": after_grace,
+        "after_conservative_grace_window": after_grace,
+        "deadline_status": deadline_status,
+        "policy_inference": "Configurable reporting availability policy; not an official non-publication statement.",
     }
 
 
@@ -7025,6 +7075,9 @@ def _exact_document_availability_operator_action(status: str) -> str:
         "exact_target_period_document_found": "proceed_to_strict_quality_gate",
         "target_period_document_not_found": "continue_official_source_discovery",
         "target_period_likely_not_yet_published_by_policy_window": "wait_for_target_period_publication_or_review_official_sources",
+        "target_period_likely_not_yet_published_before_primary_deadline": "wait_until_primary_deadline_or_monitor_publication",
+        "target_period_not_found_after_primary_deadline_within_grace_window": "review_official_sources_or_wait_until_conservative_grace_date",
+        "target_period_not_found_after_conservative_grace_window": "escalate_missing_target_report_and_review_source_coverage",
         "only_historical_annual_ifrs_available": "review_historical_diagnostic_only_or_wait_for_target_period",
         "only_interim_or_quarterly_available": "do_not_use_interim_for_annual_target_period",
         "only_wrong_standard_available": "find_ifrs_annual_report",
@@ -7044,15 +7097,28 @@ def _exact_document_availability_reason_codes(
     wrong_standard_count: int,
     placeholder_count: int,
     operator_review_count: int,
+    before_primary_deadline: bool,
+    after_primary_deadline: bool,
     within_grace_window: bool,
+    after_conservative_grace_window: bool,
 ) -> list[str]:
     reasons: list[str] = []
     if exact_target_count == 0:
         reasons.append("exact_target_period_document_not_found")
     if target_period_count == 0:
         reasons.append("target_period_document_not_found")
+    if before_primary_deadline:
+        reasons.append("before_primary_deadline")
+    if after_primary_deadline:
+        reasons.extend(["after_primary_deadline", "primary_deadline_passed"])
     if within_grace_window:
-        reasons.append("within_reporting_grace_window")
+        reasons.append("within_conservative_grace_window")
+    if after_conservative_grace_window:
+        reasons.append("after_conservative_grace_window")
+    if exact_target_count == 0 and after_primary_deadline:
+        reasons.append("target_period_missing_after_primary_deadline")
+    if exact_target_count == 0 and after_conservative_grace_window:
+        reasons.append("target_period_missing_after_conservative_grace")
     if historical_count:
         reasons.append("historical_annual_ifrs_available")
     if interim_count:
@@ -7066,6 +7132,9 @@ def _exact_document_availability_reason_codes(
     status_reason = {
         "exact_target_period_document_found": "exact_target_period_document_found",
         "target_period_likely_not_yet_published_by_policy_window": "target_period_likely_not_yet_published_by_policy_window",
+        "target_period_likely_not_yet_published_before_primary_deadline": "target_period_likely_not_yet_published_before_primary_deadline",
+        "target_period_not_found_after_primary_deadline_within_grace_window": "target_period_not_found_after_primary_deadline_within_grace_window",
+        "target_period_not_found_after_conservative_grace_window": "target_period_not_found_after_conservative_grace_window",
         "only_historical_annual_ifrs_available": "only_historical_annual_ifrs_available",
         "only_interim_or_quarterly_available": "only_interim_or_quarterly_available",
         "only_wrong_standard_available": "only_wrong_standard_available",
@@ -7126,14 +7195,23 @@ def _build_target_reporting_period_availability(
         wrong_standard_count = len(wrong_standard_documents)
         operator_review_count = len(operator_review_documents)
         latest_historical = _exact_document_latest_historical(unique_documents, args)
+        before_primary_deadline = bool(reporting_window.get("before_primary_deadline"))
+        after_primary_deadline = bool(reporting_window.get("after_primary_deadline"))
         within_grace_window = bool(reporting_window.get("within_grace_window"))
+        after_conservative_grace_window = bool(reporting_window.get("after_conservative_grace_window"))
 
         if exact_target_count:
             status = "exact_target_period_document_found"
         elif operator_review_count:
             status = "operator_exact_document_review_required"
-        elif historical_count and within_grace_window:
-            status = "target_period_likely_not_yet_published_by_policy_window"
+        elif placeholder_count and not unique_documents:
+            status = "placeholder_not_found"
+        elif before_primary_deadline:
+            status = "target_period_likely_not_yet_published_before_primary_deadline"
+        elif after_primary_deadline and within_grace_window:
+            status = "target_period_not_found_after_primary_deadline_within_grace_window"
+        elif after_conservative_grace_window and not (historical_count or wrong_standard_count or interim_count):
+            status = "target_period_not_found_after_conservative_grace_window"
         elif historical_count:
             status = "only_historical_annual_ifrs_available"
         elif wrong_standard_count and not interim_count:
@@ -7144,8 +7222,6 @@ def _build_target_reporting_period_availability(
             status = "only_wrong_standard_available"
         elif interim_count:
             status = "only_interim_or_quarterly_available"
-        elif placeholder_count and not unique_documents:
-            status = "placeholder_not_found"
         elif target_period_count == 0 and unique_documents:
             status = "target_period_document_not_found"
         else:
@@ -7163,7 +7239,10 @@ def _build_target_reporting_period_availability(
             wrong_standard_count=wrong_standard_count,
             placeholder_count=placeholder_count,
             operator_review_count=operator_review_count,
+            before_primary_deadline=before_primary_deadline,
+            after_primary_deadline=after_primary_deadline,
             within_grace_window=within_grace_window,
+            after_conservative_grace_window=after_conservative_grace_window,
         )
         availability.append(
             {
@@ -7248,6 +7327,9 @@ def _availability_operator_next_step(status: str) -> str:
     return {
         "exact_target_period_document_found": "proceed_to_quality_gate_or_extraction_preview",
         "target_period_likely_not_yet_published_by_policy_window": "wait_for_target_period_publication_or_review_official_sources",
+        "target_period_likely_not_yet_published_before_primary_deadline": "wait_until_primary_deadline_or_monitor_publication",
+        "target_period_not_found_after_primary_deadline_within_grace_window": "review_official_sources_or_wait_until_conservative_grace_date",
+        "target_period_not_found_after_conservative_grace_window": "escalate_missing_target_report_and_review_source_coverage",
         "only_historical_annual_ifrs_available": "keep_historical_report_as_diagnostic_only_and_continue_target_search",
         "only_interim_or_quarterly_available": "do_not_use_interim_as_annual_evidence",
         "only_wrong_standard_available": "search_for_ifrs_report_or_mark_ifrs_unavailable",
@@ -7268,8 +7350,15 @@ def _availability_operator_note(row: dict[str, Any]) -> str:
         gate_note = "quality_gate_not_run"
     else:
         gate_note = str(row.get("gate_reason") or row.get("gate_status") or "")
-    if status == "target_period_likely_not_yet_published_by_policy_window":
+    if status in {
+        "target_period_likely_not_yet_published_by_policy_window",
+        "target_period_likely_not_yet_published_before_primary_deadline",
+    }:
         return f"target report may still be inside policy grace window; {gate_note}"
+    if status == "target_period_not_found_after_primary_deadline_within_grace_window":
+        return f"primary expected deadline has passed; conservative grace window remains open; {gate_note}"
+    if status == "target_period_not_found_after_conservative_grace_window":
+        return f"target report was not found after the configured conservative grace window; {gate_note}"
     if status == "only_historical_annual_ifrs_available":
         return f"historical fallback is diagnostic only; {gate_note}"
     if status == "placeholder_not_found":
@@ -7341,9 +7430,16 @@ def _build_availability_operator_rows(
             "operator_action": item.get("operator_action") or "",
             "reporting_policy_name": policy.get("policy_name") or "",
             "target_period_end_date": policy.get("target_period_end_date") or "",
+            "primary_deadline_days": policy.get("primary_deadline_days", ""),
+            "primary_expected_deadline_date": policy.get("primary_expected_deadline_date") or "",
             "expected_availability_date": policy.get("expected_availability_date") or "",
             "availability_current_date": policy.get("current_date") or "",
+            "before_primary_deadline": bool(policy.get("before_primary_deadline")),
+            "after_primary_deadline": bool(policy.get("after_primary_deadline")),
             "within_grace_window": bool(policy.get("within_grace_window")),
+            "within_conservative_grace_window": bool(policy.get("within_conservative_grace_window")),
+            "after_conservative_grace_window": bool(policy.get("after_conservative_grace_window")),
+            "deadline_status": policy.get("deadline_status") or "",
             **gate,
             "recommended_next_step": _availability_operator_next_step(status),
         }
@@ -7381,7 +7477,15 @@ def _build_availability_operator_summary_report(
         "target_reporting_period_availability_count": len(availability),
         "availability_policy_name": first_policy.get("policy_name") or getattr(args, "exact_document_availability_policy_name", ""),
         "availability_current_date": first_policy.get("current_date") or "",
+        "annual_ifrs_primary_deadline_days": first_policy.get(
+            "primary_deadline_days",
+            getattr(args, "exact_document_annual_ifrs_primary_deadline_days", 120),
+        ),
+        "primary_expected_deadline_date": first_policy.get("primary_expected_deadline_date") or "",
         "annual_ifrs_grace_days": first_policy.get("grace_days", getattr(args, "exact_document_annual_ifrs_grace_days", 180)),
+        "expected_availability_date": first_policy.get("expected_availability_date") or "",
+        "deadline_status_counts": _count_by_key(rows, "deadline_status"),
+        "availability_primary_deadline_status_counts": _count_by_key(rows, "deadline_status"),
         "availability_status_counts": _count_by_key(rows, "availability_status"),
         "target_evidence_available_count": sum(1 for row in rows if row.get("can_use_as_target_period_evidence")),
         "historical_fallback_diagnostic_only_count": sum(1 for row in rows if row.get("historical_fallback_scope") == "diagnostic_only"),
@@ -7426,6 +7530,39 @@ def _operator_review_queue_action_config(availability_status: str) -> dict[str, 
             "manual_review_required": False,
             "can_unblock_extraction": False,
             "operator_instruction": "Wait until expected availability date or manually recheck official sources if needed.",
+        },
+        "target_period_likely_not_yet_published_before_primary_deadline": {
+            "queue_action_type": "wait_until_primary_deadline",
+            "queue_action_label": "Wait until primary deadline",
+            "queue_priority": "low",
+            "queue_status": "waiting",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": False,
+            "can_unblock_extraction": False,
+            "operator_instruction": "Wait until the primary expected reporting deadline or monitor official publication.",
+        },
+        "target_period_not_found_after_primary_deadline_within_grace_window": {
+            "queue_action_type": "review_sources_or_wait_grace",
+            "queue_action_label": "Review sources or wait grace",
+            "queue_priority": "medium",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Primary expected reporting deadline has passed. Review official sources manually or wait until conservative grace date if justified.",
+        },
+        "target_period_not_found_after_conservative_grace_window": {
+            "queue_action_type": "escalate_missing_target_report",
+            "queue_action_label": "Escalate missing target report",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Target annual IFRS report was not found after the conservative grace window. Review official source coverage and verify report availability manually.",
         },
         "only_historical_annual_ifrs_available": {
             "queue_action_type": "continue_target_period_search",
@@ -7562,9 +7699,16 @@ def _build_operator_review_queue_rows(availability_operator_rows: list[dict[str,
             "latest_available_standard": row.get("latest_available_standard") or "",
             "latest_available_document_url": row.get("latest_available_document_url") or "",
             "reporting_policy_name": row.get("reporting_policy_name") or "",
+            "primary_deadline_days": row.get("primary_deadline_days") or "",
+            "primary_expected_deadline_date": row.get("primary_expected_deadline_date") or "",
             "expected_availability_date": row.get("expected_availability_date") or "",
             "availability_current_date": row.get("availability_current_date") or "",
+            "before_primary_deadline": bool(row.get("before_primary_deadline")),
+            "after_primary_deadline": bool(row.get("after_primary_deadline")),
             "within_grace_window": bool(row.get("within_grace_window")),
+            "within_conservative_grace_window": bool(row.get("within_conservative_grace_window")),
+            "after_conservative_grace_window": bool(row.get("after_conservative_grace_window")),
+            "deadline_status": row.get("deadline_status") or "",
             "operator_note": row.get("operator_note") or "",
             "source_context": source_context,
         }
@@ -7583,7 +7727,7 @@ def _operator_review_queue_summary(actions: list[dict[str, Any]]) -> dict[str, A
         "operator_review_queue_blocking_count": sum(1 for action in actions if action.get("is_blocking_next_stage")),
         "operator_review_queue_manual_action_count": sum(1 for action in actions if action.get("manual_review_required")),
         "operator_review_queue_wait_action_count": sum(
-            1 for action in actions if action.get("queue_action_type") == "wait_or_recheck_publication"
+            1 for action in actions if action.get("queue_status") == "waiting"
         ),
         "operator_review_queue_noop_count": sum(
             1 for action in actions if action.get("queue_action_type") == "no_operator_action_required"
