@@ -466,6 +466,58 @@ HISTORICAL_FALLBACK_REGISTRY_FIELDS = [
     "ready_for_value_extraction",
     "ready_for_import",
 ]
+REPORTING_READINESS_MATRIX_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "reporting_readiness_status",
+    "reporting_readiness_grade",
+    "reporting_readiness_reason_codes",
+    "primary_blocker",
+    "blocking_layers",
+    "availability_status",
+    "deadline_status",
+    "can_use_as_target_period_evidence",
+    "target_evidence_available",
+    "exact_target_period_document_count",
+    "target_period_document_count",
+    "gate_status",
+    "gate_passed",
+    "gate_reason",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "coverage_status",
+    "coverage_grade",
+    "coverage_score",
+    "coverage_operator_action",
+    "historical_fallback_status",
+    "historical_fallback_scope",
+    "latest_available_period",
+    "latest_available_report_type",
+    "latest_available_standard",
+    "latest_available_document_url",
+    "can_use_for_value_extraction",
+    "can_use_for_import",
+    "can_use_for_scoring",
+    "can_use_for_paper_trading",
+    "queue_action_type",
+    "queue_priority",
+    "queue_status",
+    "manual_review_required",
+    "is_blocking_next_stage",
+    "blocked_stage",
+    "extraction_allowed",
+    "import_allowed",
+    "scoring_allowed",
+    "paper_trading_allowed",
+    "next_required_action",
+    "operator_instruction",
+    "readiness_note",
+]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -1151,6 +1203,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--historical-fallback-registry-output", type=Path, default=None)
     parser.add_argument("--historical-fallback-registry-csv-output", type=Path, default=None)
     parser.add_argument("--historical-fallback-registry-markdown-output", type=Path, default=None)
+    parser.add_argument("--reporting-readiness-matrix-output", type=Path, default=None)
+    parser.add_argument("--reporting-readiness-matrix-csv-output", type=Path, default=None)
+    parser.add_argument("--reporting-readiness-matrix-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3911,6 +3966,29 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
             historical_fallback_registry_report,
             args.historical_fallback_registry_markdown_output,
         )
+    reporting_readiness_matrix_report = _build_reporting_readiness_matrix_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        availability_operator_rows=availability_operator_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        official_source_coverage_rows=official_source_coverage_report["issuers"],
+        historical_fallback_registry_rows=historical_fallback_registry_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    if args.reporting_readiness_matrix_output is not None and not errors:
+        write_json_report(reporting_readiness_matrix_report, args.reporting_readiness_matrix_output)
+    if args.reporting_readiness_matrix_csv_output is not None and not errors:
+        write_reporting_readiness_matrix_csv(
+            reporting_readiness_matrix_report["issuers"],
+            args.reporting_readiness_matrix_csv_output,
+        )
+    if args.reporting_readiness_matrix_markdown_output is not None and not errors:
+        write_reporting_readiness_matrix_markdown(
+            reporting_readiness_matrix_report,
+            args.reporting_readiness_matrix_markdown_output,
+        )
     return report
 
 
@@ -4864,6 +4942,20 @@ def write_historical_fallback_registry_markdown(report: dict[str, Any], path: Pa
     path.write_text(render_historical_fallback_registry_markdown(report), encoding="utf-8")
 
 
+def write_reporting_readiness_matrix_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=REPORTING_READINESS_MATRIX_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in REPORTING_READINESS_MATRIX_FIELDS})
+
+
+def write_reporting_readiness_matrix_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_reporting_readiness_matrix_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5246,6 +5338,35 @@ def render_historical_fallback_registry_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_reporting_readiness_matrix_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Reporting Readiness Matrix Before Extraction",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- target_reporting_period: {report.get('target_reporting_period')}",
+        f"- required_report_type: {report.get('required_report_type')}",
+        f"- required_standard: {report.get('required_standard')}",
+        "",
+    ]
+    lines.extend(_render_reporting_readiness_matrix_sections(report.get("summary") or {}, report.get("issuers") or []))
+    lines.extend(
+        [
+            "## Safety",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- identity_apply_executed: {report.get('identity_apply_executed')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _render_availability_operator_view_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
     lines = [
         "## Target Reporting Period Availability - Operator View",
@@ -5435,6 +5556,70 @@ def _render_historical_fallback_registry_sections(summary: dict[str, Any], rows:
                     ready=row.get("ready_for_value_extraction"),
                     source=source,
                     next_step=str(row.get("recommended_next_step") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
+
+
+def _render_reporting_readiness_matrix_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "## Reporting Readiness Matrix Before Extraction",
+        "",
+        f"- issuer count: {summary.get('reporting_readiness_issuer_count', len(rows))}",
+        f"- ready: {summary.get('reporting_readiness_ready_count', 0)}",
+        f"- blocked: {summary.get('reporting_readiness_blocked_count', 0)}",
+        f"- needs operator: {summary.get('reporting_readiness_needs_operator_count', 0)}",
+        f"- target evidence available: {summary.get('reporting_readiness_target_evidence_available_count', 0)}",
+        f"- gate passed: {summary.get('reporting_readiness_gate_passed_count', 0)}",
+        f"- historical only: {summary.get('reporting_readiness_historical_only_count', 0)}",
+        f"- source coverage blocked: {summary.get('reporting_readiness_source_coverage_blocked_count', 0)}",
+        "",
+        "### Readiness Status Counts",
+        "",
+    ]
+    status_counts = summary.get("reporting_readiness_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Readiness Blocker Counts", ""])
+    blocker_counts = summary.get("reporting_readiness_blocker_counts") or {}
+    if blocker_counts:
+        lines.extend(f"- {key}: {value}" for key, value in blocker_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Per-Issuer Readiness",
+            "",
+            "| Company | Readiness | Grade | Primary blocker | Layers | Target evidence | Gate | Coverage | Fallback | Queue action | Next action |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            fallback = "{status}; {scope}".format(
+                status=row.get("historical_fallback_status") or "",
+                scope=row.get("historical_fallback_scope") or "none",
+            )
+            lines.append(
+                "| {company} | {readiness} | {grade} | {blocker} | {layers} | extraction {extraction} / target {target} | {gate} | {coverage} | {fallback} | {queue} | {next_action} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    readiness=row.get("reporting_readiness_status") or "",
+                    grade=row.get("reporting_readiness_grade") or "",
+                    blocker=row.get("primary_blocker") or "",
+                    layers=_csv_value(row.get("blocking_layers")).replace("|", "/"),
+                    extraction=row.get("extraction_allowed"),
+                    target=row.get("target_evidence_available"),
+                    gate=row.get("gate_status") or "",
+                    coverage=row.get("coverage_status") or "",
+                    fallback=fallback,
+                    queue=row.get("queue_action_type") or "",
+                    next_action=row.get("next_required_action") or "",
                 )
             )
     else:
@@ -5855,6 +6040,12 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
         _render_historical_fallback_registry_sections(
             report.get("historical_fallback_registry_summary") or {},
             report.get("historical_fallback_registry_rows") or [],
+        )
+    )
+    lines.extend(
+        _render_reporting_readiness_matrix_sections(
+            report.get("reporting_readiness_summary") or {},
+            report.get("reporting_readiness_rows") or [],
         )
     )
     lines.extend(
@@ -8885,6 +9076,302 @@ def _build_historical_fallback_registry_report(
     }
 
 
+def _reporting_readiness_status(row: dict[str, Any]) -> str:
+    target_evidence = bool(row.get("target_evidence_available"))
+    if row.get("ready_for_value_extraction") and row.get("gate_passed") and target_evidence:
+        return "ready_for_extraction_preview"
+    if row.get("availability_status") == "placeholder_not_found":
+        return "blocked_placeholder_not_found"
+    coverage_status = str(row.get("coverage_status") or "")
+    if coverage_status.startswith("weak_") or coverage_status == "missing_official_sources":
+        return "blocked_weak_source_coverage"
+    if not target_evidence or int(row.get("exact_target_period_document_count") or 0) == 0:
+        return "blocked_missing_target_evidence"
+    if row.get("historical_fallback_scope") == "diagnostic_only" and not target_evidence:
+        return "blocked_historical_fallback_only"
+    if row.get("manual_review_required") or row.get("queue_action_type") == "review_exact_document_candidate":
+        return "blocked_operator_review_required"
+    if row.get("deadline_status") == "after_primary_deadline_within_grace_window" and not target_evidence:
+        return "blocked_after_primary_deadline_target_missing"
+    if row.get("gate_status") == "failed" or not row.get("gate_passed"):
+        return "blocked_quality_gate_failed"
+    return "blocked_quality_gate_failed"
+
+
+def _reporting_readiness_grade(row: dict[str, Any]) -> str:
+    status = str(row.get("reporting_readiness_status") or "")
+    if status == "ready_for_extraction_preview":
+        return "ready"
+    if status == "blocked_historical_fallback_only":
+        return "diagnostic_only"
+    if row.get("manual_review_required") or (
+        row.get("queue_status") == "open"
+        and row.get("queue_action_type") not in {"", "no_operator_action_required"}
+    ):
+        return "operator_required"
+    return "blocked"
+
+
+def _reporting_readiness_reason_codes(row: dict[str, Any]) -> list[str]:
+    reasons = [str(row.get("reporting_readiness_status") or "")]
+    target_evidence = bool(row.get("target_evidence_available"))
+    exact_target_count = int(row.get("exact_target_period_document_count") or 0)
+    if not target_evidence or exact_target_count == 0:
+        reasons.extend(["missing_exact_target_period_annual_ifrs", "target_period_evidence_required"])
+    if not row.get("gate_passed"):
+        reasons.append("quality_gate_failed")
+    if not row.get("ready_for_value_extraction"):
+        reasons.append("not_ready_for_value_extraction")
+    if not row.get("ready_for_import"):
+        reasons.append("not_ready_for_import")
+    if row.get("availability_status") == "placeholder_not_found":
+        reasons.append("placeholder_not_found")
+    coverage_status = str(row.get("coverage_status") or "")
+    if coverage_status.startswith("weak_") or coverage_status == "missing_official_sources":
+        reasons.append("weak_source_coverage")
+    if coverage_status == "weak_no_reviewed_seed":
+        reasons.append("no_valid_reviewed_official_seed")
+    if row.get("historical_fallback_scope") == "diagnostic_only":
+        reasons.extend(["historical_fallback_diagnostic_only", "historical_fallback_not_target_evidence"])
+    if row.get("deadline_status") == "after_primary_deadline_within_grace_window":
+        reasons.append("deadline_after_primary_within_grace")
+    if row.get("is_blocking_next_stage") or row.get("queue_status") == "open":
+        reasons.append("operator_action_required")
+    if row.get("manual_review_required"):
+        reasons.append("manual_review_required")
+    if row.get("reporting_readiness_status") == "ready_for_extraction_preview":
+        reasons.append("strict_quality_gate_ready")
+    return [reason for reason in dict.fromkeys(reasons) if reason]
+
+
+def _reporting_readiness_blocking_layers(row: dict[str, Any]) -> list[str]:
+    layers: list[str] = []
+    target_evidence = bool(row.get("target_evidence_available"))
+    if row.get("availability_status") == "placeholder_not_found" or not target_evidence:
+        layers.append("availability")
+    if not row.get("gate_passed") or not row.get("ready_for_value_extraction"):
+        layers.append("quality_gate")
+    coverage_status = str(row.get("coverage_status") or "")
+    if coverage_status.startswith("weak_") or coverage_status == "missing_official_sources":
+        layers.append("source_coverage")
+    if row.get("is_blocking_next_stage") or row.get("manual_review_required") or row.get("queue_status") == "open":
+        layers.append("operator_queue")
+    if row.get("historical_fallback_scope") == "diagnostic_only":
+        layers.append("historical_fallback")
+    return list(dict.fromkeys(layers))
+
+
+def _reporting_readiness_primary_blocker(status: str) -> str:
+    return {
+        "ready_for_extraction_preview": "none",
+        "blocked_placeholder_not_found": "placeholder_not_found",
+        "blocked_weak_source_coverage": "weak_source_coverage",
+        "blocked_missing_target_evidence": "missing_exact_target_period_annual_ifrs",
+        "blocked_historical_fallback_only": "historical_fallback_diagnostic_only",
+        "blocked_operator_review_required": "operator_action_required",
+        "blocked_after_primary_deadline_target_missing": "deadline_after_primary_within_grace",
+        "blocked_quality_gate_failed": "quality_gate_failed",
+    }.get(status, "quality_gate_failed")
+
+
+def _reporting_readiness_action(status: str) -> tuple[str, str]:
+    mapping = {
+        "blocked_placeholder_not_found": (
+            "fill_exact_official_document_url_or_improve_official_sources",
+            "Fill exact official annual IFRS report URL. Do not use landing pages.",
+        ),
+        "blocked_weak_source_coverage": (
+            "review_or_promote_official_seed",
+            "Promote at least one valid official reporting/disclosure source before extraction can be considered.",
+        ),
+        "blocked_missing_target_evidence": (
+            "find_or_verify_exact_target_period_annual_ifrs_report",
+            "Exact target-period annual IFRS report is required before extraction preview.",
+        ),
+        "blocked_historical_fallback_only": (
+            "keep_historical_report_diagnostic_only_and_continue_target_search",
+            "Historical report is diagnostic-only and cannot be used for target-period extraction.",
+        ),
+        "blocked_operator_review_required": (
+            "complete_operator_review_queue_action",
+            "Complete the open operator review action before extraction can be considered.",
+        ),
+        "blocked_after_primary_deadline_target_missing": (
+            "review_sources_or_wait_grace",
+            "Primary deadline has passed and target evidence is still missing; review official sources or wait until conservative grace date.",
+        ),
+        "blocked_quality_gate_failed": (
+            "fix_quality_gate_blockers_before_extraction",
+            "Fix strict quality-gate blockers before extraction preview can be considered.",
+        ),
+        "ready_for_extraction_preview": (
+            "proceed_to_controlled_extraction_preview",
+            "Existing quality gate indicates readiness for extraction preview. Do not import automatically.",
+        ),
+    }
+    return mapping.get(status, mapping["blocked_quality_gate_failed"])
+
+
+def _reporting_readiness_note(row: dict[str, Any]) -> str:
+    if row.get("reporting_readiness_status") == "ready_for_extraction_preview":
+        return "strict quality gate allows controlled extraction preview; import, scoring, and paper trading remain disabled here"
+    if row.get("historical_fallback_scope") == "diagnostic_only":
+        return "historical fallback is diagnostic only and does not unlock extraction, import, scoring, or paper trading"
+    if row.get("availability_status") == "placeholder_not_found":
+        return "exact target-period annual IFRS URL is missing; extraction remains blocked"
+    return "readiness diagnostic only; strict quality gate remains the source of truth"
+
+
+def _build_reporting_readiness_matrix_rows(
+    args: argparse.Namespace,
+    *,
+    required_issuers: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+    official_source_coverage_rows: list[dict[str, Any]],
+    historical_fallback_registry_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    availability_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in availability_operator_rows}
+    queue_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in operator_review_queue}
+    coverage_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in official_source_coverage_rows}
+    fallback_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in historical_fallback_registry_rows}
+    rows: list[dict[str, Any]] = []
+    for required in required_issuers:
+        key = str(required.get("company_id") or "")
+        availability = availability_by_key.get(key) or {}
+        queue = queue_by_key.get(key) or {}
+        coverage = coverage_by_key.get(key) or {}
+        fallback = fallback_by_key.get(key) or {}
+        target_evidence = bool(availability.get("can_use_as_target_period_evidence"))
+        row = {
+            "company_id": required.get("company_id"),
+            "company_name": required.get("company_name") or availability.get("company_name") or "",
+            "canonical_company_id": availability.get("canonical_company_id") or required.get("company_id"),
+            "canonical_company_name": availability.get("canonical_company_name") or required.get("company_name") or "",
+            "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+            "required_report_type": str(getattr(args, "report_type", "") or ""),
+            "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+            "availability_status": availability.get("availability_status") or "",
+            "deadline_status": availability.get("deadline_status") or "",
+            "can_use_as_target_period_evidence": target_evidence,
+            "target_evidence_available": target_evidence,
+            "exact_target_period_document_count": availability.get("exact_target_period_document_count", 0),
+            "target_period_document_count": availability.get("target_period_document_count", 0),
+            "gate_status": availability.get("gate_status") or "",
+            "gate_passed": bool(availability.get("gate_passed")),
+            "gate_reason": availability.get("gate_reason") or "",
+            "ready_for_value_extraction": bool(availability.get("ready_for_value_extraction")),
+            "ready_for_import": bool(availability.get("ready_for_import")),
+            "coverage_status": coverage.get("coverage_status") or "",
+            "coverage_grade": coverage.get("coverage_grade") or "",
+            "coverage_score": coverage.get("coverage_score", ""),
+            "coverage_operator_action": coverage.get("coverage_operator_action") or "",
+            "historical_fallback_status": fallback.get("historical_fallback_status") or "",
+            "historical_fallback_scope": fallback.get("historical_fallback_scope") or "none",
+            "latest_available_period": fallback.get("latest_available_period") or "",
+            "latest_available_report_type": fallback.get("latest_available_report_type") or "",
+            "latest_available_standard": fallback.get("latest_available_standard") or "",
+            "latest_available_document_url": fallback.get("latest_available_document_url") or "",
+            "can_use_for_value_extraction": bool(fallback.get("can_use_for_value_extraction")),
+            "can_use_for_import": bool(fallback.get("can_use_for_import")),
+            "can_use_for_scoring": bool(fallback.get("can_use_for_scoring")),
+            "can_use_for_paper_trading": bool(fallback.get("can_use_for_paper_trading")),
+            "queue_action_type": queue.get("queue_action_type") or "",
+            "queue_priority": queue.get("queue_priority") or "",
+            "queue_status": queue.get("queue_status") or "",
+            "manual_review_required": bool(queue.get("manual_review_required")),
+            "is_blocking_next_stage": bool(queue.get("is_blocking_next_stage")),
+            "blocked_stage": queue.get("blocked_stage") or "",
+            "extraction_allowed": bool(availability.get("ready_for_value_extraction")),
+            "import_allowed": bool(availability.get("ready_for_import")),
+            "scoring_allowed": False,
+            "paper_trading_allowed": False,
+        }
+        status = _reporting_readiness_status(row)
+        row["reporting_readiness_status"] = status
+        row["reporting_readiness_grade"] = _reporting_readiness_grade(row)
+        row["primary_blocker"] = _reporting_readiness_primary_blocker(status)
+        row["blocking_layers"] = _reporting_readiness_blocking_layers(row)
+        row["reporting_readiness_reason_codes"] = _reporting_readiness_reason_codes(row)
+        next_action, instruction = _reporting_readiness_action(status)
+        row["next_required_action"] = next_action
+        row["operator_instruction"] = instruction
+        row["readiness_note"] = _reporting_readiness_note(row)
+        rows.append(row)
+    return sorted(rows, key=lambda item: (str(item.get("company_id") or ""), str(item.get("company_name") or "")))
+
+
+def _reporting_readiness_matrix_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    blocker_counts: dict[str, int] = {}
+    for row in rows:
+        for reason in row.get("reporting_readiness_reason_codes") or []:
+            blocker_counts[str(reason)] = blocker_counts.get(str(reason), 0) + 1
+    return {
+        "reporting_readiness_issuer_count": len(rows),
+        "reporting_readiness_ready_count": sum(
+            1 for row in rows if row.get("reporting_readiness_status") == "ready_for_extraction_preview"
+        ),
+        "reporting_readiness_blocked_count": sum(
+            1 for row in rows if row.get("reporting_readiness_status") != "ready_for_extraction_preview"
+        ),
+        "reporting_readiness_needs_operator_count": sum(
+            1 for row in rows if row.get("reporting_readiness_grade") == "operator_required"
+        ),
+        "reporting_readiness_target_evidence_available_count": sum(
+            1 for row in rows if row.get("target_evidence_available")
+        ),
+        "reporting_readiness_gate_passed_count": sum(1 for row in rows if row.get("gate_passed")),
+        "reporting_readiness_historical_only_count": sum(
+            1
+            for row in rows
+            if row.get("historical_fallback_scope") == "diagnostic_only"
+            and not row.get("target_evidence_available")
+        ),
+        "reporting_readiness_source_coverage_blocked_count": sum(
+            1
+            for row in rows
+            if str(row.get("coverage_status") or "").startswith("weak_")
+            or row.get("coverage_status") == "missing_official_sources"
+        ),
+        "reporting_readiness_status_counts": _count_by_key(rows, "reporting_readiness_status"),
+        "reporting_readiness_blocker_counts": dict(sorted(blocker_counts.items())),
+    }
+
+
+def _build_reporting_readiness_matrix_report(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    required_issuers: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+    official_source_coverage_rows: list[dict[str, Any]],
+    historical_fallback_registry_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]] | None = None,
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    rows = _build_reporting_readiness_matrix_rows(
+        args,
+        required_issuers=required_issuers,
+        availability_operator_rows=availability_operator_rows,
+        operator_review_queue=operator_review_queue,
+        official_source_coverage_rows=official_source_coverage_rows,
+        historical_fallback_registry_rows=historical_fallback_registry_rows,
+    )
+    return {
+        "status": status,
+        "mode": "reporting-readiness-matrix",
+        "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+        "required_report_type": str(getattr(args, "report_type", "") or ""),
+        "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+        "summary": _reporting_readiness_matrix_summary(rows),
+        "issuers": rows,
+        "warnings": warnings or [],
+        "errors": errors or [],
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -9890,6 +10377,18 @@ def _build_exact_document_discovery_report(
         errors=errors,
     )
     historical_fallback_registry_summary = historical_fallback_registry_report["summary"]
+    reporting_readiness_matrix_report = _build_reporting_readiness_matrix_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        availability_operator_rows=availability_operator_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        official_source_coverage_rows=official_source_coverage_report["issuers"],
+        historical_fallback_registry_rows=historical_fallback_registry_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    reporting_readiness_summary = reporting_readiness_matrix_report["summary"]
     return {
         "status": status,
         "mode": "exact-document-discover-from-seeds",
@@ -9927,6 +10426,9 @@ def _build_exact_document_discovery_report(
         **historical_fallback_registry_summary,
         "historical_fallback_registry_summary": historical_fallback_registry_summary,
         "historical_fallback_registry_rows": historical_fallback_registry_report["issuers"],
+        **reporting_readiness_summary,
+        "reporting_readiness_summary": reporting_readiness_summary,
+        "reporting_readiness_rows": reporting_readiness_matrix_report["issuers"],
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -9954,6 +10456,9 @@ def _build_exact_document_discovery_report(
         "historical_fallback_registry_output": _path_value(args.historical_fallback_registry_output),
         "historical_fallback_registry_csv_output": _path_value(args.historical_fallback_registry_csv_output),
         "historical_fallback_registry_markdown_output": _path_value(args.historical_fallback_registry_markdown_output),
+        "reporting_readiness_matrix_output": _path_value(args.reporting_readiness_matrix_output),
+        "reporting_readiness_matrix_csv_output": _path_value(args.reporting_readiness_matrix_csv_output),
+        "reporting_readiness_matrix_markdown_output": _path_value(args.reporting_readiness_matrix_markdown_output),
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps("exact-document-discover-from-seeds", status),

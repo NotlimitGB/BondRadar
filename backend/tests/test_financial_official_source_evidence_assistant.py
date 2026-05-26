@@ -2324,6 +2324,14 @@ def test_exact_document_discover_from_reviewed_seeds_gate_can_pass_for_single_re
     operator_row = report["availability_operator_rows"][0]
     assert operator_row["gate_status"] == "passed"
     assert operator_row["ready_for_value_extraction"] is True
+    readiness = _readiness_for(report)
+    assert readiness["reporting_readiness_status"] == "ready_for_extraction_preview"
+    assert readiness["reporting_readiness_grade"] == "ready"
+    assert readiness["extraction_allowed"] is True
+    assert readiness["import_allowed"] is False
+    assert readiness["scoring_allowed"] is False
+    assert readiness["paper_trading_allowed"] is False
+    assert readiness["next_required_action"] == "proceed_to_controlled_extraction_preview"
 
 
 def test_exact_document_availability_policy_before_primary_deadline(
@@ -2664,6 +2672,133 @@ def test_exact_document_historical_fallback_registry_exact_target_no_fallback_ne
     assert report["historical_fallback_registry_target_evidence_count"] == 1
 
 
+def test_exact_document_reporting_readiness_placeholder_not_found_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html="",
+        current_date="2026-05-25",
+    )
+
+    readiness = _readiness_for(report)
+    assert readiness["reporting_readiness_status"] == "blocked_placeholder_not_found"
+    assert readiness["reporting_readiness_grade"] == "operator_required"
+    assert readiness["primary_blocker"] == "placeholder_not_found"
+    assert "availability" in readiness["blocking_layers"]
+    assert "quality_gate" in readiness["blocking_layers"]
+    assert "operator_queue" in readiness["blocking_layers"]
+    assert "placeholder_not_found" in readiness["reporting_readiness_reason_codes"]
+    assert readiness["extraction_allowed"] is False
+    assert readiness["import_allowed"] is False
+    assert readiness["scoring_allowed"] is False
+    assert readiness["paper_trading_allowed"] is False
+    assert readiness["next_required_action"] == "fill_exact_official_document_url_or_improve_official_sources"
+
+
+def test_exact_document_reporting_readiness_weak_source_coverage_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/")],
+    )
+    _mock_candidate_fetch(monkeypatch, {})
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "18",
+            "--required-company-names",
+            "RZD",
+            "--exact-document-availability-current-date",
+            "2026-05-25",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    readiness = _readiness_for(report, company_id=18)
+    assert readiness["reporting_readiness_status"] in {
+        "blocked_placeholder_not_found",
+        "blocked_weak_source_coverage",
+    }
+    assert "weak_source_coverage" in readiness["reporting_readiness_reason_codes"]
+    assert "source_coverage" in readiness["blocking_layers"]
+    assert readiness["extraction_allowed"] is False
+
+
+def test_exact_document_reporting_readiness_historical_fallback_only_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/2019_12_Mostotrest_IFRS_Accounts.pdf">Annual IFRS accounts 2019</a>',
+        current_date="2026-05-25",
+    )
+
+    readiness = _readiness_for(report)
+    assert readiness["reporting_readiness_status"] == "blocked_missing_target_evidence"
+    assert "historical_fallback" in readiness["blocking_layers"]
+    assert "historical_fallback_diagnostic_only" in readiness["reporting_readiness_reason_codes"]
+    assert readiness["historical_fallback_scope"] == "diagnostic_only"
+    assert readiness["can_use_for_value_extraction"] is False
+    assert readiness["extraction_allowed"] is False
+    assert readiness["import_allowed"] is False
+    assert readiness["scoring_allowed"] is False
+    assert readiness["paper_trading_allowed"] is False
+
+
+def test_exact_document_reporting_readiness_target_evidence_gate_not_run_is_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2025.pdf">Annual IFRS financial statements 2025</a>',
+        current_date="2026-05-25",
+    )
+
+    readiness = _readiness_for(report)
+    assert readiness["target_evidence_available"] is True
+    assert readiness["reporting_readiness_status"] == "blocked_quality_gate_failed"
+    assert readiness["gate_status"] == "quality_gate_not_run"
+    assert readiness["extraction_allowed"] is False
+    assert readiness["import_allowed"] is False
+
+
+def test_exact_document_reporting_readiness_after_primary_deadline_reason(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>',
+        current_date="2026-05-25",
+    )
+
+    readiness = _readiness_for(report)
+    assert readiness["deadline_status"] == "after_primary_deadline_within_grace_window"
+    assert "deadline_after_primary_within_grace" in readiness["reporting_readiness_reason_codes"]
+    assert readiness["extraction_allowed"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -2805,6 +2940,9 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     fallback_json = tmp_path / "historical_fallback_registry.json"
     fallback_csv = tmp_path / "historical_fallback_registry.csv"
     fallback_md = tmp_path / "historical_fallback_registry.md"
+    readiness_json = tmp_path / "reporting_readiness_matrix.json"
+    readiness_csv = tmp_path / "reporting_readiness_matrix.csv"
+    readiness_md = tmp_path / "reporting_readiness_matrix.md"
     _write_reviewed_seed_pack(seed_pack, include_rzd=True)
     _write_document_intake(
         intake,
@@ -2859,6 +2997,12 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
             str(fallback_csv),
             "--historical-fallback-registry-markdown-output",
             str(fallback_md),
+            "--reporting-readiness-matrix-output",
+            str(readiness_json),
+            "--reporting-readiness-matrix-csv-output",
+            str(readiness_csv),
+            "--reporting-readiness-matrix-markdown-output",
+            str(readiness_md),
         ]
     )
 
@@ -3054,6 +3198,50 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert "Historical Fallback Status Counts" in fallback_markdown
     assert "diagnostic_only" in fallback_markdown
     assert "target evidence False" in fallback_markdown or "target evidence false" in fallback_markdown
+    assert report["reporting_readiness_issuer_count"] == 2
+    assert report["reporting_readiness_ready_count"] == 0
+    assert report["reporting_readiness_blocked_count"] == 2
+    assert report["reporting_readiness_needs_operator_count"] == 2
+    assert report["reporting_readiness_target_evidence_available_count"] == 0
+    assert report["reporting_readiness_gate_passed_count"] == 0
+    assert report["reporting_readiness_historical_only_count"] == 1
+    assert report["reporting_readiness_source_coverage_blocked_count"] == 0
+    assert report["reporting_readiness_status_counts"]["blocked_placeholder_not_found"] == 1
+    assert report["reporting_readiness_status_counts"]["blocked_missing_target_evidence"] == 1
+    assert report["reporting_readiness_blocker_counts"]["missing_exact_target_period_annual_ifrs"] == 2
+    assert report["reporting_readiness_blocker_counts"]["historical_fallback_diagnostic_only"] == 1
+    readiness_rows = {str(row["company_id"]): row for row in report["reporting_readiness_rows"]}
+    assert readiness_rows["18"]["reporting_readiness_status"] == "blocked_placeholder_not_found"
+    assert readiness_rows["18"]["extraction_allowed"] is False
+    assert readiness_rows["18"]["import_allowed"] is False
+    assert readiness_rows["18"]["scoring_allowed"] is False
+    assert readiness_rows["18"]["paper_trading_allowed"] is False
+    assert readiness_rows["67"]["reporting_readiness_status"] == "blocked_missing_target_evidence"
+    assert "historical_fallback_diagnostic_only" in readiness_rows["67"]["reporting_readiness_reason_codes"]
+    assert "historical_fallback" in readiness_rows["67"]["blocking_layers"]
+    assert readiness_rows["67"]["next_required_action"] == "find_or_verify_exact_target_period_annual_ifrs_report"
+    readiness_exported = json.loads(readiness_json.read_text(encoding="utf-8"))
+    assert readiness_exported["mode"] == "reporting-readiness-matrix"
+    assert readiness_exported["summary"]["reporting_readiness_issuer_count"] == 2
+    readiness_csv_rows = list(csv.DictReader(readiness_csv.open(encoding="utf-8")))
+    assert len(readiness_csv_rows) == 2
+    assert {
+        "reporting_readiness_status",
+        "reporting_readiness_grade",
+        "primary_blocker",
+        "blocking_layers",
+        "extraction_allowed",
+        "import_allowed",
+        "scoring_allowed",
+        "paper_trading_allowed",
+        "next_required_action",
+    }.issubset(set(readiness_csv_rows[0]))
+    readiness_markdown = readiness_md.read_text(encoding="utf-8")
+    assert "Reporting Readiness Matrix Before Extraction" in readiness_markdown
+    assert "Readiness Status Counts" in readiness_markdown
+    assert "Readiness Blocker Counts" in readiness_markdown
+    assert "blocked_placeholder_not_found" in readiness_markdown
+    assert "extraction False" in readiness_markdown or "extraction false" in readiness_markdown
 
 
 def test_exact_document_discover_probe_and_download_are_optional(
@@ -6020,6 +6208,14 @@ def _historical_fallback_for(report: dict, company_id: int = 67) -> dict:
     return next(
         item
         for item in report.get("historical_fallback_registry_rows", [])
+        if str(item.get("company_id")) == str(company_id)
+    )
+
+
+def _readiness_for(report: dict, company_id: int = 67) -> dict:
+    return next(
+        item
+        for item in report.get("reporting_readiness_rows", [])
         if str(item.get("company_id")) == str(company_id)
     )
 
