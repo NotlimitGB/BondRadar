@@ -3114,6 +3114,159 @@ def test_operator_resolution_validation_csv_and_markdown_outputs(tmp_path: Path)
     assert "This validation does not update exact document intake" in markdown
 
 
+def test_operator_resolution_apply_preview_incomplete_validation_no_candidate(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [_operator_resolution_apply_validation_row(validation_status="incomplete_operator_input")],
+    )
+
+    row = report["patch_rows"][0]
+    assert row["patch_status"] == "not_eligible_incomplete_validation"
+    assert row["patch_action"] == "preview_noop"
+    assert row["future_apply_allowed"] is False
+    assert row["would_apply_to_document_intake"] is False
+
+
+def test_operator_resolution_apply_preview_valid_row_becomes_eligible(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [_operator_resolution_apply_validation_row()],
+    )
+
+    row = report["patch_rows"][0]
+    assert row["patch_status"] == "eligible_for_future_controlled_apply"
+    assert row["future_apply_allowed"] is True
+    assert row["proposed_document_url"].endswith("mostotrest-annual-ifrs-financial-statements-2025.pdf")
+    assert row["would_apply_to_document_intake"] is False
+    assert row["would_extract_values"] is False
+    assert row["would_import_report"] is False
+
+
+def test_operator_resolution_apply_preview_historical_fallback_rejected_stays_blocked(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [
+            _operator_resolution_apply_validation_row(
+                validation_status="invalid_operator_input",
+                can_use_for_future_intake_review="false",
+                validation_reason_codes="historical_fallback_url_used_as_exact_document",
+                validation_errors="historical_fallback_url_used_as_exact_document",
+                historical_fallback_url_used_as_exact_document="true",
+            )
+        ],
+    )
+
+    row = report["patch_rows"][0]
+    assert row["patch_status"] == "not_eligible_invalid_validation"
+    assert row["future_apply_allowed"] is False
+    assert "historical_fallback_url_used_as_exact_document" in row["patch_reason_codes"]
+
+
+def test_operator_resolution_apply_preview_waiting_row_noops(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [
+            _operator_resolution_apply_validation_row(
+                validation_status="waiting",
+                can_use_for_future_intake_review="false",
+                operator_fill_decision="wait_until_grace_date",
+            )
+        ],
+    )
+
+    row = report["patch_rows"][0]
+    assert row["patch_status"] == "not_eligible_waiting"
+    assert row["patch_action"] == "preview_noop"
+
+
+def test_operator_resolution_apply_preview_replaces_not_found_placeholder(tmp_path: Path) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    placeholder = _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")
+    placeholder["document_status"] = "not_found"
+    _write_document_intake(intake, [placeholder])
+
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [_operator_resolution_apply_validation_row()],
+        document_intake_input=intake,
+    )
+
+    row = report["patch_rows"][0]
+    assert row["patch_status"] == "eligible_for_future_controlled_apply"
+    assert row["patch_action"] == "preview_replace_not_found_placeholder"
+    assert row["would_replace_placeholder"] is True
+    assert row["would_update_existing_intake_row"] is True
+    assert row["would_apply_to_document_intake"] is False
+
+
+def test_operator_resolution_apply_preview_creates_when_no_intake_match(tmp_path: Path) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/")])
+
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [_operator_resolution_apply_validation_row()],
+        document_intake_input=intake,
+    )
+
+    row = report["patch_rows"][0]
+    assert row["patch_action"] == "preview_create_intake_row"
+    assert row["would_create_intake_row"] is True
+    assert row["would_apply_to_document_intake"] is False
+
+
+def test_operator_resolution_apply_preview_strict_mismatch_blocks(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [_operator_resolution_apply_validation_row(document_period_status="wrong_period")],
+    )
+
+    row = report["patch_rows"][0]
+    assert row["patch_status"] == "blocked_strict_document_mismatch"
+    assert row["future_apply_allowed"] is False
+
+
+def test_operator_resolution_apply_preview_csv_and_markdown_outputs(tmp_path: Path) -> None:
+    preview_json = tmp_path / "operator_resolution_apply_preview.json"
+    preview_csv = tmp_path / "operator_resolution_apply_preview.csv"
+    preview_md = tmp_path / "operator_resolution_apply_preview.md"
+    report = _run_operator_resolution_apply_preview(
+        tmp_path,
+        [_operator_resolution_apply_validation_row(validation_status="incomplete_operator_input")],
+        extra_args=[
+            "--operator-resolution-apply-preview-output",
+            str(preview_json),
+            "--operator-resolution-apply-preview-csv-output",
+            str(preview_csv),
+            "--operator-resolution-apply-preview-markdown-output",
+            str(preview_md),
+        ],
+    )
+
+    assert report["operator_resolution_apply_preview_row_count"] == 1
+    assert preview_json.is_file()
+    assert preview_csv.is_file()
+    assert preview_md.is_file()
+    exported = json.loads(preview_json.read_text(encoding="utf-8"))
+    assert exported["mode"] == "operator-resolution-apply-preview"
+    csv_rows = list(csv.DictReader(preview_csv.open(encoding="utf-8")))
+    assert len(csv_rows) == 1
+    assert {
+        "patch_status",
+        "patch_action",
+        "future_apply_allowed",
+        "would_apply_to_document_intake",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    }.issubset(set(csv_rows[0]))
+    markdown = preview_md.read_text(encoding="utf-8")
+    assert "Operator Resolution Apply Preview" in markdown
+    assert "Apply Preview Status Counts" in markdown
+    assert "This preview does not update exact document intake" in markdown
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -6658,6 +6811,83 @@ def _run_operator_resolution_validation(
             "operator-resolution-validate",
             "--operator-resolution-input",
             str(input_path),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    return report
+
+
+def _operator_resolution_apply_validation_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "resolution_id": "financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "operator_fill_decision": "exact_document_found",
+        "operator_fill_exact_document_url": "https://mostotrest.ru/reports/mostotrest-annual-ifrs-financial-statements-2025.pdf",
+        "operator_fill_document_title": "Mostotrest annual IFRS financial statements 2025",
+        "operator_fill_document_date": "2026-04-30",
+        "operator_fill_source_page_url": "https://mostotrest.ru/ru/invest/financial-results/",
+        "operator_fill_source_type": "official_issuer_report",
+        "operator_fill_report_period": "2025",
+        "operator_fill_report_type": "annual",
+        "operator_fill_accounting_standard": "IFRS",
+        "validation_status": "valid_for_future_controlled_intake_review",
+        "validation_reason_codes": ["strict_target_annual_ifrs_exact_document"],
+        "validation_errors": [],
+        "can_use_for_future_intake_review": True,
+        "document_kind": "exact_report_document",
+        "document_period_year": "2025",
+        "document_period_status": "target_period",
+        "report_type_match_status": "annual_match",
+        "accounting_standard_match_status": "standard_match",
+        "historical_fallback_url_used_as_exact_document": False,
+    }
+    row.update(updates)
+    return row
+
+
+def _write_operator_resolution_validation_json(path: Path, rows: list[dict[str, object]]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "mode": "operator-resolution-validation",
+                "validation_rows": rows,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _run_operator_resolution_apply_preview(
+    tmp_path: Path,
+    rows: list[dict[str, object]],
+    *,
+    document_intake_input: Path | None = None,
+    extra_args: list[str] | None = None,
+) -> dict:
+    validation_path = tmp_path / "operator_resolution_validation.json"
+    _write_operator_resolution_validation_json(validation_path, rows)
+    if document_intake_input is None:
+        document_intake_input = tmp_path / "empty_exact_document_intake.json"
+        _write_document_intake(document_intake_input, [])
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-apply-preview",
+            "--operator-resolution-validation-input",
+            str(validation_path),
+            "--document-intake-input",
+            str(document_intake_input),
             *(extra_args or []),
         ]
     )

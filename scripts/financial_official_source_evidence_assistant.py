@@ -39,6 +39,7 @@ MODE_CHOICES = (
     "operator-seed-promote-reviewed",
     "exact-document-discover-from-seeds",
     "operator-resolution-validate",
+    "operator-resolution-apply-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -663,6 +664,56 @@ OPERATOR_RESOLUTION_VALIDATION_FIELDS = [
     "would_trigger_paper_trading",
     "operator_next_step",
     "validation_note",
+]
+OPERATOR_RESOLUTION_APPLY_PREVIEW_FIELDS = [
+    "patch_id",
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "patch_status",
+    "patch_action",
+    "patch_reason_codes",
+    "patch_errors",
+    "patch_warnings",
+    "source_validation_status",
+    "can_use_for_future_intake_review",
+    "operator_fill_decision",
+    "proposed_document_url",
+    "proposed_document_title",
+    "proposed_document_date",
+    "proposed_source_page_url",
+    "proposed_source_type",
+    "proposed_report_period",
+    "proposed_report_type",
+    "proposed_accounting_standard",
+    "document_kind",
+    "document_period_year",
+    "document_period_status",
+    "report_type_match_status",
+    "accounting_standard_match_status",
+    "intake_target_status",
+    "intake_existing_document_url",
+    "intake_existing_document_status",
+    "intake_existing_operator_review_status",
+    "intake_existing_filter_status",
+    "would_create_intake_row",
+    "would_update_existing_intake_row",
+    "would_replace_placeholder",
+    "would_apply_to_document_intake",
+    "would_promote_seed",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "future_apply_allowed",
+    "future_apply_blocked_reason",
+    "operator_next_step",
+    "preview_note",
 ]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
@@ -1360,6 +1411,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-validation-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-validation-csv-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-validation-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-validation-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-apply-preview-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-apply-preview-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-apply-preview-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1426,6 +1481,8 @@ def run_assistant(
         report = run_exact_document_discover_from_seeds(args)
     elif args.mode == "operator-resolution-validate":
         report = run_operator_resolution_validate(args)
+    elif args.mode == "operator-resolution-apply-preview":
+        report = run_operator_resolution_apply_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -2858,6 +2915,66 @@ def run_operator_resolution_validate(args: argparse.Namespace) -> dict[str, Any]
         write_operator_resolution_validation_markdown(
             report,
             args.operator_resolution_validation_markdown_output,
+        )
+    return report
+
+
+def run_operator_resolution_apply_preview(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    validation_rows: list[dict[str, Any]] = []
+    source_pack_rows: list[dict[str, Any]] = []
+    intake_documents: list[dict[str, Any]] | None = None
+
+    if args.operator_resolution_validation_input is None:
+        errors.append({"message": "operator-resolution-apply-preview mode requires --operator-resolution-validation-input"})
+    if not errors:
+        try:
+            validation_rows, _validation_columns = load_operator_resolution_input(args.operator_resolution_validation_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+    if args.operator_resolution_source_pack_input is None:
+        warnings.append({"message": "source_pack_missing"})
+    elif not errors:
+        try:
+            source_pack_rows, _source_columns = load_operator_resolution_input(args.operator_resolution_source_pack_input)
+        except Exception as exc:
+            warnings.append({"message": f"source_pack_load_failed: {exc}"})
+    if args.document_intake_input is None:
+        warnings.append({"message": "document_intake_context_missing"})
+    elif not errors:
+        try:
+            intake_documents = load_document_intake_file(args.document_intake_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    source_pack_by_id = {
+        str(row.get("resolution_id") or ""): row
+        for row in source_pack_rows
+        if row.get("resolution_id")
+    }
+    patch_rows = _build_operator_resolution_apply_preview_rows(
+        validation_rows,
+        source_pack_by_id=source_pack_by_id,
+        intake_documents=intake_documents,
+    )
+    report = _build_operator_resolution_apply_preview_report(
+        args,
+        rows=patch_rows,
+        load_warnings=warnings,
+        load_errors=errors,
+    )
+    if args.operator_resolution_apply_preview_output is not None and not errors:
+        write_json_report(report, args.operator_resolution_apply_preview_output)
+    if args.operator_resolution_apply_preview_csv_output is not None and not errors:
+        write_operator_resolution_apply_preview_csv(
+            patch_rows,
+            args.operator_resolution_apply_preview_csv_output,
+        )
+    if args.operator_resolution_apply_preview_markdown_output is not None and not errors:
+        write_operator_resolution_apply_preview_markdown(
+            report,
+            args.operator_resolution_apply_preview_markdown_output,
         )
     return report
 
@@ -5246,6 +5363,20 @@ def write_operator_resolution_validation_markdown(report: dict[str, Any], path: 
     path.write_text(render_operator_resolution_validation_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_apply_preview_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_RESOLUTION_APPLY_PREVIEW_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in OPERATOR_RESOLUTION_APPLY_PREVIEW_FIELDS})
+
+
+def write_operator_resolution_apply_preview_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_apply_preview_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5410,6 +5541,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "operator-seed-promote-reviewed"
         else "Operator Resolution Validation"
         if report.get("mode") == "operator-resolution-validation"
+        else "Operator Resolution Apply Preview"
+        if report.get("mode") == "operator-resolution-apply-preview"
         else "Exact Official Report Document Discovery From Reviewed Seeds"
         if report.get("mode") == "exact-document-discover-from-seeds"
         else "Official Seed Resolver"
@@ -5456,6 +5589,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_operator_seed_promote_markdown_sections(report))
     if report.get("mode") == "operator-resolution-validation":
         lines.extend(_render_operator_resolution_validation_sections(report))
+    if report.get("mode") == "operator-resolution-apply-preview":
+        lines.extend(_render_operator_resolution_apply_preview_sections(report))
     if report.get("mode") == "exact-document-discover-from-seeds":
         lines.extend(_render_exact_document_from_seeds_markdown_sections(report))
     if report.get("mode") == "official-seed-resolve":
@@ -5716,6 +5851,43 @@ def render_operator_resolution_validation_markdown(report: dict[str, Any]) -> st
             f"- import_executed: {report.get('import_executed')}",
             f"- paper_trading_called: {report.get('paper_trading_called')}",
             f"- would_update_document_intake: {report.get('would_update_document_intake')}",
+            f"- would_promote_seed: {report.get('would_promote_seed')}",
+            f"- would_extract_values: {report.get('would_extract_values')}",
+            f"- would_import_report: {report.get('would_import_report')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_apply_preview_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Operator Resolution Apply Preview",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- row_count: {report.get('operator_resolution_apply_preview_row_count', 0)}",
+        "",
+    ]
+    lines.extend(_render_operator_resolution_apply_preview_sections(report))
+    lines.extend(
+        [
+            "## Safety Notes",
+            "",
+            "- This preview does not apply operator decisions.",
+            "- This preview does not update exact document intake.",
+            "- This preview does not extract/import/score/trade.",
+            "- Only rows validated as target-period annual IFRS exact reports can become future apply candidates.",
+            "",
+            "## Safety Flags",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- would_apply_to_document_intake: {report.get('would_apply_to_document_intake')}",
             f"- would_promote_seed: {report.get('would_promote_seed')}",
             f"- would_extract_values: {report.get('would_extract_values')}",
             f"- would_import_report: {report.get('would_import_report')}",
@@ -6125,6 +6297,60 @@ def _render_operator_resolution_validation_sections(report: dict[str, Any]) -> l
             )
     else:
         lines.append("|  |  |  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
+
+
+def _render_operator_resolution_apply_preview_sections(report: dict[str, Any]) -> list[str]:
+    rows = report.get("patch_rows") or []
+    lines = [
+        "## Apply Preview Summary",
+        "",
+        f"- row count: {report.get('operator_resolution_apply_preview_row_count', len(rows))}",
+        f"- candidates: {report.get('operator_resolution_apply_preview_candidate_count', 0)}",
+        f"- eligible: {report.get('operator_resolution_apply_preview_eligible_count', 0)}",
+        f"- blocked: {report.get('operator_resolution_apply_preview_blocked_count', 0)}",
+        f"- future apply allowed: {report.get('operator_resolution_apply_preview_future_apply_allowed_count', 0)}",
+        "",
+        "### Apply Preview Status Counts",
+        "",
+    ]
+    status_counts = report.get("operator_resolution_apply_preview_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Apply Preview Action Counts", ""])
+    action_counts = report.get("operator_resolution_apply_preview_action_counts") or {}
+    if action_counts:
+        lines.extend(f"- {key}: {value}" for key, value in action_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Patch Rows",
+            "",
+            "| Company | Validation | Patch status | Patch action | Future apply | Proposed URL | Intake target | Next step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| {company} | {validation} | {status} | {action} | {future} | {url} | {intake} | {next_step} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    validation=row.get("source_validation_status") or "",
+                    status=row.get("patch_status") or "",
+                    action=row.get("patch_action") or "",
+                    future=row.get("future_apply_allowed"),
+                    url=str(row.get("proposed_document_url") or "").replace("|", "/"),
+                    intake=row.get("intake_target_status") or "",
+                    next_step=str(row.get("operator_next_step") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |  |  |")
     lines.append("")
     return lines
 
@@ -10657,6 +10883,314 @@ def _build_operator_resolution_validation_report(
     }
 
 
+def _operator_resolution_apply_validation_status(row: dict[str, Any]) -> str:
+    return str(row.get("validation_status") or "")
+
+
+def _operator_resolution_apply_bool(value: Any) -> bool:
+    return _operator_resolution_bool(value)
+
+
+def _operator_resolution_apply_code_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if value in (None, ""):
+        return []
+    return [item.strip() for item in re.split(r"[;,|]", str(value)) if item.strip()]
+
+
+def _operator_resolution_apply_strict_mismatch(row: dict[str, Any]) -> bool:
+    return not (
+        str(row.get("document_kind") or "") == "exact_report_document"
+        and str(row.get("document_period_status") or "") == "target_period"
+        and str(row.get("report_type_match_status") or "") == "annual_match"
+        and str(row.get("accounting_standard_match_status") or "") == "standard_match"
+    )
+
+
+def _operator_resolution_apply_base_status(row: dict[str, Any]) -> tuple[str, list[str], list[str]]:
+    validation_status = _operator_resolution_apply_validation_status(row)
+    reasons = [validation_status] if validation_status else ["blocked_missing_validation"]
+    errors: list[str] = []
+    if not validation_status:
+        errors.append("blocked_missing_validation")
+        return "blocked_missing_validation", reasons, errors
+    if validation_status == "incomplete_operator_input":
+        return "not_eligible_incomplete_validation", reasons, errors
+    if validation_status == "invalid_operator_input":
+        reasons.extend(_operator_resolution_apply_code_list(row.get("validation_reason_codes")))
+        errors.extend(_operator_resolution_apply_code_list(row.get("validation_errors")))
+        return "not_eligible_invalid_validation", list(dict.fromkeys(reasons)), list(dict.fromkeys(errors))
+    if validation_status == "diagnostic_only":
+        return "not_eligible_diagnostic_only", reasons, errors
+    if validation_status == "waiting":
+        return "not_eligible_waiting", reasons, errors
+    if validation_status == "no_action_required":
+        return "not_eligible_no_action_required", reasons, errors
+    if validation_status != "valid_for_future_controlled_intake_review":
+        errors.append("blocked_missing_validation")
+        return "blocked_missing_validation", reasons, errors
+    if not _operator_resolution_apply_bool(row.get("can_use_for_future_intake_review")):
+        errors.append("can_use_for_future_intake_review_false")
+        return "blocked_missing_validation", [*reasons, "can_use_for_future_intake_review_false"], errors
+    if str(row.get("operator_fill_decision") or "").casefold() != "exact_document_found":
+        errors.append("operator_decision_not_exact_document_found")
+        return "blocked_missing_validation", [*reasons, "operator_decision_not_exact_document_found"], errors
+    if not str(row.get("operator_fill_exact_document_url") or "").strip():
+        errors.append("blocked_missing_exact_document_url")
+        return "blocked_missing_exact_document_url", [*reasons, "blocked_missing_exact_document_url"], errors
+    if _operator_resolution_apply_bool(row.get("historical_fallback_url_used_as_exact_document")):
+        errors.append("historical_fallback_url_used_as_exact_document")
+        return "not_eligible_invalid_validation", [*reasons, "historical_fallback_url_used_as_exact_document"], errors
+    if _operator_resolution_apply_strict_mismatch(row):
+        errors.append("blocked_strict_document_mismatch")
+        return "blocked_strict_document_mismatch", [*reasons, "blocked_strict_document_mismatch"], errors
+    return "eligible_for_future_controlled_apply", [*reasons, "strict_target_annual_ifrs_exact_document"], errors
+
+
+def _operator_resolution_apply_matching_intake(
+    row: dict[str, Any],
+    intake_documents: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    if intake_documents is None:
+        return None
+    company_ids = {
+        str(row.get("company_id") or ""),
+        str(row.get("canonical_company_id") or ""),
+    }
+    company_ids.discard("")
+    target = str(row.get("target_reporting_period") or "")
+    report_type = str(row.get("required_report_type") or "")
+    standard = str(row.get("required_standard") or "")
+    for item in intake_documents:
+        item_ids = {
+            str(item.get("company_id") or ""),
+            str(item.get("canonical_company_id") or ""),
+        }
+        if company_ids.isdisjoint(item_ids):
+            continue
+        if str(item.get("report_period") or "") != target:
+            continue
+        if report_type and str(item.get("report_type") or "") != report_type:
+            continue
+        if standard and str(item.get("accounting_standard") or "") != standard:
+            continue
+        return item
+    return None
+
+
+def _operator_resolution_apply_intake_status(
+    intake: dict[str, Any] | None,
+    *,
+    intake_documents: list[dict[str, Any]] | None,
+) -> str:
+    if intake_documents is None:
+        return "intake_context_missing"
+    if not intake:
+        return "no_matching_intake_row"
+    if not intake.get("document_url") or intake.get("document_status") == "not_found":
+        return "matching_not_found_placeholder"
+    if str(intake.get("filter_status") or "") == "placeholder_not_found":
+        return "matching_filter_placeholder"
+    return "matching_existing_intake_row"
+
+
+def _operator_resolution_apply_action(patch_status: str, intake_status: str) -> str:
+    if patch_status != "eligible_for_future_controlled_apply":
+        return "preview_noop"
+    if intake_status == "matching_not_found_placeholder":
+        return "preview_replace_not_found_placeholder"
+    if intake_status == "matching_filter_placeholder":
+        return "preview_update_placeholder_row"
+    if intake_status == "no_matching_intake_row":
+        return "preview_create_intake_row"
+    if intake_status == "intake_context_missing":
+        return "preview_noop"
+    return "preview_update_placeholder_row"
+
+
+def _operator_resolution_apply_proposed_row(row: dict[str, Any], source_row: dict[str, Any]) -> dict[str, Any]:
+    company_id = row.get("company_id") or source_row.get("company_id") or ""
+    company_name = row.get("company_name") or source_row.get("company_name") or ""
+    canonical_company_id = row.get("canonical_company_id") or source_row.get("canonical_company_id") or company_id
+    canonical_company_name = row.get("canonical_company_name") or source_row.get("canonical_company_name") or company_name
+    return {
+        "company_id": company_id,
+        "company_name": company_name,
+        "canonical_company_id": canonical_company_id,
+        "canonical_company_name": canonical_company_name,
+        "report_period": row.get("target_reporting_period") or "",
+        "report_type": row.get("required_report_type") or "",
+        "accounting_standard": row.get("required_standard") or "",
+        "document_url": row.get("operator_fill_exact_document_url") or "",
+        "document_title": row.get("operator_fill_document_title") or "",
+        "document_date": row.get("operator_fill_document_date") or "",
+        "source_page_url": row.get("operator_fill_source_page_url") or "",
+        "source_type": row.get("operator_fill_source_type") or "",
+        "document_status": "valid_official_document",
+        "operator_review_status": "operator_reviewed",
+        "operator_resolution_id": row.get("resolution_id") or "",
+        "operator_resolution_validation_status": row.get("validation_status") or "",
+        "notes": "Preview only: eligible for future controlled apply; not written by Task 120.",
+    }
+
+
+def _operator_resolution_apply_patch_id(row: dict[str, Any]) -> str:
+    resolution_id = str(row.get("resolution_id") or "")
+    return f"operator_resolution_apply_preview:{resolution_id}" if resolution_id else "operator_resolution_apply_preview:missing_resolution_id"
+
+
+def _build_operator_resolution_apply_preview_rows(
+    validation_rows: list[dict[str, Any]],
+    *,
+    source_pack_by_id: dict[str, dict[str, Any]],
+    intake_documents: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    patch_rows: list[dict[str, Any]] = []
+    for validation_row in validation_rows:
+        source_row = source_pack_by_id.get(str(validation_row.get("resolution_id") or ""), {})
+        row = {**source_row, **validation_row}
+        patch_status, reasons, errors = _operator_resolution_apply_base_status(row)
+        intake = _operator_resolution_apply_matching_intake(row, intake_documents)
+        intake_status = _operator_resolution_apply_intake_status(intake, intake_documents=intake_documents)
+        patch_action = _operator_resolution_apply_action(patch_status, intake_status)
+        proposed = (
+            _operator_resolution_apply_proposed_row(row, source_row)
+            if patch_status == "eligible_for_future_controlled_apply"
+            else {}
+        )
+        future_allowed = patch_status == "eligible_for_future_controlled_apply" and patch_action != "preview_noop"
+        future_blocked_reason = "" if future_allowed else patch_status
+        if patch_status == "eligible_for_future_controlled_apply" and intake_status == "intake_context_missing":
+            reasons.append("document_intake_context_missing")
+            errors.append("document_intake_context_missing")
+            future_allowed = False
+            future_blocked_reason = "document_intake_context_missing"
+        warnings = []
+        if not source_row:
+            warnings.append("source_pack_row_missing")
+        would_create = patch_action == "preview_create_intake_row"
+        would_update = patch_action in {"preview_update_placeholder_row", "preview_replace_not_found_placeholder"}
+        would_replace = patch_action == "preview_replace_not_found_placeholder"
+        patch_rows.append(
+            {
+                "patch_id": _operator_resolution_apply_patch_id(row),
+                "resolution_id": row.get("resolution_id") or "",
+                "company_id": row.get("company_id") or "",
+                "company_name": row.get("company_name") or "",
+                "canonical_company_id": row.get("canonical_company_id") or row.get("company_id") or "",
+                "canonical_company_name": row.get("canonical_company_name") or row.get("company_name") or "",
+                "target_reporting_period": row.get("target_reporting_period") or "",
+                "required_report_type": row.get("required_report_type") or "",
+                "required_standard": row.get("required_standard") or "",
+                "patch_status": patch_status,
+                "patch_action": patch_action,
+                "patch_reason_codes": list(dict.fromkeys(str(reason) for reason in reasons if reason)),
+                "patch_errors": list(dict.fromkeys(str(error) for error in errors if error)),
+                "patch_warnings": warnings,
+                "source_validation_status": row.get("validation_status") or "",
+                "can_use_for_future_intake_review": _operator_resolution_apply_bool(row.get("can_use_for_future_intake_review")),
+                "operator_fill_decision": row.get("operator_fill_decision") or "",
+                "proposed_document_url": proposed.get("document_url") or "",
+                "proposed_document_title": proposed.get("document_title") or "",
+                "proposed_document_date": proposed.get("document_date") or "",
+                "proposed_source_page_url": proposed.get("source_page_url") or "",
+                "proposed_source_type": proposed.get("source_type") or "",
+                "proposed_report_period": proposed.get("report_period") or "",
+                "proposed_report_type": proposed.get("report_type") or "",
+                "proposed_accounting_standard": proposed.get("accounting_standard") or "",
+                "proposed_intake_row": proposed,
+                "document_kind": row.get("document_kind") or "",
+                "document_period_year": row.get("document_period_year") or "",
+                "document_period_status": row.get("document_period_status") or "",
+                "report_type_match_status": row.get("report_type_match_status") or "",
+                "accounting_standard_match_status": row.get("accounting_standard_match_status") or "",
+                "intake_target_status": intake_status,
+                "intake_existing_document_url": (intake or {}).get("document_url") or "",
+                "intake_existing_document_status": (intake or {}).get("document_status") or "",
+                "intake_existing_operator_review_status": (intake or {}).get("operator_review_status") or "",
+                "intake_existing_filter_status": (intake or {}).get("filter_status") or "",
+                "would_create_intake_row": would_create,
+                "would_update_existing_intake_row": would_update,
+                "would_replace_placeholder": would_replace,
+                "would_apply_to_document_intake": False,
+                "would_promote_seed": False,
+                "would_extract_values": False,
+                "would_import_report": False,
+                "would_mutate_scores": False,
+                "would_trigger_paper_trading": False,
+                "future_apply_allowed": future_allowed,
+                "future_apply_blocked_reason": future_blocked_reason,
+                "operator_next_step": "future_controlled_apply_review" if future_allowed else "resolve_validation_or_intake_context_first",
+                "preview_note": "Preview only: no intake, seed, extraction, import, scoring, or trading mutation is performed.",
+            }
+        )
+    return sorted(patch_rows, key=lambda item: str(item.get("patch_id") or ""))
+
+
+def _operator_resolution_apply_preview_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "operator_resolution_apply_preview_row_count": len(rows),
+        "operator_resolution_apply_preview_candidate_count": sum(
+            1 for row in rows if row.get("patch_status") == "eligible_for_future_controlled_apply"
+        ),
+        "operator_resolution_apply_preview_eligible_count": sum(
+            1 for row in rows if row.get("future_apply_allowed")
+        ),
+        "operator_resolution_apply_preview_blocked_count": sum(
+            1 for row in rows if not row.get("future_apply_allowed")
+        ),
+        "operator_resolution_apply_preview_create_count": sum(
+            1 for row in rows if row.get("patch_action") == "preview_create_intake_row"
+        ),
+        "operator_resolution_apply_preview_update_placeholder_count": sum(
+            1 for row in rows if row.get("patch_action") == "preview_update_placeholder_row"
+        ),
+        "operator_resolution_apply_preview_replace_not_found_count": sum(
+            1 for row in rows if row.get("patch_action") == "preview_replace_not_found_placeholder"
+        ),
+        "operator_resolution_apply_preview_future_apply_allowed_count": sum(
+            1 for row in rows if row.get("future_apply_allowed")
+        ),
+        "operator_resolution_apply_preview_status_counts": _count_by_key(rows, "patch_status"),
+        "operator_resolution_apply_preview_action_counts": _count_by_key(rows, "patch_action"),
+    }
+
+
+def _build_operator_resolution_apply_preview_report(
+    args: argparse.Namespace,
+    *,
+    rows: list[dict[str, Any]],
+    load_warnings: list[dict[str, Any]] | None = None,
+    load_errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    summary = _operator_resolution_apply_preview_summary(rows)
+    load_warnings = load_warnings or []
+    load_errors = load_errors or []
+    status = "failed" if load_errors else "warning" if load_warnings or summary["operator_resolution_apply_preview_blocked_count"] else "passed"
+    return {
+        "status": status,
+        "mode": "operator-resolution-apply-preview",
+        "summary": summary,
+        **summary,
+        "patch_rows": rows,
+        "operator_resolution_validation_input": _path_value(args.operator_resolution_validation_input),
+        "operator_resolution_source_pack_input": _path_value(args.operator_resolution_source_pack_input),
+        "document_intake_input": _path_value(args.document_intake_input),
+        "operator_resolution_apply_preview_output": _path_value(args.operator_resolution_apply_preview_output),
+        "operator_resolution_apply_preview_csv_output": _path_value(args.operator_resolution_apply_preview_csv_output),
+        "operator_resolution_apply_preview_markdown_output": _path_value(args.operator_resolution_apply_preview_markdown_output),
+        "warnings": load_warnings,
+        "errors": load_errors,
+        "next_steps": _next_steps("operator-resolution-apply-preview", status),
+        "would_apply_to_document_intake": False,
+        "would_promote_seed": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -14524,6 +15058,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review exact document candidates, then run document-intake-fill, document-intake-validate, and the strict document quality gate."]
     if mode == "operator-resolution-validation":
         return ["Review validation rows; valid rows are only eligible for a future controlled intake review step."]
+    if mode == "operator-resolution-apply-preview":
+        return ["Review patch rows; this preview does not update intake or trigger extraction/import."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
