@@ -518,6 +518,69 @@ REPORTING_READINESS_MATRIX_FIELDS = [
     "operator_instruction",
     "readiness_note",
 ]
+OPERATOR_RESOLUTION_PACK_FIELDS = [
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "resolution_status",
+    "resolution_priority",
+    "resolution_action_type",
+    "resolution_action_label",
+    "resolution_reason_codes",
+    "source_readiness_status",
+    "reporting_readiness_status",
+    "primary_blocker",
+    "blocking_layers",
+    "availability_status",
+    "deadline_status",
+    "coverage_status",
+    "coverage_grade",
+    "historical_fallback_status",
+    "historical_fallback_scope",
+    "queue_action_type",
+    "queue_priority",
+    "queue_status",
+    "target_evidence_available",
+    "gate_status",
+    "gate_passed",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "extraction_allowed",
+    "import_allowed",
+    "scoring_allowed",
+    "paper_trading_allowed",
+    "can_unblock_extraction_if_completed",
+    "requires_exact_document_url",
+    "requires_official_seed_review",
+    "requires_publication_verification",
+    "requires_escalation",
+    "is_wait_action",
+    "is_diagnostic_only",
+    "operator_input_required",
+    "operator_input_schema_version",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_date",
+    "operator_fill_source_page_url",
+    "operator_fill_source_type",
+    "operator_fill_report_period",
+    "operator_fill_report_type",
+    "operator_fill_accounting_standard",
+    "operator_fill_decision",
+    "operator_fill_notes",
+    "current_known_document_url",
+    "current_known_source_page_url",
+    "latest_historical_document_url",
+    "latest_historical_period",
+    "operator_instruction",
+    "validation_hint",
+    "safety_note",
+]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -1206,6 +1269,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--reporting-readiness-matrix-output", type=Path, default=None)
     parser.add_argument("--reporting-readiness-matrix-csv-output", type=Path, default=None)
     parser.add_argument("--reporting-readiness-matrix-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-pack-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-pack-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-pack-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3989,6 +4055,30 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
             reporting_readiness_matrix_report,
             args.reporting_readiness_matrix_markdown_output,
         )
+    operator_resolution_pack_report = _build_operator_resolution_pack_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        reporting_readiness_rows=reporting_readiness_matrix_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        availability_operator_rows=availability_operator_report["issuers"],
+        official_source_coverage_rows=official_source_coverage_report["issuers"],
+        historical_fallback_registry_rows=historical_fallback_registry_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    if args.operator_resolution_pack_output is not None and not errors:
+        write_json_report(operator_resolution_pack_report, args.operator_resolution_pack_output)
+    if args.operator_resolution_pack_csv_output is not None and not errors:
+        write_operator_resolution_pack_csv(
+            operator_resolution_pack_report["resolutions"],
+            args.operator_resolution_pack_csv_output,
+        )
+    if args.operator_resolution_pack_markdown_output is not None and not errors:
+        write_operator_resolution_pack_markdown(
+            operator_resolution_pack_report,
+            args.operator_resolution_pack_markdown_output,
+        )
     return report
 
 
@@ -4956,6 +5046,20 @@ def write_reporting_readiness_matrix_markdown(report: dict[str, Any], path: Path
     path.write_text(render_reporting_readiness_matrix_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_pack_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_RESOLUTION_PACK_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in OPERATOR_RESOLUTION_PACK_FIELDS})
+
+
+def write_operator_resolution_pack_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_pack_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5367,6 +5471,35 @@ def render_reporting_readiness_matrix_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_operator_resolution_pack_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Operator Resolution Pack",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- target_reporting_period: {report.get('target_reporting_period')}",
+        f"- required_report_type: {report.get('required_report_type')}",
+        f"- required_standard: {report.get('required_standard')}",
+        "",
+    ]
+    lines.extend(_render_operator_resolution_pack_sections(report.get("summary") or {}, report.get("resolutions") or []))
+    lines.extend(
+        [
+            "## Safety",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- identity_apply_executed: {report.get('identity_apply_executed')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _render_availability_operator_view_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
     lines = [
         "## Target Reporting Period Availability - Operator View",
@@ -5625,6 +5758,90 @@ def _render_reporting_readiness_matrix_sections(summary: dict[str, Any], rows: l
     else:
         lines.append("| None |  |  |  |  |  |  |  |  |  |  |")
     lines.append("")
+    return lines
+
+
+def _render_operator_resolution_pack_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "## Operator Resolution Pack",
+        "",
+        f"- issuer count: {summary.get('operator_resolution_pack_issuer_count', len(rows))}",
+        f"- action count: {summary.get('operator_resolution_pack_action_count', len(rows))}",
+        f"- manual actions: {summary.get('operator_resolution_pack_manual_action_count', 0)}",
+        f"- wait actions: {summary.get('operator_resolution_pack_wait_action_count', 0)}",
+        f"- can unblock extraction if completed: {summary.get('operator_resolution_pack_can_unblock_extraction_count', 0)}",
+        f"- target document fills: {summary.get('operator_resolution_pack_target_document_fill_count', 0)}",
+        f"- source reviews: {summary.get('operator_resolution_pack_source_review_count', 0)}",
+        f"- escalations: {summary.get('operator_resolution_pack_escalation_count', 0)}",
+        "",
+        "### Resolution Action Type Counts",
+        "",
+    ]
+    action_counts = summary.get("operator_resolution_pack_action_type_counts") or {}
+    if action_counts:
+        lines.extend(f"- {key}: {value}" for key, value in action_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Resolution Priority Counts", ""])
+    priority_counts = summary.get("operator_resolution_pack_priority_counts") or {}
+    if priority_counts:
+        lines.extend(f"- {key}: {value}" for key, value in priority_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Resolution Status Counts", ""])
+    status_counts = summary.get("operator_resolution_pack_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Per-Issuer Resolution Table",
+            "",
+            "| Company | Action | Priority | Status | Blocker | Requires URL | Requires seed review | Can unblock | Current fallback | Operator instruction |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            fallback = "{period} {url}".format(
+                period=row.get("latest_historical_period") or "",
+                url=row.get("latest_historical_document_url") or "",
+            ).strip()
+            lines.append(
+                "| {company} | {action} | {priority} | {status} | {blocker} | {requires_url} | {requires_seed} | {can_unblock} | {fallback} | {instruction} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    action=row.get("resolution_action_type") or "",
+                    priority=row.get("resolution_priority") or "",
+                    status=row.get("resolution_status") or "",
+                    blocker=row.get("primary_blocker") or "",
+                    requires_url=row.get("requires_exact_document_url"),
+                    requires_seed=row.get("requires_official_seed_review"),
+                    can_unblock=row.get("can_unblock_extraction_if_completed"),
+                    fallback=fallback.replace("|", "/"),
+                    instruction=str(row.get("operator_instruction") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "### Manual Input Instructions",
+            "",
+            "- Fill only `operator_fill_*` columns in a copied template.",
+            "- Do not paste landing pages as exact document URLs.",
+            "- Do not copy historical fallback URLs into `operator_fill_exact_document_url`.",
+            "- This pack is not applied automatically; validation/application is a future step.",
+            "",
+            "### Safety Notes",
+            "",
+            "- Historical fallback remains diagnostic-only and never target-period evidence.",
+            "- Extraction/import/scoring/paper-trading permissions are not changed by this pack.",
+            "",
+        ]
+    )
     return lines
 
 
@@ -6046,6 +6263,12 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
         _render_reporting_readiness_matrix_sections(
             report.get("reporting_readiness_summary") or {},
             report.get("reporting_readiness_rows") or [],
+        )
+    )
+    lines.extend(
+        _render_operator_resolution_pack_sections(
+            report.get("operator_resolution_pack_summary") or {},
+            report.get("operator_resolution_pack_rows") or [],
         )
     )
     lines.extend(
@@ -9372,6 +9595,347 @@ def _build_reporting_readiness_matrix_report(
     }
 
 
+def _operator_resolution_action_type(row: dict[str, Any]) -> str:
+    readiness = str(row.get("reporting_readiness_status") or "")
+    coverage = str(row.get("coverage_status") or "")
+    deadline = str(row.get("deadline_status") or "")
+    if readiness == "ready_for_extraction_preview":
+        return "no_operator_resolution_required"
+    if readiness == "blocked_placeholder_not_found" or row.get("queue_action_type") == "fill_exact_document_url":
+        return "fill_exact_document_url"
+    if coverage.startswith("weak_") or coverage == "missing_official_sources":
+        return "review_or_promote_official_seed"
+    if deadline == "after_conservative_grace_window" and not row.get("target_evidence_available"):
+        return "escalate_missing_target_report"
+    if (
+        coverage == "strong_but_target_report_missing"
+        and deadline == "after_primary_deadline_within_grace_window"
+        and not row.get("target_evidence_available")
+    ):
+        return "verify_target_report_publication"
+    if not row.get("target_evidence_available") and (
+        row.get("queue_status") == "waiting"
+        or deadline in {"before_primary_deadline", "after_primary_deadline_within_grace_window"}
+    ):
+        return "review_sources_or_wait_grace"
+    if row.get("historical_fallback_scope") == "diagnostic_only":
+        return "keep_historical_fallback_diagnostic_only"
+    return "review_sources_or_wait_grace"
+
+
+def _operator_resolution_config(action_type: str) -> dict[str, Any]:
+    configs = {
+        "fill_exact_document_url": {
+            "resolution_action_label": "Fill exact document URL",
+            "resolution_priority": "high",
+            "resolution_status": "open",
+            "can_unblock_extraction_if_completed": True,
+            "requires_exact_document_url": True,
+            "requires_publication_verification": False,
+            "requires_escalation": False,
+            "is_wait_action": False,
+            "is_diagnostic_only": False,
+            "operator_instruction": "Fill exact official annual IFRS report URL and/or promote official reporting seed. Do not use landing pages or historical reports.",
+        },
+        "review_or_promote_official_seed": {
+            "resolution_action_label": "Review or promote official seed",
+            "resolution_priority": "high",
+            "resolution_status": "open",
+            "can_unblock_extraction_if_completed": True,
+            "requires_exact_document_url": False,
+            "requires_publication_verification": False,
+            "requires_escalation": False,
+            "is_wait_action": False,
+            "is_diagnostic_only": False,
+            "operator_instruction": "Review candidate source seeds and promote at least one official reporting or disclosure source before extraction can be considered.",
+        },
+        "verify_target_report_publication": {
+            "resolution_action_label": "Verify target report publication",
+            "resolution_priority": "medium",
+            "resolution_status": "open",
+            "can_unblock_extraction_if_completed": True,
+            "requires_exact_document_url": False,
+            "requires_publication_verification": True,
+            "requires_escalation": False,
+            "is_wait_action": False,
+            "is_diagnostic_only": False,
+            "operator_instruction": "Verify whether exact target-period annual IFRS report is published on official sources. If found, fill exact document URL. Historical fallback remains diagnostic-only.",
+        },
+        "review_sources_or_wait_grace": {
+            "resolution_action_label": "Review sources or wait grace window",
+            "resolution_priority": "low",
+            "resolution_status": "waiting",
+            "can_unblock_extraction_if_completed": False,
+            "requires_exact_document_url": False,
+            "requires_publication_verification": True,
+            "requires_escalation": False,
+            "is_wait_action": True,
+            "is_diagnostic_only": False,
+            "operator_instruction": "Monitor publication window or manually review official sources. Fill exact target-period annual IFRS URL only if found.",
+        },
+        "escalate_missing_target_report": {
+            "resolution_action_label": "Escalate missing target report",
+            "resolution_priority": "high",
+            "resolution_status": "open",
+            "can_unblock_extraction_if_completed": True,
+            "requires_exact_document_url": False,
+            "requires_publication_verification": True,
+            "requires_escalation": True,
+            "is_wait_action": False,
+            "is_diagnostic_only": False,
+            "operator_instruction": "Target annual IFRS report was not found after the conservative grace window. Review source coverage and verify report availability manually.",
+        },
+        "keep_historical_fallback_diagnostic_only": {
+            "resolution_action_label": "Keep historical fallback diagnostic-only",
+            "resolution_priority": "low",
+            "resolution_status": "diagnostic_only",
+            "can_unblock_extraction_if_completed": False,
+            "requires_exact_document_url": False,
+            "requires_publication_verification": False,
+            "requires_escalation": False,
+            "is_wait_action": False,
+            "is_diagnostic_only": True,
+            "operator_instruction": "Keep historical report as diagnostic-only context and continue searching for exact target-period annual IFRS evidence.",
+        },
+        "no_operator_resolution_required": {
+            "resolution_action_label": "No operator resolution required",
+            "resolution_priority": "low",
+            "resolution_status": "resolved_or_not_required",
+            "can_unblock_extraction_if_completed": False,
+            "requires_exact_document_url": False,
+            "requires_publication_verification": False,
+            "requires_escalation": False,
+            "is_wait_action": False,
+            "is_diagnostic_only": False,
+            "operator_instruction": "No operator resolution is required. Follow the controlled extraction preview workflow; do not import automatically.",
+        },
+    }
+    return configs.get(action_type, configs["review_sources_or_wait_grace"])
+
+
+def _operator_resolution_reason_codes(row: dict[str, Any]) -> list[str]:
+    reasons = [str(row.get("resolution_action_type") or "")]
+    reasons.extend(str(reason) for reason in (row.get("reporting_readiness_reason_codes") or []))
+    if not row.get("target_evidence_available"):
+        reasons.extend(["missing_exact_target_period_annual_ifrs", "target_period_evidence_required"])
+    if row.get("availability_status") == "placeholder_not_found":
+        reasons.append("placeholder_not_found")
+    coverage = str(row.get("coverage_status") or "")
+    if coverage.startswith("weak_") or coverage == "missing_official_sources":
+        reasons.append("weak_source_coverage")
+    if coverage == "weak_no_reviewed_seed":
+        reasons.append("no_valid_reviewed_official_seed")
+    if row.get("deadline_status") == "after_primary_deadline_within_grace_window":
+        reasons.append("after_primary_deadline_within_grace_window")
+    if row.get("historical_fallback_scope") == "diagnostic_only":
+        reasons.extend(["historical_fallback_diagnostic_only", "historical_fallback_not_target_evidence"])
+    if row.get("queue_status") == "open":
+        reasons.append("operator_queue_open")
+    if row.get("manual_review_required"):
+        reasons.append("manual_review_required")
+    if not row.get("gate_passed"):
+        reasons.append("quality_gate_failed")
+    return [reason for reason in dict.fromkeys(reasons) if reason]
+
+
+def _operator_resolution_id(row: dict[str, Any], action_type: str) -> str:
+    company_id = row.get("company_id") or row.get("canonical_company_id") or ""
+    target = row.get("target_reporting_period") or ""
+    report_type = row.get("required_report_type") or ""
+    standard = row.get("required_standard") or ""
+    return f"financial_report_resolution:{company_id}:{target}:{report_type}:{standard}:{action_type}"
+
+
+def _operator_resolution_validation_hint(row: dict[str, Any]) -> str:
+    if row.get("requires_exact_document_url"):
+        return "Provide an exact official target-period annual IFRS report page or PDF URL; landing pages and historical reports are not accepted."
+    if row.get("requires_official_seed_review"):
+        return "Review/promote official reporting or disclosure seed before exact document discovery can be trusted."
+    if row.get("requires_publication_verification"):
+        return "Verify publication on official sources; fill exact document URL only if target-period annual IFRS report is found."
+    if row.get("is_diagnostic_only"):
+        return "Diagnostic-only row; do not use historical fallback as target-period evidence."
+    return "No manual template fields are required for this row."
+
+
+def _operator_resolution_safety_note(row: dict[str, Any]) -> str:
+    if row.get("latest_historical_document_url"):
+        return "Historical fallback is diagnostic-only, is not target evidence, and must not be pasted into operator_fill_exact_document_url."
+    return "Resolution pack is preview-only and does not apply operator decisions or mutate pipeline state."
+
+
+def _build_operator_resolution_pack_rows(
+    args: argparse.Namespace,
+    *,
+    required_issuers: list[dict[str, Any]],
+    reporting_readiness_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    official_source_coverage_rows: list[dict[str, Any]],
+    historical_fallback_registry_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    readiness_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in reporting_readiness_rows}
+    queue_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in operator_review_queue}
+    availability_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in availability_operator_rows}
+    coverage_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in official_source_coverage_rows}
+    fallback_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in historical_fallback_registry_rows}
+    rows: list[dict[str, Any]] = []
+    for required in required_issuers:
+        key = str(required.get("company_id") or "")
+        readiness = readiness_by_key.get(key) or {}
+        queue = queue_by_key.get(key) or {}
+        availability = availability_by_key.get(key) or {}
+        coverage = coverage_by_key.get(key) or {}
+        fallback = fallback_by_key.get(key) or {}
+        action_type = _operator_resolution_action_type(readiness)
+        config = dict(_operator_resolution_config(action_type))
+        if (
+            action_type == "review_sources_or_wait_grace"
+            and str(readiness.get("deadline_status") or availability.get("deadline_status") or "") != "before_primary_deadline"
+        ):
+            config.update(
+                {
+                    "resolution_priority": "medium",
+                    "resolution_status": "open",
+                    "can_unblock_extraction_if_completed": True,
+                    "is_wait_action": False,
+                }
+            )
+        requires_seed_review = bool(
+            str(readiness.get("coverage_status") or "").startswith("weak_")
+            or readiness.get("coverage_status") == "missing_official_sources"
+        )
+        operator_input_required = action_type in {
+            "fill_exact_document_url",
+            "review_or_promote_official_seed",
+            "verify_target_report_publication",
+            "escalate_missing_target_report",
+        } or (
+            action_type == "review_sources_or_wait_grace"
+            and not bool(config.get("is_wait_action"))
+        )
+        row = {
+            "resolution_id": _operator_resolution_id(readiness or required, action_type),
+            "company_id": required.get("company_id"),
+            "company_name": required.get("company_name") or readiness.get("company_name") or "",
+            "canonical_company_id": readiness.get("canonical_company_id") or required.get("company_id"),
+            "canonical_company_name": readiness.get("canonical_company_name") or required.get("company_name") or "",
+            "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+            "required_report_type": str(getattr(args, "report_type", "") or ""),
+            "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+            "resolution_action_type": action_type,
+            **config,
+            "requires_official_seed_review": requires_seed_review,
+            "source_readiness_status": coverage.get("coverage_status") or readiness.get("coverage_status") or "",
+            "reporting_readiness_status": readiness.get("reporting_readiness_status") or "",
+            "primary_blocker": readiness.get("primary_blocker") or "",
+            "blocking_layers": list(readiness.get("blocking_layers") or []),
+            "availability_status": readiness.get("availability_status") or availability.get("availability_status") or "",
+            "deadline_status": readiness.get("deadline_status") or availability.get("deadline_status") or "",
+            "coverage_status": readiness.get("coverage_status") or coverage.get("coverage_status") or "",
+            "coverage_grade": readiness.get("coverage_grade") or coverage.get("coverage_grade") or "",
+            "historical_fallback_status": readiness.get("historical_fallback_status") or fallback.get("historical_fallback_status") or "",
+            "historical_fallback_scope": readiness.get("historical_fallback_scope") or fallback.get("historical_fallback_scope") or "none",
+            "queue_action_type": readiness.get("queue_action_type") or queue.get("queue_action_type") or "",
+            "queue_priority": readiness.get("queue_priority") or queue.get("queue_priority") or "",
+            "queue_status": readiness.get("queue_status") or queue.get("queue_status") or "",
+            "target_evidence_available": bool(readiness.get("target_evidence_available")),
+            "gate_status": readiness.get("gate_status") or availability.get("gate_status") or "",
+            "gate_passed": bool(readiness.get("gate_passed")),
+            "ready_for_value_extraction": bool(readiness.get("ready_for_value_extraction")),
+            "ready_for_import": bool(readiness.get("ready_for_import")),
+            "extraction_allowed": bool(readiness.get("extraction_allowed")),
+            "import_allowed": bool(readiness.get("import_allowed")),
+            "scoring_allowed": False,
+            "paper_trading_allowed": False,
+            "operator_input_required": operator_input_required,
+            "operator_input_schema_version": "operator_resolution_pack_v1",
+            "operator_fill_exact_document_url": "",
+            "operator_fill_document_title": "",
+            "operator_fill_document_date": "",
+            "operator_fill_source_page_url": "",
+            "operator_fill_source_type": "",
+            "operator_fill_report_period": str(getattr(args, "report_period", "") or ""),
+            "operator_fill_report_type": str(getattr(args, "report_type", "") or ""),
+            "operator_fill_accounting_standard": str(getattr(args, "accounting_standard", "") or ""),
+            "operator_fill_decision": "",
+            "operator_fill_notes": "",
+            "current_known_document_url": "",
+            "current_known_source_page_url": queue.get("source_context") or "",
+            "latest_historical_document_url": fallback.get("latest_available_document_url") or "",
+            "latest_historical_period": fallback.get("latest_available_period") or "",
+        }
+        row["resolution_reason_codes"] = _operator_resolution_reason_codes(
+            {**readiness, **row, "requires_official_seed_review": requires_seed_review}
+        )
+        row["validation_hint"] = _operator_resolution_validation_hint(row)
+        row["safety_note"] = _operator_resolution_safety_note(row)
+        rows.append(row)
+    return sorted(rows, key=lambda item: str(item.get("resolution_id") or ""))
+
+
+def _operator_resolution_pack_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "operator_resolution_pack_issuer_count": len(rows),
+        "operator_resolution_pack_action_count": len(rows),
+        "operator_resolution_pack_manual_action_count": sum(
+            1 for row in rows if row.get("operator_input_required") and not row.get("is_wait_action")
+        ),
+        "operator_resolution_pack_wait_action_count": sum(1 for row in rows if row.get("is_wait_action")),
+        "operator_resolution_pack_can_unblock_extraction_count": sum(
+            1 for row in rows if row.get("can_unblock_extraction_if_completed")
+        ),
+        "operator_resolution_pack_target_document_fill_count": sum(
+            1 for row in rows if row.get("resolution_action_type") == "fill_exact_document_url"
+        ),
+        "operator_resolution_pack_source_review_count": sum(
+            1 for row in rows if row.get("requires_official_seed_review")
+        ),
+        "operator_resolution_pack_escalation_count": sum(
+            1 for row in rows if row.get("requires_escalation")
+        ),
+        "operator_resolution_pack_status_counts": _count_by_key(rows, "resolution_status"),
+        "operator_resolution_pack_action_type_counts": _count_by_key(rows, "resolution_action_type"),
+        "operator_resolution_pack_priority_counts": _count_by_key(rows, "resolution_priority"),
+    }
+
+
+def _build_operator_resolution_pack_report(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    required_issuers: list[dict[str, Any]],
+    reporting_readiness_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    official_source_coverage_rows: list[dict[str, Any]],
+    historical_fallback_registry_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]] | None = None,
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    rows = _build_operator_resolution_pack_rows(
+        args,
+        required_issuers=required_issuers,
+        reporting_readiness_rows=reporting_readiness_rows,
+        operator_review_queue=operator_review_queue,
+        availability_operator_rows=availability_operator_rows,
+        official_source_coverage_rows=official_source_coverage_rows,
+        historical_fallback_registry_rows=historical_fallback_registry_rows,
+    )
+    return {
+        "status": status,
+        "mode": "operator-resolution-pack",
+        "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+        "required_report_type": str(getattr(args, "report_type", "") or ""),
+        "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+        "summary": _operator_resolution_pack_summary(rows),
+        "resolutions": rows,
+        "warnings": warnings or [],
+        "errors": errors or [],
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -10389,6 +10953,19 @@ def _build_exact_document_discovery_report(
         errors=errors,
     )
     reporting_readiness_summary = reporting_readiness_matrix_report["summary"]
+    operator_resolution_pack_report = _build_operator_resolution_pack_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        reporting_readiness_rows=reporting_readiness_matrix_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        availability_operator_rows=availability_operator_report["issuers"],
+        official_source_coverage_rows=official_source_coverage_report["issuers"],
+        historical_fallback_registry_rows=historical_fallback_registry_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    operator_resolution_pack_summary = operator_resolution_pack_report["summary"]
     return {
         "status": status,
         "mode": "exact-document-discover-from-seeds",
@@ -10429,6 +11006,9 @@ def _build_exact_document_discovery_report(
         **reporting_readiness_summary,
         "reporting_readiness_summary": reporting_readiness_summary,
         "reporting_readiness_rows": reporting_readiness_matrix_report["issuers"],
+        **operator_resolution_pack_summary,
+        "operator_resolution_pack_summary": operator_resolution_pack_summary,
+        "operator_resolution_pack_rows": operator_resolution_pack_report["resolutions"],
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -10459,6 +11039,9 @@ def _build_exact_document_discovery_report(
         "reporting_readiness_matrix_output": _path_value(args.reporting_readiness_matrix_output),
         "reporting_readiness_matrix_csv_output": _path_value(args.reporting_readiness_matrix_csv_output),
         "reporting_readiness_matrix_markdown_output": _path_value(args.reporting_readiness_matrix_markdown_output),
+        "operator_resolution_pack_output": _path_value(args.operator_resolution_pack_output),
+        "operator_resolution_pack_csv_output": _path_value(args.operator_resolution_pack_csv_output),
+        "operator_resolution_pack_markdown_output": _path_value(args.operator_resolution_pack_markdown_output),
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps("exact-document-discover-from-seeds", status),

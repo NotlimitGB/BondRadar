@@ -2332,6 +2332,16 @@ def test_exact_document_discover_from_reviewed_seeds_gate_can_pass_for_single_re
     assert readiness["scoring_allowed"] is False
     assert readiness["paper_trading_allowed"] is False
     assert readiness["next_required_action"] == "proceed_to_controlled_extraction_preview"
+    resolution = _resolution_for(report)
+    assert resolution["resolution_action_type"] == "no_operator_resolution_required"
+    assert resolution["resolution_status"] == "resolved_or_not_required"
+    assert resolution["resolution_priority"] == "low"
+    assert resolution["can_unblock_extraction_if_completed"] is False
+    assert resolution["operator_input_required"] is False
+    assert resolution["extraction_allowed"] is True
+    assert resolution["import_allowed"] is False
+    assert resolution["scoring_allowed"] is False
+    assert resolution["paper_trading_allowed"] is False
 
 
 def test_exact_document_availability_policy_before_primary_deadline(
@@ -2799,6 +2809,128 @@ def test_exact_document_reporting_readiness_after_primary_deadline_reason(
     assert readiness["extraction_allowed"] is False
 
 
+def test_exact_document_operator_resolution_placeholder_fill_action(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html="",
+        current_date="2026-05-25",
+    )
+
+    resolution = _resolution_for(report)
+    assert resolution["resolution_action_type"] == "fill_exact_document_url"
+    assert resolution["resolution_priority"] == "high"
+    assert resolution["resolution_status"] == "open"
+    assert resolution["requires_exact_document_url"] is True
+    assert resolution["can_unblock_extraction_if_completed"] is True
+    assert resolution["operator_fill_exact_document_url"] == ""
+    assert resolution["operator_fill_report_period"] == "2025"
+    assert resolution["operator_fill_report_type"] == "annual"
+    assert resolution["operator_fill_accounting_standard"] == "IFRS"
+    assert resolution["extraction_allowed"] is False
+    assert resolution["import_allowed"] is False
+    assert resolution["scoring_allowed"] is False
+    assert resolution["paper_trading_allowed"] is False
+
+
+def test_exact_document_operator_resolution_weak_source_review_required(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/")],
+    )
+    _mock_candidate_fetch(monkeypatch, {})
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "18",
+            "--required-company-names",
+            "RZD",
+            "--exact-document-availability-current-date",
+            "2026-05-25",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    resolution = _resolution_for(report, company_id=18)
+    assert resolution["requires_official_seed_review"] is True
+    assert "weak_source_coverage" in resolution["resolution_reason_codes"]
+    assert "no_valid_reviewed_official_seed" in resolution["resolution_reason_codes"]
+
+
+def test_exact_document_operator_resolution_strong_coverage_verify_publication(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>',
+        current_date="2026-05-25",
+    )
+
+    resolution = _resolution_for(report)
+    assert resolution["resolution_action_type"] == "verify_target_report_publication"
+    assert resolution["resolution_priority"] == "medium"
+    assert resolution["resolution_status"] == "open"
+    assert resolution["requires_publication_verification"] is True
+    assert resolution["can_unblock_extraction_if_completed"] is True
+
+
+def test_exact_document_operator_resolution_historical_fallback_is_template_safe(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    historical_url = "/reports/2019_12_Mostotrest_IFRS_Accounts.pdf"
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html=f'<a href="{historical_url}">Annual IFRS accounts 2019</a>',
+        current_date="2026-05-25",
+    )
+
+    resolution = _resolution_for(report)
+    assert resolution["latest_historical_document_url"].endswith("2019_12_Mostotrest_IFRS_Accounts.pdf")
+    assert resolution["operator_fill_exact_document_url"] == ""
+    assert "historical_fallback_diagnostic_only" in resolution["resolution_reason_codes"]
+    assert "not target evidence" in resolution["safety_note"]
+
+
+def test_exact_document_operator_resolution_before_primary_deadline_waits(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2024.pdf">Annual IFRS financial statements 2024</a>',
+        current_date="2026-03-01",
+    )
+
+    resolution = _resolution_for(report)
+    assert resolution["resolution_action_type"] == "review_sources_or_wait_grace"
+    assert resolution["resolution_priority"] == "low"
+    assert resolution["resolution_status"] == "waiting"
+    assert resolution["is_wait_action"] is True
+    assert resolution["operator_input_required"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -2943,6 +3075,9 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     readiness_json = tmp_path / "reporting_readiness_matrix.json"
     readiness_csv = tmp_path / "reporting_readiness_matrix.csv"
     readiness_md = tmp_path / "reporting_readiness_matrix.md"
+    resolution_json = tmp_path / "operator_resolution_pack.json"
+    resolution_csv = tmp_path / "operator_resolution_pack.csv"
+    resolution_md = tmp_path / "operator_resolution_pack.md"
     _write_reviewed_seed_pack(seed_pack, include_rzd=True)
     _write_document_intake(
         intake,
@@ -3003,6 +3138,12 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
             str(readiness_csv),
             "--reporting-readiness-matrix-markdown-output",
             str(readiness_md),
+            "--operator-resolution-pack-output",
+            str(resolution_json),
+            "--operator-resolution-pack-csv-output",
+            str(resolution_csv),
+            "--operator-resolution-pack-markdown-output",
+            str(resolution_md),
         ]
     )
 
@@ -3242,6 +3383,62 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert "Readiness Blocker Counts" in readiness_markdown
     assert "blocked_placeholder_not_found" in readiness_markdown
     assert "extraction False" in readiness_markdown or "extraction false" in readiness_markdown
+    assert report["operator_resolution_pack_issuer_count"] == 2
+    assert report["operator_resolution_pack_action_count"] == 2
+    assert report["operator_resolution_pack_manual_action_count"] == 2
+    assert report["operator_resolution_pack_wait_action_count"] == 0
+    assert report["operator_resolution_pack_can_unblock_extraction_count"] == 2
+    assert report["operator_resolution_pack_target_document_fill_count"] == 1
+    assert report["operator_resolution_pack_source_review_count"] == 0
+    assert report["operator_resolution_pack_escalation_count"] == 0
+    assert report["operator_resolution_pack_status_counts"]["open"] == 2
+    assert report["operator_resolution_pack_action_type_counts"]["fill_exact_document_url"] == 1
+    assert report["operator_resolution_pack_action_type_counts"]["verify_target_report_publication"] == 1
+    resolution_rows = {str(row["company_id"]): row for row in report["operator_resolution_pack_rows"]}
+    assert resolution_rows["18"]["resolution_action_type"] == "fill_exact_document_url"
+    assert resolution_rows["18"]["resolution_priority"] == "high"
+    assert resolution_rows["18"]["requires_exact_document_url"] is True
+    assert resolution_rows["18"]["operator_fill_exact_document_url"] == ""
+    assert resolution_rows["18"]["operator_fill_report_period"] == "2025"
+    assert resolution_rows["18"]["operator_fill_report_type"] == "annual"
+    assert resolution_rows["18"]["operator_fill_accounting_standard"] == "IFRS"
+    assert resolution_rows["67"]["resolution_action_type"] == "verify_target_report_publication"
+    assert resolution_rows["67"]["resolution_priority"] == "medium"
+    assert resolution_rows["67"]["requires_publication_verification"] is True
+    assert resolution_rows["67"]["latest_historical_document_url"].endswith("annual-ifrs-financial-statements-2024.pdf")
+    assert resolution_rows["67"]["operator_fill_exact_document_url"] == ""
+    resolution_exported = json.loads(resolution_json.read_text(encoding="utf-8"))
+    assert resolution_exported["mode"] == "operator-resolution-pack"
+    assert resolution_exported["summary"]["operator_resolution_pack_issuer_count"] == 2
+    assert len(resolution_exported["resolutions"]) == 2
+    resolution_csv_rows = list(csv.DictReader(resolution_csv.open(encoding="utf-8")))
+    assert len(resolution_csv_rows) == 2
+    assert {
+        "resolution_id",
+        "resolution_action_type",
+        "resolution_priority",
+        "operator_fill_exact_document_url",
+        "operator_fill_document_title",
+        "operator_fill_document_date",
+        "operator_fill_source_page_url",
+        "operator_fill_source_type",
+        "operator_fill_report_period",
+        "operator_fill_report_type",
+        "operator_fill_accounting_standard",
+        "operator_fill_decision",
+        "operator_fill_notes",
+        "extraction_allowed",
+        "import_allowed",
+        "scoring_allowed",
+        "paper_trading_allowed",
+    }.issubset(set(resolution_csv_rows[0]))
+    resolution_markdown = resolution_md.read_text(encoding="utf-8")
+    assert "Operator Resolution Pack" in resolution_markdown
+    assert "Resolution Action Type Counts" in resolution_markdown
+    assert "Manual Input Instructions" in resolution_markdown
+    assert "Safety Notes" in resolution_markdown
+    assert "fill_exact_document_url" in resolution_markdown
+    assert "verify_target_report_publication" in resolution_markdown
 
 
 def test_exact_document_discover_probe_and_download_are_optional(
@@ -6216,6 +6413,14 @@ def _readiness_for(report: dict, company_id: int = 67) -> dict:
     return next(
         item
         for item in report.get("reporting_readiness_rows", [])
+        if str(item.get("company_id")) == str(company_id)
+    )
+
+
+def _resolution_for(report: dict, company_id: int = 67) -> dict:
+    return next(
+        item
+        for item in report.get("operator_resolution_pack_rows", [])
         if str(item.get("company_id")) == str(company_id)
     )
 
