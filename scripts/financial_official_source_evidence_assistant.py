@@ -365,6 +365,55 @@ OPERATOR_REVIEW_QUEUE_FIELDS = [
     "operator_note",
     "source_context",
 ]
+OFFICIAL_SOURCE_COVERAGE_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "coverage_status",
+    "coverage_score",
+    "coverage_grade",
+    "coverage_reason_codes",
+    "has_official_seed",
+    "reviewed_official_seed_count",
+    "valid_reviewed_seed_count",
+    "invalid_reviewed_seed_count",
+    "official_seed_url_count",
+    "has_company_website_seed",
+    "has_ir_or_investor_relations_seed",
+    "has_e_disclosure_seed",
+    "has_reporting_or_disclosure_page",
+    "has_financial_results_page",
+    "has_accounting_statements_page",
+    "has_annual_reports_page",
+    "has_ifrs_reporting_page",
+    "category_page_count",
+    "category_pages_followed_count",
+    "exact_report_document_count",
+    "target_period_document_count",
+    "historical_annual_ifrs_document_count",
+    "interim_or_quarterly_document_count",
+    "wrong_standard_document_count",
+    "placeholder_not_found_count",
+    "availability_status",
+    "deadline_status",
+    "operator_action",
+    "recommended_next_step",
+    "queue_action_type",
+    "queue_priority",
+    "queue_status",
+    "can_use_as_target_period_evidence",
+    "gate_status",
+    "gate_passed",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "coverage_operator_action",
+    "coverage_operator_instruction",
+    "coverage_note",
+]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -1044,6 +1093,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-review-queue-output", type=Path, default=None)
     parser.add_argument("--operator-review-queue-csv-output", type=Path, default=None)
     parser.add_argument("--operator-review-queue-markdown-output", type=Path, default=None)
+    parser.add_argument("--official-source-coverage-output", type=Path, default=None)
+    parser.add_argument("--official-source-coverage-csv-output", type=Path, default=None)
+    parser.add_argument("--official-source-coverage-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3590,6 +3642,8 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
                 args,
                 candidate_output_path,
                 required_issuers=required_issuers,
+                seed_issuers=seed_issuers,
+                input_documents=input_documents,
                 documents=documents,
                 category_pages_followed=category_pages_followed,
                 all_documents_for_counters=raw_documents,
@@ -3689,6 +3743,8 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
         args,
         status=status,
         required_issuers=required_issuers,
+        seed_issuers=seed_issuers,
+        input_documents=input_documents,
         documents=documents,
         category_pages_followed=category_pages_followed,
         all_documents_for_counters=raw_documents,
@@ -3748,6 +3804,33 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
         write_operator_review_queue_markdown(
             operator_review_queue_report,
             args.operator_review_queue_markdown_output,
+        )
+    official_source_coverage_report = _build_official_source_coverage_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        seed_issuers=seed_issuers,
+        input_documents=input_documents,
+        reviewed_seeds_used=reviewed_seeds_used,
+        documents=documents,
+        all_documents_for_counters=raw_documents,
+        category_pages_followed=category_pages_followed,
+        availability_operator_rows=availability_operator_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        warnings=warnings,
+        errors=errors,
+    )
+    if args.official_source_coverage_output is not None and not errors:
+        write_json_report(official_source_coverage_report, args.official_source_coverage_output)
+    if args.official_source_coverage_csv_output is not None and not errors:
+        write_official_source_coverage_csv(
+            official_source_coverage_report["issuers"],
+            args.official_source_coverage_csv_output,
+        )
+    if args.official_source_coverage_markdown_output is not None and not errors:
+        write_official_source_coverage_markdown(
+            official_source_coverage_report,
+            args.official_source_coverage_markdown_output,
         )
     return report
 
@@ -4674,6 +4757,20 @@ def write_operator_review_queue_markdown(report: dict[str, Any], path: Path) -> 
     path.write_text(render_operator_review_queue_markdown(report), encoding="utf-8")
 
 
+def write_official_source_coverage_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OFFICIAL_SOURCE_COVERAGE_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in OFFICIAL_SOURCE_COVERAGE_FIELDS})
+
+
+def write_official_source_coverage_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_official_source_coverage_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -4998,6 +5095,35 @@ def render_operator_review_queue_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_official_source_coverage_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Official Source Coverage Matrix",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- target_reporting_period: {report.get('target_reporting_period')}",
+        f"- required_report_type: {report.get('required_report_type')}",
+        f"- required_standard: {report.get('required_standard')}",
+        "",
+    ]
+    lines.extend(_render_official_source_coverage_sections(report.get("summary") or {}, report.get("issuers") or []))
+    lines.extend(
+        [
+            "## Safety",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- identity_apply_executed: {report.get('identity_apply_executed')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _render_availability_operator_view_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
     lines = [
         "## Target Reporting Period Availability - Operator View",
@@ -5061,6 +5187,81 @@ def _render_availability_operator_view_sections(summary: dict[str, Any], rows: l
             )
     else:
         lines.append("| None |  |  |  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
+
+
+def _render_official_source_coverage_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "## Official Source Coverage Matrix",
+        "",
+        f"- issuer count: {summary.get('official_source_coverage_issuer_count', len(rows))}",
+        f"- strong: {summary.get('official_source_coverage_strong_count', 0)}",
+        f"- partial: {summary.get('official_source_coverage_partial_count', 0)}",
+        f"- weak: {summary.get('official_source_coverage_weak_count', 0)}",
+        f"- missing: {summary.get('official_source_coverage_missing_count', 0)}",
+        f"- needs operator: {summary.get('official_source_coverage_needs_operator_count', 0)}",
+        "",
+        "### Coverage Status Counts",
+        "",
+    ]
+    status_counts = summary.get("official_source_coverage_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Coverage Grade Counts", ""])
+    grade_counts = summary.get("official_source_coverage_grade_counts") or {}
+    if grade_counts:
+        lines.extend(f"- {key}: {value}" for key, value in grade_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Coverage Operator Action Counts", ""])
+    action_counts = summary.get("official_source_coverage_action_counts") or {}
+    if action_counts:
+        lines.extend(f"- {key}: {value}" for key, value in action_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Per-Issuer Coverage",
+            "",
+            "| Company | Coverage | Grade | Score | Seeds | Reporting pages | Docs | Availability | Queue action | Coverage action |",
+            "| --- | --- | --- | ---: | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            seed_summary = "{valid}/{total}".format(
+                valid=row.get("valid_reviewed_seed_count", 0),
+                total=row.get("official_seed_url_count", 0),
+            )
+            reporting = "reporting={reporting}; category_followed={followed}".format(
+                reporting=row.get("has_reporting_or_disclosure_page"),
+                followed=row.get("category_pages_followed_count", 0),
+            )
+            docs = "target={target}; historical={historical}; interim={interim}".format(
+                target=row.get("target_period_document_count", 0),
+                historical=row.get("historical_annual_ifrs_document_count", 0),
+                interim=row.get("interim_or_quarterly_document_count", 0),
+            )
+            lines.append(
+                "| {company} | {coverage} | {grade} | {score} | {seeds} | {reporting} | {docs} | {availability} | {queue} | {action} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    coverage=row.get("coverage_status") or "",
+                    grade=row.get("coverage_grade") or "",
+                    score=row.get("coverage_score", 0),
+                    seeds=seed_summary,
+                    reporting=reporting,
+                    docs=docs,
+                    availability=row.get("availability_status") or "",
+                    queue=row.get("queue_action_type") or "",
+                    action=row.get("coverage_operator_action") or "",
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |  |  |  |")
     lines.append("")
     return lines
 
@@ -5465,6 +5666,12 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
         _render_operator_review_queue_sections(
             report.get("operator_review_queue_summary") or {},
             report.get("operator_review_queue") or [],
+        )
+    )
+    lines.extend(
+        _render_official_source_coverage_sections(
+            report.get("official_source_coverage_summary") or {},
+            report.get("official_source_coverage_rows") or [],
         )
     )
     lines.extend(
@@ -7760,6 +7967,429 @@ def _build_operator_review_queue_report(
     }
 
 
+def _seed_rows_for_required(seed_issuers: list[dict[str, Any]], required: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for issuer in _items_matching_required(seed_issuers, required):
+        for seed in issuer.get("official_seeds") or []:
+            if not isinstance(seed, dict):
+                continue
+            rows.append(
+                {
+                    "company_id": issuer.get("company_id"),
+                    "company_name": issuer.get("company_name") or "",
+                    "canonical_company_id": issuer.get("canonical_company_id") or issuer.get("company_id"),
+                    "canonical_company_name": issuer.get("canonical_company_name") or issuer.get("company_name") or "",
+                    "inn": issuer.get("inn") or "",
+                    "ogrn": issuer.get("ogrn") or "",
+                    **seed,
+                }
+            )
+    return rows
+
+
+def _coverage_text(*values: Any) -> str:
+    return " ".join(str(value or "") for value in values).casefold()
+
+
+def _coverage_has_source_context(items: list[dict[str, Any]]) -> bool:
+    for item in items:
+        for key in ("seed_url", "source_url_context", "source_page_url", "document_url", "candidate_seed_url", "source_url"):
+            if str(item.get(key) or "").strip():
+                return True
+    return False
+
+
+def _coverage_is_reviewed_seed(seed: dict[str, Any]) -> bool:
+    return bool(
+        seed.get("operator_review_status") in {"operator_reviewed", "reviewed"}
+        or seed.get("source") in EXACT_DOCUMENT_REVIEWED_SEED_SOURCES
+    )
+
+
+def _coverage_seed_signals(seed_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    seed_text = _coverage_text(
+        *[
+            f"{seed.get('seed_type') or ''} {seed.get('seed_url') or ''} {seed.get('candidate_title') or ''}"
+            for seed in seed_rows
+        ]
+    )
+    official_seed_url_count = sum(1 for seed in seed_rows if seed.get("seed_url"))
+    reviewed_count = sum(1 for seed in seed_rows if _coverage_is_reviewed_seed(seed))
+    valid_reviewed_count = sum(
+        1
+        for seed in seed_rows
+        if _coverage_is_reviewed_seed(seed) and seed.get("seed_status") == "valid_seed" and seed.get("seed_url")
+    )
+    invalid_reviewed_count = sum(
+        1
+        for seed in seed_rows
+        if _coverage_is_reviewed_seed(seed) and seed.get("seed_status") not in {"valid_seed", ""}
+    )
+    return {
+        "has_official_seed": bool(official_seed_url_count),
+        "reviewed_official_seed_count": reviewed_count,
+        "valid_reviewed_seed_count": valid_reviewed_count,
+        "invalid_reviewed_seed_count": invalid_reviewed_count,
+        "official_seed_url_count": official_seed_url_count,
+        "has_company_website_seed": any(str(seed.get("seed_type") or "") == "issuer_home" for seed in seed_rows),
+        "has_ir_or_investor_relations_seed": any(
+            str(seed.get("seed_type") or "") in {"issuer_reports", "issuer_investor_relations", "investor_relations"}
+            for seed in seed_rows
+        ),
+        "has_e_disclosure_seed": any(
+            str(seed.get("seed_type") or "").startswith("official_disclosure")
+            or "e-disclosure" in str(seed.get("seed_url") or "").casefold()
+            for seed in seed_rows
+        ),
+        "seed_text": seed_text,
+    }
+
+
+def _coverage_reporting_signals(seed_rows: list[dict[str, Any]], documents: list[dict[str, Any]], category_pages: list[dict[str, Any]]) -> dict[str, bool]:
+    combined = _coverage_text(
+        *[
+            f"{seed.get('seed_type') or ''} {seed.get('seed_url') or ''} {seed.get('candidate_title') or ''}"
+            for seed in seed_rows
+        ],
+        *[
+            f"{item.get('document_kind') or ''} {item.get('document_url') or ''} {item.get('document_title') or ''} {item.get('source_page_url') or ''}"
+            for item in documents
+        ],
+        *[
+            f"{item.get('document_kind') or ''} {item.get('document_url') or ''} {item.get('document_title') or ''}"
+            for item in category_pages
+        ],
+    )
+    return {
+        "has_reporting_or_disclosure_page": _contains_any(
+            combined,
+            (
+                "report",
+                "reports",
+                "issuer_reports",
+                "issuer-reports",
+                "disclosure",
+                "information-disclosure",
+                "financial-results",
+                "financial results",
+                "accounting-statements",
+                "annual",
+                "годов",
+                "отчет",
+                "отчёт",
+            ),
+        ),
+        "has_financial_results_page": _contains_any(
+            combined,
+            ("financial-results", "financial_results", "financial results", "финансовые результат", "ifrs", "мсфо"),
+        ),
+        "has_accounting_statements_page": _contains_any(
+            combined,
+            ("accounting-statements", "accounting_statements", "бухгалтерск", "финансовая отчетность", "финансовая отчётность"),
+        ),
+        "has_annual_reports_page": _contains_any(
+            combined,
+            ("issuer-reports", "issuer_reports", "annual report", "annual reports", "годовые отчет", "годовые отчёт", "годовой"),
+        ),
+        "has_ifrs_reporting_page": _contains_any(combined, ("ifrs", "мсфо")),
+    }
+
+
+def _coverage_score_and_grade(row: dict[str, Any]) -> tuple[int, str]:
+    score = 0
+    if row.get("valid_reviewed_seed_count"):
+        score += 20
+    if row.get("has_company_website_seed"):
+        score += 15
+    if row.get("has_ir_or_investor_relations_seed"):
+        score += 15
+    if row.get("has_e_disclosure_seed"):
+        score += 15
+    if row.get("has_reporting_or_disclosure_page"):
+        score += 15
+    if row.get("has_financial_results_page") or row.get("has_ifrs_reporting_page"):
+        score += 10
+    if int(row.get("category_pages_followed_count") or 0) > 0:
+        score += 10
+    if int(row.get("exact_report_document_count") or 0) > 0:
+        score += 10
+    if int(row.get("historical_annual_ifrs_document_count") or 0) > 0:
+        score += 10
+    if int(row.get("interim_or_quarterly_document_count") or 0) > 0:
+        score += 5
+    if not row.get("valid_reviewed_seed_count"):
+        score -= 20
+    if row.get("coverage_status") == "weak_only_generic_or_landing_pages":
+        score -= 15
+    if int(row.get("placeholder_not_found_count") or 0) > 0 and int(row.get("exact_report_document_count") or 0) == 0:
+        score -= 20
+    score = max(0, min(100, score))
+    if score >= 80:
+        grade = "strong"
+    elif score >= 50:
+        grade = "partial"
+    elif score >= 20:
+        grade = "weak"
+    else:
+        grade = "missing"
+    return score, grade
+
+
+def _coverage_operator_action(status: str) -> tuple[str, str]:
+    mapping = {
+        "missing_official_sources": (
+            "add_official_sources",
+            "Add official company website, IR/disclosure page, and e-disclosure source if available.",
+        ),
+        "weak_no_reviewed_seed": (
+            "review_or_promote_official_seed",
+            "Review candidate source seeds and promote at least one official reporting/disclosure source.",
+        ),
+        "weak_no_reporting_pages": (
+            "add_reporting_page_seed",
+            "Add or review official reporting, disclosure, financial results, annual reports, or IFRS page.",
+        ),
+        "weak_only_generic_or_landing_pages": (
+            "replace_landing_page_with_reporting_page",
+            "Replace generic landing page with exact official reporting/disclosure page.",
+        ),
+        "partial_historical_or_interim_only": (
+            "continue_target_report_search",
+            "Existing sources expose historical/interim reports only. Continue searching for exact target-period annual IFRS report.",
+        ),
+        "strong_but_target_report_missing": (
+            "verify_target_report_publication",
+            "Official reporting sources are available, but target annual IFRS report was not found. Verify publication status manually.",
+        ),
+        "strong_target_evidence_available": (
+            "no_source_action_required",
+            "Source coverage is sufficient. Continue with existing quality gate workflow.",
+        ),
+        "operator_review_required": (
+            "review_source_or_document_candidate",
+            "Review ambiguous official source or exact document candidate before using it as evidence.",
+        ),
+    }
+    return mapping.get(status, mapping["missing_official_sources"])
+
+
+def _coverage_status(row: dict[str, Any], *, has_source_context: bool, has_generic_only: bool, operator_review_required: bool) -> str:
+    if row.get("can_use_as_target_period_evidence"):
+        return "strong_target_evidence_available"
+    if not row.get("has_official_seed") and not has_source_context:
+        return "missing_official_sources"
+    if not row.get("valid_reviewed_seed_count"):
+        return "weak_no_reviewed_seed"
+    if has_generic_only:
+        return "weak_only_generic_or_landing_pages"
+    if not row.get("has_reporting_or_disclosure_page") and int(row.get("category_page_count") or 0) == 0:
+        return "weak_no_reporting_pages"
+    if row.get("has_reporting_or_disclosure_page") or int(row.get("category_pages_followed_count") or 0) > 0:
+        return "strong_but_target_report_missing"
+    if int(row.get("historical_annual_ifrs_document_count") or 0) or int(row.get("interim_or_quarterly_document_count") or 0):
+        return "partial_historical_or_interim_only"
+    if operator_review_required:
+        return "operator_review_required"
+    return "weak_no_reporting_pages"
+
+
+def _build_official_source_coverage_rows(
+    args: argparse.Namespace,
+    *,
+    required_issuers: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
+    input_documents: list[dict[str, Any]],
+    reviewed_seeds_used: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
+    all_documents_for_counters: list[dict[str, Any]],
+    category_pages_followed: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    availability_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in availability_operator_rows}
+    queue_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in operator_review_queue}
+    rows: list[dict[str, Any]] = []
+    for required in required_issuers:
+        key = str(required.get("company_id") or "")
+        seed_rows = _seed_rows_for_required(seed_issuers, required)
+        reviewed_matches = _items_matching_required(reviewed_seeds_used, required)
+        input_matches = _items_matching_required(input_documents, required)
+        document_matches = _items_matching_required([*all_documents_for_counters, *documents], required)
+        unique_documents = _exact_document_unique_url_items(document_matches)
+        category_matches = [
+            item
+            for item in _items_matching_required(category_pages_followed, required)
+            if item.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS
+        ]
+        availability = availability_by_key.get(key) or {}
+        queue = queue_by_key.get(key) or {}
+        seed_signals = _coverage_seed_signals(seed_rows)
+        if reviewed_matches:
+            seed_signals["reviewed_official_seed_count"] = max(seed_signals["reviewed_official_seed_count"], len(reviewed_matches))
+            seed_signals["valid_reviewed_seed_count"] = max(seed_signals["valid_reviewed_seed_count"], len(reviewed_matches))
+            seed_signals["has_official_seed"] = True
+        reporting_signals = _coverage_reporting_signals(seed_rows, unique_documents, category_matches)
+        category_page_count = sum(1 for item in unique_documents if item.get("document_kind") in EXACT_DOCUMENT_CATEGORY_KINDS)
+        exact_report_document_count = sum(1 for item in unique_documents if item.get("document_kind") == "exact_report_document")
+        has_source_context = _coverage_has_source_context([*seed_rows, *input_matches, *reviewed_matches])
+        has_any_report_doc = bool(
+            exact_report_document_count
+            or int(availability.get("historical_annual_ifrs_document_count") or 0)
+            or int(availability.get("interim_or_quarterly_document_count") or 0)
+            or int(availability.get("wrong_standard_document_count") or 0)
+        )
+        has_generic_only = bool(
+            seed_signals["official_seed_url_count"]
+            and not reporting_signals["has_reporting_or_disclosure_page"]
+            and category_page_count == 0
+            and not has_any_report_doc
+        )
+        operator_review_required = bool(
+            availability.get("availability_status") == "operator_exact_document_review_required"
+            or queue.get("queue_action_type") == "review_exact_document_candidate"
+        )
+        row = {
+            "company_id": required.get("company_id"),
+            "company_name": required.get("company_name") or availability.get("company_name") or "",
+            "canonical_company_id": availability.get("canonical_company_id") or required.get("company_id"),
+            "canonical_company_name": availability.get("canonical_company_name") or required.get("company_name") or "",
+            "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+            "required_report_type": str(getattr(args, "report_type", "") or ""),
+            "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+            **{key_: value for key_, value in seed_signals.items() if key_ != "seed_text"},
+            **reporting_signals,
+            "category_page_count": category_page_count,
+            "category_pages_followed_count": len(category_matches),
+            "exact_report_document_count": exact_report_document_count,
+            "target_period_document_count": availability.get("target_period_document_count", 0),
+            "historical_annual_ifrs_document_count": availability.get("historical_annual_ifrs_document_count", 0),
+            "interim_or_quarterly_document_count": availability.get("interim_or_quarterly_document_count", 0),
+            "wrong_standard_document_count": availability.get("wrong_standard_document_count", 0),
+            "placeholder_not_found_count": availability.get("placeholder_not_found_count", 0),
+            "availability_status": availability.get("availability_status") or "",
+            "deadline_status": availability.get("deadline_status") or "",
+            "operator_action": availability.get("operator_action") or "",
+            "recommended_next_step": availability.get("recommended_next_step") or "",
+            "queue_action_type": queue.get("queue_action_type") or "",
+            "queue_priority": queue.get("queue_priority") or "",
+            "queue_status": queue.get("queue_status") or "",
+            "can_use_as_target_period_evidence": bool(availability.get("can_use_as_target_period_evidence")),
+            "gate_status": availability.get("gate_status") or "",
+            "gate_passed": bool(availability.get("gate_passed")),
+            "ready_for_value_extraction": bool(availability.get("ready_for_value_extraction")),
+            "ready_for_import": bool(availability.get("ready_for_import")),
+        }
+        status = _coverage_status(
+            row,
+            has_source_context=has_source_context,
+            has_generic_only=has_generic_only,
+            operator_review_required=operator_review_required,
+        )
+        row["coverage_status"] = status
+        reasons = []
+        if not row.get("valid_reviewed_seed_count"):
+            reasons.append("no_valid_reviewed_official_seed")
+        if not row.get("has_reporting_or_disclosure_page"):
+            reasons.append("no_reporting_or_disclosure_page")
+        if has_generic_only:
+            reasons.append("only_generic_or_landing_pages")
+        if row.get("historical_annual_ifrs_document_count"):
+            reasons.append("historical_annual_ifrs_available")
+        if row.get("interim_or_quarterly_document_count"):
+            reasons.append("interim_or_quarterly_available")
+        if row.get("wrong_standard_document_count"):
+            reasons.append("wrong_standard_available")
+        if row.get("can_use_as_target_period_evidence"):
+            reasons.append("target_period_evidence_available")
+        if row.get("placeholder_not_found_count"):
+            reasons.append("placeholder_not_found")
+        row["coverage_reason_codes"] = list(dict.fromkeys([status, *reasons]))
+        score, grade = _coverage_score_and_grade(row)
+        row["coverage_score"] = score
+        row["coverage_grade"] = grade
+        action, instruction = _coverage_operator_action(status)
+        row["coverage_operator_action"] = action
+        row["coverage_operator_instruction"] = instruction
+        row["coverage_note"] = _coverage_note(row)
+        rows.append(row)
+    return sorted(rows, key=lambda item: (str(item.get("company_id") or ""), str(item.get("company_name") or "")))
+
+
+def _coverage_note(row: dict[str, Any]) -> str:
+    if row.get("coverage_status") == "strong_target_evidence_available":
+        return "source coverage is sufficient; strict quality gate still controls readiness"
+    if row.get("coverage_status") == "strong_but_target_report_missing":
+        return "reviewed reporting sources exist, but exact target-period annual IFRS evidence is missing"
+    if row.get("coverage_status") == "weak_no_reviewed_seed":
+        return "no valid reviewed official seed was available for exact document discovery"
+    if row.get("coverage_status") == "missing_official_sources":
+        return "no official source context was available in the reviewed seed pack or intake"
+    return "coverage diagnostic only; does not change strict evidence eligibility"
+
+
+def _official_source_coverage_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    grade_counts = {"strong": 0, "partial": 0, "weak": 0, "missing": 0}
+    for row in rows:
+        grade = str(row.get("coverage_grade") or "")
+        if grade:
+            grade_counts[grade] = grade_counts.get(grade, 0) + 1
+    return {
+        "official_source_coverage_issuer_count": len(rows),
+        "official_source_coverage_strong_count": grade_counts.get("strong", 0),
+        "official_source_coverage_partial_count": grade_counts.get("partial", 0),
+        "official_source_coverage_weak_count": grade_counts.get("weak", 0),
+        "official_source_coverage_missing_count": grade_counts.get("missing", 0),
+        "official_source_coverage_needs_operator_count": sum(
+            1 for row in rows if row.get("coverage_operator_action") != "no_source_action_required"
+        ),
+        "official_source_coverage_status_counts": _count_by_key(rows, "coverage_status"),
+        "official_source_coverage_grade_counts": dict(sorted(grade_counts.items())),
+        "official_source_coverage_action_counts": _count_by_key(rows, "coverage_operator_action"),
+    }
+
+
+def _build_official_source_coverage_report(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    required_issuers: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
+    input_documents: list[dict[str, Any]],
+    reviewed_seeds_used: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
+    all_documents_for_counters: list[dict[str, Any]],
+    category_pages_followed: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+    warnings: list[dict[str, Any]] | None = None,
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    rows = _build_official_source_coverage_rows(
+        args,
+        required_issuers=required_issuers,
+        seed_issuers=seed_issuers,
+        input_documents=input_documents,
+        reviewed_seeds_used=reviewed_seeds_used,
+        documents=documents,
+        all_documents_for_counters=all_documents_for_counters,
+        category_pages_followed=category_pages_followed,
+        availability_operator_rows=availability_operator_rows,
+        operator_review_queue=operator_review_queue,
+    )
+    return {
+        "status": status,
+        "mode": "official-source-coverage-matrix",
+        "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+        "required_report_type": str(getattr(args, "report_type", "") or ""),
+        "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+        "summary": _official_source_coverage_summary(rows),
+        "issuers": rows,
+        "warnings": warnings or [],
+        "errors": errors or [],
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -8691,6 +9321,8 @@ def _build_exact_document_discovery_report(
     *,
     status: str,
     required_issuers: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
+    input_documents: list[dict[str, Any]],
     documents: list[dict[str, Any]],
     reviewed_seeds_used: list[dict[str, Any]],
     missing_issuers: list[dict[str, Any]],
@@ -8734,6 +9366,22 @@ def _build_exact_document_discovery_report(
         errors=errors,
     )
     operator_review_queue_summary = operator_review_queue_report["summary"]
+    official_source_coverage_report = _build_official_source_coverage_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        seed_issuers=seed_issuers,
+        input_documents=input_documents,
+        reviewed_seeds_used=reviewed_seeds_used,
+        documents=documents,
+        all_documents_for_counters=counter_documents,
+        category_pages_followed=followed_category_pages,
+        availability_operator_rows=availability_operator_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        warnings=warnings,
+        errors=errors,
+    )
+    official_source_coverage_summary = official_source_coverage_report["summary"]
     return {
         "status": status,
         "mode": "exact-document-discover-from-seeds",
@@ -8765,6 +9413,9 @@ def _build_exact_document_discovery_report(
         **operator_review_queue_summary,
         "operator_review_queue_summary": operator_review_queue_summary,
         "operator_review_queue": operator_review_queue_report["actions"],
+        **official_source_coverage_summary,
+        "official_source_coverage_summary": official_source_coverage_summary,
+        "official_source_coverage_rows": official_source_coverage_report["issuers"],
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -8786,6 +9437,9 @@ def _build_exact_document_discovery_report(
         "operator_review_queue_output": _path_value(args.operator_review_queue_output),
         "operator_review_queue_csv_output": _path_value(args.operator_review_queue_csv_output),
         "operator_review_queue_markdown_output": _path_value(args.operator_review_queue_markdown_output),
+        "official_source_coverage_output": _path_value(args.official_source_coverage_output),
+        "official_source_coverage_csv_output": _path_value(args.official_source_coverage_csv_output),
+        "official_source_coverage_markdown_output": _path_value(args.official_source_coverage_markdown_output),
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps("exact-document-discover-from-seeds", status),
@@ -8872,6 +9526,8 @@ def _write_exact_document_discovery_payload(
     path: Path,
     *,
     required_issuers: list[dict[str, Any]],
+    seed_issuers: list[dict[str, Any]],
+    input_documents: list[dict[str, Any]],
     documents: list[dict[str, Any]],
     reviewed_seeds_used: list[dict[str, Any]],
     missing_issuers: list[dict[str, Any]],
@@ -8905,6 +9561,8 @@ def _write_exact_document_discovery_payload(
         args,
         status=status,
         required_issuers=required_issuers,
+        seed_issuers=seed_issuers,
+        input_documents=input_documents,
         documents=documents,
         category_pages_followed=category_pages_followed,
         reviewed_seeds_used=reviewed_seeds_used,

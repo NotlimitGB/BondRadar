@@ -1497,6 +1497,11 @@ def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
     assert operator_row["recommended_next_step"] == "proceed_to_quality_gate_or_extraction_preview"
     assert operator_row["gate_status"] == "quality_gate_not_run"
     assert operator_row["ready_for_value_extraction"] is False
+    coverage = _coverage_for(report)
+    assert coverage["coverage_status"] == "strong_target_evidence_available"
+    assert coverage["coverage_operator_action"] == "no_source_action_required"
+    assert coverage["can_use_as_target_period_evidence"] is True
+    assert coverage["ready_for_value_extraction"] is False
     queue_action = report["operator_review_queue"][0]
     assert queue_action["queue_action_type"] == "no_operator_action_required"
     assert queue_action["queue_priority"] == "low"
@@ -2527,6 +2532,129 @@ def test_exact_document_availability_policy_no_usable_official_candidates(
     assert action["manual_review_required"] is True
 
 
+def test_exact_document_source_coverage_weak_no_reviewed_seed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_reviewed_seed_pack(seed_pack, include_rzd=False)
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/")],
+    )
+    _mock_candidate_fetch(monkeypatch, {})
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "18",
+            "--exact-document-availability-current-date",
+            "2026-05-25",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    coverage = _coverage_for(report, company_id=18)
+    assert coverage["coverage_status"] == "weak_no_reviewed_seed"
+    assert coverage["coverage_operator_action"] == "review_or_promote_official_seed"
+    assert coverage["coverage_grade"] in {"missing", "weak"}
+    assert coverage["ready_for_value_extraction"] is False
+    assert coverage["ready_for_import"] is False
+
+
+def test_exact_document_source_coverage_generic_landing_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    intake = tmp_path / "exact_document_intake.json"
+    _write_custom_seed_pack(
+        seed_pack,
+        [
+            {
+                "company_id": 67,
+                "company_name": "Mostotrest",
+                "canonical_company_id": 67,
+                "canonical_company_name": "Mostotrest",
+                "official_seeds": [
+                    {
+                        "seed_type": "issuer_home",
+                        "seed_url": "https://mostotrest.ru/",
+                        "seed_status": "valid_seed",
+                        "confidence": "high",
+                        "source": "operator_seed",
+                        "operator_review_status": "operator_reviewed",
+                    }
+                ],
+            }
+        ],
+    )
+    _write_document_intake(
+        intake,
+        [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/")],
+    )
+    _mock_candidate_fetch(monkeypatch, {"https://mostotrest.ru/": "<a href=\"/contacts/\">Contacts</a>"})
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--document-intake-input",
+            str(intake),
+            "--required-company-ids",
+            "67",
+            "--exact-document-seed-types",
+            "issuer_home",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    coverage = _coverage_for(report)
+    assert coverage["coverage_status"] == "weak_only_generic_or_landing_pages"
+    assert coverage["coverage_operator_action"] == "replace_landing_page_with_reporting_page"
+    assert 0 <= coverage["coverage_score"] <= 100
+
+
+def test_exact_document_source_coverage_missing_official_sources(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seed_pack = tmp_path / "official_seed_pack.json"
+    _write_custom_seed_pack(seed_pack, [])
+    _mock_candidate_fetch(monkeypatch, {})
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-discover-from-seeds",
+            "--seed-input",
+            str(seed_pack),
+            "--required-company-ids",
+            "18",
+            "--required-company-names",
+            "RZD",
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    coverage = _coverage_for(report, company_id=18)
+    assert coverage["coverage_status"] == "missing_official_sources"
+    assert coverage["coverage_operator_action"] == "add_official_sources"
+    assert coverage["coverage_grade"] == "missing"
+
+
 def test_exact_document_availability_operator_summary_exports_flat_rows(
     tmp_path: Path,
     monkeypatch,
@@ -2539,6 +2667,9 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     queue_json = tmp_path / "operator_review_queue.json"
     queue_csv = tmp_path / "operator_review_queue.csv"
     queue_md = tmp_path / "operator_review_queue.md"
+    coverage_json = tmp_path / "official_source_coverage.json"
+    coverage_csv = tmp_path / "official_source_coverage.csv"
+    coverage_md = tmp_path / "official_source_coverage.md"
     _write_reviewed_seed_pack(seed_pack, include_rzd=True)
     _write_document_intake(
         intake,
@@ -2581,6 +2712,12 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
             str(queue_csv),
             "--operator-review-queue-markdown-output",
             str(queue_md),
+            "--official-source-coverage-output",
+            str(coverage_json),
+            "--official-source-coverage-csv-output",
+            str(coverage_csv),
+            "--official-source-coverage-markdown-output",
+            str(coverage_md),
         ]
     )
 
@@ -2705,6 +2842,33 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert "fill_exact_document_url" in queue_markdown
     assert "review_sources_or_wait_grace" in queue_markdown
     assert "after_primary_deadline_within_grace_window" in queue_markdown
+    assert report["official_source_coverage_issuer_count"] == 2
+    assert report["official_source_coverage_status_counts"]["strong_but_target_report_missing"] == 2
+    assert report["official_source_coverage_action_counts"]["verify_target_report_publication"] == 2
+    coverage_rows = {str(row["company_id"]): row for row in report["official_source_coverage_rows"]}
+    assert coverage_rows["67"]["coverage_status"] == "strong_but_target_report_missing"
+    assert coverage_rows["67"]["coverage_operator_action"] == "verify_target_report_publication"
+    assert coverage_rows["67"]["historical_annual_ifrs_document_count"] == 1
+    assert coverage_rows["67"]["can_use_as_target_period_evidence"] is False
+    coverage_exported = json.loads(coverage_json.read_text(encoding="utf-8"))
+    assert coverage_exported["mode"] == "official-source-coverage-matrix"
+    assert coverage_exported["summary"]["official_source_coverage_issuer_count"] == 2
+    coverage_csv_rows = list(csv.DictReader(coverage_csv.open(encoding="utf-8")))
+    assert len(coverage_csv_rows) == 2
+    assert {
+        "coverage_status",
+        "coverage_score",
+        "coverage_grade",
+        "coverage_reason_codes",
+        "coverage_operator_action",
+        "coverage_operator_instruction",
+        "ready_for_value_extraction",
+        "ready_for_import",
+    }.issubset(set(coverage_csv_rows[0]))
+    coverage_markdown = coverage_md.read_text(encoding="utf-8")
+    assert "Official Source Coverage Matrix" in coverage_markdown
+    assert "Coverage Status Counts" in coverage_markdown
+    assert "verify_target_report_publication" in coverage_markdown
 
 
 def test_exact_document_discover_probe_and_download_are_optional(
@@ -5370,6 +5534,25 @@ def _write_reviewed_seed_pack(path: Path, *, include_rzd: bool = False) -> None:
     )
 
 
+def _write_custom_seed_pack(path: Path, issuers: list[dict]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "official-seed-resolve",
+                "issuer_count": len(issuers),
+                "issuers": issuers,
+                "read_only": True,
+                "dry_run_only": True,
+                "import_executed": False,
+                "paper_trading_called": False,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
 def _task107_candidate_rows() -> list[dict]:
     return [
         {
@@ -5636,6 +5819,14 @@ def _queue_action_for(report: dict, company_id: int = 67) -> dict:
     return next(
         item
         for item in report.get("operator_review_queue", [])
+        if str(item.get("company_id")) == str(company_id)
+    )
+
+
+def _coverage_for(report: dict, company_id: int = 67) -> dict:
+    return next(
+        item
+        for item in report.get("official_source_coverage_rows", [])
         if str(item.get("company_id")) == str(company_id)
     )
 

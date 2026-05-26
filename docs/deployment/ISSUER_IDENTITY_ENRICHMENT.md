@@ -1145,6 +1145,31 @@ show the primary expected deadline as passed while the conservative grace window
 may still be open; target evidence and extraction readiness remain false unless
 the strict exact-document quality gate passes.
 
+## Official Source Coverage Matrix
+
+Task 115 adds optional JSON/CSV/Markdown exports that turn reviewed seed and
+exact-document discovery diagnostics into one coverage row per issuer. The
+matrix is preview-only and does not crawl new sources, import reports, mutate
+identity/scoring state, change schedules, or call paper trading.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --official-source-coverage-output logs/financial_reports/official_source_coverage_task115.json \
+  --official-source-coverage-csv-output logs/financial_reports/official_source_coverage_task115.csv \
+  --official-source-coverage-markdown-output logs/financial_reports/official_source_coverage_task115.md
+```
+
+Use the coverage matrix to see whether an issuer is blocked by missing reviewed
+official seeds, generic landing pages, historical/interim-only source coverage,
+or strong reviewed reporting sources where the target report is still missing.
+
 ## VDS Smoke Checklist
 
 Health:

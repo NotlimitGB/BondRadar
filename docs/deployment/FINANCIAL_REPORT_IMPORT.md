@@ -1445,6 +1445,36 @@ target period 2025 should show the primary expected deadline as passed while
 the conservative grace window may still be open; target evidence and extraction
 readiness remain false unless the strict exact-document quality gate passes.
 
+## Official Source Coverage Matrix
+
+Task 115 adds optional source coverage exports generated from existing reviewed
+seeds, exact-document discovery diagnostics, availability rows, and operator
+queue rows. The matrix is preview-only: it does not crawl new sources, parse
+PDFs, import reports, mutate scores, change schedules, or apply operator
+decisions.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --official-source-coverage-output logs/financial_reports/official_source_coverage_task115.json \
+  --official-source-coverage-csv-output logs/financial_reports/official_source_coverage_task115.csv \
+  --official-source-coverage-markdown-output logs/financial_reports/official_source_coverage_task115.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task115.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task115.md
+```
+
+The main discovery JSON also exposes top-level coverage status, grade, and
+operator-action counts. Use the matrix to distinguish weak source coverage from
+strong reviewed reporting sources where the target annual IFRS document is
+still missing. Historical fallback remains diagnostic-only, and readiness still
+comes only from the strict quality gate.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and
