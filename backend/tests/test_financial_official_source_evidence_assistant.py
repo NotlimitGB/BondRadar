@@ -2931,6 +2931,189 @@ def test_exact_document_operator_resolution_before_primary_deadline_waits(
     assert resolution["operator_input_required"] is False
 
 
+def test_operator_resolution_validation_empty_template_is_incomplete(tmp_path: Path) -> None:
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [_operator_resolution_validation_input_row()],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "incomplete_operator_input"
+    assert "operator_decision_required" in row["validation_reason_codes"]
+    assert "exact_document_url_required" in row["validation_reason_codes"]
+    assert row["can_use_for_future_intake_review"] is False
+    assert row["would_update_document_intake"] is False
+
+
+def test_operator_resolution_validation_accepts_valid_exact_target_url(tmp_path: Path) -> None:
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [
+            _operator_resolution_validation_input_row(
+                operator_fill_decision="exact_document_found",
+                operator_fill_exact_document_url="https://mostotrest.ru/reports/mostotrest-annual-ifrs-financial-statements-2025.pdf",
+                operator_fill_document_title="Mostotrest annual IFRS financial statements 2025",
+                operator_fill_source_page_url="https://mostotrest.ru/ru/invest/financial-results/",
+            )
+        ],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "valid_for_future_controlled_intake_review"
+    assert row["can_use_for_future_intake_review"] is True
+    assert row["would_update_document_intake"] is False
+    assert row["would_extract_values"] is False
+    assert row["would_import_report"] is False
+
+
+def test_operator_resolution_validation_rejects_historical_fallback_url(tmp_path: Path) -> None:
+    historical_url = "https://mostotrest.ru/upload/iblock/9ac/9yburv7bvdemeg8v66pphfy9k5wphimk/2019_12_Mostotrest_IFRS_Accounts.pdf"
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [
+            _operator_resolution_validation_input_row(
+                operator_fill_decision="exact_document_found",
+                operator_fill_exact_document_url=historical_url,
+                operator_fill_document_title="Mostotrest IFRS accounts 2019",
+                latest_historical_document_url=historical_url,
+                latest_historical_period="2019",
+            )
+        ],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "invalid_operator_input"
+    assert row["historical_fallback_url_used_as_exact_document"] is True
+    assert "historical_fallback_url_used_as_exact_document" in row["validation_reason_codes"]
+    assert row["can_use_for_future_intake_review"] is False
+
+
+def test_operator_resolution_validation_rejects_wrong_period(tmp_path: Path) -> None:
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [
+            _operator_resolution_validation_input_row(
+                operator_fill_decision="exact_document_found",
+                operator_fill_exact_document_url="https://mostotrest.ru/reports/mostotrest-annual-ifrs-financial-statements-2024.pdf",
+                operator_fill_document_title="Mostotrest annual IFRS financial statements 2024",
+            )
+        ],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "invalid_operator_input"
+    assert {"wrong_period", "not_target_reporting_period"} & set(row["validation_reason_codes"])
+
+
+def test_operator_resolution_validation_rejects_interim_report_for_annual(tmp_path: Path) -> None:
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [
+            _operator_resolution_validation_input_row(
+                operator_fill_decision="exact_document_found",
+                operator_fill_exact_document_url="https://mostotrest.ru/reports/mostotrest-q1-ifrs-financial-statements-2025.pdf",
+                operator_fill_document_title="Mostotrest Q1 IFRS financial statements 2025",
+            )
+        ],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "invalid_operator_input"
+    assert "interim_or_quarterly_not_allowed_for_annual" in row["validation_reason_codes"]
+
+
+def test_operator_resolution_validation_rejects_wrong_standard(tmp_path: Path) -> None:
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [
+            _operator_resolution_validation_input_row(
+                operator_fill_decision="exact_document_found",
+                operator_fill_exact_document_url="https://mostotrest.ru/reports/mostotrest-annual-ras-financial-statements-2025.pdf",
+                operator_fill_document_title="Mostotrest annual RAS financial statements 2025",
+            )
+        ],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "invalid_operator_input"
+    assert "wrong_accounting_standard" in row["validation_reason_codes"]
+
+
+def test_operator_resolution_validation_rejects_landing_page(tmp_path: Path) -> None:
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [
+            _operator_resolution_validation_input_row(
+                operator_fill_decision="exact_document_found",
+                operator_fill_exact_document_url="https://mostotrest.ru/ru/invest/financial-results/",
+                operator_fill_document_title="Mostotrest financial results IFRS 2025",
+            )
+        ],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "invalid_operator_input"
+    assert {"landing_page_not_allowed", "not_exact_report_document"} & set(row["validation_reason_codes"])
+
+
+def test_operator_resolution_validation_wait_decision(tmp_path: Path) -> None:
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [
+            _operator_resolution_validation_input_row(
+                resolution_action_type="review_sources_or_wait_grace",
+                operator_fill_decision="wait_until_grace_date",
+            )
+        ],
+    )
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "waiting"
+    assert row["can_use_for_future_intake_review"] is False
+
+
+def test_operator_resolution_validation_csv_and_markdown_outputs(tmp_path: Path) -> None:
+    validation_json = tmp_path / "operator_resolution_validation.json"
+    validation_csv = tmp_path / "operator_resolution_validation.csv"
+    validation_md = tmp_path / "operator_resolution_validation.md"
+    report = _run_operator_resolution_validation(
+        tmp_path,
+        [_operator_resolution_validation_input_row()],
+        extra_args=[
+            "--operator-resolution-validation-output",
+            str(validation_json),
+            "--operator-resolution-validation-csv-output",
+            str(validation_csv),
+            "--operator-resolution-validation-markdown-output",
+            str(validation_md),
+        ],
+    )
+
+    assert report["operator_resolution_validation_row_count"] == 1
+    assert validation_json.is_file()
+    assert validation_csv.is_file()
+    assert validation_md.is_file()
+    exported = json.loads(validation_json.read_text(encoding="utf-8"))
+    assert exported["mode"] == "operator-resolution-validation"
+    csv_rows = list(csv.DictReader(validation_csv.open(encoding="utf-8")))
+    assert len(csv_rows) == 1
+    assert {
+        "validation_status",
+        "validation_reason_codes",
+        "can_use_for_future_intake_review",
+        "would_update_document_intake",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    }.issubset(set(csv_rows[0]))
+    markdown = validation_md.read_text(encoding="utf-8")
+    assert "Operator Resolution Validation" in markdown
+    assert "Validation Status Counts" in markdown
+    assert "Validation Error Counts" in markdown
+    assert "This validation does not update exact document intake" in markdown
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -6423,6 +6606,66 @@ def _resolution_for(report: dict, company_id: int = 67) -> dict:
         for item in report.get("operator_resolution_pack_rows", [])
         if str(item.get("company_id")) == str(company_id)
     )
+
+
+def _operator_resolution_validation_input_row(**updates: str) -> dict[str, str]:
+    row = {
+        "resolution_id": "financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "resolution_action_type": "fill_exact_document_url",
+        "operator_fill_exact_document_url": "",
+        "operator_fill_document_title": "",
+        "operator_fill_document_date": "",
+        "operator_fill_source_page_url": "",
+        "operator_fill_source_type": "",
+        "operator_fill_report_period": "2025",
+        "operator_fill_report_type": "annual",
+        "operator_fill_accounting_standard": "IFRS",
+        "operator_fill_decision": "",
+        "operator_fill_notes": "",
+        "latest_historical_document_url": "",
+        "latest_historical_period": "",
+        "requires_exact_document_url": "true",
+        "operator_input_required": "true",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_operator_resolution_validation_csv(path: Path, rows: list[dict[str, str]]) -> None:
+    fieldnames = list(dict.fromkeys(field for row in rows for field in row))
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _run_operator_resolution_validation(
+    tmp_path: Path,
+    rows: list[dict[str, str]],
+    *,
+    extra_args: list[str] | None = None,
+) -> dict:
+    input_path = tmp_path / "operator_resolution_input.csv"
+    _write_operator_resolution_validation_csv(input_path, rows)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-validate",
+            "--operator-resolution-input",
+            str(input_path),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    return report
 
 
 def _run_availability_discovery(

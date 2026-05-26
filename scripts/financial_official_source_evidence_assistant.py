@@ -38,6 +38,7 @@ MODE_CHOICES = (
     "operator-seed-review-template",
     "operator-seed-promote-reviewed",
     "exact-document-discover-from-seeds",
+    "operator-resolution-validate",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -580,6 +581,88 @@ OPERATOR_RESOLUTION_PACK_FIELDS = [
     "operator_instruction",
     "validation_hint",
     "safety_note",
+]
+OPERATOR_RESOLUTION_DECISIONS = {
+    "pending",
+    "exact_document_found",
+    "target_report_not_found",
+    "wait_until_grace_date",
+    "escalate_missing_target_report",
+    "seed_review_required",
+    "reject_invalid_input",
+}
+OPERATOR_RESOLUTION_VALIDATION_CRITICAL_COLUMNS = [
+    "resolution_id",
+    "company_id",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "resolution_action_type",
+    "operator_fill_decision",
+    "operator_fill_exact_document_url",
+]
+OPERATOR_RESOLUTION_VALIDATION_EXPECTED_COLUMNS = [
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "resolution_action_type",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_date",
+    "operator_fill_source_page_url",
+    "operator_fill_source_type",
+    "operator_fill_report_period",
+    "operator_fill_report_type",
+    "operator_fill_accounting_standard",
+    "operator_fill_decision",
+    "operator_fill_notes",
+    "latest_historical_document_url",
+    "latest_historical_period",
+]
+OPERATOR_RESOLUTION_VALIDATION_FIELDS = [
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "operator_fill_decision",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_date",
+    "operator_fill_source_page_url",
+    "operator_fill_source_type",
+    "operator_fill_report_period",
+    "operator_fill_report_type",
+    "operator_fill_accounting_standard",
+    "operator_fill_notes",
+    "validation_status",
+    "validation_severity",
+    "validation_reason_codes",
+    "validation_errors",
+    "validation_warnings",
+    "url_validation_status",
+    "domain_validation_status",
+    "document_kind",
+    "document_period_year",
+    "document_period_status",
+    "report_type_match_status",
+    "accounting_standard_match_status",
+    "latest_historical_document_url",
+    "latest_historical_period",
+    "historical_fallback_url_used_as_exact_document",
+    "can_use_for_future_intake_review",
+    "would_update_document_intake",
+    "would_promote_seed",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "operator_next_step",
+    "validation_note",
 ]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
@@ -1272,6 +1355,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-pack-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-pack-csv-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-pack-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-pack-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-validation-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-validation-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-validation-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1336,6 +1424,8 @@ def run_assistant(
         report = run_operator_seed_promote_reviewed(args)
     elif args.mode == "exact-document-discover-from-seeds":
         report = run_exact_document_discover_from_seeds(args)
+    elif args.mode == "operator-resolution-validate":
+        report = run_operator_resolution_validate(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -2714,6 +2804,61 @@ def run_operator_seed_validate(args: argparse.Namespace) -> dict[str, Any]:
 
     report = _build_operator_seed_validation_report(args, seeds=seeds, load_errors=errors)
     report["warnings"] = [*warnings, *(report.get("warnings") or [])]
+    return report
+
+
+def run_operator_resolution_validate(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    input_columns: set[str] = set()
+    source_pack_rows: list[dict[str, Any]] = []
+
+    if args.operator_resolution_input is None:
+        errors.append({"message": "operator-resolution-validate mode requires --operator-resolution-input"})
+    if not errors:
+        try:
+            rows, input_columns = load_operator_resolution_input(args.operator_resolution_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+    if args.operator_resolution_source_pack_input is None:
+        warnings.append({"message": "source_pack_missing"})
+    elif not errors:
+        try:
+            source_pack_rows, _source_columns = load_operator_resolution_input(args.operator_resolution_source_pack_input)
+        except Exception as exc:
+            warnings.append({"message": f"source_pack_load_failed: {exc}"})
+
+    source_pack_by_id = {
+        str(row.get("resolution_id") or ""): row
+        for row in source_pack_rows
+        if row.get("resolution_id")
+    }
+    validation_rows = _build_operator_resolution_validation_rows(
+        args,
+        rows=rows,
+        input_columns=input_columns,
+        source_pack_by_id=source_pack_by_id,
+        source_pack_provided=args.operator_resolution_source_pack_input is not None,
+    )
+    report = _build_operator_resolution_validation_report(
+        args,
+        rows=validation_rows,
+        load_warnings=warnings,
+        load_errors=errors,
+    )
+    if args.operator_resolution_validation_output is not None and not errors:
+        write_json_report(report, args.operator_resolution_validation_output)
+    if args.operator_resolution_validation_csv_output is not None and not errors:
+        write_operator_resolution_validation_csv(
+            validation_rows,
+            args.operator_resolution_validation_csv_output,
+        )
+    if args.operator_resolution_validation_markdown_output is not None and not errors:
+        write_operator_resolution_validation_markdown(
+            report,
+            args.operator_resolution_validation_markdown_output,
+        )
     return report
 
 
@@ -4712,6 +4857,33 @@ def load_template_rows(path: Path) -> list[dict[str, Any]]:
         return [{key: _normalize_cell(value) for key, value in row.items() if key} for row in reader]
 
 
+def load_operator_resolution_input(path: Path) -> tuple[list[dict[str, Any]], set[str]]:
+    if not path.is_file():
+        raise ValueError(f"operator resolution input does not exist: {path}")
+    if path.suffix.lower() == ".json":
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if isinstance(payload, dict):
+            rows = payload.get("resolutions")
+            if rows is None:
+                rows = payload.get("rows")
+            if rows is None:
+                rows = payload.get("validation_rows")
+        else:
+            rows = payload
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError("operator resolution JSON must be a list or object with resolutions/rows")
+        normalized = [{str(key): _normalize_cell(value) for key, value in row.items()} for row in rows]
+        columns = {key for row in normalized for key in row}
+        return normalized, columns
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if reader.fieldnames is None:
+            return [], set()
+        fieldnames = {field for field in reader.fieldnames if field}
+        return [{key: _normalize_cell(value) for key, value in row.items() if key} for row in reader], fieldnames
+
+
 def _load_candidate_json_rows(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         raise ValueError(f"candidate input does not exist: {path}")
@@ -5060,6 +5232,20 @@ def write_operator_resolution_pack_markdown(report: dict[str, Any], path: Path) 
     path.write_text(render_operator_resolution_pack_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_validation_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_RESOLUTION_VALIDATION_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in OPERATOR_RESOLUTION_VALIDATION_FIELDS})
+
+
+def write_operator_resolution_validation_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_validation_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5222,6 +5408,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "operator-seed-review-template"
         else "Operator Seed Promotion"
         if report.get("mode") == "operator-seed-promote-reviewed"
+        else "Operator Resolution Validation"
+        if report.get("mode") == "operator-resolution-validation"
         else "Exact Official Report Document Discovery From Reviewed Seeds"
         if report.get("mode") == "exact-document-discover-from-seeds"
         else "Official Seed Resolver"
@@ -5266,6 +5454,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_operator_seed_review_template_markdown_sections(report))
     if report.get("mode") == "operator-seed-promote-reviewed":
         lines.extend(_render_operator_seed_promote_markdown_sections(report))
+    if report.get("mode") == "operator-resolution-validation":
+        lines.extend(_render_operator_resolution_validation_sections(report))
     if report.get("mode") == "exact-document-discover-from-seeds":
         lines.extend(_render_exact_document_from_seeds_markdown_sections(report))
     if report.get("mode") == "official-seed-resolve":
@@ -5492,6 +5682,43 @@ def render_operator_resolution_pack_markdown(report: dict[str, Any]) -> str:
             f"- import_executed: {report.get('import_executed')}",
             f"- paper_trading_called: {report.get('paper_trading_called')}",
             f"- identity_apply_executed: {report.get('identity_apply_executed')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_validation_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Operator Resolution Validation",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- row_count: {report.get('operator_resolution_validation_row_count', 0)}",
+        "",
+    ]
+    lines.extend(_render_operator_resolution_validation_sections(report))
+    lines.extend(
+        [
+            "## Safety Notes",
+            "",
+            "- This validation does not apply operator decisions.",
+            "- This validation does not update exact document intake.",
+            "- This validation does not extract/import/score/trade.",
+            "- Historical fallback URLs cannot be used as target-period exact documents.",
+            "",
+            "## Safety Flags",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- would_update_document_intake: {report.get('would_update_document_intake')}",
+            f"- would_promote_seed: {report.get('would_promote_seed')}",
+            f"- would_extract_values: {report.get('would_extract_values')}",
+            f"- would_import_report: {report.get('would_import_report')}",
             f"- would_mutate_scores: {report.get('would_mutate_scores')}",
             f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
             "",
@@ -5842,6 +6069,63 @@ def _render_operator_resolution_pack_sections(summary: dict[str, Any], rows: lis
             "",
         ]
     )
+    return lines
+
+
+def _render_operator_resolution_validation_sections(report: dict[str, Any]) -> list[str]:
+    rows = report.get("validation_rows") or []
+    lines = [
+        "## Validation Summary",
+        "",
+        f"- row count: {report.get('operator_resolution_validation_row_count', len(rows))}",
+        f"- valid: {report.get('operator_resolution_validation_valid_count', 0)}",
+        f"- incomplete: {report.get('operator_resolution_validation_incomplete_count', 0)}",
+        f"- invalid: {report.get('operator_resolution_validation_invalid_count', 0)}",
+        f"- future intake review: {report.get('operator_resolution_validation_future_intake_review_count', 0)}",
+        f"- historical fallback rejected: {report.get('operator_resolution_validation_historical_fallback_rejected_count', 0)}",
+        "",
+        "### Validation Status Counts",
+        "",
+    ]
+    status_counts = report.get("operator_resolution_validation_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Validation Error Counts", ""])
+    error_counts = report.get("operator_resolution_validation_error_counts") or {}
+    if error_counts:
+        lines.extend(f"- {key}: {value}" for key, value in error_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Per-Row Validation",
+            "",
+            "| Company | Decision | URL | Validation | Severity | Period | Type | Standard | Future intake review | Next step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| {company} | {decision} | {url} | {status} | {severity} | {period} | {report_type} | {standard} | {future} | {next_step} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    decision=str(row.get("operator_fill_decision") or "").replace("|", "/"),
+                    url=str(row.get("operator_fill_exact_document_url") or "").replace("|", "/"),
+                    status=row.get("validation_status") or "",
+                    severity=row.get("validation_severity") or "",
+                    period=row.get("document_period_status") or "",
+                    report_type=row.get("report_type_match_status") or "",
+                    standard=row.get("accounting_standard_match_status") or "",
+                    future=row.get("can_use_for_future_intake_review"),
+                    next_step=str(row.get("operator_next_step") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |  |  |  |  |")
+    lines.append("")
     return lines
 
 
@@ -9936,6 +10220,443 @@ def _build_operator_resolution_pack_report(
     }
 
 
+def _operator_resolution_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().casefold() in {"1", "true", "yes", "y", "on"}
+
+
+def _operator_resolution_base_row(input_row: dict[str, Any], source_row: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(source_row)
+    merged.update({key: value for key, value in input_row.items() if value is not None})
+    return merged
+
+
+def _operator_resolution_known_hosts(*rows: dict[str, Any]) -> set[str]:
+    fields = (
+        "current_known_document_url",
+        "current_known_source_page_url",
+        "latest_historical_document_url",
+        "operator_fill_source_page_url",
+    )
+    hosts: set[str] = set()
+    for row in rows:
+        for field in fields:
+            for item in _split_source_context_urls(str(row.get(field) or "")):
+                parsed = urllib.parse.urlparse(item)
+                if parsed.scheme in {"http", "https"} and parsed.netloc:
+                    host = _host(item)
+                    if host:
+                        hosts.add(host)
+    return hosts
+
+
+def _operator_resolution_domain_status(url: str, *, known_hosts: set[str]) -> str:
+    classification = classify_source_url(url, allow_unknown_source=False)
+    status = classification.get("status") or "unknown_error"
+    host = _host(url)
+    if status == "official":
+        return "official"
+    if status != "blocked" and host and host in known_hosts:
+        return "official_known_source_pack_host"
+    if status == "blocked":
+        return "blocked"
+    return "unofficial_or_unknown"
+
+
+def _operator_resolution_validation_add(errors: list[str], reasons: list[str], code: str) -> None:
+    errors.append(code)
+    reasons.append(code)
+
+
+def _validate_operator_resolution_exact_document(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    source_row: dict[str, Any],
+) -> dict[str, Any]:
+    reasons: list[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    target = str(row.get("target_reporting_period") or "")
+    required_type = str(row.get("required_report_type") or "")
+    required_standard = str(row.get("required_standard") or "")
+    filled_period = str(row.get("operator_fill_report_period") or "")
+    filled_type = str(row.get("operator_fill_report_type") or "")
+    filled_standard = str(row.get("operator_fill_accounting_standard") or "")
+    raw_url = str(row.get("operator_fill_exact_document_url") or "").strip()
+    url = _normalize_candidate_url(raw_url)
+    title = str(row.get("operator_fill_document_title") or "")
+    source_page_url = str(row.get("operator_fill_source_page_url") or "")
+    latest_historical_url = str(row.get("latest_historical_document_url") or "")
+    normalized_historical = _normalize_candidate_url(latest_historical_url)
+    historical_used = bool(url and normalized_historical and url == normalized_historical)
+
+    if not url:
+        _operator_resolution_validation_add(errors, reasons, "invalid_or_missing_http_url")
+    if target and filled_period and filled_period != target:
+        _operator_resolution_validation_add(errors, reasons, "operator_report_period_mismatch")
+    if required_type and filled_type and filled_type.casefold() != required_type.casefold():
+        _operator_resolution_validation_add(errors, reasons, "operator_report_type_mismatch")
+    if required_standard and filled_standard and filled_standard.casefold() != required_standard.casefold():
+        _operator_resolution_validation_add(errors, reasons, "operator_accounting_standard_mismatch")
+    if historical_used:
+        _operator_resolution_validation_add(errors, reasons, "historical_fallback_url_used_as_exact_document")
+
+    domain_status = ""
+    document_kind = ""
+    period_year = ""
+    period_status = ""
+    report_type_status = ""
+    standard_status = ""
+    if url:
+        domain_status = _operator_resolution_domain_status(
+            url,
+            known_hosts=_operator_resolution_known_hosts(row, source_row),
+        )
+        if domain_status not in {"official", "official_known_source_pack_host"}:
+            _operator_resolution_validation_add(errors, reasons, "unofficial_or_blocked_domain")
+        row_args = _clone_args(
+            args,
+            report_period=target or getattr(args, "report_period", ""),
+            report_type=required_type or getattr(args, "report_type", ""),
+            accounting_standard=required_standard or getattr(args, "accounting_standard", ""),
+            exact_document_allow_prior_year_fallback=False,
+        )
+        document_kind = classify_exact_document_kind(url, title, args=row_args)
+        period = classify_exact_document_period(url, title, source_page_url, args=row_args)
+        period_year = str(period.get("document_period_year") or "")
+        period_status = str(period.get("document_period_status") or "")
+        report_type = classify_exact_document_report_type(
+            url,
+            title,
+            args=row_args,
+            period_quarter=str(period.get("document_period_quarter") or ""),
+        )
+        report_type_status = str(report_type.get("report_type_match_status") or "")
+        standard = classify_exact_document_accounting_standard(url, title, args=row_args)
+        standard_status = str(standard.get("accounting_standard_match_status") or "")
+        if document_kind != "exact_report_document":
+            if document_kind in EXACT_DOCUMENT_CATEGORY_KINDS or document_kind == "generic_navigation_page":
+                _operator_resolution_validation_add(errors, reasons, "landing_page_not_allowed")
+            _operator_resolution_validation_add(errors, reasons, "not_exact_report_document")
+        if period_status != "target_period":
+            if period_status in {"wrong_period", "prior_period_fallback_candidate", "period_conflict"}:
+                _operator_resolution_validation_add(errors, reasons, "wrong_period")
+                reasons.append("not_target_reporting_period")
+            else:
+                _operator_resolution_validation_add(errors, reasons, "unknown_period")
+        if report_type_status != "annual_match":
+            if report_type_status == "interim_or_quarterly_mismatch":
+                _operator_resolution_validation_add(errors, reasons, "interim_or_quarterly_not_allowed_for_annual")
+            else:
+                _operator_resolution_validation_add(errors, reasons, "unknown_report_type")
+        if standard_status != "standard_match":
+            if standard_status == "standard_mismatch":
+                _operator_resolution_validation_add(errors, reasons, "wrong_accounting_standard")
+            else:
+                _operator_resolution_validation_add(errors, reasons, "unknown_accounting_standard")
+
+    valid = not errors
+    return {
+        "validation_status": "valid_for_future_controlled_intake_review" if valid else "invalid_operator_input",
+        "validation_severity": "info" if valid else "error",
+        "validation_reason_codes": ["exact_document_found", *reasons],
+        "validation_errors": list(dict.fromkeys(errors)),
+        "validation_warnings": list(dict.fromkeys(warnings)),
+        "url_validation_status": "valid_http_url" if url else "invalid_or_missing_http_url",
+        "domain_validation_status": domain_status or ("not_checked" if not url else "unofficial_or_unknown"),
+        "document_kind": document_kind,
+        "document_period_year": period_year,
+        "document_period_status": period_status,
+        "report_type_match_status": report_type_status,
+        "accounting_standard_match_status": standard_status,
+        "historical_fallback_url_used_as_exact_document": historical_used,
+        "can_use_for_future_intake_review": valid,
+    }
+
+
+def _operator_resolution_manual_required(row: dict[str, Any]) -> bool:
+    action_type = str(row.get("resolution_action_type") or "")
+    if _operator_resolution_bool(row.get("operator_input_required")):
+        return True
+    return action_type in {
+        "fill_exact_document_url",
+        "review_or_promote_official_seed",
+        "verify_target_report_publication",
+        "escalate_missing_target_report",
+    }
+
+
+def _operator_resolution_validation_base_result(
+    *,
+    status: str,
+    severity: str,
+    reasons: list[str],
+    errors: list[str] | None = None,
+    warnings: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "validation_status": status,
+        "validation_severity": severity,
+        "validation_reason_codes": list(dict.fromkeys(reasons)),
+        "validation_errors": list(dict.fromkeys(errors or [])),
+        "validation_warnings": list(dict.fromkeys(warnings or [])),
+        "url_validation_status": "not_checked",
+        "domain_validation_status": "not_checked",
+        "document_kind": "",
+        "document_period_year": "",
+        "document_period_status": "",
+        "report_type_match_status": "",
+        "accounting_standard_match_status": "",
+        "historical_fallback_url_used_as_exact_document": False,
+        "can_use_for_future_intake_review": False,
+    }
+
+
+def validate_operator_resolution_row(
+    args: argparse.Namespace,
+    input_row: dict[str, Any],
+    *,
+    input_columns: set[str],
+    source_row: dict[str, Any],
+    source_pack_provided: bool,
+) -> dict[str, Any]:
+    row = _operator_resolution_base_row(input_row, source_row)
+    missing_critical = [field for field in OPERATOR_RESOLUTION_VALIDATION_CRITICAL_COLUMNS if field not in input_row]
+    missing_optional = [
+        field
+        for field in OPERATOR_RESOLUTION_VALIDATION_EXPECTED_COLUMNS
+        if field not in input_columns and field not in OPERATOR_RESOLUTION_VALIDATION_CRITICAL_COLUMNS
+    ]
+    row_warnings = [f"missing_optional_column:{field}" for field in missing_optional]
+    if source_pack_provided and not source_row:
+        row_warnings.append("source_pack_row_missing")
+
+    decision = str(row.get("operator_fill_decision") or "").strip().casefold()
+    action_type = str(row.get("resolution_action_type") or "")
+    exact_url = str(row.get("operator_fill_exact_document_url") or "").strip()
+    reasons: list[str] = []
+    errors: list[str] = []
+    if missing_critical:
+        for field in missing_critical:
+            errors.append(f"missing_critical_column:{field}")
+        result = _operator_resolution_validation_base_result(
+            status="invalid_operator_input",
+            severity="error",
+            reasons=["missing_critical_column"],
+            errors=errors,
+            warnings=row_warnings,
+        )
+    elif action_type == "no_operator_resolution_required":
+        result = _operator_resolution_validation_base_result(
+            status="no_action_required",
+            severity="info",
+            reasons=["no_operator_resolution_required"],
+            warnings=row_warnings,
+        )
+    elif decision in {"", "pending"}:
+        if action_type == "review_sources_or_wait_grace" and (
+            _operator_resolution_bool(row.get("is_wait_action")) or row.get("resolution_status") == "waiting"
+        ):
+            result = _operator_resolution_validation_base_result(
+                status="waiting",
+                severity="info",
+                reasons=["wait_until_grace_date"],
+                warnings=row_warnings,
+            )
+        elif _operator_resolution_manual_required(row):
+            reasons.append("operator_decision_required")
+            if row.get("requires_exact_document_url") or action_type == "fill_exact_document_url":
+                reasons.append("exact_document_url_required")
+                errors.append("exact_document_url_required")
+            result = _operator_resolution_validation_base_result(
+                status="incomplete_operator_input",
+                severity="warning",
+                reasons=reasons,
+                errors=errors,
+                warnings=row_warnings,
+            )
+        else:
+            result = _operator_resolution_validation_base_result(
+                status="incomplete_operator_input",
+                severity="warning",
+                reasons=["operator_decision_required"],
+                warnings=row_warnings,
+            )
+    elif decision not in OPERATOR_RESOLUTION_DECISIONS:
+        result = _operator_resolution_validation_base_result(
+            status="invalid_operator_input",
+            severity="error",
+            reasons=["invalid_operator_decision"],
+            errors=["invalid_operator_decision"],
+            warnings=row_warnings,
+        )
+    elif decision == "wait_until_grace_date":
+        result = _operator_resolution_validation_base_result(
+            status="waiting",
+            severity="info",
+            reasons=["wait_until_grace_date"],
+            warnings=row_warnings,
+        )
+    elif decision in {"target_report_not_found", "seed_review_required", "escalate_missing_target_report"}:
+        result = _operator_resolution_validation_base_result(
+            status="diagnostic_only",
+            severity="info",
+            reasons=[decision],
+            warnings=row_warnings,
+        )
+    elif decision == "reject_invalid_input":
+        result = _operator_resolution_validation_base_result(
+            status="invalid_operator_input",
+            severity="error",
+            reasons=["operator_rejected_input"],
+            errors=["operator_rejected_input"],
+            warnings=row_warnings,
+        )
+    else:
+        if not exact_url:
+            result = _operator_resolution_validation_base_result(
+                status="incomplete_operator_input",
+                severity="warning",
+                reasons=["exact_document_url_required"],
+                errors=["exact_document_url_required"],
+                warnings=row_warnings,
+            )
+        else:
+            result = _validate_operator_resolution_exact_document(args, row, source_row)
+            result["validation_warnings"] = list(dict.fromkeys([*result.get("validation_warnings", []), *row_warnings]))
+
+    status = result["validation_status"]
+    next_step = {
+        "valid_for_future_controlled_intake_review": "send_to_future_controlled_intake_review",
+        "incomplete_operator_input": "complete_operator_resolution_template",
+        "invalid_operator_input": "fix_or_reject_operator_input",
+        "waiting": "wait_until_grace_date_or_recheck",
+        "diagnostic_only": "keep_diagnostic_only",
+        "no_action_required": "no_operator_action_required",
+    }.get(status, "review_validation_result")
+    note = (
+        "Valid only for a future controlled intake review; nothing is applied automatically."
+        if status == "valid_for_future_controlled_intake_review"
+        else "Validation is preview-only and does not mutate intake, sources, extraction, import, scoring, or trading."
+    )
+    return {
+        "resolution_id": row.get("resolution_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "target_reporting_period": row.get("target_reporting_period") or "",
+        "required_report_type": row.get("required_report_type") or "",
+        "required_standard": row.get("required_standard") or "",
+        "operator_fill_decision": decision,
+        "operator_fill_exact_document_url": row.get("operator_fill_exact_document_url") or "",
+        "operator_fill_document_title": row.get("operator_fill_document_title") or "",
+        "operator_fill_document_date": row.get("operator_fill_document_date") or "",
+        "operator_fill_source_page_url": row.get("operator_fill_source_page_url") or "",
+        "operator_fill_source_type": row.get("operator_fill_source_type") or "",
+        "operator_fill_report_period": row.get("operator_fill_report_period") or "",
+        "operator_fill_report_type": row.get("operator_fill_report_type") or "",
+        "operator_fill_accounting_standard": row.get("operator_fill_accounting_standard") or "",
+        "operator_fill_notes": row.get("operator_fill_notes") or "",
+        **result,
+        "latest_historical_document_url": row.get("latest_historical_document_url") or "",
+        "latest_historical_period": row.get("latest_historical_period") or "",
+        "would_update_document_intake": False,
+        "would_promote_seed": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "operator_next_step": next_step,
+        "validation_note": note,
+    }
+
+
+def _build_operator_resolution_validation_rows(
+    args: argparse.Namespace,
+    *,
+    rows: list[dict[str, Any]],
+    input_columns: set[str],
+    source_pack_by_id: dict[str, dict[str, Any]],
+    source_pack_provided: bool,
+) -> list[dict[str, Any]]:
+    validation_rows = [
+        validate_operator_resolution_row(
+            args,
+            row,
+            input_columns=input_columns,
+            source_row=source_pack_by_id.get(str(row.get("resolution_id") or ""), {}),
+            source_pack_provided=source_pack_provided,
+        )
+        for row in rows
+    ]
+    return sorted(validation_rows, key=lambda item: str(item.get("resolution_id") or ""))
+
+
+def _operator_resolution_validation_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    error_counts: dict[str, int] = {}
+    for row in rows:
+        for code in row.get("validation_errors") or []:
+            error_counts[str(code)] = error_counts.get(str(code), 0) + 1
+    return {
+        "operator_resolution_validation_row_count": len(rows),
+        "operator_resolution_validation_valid_count": sum(
+            1 for row in rows if row.get("validation_status") == "valid_for_future_controlled_intake_review"
+        ),
+        "operator_resolution_validation_incomplete_count": sum(
+            1 for row in rows if row.get("validation_status") == "incomplete_operator_input"
+        ),
+        "operator_resolution_validation_invalid_count": sum(
+            1 for row in rows if row.get("validation_status") == "invalid_operator_input"
+        ),
+        "operator_resolution_validation_future_intake_review_count": sum(
+            1 for row in rows if row.get("can_use_for_future_intake_review")
+        ),
+        "operator_resolution_validation_historical_fallback_rejected_count": sum(
+            1 for row in rows if row.get("historical_fallback_url_used_as_exact_document")
+        ),
+        "operator_resolution_validation_status_counts": _count_by_key(rows, "validation_status"),
+        "operator_resolution_validation_error_counts": dict(sorted(error_counts.items())),
+    }
+
+
+def _build_operator_resolution_validation_report(
+    args: argparse.Namespace,
+    *,
+    rows: list[dict[str, Any]],
+    load_warnings: list[dict[str, Any]] | None = None,
+    load_errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    summary = _operator_resolution_validation_summary(rows)
+    load_warnings = load_warnings or []
+    load_errors = load_errors or []
+    if load_errors:
+        status = "failed"
+    elif load_warnings or summary["operator_resolution_validation_incomplete_count"] or summary["operator_resolution_validation_invalid_count"]:
+        status = "warning"
+    else:
+        status = "passed"
+    return {
+        "status": status,
+        "mode": "operator-resolution-validation",
+        "summary": summary,
+        **summary,
+        "validation_rows": rows,
+        "operator_resolution_input": _path_value(args.operator_resolution_input),
+        "operator_resolution_source_pack_input": _path_value(args.operator_resolution_source_pack_input),
+        "operator_resolution_validation_output": _path_value(args.operator_resolution_validation_output),
+        "operator_resolution_validation_csv_output": _path_value(args.operator_resolution_validation_csv_output),
+        "operator_resolution_validation_markdown_output": _path_value(args.operator_resolution_validation_markdown_output),
+        "warnings": load_warnings,
+        "errors": load_errors,
+        "next_steps": _next_steps("operator-resolution-validation", status),
+        "would_update_document_intake": False,
+        "would_promote_seed": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -13801,6 +14522,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Validate promoted reviewed seeds, then use them with official-seed-resolve; exact documents still require the quality gate."]
     if mode == "exact-document-discover-from-seeds":
         return ["Review exact document candidates, then run document-intake-fill, document-intake-validate, and the strict document quality gate."]
+    if mode == "operator-resolution-validation":
+        return ["Review validation rows; valid rows are only eligible for a future controlled intake review step."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
