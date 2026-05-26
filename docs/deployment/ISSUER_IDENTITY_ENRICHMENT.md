@@ -1109,6 +1109,30 @@ and flattened per-issuer fields such as `recommended_next_step`,
 `historical_fallback_scope`, `can_use_as_target_period_evidence`, and
 `ready_for_value_extraction`.
 
+## Operator Review Action Queue
+
+Task 113 adds optional queue exports generated from the existing
+`availability_operator_rows`. These exports are preview-only operator guidance:
+they do not apply decisions, accept historical reports, import reports, mutate
+scores, change schedules, or call paper trading.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --operator-review-queue-output logs/financial_reports/operator_review_queue_task113.json \
+  --operator-review-queue-csv-output logs/financial_reports/operator_review_queue_task113.csv \
+  --operator-review-queue-markdown-output logs/financial_reports/operator_review_queue_task113.md
+```
+
+The main discovery JSON also exposes top-level queue counts so smoke scripts can
+check blocking/manual/wait actions without recursively searching nested JSON.
+
 ## VDS Smoke Checklist
 
 Health:

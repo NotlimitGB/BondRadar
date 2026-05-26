@@ -311,6 +311,46 @@ AVAILABILITY_OPERATOR_SUMMARY_FIELDS = [
     "recommended_next_step",
     "operator_note",
 ]
+OPERATOR_REVIEW_QUEUE_FIELDS = [
+    "action_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "availability_status",
+    "availability_reason_codes",
+    "operator_action",
+    "recommended_next_step",
+    "queue_action_type",
+    "queue_action_label",
+    "queue_priority",
+    "queue_status",
+    "is_blocking_next_stage",
+    "blocked_stage",
+    "manual_review_required",
+    "can_unblock_extraction",
+    "target_evidence_available",
+    "gate_status",
+    "gate_passed",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "historical_fallback_scope",
+    "historical_fallback_allowed",
+    "latest_available_period",
+    "latest_available_report_type",
+    "latest_available_standard",
+    "latest_available_document_url",
+    "reporting_policy_name",
+    "expected_availability_date",
+    "availability_current_date",
+    "within_grace_window",
+    "operator_instruction",
+    "operator_note",
+    "source_context",
+]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -986,6 +1026,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--availability-operator-summary-output", type=Path, default=None)
     parser.add_argument("--availability-operator-summary-csv-output", type=Path, default=None)
     parser.add_argument("--availability-operator-summary-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-review-queue-output", type=Path, default=None)
+    parser.add_argument("--operator-review-queue-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-review-queue-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3672,6 +3715,25 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
             availability_operator_report,
             args.availability_operator_summary_markdown_output,
         )
+    operator_review_queue_report = _build_operator_review_queue_report(
+        args,
+        status=status,
+        availability_operator_rows=availability_operator_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    if args.operator_review_queue_output is not None and not errors:
+        write_json_report(operator_review_queue_report, args.operator_review_queue_output)
+    if args.operator_review_queue_csv_output is not None and not errors:
+        write_operator_review_queue_csv(
+            operator_review_queue_report["actions"],
+            args.operator_review_queue_csv_output,
+        )
+    if args.operator_review_queue_markdown_output is not None and not errors:
+        write_operator_review_queue_markdown(
+            operator_review_queue_report,
+            args.operator_review_queue_markdown_output,
+        )
     return report
 
 
@@ -4583,6 +4645,20 @@ def write_availability_operator_summary_markdown(report: dict[str, Any], path: P
     path.write_text(render_availability_operator_summary_markdown(report), encoding="utf-8")
 
 
+def write_operator_review_queue_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_REVIEW_QUEUE_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in OPERATOR_REVIEW_QUEUE_FIELDS})
+
+
+def write_operator_review_queue_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_review_queue_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -4878,6 +4954,35 @@ def render_availability_operator_summary_markdown(report: dict[str, Any]) -> str
     return "\n".join(lines) + "\n"
 
 
+def render_operator_review_queue_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Operator Review Action Queue",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- target_reporting_period: {report.get('target_reporting_period')}",
+        f"- required_report_type: {report.get('required_report_type')}",
+        f"- required_standard: {report.get('required_standard')}",
+        "",
+    ]
+    lines.extend(_render_operator_review_queue_sections(report.get("summary") or {}, report.get("actions") or []))
+    lines.extend(
+        [
+            "## Safety",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- identity_apply_executed: {report.get('identity_apply_executed')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _render_availability_operator_view_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
     lines = [
         "## Target Reporting Period Availability - Operator View",
@@ -4931,6 +5036,62 @@ def _render_availability_operator_view_sections(summary: dict[str, Any], rows: l
             )
     else:
         lines.append("| None |  |  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
+
+
+def _render_operator_review_queue_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "## Operator Review Action Queue",
+        "",
+        f"- queue actions: {summary.get('operator_review_queue_count', len(rows))}",
+        f"- blocking actions: {summary.get('operator_review_queue_blocking_count', 0)}",
+        f"- manual actions: {summary.get('operator_review_queue_manual_action_count', 0)}",
+        f"- wait actions: {summary.get('operator_review_queue_wait_action_count', 0)}",
+        f"- no-op actions: {summary.get('operator_review_queue_noop_count', 0)}",
+        "",
+        "### Queue Priority Counts",
+        "",
+    ]
+    priority_counts = summary.get("operator_review_queue_priority_counts") or {}
+    if priority_counts:
+        lines.extend(f"- {key}: {value}" for key, value in priority_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Queue Action Type Counts", ""])
+    action_counts = summary.get("operator_review_queue_action_type_counts") or {}
+    if action_counts:
+        lines.extend(f"- {key}: {value}" for key, value in action_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Per-Action Queue",
+            "",
+            "| Priority | Status | Company | Target | Action Type | Blocking | Blocked Stage | Instruction | Next Step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| {priority} | {status} | {company} | {target} {report_type} {standard} | {action_type} | {blocking} | {blocked_stage} | {instruction} | {next_step} |".format(
+                    priority=row.get("queue_priority") or "",
+                    status=row.get("queue_status") or "",
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    target=row.get("target_reporting_period") or "",
+                    report_type=row.get("required_report_type") or "",
+                    standard=row.get("required_standard") or "",
+                    action_type=row.get("queue_action_type") or "",
+                    blocking=row.get("is_blocking_next_stage"),
+                    blocked_stage=row.get("blocked_stage") or "",
+                    instruction=str(row.get("operator_instruction") or "").replace("|", "/"),
+                    next_step=str(row.get("recommended_next_step") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |  |  |")
     lines.append("")
     return lines
 
@@ -5272,6 +5433,12 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
         _render_availability_operator_view_sections(
             report.get("availability_operator_summary") or {},
             report.get("availability_operator_rows") or [],
+        )
+    )
+    lines.extend(
+        _render_operator_review_queue_sections(
+            report.get("operator_review_queue_summary") or {},
+            report.get("operator_review_queue") or [],
         )
     )
     lines.extend(
@@ -7236,6 +7403,219 @@ def _build_availability_operator_summary_report(
     }
 
 
+def _operator_review_queue_action_config(availability_status: str) -> dict[str, Any]:
+    configs = {
+        "placeholder_not_found": {
+            "queue_action_type": "fill_exact_document_url",
+            "queue_action_label": "Fill exact document URL",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Find and paste the exact official annual IFRS report page or PDF URL. Do not paste a landing page.",
+        },
+        "target_period_likely_not_yet_published_by_policy_window": {
+            "queue_action_type": "wait_or_recheck_publication",
+            "queue_action_label": "Wait or recheck publication",
+            "queue_priority": "medium",
+            "queue_status": "waiting",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": False,
+            "can_unblock_extraction": False,
+            "operator_instruction": "Wait until expected availability date or manually recheck official sources if needed.",
+        },
+        "only_historical_annual_ifrs_available": {
+            "queue_action_type": "continue_target_period_search",
+            "queue_action_label": "Continue target-period search",
+            "queue_priority": "medium",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Historical IFRS report is diagnostic-only. Continue searching for exact target-period annual IFRS report.",
+        },
+        "only_interim_or_quarterly_available": {
+            "queue_action_type": "search_annual_report",
+            "queue_action_label": "Search annual report",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Interim, quarterly, or half-year reports must not be used as annual evidence. Search for the exact annual IFRS report.",
+        },
+        "only_wrong_standard_available": {
+            "queue_action_type": "search_ifrs_report",
+            "queue_action_label": "Search IFRS report",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "RAS/РСБУ is not accepted when IFRS is required. Search for the official IFRS report.",
+        },
+        "operator_exact_document_review_required": {
+            "queue_action_type": "review_exact_document_candidate",
+            "queue_action_label": "Review exact document candidate",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Review the exact candidate manually and confirm whether it is the official target-period annual IFRS report.",
+        },
+        "no_usable_official_report_candidates": {
+            "queue_action_type": "improve_official_source_coverage",
+            "queue_action_label": "Improve official source coverage",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Add or review official source seeds before searching for exact report documents.",
+        },
+        "target_period_document_not_found": {
+            "queue_action_type": "improve_official_source_coverage",
+            "queue_action_label": "Improve official source coverage",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Improve official source coverage and continue searching for the exact target-period annual IFRS report.",
+        },
+        "exact_target_period_document_found": {
+            "queue_action_type": "no_operator_action_required",
+            "queue_action_label": "No operator action required",
+            "queue_priority": "low",
+            "queue_status": "resolved_or_not_required",
+            "is_blocking_next_stage": False,
+            "blocked_stage": "none",
+            "manual_review_required": False,
+            "can_unblock_extraction": False,
+            "operator_instruction": "Exact target-period annual IFRS document is available. Follow the existing quality gate before extraction preview.",
+        },
+    }
+    return configs.get(
+        availability_status,
+        {
+            "queue_action_type": "improve_official_source_coverage",
+            "queue_action_label": "Improve official source coverage",
+            "queue_priority": "high",
+            "queue_status": "open",
+            "is_blocking_next_stage": True,
+            "blocked_stage": "value_extraction",
+            "manual_review_required": True,
+            "can_unblock_extraction": True,
+            "operator_instruction": "Review official source coverage and continue searching for the exact target-period annual IFRS report.",
+        },
+    )
+
+
+def _operator_review_queue_action_id(row: dict[str, Any], queue_action_type: str) -> str:
+    company_id = row.get("company_id") or row.get("canonical_company_id") or ""
+    target = row.get("target_reporting_period") or ""
+    report_type = row.get("required_report_type") or ""
+    standard = row.get("required_standard") or ""
+    return f"financial_report:{company_id}:{target}:{report_type}:{standard}:{queue_action_type}"
+
+
+def _build_operator_review_queue_rows(availability_operator_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    actions: list[dict[str, Any]] = []
+    for row in availability_operator_rows:
+        status = str(row.get("availability_status") or "")
+        config = _operator_review_queue_action_config(status)
+        queue_action_type = str(config.get("queue_action_type") or "")
+        source_context = row.get("latest_available_document_url") or _csv_value(row.get("availability_reason_codes"))
+        action = {
+            "action_id": _operator_review_queue_action_id(row, queue_action_type),
+            "company_id": row.get("company_id"),
+            "company_name": row.get("company_name") or "",
+            "canonical_company_id": row.get("canonical_company_id") or row.get("company_id"),
+            "canonical_company_name": row.get("canonical_company_name") or row.get("company_name") or "",
+            "target_reporting_period": row.get("target_reporting_period") or "",
+            "required_report_type": row.get("required_report_type") or "",
+            "required_standard": row.get("required_standard") or "",
+            "availability_status": status,
+            "availability_reason_codes": list(row.get("availability_reason_codes") or []),
+            "operator_action": row.get("operator_action") or "",
+            "recommended_next_step": row.get("recommended_next_step") or "",
+            **config,
+            "target_evidence_available": bool(row.get("can_use_as_target_period_evidence")),
+            "gate_status": row.get("gate_status") or "",
+            "gate_passed": bool(row.get("gate_passed")),
+            "ready_for_value_extraction": bool(row.get("ready_for_value_extraction")),
+            "ready_for_import": bool(row.get("ready_for_import")),
+            "historical_fallback_scope": row.get("historical_fallback_scope") or "none",
+            "historical_fallback_allowed": bool(row.get("historical_fallback_allowed")),
+            "latest_available_period": row.get("latest_available_period") or "",
+            "latest_available_report_type": row.get("latest_available_report_type") or "",
+            "latest_available_standard": row.get("latest_available_standard") or "",
+            "latest_available_document_url": row.get("latest_available_document_url") or "",
+            "reporting_policy_name": row.get("reporting_policy_name") or "",
+            "expected_availability_date": row.get("expected_availability_date") or "",
+            "availability_current_date": row.get("availability_current_date") or "",
+            "within_grace_window": bool(row.get("within_grace_window")),
+            "operator_note": row.get("operator_note") or "",
+            "source_context": source_context,
+        }
+        actions.append(action)
+    return sorted(actions, key=lambda item: str(item.get("action_id") or ""))
+
+
+def _operator_review_queue_summary(actions: list[dict[str, Any]]) -> dict[str, Any]:
+    priority_counts = {"high": 0, "medium": 0, "low": 0}
+    for action in actions:
+        priority = str(action.get("queue_priority") or "")
+        if priority:
+            priority_counts[priority] = priority_counts.get(priority, 0) + 1
+    return {
+        "operator_review_queue_count": len(actions),
+        "operator_review_queue_blocking_count": sum(1 for action in actions if action.get("is_blocking_next_stage")),
+        "operator_review_queue_manual_action_count": sum(1 for action in actions if action.get("manual_review_required")),
+        "operator_review_queue_wait_action_count": sum(
+            1 for action in actions if action.get("queue_action_type") == "wait_or_recheck_publication"
+        ),
+        "operator_review_queue_noop_count": sum(
+            1 for action in actions if action.get("queue_action_type") == "no_operator_action_required"
+        ),
+        "operator_review_queue_priority_counts": dict(sorted(priority_counts.items())),
+        "operator_review_queue_action_type_counts": _count_by_key(actions, "queue_action_type"),
+    }
+
+
+def _build_operator_review_queue_report(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    availability_operator_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]] | None = None,
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    actions = _build_operator_review_queue_rows(availability_operator_rows)
+    return {
+        "status": status,
+        "mode": "operator-review-queue",
+        "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+        "required_report_type": str(getattr(args, "report_type", "") or ""),
+        "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+        "summary": _operator_review_queue_summary(actions),
+        "actions": actions,
+        "warnings": warnings or [],
+        "errors": errors or [],
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -8202,6 +8582,14 @@ def _build_exact_document_discovery_report(
         errors=errors,
     )
     availability_summary = availability_operator_report["summary"]
+    operator_review_queue_report = _build_operator_review_queue_report(
+        args,
+        status=status,
+        availability_operator_rows=availability_operator_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    operator_review_queue_summary = operator_review_queue_report["summary"]
     return {
         "status": status,
         "mode": "exact-document-discover-from-seeds",
@@ -8230,6 +8618,9 @@ def _build_exact_document_discovery_report(
         **availability_summary,
         "availability_operator_summary": availability_summary,
         "availability_operator_rows": availability_operator_report["issuers"],
+        **operator_review_queue_summary,
+        "operator_review_queue_summary": operator_review_queue_summary,
+        "operator_review_queue": operator_review_queue_report["actions"],
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -8248,6 +8639,9 @@ def _build_exact_document_discovery_report(
         "availability_operator_summary_output": _path_value(args.availability_operator_summary_output),
         "availability_operator_summary_csv_output": _path_value(args.availability_operator_summary_csv_output),
         "availability_operator_summary_markdown_output": _path_value(args.availability_operator_summary_markdown_output),
+        "operator_review_queue_output": _path_value(args.operator_review_queue_output),
+        "operator_review_queue_csv_output": _path_value(args.operator_review_queue_csv_output),
+        "operator_review_queue_markdown_output": _path_value(args.operator_review_queue_markdown_output),
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps("exact-document-discover-from-seeds", status),

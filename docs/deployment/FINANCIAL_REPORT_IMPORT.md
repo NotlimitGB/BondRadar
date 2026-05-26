@@ -1398,6 +1398,34 @@ availability status, reason codes, diagnostic fallback scope, target-evidence
 flag, gate/readiness flags, and recommended next step. Historical fallback
 remains diagnostic-only and cannot make extraction or import ready.
 
+## Operator Review Action Queue
+
+Task 113 adds optional preview-only queue exports generated from the Task 112
+`availability_operator_rows`. The queue does not apply operator decisions and
+does not change document eligibility, quality-gate behavior, imports, scoring,
+schedules, or paper trading.
+
+```bash
+python3 scripts/financial_official_source_evidence_assistant.py \
+  --mode exact-document-discover-from-seeds \
+  --seed-input data/financial_reports/private/official_seed_pack_task107.json \
+  --document-intake-input data/financial_reports/private/exact_document_intake_task99.json \
+  --required-company-ids 18,67 \
+  --report-period 2025 \
+  --report-type annual \
+  --accounting-standard IFRS \
+  --operator-review-queue-output logs/financial_reports/operator_review_queue_task113.json \
+  --operator-review-queue-csv-output logs/financial_reports/operator_review_queue_task113.csv \
+  --operator-review-queue-markdown-output logs/financial_reports/operator_review_queue_task113.md \
+  --json-output logs/financial_reports/exact_document_discover_from_seeds_task113.json \
+  --markdown-output logs/financial_reports/exact_document_discover_from_seeds_task113.md
+```
+
+Each queue row has a deterministic `action_id`, action type, priority, status,
+blocking flags, operator instruction, and recommended next step. Historical
+fallback remains `diagnostic_only`, and readiness still comes only from the
+strict quality gate.
+
 ## First Real Data Pack Workflow
 
 Real issuer data should be collected by the operator from official reports and

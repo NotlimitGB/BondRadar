@@ -1493,6 +1493,13 @@ def test_exact_document_discover_from_reviewed_seed_finds_annual_ifrs_pdf(
     assert operator_row["recommended_next_step"] == "proceed_to_quality_gate_or_extraction_preview"
     assert operator_row["gate_status"] == "quality_gate_not_run"
     assert operator_row["ready_for_value_extraction"] is False
+    queue_action = report["operator_review_queue"][0]
+    assert queue_action["queue_action_type"] == "no_operator_action_required"
+    assert queue_action["queue_priority"] == "low"
+    assert queue_action["queue_status"] == "resolved_or_not_required"
+    assert queue_action["is_blocking_next_stage"] is False
+    assert queue_action["ready_for_value_extraction"] is False
+    assert queue_action["action_id"] == "financial_report:67:2025:annual:IFRS:no_operator_action_required"
     assert "revenue" not in json.dumps(report, ensure_ascii=False)
     payload = json.loads(candidate_output.read_text(encoding="utf-8"))
     assert payload["documents"][0]["document_url"] == document["document_url"]
@@ -2329,6 +2336,15 @@ def test_exact_document_availability_policy_historical_inside_grace_window(
     assert availability["latest_available_period"] == "2024"
     assert availability["reporting_window_policy"]["expected_availability_date"] == "2026-06-29"
     assert availability["reporting_window_policy"]["within_grace_window"] is True
+    action = _queue_action_for(report)
+    assert action["queue_action_type"] == "wait_or_recheck_publication"
+    assert action["queue_priority"] == "medium"
+    assert action["queue_status"] == "waiting"
+    assert action["manual_review_required"] is False
+    assert action["is_blocking_next_stage"] is True
+    assert action["blocked_stage"] == "value_extraction"
+    assert action["can_unblock_extraction"] is False
+    assert action["expected_availability_date"] == "2026-06-29"
 
 
 def test_exact_document_availability_policy_historical_after_grace_window(
@@ -2348,6 +2364,12 @@ def test_exact_document_availability_policy_historical_after_grace_window(
     assert availability["historical_fallback_allowed"] is True
     assert availability["historical_fallback_scope"] == "diagnostic_only"
     assert availability["latest_available_document_url"].endswith("annual-ifrs-financial-statements-2024.pdf")
+    action = _queue_action_for(report)
+    assert action["historical_fallback_scope"] == "diagnostic_only"
+    assert action["target_evidence_available"] is False
+    assert action["queue_action_type"] == "continue_target_period_search"
+    assert "extract" not in action["operator_instruction"].lower()
+    assert "import" not in action["operator_instruction"].lower()
 
 
 def test_exact_document_availability_policy_only_interim_available(
@@ -2367,6 +2389,11 @@ def test_exact_document_availability_policy_only_interim_available(
     assert availability["availability_status"] == "only_interim_or_quarterly_available"
     assert availability["can_use_as_target_period_evidence"] is False
     assert availability["interim_or_quarterly_document_count"] >= 2
+    action = _queue_action_for(report)
+    assert action["queue_action_type"] == "search_annual_report"
+    assert action["queue_priority"] == "high"
+    assert action["manual_review_required"] is True
+    assert "must not be used as annual evidence" in action["operator_instruction"]
 
 
 def test_exact_document_availability_policy_only_wrong_standard_available(
@@ -2383,6 +2410,10 @@ def test_exact_document_availability_policy_only_wrong_standard_available(
     assert availability["availability_status"] == "only_wrong_standard_available"
     assert availability["can_use_as_target_period_evidence"] is False
     assert availability["wrong_standard_document_count"] >= 1
+    action = _queue_action_for(report)
+    assert action["queue_action_type"] == "search_ifrs_report"
+    assert action["queue_priority"] == "high"
+    assert "not accepted when IFRS is required" in action["operator_instruction"]
 
 
 def test_exact_document_availability_policy_operator_review_required_for_ambiguous_target_doc(
@@ -2400,6 +2431,10 @@ def test_exact_document_availability_policy_operator_review_required_for_ambiguo
     assert availability["operator_action"] == "review_exact_document_candidate"
     assert availability["can_use_as_target_period_evidence"] is False
     assert availability["operator_review_required_count"] >= 1
+    action = _queue_action_for(report)
+    assert action["queue_action_type"] == "review_exact_document_candidate"
+    assert action["queue_priority"] == "high"
+    assert action["manual_review_required"] is True
 
 
 def test_exact_document_availability_policy_placeholder_not_found_row(
@@ -2419,6 +2454,15 @@ def test_exact_document_availability_policy_placeholder_not_found_row(
     assert placeholder["can_use_as_target_period_evidence"] is False
     assert availability["availability_status"] == "placeholder_not_found"
     assert availability["can_use_as_target_period_evidence"] is False
+    action = _queue_action_for(report)
+    assert action["queue_action_type"] == "fill_exact_document_url"
+    assert action["queue_priority"] == "high"
+    assert action["queue_status"] == "open"
+    assert action["manual_review_required"] is True
+    assert action["is_blocking_next_stage"] is True
+    assert action["blocked_stage"] == "value_extraction"
+    assert action["can_unblock_extraction"] is True
+    assert "exact official annual IFRS report page or PDF URL" in action["operator_instruction"]
 
 
 def test_exact_document_availability_policy_no_usable_official_candidates(
@@ -2436,6 +2480,8 @@ def test_exact_document_availability_policy_no_usable_official_candidates(
     assert availability["can_use_as_target_period_evidence"] is False
     assert availability["historical_fallback_allowed"] is False
     assert availability["historical_fallback_scope"] == "none"
+    action = _queue_action_for(report)
+    assert action["queue_action_type"] == "improve_official_source_coverage"
 
 
 def test_exact_document_availability_operator_summary_exports_flat_rows(
@@ -2447,6 +2493,9 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     summary_json = tmp_path / "availability_summary.json"
     summary_csv = tmp_path / "availability_summary.csv"
     summary_md = tmp_path / "availability_summary.md"
+    queue_json = tmp_path / "operator_review_queue.json"
+    queue_csv = tmp_path / "operator_review_queue.csv"
+    queue_md = tmp_path / "operator_review_queue.md"
     _write_reviewed_seed_pack(seed_pack, include_rzd=True)
     _write_document_intake(
         intake,
@@ -2483,6 +2532,12 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
             str(summary_csv),
             "--availability-operator-summary-markdown-output",
             str(summary_md),
+            "--operator-review-queue-output",
+            str(queue_json),
+            "--operator-review-queue-csv-output",
+            str(queue_csv),
+            "--operator-review-queue-markdown-output",
+            str(queue_md),
         ]
     )
 
@@ -2501,6 +2556,15 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert report["import_ready_count"] == 0
     assert report["operator_action_counts"]["operator_to_find_official_exact_document"] == 1
     assert report["operator_action_counts"]["wait_for_target_period_publication_or_review_official_sources"] == 1
+    assert report["operator_review_queue_count"] == 2
+    assert report["operator_review_queue_blocking_count"] == 2
+    assert report["operator_review_queue_manual_action_count"] == 1
+    assert report["operator_review_queue_wait_action_count"] == 1
+    assert report["operator_review_queue_noop_count"] == 0
+    assert report["operator_review_queue_priority_counts"]["high"] == 1
+    assert report["operator_review_queue_priority_counts"]["medium"] == 1
+    assert report["operator_review_queue_action_type_counts"]["fill_exact_document_url"] == 1
+    assert report["operator_review_queue_action_type_counts"]["wait_or_recheck_publication"] == 1
 
     rows = {str(row["company_id"]): row for row in report["availability_operator_rows"]}
     assert set(rows) == {"18", "67"}
@@ -2514,6 +2578,25 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert rows["67"]["historical_fallback_scope"] == "diagnostic_only"
     assert rows["67"]["recommended_next_step"] == "wait_for_target_period_publication_or_review_official_sources"
     assert rows["67"]["ready_for_value_extraction"] is False
+    actions = {str(row["company_id"]): row for row in report["operator_review_queue"]}
+    assert actions["18"]["action_id"] == "financial_report:18:2025:annual:IFRS:fill_exact_document_url"
+    assert actions["18"]["queue_action_type"] == "fill_exact_document_url"
+    assert actions["18"]["queue_priority"] == "high"
+    assert actions["18"]["queue_status"] == "open"
+    assert actions["18"]["manual_review_required"] is True
+    assert actions["18"]["is_blocking_next_stage"] is True
+    assert actions["18"]["blocked_stage"] == "value_extraction"
+    assert actions["18"]["can_unblock_extraction"] is True
+    assert "Do not paste a landing page" in actions["18"]["operator_instruction"]
+    assert actions["67"]["action_id"] == "financial_report:67:2025:annual:IFRS:wait_or_recheck_publication"
+    assert actions["67"]["queue_action_type"] == "wait_or_recheck_publication"
+    assert actions["67"]["queue_priority"] == "medium"
+    assert actions["67"]["queue_status"] == "waiting"
+    assert actions["67"]["manual_review_required"] is False
+    assert actions["67"]["is_blocking_next_stage"] is True
+    assert actions["67"]["blocked_stage"] == "value_extraction"
+    assert actions["67"]["can_unblock_extraction"] is False
+    assert actions["67"]["expected_availability_date"] == "2026-06-29"
 
     exported = json.loads(summary_json.read_text(encoding="utf-8"))
     assert exported["mode"] == "availability-operator-summary"
@@ -2537,6 +2620,30 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert "target_period_likely_not_yet_published_by_policy_window" in markdown
     assert "diagnostic_only" in markdown
     assert "False" in markdown or "false" in markdown
+    queue_exported = json.loads(queue_json.read_text(encoding="utf-8"))
+    assert queue_exported["mode"] == "operator-review-queue"
+    assert queue_exported["summary"]["operator_review_queue_count"] == 2
+    assert len(queue_exported["actions"]) == 2
+    queue_csv_rows = list(csv.DictReader(queue_csv.open(encoding="utf-8")))
+    assert len(queue_csv_rows) == 2
+    assert {
+        "action_id",
+        "queue_action_type",
+        "queue_priority",
+        "queue_status",
+        "is_blocking_next_stage",
+        "blocked_stage",
+        "manual_review_required",
+        "can_unblock_extraction",
+        "operator_instruction",
+        "recommended_next_step",
+    }.issubset(set(queue_csv_rows[0]))
+    queue_markdown = queue_md.read_text(encoding="utf-8")
+    assert "Operator Review Action Queue" in queue_markdown
+    assert "Queue Priority Counts" in queue_markdown
+    assert "Queue Action Type Counts" in queue_markdown
+    assert "fill_exact_document_url" in queue_markdown
+    assert "wait_or_recheck_publication" in queue_markdown
 
 
 def test_exact_document_discover_probe_and_download_are_optional(
@@ -5460,6 +5567,14 @@ def _availability_for(report: dict, company_id: int = 67) -> dict:
     return next(
         item
         for item in report.get("target_reporting_period_availability", [])
+        if str(item.get("company_id")) == str(company_id)
+    )
+
+
+def _queue_action_for(report: dict, company_id: int = 67) -> dict:
+    return next(
+        item
+        for item in report.get("operator_review_queue", [])
         if str(item.get("company_id")) == str(company_id)
     )
 
