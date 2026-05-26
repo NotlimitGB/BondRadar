@@ -2532,6 +2532,138 @@ def test_exact_document_availability_policy_no_usable_official_candidates(
     assert action["manual_review_required"] is True
 
 
+def test_exact_document_historical_fallback_registry_none_available(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html="",
+        current_date="2026-05-25",
+    )
+
+    registry = _historical_fallback_for(report)
+    assert registry["historical_fallback_status"] == "no_historical_fallback_available"
+    assert registry["historical_fallback_scope"] == "none"
+    assert registry["historical_fallback_allowed"] is False
+    assert registry["can_use_as_target_period_evidence"] is False
+    assert registry["can_use_for_value_extraction"] is False
+    assert registry["can_use_for_import"] is False
+    assert registry["can_use_for_scoring"] is False
+    assert registry["can_use_for_paper_trading"] is False
+    assert "no_historical_annual_ifrs_available" in registry["historical_fallback_reason_codes"]
+
+
+def test_exact_document_historical_fallback_registry_latest_annual_ifrs_available(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/2019_12_Mostotrest_IFRS_Accounts.pdf">Annual IFRS accounts 2019</a>',
+        current_date="2026-05-25",
+    )
+
+    registry = _historical_fallback_for(report)
+    assert registry["historical_fallback_status"] == "latest_historical_annual_ifrs_available"
+    assert registry["latest_available_period"] == "2019"
+    assert registry["latest_available_report_type"] == "annual"
+    assert registry["latest_available_standard"] == "IFRS"
+    assert registry["latest_available_document_url"].endswith("2019_12_Mostotrest_IFRS_Accounts.pdf")
+    assert registry["historical_fallback_scope"] == "diagnostic_only"
+    assert registry["can_use_as_target_period_evidence"] is False
+    assert registry["can_use_for_value_extraction"] is False
+    assert registry["can_use_for_import"] is False
+    assert registry["can_use_for_scoring"] is False
+    assert registry["can_use_for_paper_trading"] is False
+    assert "historical_fallback_diagnostic_only" in registry["historical_fallback_reason_codes"]
+    assert report["historical_fallback_registry_report_count"] == 1
+    assert report["historical_fallback_registry_latest_report_count"] == 1
+    assert report["historical_fallback_registry_diagnostic_only_count"] == 1
+    assert report["historical_fallback_registry_target_evidence_count"] == 0
+    assert report["historical_fallback_registry_extraction_ready_count"] == 0
+    assert report["historical_fallback_registry_import_ready_count"] == 0
+
+
+def test_exact_document_historical_fallback_registry_selects_latest_period(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html="""
+            <a href="/reports/annual-ifrs-financial-statements-2018.pdf">Annual IFRS financial statements 2018</a>
+            <a href="/reports/annual-ifrs-financial-statements-2019.pdf">Annual IFRS financial statements 2019</a>
+            <a href="/reports/annual-ifrs-financial-statements-2020.pdf">Annual IFRS financial statements 2020</a>
+        """,
+    )
+
+    registry = _historical_fallback_for(report)
+    assert registry["historical_fallback_status"] == "latest_historical_annual_ifrs_available"
+    assert registry["latest_available_period"] == "2020"
+    assert registry["historical_annual_ifrs_latest_period"] == 2020
+    assert registry["historical_annual_ifrs_oldest_period"] == 2018
+    assert registry["historical_annual_ifrs_periods"] == [2018, 2019, 2020]
+    assert registry["can_use_as_target_period_evidence"] is False
+
+
+def test_exact_document_historical_fallback_registry_only_interim_historical(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/IFRS_1H2024.pdf">IFRS 1H2024</a>',
+    )
+
+    registry = _historical_fallback_for(report)
+    assert registry["historical_fallback_status"] == "only_interim_or_quarterly_historical_available"
+    assert registry["historical_fallback_scope"] == "none"
+    assert registry["can_use_as_target_period_evidence"] is False
+    assert registry["can_use_for_value_extraction"] is False
+
+
+def test_exact_document_historical_fallback_registry_only_wrong_standard_historical(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ras-financial-statements-2024.pdf">Annual RAS financial statements 2024</a>',
+    )
+
+    registry = _historical_fallback_for(report)
+    assert registry["historical_fallback_status"] == "only_wrong_standard_historical_available"
+    assert registry["can_use_as_target_period_evidence"] is False
+    assert registry["can_use_for_import"] is False
+    assert "historical_wrong_standard_available" in registry["historical_fallback_reason_codes"]
+
+
+def test_exact_document_historical_fallback_registry_exact_target_no_fallback_needed(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    report = _run_availability_discovery(
+        tmp_path,
+        monkeypatch,
+        seed_html='<a href="/reports/annual-ifrs-financial-statements-2025.pdf">Annual IFRS financial statements 2025</a>',
+        current_date="2026-05-25",
+    )
+
+    registry = _historical_fallback_for(report)
+    assert registry["historical_fallback_status"] == "exact_target_period_available_no_fallback_needed"
+    assert registry["historical_fallback_scope"] == "none"
+    assert registry["can_use_as_target_period_evidence"] is True
+    assert registry["can_use_for_value_extraction"] is False
+    assert registry["ready_for_value_extraction"] is False
+    assert report["historical_fallback_registry_target_evidence_count"] == 1
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -2670,6 +2802,9 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     coverage_json = tmp_path / "official_source_coverage.json"
     coverage_csv = tmp_path / "official_source_coverage.csv"
     coverage_md = tmp_path / "official_source_coverage.md"
+    fallback_json = tmp_path / "historical_fallback_registry.json"
+    fallback_csv = tmp_path / "historical_fallback_registry.csv"
+    fallback_md = tmp_path / "historical_fallback_registry.md"
     _write_reviewed_seed_pack(seed_pack, include_rzd=True)
     _write_document_intake(
         intake,
@@ -2718,6 +2853,12 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
             str(coverage_csv),
             "--official-source-coverage-markdown-output",
             str(coverage_md),
+            "--historical-fallback-registry-output",
+            str(fallback_json),
+            "--historical-fallback-registry-csv-output",
+            str(fallback_csv),
+            "--historical-fallback-registry-markdown-output",
+            str(fallback_md),
         ]
     )
 
@@ -2869,6 +3010,50 @@ def test_exact_document_availability_operator_summary_exports_flat_rows(
     assert "Official Source Coverage Matrix" in coverage_markdown
     assert "Coverage Status Counts" in coverage_markdown
     assert "verify_target_report_publication" in coverage_markdown
+    assert report["historical_fallback_registry_issuer_count"] == 2
+    assert report["historical_fallback_registry_report_count"] == 1
+    assert report["historical_fallback_registry_latest_report_count"] == 1
+    assert report["historical_fallback_registry_diagnostic_only_count"] == 1
+    assert report["historical_fallback_registry_target_evidence_count"] == 0
+    assert report["historical_fallback_registry_extraction_ready_count"] == 0
+    assert report["historical_fallback_registry_import_ready_count"] == 0
+    assert report["historical_fallback_registry_status_counts"]["no_historical_fallback_available"] == 1
+    assert report["historical_fallback_registry_status_counts"]["latest_historical_annual_ifrs_available"] == 1
+    fallback_rows = {str(row["company_id"]): row for row in report["historical_fallback_registry_rows"]}
+    assert fallback_rows["18"]["historical_fallback_status"] == "no_historical_fallback_available"
+    assert fallback_rows["18"]["historical_fallback_scope"] == "none"
+    assert fallback_rows["18"]["can_use_for_value_extraction"] is False
+    assert fallback_rows["67"]["historical_fallback_status"] == "latest_historical_annual_ifrs_available"
+    assert fallback_rows["67"]["latest_available_period"] == "2024"
+    assert fallback_rows["67"]["historical_fallback_scope"] == "diagnostic_only"
+    assert fallback_rows["67"]["can_use_as_target_period_evidence"] is False
+    assert fallback_rows["67"]["can_use_for_value_extraction"] is False
+    assert fallback_rows["67"]["can_use_for_import"] is False
+    assert fallback_rows["67"]["can_use_for_scoring"] is False
+    assert fallback_rows["67"]["can_use_for_paper_trading"] is False
+    fallback_exported = json.loads(fallback_json.read_text(encoding="utf-8"))
+    assert fallback_exported["mode"] == "historical-fallback-registry"
+    assert fallback_exported["summary"]["historical_fallback_registry_issuer_count"] == 2
+    fallback_csv_rows = list(csv.DictReader(fallback_csv.open(encoding="utf-8")))
+    assert len(fallback_csv_rows) == 2
+    assert {
+        "historical_fallback_status",
+        "historical_fallback_scope",
+        "latest_available_period",
+        "latest_available_report_type",
+        "latest_available_standard",
+        "latest_available_document_url",
+        "can_use_as_target_period_evidence",
+        "can_use_for_value_extraction",
+        "can_use_for_import",
+        "can_use_for_scoring",
+        "can_use_for_paper_trading",
+    }.issubset(set(fallback_csv_rows[0]))
+    fallback_markdown = fallback_md.read_text(encoding="utf-8")
+    assert "Historical Fallback Registry" in fallback_markdown
+    assert "Historical Fallback Status Counts" in fallback_markdown
+    assert "diagnostic_only" in fallback_markdown
+    assert "target evidence False" in fallback_markdown or "target evidence false" in fallback_markdown
 
 
 def test_exact_document_discover_probe_and_download_are_optional(
@@ -5827,6 +6012,14 @@ def _coverage_for(report: dict, company_id: int = 67) -> dict:
     return next(
         item
         for item in report.get("official_source_coverage_rows", [])
+        if str(item.get("company_id")) == str(company_id)
+    )
+
+
+def _historical_fallback_for(report: dict, company_id: int = 67) -> dict:
+    return next(
+        item
+        for item in report.get("historical_fallback_registry_rows", [])
         if str(item.get("company_id")) == str(company_id)
     )
 

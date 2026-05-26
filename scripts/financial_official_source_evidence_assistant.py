@@ -414,6 +414,58 @@ OFFICIAL_SOURCE_COVERAGE_FIELDS = [
     "coverage_operator_instruction",
     "coverage_note",
 ]
+HISTORICAL_FALLBACK_REGISTRY_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "historical_fallback_status",
+    "historical_fallback_reason_codes",
+    "historical_fallback_scope",
+    "historical_fallback_allowed",
+    "latest_available_period",
+    "latest_available_report_type",
+    "latest_available_standard",
+    "latest_available_document_url",
+    "latest_available_document_title",
+    "latest_available_document_date",
+    "latest_available_source_page_url",
+    "latest_available_source_type",
+    "historical_report_count",
+    "historical_annual_ifrs_document_count",
+    "historical_annual_ifrs_periods",
+    "historical_annual_ifrs_latest_period",
+    "historical_annual_ifrs_oldest_period",
+    "target_period_document_count",
+    "exact_target_period_document_count",
+    "interim_or_quarterly_document_count",
+    "wrong_standard_document_count",
+    "placeholder_not_found_count",
+    "availability_status",
+    "deadline_status",
+    "coverage_status",
+    "coverage_grade",
+    "coverage_score",
+    "queue_action_type",
+    "queue_priority",
+    "queue_status",
+    "can_use_as_target_period_evidence",
+    "can_use_for_value_extraction",
+    "can_use_for_import",
+    "can_use_for_scoring",
+    "can_use_for_paper_trading",
+    "diagnostic_only_reason",
+    "operator_action",
+    "recommended_next_step",
+    "coverage_operator_action",
+    "gate_status",
+    "gate_passed",
+    "ready_for_value_extraction",
+    "ready_for_import",
+]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -1096,6 +1148,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--official-source-coverage-output", type=Path, default=None)
     parser.add_argument("--official-source-coverage-csv-output", type=Path, default=None)
     parser.add_argument("--official-source-coverage-markdown-output", type=Path, default=None)
+    parser.add_argument("--historical-fallback-registry-output", type=Path, default=None)
+    parser.add_argument("--historical-fallback-registry-csv-output", type=Path, default=None)
+    parser.add_argument("--historical-fallback-registry-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3832,6 +3887,30 @@ def run_exact_document_discover_from_seeds(args: argparse.Namespace) -> dict[str
             official_source_coverage_report,
             args.official_source_coverage_markdown_output,
         )
+    historical_fallback_registry_report = _build_historical_fallback_registry_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        documents=documents,
+        all_documents_for_counters=raw_documents,
+        availability_operator_rows=availability_operator_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        official_source_coverage_rows=official_source_coverage_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    if args.historical_fallback_registry_output is not None and not errors:
+        write_json_report(historical_fallback_registry_report, args.historical_fallback_registry_output)
+    if args.historical_fallback_registry_csv_output is not None and not errors:
+        write_historical_fallback_registry_csv(
+            historical_fallback_registry_report["issuers"],
+            args.historical_fallback_registry_csv_output,
+        )
+    if args.historical_fallback_registry_markdown_output is not None and not errors:
+        write_historical_fallback_registry_markdown(
+            historical_fallback_registry_report,
+            args.historical_fallback_registry_markdown_output,
+        )
     return report
 
 
@@ -4771,6 +4850,20 @@ def write_official_source_coverage_markdown(report: dict[str, Any], path: Path) 
     path.write_text(render_official_source_coverage_markdown(report), encoding="utf-8")
 
 
+def write_historical_fallback_registry_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=HISTORICAL_FALLBACK_REGISTRY_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in HISTORICAL_FALLBACK_REGISTRY_FIELDS})
+
+
+def write_historical_fallback_registry_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_historical_fallback_registry_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5124,6 +5217,35 @@ def render_official_source_coverage_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_historical_fallback_registry_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Historical Fallback Registry",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- target_reporting_period: {report.get('target_reporting_period')}",
+        f"- required_report_type: {report.get('required_report_type')}",
+        f"- required_standard: {report.get('required_standard')}",
+        "",
+    ]
+    lines.extend(_render_historical_fallback_registry_sections(report.get("summary") or {}, report.get("issuers") or []))
+    lines.extend(
+        [
+            "## Safety",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- identity_apply_executed: {report.get('identity_apply_executed')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _render_availability_operator_view_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
     lines = [
         "## Target Reporting Period Availability - Operator View",
@@ -5262,6 +5384,61 @@ def _render_official_source_coverage_sections(summary: dict[str, Any], rows: lis
             )
     else:
         lines.append("| None |  |  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
+
+
+def _render_historical_fallback_registry_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
+    lines = [
+        "## Historical Fallback Registry",
+        "",
+        f"- issuer count: {summary.get('historical_fallback_registry_issuer_count', len(rows))}",
+        f"- historical annual IFRS reports: {summary.get('historical_fallback_registry_report_count', 0)}",
+        f"- latest historical reports: {summary.get('historical_fallback_registry_latest_report_count', 0)}",
+        f"- diagnostic only: {summary.get('historical_fallback_registry_diagnostic_only_count', 0)}",
+        f"- target evidence: {summary.get('historical_fallback_registry_target_evidence_count', 0)}",
+        f"- extraction ready: {summary.get('historical_fallback_registry_extraction_ready_count', 0)}",
+        f"- import ready: {summary.get('historical_fallback_registry_import_ready_count', 0)}",
+        "",
+        "### Historical Fallback Status Counts",
+        "",
+    ]
+    status_counts = summary.get("historical_fallback_registry_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Per-Issuer Historical Fallback",
+            "",
+            "| Company | Target | Fallback status | Latest period | Type | Standard | Scope | Target evidence | Extraction ready | Source | Next step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            source = str(row.get("latest_available_document_url") or "").replace("|", "/")
+            lines.append(
+                "| {company} | {target} {report_type} {standard} | {status} | {latest_period} | {latest_type} | {latest_standard} | {scope} | target evidence {target_evidence} | {ready} | {source} | {next_step} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    target=row.get("target_reporting_period") or "",
+                    report_type=row.get("required_report_type") or "",
+                    standard=row.get("required_standard") or "",
+                    status=row.get("historical_fallback_status") or "",
+                    latest_period=row.get("latest_available_period") or "",
+                    latest_type=row.get("latest_available_report_type") or "",
+                    latest_standard=row.get("latest_available_standard") or "",
+                    scope=row.get("historical_fallback_scope") or "none",
+                    target_evidence=row.get("can_use_as_target_period_evidence"),
+                    ready=row.get("ready_for_value_extraction"),
+                    source=source,
+                    next_step=str(row.get("recommended_next_step") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("| None |  |  |  |  |  |  |  |  |  |  |")
     lines.append("")
     return lines
 
@@ -5672,6 +5849,12 @@ def _render_exact_document_from_seeds_markdown_sections(report: dict[str, Any]) 
         _render_official_source_coverage_sections(
             report.get("official_source_coverage_summary") or {},
             report.get("official_source_coverage_rows") or [],
+        )
+    )
+    lines.extend(
+        _render_historical_fallback_registry_sections(
+            report.get("historical_fallback_registry_summary") or {},
+            report.get("historical_fallback_registry_rows") or [],
         )
     )
     lines.extend(
@@ -7272,6 +7455,7 @@ def _exact_document_latest_historical(items: list[dict[str, Any]], args: argpars
             _exact_document_int_year(item.get("document_period_year")) or 0,
             int(item.get("candidate_score") or item.get("final_score") or 0),
             str(item.get("document_url") or ""),
+            str(item.get("document_title") or ""),
         ),
         reverse=True,
     )[0]
@@ -8390,6 +8574,317 @@ def _build_official_source_coverage_report(
     }
 
 
+def _historical_fallback_is_historical(document: dict[str, Any], args: argparse.Namespace) -> bool:
+    year = _exact_document_int_year(document.get("document_period_year"))
+    target = _exact_document_int_year(getattr(args, "report_period", ""))
+    return bool(document.get("document_url") and year is not None and target is not None and year < target)
+
+
+def _historical_fallback_is_historical_report(document: dict[str, Any], args: argparse.Namespace) -> bool:
+    if not _historical_fallback_is_historical(document, args):
+        return False
+    return bool(
+        document.get("document_kind") in {"exact_report_document", "quarterly_or_interim_document"}
+        or document.get("report_type_match_status") in {"annual_match", "interim_or_quarterly_mismatch"}
+        or document.get("accounting_standard_match_status") in {"standard_match", "standard_mismatch"}
+    )
+
+
+def _historical_fallback_is_wrong_standard(document: dict[str, Any], args: argparse.Namespace) -> bool:
+    return bool(
+        _historical_fallback_is_historical(document, args)
+        and document.get("document_kind") == "exact_report_document"
+        and document.get("accounting_standard_match_status") == "standard_mismatch"
+    )
+
+
+def _historical_fallback_requires_operator_review(document: dict[str, Any], args: argparse.Namespace) -> bool:
+    if not _historical_fallback_is_historical(document, args):
+        return False
+    if document.get("document_kind") != "exact_report_document":
+        return False
+    if _exact_document_is_historical_annual_ifrs(document, args):
+        return False
+    if _historical_fallback_is_wrong_standard(document, args):
+        return False
+    if _exact_document_is_interim_or_quarterly(document):
+        return False
+    return bool(
+        document.get("operator_review_status") == "needs_operator_review"
+        or document.get("report_type_match_status") in {"unknown_report_type", "report_type_conflict"}
+        or document.get("accounting_standard_match_status") in {"unknown_standard", "standard_conflict"}
+        or document.get("document_status") in {"needs_operator_review", "filtered_document"}
+    )
+
+
+def _historical_fallback_status(
+    *,
+    exact_target_count: int,
+    historical_annual_count: int,
+    ambiguous_count: int,
+    historical_interim_count: int,
+    historical_wrong_standard_count: int,
+    historical_report_count: int,
+) -> str:
+    if exact_target_count:
+        return "exact_target_period_available_no_fallback_needed"
+    if historical_annual_count:
+        return "latest_historical_annual_ifrs_available"
+    if ambiguous_count:
+        return "operator_review_required_for_historical_candidate"
+    if historical_interim_count and not historical_wrong_standard_count:
+        return "only_interim_or_quarterly_historical_available"
+    if historical_wrong_standard_count and not historical_interim_count:
+        return "only_wrong_standard_historical_available"
+    if historical_report_count:
+        return "historical_reports_available_but_not_ifrs_annual"
+    return "no_historical_fallback_available"
+
+
+def _historical_fallback_reason_codes(
+    status: str,
+    *,
+    historical_annual_count: int,
+    historical_interim_count: int,
+    historical_wrong_standard_count: int,
+    ambiguous_count: int,
+    target_period_count: int,
+    exact_target_count: int,
+) -> list[str]:
+    reasons = [status]
+    if historical_annual_count:
+        reasons.extend(
+            [
+                "historical_annual_ifrs_available",
+                "latest_historical_report_selected",
+                "historical_fallback_diagnostic_only",
+                "not_target_reporting_period",
+            ]
+        )
+    else:
+        reasons.append("no_historical_annual_ifrs_available")
+    if historical_interim_count:
+        reasons.append("historical_interim_or_quarterly_available")
+    if historical_wrong_standard_count:
+        reasons.append("historical_wrong_standard_available")
+    if ambiguous_count:
+        reasons.append("historical_candidate_ambiguous")
+    if target_period_count == 0:
+        reasons.append("target_period_document_not_found")
+    if exact_target_count == 0:
+        reasons.append("target_period_evidence_required")
+    reasons.extend(
+        [
+            "does_not_unblock_extraction",
+            "does_not_unblock_import",
+            "does_not_unblock_scoring",
+        ]
+    )
+    return list(dict.fromkeys(reasons))
+
+
+def _historical_fallback_note(row: dict[str, Any]) -> str:
+    status = str(row.get("historical_fallback_status") or "")
+    if status == "latest_historical_annual_ifrs_available":
+        return "historical annual IFRS report is diagnostic only and cannot satisfy target-period evidence"
+    if status == "exact_target_period_available_no_fallback_needed":
+        return "exact target-period evidence exists; fallback is not needed and quality gate still controls readiness"
+    if status == "no_historical_fallback_available":
+        return "no older annual IFRS report was found in current exact-document diagnostics"
+    if status == "only_interim_or_quarterly_historical_available":
+        return "historical interim or quarterly reports cannot be used as annual target evidence"
+    if status == "only_wrong_standard_historical_available":
+        return "historical wrong-standard reports cannot be used when IFRS is required"
+    if status == "operator_review_required_for_historical_candidate":
+        return "historical-looking candidate is ambiguous and remains operator-review only"
+    return "historical fallback registry is diagnostic only; it does not change strict evidence eligibility"
+
+
+def _build_historical_fallback_registry_rows(
+    args: argparse.Namespace,
+    *,
+    required_issuers: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
+    all_documents_for_counters: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+    official_source_coverage_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    availability_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in availability_operator_rows}
+    queue_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in operator_review_queue}
+    coverage_by_key = {str(row.get("canonical_company_id") or row.get("company_id") or ""): row for row in official_source_coverage_rows}
+    rows: list[dict[str, Any]] = []
+    for required in required_issuers:
+        key = str(required.get("company_id") or "")
+        availability = availability_by_key.get(key) or {}
+        queue = queue_by_key.get(key) or {}
+        coverage = coverage_by_key.get(key) or {}
+        document_matches = _items_matching_required([*all_documents_for_counters, *documents], required)
+        unique_documents = _exact_document_unique_url_items(document_matches)
+        exact_target_documents = [item for item in unique_documents if _exact_document_is_downstream_eligible(item)]
+        historical_reports = [
+            item for item in unique_documents if _historical_fallback_is_historical_report(item, args)
+        ]
+        historical_annual = [
+            item for item in unique_documents if _exact_document_is_historical_annual_ifrs(item, args)
+        ]
+        historical_interim = [
+            item
+            for item in unique_documents
+            if _historical_fallback_is_historical(item, args) and _exact_document_is_interim_or_quarterly(item)
+        ]
+        historical_wrong_standard = [
+            item for item in unique_documents if _historical_fallback_is_wrong_standard(item, args)
+        ]
+        ambiguous_historical = [
+            item for item in unique_documents if _historical_fallback_requires_operator_review(item, args)
+        ]
+        latest = _exact_document_latest_historical(unique_documents, args)
+        historical_years = sorted(
+            {
+                _exact_document_int_year(item.get("document_period_year"))
+                for item in historical_annual
+                if _exact_document_int_year(item.get("document_period_year")) is not None
+            }
+        )
+        exact_target_count = len(exact_target_documents)
+        historical_annual_count = len(historical_annual)
+        status = _historical_fallback_status(
+            exact_target_count=exact_target_count,
+            historical_annual_count=historical_annual_count,
+            ambiguous_count=len(ambiguous_historical),
+            historical_interim_count=len(historical_interim),
+            historical_wrong_standard_count=len(historical_wrong_standard),
+            historical_report_count=len(historical_reports),
+        )
+        scope = "diagnostic_only" if status == "latest_historical_annual_ifrs_available" else "none"
+        historical_fallback_allowed = scope == "diagnostic_only"
+        can_use_as_target = bool(exact_target_count and status == "exact_target_period_available_no_fallback_needed")
+        row = {
+            "company_id": required.get("company_id"),
+            "company_name": required.get("company_name") or availability.get("company_name") or "",
+            "canonical_company_id": availability.get("canonical_company_id") or required.get("company_id"),
+            "canonical_company_name": availability.get("canonical_company_name") or required.get("company_name") or "",
+            "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+            "required_report_type": str(getattr(args, "report_type", "") or ""),
+            "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+            "historical_fallback_status": status,
+            "historical_fallback_scope": scope,
+            "historical_fallback_allowed": historical_fallback_allowed,
+            "latest_available_period": latest.get("document_period_year") if latest else "",
+            "latest_available_report_type": "annual" if latest else "",
+            "latest_available_standard": "IFRS" if latest else "",
+            "latest_available_document_url": latest.get("document_url") if latest else "",
+            "latest_available_document_title": latest.get("document_title") if latest else "",
+            "latest_available_document_date": latest.get("document_date") if latest else "",
+            "latest_available_source_page_url": latest.get("source_page_url") if latest else "",
+            "latest_available_source_type": latest.get("source_type") if latest else "",
+            "historical_report_count": len(historical_reports),
+            "historical_annual_ifrs_document_count": historical_annual_count,
+            "historical_annual_ifrs_periods": historical_years,
+            "historical_annual_ifrs_latest_period": historical_years[-1] if historical_years else "",
+            "historical_annual_ifrs_oldest_period": historical_years[0] if historical_years else "",
+            "target_period_document_count": availability.get("target_period_document_count", 0),
+            "exact_target_period_document_count": availability.get("exact_target_period_document_count", exact_target_count),
+            "interim_or_quarterly_document_count": availability.get("interim_or_quarterly_document_count", len(historical_interim)),
+            "wrong_standard_document_count": availability.get("wrong_standard_document_count", len(historical_wrong_standard)),
+            "placeholder_not_found_count": availability.get("placeholder_not_found_count", 0),
+            "availability_status": availability.get("availability_status") or "",
+            "deadline_status": availability.get("deadline_status") or "",
+            "coverage_status": coverage.get("coverage_status") or "",
+            "coverage_grade": coverage.get("coverage_grade") or "",
+            "coverage_score": coverage.get("coverage_score", ""),
+            "queue_action_type": queue.get("queue_action_type") or "",
+            "queue_priority": queue.get("queue_priority") or "",
+            "queue_status": queue.get("queue_status") or "",
+            "can_use_as_target_period_evidence": can_use_as_target,
+            "can_use_for_value_extraction": False,
+            "can_use_for_import": False,
+            "can_use_for_scoring": False,
+            "can_use_for_paper_trading": False,
+            "operator_action": availability.get("operator_action") or "",
+            "recommended_next_step": availability.get("recommended_next_step") or "",
+            "coverage_operator_action": coverage.get("coverage_operator_action") or "",
+            "gate_status": availability.get("gate_status") or "",
+            "gate_passed": bool(availability.get("gate_passed")),
+            "ready_for_value_extraction": bool(availability.get("ready_for_value_extraction")),
+            "ready_for_import": bool(availability.get("ready_for_import")),
+        }
+        row["historical_fallback_reason_codes"] = _historical_fallback_reason_codes(
+            status,
+            historical_annual_count=historical_annual_count,
+            historical_interim_count=len(historical_interim),
+            historical_wrong_standard_count=len(historical_wrong_standard),
+            ambiguous_count=len(ambiguous_historical),
+            target_period_count=int(row.get("target_period_document_count") or 0),
+            exact_target_count=exact_target_count,
+        )
+        row["diagnostic_only_reason"] = _historical_fallback_note(row)
+        rows.append(row)
+    return sorted(rows, key=lambda item: (str(item.get("company_id") or ""), str(item.get("company_name") or "")))
+
+
+def _historical_fallback_registry_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "historical_fallback_registry_issuer_count": len(rows),
+        "historical_fallback_registry_report_count": sum(
+            int(row.get("historical_annual_ifrs_document_count") or 0) for row in rows
+        ),
+        "historical_fallback_registry_latest_report_count": sum(
+            1 for row in rows if row.get("historical_fallback_status") == "latest_historical_annual_ifrs_available"
+        ),
+        "historical_fallback_registry_diagnostic_only_count": sum(
+            1 for row in rows if row.get("historical_fallback_scope") == "diagnostic_only"
+        ),
+        "historical_fallback_registry_target_evidence_count": sum(
+            1 for row in rows if row.get("can_use_as_target_period_evidence")
+        ),
+        "historical_fallback_registry_extraction_ready_count": sum(
+            1 for row in rows if row.get("ready_for_value_extraction")
+        ),
+        "historical_fallback_registry_import_ready_count": sum(
+            1 for row in rows if row.get("ready_for_import")
+        ),
+        "historical_fallback_registry_status_counts": _count_by_key(rows, "historical_fallback_status"),
+    }
+
+
+def _build_historical_fallback_registry_report(
+    args: argparse.Namespace,
+    *,
+    status: str,
+    required_issuers: list[dict[str, Any]],
+    documents: list[dict[str, Any]],
+    all_documents_for_counters: list[dict[str, Any]],
+    availability_operator_rows: list[dict[str, Any]],
+    operator_review_queue: list[dict[str, Any]],
+    official_source_coverage_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]] | None = None,
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    rows = _build_historical_fallback_registry_rows(
+        args,
+        required_issuers=required_issuers,
+        documents=documents,
+        all_documents_for_counters=all_documents_for_counters,
+        availability_operator_rows=availability_operator_rows,
+        operator_review_queue=operator_review_queue,
+        official_source_coverage_rows=official_source_coverage_rows,
+    )
+    return {
+        "status": status,
+        "mode": "historical-fallback-registry",
+        "target_reporting_period": str(getattr(args, "report_period", "") or ""),
+        "required_report_type": str(getattr(args, "report_type", "") or ""),
+        "required_standard": str(getattr(args, "accounting_standard", "") or ""),
+        "summary": _historical_fallback_registry_summary(rows),
+        "issuers": rows,
+        "warnings": warnings or [],
+        "errors": errors or [],
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -9382,6 +9877,19 @@ def _build_exact_document_discovery_report(
         errors=errors,
     )
     official_source_coverage_summary = official_source_coverage_report["summary"]
+    historical_fallback_registry_report = _build_historical_fallback_registry_report(
+        args,
+        status=status,
+        required_issuers=required_issuers,
+        documents=documents,
+        all_documents_for_counters=counter_documents,
+        availability_operator_rows=availability_operator_report["issuers"],
+        operator_review_queue=operator_review_queue_report["actions"],
+        official_source_coverage_rows=official_source_coverage_report["issuers"],
+        warnings=warnings,
+        errors=errors,
+    )
+    historical_fallback_registry_summary = historical_fallback_registry_report["summary"]
     return {
         "status": status,
         "mode": "exact-document-discover-from-seeds",
@@ -9416,6 +9924,9 @@ def _build_exact_document_discovery_report(
         **official_source_coverage_summary,
         "official_source_coverage_summary": official_source_coverage_summary,
         "official_source_coverage_rows": official_source_coverage_report["issuers"],
+        **historical_fallback_registry_summary,
+        "historical_fallback_registry_summary": historical_fallback_registry_summary,
+        "historical_fallback_registry_rows": historical_fallback_registry_report["issuers"],
         "reviewed_seeds_used": reviewed_seeds_used,
         "category_pages_followed": followed_category_pages,
         "missing_issuers": missing_issuers,
@@ -9440,6 +9951,9 @@ def _build_exact_document_discovery_report(
         "official_source_coverage_output": _path_value(args.official_source_coverage_output),
         "official_source_coverage_csv_output": _path_value(args.official_source_coverage_csv_output),
         "official_source_coverage_markdown_output": _path_value(args.official_source_coverage_markdown_output),
+        "historical_fallback_registry_output": _path_value(args.historical_fallback_registry_output),
+        "historical_fallback_registry_csv_output": _path_value(args.historical_fallback_registry_csv_output),
+        "historical_fallback_registry_markdown_output": _path_value(args.historical_fallback_registry_markdown_output),
         "warnings": warnings,
         "errors": errors,
         "next_steps": _next_steps("exact-document-discover-from-seeds", status),
