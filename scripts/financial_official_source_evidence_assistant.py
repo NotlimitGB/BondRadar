@@ -43,6 +43,7 @@ MODE_CHOICES = (
     "operator-resolution-apply-draft",
     "document-intake-draft-gate-preview",
     "operator-resolution-happy-path-synthetic",
+    "operator-resolution-chain-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -1285,6 +1286,63 @@ SYNTHETIC_HAPPY_PATH_ARTIFACT_NAMES = {
     "chain_summary_json": "operator_resolution_happy_path_chain_summary_task123.json",
     "chain_summary_markdown": "operator_resolution_happy_path_chain_summary_task123.md",
 }
+OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES = {
+    "operator_resolution_validation_json": "operator_resolution_validation_chain_task124.json",
+    "operator_resolution_validation_csv": "operator_resolution_validation_chain_task124.csv",
+    "operator_resolution_validation_markdown": "operator_resolution_validation_chain_task124.md",
+    "operator_resolution_apply_preview_json": "operator_resolution_apply_preview_chain_task124.json",
+    "operator_resolution_apply_preview_csv": "operator_resolution_apply_preview_chain_task124.csv",
+    "operator_resolution_apply_preview_markdown": "operator_resolution_apply_preview_chain_task124.md",
+    "exact_document_intake_draft_json": "exact_document_intake_draft_chain_task124.json",
+    "exact_document_intake_draft_csv": "exact_document_intake_draft_chain_task124.csv",
+    "operator_resolution_apply_draft_json": "operator_resolution_apply_draft_chain_task124.json",
+    "operator_resolution_apply_draft_csv": "operator_resolution_apply_draft_chain_task124.csv",
+    "operator_resolution_apply_draft_markdown": "operator_resolution_apply_draft_chain_task124.md",
+    "document_intake_draft_validation_json": "document_intake_draft_validation_chain_task124.json",
+    "document_intake_draft_validation_markdown": "document_intake_draft_validation_chain_task124.md",
+    "document_intake_draft_gate_json": "document_intake_draft_gate_chain_task124.json",
+    "document_intake_draft_gate_markdown": "document_intake_draft_gate_chain_task124.md",
+    "document_intake_draft_gate_summary_json": "document_intake_draft_gate_summary_chain_task124.json",
+    "document_intake_draft_gate_summary_csv": "document_intake_draft_gate_summary_chain_task124.csv",
+    "document_intake_draft_gate_summary_markdown": "document_intake_draft_gate_summary_chain_task124.md",
+    "chain_summary_json": "operator_resolution_chain_preview_summary_task124.json",
+    "chain_summary_csv": "operator_resolution_chain_preview_summary_task124.csv",
+    "chain_summary_markdown": "operator_resolution_chain_preview_summary_task124.md",
+}
+OPERATOR_RESOLUTION_CHAIN_PREVIEW_SUMMARY_FIELDS = [
+    "status",
+    "mode",
+    "synthetic_only",
+    "validation_row_count",
+    "validation_valid_count",
+    "validation_incomplete_count",
+    "validation_invalid_count",
+    "apply_preview_row_count",
+    "apply_preview_eligible_count",
+    "apply_preview_blocked_count",
+    "apply_preview_future_apply_allowed_count",
+    "apply_draft_row_count",
+    "apply_draft_applied_count",
+    "apply_draft_skipped_count",
+    "apply_draft_failed_count",
+    "draft_gate_row_count",
+    "draft_gate_ready_count",
+    "draft_gate_blocked_count",
+    "draft_gate_placeholder_count",
+    "draft_gate_passed",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "original_intake_modified",
+    "draft_intake_created",
+    "import_executed",
+    "paper_trading_called",
+    "would_extract_values",
+    "would_import_report",
+    "would_update_database",
+    "would_update_original_intake",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+]
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -1559,6 +1617,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-happy-path-report-type", default="annual")
     parser.add_argument("--operator-resolution-happy-path-accounting-standard", default="IFRS")
     parser.add_argument("--operator-resolution-happy-path-run-chain", type=_parse_bool, default=True)
+    parser.add_argument("--operator-resolution-chain-output-dir", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1633,6 +1692,8 @@ def run_assistant(
         report = run_document_intake_draft_gate_preview(args)
     elif args.mode == "operator-resolution-happy-path-synthetic":
         report = run_operator_resolution_happy_path_synthetic(args)
+    elif args.mode == "operator-resolution-chain-preview":
+        report = run_operator_resolution_chain_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -3673,6 +3734,323 @@ def _build_operator_resolution_happy_path_summary(
         "warnings": [] if passed or not run_chain else [{"message": "synthetic_happy_path_chain_not_ready"}],
         "errors": errors,
         "next_steps": _next_steps("operator-resolution-happy-path-synthetic", status),
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_update_database": False,
+        "would_update_original_intake": False,
+        **SAFETY_FLAGS,
+    }
+
+
+def run_operator_resolution_chain_preview(args: argparse.Namespace) -> dict[str, Any]:
+    errors: list[dict[str, Any]] = []
+    artifacts: dict[str, Path] = {}
+    output_dir = args.operator_resolution_chain_output_dir
+    if output_dir is None:
+        errors.append({"message": "operator_resolution_chain_output_dir_required"})
+    if args.operator_resolution_input is None:
+        errors.append({"message": "operator_resolution_input_required"})
+    if args.document_intake_input is None:
+        errors.append({"message": "document_intake_input_required"})
+
+    if output_dir is not None:
+        artifacts = _operator_resolution_chain_preview_artifacts(output_dir)
+        errors.extend(_operator_resolution_chain_preview_collision_errors(args, artifacts))
+    if errors:
+        return _finish_operator_resolution_chain_preview(
+            args,
+            artifacts=artifacts,
+            stage_reports={},
+            completed_stages=[],
+            failed_stage=None,
+            original_intake_unchanged=True,
+            errors=errors,
+            write_artifacts=not any(
+                error.get("message") == "operator_resolution_chain_output_must_not_equal_input"
+                for error in errors
+            ),
+        )
+
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return _finish_operator_resolution_chain_preview(
+            args,
+            artifacts=artifacts,
+            stage_reports={},
+            completed_stages=[],
+            failed_stage=None,
+            original_intake_unchanged=True,
+            errors=[{"message": str(exc)}],
+            write_artifacts=False,
+        )
+
+    try:
+        original_intake_before = args.document_intake_input.read_bytes()
+    except OSError as exc:
+        return _finish_operator_resolution_chain_preview(
+            args,
+            artifacts=artifacts,
+            stage_reports={},
+            completed_stages=[],
+            failed_stage=None,
+            original_intake_unchanged=True,
+            errors=[{"message": str(exc)}],
+        )
+
+    chain_args = _clone_args(
+        args,
+        probe_urls=False,
+        seed_probe_urls=False,
+        exact_document_probe_urls=False,
+        download_documents=False,
+        download_source_documents=False,
+        exact_document_download_documents=False,
+        _internal_official_source_domains=(),
+        json_output=None,
+        markdown_output=None,
+    )
+    stage_reports: dict[str, dict[str, Any]] = {}
+    completed_stages: list[str] = []
+    failed_stage: str | None = None
+
+    validation_args = _clone_args(
+        chain_args,
+        mode="operator-resolution-validate",
+        operator_resolution_validation_output=artifacts["operator_resolution_validation_json"],
+        operator_resolution_validation_csv_output=artifacts["operator_resolution_validation_csv"],
+        operator_resolution_validation_markdown_output=artifacts["operator_resolution_validation_markdown"],
+    )
+    stage_reports["validation"] = run_operator_resolution_validate(validation_args)
+    completed_stages.append("operator-resolution-validate")
+    if stage_reports["validation"].get("status") == "failed":
+        failed_stage = "operator-resolution-validate"
+
+    if failed_stage is None:
+        apply_preview_args = _clone_args(
+            chain_args,
+            mode="operator-resolution-apply-preview",
+            operator_resolution_validation_input=artifacts["operator_resolution_validation_json"],
+            operator_resolution_apply_preview_output=artifacts["operator_resolution_apply_preview_json"],
+            operator_resolution_apply_preview_csv_output=artifacts["operator_resolution_apply_preview_csv"],
+            operator_resolution_apply_preview_markdown_output=artifacts["operator_resolution_apply_preview_markdown"],
+        )
+        stage_reports["apply_preview"] = run_operator_resolution_apply_preview(apply_preview_args)
+        completed_stages.append("operator-resolution-apply-preview")
+        if stage_reports["apply_preview"].get("status") == "failed":
+            failed_stage = "operator-resolution-apply-preview"
+
+    if failed_stage is None:
+        apply_draft_args = _clone_args(
+            chain_args,
+            mode="operator-resolution-apply-draft",
+            operator_resolution_apply_preview_input=artifacts["operator_resolution_apply_preview_json"],
+            document_intake_draft_output=artifacts["exact_document_intake_draft_json"],
+            document_intake_draft_csv_output=artifacts["exact_document_intake_draft_csv"],
+            operator_resolution_apply_draft_output=artifacts["operator_resolution_apply_draft_json"],
+            operator_resolution_apply_draft_csv_output=artifacts["operator_resolution_apply_draft_csv"],
+            operator_resolution_apply_draft_markdown_output=artifacts["operator_resolution_apply_draft_markdown"],
+        )
+        stage_reports["apply_draft"] = run_operator_resolution_apply_draft(apply_draft_args)
+        completed_stages.append("operator-resolution-apply-draft")
+        if stage_reports["apply_draft"].get("status") == "failed":
+            failed_stage = "operator-resolution-apply-draft"
+
+    if failed_stage is None:
+        draft_gate_args = _clone_args(
+            chain_args,
+            mode="document-intake-draft-gate-preview",
+            document_intake_draft_input=artifacts["exact_document_intake_draft_json"],
+            document_intake_draft_validation_output=artifacts["document_intake_draft_validation_json"],
+            document_intake_draft_validation_markdown_output=artifacts["document_intake_draft_validation_markdown"],
+            document_intake_draft_gate_output=artifacts["document_intake_draft_gate_json"],
+            document_intake_draft_gate_markdown_output=artifacts["document_intake_draft_gate_markdown"],
+            document_intake_draft_gate_summary_output=artifacts["document_intake_draft_gate_summary_json"],
+            document_intake_draft_gate_summary_csv_output=artifacts["document_intake_draft_gate_summary_csv"],
+            document_intake_draft_gate_summary_markdown_output=artifacts["document_intake_draft_gate_summary_markdown"],
+        )
+        stage_reports["draft_gate"] = run_document_intake_draft_gate_preview(draft_gate_args)
+        completed_stages.append("document-intake-draft-gate-preview")
+        if stage_reports["draft_gate"].get("status") == "failed":
+            failed_stage = "document-intake-draft-gate-preview"
+
+    try:
+        original_intake_unchanged = args.document_intake_input.read_bytes() == original_intake_before
+    except OSError:
+        original_intake_unchanged = False
+    if not original_intake_unchanged:
+        errors.append({"message": "original_document_intake_modified_unexpectedly"})
+    if failed_stage is not None:
+        errors.append({"message": "operator_resolution_chain_stage_failed", "stage": failed_stage})
+
+    return _finish_operator_resolution_chain_preview(
+        args,
+        artifacts=artifacts,
+        stage_reports=stage_reports,
+        completed_stages=completed_stages,
+        failed_stage=failed_stage,
+        original_intake_unchanged=original_intake_unchanged,
+        errors=errors,
+    )
+
+
+def _operator_resolution_chain_preview_artifacts(output_dir: Path) -> dict[str, Path]:
+    return {
+        key: output_dir / file_name
+        for key, file_name in OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES.items()
+    }
+
+
+def _operator_resolution_chain_preview_collision_errors(
+    args: argparse.Namespace,
+    artifacts: dict[str, Path],
+) -> list[dict[str, Any]]:
+    protected_inputs = [
+        path
+        for path in (
+            args.operator_resolution_input,
+            args.operator_resolution_source_pack_input,
+            args.document_intake_input,
+            args.source_intake_input,
+        )
+        if path is not None
+    ]
+    outputs = [
+        *artifacts.values(),
+        *(
+            path
+            for path in (
+                args.operator_resolution_chain_output_dir,
+                args.json_output,
+                args.markdown_output,
+            )
+            if path is not None
+        ),
+    ]
+    errors: list[dict[str, Any]] = []
+    for output_path in outputs:
+        for input_path in protected_inputs:
+            if _paths_equal(output_path, input_path):
+                errors.append(
+                    {
+                        "message": "operator_resolution_chain_output_must_not_equal_input",
+                        "output_path": str(output_path),
+                        "input_path": str(input_path),
+                    }
+                )
+    return errors
+
+
+def _finish_operator_resolution_chain_preview(
+    args: argparse.Namespace,
+    *,
+    artifacts: dict[str, Path],
+    stage_reports: dict[str, dict[str, Any]],
+    completed_stages: list[str],
+    failed_stage: str | None,
+    original_intake_unchanged: bool,
+    errors: list[dict[str, Any]],
+    write_artifacts: bool = True,
+) -> dict[str, Any]:
+    report = _build_operator_resolution_chain_preview_summary(
+        args,
+        artifacts=artifacts,
+        stage_reports=stage_reports,
+        completed_stages=completed_stages,
+        failed_stage=failed_stage,
+        original_intake_unchanged=original_intake_unchanged,
+        errors=errors,
+    )
+    if artifacts and write_artifacts:
+        try:
+            args.operator_resolution_chain_output_dir.mkdir(parents=True, exist_ok=True)
+            write_json_report(report, artifacts["chain_summary_json"])
+            write_operator_resolution_chain_preview_summary_csv(report, artifacts["chain_summary_csv"])
+            write_operator_resolution_chain_preview_markdown(report, artifacts["chain_summary_markdown"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+    return report
+
+
+def _build_operator_resolution_chain_preview_summary(
+    args: argparse.Namespace,
+    *,
+    artifacts: dict[str, Path],
+    stage_reports: dict[str, dict[str, Any]],
+    completed_stages: list[str],
+    failed_stage: str | None,
+    original_intake_unchanged: bool,
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    validation = stage_reports.get("validation") or {}
+    apply_preview = stage_reports.get("apply_preview") or {}
+    apply_draft = stage_reports.get("apply_draft") or {}
+    draft_gate = stage_reports.get("draft_gate") or {}
+    warnings = [
+        {"stage": stage, **warning}
+        for stage, stage_report in stage_reports.items()
+        for warning in stage_report.get("warnings") or []
+    ]
+    stage_errors = [
+        {"stage": stage, **error}
+        for stage, stage_report in stage_reports.items()
+        for error in stage_report.get("errors") or []
+    ]
+    all_errors = [*errors, *stage_errors]
+    passed = (
+        not all_errors
+        and bool(draft_gate.get("document_intake_draft_gate_preview_gate_passed"))
+        and bool(draft_gate.get("document_intake_draft_gate_preview_ready_for_value_extraction"))
+        and original_intake_unchanged
+    )
+    status = "failed" if all_errors else "passed" if passed else "warning"
+    return {
+        "status": status,
+        "mode": "operator-resolution-chain-preview",
+        "synthetic_only": False,
+        "operator_resolution_chain_output_dir": _path_value(args.operator_resolution_chain_output_dir),
+        "operator_resolution_input": _path_value(args.operator_resolution_input),
+        "operator_resolution_source_pack_input": _path_value(args.operator_resolution_source_pack_input),
+        "document_intake_input": _path_value(args.document_intake_input),
+        "source_intake_input": _path_value(args.source_intake_input),
+        "target_reporting_period": str(args.report_period),
+        "required_report_type": args.report_type,
+        "required_standard": args.accounting_standard,
+        "completed_stages": completed_stages,
+        "failed_stage": failed_stage,
+        "validation_row_count": int(validation.get("operator_resolution_validation_row_count") or 0),
+        "validation_valid_count": int(validation.get("operator_resolution_validation_valid_count") or 0),
+        "validation_incomplete_count": int(validation.get("operator_resolution_validation_incomplete_count") or 0),
+        "validation_invalid_count": int(validation.get("operator_resolution_validation_invalid_count") or 0),
+        "apply_preview_row_count": int(apply_preview.get("operator_resolution_apply_preview_row_count") or 0),
+        "apply_preview_eligible_count": int(apply_preview.get("operator_resolution_apply_preview_eligible_count") or 0),
+        "apply_preview_blocked_count": int(apply_preview.get("operator_resolution_apply_preview_blocked_count") or 0),
+        "apply_preview_future_apply_allowed_count": int(
+            apply_preview.get("operator_resolution_apply_preview_future_apply_allowed_count") or 0
+        ),
+        "apply_draft_row_count": int(apply_draft.get("operator_resolution_apply_draft_row_count") or 0),
+        "apply_draft_applied_count": int(apply_draft.get("operator_resolution_apply_draft_applied_count") or 0),
+        "apply_draft_skipped_count": int(apply_draft.get("operator_resolution_apply_draft_skipped_count") or 0),
+        "apply_draft_failed_count": int(apply_draft.get("operator_resolution_apply_draft_failed_count") or 0),
+        "draft_gate_row_count": int(draft_gate.get("document_intake_draft_gate_preview_row_count") or 0),
+        "draft_gate_ready_count": int(draft_gate.get("document_intake_draft_gate_preview_ready_count") or 0),
+        "draft_gate_blocked_count": int(draft_gate.get("document_intake_draft_gate_preview_blocked_count") or 0),
+        "draft_gate_placeholder_count": int(draft_gate.get("document_intake_draft_gate_preview_placeholder_count") or 0),
+        "draft_gate_passed": bool(draft_gate.get("document_intake_draft_gate_preview_gate_passed")),
+        "ready_for_value_extraction": bool(
+            draft_gate.get("document_intake_draft_gate_preview_ready_for_value_extraction")
+        ),
+        "ready_for_import": bool(draft_gate.get("document_intake_draft_gate_preview_ready_for_import")),
+        "original_intake_modified": not original_intake_unchanged,
+        "draft_intake_created": bool(
+            artifacts.get("exact_document_intake_draft_json")
+            and artifacts["exact_document_intake_draft_json"].is_file()
+        ),
+        "artifacts": {key: str(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": all_errors,
+        "next_steps": _next_steps("operator-resolution-chain-preview", status),
         "would_extract_values": False,
         "would_import_report": False,
         "would_update_database": False,
@@ -6203,6 +6581,24 @@ def write_operator_resolution_happy_path_markdown(report: dict[str, Any], path: 
     path.write_text(render_operator_resolution_happy_path_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_chain_preview_summary_csv(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_RESOLUTION_CHAIN_PREVIEW_SUMMARY_FIELDS)
+        writer.writeheader()
+        writer.writerow(
+            {
+                field: _csv_value(report.get(field))
+                for field in OPERATOR_RESOLUTION_CHAIN_PREVIEW_SUMMARY_FIELDS
+            }
+        )
+
+
+def write_operator_resolution_chain_preview_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_chain_preview_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -6342,6 +6738,8 @@ def write_markdown_report(report: dict[str, Any], path: Path) -> None:
 def render_markdown(report: dict[str, Any]) -> str:
     if report.get("mode") == "operator-resolution-happy-path-synthetic":
         return render_operator_resolution_happy_path_markdown(report)
+    if report.get("mode") == "operator-resolution-chain-preview":
+        return render_operator_resolution_chain_preview_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -6864,6 +7262,87 @@ def render_operator_resolution_happy_path_markdown(report: dict[str, Any]) -> st
             f"- paper_trading_called: {report.get('paper_trading_called')}",
             f"- would_extract_values: {report.get('would_extract_values')}",
             f"- would_import_report: {report.get('would_import_report')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_chain_preview_markdown(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    lines = [
+        "# Operator Resolution Chain Preview",
+        "",
+        "## Inputs",
+        "",
+        f"- operator resolution input: `{report.get('operator_resolution_input')}`",
+        f"- operator resolution source pack: `{report.get('operator_resolution_source_pack_input')}`",
+        f"- document intake input: `{report.get('document_intake_input')}`",
+        f"- source intake input: `{report.get('source_intake_input')}`",
+        f"- target reporting period: `{report.get('target_reporting_period')}`",
+        f"- required report type: `{report.get('required_report_type')}`",
+        f"- required standard: `{report.get('required_standard')}`",
+        "",
+        "## Stage Results",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- completed stages: `{_csv_value(report.get('completed_stages'))}`",
+        f"- failed stage: `{report.get('failed_stage') or ''}`",
+        f"- validation rows: {report.get('validation_row_count', 0)}",
+        f"- validation valid: {report.get('validation_valid_count', 0)}",
+        f"- validation incomplete: {report.get('validation_incomplete_count', 0)}",
+        f"- validation invalid: {report.get('validation_invalid_count', 0)}",
+        f"- apply preview eligible: {report.get('apply_preview_eligible_count', 0)}",
+        f"- apply draft applied: {report.get('apply_draft_applied_count', 0)}",
+        f"- draft gate ready: {report.get('draft_gate_ready_count', 0)}",
+        f"- draft gate passed: {report.get('draft_gate_passed')}",
+        f"- ready for value extraction preview: {report.get('ready_for_value_extraction')}",
+        f"- ready for import: {report.get('ready_for_import')}",
+        f"- original intake modified: {report.get('original_intake_modified')}",
+        f"- draft intake created: {report.get('draft_intake_created')}",
+        "",
+        "## Generated Artifacts",
+        "",
+    ]
+    if artifacts:
+        lines.extend(f"- {key}: `{value}`" for key, value in artifacts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    if report.get("warnings"):
+        lines.extend(f"- {_message_text(item)}" for item in report["warnings"])
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Errors", ""])
+    if report.get("errors"):
+        lines.extend(f"- {_message_text(item)}" for item in report["errors"])
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This is a real-input preview chain, not a synthetic fixture.",
+            "- This task does not overwrite original exact document intake.",
+            "- This task writes only generated preview artifacts and a new draft intake file.",
+            "- This task does not fetch or parse documents.",
+            "- This task does not extract/import/score/trade.",
+            "- Only exact target-period annual IFRS documents can pass the chain.",
+            "",
+            "## Safety Flags",
+            "",
+            f"- synthetic_only: {report.get('synthetic_only')}",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- would_extract_values: {report.get('would_extract_values')}",
+            f"- would_import_report: {report.get('would_import_report')}",
+            f"- would_update_database: {report.get('would_update_database')}",
+            f"- would_update_original_intake: {report.get('would_update_original_intake')}",
             f"- would_mutate_scores: {report.get('would_mutate_scores')}",
             f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
             "",
@@ -11630,7 +12109,7 @@ def _validate_operator_resolution_exact_document(
     if url:
         domain_status = _operator_resolution_domain_status(
             url,
-            known_hosts=_operator_resolution_known_hosts(row, source_row),
+            known_hosts=_operator_resolution_known_hosts(source_row),
         )
         if domain_status not in {"official", "official_known_source_pack_host"}:
             _operator_resolution_validation_add(errors, reasons, "unofficial_or_blocked_domain")
@@ -16670,6 +17149,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review draft gate blockers; extraction and import remain disabled in this preview workflow."]
     if mode == "operator-resolution-happy-path-synthetic":
         return ["Review synthetic positive-control artifacts; real intake, extraction, import, scoring, and trading remain unchanged."]
+    if mode == "operator-resolution-chain-preview":
+        return ["Review real-input chain preview artifacts and draft gate blockers; original intake and downstream systems remain unchanged."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -16737,14 +17218,24 @@ def _as_float(value: Any) -> float | None:
 def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path | None) -> bool:
     if output_path is None:
         return False
-    protected_input = (
-        args.document_intake_input
+    protected_inputs = (
+        [args.document_intake_input]
         if args.mode == "operator-resolution-apply-draft"
-        else args.document_intake_draft_input
+        else [args.document_intake_draft_input]
         if args.mode == "document-intake-draft-gate-preview"
-        else None
+        else [
+            args.operator_resolution_input,
+            args.operator_resolution_source_pack_input,
+            args.document_intake_input,
+            args.source_intake_input,
+        ]
+        if args.mode == "operator-resolution-chain-preview"
+        else []
     )
-    return protected_input is None or not _paths_equal(output_path, protected_input)
+    return all(
+        protected_input is None or not _paths_equal(output_path, protected_input)
+        for protected_input in protected_inputs
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
