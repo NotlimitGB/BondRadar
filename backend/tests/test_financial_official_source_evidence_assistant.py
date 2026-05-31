@@ -3687,6 +3687,155 @@ def test_document_intake_draft_gate_preview_outputs_reports_without_modifying_dr
     assert report["would_trigger_paper_trading"] is False
 
 
+def test_operator_resolution_happy_path_synthetic_reaches_ready_preview(tmp_path: Path) -> None:
+    report = _run_operator_resolution_happy_path_synthetic(tmp_path)
+
+    assert report["status"] == "passed"
+    assert report["synthetic_only"] is True
+    assert report["validation_valid_count"] == 1
+    assert report["apply_preview_eligible_count"] == 1
+    assert report["apply_draft_applied_count"] == 1
+    assert report["draft_gate_ready_count"] == 1
+    assert report["draft_gate_passed"] is True
+    assert report["ready_for_value_extraction"] is True
+    assert report["ready_for_import"] is False
+    assert report["original_intake_modified"] is False
+    assert report["draft_intake_created"] is True
+
+    validation_row = report["stage_reports"]["validation"]["validation_rows"][0]
+    assert validation_row["validation_status"] == "valid_for_future_controlled_intake_review"
+    assert validation_row["can_use_for_future_intake_review"] is True
+    patch_row = report["stage_reports"]["apply_preview"]["patch_rows"][0]
+    assert patch_row["patch_status"] == "eligible_for_future_controlled_apply"
+    assert patch_row["patch_action"] == "preview_replace_not_found_placeholder"
+    assert patch_row["future_apply_allowed"] is True
+    apply_row = report["stage_reports"]["apply_draft"]["apply_draft_rows"][0]
+    assert apply_row["apply_draft_status"] == "draft_applied_replace_not_found_placeholder"
+    assert apply_row["would_change_draft_file"] is True
+    assert apply_row["would_update_original_intake"] is False
+    gate_row = report["stage_reports"]["draft_gate"]["draft_gate_summary_rows"][0]
+    assert gate_row["draft_row_status"] == "draft_ready_for_future_extraction_preview"
+    assert gate_row["ready_for_value_extraction"] is True
+    assert gate_row["ready_for_import"] is False
+
+
+def test_operator_resolution_happy_path_synthetic_writes_artifacts_and_preserves_base_intake(tmp_path: Path) -> None:
+    report = _run_operator_resolution_happy_path_synthetic(tmp_path)
+    artifacts = {key: Path(value) for key, value in report["artifacts"].items()}
+
+    assert set(artifacts) == set(assistant.SYNTHETIC_HAPPY_PATH_ARTIFACT_NAMES)
+    assert all(path.is_file() for path in artifacts.values())
+    base = json.loads(artifacts["exact_document_intake_base_json"].read_text(encoding="utf-8"))
+    draft = json.loads(artifacts["exact_document_intake_draft_json"].read_text(encoding="utf-8"))
+    assert base["synthetic_only"] is True
+    assert base["documents"][0]["document_url"] == ""
+    assert draft["documents"][0]["document_url"] == (
+        "https://reports.synthetic-bondradar.test/issuer-900001/annual-ifrs-2025.pdf"
+    )
+    summary = json.loads(artifacts["chain_summary_json"].read_text(encoding="utf-8"))
+    assert summary["synthetic_only"] is True
+    validation = json.loads(artifacts["operator_resolution_validation_json"].read_text(encoding="utf-8"))
+    assert validation["synthetic_only"] is True
+    draft_gate = json.loads(artifacts["document_intake_draft_gate_json"].read_text(encoding="utf-8"))
+    assert draft_gate["synthetic_only"] is True
+    markdown = artifacts["chain_summary_markdown"].read_text(encoding="utf-8")
+    assert "Operator Resolution Happy-Path Synthetic Chain" in markdown
+    assert "This is a synthetic positive-control fixture" in markdown
+    assert "No document is fetched or parsed" in markdown
+    stage_markdown = artifacts["operator_resolution_validation_markdown"].read_text(encoding="utf-8")
+    assert "Synthetic-only positive-control fixture" in stage_markdown
+
+
+def test_operator_resolution_happy_path_synthetic_does_not_allow_test_domain_in_normal_draft_gate(tmp_path: Path) -> None:
+    document = _document_item(
+        900001,
+        "https://reports.synthetic-bondradar.test/issuer-900001/annual-ifrs-2025.pdf",
+        "Synthetic BondRadar Issuer annual audited consolidated IFRS financial statements 2025",
+    )
+    document["company_name"] = "Synthetic BondRadar Issuer"
+    document["canonical_company_name"] = "Synthetic BondRadar Issuer"
+    document["document_status"] = "valid_official_document"
+    document["filter_status"] = "kept"
+    document["fallback_status"] = "not_fallback"
+
+    report = _run_document_intake_draft_gate_preview(tmp_path, [document])
+
+    row = report["draft_gate_summary_rows"][0]
+    assert row["draft_row_status"] == "draft_invalid_not_ready"
+    assert "invalid_document_intake" in row["blocked_reason_codes"]
+    assert any("source URL domain is not in the official allowlist" in error for error in row["validation_errors"])
+
+
+def test_operator_resolution_happy_path_synthetic_never_calls_network_or_download_helpers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def fail(*_args, **_kwargs):
+        raise AssertionError("synthetic happy-path mode must not call network or download helpers")
+
+    monkeypatch.setattr(assistant, "_probe_url", fail)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", fail)
+    monkeypatch.setattr(assistant, "_download_valid_document", fail)
+    monkeypatch.setattr(assistant, "_download_source_document", fail)
+
+    report = _run_operator_resolution_happy_path_synthetic(tmp_path)
+
+    assert report["status"] == "passed"
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+
+
+def test_operator_resolution_happy_path_synthetic_fixtures_only_skips_chain(tmp_path: Path) -> None:
+    report = _run_operator_resolution_happy_path_synthetic(
+        tmp_path,
+        extra_args=["--operator-resolution-happy-path-run-chain", "false"],
+    )
+    artifacts = {key: Path(value) for key, value in report["artifacts"].items()}
+
+    assert report["status"] == "fixtures_generated"
+    assert report["run_chain"] is False
+    assert report["stage_reports"] == {}
+    assert artifacts["operator_resolution_pack_json"].is_file()
+    assert artifacts["operator_resolution_filled_csv"].is_file()
+    assert artifacts["official_source_intake_json"].is_file()
+    assert artifacts["exact_document_intake_base_json"].is_file()
+    assert artifacts["chain_summary_json"].is_file()
+    assert artifacts["chain_summary_markdown"].is_file()
+    assert not artifacts["operator_resolution_validation_json"].exists()
+    assert not artifacts["exact_document_intake_draft_json"].exists()
+
+
+def test_operator_resolution_happy_path_synthetic_rerun_preserves_unrelated_files(tmp_path: Path) -> None:
+    sentinel = tmp_path / "keep-me.txt"
+    sentinel.write_text("unrelated", encoding="utf-8")
+    first = _run_operator_resolution_happy_path_synthetic(tmp_path)
+    summary_path = Path(first["artifacts"]["chain_summary_json"])
+    summary_path.write_text("stale", encoding="utf-8")
+
+    second = _run_operator_resolution_happy_path_synthetic(tmp_path)
+
+    assert second["status"] == "passed"
+    assert sentinel.read_text(encoding="utf-8") == "unrelated"
+    assert json.loads(summary_path.read_text(encoding="utf-8"))["status"] == "passed"
+
+
+def test_operator_resolution_happy_path_synthetic_requires_output_directory() -> None:
+    args = assistant.parse_args(["--mode", "operator-resolution-happy-path-synthetic"])
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(
+        error.get("message") == "operator_resolution_happy_path_output_dir_required"
+        for error in report["errors"]
+    )
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -7443,6 +7592,27 @@ def _run_document_intake_draft_gate_preview(
     report, exit_code = assistant.run_assistant(args)
 
     assert exit_code == expected_exit_code
+    return report
+
+
+def _run_operator_resolution_happy_path_synthetic(
+    tmp_path: Path,
+    *,
+    extra_args: list[str] | None = None,
+) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-happy-path-synthetic",
+            "--operator-resolution-happy-path-output-dir",
+            str(tmp_path),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
     return report
 
 

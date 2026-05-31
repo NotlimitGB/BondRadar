@@ -42,6 +42,7 @@ MODE_CHOICES = (
     "operator-resolution-apply-preview",
     "operator-resolution-apply-draft",
     "document-intake-draft-gate-preview",
+    "operator-resolution-happy-path-synthetic",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -1255,6 +1256,35 @@ SAFETY_FLAGS = {
     "would_mutate_scores": False,
     "would_trigger_paper_trading": False,
 }
+SYNTHETIC_HAPPY_PATH_ARTIFACT_NAMES = {
+    "operator_resolution_pack_json": "operator_resolution_pack_happy_path_task123.json",
+    "operator_resolution_pack_csv": "operator_resolution_pack_happy_path_task123.csv",
+    "operator_resolution_source_pack_json": "operator_resolution_source_pack_happy_path_task123.json",
+    "operator_resolution_filled_csv": "operator_resolution_filled_happy_path_task123.csv",
+    "official_source_intake_json": "official_source_intake_happy_path_task123.json",
+    "operator_resolution_validation_json": "operator_resolution_validation_happy_path_task123.json",
+    "operator_resolution_validation_csv": "operator_resolution_validation_happy_path_task123.csv",
+    "operator_resolution_validation_markdown": "operator_resolution_validation_happy_path_task123.md",
+    "operator_resolution_apply_preview_json": "operator_resolution_apply_preview_happy_path_task123.json",
+    "operator_resolution_apply_preview_csv": "operator_resolution_apply_preview_happy_path_task123.csv",
+    "operator_resolution_apply_preview_markdown": "operator_resolution_apply_preview_happy_path_task123.md",
+    "exact_document_intake_base_json": "exact_document_intake_base_happy_path_task123.json",
+    "exact_document_intake_base_csv": "exact_document_intake_base_happy_path_task123.csv",
+    "exact_document_intake_draft_json": "exact_document_intake_draft_happy_path_task123.json",
+    "exact_document_intake_draft_csv": "exact_document_intake_draft_happy_path_task123.csv",
+    "operator_resolution_apply_draft_json": "operator_resolution_apply_draft_happy_path_task123.json",
+    "operator_resolution_apply_draft_csv": "operator_resolution_apply_draft_happy_path_task123.csv",
+    "operator_resolution_apply_draft_markdown": "operator_resolution_apply_draft_happy_path_task123.md",
+    "document_intake_draft_validation_json": "document_intake_draft_validation_happy_path_task123.json",
+    "document_intake_draft_validation_markdown": "document_intake_draft_validation_happy_path_task123.md",
+    "document_intake_draft_gate_json": "document_intake_draft_gate_happy_path_task123.json",
+    "document_intake_draft_gate_markdown": "document_intake_draft_gate_happy_path_task123.md",
+    "document_intake_draft_gate_summary_json": "document_intake_draft_gate_summary_happy_path_task123.json",
+    "document_intake_draft_gate_summary_csv": "document_intake_draft_gate_summary_happy_path_task123.csv",
+    "document_intake_draft_gate_summary_markdown": "document_intake_draft_gate_summary_happy_path_task123.md",
+    "chain_summary_json": "operator_resolution_happy_path_chain_summary_task123.json",
+    "chain_summary_markdown": "operator_resolution_happy_path_chain_summary_task123.md",
+}
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -1522,6 +1552,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--document-intake-draft-gate-summary-output", type=Path, default=None)
     parser.add_argument("--document-intake-draft-gate-summary-csv-output", type=Path, default=None)
     parser.add_argument("--document-intake-draft-gate-summary-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-happy-path-output-dir", type=Path, default=None)
+    parser.add_argument("--operator-resolution-happy-path-company-id", default="900001")
+    parser.add_argument("--operator-resolution-happy-path-company-name", default="Synthetic BondRadar Issuer")
+    parser.add_argument("--operator-resolution-happy-path-report-period", default="2025")
+    parser.add_argument("--operator-resolution-happy-path-report-type", default="annual")
+    parser.add_argument("--operator-resolution-happy-path-accounting-standard", default="IFRS")
+    parser.add_argument("--operator-resolution-happy-path-run-chain", type=_parse_bool, default=True)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1594,6 +1631,8 @@ def run_assistant(
         report = run_operator_resolution_apply_draft(args)
     elif args.mode == "document-intake-draft-gate-preview":
         report = run_document_intake_draft_gate_preview(args)
+    elif args.mode == "operator-resolution-happy-path-synthetic":
+        report = run_operator_resolution_happy_path_synthetic(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -3258,6 +3297,390 @@ def run_document_intake_draft_gate_preview(args: argparse.Namespace) -> dict[str
     return report
 
 
+def run_operator_resolution_happy_path_synthetic(args: argparse.Namespace) -> dict[str, Any]:
+    errors: list[dict[str, Any]] = []
+    if args.operator_resolution_happy_path_output_dir is None:
+        errors.append({"message": "operator_resolution_happy_path_output_dir_required"})
+        return _build_operator_resolution_happy_path_summary(
+            args,
+            artifacts={},
+            stage_reports={},
+            base_intake_unchanged=True,
+            errors=errors,
+        )
+
+    output_dir = args.operator_resolution_happy_path_output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    artifacts = _operator_resolution_happy_path_artifacts(output_dir)
+    fixture = _operator_resolution_happy_path_fixture(args)
+    write_json_report(fixture["operator_resolution_pack"], artifacts["operator_resolution_pack_json"])
+    write_operator_resolution_pack_csv([fixture["resolution_template"]], artifacts["operator_resolution_pack_csv"])
+    write_json_report(fixture["operator_resolution_pack"], artifacts["operator_resolution_source_pack_json"])
+    write_operator_resolution_pack_csv([fixture["resolution_filled"]], artifacts["operator_resolution_filled_csv"])
+    write_json_report(fixture["official_source_intake"], artifacts["official_source_intake_json"])
+    write_document_intake_draft_json(
+        fixture["base_intake"],
+        fixture["base_intake"]["documents"],
+        artifacts["exact_document_intake_base_json"],
+    )
+    write_document_intake_draft_csv(
+        fixture["base_intake"]["documents"],
+        artifacts["exact_document_intake_base_csv"],
+    )
+    base_intake_before = artifacts["exact_document_intake_base_json"].read_bytes()
+    stage_reports: dict[str, dict[str, Any]] = {}
+
+    if args.operator_resolution_happy_path_run_chain:
+        synthetic_args = _clone_args(
+            args,
+            report_period=fixture["target_reporting_period"],
+            report_type=fixture["required_report_type"],
+            accounting_standard=fixture["required_standard"],
+            required_company_ids=str(fixture["company_id"]),
+            required_company_names=fixture["company_name"],
+            probe_urls=False,
+            seed_probe_urls=False,
+            download_documents=False,
+            download_source_documents=False,
+            _internal_official_source_domains=(fixture["synthetic_host"],),
+        )
+        validation_args = _clone_args(
+            synthetic_args,
+            mode="operator-resolution-validate",
+            operator_resolution_input=artifacts["operator_resolution_filled_csv"],
+            operator_resolution_source_pack_input=artifacts["operator_resolution_source_pack_json"],
+            operator_resolution_validation_output=artifacts["operator_resolution_validation_json"],
+            operator_resolution_validation_csv_output=artifacts["operator_resolution_validation_csv"],
+            operator_resolution_validation_markdown_output=artifacts["operator_resolution_validation_markdown"],
+        )
+        stage_reports["validation"] = run_operator_resolution_validate(validation_args)
+        _mark_operator_resolution_happy_path_stage(
+            stage_reports["validation"],
+            json_path=artifacts["operator_resolution_validation_json"],
+            markdown_path=artifacts["operator_resolution_validation_markdown"],
+        )
+
+        apply_preview_args = _clone_args(
+            synthetic_args,
+            mode="operator-resolution-apply-preview",
+            operator_resolution_validation_input=artifacts["operator_resolution_validation_json"],
+            operator_resolution_source_pack_input=artifacts["operator_resolution_source_pack_json"],
+            document_intake_input=artifacts["exact_document_intake_base_json"],
+            operator_resolution_apply_preview_output=artifacts["operator_resolution_apply_preview_json"],
+            operator_resolution_apply_preview_csv_output=artifacts["operator_resolution_apply_preview_csv"],
+            operator_resolution_apply_preview_markdown_output=artifacts["operator_resolution_apply_preview_markdown"],
+        )
+        stage_reports["apply_preview"] = run_operator_resolution_apply_preview(apply_preview_args)
+        _mark_operator_resolution_happy_path_stage(
+            stage_reports["apply_preview"],
+            json_path=artifacts["operator_resolution_apply_preview_json"],
+            markdown_path=artifacts["operator_resolution_apply_preview_markdown"],
+        )
+
+        apply_draft_args = _clone_args(
+            synthetic_args,
+            mode="operator-resolution-apply-draft",
+            operator_resolution_apply_preview_input=artifacts["operator_resolution_apply_preview_json"],
+            document_intake_input=artifacts["exact_document_intake_base_json"],
+            document_intake_draft_output=artifacts["exact_document_intake_draft_json"],
+            document_intake_draft_csv_output=artifacts["exact_document_intake_draft_csv"],
+            operator_resolution_apply_draft_output=artifacts["operator_resolution_apply_draft_json"],
+            operator_resolution_apply_draft_csv_output=artifacts["operator_resolution_apply_draft_csv"],
+            operator_resolution_apply_draft_markdown_output=artifacts["operator_resolution_apply_draft_markdown"],
+        )
+        stage_reports["apply_draft"] = run_operator_resolution_apply_draft(apply_draft_args)
+        _mark_operator_resolution_happy_path_stage(
+            stage_reports["apply_draft"],
+            json_path=artifacts["operator_resolution_apply_draft_json"],
+            markdown_path=artifacts["operator_resolution_apply_draft_markdown"],
+        )
+
+        draft_gate_args = _clone_args(
+            synthetic_args,
+            mode="document-intake-draft-gate-preview",
+            document_intake_draft_input=artifacts["exact_document_intake_draft_json"],
+            source_intake_input=artifacts["official_source_intake_json"],
+            document_intake_draft_validation_output=artifacts["document_intake_draft_validation_json"],
+            document_intake_draft_validation_markdown_output=artifacts["document_intake_draft_validation_markdown"],
+            document_intake_draft_gate_output=artifacts["document_intake_draft_gate_json"],
+            document_intake_draft_gate_markdown_output=artifacts["document_intake_draft_gate_markdown"],
+            document_intake_draft_gate_summary_output=artifacts["document_intake_draft_gate_summary_json"],
+            document_intake_draft_gate_summary_csv_output=artifacts["document_intake_draft_gate_summary_csv"],
+            document_intake_draft_gate_summary_markdown_output=artifacts["document_intake_draft_gate_summary_markdown"],
+        )
+        stage_reports["draft_gate"] = run_document_intake_draft_gate_preview(draft_gate_args)
+        _mark_operator_resolution_happy_path_stage(
+            stage_reports["draft_gate"],
+            json_path=artifacts["document_intake_draft_gate_summary_json"],
+            markdown_path=artifacts["document_intake_draft_gate_summary_markdown"],
+        )
+        _mark_operator_resolution_happy_path_json_artifact(artifacts["document_intake_draft_validation_json"])
+        _mark_operator_resolution_happy_path_json_artifact(artifacts["document_intake_draft_gate_json"])
+        _prepend_operator_resolution_happy_path_markdown_marker(artifacts["document_intake_draft_validation_markdown"])
+        _prepend_operator_resolution_happy_path_markdown_marker(artifacts["document_intake_draft_gate_markdown"])
+
+    report = _build_operator_resolution_happy_path_summary(
+        args,
+        artifacts=artifacts,
+        stage_reports=stage_reports,
+        base_intake_unchanged=artifacts["exact_document_intake_base_json"].read_bytes() == base_intake_before,
+        errors=errors,
+    )
+    write_json_report(report, artifacts["chain_summary_json"])
+    write_operator_resolution_happy_path_markdown(report, artifacts["chain_summary_markdown"])
+    return report
+
+
+def _operator_resolution_happy_path_artifacts(output_dir: Path) -> dict[str, Path]:
+    return {
+        key: output_dir / file_name
+        for key, file_name in SYNTHETIC_HAPPY_PATH_ARTIFACT_NAMES.items()
+    }
+
+
+def _mark_operator_resolution_happy_path_stage(
+    report: dict[str, Any],
+    *,
+    json_path: Path,
+    markdown_path: Path,
+) -> None:
+    report["synthetic_only"] = True
+    write_json_report(report, json_path)
+    _prepend_operator_resolution_happy_path_markdown_marker(markdown_path)
+
+
+def _mark_operator_resolution_happy_path_json_artifact(path: Path) -> None:
+    if not path.is_file():
+        return
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(payload, dict):
+        payload["synthetic_only"] = True
+        write_json_report(payload, path)
+
+
+def _prepend_operator_resolution_happy_path_markdown_marker(path: Path) -> None:
+    if not path.is_file():
+        return
+    marker = "> Synthetic-only positive-control fixture. No real issuer report is used.\n\n"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text if text.startswith(marker) else marker + text, encoding="utf-8")
+
+
+def _operator_resolution_happy_path_fixture(args: argparse.Namespace) -> dict[str, Any]:
+    company_id = str(args.operator_resolution_happy_path_company_id)
+    company_name = str(args.operator_resolution_happy_path_company_name)
+    period = str(args.operator_resolution_happy_path_report_period)
+    report_type = str(args.operator_resolution_happy_path_report_type)
+    standard = str(args.operator_resolution_happy_path_accounting_standard)
+    synthetic_host = "reports.synthetic-bondradar.test"
+    source_page_url = f"https://{synthetic_host}/issuer-{company_id}/reports/"
+    document_url = f"https://{synthetic_host}/issuer-{company_id}/{report_type}-{standard.casefold()}-{period}.pdf"
+    resolution_id = f"financial_report_resolution:{company_id}:{period}:{report_type}:{standard}:fill_exact_document_url"
+    template = {
+        "resolution_id": resolution_id,
+        "company_id": company_id,
+        "company_name": company_name,
+        "canonical_company_id": company_id,
+        "canonical_company_name": company_name,
+        "target_reporting_period": period,
+        "required_report_type": report_type,
+        "required_standard": standard,
+        "resolution_status": "open",
+        "resolution_priority": "high",
+        "resolution_action_type": "fill_exact_document_url",
+        "resolution_action_label": "Fill exact target-period official annual IFRS document URL",
+        "resolution_reason_codes": ["synthetic_positive_control", "missing_exact_target_period_annual_ifrs"],
+        "source_readiness_status": "synthetic_official_source_context",
+        "reporting_readiness_status": "blocked_placeholder_not_found",
+        "primary_blocker": "placeholder_not_found",
+        "blocking_layers": ["availability", "quality_gate", "operator_queue"],
+        "availability_status": "placeholder_not_found",
+        "coverage_status": "synthetic_official_source_context",
+        "coverage_grade": "synthetic",
+        "queue_action_type": "fill_exact_document_url",
+        "queue_priority": "high",
+        "queue_status": "open",
+        "target_evidence_available": False,
+        "gate_status": "failed",
+        "gate_passed": False,
+        "ready_for_value_extraction": False,
+        "ready_for_import": False,
+        "extraction_allowed": False,
+        "import_allowed": False,
+        "scoring_allowed": False,
+        "paper_trading_allowed": False,
+        "can_unblock_extraction_if_completed": True,
+        "requires_exact_document_url": True,
+        "requires_official_seed_review": False,
+        "requires_publication_verification": False,
+        "requires_escalation": False,
+        "is_wait_action": False,
+        "is_diagnostic_only": False,
+        "operator_input_required": True,
+        "operator_input_schema_version": "operator_resolution_pack_v1",
+        "operator_fill_exact_document_url": "",
+        "operator_fill_document_title": "",
+        "operator_fill_document_date": "",
+        "operator_fill_source_page_url": "",
+        "operator_fill_source_type": "",
+        "operator_fill_report_period": period,
+        "operator_fill_report_type": report_type,
+        "operator_fill_accounting_standard": standard,
+        "operator_fill_decision": "",
+        "operator_fill_notes": "",
+        "current_known_document_url": "",
+        "current_known_source_page_url": source_page_url,
+        "latest_historical_document_url": "",
+        "latest_historical_period": "",
+        "operator_instruction": "Synthetic fixture: fill exact target-period official document URL.",
+        "validation_hint": "Synthetic positive-control fixture only.",
+        "safety_note": "Synthetic-only fixture; no document is fetched, parsed, imported, scored, or traded.",
+    }
+    filled = {
+        **template,
+        "operator_fill_exact_document_url": document_url,
+        "operator_fill_document_title": f"{company_name} annual audited consolidated {standard} financial statements {period}",
+        "operator_fill_document_date": "2026-04-30",
+        "operator_fill_source_page_url": source_page_url,
+        "operator_fill_source_type": "official_issuer_report",
+        "operator_fill_decision": "exact_document_found",
+        "operator_fill_notes": "Synthetic positive-control fixture only.",
+    }
+    placeholder = {
+        "company_id": company_id,
+        "company_name": company_name,
+        "canonical_company_id": company_id,
+        "canonical_company_name": company_name,
+        "report_period": period,
+        "report_type": report_type,
+        "accounting_standard": standard,
+        "source_type": "official_issuer_report",
+        "source_url_context": source_page_url,
+        "document_url": "",
+        "document_title": "",
+        "document_date": "",
+        "source_file_name": "",
+        "operator_review_status": "operator_to_fill",
+        "document_status": "not_found",
+        "filter_status": "placeholder_not_found",
+        "fallback_status": "not_fallback",
+        "notes": "Synthetic positive-control placeholder only.",
+    }
+    return {
+        "company_id": company_id,
+        "company_name": company_name,
+        "target_reporting_period": period,
+        "required_report_type": report_type,
+        "required_standard": standard,
+        "synthetic_host": synthetic_host,
+        "source_page_url": source_page_url,
+        "document_url": document_url,
+        "resolution_template": template,
+        "resolution_filled": filled,
+        "operator_resolution_pack": {
+            "status": "template",
+            "mode": "operator-resolution-pack",
+            "synthetic_only": True,
+            "resolutions": [template],
+            **SAFETY_FLAGS,
+        },
+        "official_source_intake": {
+            "status": "operator_reviewed",
+            "mode": "synthetic-official-source-intake",
+            "synthetic_only": True,
+            "issuer_sources": [
+                {
+                    "company_id": company_id,
+                    "company_name": company_name,
+                    "canonical_company_id": company_id,
+                    "canonical_company_name": company_name,
+                    "period_year": period,
+                    "source_candidates": [
+                        {
+                            "source_type": "official_issuer_report",
+                            "url": source_page_url,
+                            "document_title": f"{company_name} official reporting page",
+                            "document_date": "2026-04-30",
+                            "report_period": period,
+                            "status": "valid_official_source",
+                            "operator_review_status": "operator_reviewed",
+                            "notes": "Synthetic positive-control official reporting page only.",
+                        }
+                    ],
+                }
+            ],
+            **SAFETY_FLAGS,
+        },
+        "base_intake": {
+            "status": "operator_reviewed",
+            "mode": "synthetic-exact-document-intake-base",
+            "synthetic_only": True,
+            "documents": [placeholder],
+            **SAFETY_FLAGS,
+        },
+    }
+
+
+def _build_operator_resolution_happy_path_summary(
+    args: argparse.Namespace,
+    *,
+    artifacts: dict[str, Path],
+    stage_reports: dict[str, dict[str, Any]],
+    base_intake_unchanged: bool,
+    errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    errors = errors or []
+    validation = stage_reports.get("validation") or {}
+    apply_preview = stage_reports.get("apply_preview") or {}
+    apply_draft = stage_reports.get("apply_draft") or {}
+    draft_gate = stage_reports.get("draft_gate") or {}
+    validation_valid_count = int(validation.get("operator_resolution_validation_valid_count") or 0)
+    apply_preview_eligible_count = int(apply_preview.get("operator_resolution_apply_preview_eligible_count") or 0)
+    apply_draft_applied_count = int(apply_draft.get("operator_resolution_apply_draft_applied_count") or 0)
+    draft_gate_ready_count = int(draft_gate.get("document_intake_draft_gate_preview_ready_count") or 0)
+    run_chain = bool(getattr(args, "operator_resolution_happy_path_run_chain", True))
+    passed = (
+        run_chain
+        and validation_valid_count == 1
+        and apply_preview_eligible_count == 1
+        and apply_draft_applied_count == 1
+        and draft_gate_ready_count == 1
+        and bool(draft_gate.get("document_intake_draft_gate_preview_gate_passed"))
+        and base_intake_unchanged
+    )
+    status = "failed" if errors else "passed" if passed else "warning" if run_chain else "fixtures_generated"
+    return {
+        "status": status,
+        "mode": "operator-resolution-happy-path-synthetic",
+        "synthetic_only": True,
+        "company_id": str(getattr(args, "operator_resolution_happy_path_company_id", "900001")),
+        "company_name": str(getattr(args, "operator_resolution_happy_path_company_name", "Synthetic BondRadar Issuer")),
+        "target_reporting_period": str(getattr(args, "operator_resolution_happy_path_report_period", "2025")),
+        "required_report_type": str(getattr(args, "operator_resolution_happy_path_report_type", "annual")),
+        "required_standard": str(getattr(args, "operator_resolution_happy_path_accounting_standard", "IFRS")),
+        "run_chain": run_chain,
+        "validation_valid_count": validation_valid_count,
+        "apply_preview_eligible_count": apply_preview_eligible_count,
+        "apply_draft_applied_count": apply_draft_applied_count,
+        "draft_gate_ready_count": draft_gate_ready_count,
+        "draft_gate_passed": bool(draft_gate.get("document_intake_draft_gate_preview_gate_passed")),
+        "ready_for_value_extraction": bool(draft_gate.get("document_intake_draft_gate_preview_ready_for_value_extraction")),
+        "ready_for_import": bool(draft_gate.get("document_intake_draft_gate_preview_ready_for_import")),
+        "original_intake_modified": not base_intake_unchanged,
+        "draft_intake_created": bool(artifacts.get("exact_document_intake_draft_json") and artifacts["exact_document_intake_draft_json"].is_file()),
+        "artifacts": {key: str(path) for key, path in artifacts.items()},
+        "stage_reports": stage_reports,
+        "warnings": [] if passed or not run_chain else [{"message": "synthetic_happy_path_chain_not_ready"}],
+        "errors": errors,
+        "next_steps": _next_steps("operator-resolution-happy-path-synthetic", status),
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_update_database": False,
+        "would_update_original_intake": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
     return [
         args.document_intake_draft_output,
@@ -4814,6 +5237,7 @@ def validate_document_intake_item(
         classification = classify_source_url(
             document_url,
             allow_unknown_source=args.allow_unknown_source,
+            extra_official_domains=_internal_official_source_domains(args),
         )
         if classification["status"] == "unknown_warning":
             document_status = "needs_operator_review"
@@ -4825,6 +5249,7 @@ def validate_document_intake_item(
         issuer=issuer,
         allow_unknown_source=args.allow_unknown_source,
         target_report_period=str(args.report_period),
+        extra_official_domains=_internal_official_source_domains(args),
     )
     warnings = list(result["warnings"])
     errors = list(result["errors"])
@@ -4868,6 +5293,7 @@ def validate_document_candidate(
     issuer: dict[str, Any] | None = None,
     allow_unknown_source: bool = False,
     target_report_period: str | None = None,
+    extra_official_domains: Sequence[str] = (),
 ) -> dict[str, Any]:
     issuer = issuer or {}
     warnings: list[dict[str, Any]] = []
@@ -4910,7 +5336,11 @@ def validate_document_candidate(
             warnings.append({**base, "message": "document_url is missing; exact report document required"})
     domain_status = None
     if document_url:
-        classification = classify_source_url(document_url, allow_unknown_source=allow_unknown_source)
+        classification = classify_source_url(
+            document_url,
+            allow_unknown_source=allow_unknown_source,
+            extra_official_domains=extra_official_domains,
+        )
         domain_status = classification["status"]
         if classification["status"] == "blocked":
             errors.append({**base, "message": classification["message"]})
@@ -5768,6 +6198,11 @@ def write_document_intake_draft_gate_preview_markdown(report: dict[str, Any], pa
     path.write_text(render_document_intake_draft_gate_preview_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_happy_path_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_happy_path_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5905,6 +6340,8 @@ def write_markdown_report(report: dict[str, Any], path: Path) -> None:
 
 
 def render_markdown(report: dict[str, Any]) -> str:
+    if report.get("mode") == "operator-resolution-happy-path-synthetic":
+        return render_operator_resolution_happy_path_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -6364,6 +6801,63 @@ def render_document_intake_draft_gate_preview_markdown(report: dict[str, Any]) -
             "",
             "## Safety Flags",
             "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- would_extract_values: {report.get('would_extract_values')}",
+            f"- would_import_report: {report.get('would_import_report')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_happy_path_markdown(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    lines = [
+        "# Operator Resolution Happy-Path Synthetic Chain",
+        "",
+        "## Synthetic Fixture Warning",
+        "",
+        "- This is a synthetic positive-control fixture.",
+        "- No real issuer report is used.",
+        "",
+        "## Stage Results",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- validation valid count: {report.get('validation_valid_count', 0)}",
+        f"- apply preview eligible count: {report.get('apply_preview_eligible_count', 0)}",
+        f"- apply draft applied count: {report.get('apply_draft_applied_count', 0)}",
+        f"- draft gate ready count: {report.get('draft_gate_ready_count', 0)}",
+        f"- draft gate passed: {report.get('draft_gate_passed')}",
+        f"- ready for value extraction preview: {report.get('ready_for_value_extraction')}",
+        f"- ready for import: {report.get('ready_for_import')}",
+        f"- original intake modified: {report.get('original_intake_modified')}",
+        f"- draft intake created: {report.get('draft_intake_created')}",
+        "",
+        "## Generated Artifacts",
+        "",
+    ]
+    if artifacts:
+        lines.extend(f"- {key}: `{value}`" for key, value in artifacts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- No document is fetched or parsed.",
+            "- No financial values are extracted.",
+            "- No reports are imported.",
+            "- No scoring or paper trading is changed.",
+            "",
+            "## Safety Flags",
+            "",
+            f"- synthetic_only: {report.get('synthetic_only')}",
             f"- read_only: {report.get('read_only')}",
             f"- dry_run_only: {report.get('dry_run_only')}",
             f"- import_executed: {report.get('import_executed')}",
@@ -8102,14 +8596,20 @@ def _render_official_seed_markdown_sections(report: dict[str, Any]) -> list[str]
     return lines
 
 
-def classify_source_url(url: str, *, allow_unknown_source: bool = False) -> dict[str, str]:
+def classify_source_url(
+    url: str,
+    *,
+    allow_unknown_source: bool = False,
+    extra_official_domains: Sequence[str] = (),
+) -> dict[str, str]:
     text = url.casefold()
     if _has_blocked_source_hint(text):
         return {"status": "blocked", "message": "blocked unofficial source domain"}
     host = _host(url)
     if not host:
         return {"status": "unknown_error", "message": "source URL host is missing"}
-    if any(host == domain or host.endswith(f".{domain}") for domain in OFFICIAL_SOURCE_DOMAIN_HINTS):
+    official_domains = (*OFFICIAL_SOURCE_DOMAIN_HINTS, *(str(domain).casefold() for domain in extra_official_domains))
+    if any(host == domain or host.endswith(f".{domain}") for domain in official_domains):
         return {"status": "official", "message": "recognized official-like source domain"}
     if allow_unknown_source:
         return {
@@ -15350,6 +15850,10 @@ def _clone_args(args: argparse.Namespace, **updates: Any) -> argparse.Namespace:
     return argparse.Namespace(**values)
 
 
+def _internal_official_source_domains(args: argparse.Namespace) -> tuple[str, ...]:
+    return tuple(str(domain).casefold() for domain in getattr(args, "_internal_official_source_domains", ()))
+
+
 def _parse_required_issuers(
     args: argparse.Namespace,
     input_documents: list[dict[str, Any]],
@@ -16164,6 +16668,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Validate the new draft intake before any quality gate; original intake remains unchanged."]
     if mode == "document-intake-draft-gate-preview":
         return ["Review draft gate blockers; extraction and import remain disabled in this preview workflow."]
+    if mode == "operator-resolution-happy-path-synthetic":
+        return ["Review synthetic positive-control artifacts; real intake, extraction, import, scoring, and trading remain unchanged."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
