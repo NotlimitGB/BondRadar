@@ -40,6 +40,7 @@ MODE_CHOICES = (
     "exact-document-discover-from-seeds",
     "operator-resolution-validate",
     "operator-resolution-apply-preview",
+    "operator-resolution-apply-draft",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -715,6 +716,60 @@ OPERATOR_RESOLUTION_APPLY_PREVIEW_FIELDS = [
     "operator_next_step",
     "preview_note",
 ]
+OPERATOR_RESOLUTION_APPLY_DRAFT_FIELDS = [
+    "apply_draft_id",
+    "patch_id",
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "apply_draft_status",
+    "apply_draft_action",
+    "apply_draft_reason_codes",
+    "apply_draft_errors",
+    "apply_draft_warnings",
+    "source_patch_status",
+    "source_patch_action",
+    "future_apply_allowed",
+    "draft_document_url",
+    "draft_document_title",
+    "draft_document_date",
+    "draft_source_page_url",
+    "draft_source_type",
+    "matched_intake_status",
+    "matched_intake_existing_document_url",
+    "matched_intake_existing_document_status",
+    "matched_intake_existing_filter_status",
+    "draft_row_index",
+    "would_change_draft_file",
+    "would_overwrite_input_file",
+    "would_update_original_intake",
+    "would_update_database",
+    "would_promote_seed",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "operator_next_step",
+    "apply_draft_note",
+]
+DOCUMENT_INTAKE_DRAFT_FIELDS = list(
+    dict.fromkeys(
+        [
+            *DOCUMENT_INTAKE_TEMPLATE_FIELDS,
+            "source_page_url",
+            "document_status",
+            "filter_status",
+            "fallback_status",
+            "operator_resolution_id",
+            "operator_resolution_patch_id",
+            "draft_source",
+            "draft_note",
+        ]
+    )
+)
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -1415,6 +1470,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-apply-preview-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-apply-preview-csv-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-apply-preview-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-apply-preview-input", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-apply-draft-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-apply-draft-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-apply-draft-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1483,6 +1544,8 @@ def run_assistant(
         report = run_operator_resolution_validate(args)
     elif args.mode == "operator-resolution-apply-preview":
         report = run_operator_resolution_apply_preview(args)
+    elif args.mode == "operator-resolution-apply-draft":
+        report = run_operator_resolution_apply_draft(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -2977,6 +3040,85 @@ def run_operator_resolution_apply_preview(args: argparse.Namespace) -> dict[str,
             args.operator_resolution_apply_preview_markdown_output,
         )
     return report
+
+
+def run_operator_resolution_apply_draft(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    patch_rows: list[dict[str, Any]] = []
+    intake_payload: Any = {"documents": []}
+    intake_documents: list[dict[str, Any]] = []
+
+    if args.operator_resolution_apply_preview_input is None:
+        errors.append({"message": "operator-resolution-apply-draft mode requires --operator-resolution-apply-preview-input"})
+    if args.document_intake_input is None:
+        errors.append({"message": "operator-resolution-apply-draft mode requires --document-intake-input"})
+    if args.document_intake_input is not None:
+        for output_path in _operator_resolution_apply_draft_output_paths(args):
+            if output_path is not None and _paths_equal(output_path, args.document_intake_input):
+                errors.append({"message": "draft_output_must_not_equal_input", "path": str(output_path)})
+    if not errors:
+        try:
+            patch_rows, _patch_columns = load_operator_resolution_apply_preview_input(
+                args.operator_resolution_apply_preview_input
+            )
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+    if not errors:
+        try:
+            intake_payload, intake_documents = load_document_intake_payload(args.document_intake_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    draft_documents = copy.deepcopy(intake_documents)
+    apply_rows = _build_operator_resolution_apply_draft_rows(
+        patch_rows,
+        draft_documents=draft_documents,
+    )
+    report = _build_operator_resolution_apply_draft_report(
+        args,
+        rows=apply_rows,
+        draft_documents=draft_documents,
+        load_warnings=warnings,
+        load_errors=errors,
+    )
+    if not errors:
+        if args.document_intake_draft_output is not None:
+            write_document_intake_draft_json(
+                intake_payload,
+                draft_documents,
+                args.document_intake_draft_output,
+            )
+        if args.document_intake_draft_csv_output is not None:
+            write_document_intake_draft_csv(
+                draft_documents,
+                args.document_intake_draft_csv_output,
+            )
+        if args.operator_resolution_apply_draft_output is not None:
+            write_json_report(report, args.operator_resolution_apply_draft_output)
+        if args.operator_resolution_apply_draft_csv_output is not None:
+            write_operator_resolution_apply_draft_csv(
+                apply_rows,
+                args.operator_resolution_apply_draft_csv_output,
+            )
+        if args.operator_resolution_apply_draft_markdown_output is not None:
+            write_operator_resolution_apply_draft_markdown(
+                report,
+                args.operator_resolution_apply_draft_markdown_output,
+            )
+    return report
+
+
+def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
+    return [
+        args.document_intake_draft_output,
+        args.document_intake_draft_csv_output,
+        args.operator_resolution_apply_draft_output,
+        args.operator_resolution_apply_draft_csv_output,
+        args.operator_resolution_apply_draft_markdown_output,
+        args.json_output,
+        args.markdown_output,
+    ]
 
 
 def run_operator_seed_merge(args: argparse.Namespace) -> dict[str, Any]:
@@ -5001,6 +5143,31 @@ def load_operator_resolution_input(path: Path) -> tuple[list[dict[str, Any]], se
         return [{key: _normalize_cell(value) for key, value in row.items() if key} for row in reader], fieldnames
 
 
+def load_operator_resolution_apply_preview_input(path: Path) -> tuple[list[dict[str, Any]], set[str]]:
+    if not path.is_file():
+        raise ValueError(f"operator resolution apply preview input does not exist: {path}")
+    if path.suffix.lower() == ".json":
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if isinstance(payload, dict):
+            rows = payload.get("patch_rows")
+            if rows is None:
+                rows = payload.get("rows")
+        else:
+            rows = payload
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError("operator resolution apply preview JSON must be a list or object with patch_rows/rows")
+        normalized = [{str(key): _normalize_cell(value) for key, value in row.items()} for row in rows]
+        columns = {key for row in normalized for key in row}
+        return normalized, columns
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        if reader.fieldnames is None:
+            return [], set()
+        fieldnames = {field for field in reader.fieldnames if field}
+        return [{key: _normalize_cell(value) for key, value in row.items() if key} for row in reader], fieldnames
+
+
 def _load_candidate_json_rows(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         raise ValueError(f"candidate input does not exist: {path}")
@@ -5050,6 +5217,20 @@ def load_document_intake_file(path: Path) -> list[dict[str, Any]]:
     if path.suffix.casefold() == ".csv":
         return load_document_intake_csv(path)
     return load_document_intake_items(path)
+
+
+def load_document_intake_payload(path: Path) -> tuple[Any, list[dict[str, Any]]]:
+    if path.suffix.casefold() == ".csv":
+        documents = load_document_intake_csv(path)
+        return copy.deepcopy(documents), documents
+    if not path.is_file():
+        raise ValueError(f"document intake input does not exist: {path}")
+    with path.open("r", encoding="utf-8-sig") as handle:
+        payload = json.load(handle)
+    documents = payload.get("documents") if isinstance(payload, dict) else payload
+    if not isinstance(documents, list) or not all(isinstance(item, dict) for item in documents):
+        raise ValueError("document intake JSON must contain documents")
+    return payload, documents
 
 
 def load_exact_document_candidate_items(path: Path | None) -> list[dict[str, Any]]:
@@ -5377,6 +5558,39 @@ def write_operator_resolution_apply_preview_markdown(report: dict[str, Any], pat
     path.write_text(render_operator_resolution_apply_preview_markdown(report), encoding="utf-8")
 
 
+def write_document_intake_draft_json(original_payload: Any, documents: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(original_payload, dict):
+        payload = copy.deepcopy(original_payload)
+        payload["documents"] = documents
+    else:
+        payload = documents
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def write_document_intake_draft_csv(documents: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=DOCUMENT_INTAKE_DRAFT_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for document in documents:
+            writer.writerow({field: _csv_value(document.get(field)) for field in DOCUMENT_INTAKE_DRAFT_FIELDS})
+
+
+def write_operator_resolution_apply_draft_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OPERATOR_RESOLUTION_APPLY_DRAFT_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in OPERATOR_RESOLUTION_APPLY_DRAFT_FIELDS})
+
+
+def write_operator_resolution_apply_draft_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_apply_draft_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5543,6 +5757,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "operator-resolution-validation"
         else "Operator Resolution Apply Preview"
         if report.get("mode") == "operator-resolution-apply-preview"
+        else "Operator Resolution Apply Draft"
+        if report.get("mode") == "operator-resolution-apply-draft"
         else "Exact Official Report Document Discovery From Reviewed Seeds"
         if report.get("mode") == "exact-document-discover-from-seeds"
         else "Official Seed Resolver"
@@ -5591,6 +5807,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_operator_resolution_validation_sections(report))
     if report.get("mode") == "operator-resolution-apply-preview":
         lines.extend(_render_operator_resolution_apply_preview_sections(report))
+    if report.get("mode") == "operator-resolution-apply-draft":
+        lines.extend(_render_operator_resolution_apply_draft_sections(report))
     if report.get("mode") == "exact-document-discover-from-seeds":
         lines.extend(_render_exact_document_from_seeds_markdown_sections(report))
     if report.get("mode") == "official-seed-resolve":
@@ -5888,6 +6106,50 @@ def render_operator_resolution_apply_preview_markdown(report: dict[str, Any]) ->
             f"- import_executed: {report.get('import_executed')}",
             f"- paper_trading_called: {report.get('paper_trading_called')}",
             f"- would_apply_to_document_intake: {report.get('would_apply_to_document_intake')}",
+            f"- would_promote_seed: {report.get('would_promote_seed')}",
+            f"- would_extract_values: {report.get('would_extract_values')}",
+            f"- would_import_report: {report.get('would_import_report')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_apply_draft_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Operator Resolution Apply Draft",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- row_count: {report.get('operator_resolution_apply_draft_row_count', 0)}",
+        "",
+    ]
+    lines.extend(_render_operator_resolution_apply_draft_sections(report))
+    lines.extend(
+        [
+            "## Draft Outputs",
+            "",
+            f"- draft JSON: `{report.get('document_intake_draft_output')}`",
+            f"- draft CSV: `{report.get('document_intake_draft_csv_output')}`",
+            "",
+            "## Safety Notes",
+            "",
+            "- This task writes only a new draft intake file.",
+            "- This task does not overwrite the original exact document intake.",
+            "- This task does not update DB.",
+            "- This task does not extract/import/score/trade.",
+            "- Only Task 120 future-apply-allowed rows can be included in the draft.",
+            "",
+            "## Safety Flags",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
+            f"- would_update_original_intake: {report.get('would_update_original_intake')}",
+            f"- would_update_database: {report.get('would_update_database')}",
             f"- would_promote_seed: {report.get('would_promote_seed')}",
             f"- would_extract_values: {report.get('would_extract_values')}",
             f"- would_import_report: {report.get('would_import_report')}",
@@ -6346,6 +6608,60 @@ def _render_operator_resolution_apply_preview_sections(report: dict[str, Any]) -
                     future=row.get("future_apply_allowed"),
                     url=str(row.get("proposed_document_url") or "").replace("|", "/"),
                     intake=row.get("intake_target_status") or "",
+                    next_step=str(row.get("operator_next_step") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
+
+
+def _render_operator_resolution_apply_draft_sections(report: dict[str, Any]) -> list[str]:
+    rows = report.get("apply_draft_rows") or []
+    lines = [
+        "## Apply Draft Summary",
+        "",
+        f"- row count: {report.get('operator_resolution_apply_draft_row_count', len(rows))}",
+        f"- applied: {report.get('operator_resolution_apply_draft_applied_count', 0)}",
+        f"- skipped: {report.get('operator_resolution_apply_draft_skipped_count', 0)}",
+        f"- failed: {report.get('operator_resolution_apply_draft_failed_count', 0)}",
+        f"- output draft rows: {report.get('operator_resolution_apply_draft_output_row_count', 0)}",
+        "",
+        "### Apply Draft Status Counts",
+        "",
+    ]
+    status_counts = report.get("operator_resolution_apply_draft_status_counts") or {}
+    if status_counts:
+        lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(["", "### Apply Draft Action Counts", ""])
+    action_counts = report.get("operator_resolution_apply_draft_action_counts") or {}
+    if action_counts:
+        lines.extend(f"- {key}: {value}" for key, value in action_counts.items())
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Apply Draft Rows",
+            "",
+            "| Company | Patch status | Draft status | Draft action | Draft URL | Matched intake | Draft changed | Next step |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| {company} | {patch_status} | {draft_status} | {draft_action} | {url} | {matched} | {changed} | {next_step} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    patch_status=row.get("source_patch_status") or "",
+                    draft_status=row.get("apply_draft_status") or "",
+                    draft_action=row.get("apply_draft_action") or "",
+                    url=str(row.get("draft_document_url") or "").replace("|", "/"),
+                    matched=row.get("matched_intake_status") or "",
+                    changed=row.get("would_change_draft_file"),
                     next_step=str(row.get("operator_next_step") or "").replace("|", "/"),
                 )
             )
@@ -11191,6 +11507,266 @@ def _build_operator_resolution_apply_preview_report(
     }
 
 
+def _operator_resolution_apply_draft_bool(value: Any) -> bool:
+    return _operator_resolution_apply_bool(value)
+
+
+def _operator_resolution_apply_draft_id(row: dict[str, Any]) -> str:
+    patch_id = str(row.get("patch_id") or "")
+    return f"operator_resolution_apply_draft:{patch_id}" if patch_id else "operator_resolution_apply_draft:missing_patch_id"
+
+
+def _operator_resolution_apply_draft_strict_mismatch(row: dict[str, Any]) -> bool:
+    return not (
+        str(row.get("document_kind") or "") == "exact_report_document"
+        and str(row.get("document_period_status") or "") == "target_period"
+        and str(row.get("report_type_match_status") or "") == "annual_match"
+        and str(row.get("accounting_standard_match_status") or "") == "standard_match"
+    )
+
+
+def _operator_resolution_apply_draft_has_unsafe_flags(row: dict[str, Any]) -> bool:
+    return any(
+        _operator_resolution_apply_draft_bool(row.get(flag))
+        for flag in (
+            "would_apply_to_document_intake",
+            "would_promote_seed",
+            "would_extract_values",
+            "would_import_report",
+            "would_mutate_scores",
+            "would_trigger_paper_trading",
+        )
+    )
+
+
+def _operator_resolution_apply_draft_skip_status(patch_status: str) -> str | None:
+    return {
+        "not_eligible_incomplete_validation": "skipped_not_eligible_incomplete_validation",
+        "not_eligible_invalid_validation": "skipped_not_eligible_invalid_validation",
+        "not_eligible_waiting": "skipped_not_eligible_waiting",
+        "not_eligible_diagnostic_only": "skipped_not_eligible_diagnostic_only",
+        "not_eligible_no_action_required": "skipped_not_eligible_no_action_required",
+        "blocked_strict_document_mismatch": "skipped_strict_document_mismatch",
+    }.get(patch_status)
+
+
+def _operator_resolution_apply_draft_placeholder_match(intake: dict[str, Any] | None) -> bool:
+    if not intake:
+        return False
+    return (
+        not intake.get("document_url")
+        or str(intake.get("document_status") or "") == "not_found"
+        or str(intake.get("filter_status") or "") == "placeholder_not_found"
+    )
+
+
+def _operator_resolution_apply_draft_base_status(row: dict[str, Any]) -> tuple[str, str, list[str], list[str]]:
+    patch_status = str(row.get("patch_status") or "")
+    skip_status = _operator_resolution_apply_draft_skip_status(patch_status)
+    if skip_status is not None:
+        return skip_status, "skip", [patch_status], []
+    if _operator_resolution_apply_draft_has_unsafe_flags(row):
+        return "skipped_unsafe_mutation_flags", "skip", ["unsafe_mutation_flags"], []
+    if not _operator_resolution_apply_draft_bool(row.get("future_apply_allowed")):
+        return "skipped_future_apply_not_allowed", "skip", ["future_apply_not_allowed"], []
+    if patch_status != "eligible_for_future_controlled_apply":
+        return "skipped_future_apply_not_allowed", "skip", [patch_status or "patch_not_eligible"], []
+    if not str(row.get("proposed_document_url") or "").strip():
+        return "skipped_missing_proposed_document_url", "skip", ["missing_proposed_document_url"], []
+    if _operator_resolution_apply_draft_strict_mismatch(row):
+        return "skipped_strict_document_mismatch", "skip", ["strict_document_mismatch"], []
+    patch_action = str(row.get("patch_action") or "")
+    if patch_action == "preview_replace_not_found_placeholder":
+        return "draft_applied_replace_not_found_placeholder", "replace_not_found_placeholder", ["future_apply_allowed"], []
+    if patch_action == "preview_update_placeholder_row":
+        return "draft_applied_update_placeholder", "update_placeholder", ["future_apply_allowed"], []
+    if patch_action == "preview_create_intake_row":
+        return "draft_applied_create_row", "create_row", ["future_apply_allowed"], []
+    return "skipped_future_apply_not_allowed", "skip", ["unsupported_patch_action"], []
+
+
+def _operator_resolution_apply_draft_intake_row(row: dict[str, Any]) -> dict[str, Any]:
+    document_url = row.get("proposed_document_url") or ""
+    source_page_url = row.get("proposed_source_page_url") or ""
+    return {
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "canonical_company_id": row.get("canonical_company_id") or row.get("company_id") or "",
+        "canonical_company_name": row.get("canonical_company_name") or row.get("company_name") or "",
+        "report_period": row.get("target_reporting_period") or row.get("proposed_report_period") or "",
+        "report_type": row.get("required_report_type") or row.get("proposed_report_type") or "",
+        "accounting_standard": row.get("required_standard") or row.get("proposed_accounting_standard") or "",
+        "source_type": row.get("proposed_source_type") or "",
+        "source_url_context": source_page_url,
+        "source_page_url": source_page_url,
+        "document_url": document_url,
+        "document_title": row.get("proposed_document_title") or "",
+        "document_date": row.get("proposed_document_date") or "",
+        "source_file_name": Path(str(document_url)).name if document_url else "",
+        "document_status": "valid_official_document",
+        "operator_review_status": "operator_reviewed",
+        "filter_status": "kept",
+        "fallback_status": "not_fallback",
+        "operator_resolution_id": row.get("resolution_id") or "",
+        "operator_resolution_patch_id": row.get("patch_id") or "",
+        "draft_source": "operator_resolution_apply_draft",
+        "draft_note": "Created in draft only; original intake was not modified.",
+        "notes": "Created in draft only; original intake was not modified.",
+    }
+
+
+def _operator_resolution_apply_draft_update_row(target: dict[str, Any], row: dict[str, Any]) -> None:
+    target.update(_operator_resolution_apply_draft_intake_row(row))
+
+
+def _build_operator_resolution_apply_draft_rows(
+    patch_rows: list[dict[str, Any]],
+    *,
+    draft_documents: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    report_rows: list[dict[str, Any]] = []
+    for patch_row in patch_rows:
+        status, action, reasons, errors = _operator_resolution_apply_draft_base_status(patch_row)
+        intake = _operator_resolution_apply_matching_intake(patch_row, draft_documents)
+        matched_status = _operator_resolution_apply_intake_status(intake, intake_documents=draft_documents)
+        existing_document_url = (intake or {}).get("document_url") or ""
+        existing_document_status = (intake or {}).get("document_status") or ""
+        existing_filter_status = (intake or {}).get("filter_status") or ""
+        draft_row_index = ""
+        changed = False
+        warnings: list[str] = []
+        if status in {"draft_applied_replace_not_found_placeholder", "draft_applied_update_placeholder"}:
+            if not _operator_resolution_apply_draft_placeholder_match(intake):
+                status = "failed_missing_matching_placeholder"
+                action = "fail"
+                errors.append("missing_matching_placeholder")
+            else:
+                match_index = draft_documents.index(intake) if intake in draft_documents else -1
+                _operator_resolution_apply_draft_update_row(intake, patch_row)
+                draft_row_index = match_index + 1 if match_index >= 0 else ""
+                changed = True
+        elif status == "draft_applied_create_row":
+            if intake is not None:
+                status = "failed_existing_matching_intake_row"
+                action = "fail"
+                errors.append("existing_matching_intake_row")
+            else:
+                draft_documents.append(_operator_resolution_apply_draft_intake_row(patch_row))
+                draft_row_index = len(draft_documents)
+                changed = True
+        report_rows.append(
+            {
+                "apply_draft_id": _operator_resolution_apply_draft_id(patch_row),
+                "patch_id": patch_row.get("patch_id") or "",
+                "resolution_id": patch_row.get("resolution_id") or "",
+                "company_id": patch_row.get("company_id") or "",
+                "company_name": patch_row.get("company_name") or "",
+                "target_reporting_period": patch_row.get("target_reporting_period") or "",
+                "required_report_type": patch_row.get("required_report_type") or "",
+                "required_standard": patch_row.get("required_standard") or "",
+                "apply_draft_status": status,
+                "apply_draft_action": action,
+                "apply_draft_reason_codes": list(dict.fromkeys(str(reason) for reason in reasons if reason)),
+                "apply_draft_errors": list(dict.fromkeys(str(error) for error in errors if error)),
+                "apply_draft_warnings": warnings,
+                "source_patch_status": patch_row.get("patch_status") or "",
+                "source_patch_action": patch_row.get("patch_action") or "",
+                "future_apply_allowed": _operator_resolution_apply_draft_bool(patch_row.get("future_apply_allowed")),
+                "draft_document_url": patch_row.get("proposed_document_url") or "",
+                "draft_document_title": patch_row.get("proposed_document_title") or "",
+                "draft_document_date": patch_row.get("proposed_document_date") or "",
+                "draft_source_page_url": patch_row.get("proposed_source_page_url") or "",
+                "draft_source_type": patch_row.get("proposed_source_type") or "",
+                "matched_intake_status": matched_status,
+                "matched_intake_existing_document_url": existing_document_url,
+                "matched_intake_existing_document_status": existing_document_status,
+                "matched_intake_existing_filter_status": existing_filter_status,
+                "draft_row_index": draft_row_index,
+                "would_change_draft_file": changed,
+                "would_overwrite_input_file": False,
+                "would_update_original_intake": False,
+                "would_update_database": False,
+                "would_promote_seed": False,
+                "would_extract_values": False,
+                "would_import_report": False,
+                "would_mutate_scores": False,
+                "would_trigger_paper_trading": False,
+                "operator_next_step": "validate_draft_intake_before_quality_gate" if changed else "resolve_patch_plan_or_operator_input_first",
+                "apply_draft_note": "Draft output only; original intake, DB, seeds, extraction, import, scoring, and trading are unchanged.",
+            }
+        )
+    return sorted(report_rows, key=lambda item: str(item.get("apply_draft_id") or ""))
+
+
+def _operator_resolution_apply_draft_summary(
+    rows: list[dict[str, Any]],
+    draft_documents: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "operator_resolution_apply_draft_row_count": len(rows),
+        "operator_resolution_apply_draft_applied_count": sum(
+            1 for row in rows if str(row.get("apply_draft_status") or "").startswith("draft_applied_")
+        ),
+        "operator_resolution_apply_draft_skipped_count": sum(
+            1 for row in rows if str(row.get("apply_draft_status") or "").startswith("skipped_")
+        ),
+        "operator_resolution_apply_draft_failed_count": sum(
+            1 for row in rows if str(row.get("apply_draft_status") or "").startswith("failed_")
+        ),
+        "operator_resolution_apply_draft_replace_placeholder_count": sum(
+            1 for row in rows if row.get("apply_draft_status") == "draft_applied_replace_not_found_placeholder"
+        ),
+        "operator_resolution_apply_draft_update_placeholder_count": sum(
+            1 for row in rows if row.get("apply_draft_status") == "draft_applied_update_placeholder"
+        ),
+        "operator_resolution_apply_draft_create_count": sum(
+            1 for row in rows if row.get("apply_draft_status") == "draft_applied_create_row"
+        ),
+        "operator_resolution_apply_draft_output_row_count": len(draft_documents),
+        "operator_resolution_apply_draft_status_counts": _count_by_key(rows, "apply_draft_status"),
+        "operator_resolution_apply_draft_action_counts": _count_by_key(rows, "apply_draft_action"),
+    }
+
+
+def _build_operator_resolution_apply_draft_report(
+    args: argparse.Namespace,
+    *,
+    rows: list[dict[str, Any]],
+    draft_documents: list[dict[str, Any]],
+    load_warnings: list[dict[str, Any]] | None = None,
+    load_errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    summary = _operator_resolution_apply_draft_summary(rows, draft_documents)
+    load_warnings = load_warnings or []
+    load_errors = load_errors or []
+    failed_count = summary["operator_resolution_apply_draft_failed_count"]
+    skipped_count = summary["operator_resolution_apply_draft_skipped_count"]
+    status = "failed" if load_errors or failed_count else "warning" if load_warnings or skipped_count else "passed"
+    return {
+        "status": status,
+        "mode": "operator-resolution-apply-draft",
+        "summary": summary,
+        **summary,
+        "apply_draft_rows": rows,
+        "operator_resolution_apply_preview_input": _path_value(args.operator_resolution_apply_preview_input),
+        "document_intake_input": _path_value(args.document_intake_input),
+        "document_intake_draft_output": _path_value(args.document_intake_draft_output),
+        "document_intake_draft_csv_output": _path_value(args.document_intake_draft_csv_output),
+        "operator_resolution_apply_draft_output": _path_value(args.operator_resolution_apply_draft_output),
+        "operator_resolution_apply_draft_csv_output": _path_value(args.operator_resolution_apply_draft_csv_output),
+        "operator_resolution_apply_draft_markdown_output": _path_value(args.operator_resolution_apply_draft_markdown_output),
+        "warnings": load_warnings,
+        "errors": load_errors,
+        "next_steps": _next_steps("operator-resolution-apply-draft", status),
+        "would_update_original_intake": False,
+        "would_update_database": False,
+        "would_promote_seed": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -15060,6 +15636,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review validation rows; valid rows are only eligible for a future controlled intake review step."]
     if mode == "operator-resolution-apply-preview":
         return ["Review patch rows; this preview does not update intake or trigger extraction/import."]
+    if mode == "operator-resolution-apply-draft":
+        return ["Validate the new draft intake before any quality gate; original intake remains unchanged."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -15075,6 +15653,13 @@ def _message_text(item: Any) -> str:
 
 def _path_value(path: Path | None) -> str | None:
     return None if path is None else str(path)
+
+
+def _paths_equal(left: Path, right: Path) -> bool:
+    try:
+        return left.resolve() == right.resolve()
+    except OSError:
+        return left.absolute() == right.absolute()
 
 
 def _parse_bool(value: Any) -> bool:
@@ -15117,16 +15702,24 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path | None) -> bool:
+    if output_path is None:
+        return False
+    if args.mode != "operator-resolution-apply-draft" or args.document_intake_input is None:
+        return True
+    return not _paths_equal(output_path, args.document_intake_input)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     report, exit_code = run_assistant(args)
-    if args.json_output is not None:
+    if _generic_report_output_is_safe(args, args.json_output):
         write_json_report(report, args.json_output)
         print(
             f"[financial-official-source-evidence-assistant] wrote JSON report: {args.json_output}",
             flush=True,
         )
-    if args.markdown_output is not None:
+    if _generic_report_output_is_safe(args, args.markdown_output):
         write_markdown_report(report, args.markdown_output)
         print(
             "[financial-official-source-evidence-assistant] wrote Markdown report: "

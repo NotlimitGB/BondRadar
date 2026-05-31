@@ -3267,6 +3267,206 @@ def test_operator_resolution_apply_preview_csv_and_markdown_outputs(tmp_path: Pa
     assert "This preview does not update exact document intake" in markdown
 
 
+def test_operator_resolution_apply_draft_skips_incomplete_preview_row(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [_operator_resolution_apply_draft_patch_row(
+            patch_status="not_eligible_incomplete_validation",
+            patch_action="preview_noop",
+            future_apply_allowed=False,
+            proposed_document_url="",
+        )],
+    )
+
+    row = report["apply_draft_rows"][0]
+    assert row["apply_draft_status"] == "skipped_not_eligible_incomplete_validation"
+    assert row["apply_draft_action"] == "skip"
+    assert row["would_change_draft_file"] is False
+    assert row["would_update_original_intake"] is False
+
+
+def test_operator_resolution_apply_draft_replaces_placeholder_in_draft_only(tmp_path: Path) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    draft = tmp_path / "exact_document_intake_draft.json"
+    placeholder = _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")
+    placeholder["document_status"] = "not_found"
+    _write_document_intake(intake, [placeholder])
+    original = intake.read_text(encoding="utf-8")
+
+    report = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [_operator_resolution_apply_draft_patch_row()],
+        document_intake_input=intake,
+        extra_args=["--document-intake-draft-output", str(draft)],
+    )
+
+    row = report["apply_draft_rows"][0]
+    assert row["apply_draft_status"] == "draft_applied_replace_not_found_placeholder"
+    assert row["would_change_draft_file"] is True
+    assert row["would_update_original_intake"] is False
+    assert intake.read_text(encoding="utf-8") == original
+    draft_documents = json.loads(draft.read_text(encoding="utf-8"))["documents"]
+    assert draft_documents[0]["document_url"].endswith("mostotrest-annual-ifrs-financial-statements-2025.pdf")
+    assert draft_documents[0]["filter_status"] == "kept"
+    assert draft_documents[0]["fallback_status"] == "not_fallback"
+
+
+def test_operator_resolution_apply_draft_creates_row_in_draft_only(tmp_path: Path) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    draft = tmp_path / "exact_document_intake_draft.json"
+    _write_document_intake(intake, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/")])
+    original = intake.read_text(encoding="utf-8")
+
+    report = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [_operator_resolution_apply_draft_patch_row(patch_action="preview_create_intake_row")],
+        document_intake_input=intake,
+        extra_args=["--document-intake-draft-output", str(draft)],
+    )
+
+    row = report["apply_draft_rows"][0]
+    assert row["apply_draft_status"] == "draft_applied_create_row"
+    assert row["would_change_draft_file"] is True
+    assert row["would_update_original_intake"] is False
+    assert intake.read_text(encoding="utf-8") == original
+    draft_documents = json.loads(draft.read_text(encoding="utf-8"))["documents"]
+    assert len(draft_documents) == 2
+    assert draft_documents[1]["draft_source"] == "operator_resolution_apply_draft"
+
+
+def test_operator_resolution_apply_draft_rejects_output_equal_to_input(tmp_path: Path) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    _write_document_intake(intake, [_empty_document_intake_item(67, "Mostotrest", "")])
+    original = intake.read_text(encoding="utf-8")
+
+    report, exit_code = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [_operator_resolution_apply_draft_patch_row()],
+        document_intake_input=intake,
+        expected_exit_code=1,
+        extra_args=["--document-intake-draft-output", str(intake)],
+        return_exit_code=True,
+    )
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(error.get("message") == "draft_output_must_not_equal_input" for error in report["errors"])
+    assert intake.read_text(encoding="utf-8") == original
+
+
+def test_operator_resolution_apply_draft_blocks_unsafe_mutation_flags(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [_operator_resolution_apply_draft_patch_row(would_extract_values=True)],
+    )
+
+    row = report["apply_draft_rows"][0]
+    assert row["apply_draft_status"] == "skipped_unsafe_mutation_flags"
+    assert row["would_change_draft_file"] is False
+
+
+def test_operator_resolution_apply_draft_blocks_strict_mismatch(tmp_path: Path) -> None:
+    report = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [_operator_resolution_apply_draft_patch_row(document_period_status="wrong_period")],
+    )
+
+    row = report["apply_draft_rows"][0]
+    assert row["apply_draft_status"] == "skipped_strict_document_mismatch"
+    assert row["would_change_draft_file"] is False
+
+
+def test_operator_resolution_apply_draft_outputs_reports_and_draft_files(tmp_path: Path) -> None:
+    report_json = tmp_path / "operator_resolution_apply_draft.json"
+    report_csv = tmp_path / "operator_resolution_apply_draft.csv"
+    report_md = tmp_path / "operator_resolution_apply_draft.md"
+    draft_json = tmp_path / "exact_document_intake_draft.json"
+    draft_csv = tmp_path / "exact_document_intake_draft.csv"
+    report = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [_operator_resolution_apply_draft_patch_row(
+            patch_status="not_eligible_incomplete_validation",
+            patch_action="preview_noop",
+            future_apply_allowed=False,
+            proposed_document_url="",
+        )],
+        extra_args=[
+            "--document-intake-draft-output",
+            str(draft_json),
+            "--document-intake-draft-csv-output",
+            str(draft_csv),
+            "--operator-resolution-apply-draft-output",
+            str(report_json),
+            "--operator-resolution-apply-draft-csv-output",
+            str(report_csv),
+            "--operator-resolution-apply-draft-markdown-output",
+            str(report_md),
+        ],
+    )
+
+    assert report["operator_resolution_apply_draft_applied_count"] == 0
+    assert report_json.is_file()
+    assert report_csv.is_file()
+    assert report_md.is_file()
+    assert draft_json.is_file()
+    assert draft_csv.is_file()
+    csv_rows = list(csv.DictReader(report_csv.open(encoding="utf-8")))
+    assert {
+        "apply_draft_status",
+        "apply_draft_action",
+        "would_change_draft_file",
+        "would_update_original_intake",
+        "would_update_database",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    }.issubset(set(csv_rows[0]))
+    markdown = report_md.read_text(encoding="utf-8")
+    assert "Operator Resolution Apply Draft" in markdown
+    assert "This task does not overwrite the original exact document intake" in markdown
+
+
+def test_operator_resolution_apply_draft_unfilled_preview_preserves_intake(tmp_path: Path) -> None:
+    intake = tmp_path / "exact_document_intake.json"
+    draft = tmp_path / "exact_document_intake_draft.json"
+    placeholders = [
+        _empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/"),
+        _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/"),
+    ]
+    _write_document_intake(intake, placeholders)
+
+    report = _run_operator_resolution_apply_draft(
+        tmp_path,
+        [
+            _operator_resolution_apply_draft_patch_row(
+                company_id="18",
+                company_name="RZD",
+                canonical_company_id="18",
+                canonical_company_name="RZD",
+                patch_status="not_eligible_incomplete_validation",
+                patch_action="preview_noop",
+                future_apply_allowed=False,
+                proposed_document_url="",
+            ),
+            _operator_resolution_apply_draft_patch_row(
+                patch_status="not_eligible_incomplete_validation",
+                patch_action="preview_noop",
+                future_apply_allowed=False,
+                proposed_document_url="",
+            ),
+        ],
+        document_intake_input=intake,
+        extra_args=["--document-intake-draft-output", str(draft)],
+    )
+
+    assert report["operator_resolution_apply_draft_applied_count"] == 0
+    assert report["operator_resolution_apply_draft_skipped_count"] == 2
+    assert report["operator_resolution_apply_draft_output_row_count"] == 2
+    draft_documents = json.loads(draft.read_text(encoding="utf-8"))["documents"]
+    assert all(not document.get("document_url") for document in draft_documents)
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -6896,6 +7096,98 @@ def _run_operator_resolution_apply_preview(
 
     assert exit_code == 0
     return report
+
+
+def _operator_resolution_apply_draft_patch_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "patch_id": "operator_resolution_apply_preview:financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "resolution_id": "financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "patch_status": "eligible_for_future_controlled_apply",
+        "patch_action": "preview_replace_not_found_placeholder",
+        "patch_reason_codes": ["strict_target_annual_ifrs_exact_document"],
+        "patch_errors": [],
+        "patch_warnings": [],
+        "source_validation_status": "valid_for_future_controlled_intake_review",
+        "can_use_for_future_intake_review": True,
+        "operator_fill_decision": "exact_document_found",
+        "proposed_document_url": "https://mostotrest.ru/reports/mostotrest-annual-ifrs-financial-statements-2025.pdf",
+        "proposed_document_title": "Mostotrest annual IFRS financial statements 2025",
+        "proposed_document_date": "2026-04-30",
+        "proposed_source_page_url": "https://mostotrest.ru/ru/invest/financial-results/",
+        "proposed_source_type": "official_issuer_report",
+        "proposed_report_period": "2025",
+        "proposed_report_type": "annual",
+        "proposed_accounting_standard": "IFRS",
+        "document_kind": "exact_report_document",
+        "document_period_year": "2025",
+        "document_period_status": "target_period",
+        "report_type_match_status": "annual_match",
+        "accounting_standard_match_status": "standard_match",
+        "would_apply_to_document_intake": False,
+        "would_promote_seed": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "future_apply_allowed": True,
+    }
+    row.update(updates)
+    return row
+
+
+def _write_operator_resolution_apply_preview_json(path: Path, rows: list[dict[str, object]]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "mode": "operator-resolution-apply-preview",
+                "patch_rows": rows,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+
+def _run_operator_resolution_apply_draft(
+    tmp_path: Path,
+    rows: list[dict[str, object]],
+    *,
+    document_intake_input: Path | None = None,
+    expected_exit_code: int = 0,
+    extra_args: list[str] | None = None,
+    return_exit_code: bool = False,
+) -> dict | tuple[dict, int]:
+    preview_path = tmp_path / "operator_resolution_apply_preview.json"
+    _write_operator_resolution_apply_preview_json(preview_path, rows)
+    if document_intake_input is None:
+        document_intake_input = tmp_path / "exact_document_intake.json"
+        _write_document_intake(
+            document_intake_input,
+            [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+        )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-apply-draft",
+            "--operator-resolution-apply-preview-input",
+            str(preview_path),
+            "--document-intake-input",
+            str(document_intake_input),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == expected_exit_code
+    return (report, exit_code) if return_exit_code else report
 
 
 def _run_availability_discovery(
