@@ -3467,6 +3467,226 @@ def test_operator_resolution_apply_draft_unfilled_preview_preserves_intake(tmp_p
     assert all(not document.get("document_url") for document in draft_documents)
 
 
+def test_document_intake_draft_gate_preview_blocks_unfilled_placeholders(tmp_path: Path) -> None:
+    report = _run_document_intake_draft_gate_preview(
+        tmp_path,
+        [
+            _empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/"),
+            _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/"),
+        ],
+    )
+
+    assert report["document_intake_draft_gate_preview_row_count"] == 2
+    assert report["document_intake_draft_gate_preview_ready_count"] == 0
+    assert report["document_intake_draft_gate_preview_blocked_count"] == 2
+    assert report["document_intake_draft_gate_preview_placeholder_count"] == 2
+    assert report["document_intake_draft_gate_preview_gate_passed"] is False
+    assert report["document_intake_draft_gate_preview_ready_for_value_extraction"] is False
+    assert report["document_intake_draft_gate_preview_ready_for_import"] is False
+    assert report["document_intake_draft_gate_preview_status_counts"] == {"draft_placeholder_not_ready": 2}
+    assert all(row["would_extract_values"] is False for row in report["draft_gate_summary_rows"])
+    assert all(row["would_import_report"] is False for row in report["draft_gate_summary_rows"])
+
+
+def test_document_intake_draft_gate_preview_requires_draft_input() -> None:
+    args = assistant.parse_args(["--mode", "document-intake-draft-gate-preview"])
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(error.get("message") == "document_intake_draft_input_required" for error in report["errors"])
+
+
+def test_document_intake_draft_gate_preview_valid_exact_document_passes_full_gate_with_source_context(
+    tmp_path: Path,
+) -> None:
+    discovered = _build_discovered_intake(tmp_path)
+    report = _run_document_intake_draft_gate_preview(
+        tmp_path,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+        source_intake_input=discovered,
+        extra_args=["--required-company-ids", "18"],
+    )
+
+    row = report["draft_gate_summary_rows"][0]
+    assert report["status"] == "passed"
+    assert report["document_intake_draft_gate_preview_gate_passed"] is True
+    assert report["document_intake_draft_gate_preview_ready_for_value_extraction"] is True
+    assert report["document_intake_draft_gate_preview_ready_for_import"] is False
+    assert row["draft_row_status"] == "draft_ready_for_future_extraction_preview"
+    assert row["has_exact_target_document"] is True
+    assert row["ready_for_value_extraction"] is True
+    assert row["ready_for_import"] is False
+
+
+def test_document_intake_draft_gate_preview_valid_document_without_source_context_stays_blocked(
+    tmp_path: Path,
+) -> None:
+    report = _run_document_intake_draft_gate_preview(
+        tmp_path,
+        [
+            _document_item(
+                18,
+                "https://rzd.ru/investors/annual-ifrs-2025.pdf",
+                "Annual audited consolidated IFRS financial statements 2025",
+            )
+        ],
+        extra_args=["--required-company-ids", "18"],
+    )
+
+    row = report["draft_gate_summary_rows"][0]
+    assert report["status"] == "warning"
+    assert row["draft_row_status"] == "draft_valid_but_gate_blocked"
+    assert "quality_gate_source_context_missing" in row["blocked_reason_codes"]
+    assert row["ready_for_value_extraction"] is False
+    assert row["ready_for_import"] is False
+
+
+def test_document_intake_draft_gate_preview_blocks_strict_document_mismatches(tmp_path: Path) -> None:
+    cases = [
+        (
+            "wrong-period",
+            _document_item(
+                67,
+                "https://mostotrest.ru/reports/mostotrest-annual-ifrs-financial-statements-2024.pdf",
+                "Mostotrest annual IFRS financial statements 2024",
+            ),
+            "wrong_period",
+        ),
+        (
+            "interim",
+            _document_item(
+                67,
+                "https://mostotrest.ru/reports/mostotrest-q1-ifrs-financial-statements-2025.pdf",
+                "Mostotrest Q1 interim IFRS financial statements 2025",
+            ),
+            "interim_or_quarterly_not_allowed_for_annual",
+        ),
+        (
+            "wrong-standard",
+            _document_item(
+                67,
+                "https://mostotrest.ru/reports/mostotrest-annual-ras-financial-statements-2025.pdf",
+                "Mostotrest annual RAS financial statements 2025",
+            ),
+            "wrong_standard",
+        ),
+        (
+            "historical-fallback",
+            {
+                **_document_item(
+                    67,
+                    "https://mostotrest.ru/upload/2019_12_Mostotrest_IFRS_Accounts.pdf",
+                    "Mostotrest annual IFRS financial statements 2019",
+                ),
+                "fallback_status": "diagnostic_only",
+            },
+            "historical_fallback_not_target_evidence",
+        ),
+    ]
+    for name, document, blocker in cases:
+        case_dir = tmp_path / name
+        case_dir.mkdir()
+        report = _run_document_intake_draft_gate_preview(case_dir, [document])
+        row = report["draft_gate_summary_rows"][0]
+        assert row["draft_row_status"] == "draft_invalid_not_ready"
+        assert row["has_exact_target_document"] is False
+        assert blocker in row["blocked_reason_codes"]
+        assert row["ready_for_value_extraction"] is False
+
+
+def test_document_intake_draft_gate_preview_rejects_output_path_collision(tmp_path: Path) -> None:
+    draft = tmp_path / "exact_document_intake_draft.json"
+    _write_document_intake(draft, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/")])
+    original = draft.read_bytes()
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-draft-gate-preview",
+            "--document-intake-draft-input",
+            str(draft),
+            "--json-output",
+            str(draft),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(error.get("message") == "draft_gate_output_must_not_equal_input" for error in report["errors"])
+    assert draft.read_bytes() == original
+
+
+def test_document_intake_draft_gate_preview_outputs_reports_without_modifying_draft(tmp_path: Path) -> None:
+    draft = tmp_path / "exact_document_intake_draft.json"
+    validation_json = tmp_path / "draft_validation.json"
+    validation_md = tmp_path / "draft_validation.md"
+    gate_json = tmp_path / "draft_gate.json"
+    gate_md = tmp_path / "draft_gate.md"
+    summary_json = tmp_path / "draft_gate_summary.json"
+    summary_csv = tmp_path / "draft_gate_summary.csv"
+    summary_md = tmp_path / "draft_gate_summary.md"
+    _write_document_intake(draft, [_empty_document_intake_item(18, "RZD", "https://rzd.ru/reports/")])
+    original = draft.read_bytes()
+
+    report = _run_document_intake_draft_gate_preview(
+        tmp_path,
+        draft_input=draft,
+        extra_args=[
+            "--document-intake-draft-validation-output",
+            str(validation_json),
+            "--document-intake-draft-validation-markdown-output",
+            str(validation_md),
+            "--document-intake-draft-gate-output",
+            str(gate_json),
+            "--document-intake-draft-gate-markdown-output",
+            str(gate_md),
+            "--document-intake-draft-gate-summary-output",
+            str(summary_json),
+            "--document-intake-draft-gate-summary-csv-output",
+            str(summary_csv),
+            "--document-intake-draft-gate-summary-markdown-output",
+            str(summary_md),
+        ],
+    )
+
+    assert draft.read_bytes() == original
+    assert validation_json.is_file()
+    assert validation_md.is_file()
+    assert gate_json.is_file()
+    assert gate_md.is_file()
+    assert summary_json.is_file()
+    assert summary_csv.is_file()
+    assert summary_md.is_file()
+    csv_rows = list(csv.DictReader(summary_csv.open(encoding="utf-8")))
+    assert {
+        "draft_row_status",
+        "blocked_reason_codes",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    }.issubset(set(csv_rows[0]))
+    markdown = summary_md.read_text(encoding="utf-8")
+    assert "Document Intake Draft Gate Preview" in markdown
+    assert "This task does not overwrite original intake" in markdown
+    assert "This task does not modify the draft intake" in markdown
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -7188,6 +7408,42 @@ def _run_operator_resolution_apply_draft(
 
     assert exit_code == expected_exit_code
     return (report, exit_code) if return_exit_code else report
+
+
+def _run_document_intake_draft_gate_preview(
+    tmp_path: Path,
+    documents: list[dict] | None = None,
+    *,
+    draft_input: Path | None = None,
+    source_intake_input: Path | None = None,
+    expected_exit_code: int = 0,
+    extra_args: list[str] | None = None,
+) -> dict:
+    if draft_input is None:
+        draft_input = tmp_path / "exact_document_intake_draft.json"
+        _write_document_intake(draft_input, documents or [])
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "document-intake-draft-gate-preview",
+            "--document-intake-draft-input",
+            str(draft_input),
+            *(
+                [
+                    "--source-intake-input",
+                    str(source_intake_input),
+                ]
+                if source_intake_input is not None
+                else []
+            ),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == expected_exit_code
+    return report
 
 
 def _run_availability_discovery(

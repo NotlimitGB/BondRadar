@@ -41,6 +41,7 @@ MODE_CHOICES = (
     "operator-resolution-validate",
     "operator-resolution-apply-preview",
     "operator-resolution-apply-draft",
+    "document-intake-draft-gate-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -770,6 +771,43 @@ DOCUMENT_INTAKE_DRAFT_FIELDS = list(
         ]
     )
 )
+DOCUMENT_INTAKE_DRAFT_GATE_SUMMARY_FIELDS = [
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "draft_row_status",
+    "draft_document_url",
+    "draft_document_status",
+    "draft_operator_review_status",
+    "draft_filter_status",
+    "draft_fallback_status",
+    "validation_status",
+    "validation_errors",
+    "validation_warnings",
+    "document_kind",
+    "document_period_year",
+    "document_period_status",
+    "report_type_match_status",
+    "accounting_standard_match_status",
+    "gate_status",
+    "gate_passed",
+    "gate_reason",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "is_placeholder",
+    "has_document_url",
+    "has_exact_target_document",
+    "blocked_reason_codes",
+    "next_required_action",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+]
 OPERATOR_SEED_REVIEW_DECISIONS = {"pending", "approve", "reject", "needs_more_review"}
 OPERATOR_SEED_REVIEW_FIELDS = [
     "company_id",
@@ -1476,6 +1514,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-apply-draft-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-apply-draft-csv-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-apply-draft-markdown-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-input", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-validation-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-validation-markdown-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-gate-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-gate-summary-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-gate-summary-csv-output", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-gate-summary-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1546,6 +1592,8 @@ def run_assistant(
         report = run_operator_resolution_apply_preview(args)
     elif args.mode == "operator-resolution-apply-draft":
         report = run_operator_resolution_apply_draft(args)
+    elif args.mode == "document-intake-draft-gate-preview":
+        report = run_document_intake_draft_gate_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -3109,6 +3157,107 @@ def run_operator_resolution_apply_draft(args: argparse.Namespace) -> dict[str, A
     return report
 
 
+def run_document_intake_draft_gate_preview(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    draft_documents: list[dict[str, Any]] = []
+    validation_report: dict[str, Any] = {}
+    quality_gate_report: dict[str, Any] = {}
+    strict_documents: list[dict[str, Any]] = []
+
+    if args.document_intake_draft_input is None:
+        errors.append({"message": "document_intake_draft_input_required"})
+    if args.document_intake_draft_input is not None:
+        for output_path in _document_intake_draft_gate_preview_output_paths(args):
+            if output_path is not None and _paths_equal(output_path, args.document_intake_draft_input):
+                errors.append({"message": "draft_gate_output_must_not_equal_input", "path": str(output_path)})
+    if not errors:
+        try:
+            draft_documents = load_document_intake_file(args.document_intake_draft_input)
+        except Exception as exc:
+            errors.append({"message": str(exc)})
+
+    if not errors:
+        validation_args = _clone_args(
+            args,
+            mode="document-intake-validate",
+            document_intake_input=args.document_intake_draft_input,
+        )
+        validation_report = run_document_intake_validate(validation_args)
+        strict_documents = [
+            document
+            for document in (
+                _document_intake_draft_gate_classification(item, args=args)
+                for item in draft_documents
+            )
+            if _exact_document_is_downstream_eligible(document)
+        ]
+        if args.source_intake_input is None:
+            warnings.append({"message": "quality_gate_source_context_missing"})
+        with tempfile.TemporaryDirectory(prefix="bondradar-draft-gate-") as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            strict_candidates = tmp_path / "strict_draft_candidates.json"
+            write_json_report(
+                {
+                    "status": "preview",
+                    "mode": "document-intake-draft-gate-preview-strict-candidates",
+                    "documents": strict_documents,
+                    **SAFETY_FLAGS,
+                },
+                strict_candidates,
+            )
+            gate_args = _clone_args(
+                args,
+                mode="document-quality-gate",
+                document_intake_input=args.document_intake_draft_input,
+                exact_document_candidates_input=strict_candidates,
+                document_intake_output=None,
+                document_intake_csv_output=None,
+                source_intake_output=None,
+                document_output=None,
+                document_checklist_output=None,
+            )
+            quality_gate_report = run_document_quality_gate(gate_args)
+
+    summary_rows = _build_document_intake_draft_gate_summary_rows(
+        draft_documents,
+        validation_report=validation_report,
+        quality_gate_report=quality_gate_report,
+        source_context_missing=args.source_intake_input is None,
+        args=args,
+    )
+    report = _build_document_intake_draft_gate_preview_report(
+        args,
+        rows=summary_rows,
+        validation_report=validation_report,
+        quality_gate_report=quality_gate_report,
+        load_warnings=warnings,
+        load_errors=errors,
+    )
+    if not errors:
+        if args.document_intake_draft_validation_output is not None:
+            write_json_report(validation_report, args.document_intake_draft_validation_output)
+        if args.document_intake_draft_validation_markdown_output is not None:
+            write_markdown_report(validation_report, args.document_intake_draft_validation_markdown_output)
+        if args.document_intake_draft_gate_output is not None:
+            write_json_report(quality_gate_report, args.document_intake_draft_gate_output)
+        if args.document_intake_draft_gate_markdown_output is not None:
+            write_markdown_report(quality_gate_report, args.document_intake_draft_gate_markdown_output)
+        if args.document_intake_draft_gate_summary_output is not None:
+            write_json_report(report, args.document_intake_draft_gate_summary_output)
+        if args.document_intake_draft_gate_summary_csv_output is not None:
+            write_document_intake_draft_gate_summary_csv(
+                summary_rows,
+                args.document_intake_draft_gate_summary_csv_output,
+            )
+        if args.document_intake_draft_gate_summary_markdown_output is not None:
+            write_document_intake_draft_gate_preview_markdown(
+                report,
+                args.document_intake_draft_gate_summary_markdown_output,
+            )
+    return report
+
+
 def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
     return [
         args.document_intake_draft_output,
@@ -3116,6 +3265,20 @@ def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> l
         args.operator_resolution_apply_draft_output,
         args.operator_resolution_apply_draft_csv_output,
         args.operator_resolution_apply_draft_markdown_output,
+        args.json_output,
+        args.markdown_output,
+    ]
+
+
+def _document_intake_draft_gate_preview_output_paths(args: argparse.Namespace) -> list[Path | None]:
+    return [
+        args.document_intake_draft_validation_output,
+        args.document_intake_draft_validation_markdown_output,
+        args.document_intake_draft_gate_output,
+        args.document_intake_draft_gate_markdown_output,
+        args.document_intake_draft_gate_summary_output,
+        args.document_intake_draft_gate_summary_csv_output,
+        args.document_intake_draft_gate_summary_markdown_output,
         args.json_output,
         args.markdown_output,
     ]
@@ -5205,7 +5368,7 @@ def load_document_intake_by_key(path: Path | None) -> dict[tuple[str, str], list
 def load_document_intake_items(path: Path) -> list[dict[str, Any]]:
     if not path.is_file():
         raise ValueError(f"document intake input does not exist: {path}")
-    with path.open("r", encoding="utf-8") as handle:
+    with path.open("r", encoding="utf-8-sig") as handle:
         payload = json.load(handle)
     documents = payload.get("documents") if isinstance(payload, dict) else payload
     if not isinstance(documents, list) or not all(isinstance(item, dict) for item in documents):
@@ -5591,6 +5754,20 @@ def write_operator_resolution_apply_draft_markdown(report: dict[str, Any], path:
     path.write_text(render_operator_resolution_apply_draft_markdown(report), encoding="utf-8")
 
 
+def write_document_intake_draft_gate_summary_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=DOCUMENT_INTAKE_DRAFT_GATE_SUMMARY_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in DOCUMENT_INTAKE_DRAFT_GATE_SUMMARY_FIELDS})
+
+
+def write_document_intake_draft_gate_preview_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_document_intake_draft_gate_preview_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -5759,6 +5936,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         if report.get("mode") == "operator-resolution-apply-preview"
         else "Operator Resolution Apply Draft"
         if report.get("mode") == "operator-resolution-apply-draft"
+        else "Document Intake Draft Gate Preview"
+        if report.get("mode") == "document-intake-draft-gate-preview"
         else "Exact Official Report Document Discovery From Reviewed Seeds"
         if report.get("mode") == "exact-document-discover-from-seeds"
         else "Official Seed Resolver"
@@ -5809,6 +5988,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(_render_operator_resolution_apply_preview_sections(report))
     if report.get("mode") == "operator-resolution-apply-draft":
         lines.extend(_render_operator_resolution_apply_draft_sections(report))
+    if report.get("mode") == "document-intake-draft-gate-preview":
+        lines.extend(_render_document_intake_draft_gate_preview_sections(report))
     if report.get("mode") == "exact-document-discover-from-seeds":
         lines.extend(_render_exact_document_from_seeds_markdown_sections(report))
     if report.get("mode") == "official-seed-resolve":
@@ -6151,6 +6332,42 @@ def render_operator_resolution_apply_draft_markdown(report: dict[str, Any]) -> s
             f"- would_update_original_intake: {report.get('would_update_original_intake')}",
             f"- would_update_database: {report.get('would_update_database')}",
             f"- would_promote_seed: {report.get('would_promote_seed')}",
+            f"- would_extract_values: {report.get('would_extract_values')}",
+            f"- would_import_report: {report.get('would_import_report')}",
+            f"- would_mutate_scores: {report.get('would_mutate_scores')}",
+            f"- would_trigger_paper_trading: {report.get('would_trigger_paper_trading')}",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_document_intake_draft_gate_preview_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Document Intake Draft Gate Preview",
+        "",
+        f"- mode: `{report.get('mode')}`",
+        f"- status: `{report.get('status')}`",
+        f"- row_count: {report.get('document_intake_draft_gate_preview_row_count', 0)}",
+        "",
+    ]
+    lines.extend(_render_document_intake_draft_gate_preview_sections(report))
+    lines.extend(
+        [
+            "## Safety Notes",
+            "",
+            "- This task validates only the draft intake file.",
+            "- This task does not overwrite original intake.",
+            "- This task does not modify the draft intake.",
+            "- This task does not extract/import/score/trade.",
+            "- Only exact target-period annual IFRS documents can pass the gate.",
+            "",
+            "## Safety Flags",
+            "",
+            f"- read_only: {report.get('read_only')}",
+            f"- dry_run_only: {report.get('dry_run_only')}",
+            f"- import_executed: {report.get('import_executed')}",
+            f"- paper_trading_called: {report.get('paper_trading_called')}",
             f"- would_extract_values: {report.get('would_extract_values')}",
             f"- would_import_report: {report.get('would_import_report')}",
             f"- would_mutate_scores: {report.get('would_mutate_scores')}",
@@ -6667,6 +6884,66 @@ def _render_operator_resolution_apply_draft_sections(report: dict[str, Any]) -> 
             )
     else:
         lines.append("|  |  |  |  |  |  |  |  |")
+    lines.append("")
+    return lines
+
+
+def _render_document_intake_draft_gate_preview_sections(report: dict[str, Any]) -> list[str]:
+    rows = report.get("draft_gate_summary_rows") or []
+    validation = report.get("document_intake_draft_validation_report") or {}
+    gate = report.get("document_intake_draft_quality_gate_report") or {}
+    lines = [
+        "## Draft Gate Summary",
+        "",
+        f"- row count: {report.get('document_intake_draft_gate_preview_row_count', len(rows))}",
+        f"- ready: {report.get('document_intake_draft_gate_preview_ready_count', 0)}",
+        f"- blocked: {report.get('document_intake_draft_gate_preview_blocked_count', 0)}",
+        f"- placeholders: {report.get('document_intake_draft_gate_preview_placeholder_count', 0)}",
+        f"- invalid: {report.get('document_intake_draft_gate_preview_invalid_count', 0)}",
+        f"- gate passed: {report.get('document_intake_draft_gate_preview_gate_passed')}",
+        f"- ready for value extraction: {report.get('document_intake_draft_gate_preview_ready_for_value_extraction')}",
+        f"- ready for import: {report.get('document_intake_draft_gate_preview_ready_for_import')}",
+        f"- draft validation status: `{validation.get('status')}`",
+        f"- quality gate status: `{gate.get('status')}`",
+        "",
+        "### Draft Gate Status Counts",
+        "",
+    ]
+    status_counts = report.get("document_intake_draft_gate_preview_status_counts") or {}
+    lines.extend(f"- {key}: {value}" for key, value in status_counts.items())
+    if not status_counts:
+        lines.append("- none")
+    lines.extend(["", "### Draft Gate Blocker Counts", ""])
+    blocker_counts = report.get("document_intake_draft_gate_preview_blocker_counts") or {}
+    lines.extend(f"- {key}: {value}" for key, value in blocker_counts.items())
+    if not blocker_counts:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "### Draft Gate Rows",
+            "",
+            "| Company | Draft status | URL present | Validation | Gate | Ready extraction | Ready import | Blockers | Next action |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| {company} | {status} | {url} | {validation} | {gate} | {extraction} | {import_ready} | {blockers} | {next_action} |".format(
+                    company=str(row.get("company_name") or row.get("company_id") or "").replace("|", "/"),
+                    status=row.get("draft_row_status") or "",
+                    url=row.get("has_document_url"),
+                    validation=row.get("validation_status") or "",
+                    gate=row.get("gate_status") or "",
+                    extraction=row.get("ready_for_value_extraction"),
+                    import_ready=row.get("ready_for_import"),
+                    blockers=_csv_value(row.get("blocked_reason_codes")).replace("|", "/"),
+                    next_action=str(row.get("next_required_action") or "").replace("|", "/"),
+                )
+            )
+    else:
+        lines.append("|  |  |  |  |  |  |  |  |  |")
     lines.append("")
     return lines
 
@@ -11767,6 +12044,253 @@ def _build_operator_resolution_apply_draft_report(
     }
 
 
+def _document_intake_draft_gate_classification(document: dict[str, Any], *, args: argparse.Namespace) -> dict[str, Any]:
+    document_url = str(document.get("document_url") or "")
+    title = str(document.get("document_title") or "")
+    source_page_url = str(document.get("source_page_url") or document.get("source_url_context") or "")
+    kind = classify_exact_document_kind(document_url, title, args=args) if document_url else "missing_document_url"
+    period = classify_exact_document_period(document_url, title, source_page_url, args=args)
+    report_type = classify_exact_document_report_type(
+        document_url,
+        title,
+        args=args,
+        period_quarter=str(period.get("document_period_quarter") or ""),
+    )
+    standard = classify_exact_document_accounting_standard(document_url, title, args=args)
+    candidate = {
+        **document,
+        "document_kind": kind,
+        **period,
+        **report_type,
+        **standard,
+    }
+    if not document_url:
+        candidate["document_status"] = "not_found"
+        candidate["filter_status"] = "placeholder_not_found"
+    elif (
+        kind == "exact_report_document"
+        and period.get("document_period_status") == "target_period"
+        and report_type.get("report_type_match_status") == "annual_match"
+        and standard.get("accounting_standard_match_status") == "standard_match"
+        and str(document.get("operator_review_status") or "") in DOCUMENT_INTAKE_REVIEWED_STATUSES
+    ):
+        candidate["document_status"] = "valid_official_document"
+        candidate["filter_status"] = "kept"
+        candidate["fallback_status"] = "not_fallback"
+    else:
+        candidate["document_status"] = "invalid_document"
+        candidate["filter_status"] = "filtered_strict_document_mismatch"
+    return candidate
+
+
+def _document_intake_draft_gate_blockers(
+    document: dict[str, Any],
+    *,
+    validation: dict[str, Any],
+    gate: dict[str, Any],
+    source_context_missing: bool,
+) -> list[str]:
+    reasons: list[str] = []
+    document_url = str(document.get("document_url") or "")
+    if not document_url:
+        reasons.append("missing_exact_document_url")
+    if validation.get("errors"):
+        reasons.append("invalid_document_intake")
+    if document_url and document.get("document_kind") != "exact_report_document":
+        reasons.append("not_exact_report_document")
+    period_status = str(document.get("document_period_status") or "")
+    if document_url and period_status != "target_period":
+        reasons.append("wrong_period")
+    type_status = str(document.get("report_type_match_status") or "")
+    if document_url and type_status != "annual_match":
+        reasons.append(
+            "interim_or_quarterly_not_allowed_for_annual"
+            if type_status == "interim_or_quarterly_mismatch"
+            else "wrong_report_type"
+        )
+    standard_status = str(document.get("accounting_standard_match_status") or "")
+    if document_url and standard_status != "standard_match":
+        reasons.append("wrong_standard")
+    if document_url and (
+        str(document.get("fallback_status") or "") != "not_fallback"
+        or period_status in {"wrong_period", "prior_period_fallback_candidate"}
+    ):
+        reasons.append("historical_fallback_not_target_evidence")
+    if source_context_missing:
+        reasons.append("quality_gate_source_context_missing")
+    if gate.get("gate_status") != "passed":
+        reasons.append("quality_gate_failed")
+    return list(dict.fromkeys(reasons))
+
+
+def _document_intake_draft_gate_row_status(
+    document: dict[str, Any],
+    *,
+    validation: dict[str, Any],
+    gate: dict[str, Any],
+) -> str:
+    if (
+        not document.get("document_url")
+        or str(document.get("document_status") or "") == "not_found"
+        or str(document.get("filter_status") or "") == "placeholder_not_found"
+    ):
+        return "draft_placeholder_not_ready"
+    if validation.get("errors") or not _exact_document_is_downstream_eligible(document):
+        return "draft_invalid_not_ready"
+    if gate.get("gate_status") != "passed":
+        return "draft_valid_but_gate_blocked"
+    return "draft_ready_for_future_extraction_preview"
+
+
+def _document_intake_draft_gate_next_action(status: str) -> str:
+    return {
+        "draft_placeholder_not_ready": "fill_exact_target_period_annual_ifrs_document_url",
+        "draft_invalid_not_ready": "fix_draft_document_metadata_or_exact_document_mismatch",
+        "draft_valid_but_gate_blocked": "provide_source_context_or_resolve_quality_gate_blockers",
+        "draft_ready_for_future_extraction_preview": "proceed_to_controlled_extraction_preview_review",
+    }[status]
+
+
+def _build_document_intake_draft_gate_summary_rows(
+    documents: list[dict[str, Any]],
+    *,
+    validation_report: dict[str, Any],
+    quality_gate_report: dict[str, Any],
+    source_context_missing: bool,
+    args: argparse.Namespace,
+) -> list[dict[str, Any]]:
+    validation_results = validation_report.get("document_results") or []
+    gate_results = quality_gate_report.get("required_issuers") or []
+    rows: list[dict[str, Any]] = []
+    for draft_document in documents:
+        document = _document_intake_draft_gate_classification(draft_document, args=args)
+        validation = (_items_matching_required(validation_results, draft_document) or [{}])[0]
+        gate = (_items_matching_required(gate_results, draft_document) or [{}])[0]
+        status = _document_intake_draft_gate_row_status(document, validation=validation, gate=gate)
+        blockers = _document_intake_draft_gate_blockers(
+            document,
+            validation=validation,
+            gate=gate,
+            source_context_missing=source_context_missing,
+        )
+        ready = status == "draft_ready_for_future_extraction_preview"
+        rows.append(
+            {
+                "company_id": document.get("company_id") or "",
+                "company_name": document.get("company_name") or "",
+                "canonical_company_id": document.get("canonical_company_id") or document.get("company_id") or "",
+                "canonical_company_name": document.get("canonical_company_name") or document.get("company_name") or "",
+                "target_reporting_period": str(args.report_period),
+                "required_report_type": args.report_type,
+                "required_standard": args.accounting_standard,
+                "draft_row_status": status,
+                "draft_document_url": document.get("document_url") or "",
+                "draft_document_status": document.get("document_status") or "",
+                "draft_operator_review_status": document.get("operator_review_status") or "",
+                "draft_filter_status": document.get("filter_status") or "",
+                "draft_fallback_status": document.get("fallback_status") or "",
+                "validation_status": validation.get("status") or validation_report.get("status") or "",
+                "validation_errors": [_message_text(error) for error in validation.get("errors") or []],
+                "validation_warnings": [_message_text(warning) for warning in validation.get("warnings") or []],
+                "document_kind": document.get("document_kind") or "",
+                "document_period_year": document.get("document_period_year") or "",
+                "document_period_status": document.get("document_period_status") or "",
+                "report_type_match_status": document.get("report_type_match_status") or "",
+                "accounting_standard_match_status": document.get("accounting_standard_match_status") or "",
+                "gate_status": gate.get("gate_status") or quality_gate_report.get("status") or "failed",
+                "gate_passed": bool(ready and gate.get("gate_status") == "passed"),
+                "gate_reason": gate.get("reason") or "quality_gate_failed",
+                "ready_for_value_extraction": bool(ready and quality_gate_report.get("ready_for_value_extraction")),
+                "ready_for_import": bool(ready and quality_gate_report.get("ready_for_import")),
+                "is_placeholder": status == "draft_placeholder_not_ready",
+                "has_document_url": bool(document.get("document_url")),
+                "has_exact_target_document": _exact_document_is_downstream_eligible(document),
+                "blocked_reason_codes": blockers,
+                "next_required_action": _document_intake_draft_gate_next_action(status),
+                "would_extract_values": False,
+                "would_import_report": False,
+                "would_mutate_scores": False,
+                "would_trigger_paper_trading": False,
+            }
+        )
+    return sorted(rows, key=lambda item: str(item.get("company_id") or ""))
+
+
+def _document_intake_draft_gate_preview_summary(
+    rows: list[dict[str, Any]],
+    quality_gate_report: dict[str, Any],
+) -> dict[str, Any]:
+    blocker_counts: dict[str, int] = {}
+    for row in rows:
+        for blocker in row.get("blocked_reason_codes") or []:
+            blocker_counts[str(blocker)] = blocker_counts.get(str(blocker), 0) + 1
+    ready_count = sum(1 for row in rows if row.get("draft_row_status") == "draft_ready_for_future_extraction_preview")
+    return {
+        "document_intake_draft_gate_preview_row_count": len(rows),
+        "document_intake_draft_gate_preview_ready_count": ready_count,
+        "document_intake_draft_gate_preview_blocked_count": len(rows) - ready_count,
+        "document_intake_draft_gate_preview_placeholder_count": sum(1 for row in rows if row.get("is_placeholder")),
+        "document_intake_draft_gate_preview_invalid_count": sum(
+            1 for row in rows if row.get("draft_row_status") == "draft_invalid_not_ready"
+        ),
+        "document_intake_draft_gate_preview_gate_passed": bool(quality_gate_report.get("gate_passed")),
+        "document_intake_draft_gate_preview_ready_for_value_extraction": bool(quality_gate_report.get("ready_for_value_extraction")),
+        "document_intake_draft_gate_preview_ready_for_import": bool(quality_gate_report.get("ready_for_import")),
+        "document_intake_draft_gate_preview_status_counts": _count_by_key(rows, "draft_row_status"),
+        "document_intake_draft_gate_preview_blocker_counts": dict(sorted(blocker_counts.items())),
+    }
+
+
+def _build_document_intake_draft_gate_preview_report(
+    args: argparse.Namespace,
+    *,
+    rows: list[dict[str, Any]],
+    validation_report: dict[str, Any],
+    quality_gate_report: dict[str, Any],
+    load_warnings: list[dict[str, Any]] | None = None,
+    load_errors: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    summary = _document_intake_draft_gate_preview_summary(rows, quality_gate_report)
+    load_warnings = load_warnings or []
+    load_errors = load_errors or []
+    status = (
+        "failed"
+        if load_errors
+        else "passed"
+        if rows and summary["document_intake_draft_gate_preview_ready_count"] == len(rows)
+        else "warning"
+    )
+    return {
+        "status": status,
+        "mode": "document-intake-draft-gate-preview",
+        "summary": summary,
+        **summary,
+        "draft_gate_summary_rows": rows,
+        "document_intake_draft_input": _path_value(args.document_intake_draft_input),
+        "document_intake_draft_validation_output": _path_value(args.document_intake_draft_validation_output),
+        "document_intake_draft_validation_markdown_output": _path_value(
+            args.document_intake_draft_validation_markdown_output
+        ),
+        "document_intake_draft_gate_output": _path_value(args.document_intake_draft_gate_output),
+        "document_intake_draft_gate_markdown_output": _path_value(args.document_intake_draft_gate_markdown_output),
+        "document_intake_draft_gate_summary_output": _path_value(args.document_intake_draft_gate_summary_output),
+        "document_intake_draft_gate_summary_csv_output": _path_value(
+            args.document_intake_draft_gate_summary_csv_output
+        ),
+        "document_intake_draft_gate_summary_markdown_output": _path_value(
+            args.document_intake_draft_gate_summary_markdown_output
+        ),
+        "document_intake_draft_validation_report": validation_report,
+        "document_intake_draft_quality_gate_report": quality_gate_report,
+        "warnings": load_warnings,
+        "errors": load_errors,
+        "next_steps": _next_steps("document-intake-draft-gate-preview", status),
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _exact_document_is_downstream_eligible(document: dict[str, Any]) -> bool:
     if not document.get("document_url"):
         return False
@@ -15638,6 +16162,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review patch rows; this preview does not update intake or trigger extraction/import."]
     if mode == "operator-resolution-apply-draft":
         return ["Validate the new draft intake before any quality gate; original intake remains unchanged."]
+    if mode == "document-intake-draft-gate-preview":
+        return ["Review draft gate blockers; extraction and import remain disabled in this preview workflow."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -15705,9 +16231,14 @@ def _as_float(value: Any) -> float | None:
 def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path | None) -> bool:
     if output_path is None:
         return False
-    if args.mode != "operator-resolution-apply-draft" or args.document_intake_input is None:
-        return True
-    return not _paths_equal(output_path, args.document_intake_input)
+    protected_input = (
+        args.document_intake_input
+        if args.mode == "operator-resolution-apply-draft"
+        else args.document_intake_draft_input
+        if args.mode == "document-intake-draft-gate-preview"
+        else None
+    )
+    return protected_input is None or not _paths_equal(output_path, protected_input)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
