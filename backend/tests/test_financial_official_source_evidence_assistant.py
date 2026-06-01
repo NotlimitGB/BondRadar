@@ -4618,6 +4618,308 @@ def test_operator_resolution_source_trust_workspace_requires_board() -> None:
     assert report["errors"] == [{"message": "operator_resolution_chain_review_board_required"}]
 
 
+def test_operator_resolution_source_trust_refill_vds_like_rows_are_incomplete_or_not_required(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_refill_validate(
+        tmp_path,
+        [
+            _operator_resolution_source_trust_refill_row(
+                resolution_id="financial_report_resolution:18:2025:annual:IFRS:fill_exact_document_url",
+                company_id="18",
+                company_name="RZD",
+                canonical_company_id="18",
+                canonical_company_name="RZD",
+            ),
+            _operator_resolution_source_trust_refill_row(),
+        ],
+        [
+            _operator_resolution_source_trust_source_row(
+                resolution_id="financial_report_resolution:18:2025:annual:IFRS:fill_exact_document_url",
+                company_id="18",
+                company_name="RZD",
+                canonical_company_id="18",
+                canonical_company_name="RZD",
+            ),
+            _operator_resolution_source_trust_source_row(
+                current_known_source_page_url="https://mostotrest.ru/ru/invest/financial-results/",
+            ),
+        ],
+    )
+    rows = {row["company_id"]: row for row in report["rows"]}
+
+    assert report["status"] == "warning"
+    assert report["row_count"] == 2
+    assert report["incomplete_count"] == 1
+    assert report["not_required_count"] == 1
+    assert report["source_pack_draft_candidate_count"] == 0
+    assert rows["18"]["validation_status"] == "incomplete_source_refill"
+    assert "source_page_url_required" in rows["18"]["validation_reason_codes"]
+    assert rows["67"]["validation_status"] == "source_refill_not_required"
+
+
+def test_operator_resolution_source_trust_refill_valid_unknown_host_creates_pending_candidate_only(tmp_path: Path) -> None:
+    source_pack = tmp_path / "source_pack.json"
+    _write_operator_resolution_source_trust_source_pack(
+        source_pack,
+        [_operator_resolution_source_trust_source_row()],
+    )
+    original = source_pack.read_bytes()
+    refill = _operator_resolution_source_trust_refill_row(
+        operator_fill_current_known_source_page_url="https://invest.rzd-example.test/investors/reports/",
+        operator_fill_source_review_status="operator_reviewed",
+        operator_fill_source_notes="Candidate only.",
+    )
+
+    report = _run_operator_resolution_source_trust_refill_validate(
+        tmp_path,
+        [refill],
+        source_pack_path=source_pack,
+    )
+    row = report["rows"][0]
+    draft = json.loads(Path(report["artifacts"]["source_pack_draft_json"]).read_text(encoding="utf-8"))
+    draft_row = draft["resolutions"][0]
+
+    assert row["validation_status"] == "valid_source_candidate_for_future_review"
+    assert "unknown_source_host_requires_future_review" in row["validation_warnings"]
+    assert report["valid_candidate_count"] == 1
+    assert report["source_pack_draft_candidate_count"] == 1
+    assert draft_row["current_known_source_page_url"] == ""
+    assert draft_row["current_known_document_url"] == ""
+    assert draft_row["candidate_current_known_source_page_url"] == refill[
+        "operator_fill_current_known_source_page_url"
+    ]
+    assert draft_row["operator_source_review_status"] == "pending_future_controlled_review"
+    assert draft_row["trusted_host_status"] == "not_trusted_until_future_review"
+    assert source_pack.read_bytes() == original
+    assert report["original_source_pack_modified"] is False
+
+
+def test_operator_resolution_source_trust_refill_rejects_unsafe_source_pages(tmp_path: Path) -> None:
+    cases = {
+        "blocked": ("https://news.example/reports/", "blocked_source_url"),
+        "landing": ("https://mostotrest.ru/", "ambiguous_source_page"),
+        "archive": ("https://mostotrest.ru/archive/reports/", "archive_or_history_source_not_allowed"),
+        "pdf": ("https://mostotrest.ru/reports/annual-ifrs-2025.pdf", "source_page_expected_but_document_url_provided"),
+        "historical": (
+            "https://mostotrest.ru/reports/annual-ifrs-2019.pdf",
+            "historical_fallback_url_not_allowed",
+        ),
+    }
+    for name, (url, reason) in cases.items():
+        report = _run_operator_resolution_source_trust_refill_validate(
+            tmp_path / name,
+            [_operator_resolution_source_trust_refill_row(operator_fill_current_known_source_page_url=url)],
+            [
+                _operator_resolution_source_trust_source_row(
+                    latest_historical_document_url="https://mostotrest.ru/reports/annual-ifrs-2019.pdf",
+                )
+            ],
+        )
+        row = report["rows"][0]
+
+        assert row["validation_status"] == "invalid_source_refill"
+        assert reason in row["validation_errors"]
+        assert report["source_pack_draft_candidate_count"] == 0
+
+
+def test_operator_resolution_source_trust_refill_validates_optional_document_domain(tmp_path: Path) -> None:
+    accepted = _run_operator_resolution_source_trust_refill_validate(
+        tmp_path / "accepted",
+        [
+            _operator_resolution_source_trust_refill_row(
+                operator_fill_current_known_source_page_url="https://invest.mostotrest.ru/reports/",
+                operator_fill_current_known_document_url="https://docs.mostotrest.ru/reports/annual-ifrs-2025.pdf",
+            )
+        ],
+    )
+    rejected = _run_operator_resolution_source_trust_refill_validate(
+        tmp_path / "rejected",
+        [
+            _operator_resolution_source_trust_refill_row(
+                operator_fill_current_known_source_page_url="https://invest.mostotrest.ru/reports/",
+                operator_fill_current_known_document_url="https://docs.other-issuer.ru/reports/annual-ifrs-2025.pdf",
+            )
+        ],
+    )
+
+    assert accepted["rows"][0]["validation_status"] == "valid_source_candidate_for_future_review"
+    assert rejected["rows"][0]["validation_status"] == "invalid_source_refill"
+    assert "source_document_host_conflict" in rejected["rows"][0]["validation_errors"]
+
+
+def test_operator_resolution_source_trust_refill_notes_only_are_diagnostic(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_refill_validate(
+        tmp_path,
+        [
+            _operator_resolution_source_trust_refill_row(
+                operator_fill_source_review_status="needs_review",
+                operator_fill_source_notes="Need an issuer IR page.",
+            )
+        ],
+    )
+
+    assert report["rows"][0]["validation_status"] == "source_refill_diagnostic_only"
+    assert report["diagnostic_only_count"] == 1
+    assert report["source_pack_draft_candidate_count"] == 0
+
+
+def test_operator_resolution_source_trust_refill_missing_optional_context_warns_and_writes_candidate_draft(
+    tmp_path: Path,
+) -> None:
+    report = _run_operator_resolution_source_trust_refill_validate(
+        tmp_path,
+        [
+            _operator_resolution_source_trust_refill_row(
+                operator_fill_current_known_source_page_url="https://mostotrest.ru/ru/invest/financial-results/",
+            )
+        ],
+        include_source_pack=False,
+        include_board=False,
+    )
+
+    assert report["status"] == "warning"
+    assert report["valid_candidate_count"] == 1
+    assert any(warning["message"] == "review_board_context_missing" for warning in report["warnings"])
+    assert any(warning["message"] == "source_pack_missing" for warning in report["warnings"])
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    draft = json.loads(Path(report["artifacts"]["source_pack_draft_json"]).read_text(encoding="utf-8"))
+    assert draft["resolutions"][0]["source_context_status"] == "operator_source_candidate_for_future_controlled_review"
+    markdown = Path(report["artifacts"]["validation_markdown"]).read_text(encoding="utf-8")
+    assert "Operator Resolution Source Trust Refill Validation" in markdown
+    assert "Baseline source trust remains unchanged" in markdown
+
+
+def test_operator_resolution_source_trust_refill_output_collision_fails_safely(tmp_path: Path) -> None:
+    refill = tmp_path / "refill.csv"
+    _write_operator_resolution_source_trust_refill(refill, [_operator_resolution_source_trust_refill_row()])
+    original = refill.read_bytes()
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-refill-validate",
+            "--operator-resolution-source-trust-refill-input",
+            str(refill),
+            "--operator-resolution-source-trust-validation-output",
+            str(refill),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(
+        error["message"] == "operator_resolution_source_trust_refill_output_must_not_equal_input"
+        for error in report["errors"]
+    )
+    assert refill.read_bytes() == original
+
+
+def test_operator_resolution_source_trust_refill_preserves_rows_shape_and_explicit_output(tmp_path: Path) -> None:
+    refill = tmp_path / "inputs" / "refill.csv"
+    source_pack = tmp_path / "inputs" / "source_pack.json"
+    explicit_draft = tmp_path / "custom" / "source_pack_draft.json"
+    _write_operator_resolution_source_trust_refill(
+        refill,
+        [
+            _operator_resolution_source_trust_refill_row(
+                operator_fill_current_known_source_page_url="https://mostotrest.ru/ru/invest/financial-results/",
+            )
+        ],
+    )
+    source_pack.parent.mkdir(parents=True, exist_ok=True)
+    source_pack.write_text(
+        json.dumps({"status": "template", "mode": "operator-resolution-pack", "rows": []}),
+        encoding="utf-8",
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-refill-validate",
+            "--operator-resolution-source-trust-refill-input",
+            str(refill),
+            "--operator-resolution-source-pack-input",
+            str(source_pack),
+            "--operator-resolution-source-pack-draft-output",
+            str(explicit_draft),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+    draft = json.loads(explicit_draft.read_text(encoding="utf-8"))
+
+    assert exit_code == 0
+    assert Path(report["artifacts"]["source_pack_draft_json"]) == explicit_draft
+    assert "rows" in draft
+    assert "resolutions" not in draft
+    assert draft["rows"][0]["candidate_current_known_source_page_url"] == (
+        "https://mostotrest.ru/ru/invest/financial-results/"
+    )
+
+
+def test_operator_resolution_source_trust_refill_generic_output_collision_fails_safely(tmp_path: Path) -> None:
+    refill = tmp_path / "refill.csv"
+    _write_operator_resolution_source_trust_refill(refill, [_operator_resolution_source_trust_refill_row()])
+    original = refill.read_bytes()
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-refill-validate",
+            "--operator-resolution-source-trust-refill-input",
+            str(refill),
+            "--json-output",
+            str(refill),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(
+        error["message"] == "operator_resolution_source_trust_refill_output_must_not_equal_input"
+        for error in report["errors"]
+    )
+    assert refill.read_bytes() == original
+
+
+def test_operator_resolution_source_trust_refill_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task127 source trust refill validation must not fetch, probe, or download documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_operator_resolution_source_trust_refill_validate(
+        tmp_path,
+        [
+            _operator_resolution_source_trust_refill_row(
+                operator_fill_current_known_source_page_url="https://mostotrest.ru/ru/invest/financial-results/",
+            )
+        ],
+    )
+
+    assert report["would_update_original_source_pack"] is False
+    assert report["would_trust_manual_source"] is False
+    assert report["would_promote_source"] is False
+    assert report["would_update_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+
+
+def test_operator_resolution_source_trust_refill_requires_input() -> None:
+    args = assistant.parse_args(["--mode", "operator-resolution-source-trust-refill-validate"])
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "operator_resolution_source_trust_refill_input_required"}]
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -8630,6 +8932,105 @@ def _run_operator_resolution_source_trust_workspace(
             "operator-resolution-source-trust-workspace",
             "--operator-resolution-chain-output-dir",
             str(tmp_path),
+            *(
+                [
+                    "--operator-resolution-source-pack-input",
+                    str(source_pack),
+                ]
+                if include_source_pack
+                else []
+            ),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    return report
+
+
+def _operator_resolution_source_trust_refill_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "resolution_id": "financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "READONLY_source_trust_status": "trusted_source_missing",
+        "READONLY_trusted_source_hosts": "",
+        "READONLY_current_known_source_page_url": "",
+        "READONLY_current_known_document_url": "",
+        "READONLY_latest_historical_document_url": "",
+        "READONLY_historical_fallback_allowed_as_trusted_source": "false",
+        "READONLY_historical_fallback_allowed_as_target_evidence": "false",
+        "READONLY_next_required_action": "fill_official_baseline_source_page_for_future_review",
+        "READONLY_operator_instruction": "Fill an official issuer reporting page.",
+        "READONLY_safe_source_fill_hint": "Manual URLs require later controlled review.",
+        "operator_fill_current_known_source_page_url": "",
+        "operator_fill_current_known_document_url": "",
+        "operator_fill_source_review_status": "",
+        "operator_fill_source_notes": "",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_operator_resolution_source_trust_refill(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=assistant.OPERATOR_RESOLUTION_SOURCE_TRUST_REFILL_FIELDS,
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+
+def _run_operator_resolution_source_trust_refill_validate(
+    tmp_path: Path,
+    refill_rows: list[dict[str, object]],
+    source_rows: list[dict[str, object]] | None = None,
+    *,
+    source_pack_path: Path | None = None,
+    include_source_pack: bool = True,
+    include_board: bool = True,
+    extra_args: list[str] | None = None,
+) -> dict:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    refill = tmp_path / assistant.OPERATOR_RESOLUTION_SOURCE_TRUST_ARTIFACT_NAMES["refill_csv"]
+    source_pack = source_pack_path or tmp_path / "operator_resolution_source_pack.json"
+    board = tmp_path / assistant.OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES["board_json"]
+    _write_operator_resolution_source_trust_refill(refill, refill_rows)
+    if include_source_pack and source_pack_path is None:
+        _write_operator_resolution_source_trust_source_pack(source_pack, source_rows or [])
+    if include_board:
+        _write_operator_resolution_source_trust_board(
+            board,
+            [
+                _operator_resolution_source_trust_board_row(
+                    resolution_id=str(row.get("resolution_id") or ""),
+                    company_id=str(row.get("company_id") or ""),
+                    company_name=str(row.get("company_name") or ""),
+                    canonical_company_id=str(row.get("canonical_company_id") or ""),
+                    canonical_company_name=str(row.get("canonical_company_name") or ""),
+                )
+                for row in refill_rows
+            ],
+        )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-refill-validate",
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--operator-resolution-source-trust-refill-input",
+            str(refill),
             *(
                 [
                     "--operator-resolution-source-pack-input",
