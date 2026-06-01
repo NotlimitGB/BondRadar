@@ -4126,6 +4126,256 @@ def test_operator_resolution_chain_preview_requires_inputs() -> None:
     }
 
 
+def test_operator_resolution_chain_review_board_unfilled_rows_create_refill_workspace(tmp_path: Path) -> None:
+    rows = [
+        _operator_resolution_validation_input_row(
+            resolution_id="financial_report_resolution:18:2025:annual:IFRS:fill_exact_document_url",
+            company_id="18",
+            company_name="RZD",
+        ),
+        _operator_resolution_validation_input_row(),
+    ]
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        rows,
+        [
+            _operator_resolution_chain_placeholder(18, "RZD", "https://rzd.ru/reports/"),
+            _operator_resolution_chain_placeholder(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/"),
+        ],
+    )
+
+    report = _run_operator_resolution_chain_review_board(tmp_path)
+
+    assert report["status"] == "warning"
+    assert report["row_count"] == 2
+    assert report["ready_count"] == 0
+    assert report["needs_operator_action_count"] == 2
+    assert report["overall_status_counts"] == {"needs_operator_exact_document_url": 2}
+    assert report["primary_blocker_counts"] == {"missing_exact_document_url": 2}
+    assert all(row["would_extract_values"] is False for row in report["rows"])
+    refill = Path(report["artifacts"]["refill_workspace_csv"])
+    refill_rows = list(csv.DictReader(refill.open(encoding="utf-8")))
+    assert len(refill_rows) == 2
+    assert all(row["operator_fill_exact_document_url"] == "" for row in refill_rows)
+    assert {"resolution_id", "resolution_action_type", "READONLY_primary_blocker"} <= set(refill_rows[0])
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    rerun = Path(report["artifacts"]["rerun_markdown"]).read_text(encoding="utf-8")
+    assert "python3 scripts/financial_official_source_evidence_assistant.py" in rerun
+    assert "operator-resolution-chain-preview" in rerun
+
+
+def test_operator_resolution_chain_review_board_rejects_historical_fallback_guidance(tmp_path: Path) -> None:
+    historical = "https://mostotrest.ru/reports/mostotrest-annual-ifrs-financial-statements-2019.pdf"
+    row = _operator_resolution_chain_valid_input_row(
+        operator_fill_exact_document_url=historical,
+        latest_historical_document_url=historical,
+        latest_historical_period="2019",
+    )
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [row],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+    )
+
+    report = _run_operator_resolution_chain_review_board(tmp_path)
+    board_row = report["rows"][0]
+
+    assert board_row["overall_status"] == "operator_input_invalid"
+    assert board_row["primary_blocker"] == "historical_fallback_url_used_as_exact_document"
+    assert "Historical fallback is diagnostic-only" in board_row["operator_instruction"]
+    assert board_row["historical_fallback_allowed_as_target_evidence"] is False
+
+
+def test_operator_resolution_chain_review_board_ready_row_is_ready(tmp_path: Path) -> None:
+    source_intake = tmp_path / "official_source_intake.json"
+    _write_source_intake(
+        source_intake,
+        [
+            _source_issuer(
+                67,
+                "Mostotrest",
+                "official_issuer_report",
+                "https://mostotrest.ru/ru/invest/financial-results/",
+                "Mostotrest official reporting page",
+            )
+        ],
+    )
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [_operator_resolution_chain_valid_input_row()],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "https://mostotrest.ru/ru/invest/financial-results/")],
+        source_intake_input=source_intake,
+        extra_args=["--required-company-ids", "67"],
+    )
+
+    report = _run_operator_resolution_chain_review_board(tmp_path)
+
+    assert report["status"] == "passed"
+    assert report["ready_count"] == 1
+    assert report["ready_for_value_extraction_count"] == 1
+    assert report["rows"][0]["overall_status"] == "ready_for_future_extraction_preview"
+
+
+def test_operator_resolution_chain_review_board_trusted_hosts_use_baseline_only(tmp_path: Path) -> None:
+    row = _operator_resolution_validation_input_row(
+        operator_fill_source_page_url="https://manual-fill.example/reports/",
+    )
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [row],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "")],
+    )
+    source_pack = tmp_path / "operator_resolution_chain_source_pack.json"
+    payload = json.loads(source_pack.read_text(encoding="utf-8"))
+    source_row = payload["resolutions"][0]
+    source_row["current_known_document_url"] = "https://docs.mostotrest.ru/reports/annual-ifrs-2025.pdf"
+    source_row["current_known_source_page_url"] = "https://mostotrest.ru/ru/invest/financial-results/"
+    source_row["latest_historical_document_url"] = "https://archive.example/annual-ifrs-2019.pdf"
+    source_row["operator_fill_source_page_url"] = "https://operator-pack.example/reports/"
+    source_pack.write_text(json.dumps(payload), encoding="utf-8")
+
+    report = _run_operator_resolution_chain_review_board(tmp_path)
+
+    assert report["rows"][0]["trusted_source_hosts"] == ["docs.mostotrest.ru", "mostotrest.ru"]
+    assert "manual-fill.example" not in report["rows"][0]["trusted_source_hosts"]
+    assert "archive.example" not in report["rows"][0]["trusted_source_hosts"]
+    assert "operator-pack.example" not in report["rows"][0]["trusted_source_hosts"]
+
+
+def test_operator_resolution_chain_review_board_missing_source_pack_and_stage_are_warnings(tmp_path: Path) -> None:
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [_operator_resolution_validation_input_row()],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "")],
+        include_source_pack=False,
+    )
+    Path(
+        tmp_path / assistant.OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES["document_intake_draft_gate_summary_json"]
+    ).unlink()
+
+    report = _run_operator_resolution_chain_review_board(tmp_path, include_source_pack=False)
+
+    assert report["status"] == "warning"
+    assert report["rows"][0]["trusted_source_hosts"] == []
+    warning_messages = {warning["message"] for warning in report["warnings"]}
+    assert "source_pack_missing_trusted_hosts_unavailable" in warning_messages
+    assert "chain_stage_artifact_missing:document_intake_draft_gate_summary_json" in warning_messages
+
+
+def test_operator_resolution_chain_review_board_direct_summary_and_explicit_output(tmp_path: Path) -> None:
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [_operator_resolution_validation_input_row()],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "")],
+    )
+    summary = tmp_path / assistant.OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES["chain_summary_json"]
+    explicit = tmp_path / "custom" / "board.json"
+    report = _run_operator_resolution_chain_review_board(
+        tmp_path,
+        use_output_dir=False,
+        extra_args=[
+            "--operator-resolution-chain-summary-input",
+            str(summary),
+            "--operator-resolution-chain-review-board-output",
+            str(explicit),
+        ],
+    )
+
+    assert report["status"] == "warning"
+    assert Path(report["artifacts"]["board_json"]) == explicit
+    assert explicit.is_file()
+    assert Path(report["artifacts"]["refill_workspace_csv"]).parent == summary.parent
+
+
+def test_operator_resolution_chain_review_board_output_collision_fails_safely(tmp_path: Path) -> None:
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [_operator_resolution_validation_input_row()],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "")],
+    )
+    summary = tmp_path / assistant.OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES["chain_summary_json"]
+    original = summary.read_bytes()
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-chain-review-board",
+            "--operator-resolution-chain-summary-input",
+            str(summary),
+            "--operator-resolution-chain-review-board-output",
+            str(summary),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(
+        error["message"] == "operator_resolution_chain_review_board_output_must_not_equal_input"
+        for error in report["errors"]
+    )
+    assert summary.read_bytes() == original
+
+
+def test_operator_resolution_chain_review_board_refill_csv_is_task119_rerunnable(tmp_path: Path) -> None:
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [_operator_resolution_validation_input_row()],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "")],
+    )
+    board = _run_operator_resolution_chain_review_board(tmp_path)
+    refill = Path(board["artifacts"]["refill_workspace_csv"])
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-validate",
+            "--operator-resolution-input",
+            str(refill),
+            "--operator-resolution-source-pack-input",
+            str(tmp_path / "operator_resolution_chain_source_pack.json"),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["operator_resolution_validation_incomplete_count"] == 1
+
+
+def test_operator_resolution_chain_review_board_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    _run_operator_resolution_chain_preview(
+        tmp_path,
+        [_operator_resolution_validation_input_row()],
+        [_operator_resolution_chain_placeholder(67, "Mostotrest", "")],
+    )
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task125 review board must not fetch, probe, or download documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_operator_resolution_chain_review_board(tmp_path)
+
+    assert report["status"] == "warning"
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+
+
+def test_operator_resolution_chain_review_board_requires_summary() -> None:
+    args = assistant.parse_args(["--mode", "operator-resolution-chain-review-board"])
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "operator_resolution_chain_summary_required"}]
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -7999,6 +8249,45 @@ def _run_operator_resolution_chain_preview(
                     str(source_intake_input),
                 ]
                 if source_intake_input is not None
+                else []
+            ),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    return report
+
+
+def _run_operator_resolution_chain_review_board(
+    tmp_path: Path,
+    *,
+    include_source_pack: bool = True,
+    use_output_dir: bool = True,
+    extra_args: list[str] | None = None,
+) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-chain-review-board",
+            *(
+                [
+                    "--operator-resolution-chain-output-dir",
+                    str(tmp_path),
+                ]
+                if use_output_dir
+                else []
+            ),
+            "--operator-resolution-input",
+            str(tmp_path / "operator_resolution_chain_input.csv"),
+            *(
+                [
+                    "--operator-resolution-source-pack-input",
+                    str(tmp_path / "operator_resolution_chain_source_pack.json"),
+                ]
+                if include_source_pack
                 else []
             ),
             *(extra_args or []),

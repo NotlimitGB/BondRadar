@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import re
+import shlex
 import sys
 import tempfile
 import urllib.error
@@ -44,6 +45,7 @@ MODE_CHOICES = (
     "document-intake-draft-gate-preview",
     "operator-resolution-happy-path-synthetic",
     "operator-resolution-chain-preview",
+    "operator-resolution-chain-review-board",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -1343,6 +1345,95 @@ OPERATOR_RESOLUTION_CHAIN_PREVIEW_SUMMARY_FIELDS = [
     "would_mutate_scores",
     "would_trigger_paper_trading",
 ]
+OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES = {
+    "board_json": "operator_resolution_chain_review_board_task125.json",
+    "board_csv": "operator_resolution_chain_review_board_task125.csv",
+    "board_markdown": "operator_resolution_chain_review_board_task125.md",
+    "refill_workspace_csv": "operator_resolution_refill_workspace_task125.csv",
+    "rerun_markdown": "operator_resolution_chain_rerun_task125.md",
+}
+OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_FIELDS = [
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "resolution_action_type",
+    "overall_status",
+    "primary_blocker",
+    "next_required_action",
+    "operator_instruction",
+    "safe_fill_hint",
+    "rerun_hint",
+    "validation_status",
+    "validation_reason_codes",
+    "validation_errors",
+    "validation_warnings",
+    "apply_preview_status",
+    "apply_preview_action",
+    "future_apply_allowed",
+    "future_apply_blocked_reason",
+    "apply_draft_status",
+    "apply_draft_action",
+    "draft_gate_status",
+    "draft_gate_blocked_reason_codes",
+    "ready_for_value_extraction",
+    "ready_for_import",
+    "operator_fill_decision",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_date",
+    "operator_fill_source_page_url",
+    "operator_fill_source_type",
+    "operator_fill_report_period",
+    "operator_fill_report_type",
+    "operator_fill_accounting_standard",
+    "operator_fill_notes",
+    "trusted_source_hosts",
+    "latest_historical_document_url",
+    "latest_historical_period",
+    "historical_fallback_allowed_as_target_evidence",
+    "would_update_document_intake",
+    "would_update_original_intake",
+    "would_update_database",
+    "would_promote_seed",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+]
+OPERATOR_RESOLUTION_REFILL_WORKSPACE_FIELDS = [
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "resolution_action_type",
+    "READONLY_overall_status",
+    "READONLY_primary_blocker",
+    "READONLY_next_required_action",
+    "READONLY_operator_instruction",
+    "READONLY_safe_fill_hint",
+    "READONLY_trusted_source_hosts",
+    "READONLY_latest_historical_document_url",
+    "READONLY_historical_fallback_allowed_as_target_evidence",
+    "operator_fill_decision",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_date",
+    "operator_fill_source_page_url",
+    "operator_fill_source_type",
+    "operator_fill_report_period",
+    "operator_fill_report_type",
+    "operator_fill_accounting_standard",
+    "operator_fill_notes",
+]
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -1618,6 +1709,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-happy-path-accounting-standard", default="IFRS")
     parser.add_argument("--operator-resolution-happy-path-run-chain", type=_parse_bool, default=True)
     parser.add_argument("--operator-resolution-chain-output-dir", type=Path, default=None)
+    parser.add_argument("--operator-resolution-chain-summary-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-chain-review-board-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-chain-review-board-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-chain-review-board-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-refill-workspace-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-chain-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1694,6 +1791,8 @@ def run_assistant(
         report = run_operator_resolution_happy_path_synthetic(args)
     elif args.mode == "operator-resolution-chain-preview":
         report = run_operator_resolution_chain_preview(args)
+    elif args.mode == "operator-resolution-chain-review-board":
+        report = run_operator_resolution_chain_review_board(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -4051,6 +4150,535 @@ def _build_operator_resolution_chain_preview_summary(
         "warnings": warnings,
         "errors": all_errors,
         "next_steps": _next_steps("operator-resolution-chain-preview", status),
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_update_database": False,
+        "would_update_original_intake": False,
+        **SAFETY_FLAGS,
+    }
+
+
+def run_operator_resolution_chain_review_board(args: argparse.Namespace) -> dict[str, Any]:
+    summary_path = _operator_resolution_chain_review_board_summary_path(args)
+    if summary_path is None:
+        return _failed_operator_resolution_chain_review_board(
+            [{"message": "operator_resolution_chain_summary_required"}],
+        )
+    try:
+        chain_summary = _load_json_object(summary_path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _failed_operator_resolution_chain_review_board(
+            [{"message": "operator_resolution_chain_summary_required", "path": str(summary_path)}],
+        )
+    if chain_summary.get("mode") != "operator-resolution-chain-preview":
+        return _failed_operator_resolution_chain_review_board(
+            [{"message": "operator_resolution_chain_summary_required", "path": str(summary_path)}],
+        )
+
+    warnings: list[dict[str, Any]] = []
+    stage_paths = _operator_resolution_chain_review_board_stage_paths(summary_path, chain_summary)
+    stage_reports: dict[str, dict[str, Any]] = {}
+    for stage, path in stage_paths.items():
+        try:
+            stage_reports[stage] = _load_json_object(path)
+        except (OSError, ValueError, json.JSONDecodeError):
+            warnings.append({"message": f"chain_stage_artifact_missing:{stage}", "path": str(path)})
+
+    operator_rows: list[dict[str, Any]] = []
+    if args.operator_resolution_input is not None:
+        try:
+            operator_rows, _ = load_operator_resolution_input(args.operator_resolution_input)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            warnings.append({"message": f"operator_resolution_input_unreadable:{exc}"})
+    validation_rows = list(
+        (stage_reports.get("operator_resolution_validation_json") or {}).get("validation_rows") or []
+    )
+    source_rows: list[dict[str, Any]] = []
+    if args.operator_resolution_source_pack_input is not None:
+        try:
+            source_rows, _ = load_operator_resolution_input(args.operator_resolution_source_pack_input)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            warnings.append({"message": f"source_pack_unreadable_trusted_hosts_unavailable:{exc}"})
+    else:
+        warnings.append({"message": "source_pack_missing_trusted_hosts_unavailable"})
+    if not operator_rows:
+        operator_rows = validation_rows or source_rows
+
+    artifacts = _operator_resolution_chain_review_board_artifacts(args, summary_path)
+    collision_errors = _operator_resolution_chain_review_board_collision_errors(
+        args,
+        summary_path=summary_path,
+        stage_paths=stage_paths,
+        artifacts=artifacts,
+    )
+    if collision_errors:
+        return _failed_operator_resolution_chain_review_board(collision_errors)
+
+    rows = _build_operator_resolution_chain_review_board_rows(
+        chain_summary,
+        operator_rows=operator_rows,
+        source_rows=source_rows,
+        validation_rows=validation_rows,
+        patch_rows=list((stage_reports.get("operator_resolution_apply_preview_json") or {}).get("patch_rows") or []),
+        apply_draft_rows=list(
+            (stage_reports.get("operator_resolution_apply_draft_json") or {}).get("apply_draft_rows") or []
+        ),
+        draft_gate_rows=list(
+            (stage_reports.get("document_intake_draft_gate_summary_json") or {}).get("draft_gate_summary_rows") or []
+        ),
+        warnings=warnings,
+    )
+    report = _build_operator_resolution_chain_review_board_report(
+        args,
+        chain_summary=chain_summary,
+        summary_path=summary_path,
+        stage_paths=stage_paths,
+        artifacts=artifacts,
+        rows=rows,
+        warnings=warnings,
+    )
+    try:
+        write_json_report(report, artifacts["board_json"])
+        write_operator_resolution_chain_review_board_csv(rows, artifacts["board_csv"])
+        write_operator_resolution_chain_review_board_markdown(report, artifacts["board_markdown"])
+        write_operator_resolution_refill_workspace_csv(rows, artifacts["refill_workspace_csv"])
+        write_operator_resolution_chain_rerun_markdown(report, artifacts["rerun_markdown"])
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+    return report
+
+
+def _operator_resolution_chain_review_board_summary_path(args: argparse.Namespace) -> Path | None:
+    if args.operator_resolution_chain_summary_input is not None:
+        return args.operator_resolution_chain_summary_input
+    if args.operator_resolution_chain_output_dir is not None:
+        return (
+            args.operator_resolution_chain_output_dir
+            / OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES["chain_summary_json"]
+        )
+    return None
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        raise ValueError(f"JSON input does not exist: {path}")
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON input must be an object: {path}")
+    return payload
+
+
+def _operator_resolution_chain_review_board_stage_paths(
+    summary_path: Path,
+    chain_summary: dict[str, Any],
+) -> dict[str, Path]:
+    artifact_map = chain_summary.get("artifacts") or {}
+    keys = (
+        "operator_resolution_validation_json",
+        "operator_resolution_apply_preview_json",
+        "operator_resolution_apply_draft_json",
+        "document_intake_draft_gate_summary_json",
+    )
+    resolved: dict[str, Path] = {}
+    for key in keys:
+        mapped = artifact_map.get(key)
+        mapped_path = Path(str(mapped)) if mapped else None
+        if mapped_path is not None and not mapped_path.is_absolute():
+            mapped_path = summary_path.parent / mapped_path
+        sibling = summary_path.parent / OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES[key]
+        resolved[key] = mapped_path if mapped_path is not None and mapped_path.is_file() else sibling
+    return resolved
+
+
+def _operator_resolution_chain_review_board_artifacts(
+    args: argparse.Namespace,
+    summary_path: Path,
+) -> dict[str, Path]:
+    output_dir = args.operator_resolution_chain_output_dir or summary_path.parent
+    overrides = {
+        "board_json": args.operator_resolution_chain_review_board_output,
+        "board_csv": args.operator_resolution_chain_review_board_csv_output,
+        "board_markdown": args.operator_resolution_chain_review_board_markdown_output,
+        "refill_workspace_csv": args.operator_resolution_refill_workspace_csv_output,
+        "rerun_markdown": args.operator_resolution_chain_rerun_markdown_output,
+    }
+    return {
+        key: overrides[key] or output_dir / file_name
+        for key, file_name in OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES.items()
+    }
+
+
+def _operator_resolution_chain_review_board_collision_errors(
+    args: argparse.Namespace,
+    *,
+    summary_path: Path,
+    stage_paths: dict[str, Path],
+    artifacts: dict[str, Path],
+) -> list[dict[str, Any]]:
+    protected_inputs = [
+        summary_path,
+        *stage_paths.values(),
+        *(
+            path
+            for path in (
+                args.operator_resolution_input,
+                args.operator_resolution_source_pack_input,
+            )
+            if path is not None
+        ),
+    ]
+    outputs = [
+        *artifacts.values(),
+        *(path for path in (args.json_output, args.markdown_output) if path is not None),
+    ]
+    errors: list[dict[str, Any]] = []
+    for output_path in outputs:
+        for input_path in protected_inputs:
+            if _paths_equal(output_path, input_path):
+                errors.append(
+                    {
+                        "message": "operator_resolution_chain_review_board_output_must_not_equal_input",
+                        "output_path": str(output_path),
+                        "input_path": str(input_path),
+                    }
+                )
+    return errors
+
+
+def _failed_operator_resolution_chain_review_board(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "operator-resolution-chain-review-board",
+        "row_count": 0,
+        "ready_count": 0,
+        "blocked_count": 0,
+        "needs_operator_action_count": 0,
+        "invalid_input_count": 0,
+        "draft_gate_blocked_count": 0,
+        "ready_for_value_extraction_count": 0,
+        "overall_status_counts": {},
+        "primary_blocker_counts": {},
+        "rows": [],
+        "warnings": [],
+        "errors": errors,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_update_database": False,
+        "would_update_original_intake": False,
+        **SAFETY_FLAGS,
+    }
+
+
+def _build_operator_resolution_chain_review_board_rows(
+    chain_summary: dict[str, Any],
+    *,
+    operator_rows: list[dict[str, Any]],
+    source_rows: list[dict[str, Any]],
+    validation_rows: list[dict[str, Any]],
+    patch_rows: list[dict[str, Any]],
+    apply_draft_rows: list[dict[str, Any]],
+    draft_gate_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    source_by_id = _rows_by_resolution_id(source_rows)
+    validation_by_id = _rows_by_resolution_id(validation_rows)
+    patch_by_id = _rows_by_resolution_id(patch_rows)
+    apply_draft_by_id = _rows_by_resolution_id(apply_draft_rows)
+    gate_by_company = {_company_key(row): row for row in draft_gate_rows if _company_key(row)}
+    base_by_id = _rows_by_resolution_id(operator_rows)
+    ordered_ids = list(base_by_id)
+    for row_map in (validation_by_id, patch_by_id, apply_draft_by_id, source_by_id):
+        for resolution_id in row_map:
+            if resolution_id not in ordered_ids:
+                ordered_ids.append(resolution_id)
+    rows: list[dict[str, Any]] = []
+    for resolution_id in ordered_ids:
+        base = {
+            **source_by_id.get(resolution_id, {}),
+            **validation_by_id.get(resolution_id, {}),
+            **base_by_id.get(resolution_id, {}),
+        }
+        validation = validation_by_id.get(resolution_id, {})
+        patch = patch_by_id.get(resolution_id, {})
+        apply_draft = apply_draft_by_id.get(resolution_id, {})
+        gate = gate_by_company.get(_company_key(base), {})
+        overall_status = _operator_resolution_chain_review_board_overall_status(
+            chain_summary,
+            base=base,
+            validation=validation,
+            patch=patch,
+            apply_draft=apply_draft,
+            gate=gate,
+        )
+        blocker = _operator_resolution_chain_review_board_primary_blocker(
+            chain_summary,
+            overall_status=overall_status,
+            validation=validation,
+            patch=patch,
+            apply_draft=apply_draft,
+            gate=gate,
+        )
+        trusted_hosts = _operator_resolution_chain_review_board_trusted_hosts(
+            source_by_id.get(resolution_id, {})
+        )
+        guidance = _operator_resolution_chain_review_board_guidance(
+            overall_status,
+            blocker=blocker,
+            trusted_hosts=trusted_hosts,
+        )
+        row = {
+            "resolution_id": resolution_id,
+            "company_id": base.get("company_id") or "",
+            "company_name": base.get("company_name") or "",
+            "canonical_company_id": base.get("canonical_company_id") or base.get("company_id") or "",
+            "canonical_company_name": base.get("canonical_company_name") or base.get("company_name") or "",
+            "target_reporting_period": base.get("target_reporting_period") or chain_summary.get("target_reporting_period") or "",
+            "required_report_type": base.get("required_report_type") or chain_summary.get("required_report_type") or "",
+            "required_standard": base.get("required_standard") or chain_summary.get("required_standard") or "",
+            "resolution_action_type": base.get("resolution_action_type") or "",
+            "overall_status": overall_status,
+            "primary_blocker": blocker,
+            **guidance,
+            "validation_status": validation.get("validation_status") or "",
+            "validation_reason_codes": _review_board_list(validation.get("validation_reason_codes")),
+            "validation_errors": _review_board_list(validation.get("validation_errors")),
+            "validation_warnings": _review_board_list(validation.get("validation_warnings")),
+            "apply_preview_status": patch.get("patch_status") or "",
+            "apply_preview_action": patch.get("patch_action") or "",
+            "future_apply_allowed": _operator_resolution_bool(patch.get("future_apply_allowed")),
+            "future_apply_blocked_reason": patch.get("future_apply_blocked_reason") or "",
+            "apply_draft_status": apply_draft.get("apply_draft_status") or "",
+            "apply_draft_action": apply_draft.get("apply_draft_action") or "",
+            "draft_gate_status": gate.get("draft_row_status") or "",
+            "draft_gate_blocked_reason_codes": _review_board_list(gate.get("blocked_reason_codes")),
+            "ready_for_value_extraction": bool(gate.get("ready_for_value_extraction")),
+            "ready_for_import": bool(gate.get("ready_for_import")),
+            "trusted_source_hosts": trusted_hosts,
+            "latest_historical_document_url": source_by_id.get(resolution_id, {}).get(
+                "latest_historical_document_url"
+            )
+            or base.get("latest_historical_document_url")
+            or "",
+            "latest_historical_period": source_by_id.get(resolution_id, {}).get("latest_historical_period")
+            or base.get("latest_historical_period")
+            or "",
+            "historical_fallback_allowed_as_target_evidence": False,
+            "would_update_document_intake": False,
+            "would_update_original_intake": False,
+            "would_update_database": False,
+            "would_promote_seed": False,
+            "would_extract_values": False,
+            "would_import_report": False,
+            "would_mutate_scores": False,
+            "would_trigger_paper_trading": False,
+        }
+        for field in (
+            "operator_fill_decision",
+            "operator_fill_exact_document_url",
+            "operator_fill_document_title",
+            "operator_fill_document_date",
+            "operator_fill_source_page_url",
+            "operator_fill_source_type",
+            "operator_fill_report_period",
+            "operator_fill_report_type",
+            "operator_fill_accounting_standard",
+            "operator_fill_notes",
+        ):
+            row[field] = base.get(field) or ""
+        row["operator_fill_report_period"] = row["operator_fill_report_period"] or row["target_reporting_period"]
+        row["operator_fill_report_type"] = row["operator_fill_report_type"] or row["required_report_type"]
+        row["operator_fill_accounting_standard"] = (
+            row["operator_fill_accounting_standard"] or row["required_standard"]
+        )
+        rows.append(row)
+    if not source_rows and not any(
+        warning.get("message") == "source_pack_missing_trusted_hosts_unavailable"
+        for warning in warnings
+    ):
+        warnings.append({"message": "source_pack_missing_trusted_hosts_unavailable"})
+    return sorted(rows, key=lambda row: str(row.get("resolution_id") or ""))
+
+
+def _rows_by_resolution_id(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        str(row.get("resolution_id") or ""): row
+        for row in rows
+        if str(row.get("resolution_id") or "")
+    }
+
+
+def _review_board_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    return [item.strip() for item in str(value or "").split(";") if item.strip()]
+
+
+def _operator_resolution_chain_review_board_trusted_hosts(source_row: dict[str, Any]) -> list[str]:
+    hosts: set[str] = set()
+    for field in ("current_known_document_url", "current_known_source_page_url"):
+        for item in _split_source_context_urls(str(source_row.get(field) or "")):
+            parsed = urllib.parse.urlparse(item)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                host = _host(item)
+                if host:
+                    hosts.add(host)
+    return sorted(hosts)
+
+
+def _operator_resolution_chain_review_board_overall_status(
+    chain_summary: dict[str, Any],
+    *,
+    base: dict[str, Any],
+    validation: dict[str, Any],
+    patch: dict[str, Any],
+    apply_draft: dict[str, Any],
+    gate: dict[str, Any],
+) -> str:
+    if chain_summary.get("failed_stage"):
+        return "chain_stage_failed"
+    if gate.get("draft_row_status") == "draft_ready_for_future_extraction_preview":
+        return "ready_for_future_extraction_preview"
+    validation_status = str(validation.get("validation_status") or "")
+    if validation_status == "incomplete_operator_input" and not str(base.get("operator_fill_exact_document_url") or ""):
+        return "needs_operator_exact_document_url"
+    if validation_status == "invalid_operator_input":
+        return "operator_input_invalid"
+    if validation_status == "waiting" or (
+        validation_status == "valid_for_future_controlled_intake_review"
+        and (not patch or not apply_draft or not gate)
+    ):
+        return "validated_waiting_for_apply_review"
+    if patch and patch.get("patch_status") != "eligible_for_future_controlled_apply":
+        return "apply_preview_blocked"
+    if patch.get("patch_status") == "eligible_for_future_controlled_apply" and not str(
+        apply_draft.get("apply_draft_status") or ""
+    ).startswith("draft_applied_"):
+        return "draft_apply_blocked"
+    if str(apply_draft.get("apply_draft_status") or "").startswith("draft_applied_") and gate.get(
+        "draft_row_status"
+    ) != "draft_ready_for_future_extraction_preview":
+        return "draft_gate_blocked"
+    return "unknown_chain_state"
+
+
+def _operator_resolution_chain_review_board_primary_blocker(
+    chain_summary: dict[str, Any],
+    *,
+    overall_status: str,
+    validation: dict[str, Any],
+    patch: dict[str, Any],
+    apply_draft: dict[str, Any],
+    gate: dict[str, Any],
+) -> str:
+    if overall_status == "chain_stage_failed":
+        return str(chain_summary.get("failed_stage") or "chain_stage_failed")
+    if overall_status == "ready_for_future_extraction_preview":
+        return ""
+    validation_reasons = _review_board_list(validation.get("validation_reason_codes"))
+    validation_errors = _review_board_list(validation.get("validation_errors"))
+    if "historical_fallback_url_used_as_exact_document" in [*validation_errors, *validation_reasons]:
+        return "historical_fallback_url_used_as_exact_document"
+    if overall_status == "needs_operator_exact_document_url":
+        return "missing_exact_document_url"
+    if overall_status == "operator_input_invalid":
+        return next(iter(validation_errors or validation_reasons), "invalid_operator_input")
+    if overall_status == "apply_preview_blocked":
+        return str(patch.get("future_apply_blocked_reason") or patch.get("patch_status") or "apply_preview_blocked")
+    if overall_status == "draft_apply_blocked":
+        return str(apply_draft.get("apply_draft_status") or "draft_apply_blocked")
+    if overall_status == "draft_gate_blocked":
+        return next(iter(_review_board_list(gate.get("blocked_reason_codes"))), "quality_gate_failed")
+    if overall_status == "validated_waiting_for_apply_review":
+        return "waiting_for_downstream_review"
+    return "unknown_chain_state"
+
+
+def _operator_resolution_chain_review_board_guidance(
+    overall_status: str,
+    *,
+    blocker: str,
+    trusted_hosts: list[str],
+) -> dict[str, str]:
+    trusted = ", ".join(trusted_hosts) if trusted_hosts else "baseline trusted hosts unavailable"
+    safe_fill_hint = (
+        f"Use an exact official target-period annual IFRS PDF from: {trusted}. "
+        "Historical fallback is diagnostic-only and forbidden as target evidence."
+    )
+    if overall_status == "needs_operator_exact_document_url":
+        action = "fill_exact_official_target_period_annual_ifrs_url"
+        instruction = (
+            "Find and paste the exact official target-period annual IFRS report URL. "
+            "Do not paste a landing page, bond prospectus, RAS report, interim report, or historical fallback."
+        )
+    elif blocker == "historical_fallback_url_used_as_exact_document":
+        action = "replace_forbidden_historical_fallback_url"
+        instruction = (
+            "Do not use latest_historical_document_url as target-period evidence. "
+            "Historical fallback is diagnostic-only."
+        )
+    elif overall_status == "operator_input_invalid":
+        action = "correct_invalid_operator_input"
+        instruction = "Replace the input with an exact official target-period annual IFRS report URL."
+    elif overall_status == "ready_for_future_extraction_preview":
+        action = "no_operator_action_required"
+        instruction = (
+            "No manual correction required. The row is ready for future extraction preview, "
+            "but no extraction, import, scoring, or trading has executed."
+        )
+    elif overall_status == "chain_stage_failed":
+        action = "fix_chain_inputs_and_rerun_task124"
+        instruction = "Fix the failed Task124 stage inputs, then rerun the preview chain."
+    else:
+        action = "review_chain_blocker_and_rerun_task124"
+        instruction = f"Review blocker `{blocker}` and rerun the preview chain after correction."
+    return {
+        "next_required_action": action,
+        "operator_instruction": instruction,
+        "safe_fill_hint": safe_fill_hint,
+        "rerun_hint": "Edit the Task125 refill workspace CSV, then rerun Task119 validation and Task124 chain preview.",
+    }
+
+
+def _build_operator_resolution_chain_review_board_report(
+    args: argparse.Namespace,
+    *,
+    chain_summary: dict[str, Any],
+    summary_path: Path,
+    stage_paths: dict[str, Path],
+    artifacts: dict[str, Path],
+    rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    ready_count = sum(1 for row in rows if row.get("overall_status") == "ready_for_future_extraction_preview")
+    blocked_count = len(rows) - ready_count
+    status = "passed" if rows and ready_count == len(rows) and not warnings else "warning"
+    return {
+        "status": status,
+        "mode": "operator-resolution-chain-review-board",
+        "operator_resolution_chain_summary_input": str(summary_path),
+        "operator_resolution_input": _path_value(args.operator_resolution_input),
+        "operator_resolution_source_pack_input": _path_value(args.operator_resolution_source_pack_input),
+        "document_intake_input": chain_summary.get("document_intake_input"),
+        "source_intake_input": chain_summary.get("source_intake_input"),
+        "row_count": len(rows),
+        "ready_count": ready_count,
+        "blocked_count": blocked_count,
+        "needs_operator_action_count": sum(
+            1 for row in rows if row.get("overall_status") == "needs_operator_exact_document_url"
+        ),
+        "invalid_input_count": sum(1 for row in rows if row.get("overall_status") == "operator_input_invalid"),
+        "draft_gate_blocked_count": sum(1 for row in rows if row.get("overall_status") == "draft_gate_blocked"),
+        "ready_for_value_extraction_count": sum(1 for row in rows if row.get("ready_for_value_extraction")),
+        "overall_status_counts": _count_by_key(rows, "overall_status"),
+        "primary_blocker_counts": _count_by_key(rows, "primary_blocker"),
+        "rows": rows,
+        "stage_artifacts": {key: str(path) for key, path in stage_paths.items()},
+        "artifacts": {key: str(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": [],
+        "next_steps": _next_steps("operator-resolution-chain-review-board", status),
         "would_extract_values": False,
         "would_import_report": False,
         "would_update_database": False,
@@ -6599,6 +7227,67 @@ def write_operator_resolution_chain_preview_markdown(report: dict[str, Any], pat
     path.write_text(render_operator_resolution_chain_preview_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_chain_review_board_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_FIELDS,
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    field: _csv_value(row.get(field))
+                    for field in OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_FIELDS
+                }
+            )
+
+
+def write_operator_resolution_refill_workspace_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OPERATOR_RESOLUTION_REFILL_WORKSPACE_FIELDS,
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        for row in rows:
+            refill = dict(row)
+            refill.update(
+                {
+                    "READONLY_overall_status": row.get("overall_status"),
+                    "READONLY_primary_blocker": row.get("primary_blocker"),
+                    "READONLY_next_required_action": row.get("next_required_action"),
+                    "READONLY_operator_instruction": row.get("operator_instruction"),
+                    "READONLY_safe_fill_hint": row.get("safe_fill_hint"),
+                    "READONLY_trusted_source_hosts": row.get("trusted_source_hosts"),
+                    "READONLY_latest_historical_document_url": row.get("latest_historical_document_url"),
+                    "READONLY_historical_fallback_allowed_as_target_evidence": row.get(
+                        "historical_fallback_allowed_as_target_evidence"
+                    ),
+                }
+            )
+            writer.writerow(
+                {
+                    field: _csv_value(refill.get(field))
+                    for field in OPERATOR_RESOLUTION_REFILL_WORKSPACE_FIELDS
+                }
+            )
+
+
+def write_operator_resolution_chain_review_board_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_chain_review_board_markdown(report), encoding="utf-8")
+
+
+def write_operator_resolution_chain_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_chain_rerun_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -6740,6 +7429,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_resolution_happy_path_markdown(report)
     if report.get("mode") == "operator-resolution-chain-preview":
         return render_operator_resolution_chain_preview_markdown(report)
+    if report.get("mode") == "operator-resolution-chain-review-board":
+        return render_operator_resolution_chain_review_board_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -7349,6 +8040,170 @@ def render_operator_resolution_chain_preview_markdown(report: dict[str, Any]) ->
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_chain_review_board_markdown(report: dict[str, Any]) -> str:
+    rows = report.get("rows") or []
+    lines = [
+        "# Operator Resolution Chain Review Board",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- ready: {report.get('ready_count', 0)}",
+        f"- blocked: {report.get('blocked_count', 0)}",
+        f"- needs operator action: {report.get('needs_operator_action_count', 0)}",
+        f"- invalid input: {report.get('invalid_input_count', 0)}",
+        f"- draft gate blocked: {report.get('draft_gate_blocked_count', 0)}",
+        f"- ready for value extraction preview: {report.get('ready_for_value_extraction_count', 0)}",
+        "",
+        "## Overall Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("overall_status_counts") or {}))
+    lines.extend(["", "## Primary Blocker Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("primary_blocker_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Issuer Review Board",
+            "",
+            "| Company | Overall status | Primary blocker | Validation | Apply preview | Draft apply | Draft gate | Trusted hosts | Next action |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_table_cell(value)
+                    for value in (
+                        row.get("company_name") or row.get("company_id"),
+                        row.get("overall_status"),
+                        row.get("primary_blocker"),
+                        row.get("validation_status"),
+                        row.get("apply_preview_status"),
+                        row.get("apply_draft_status"),
+                        row.get("draft_gate_status"),
+                        _csv_value(row.get("trusted_source_hosts")),
+                        row.get("next_required_action"),
+                    )
+                )
+                + " |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |  |  |  |  |")
+    lines.extend(["", "## Generated Artifacts", ""])
+    artifacts = report.get("artifacts") or {}
+    lines.extend(f"- {key}: `{value}`" for key, value in artifacts.items()) if artifacts else lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    lines.extend(f"- {_message_text(item)}" for item in report.get("warnings") or []) if report.get("warnings") else lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Operator Instructions",
+            "",
+            "- Edit only the generated refill workspace CSV. Preserve its READONLY columns for context.",
+            "- Use exact official target-period annual IFRS document URLs only.",
+            "- Historical fallback URLs are diagnostic-only and cannot be used as target evidence.",
+            "- Run the generated Bash rerun instructions after manual edits.",
+            "",
+            "## Safety Notes",
+            "",
+            "- This board is advisory-only and does not rerun validation or the preview chain.",
+            "- This board does not modify operator input, source packs, exact document intake, or draft intake.",
+            "- This board does not fetch or parse documents.",
+            "- This board does not extract/import/score/trade.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_chain_rerun_markdown(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    refill = str(artifacts.get("refill_workspace_csv") or "")
+    output_dir = str(Path(str(report.get("operator_resolution_chain_summary_input") or ".")).parent)
+    source_pack = str(report.get("operator_resolution_source_pack_input") or "")
+    intake = str(report.get("document_intake_input") or "")
+    source_intake = str(report.get("source_intake_input") or "")
+    validation_prefix = str(Path(output_dir) / "operator_resolution_refill_validation_task125")
+    validation_parts = [
+        "python3 scripts/financial_official_source_evidence_assistant.py",
+        "  --mode operator-resolution-validate",
+        f"  --operator-resolution-input {_bash_quote(refill)}",
+    ]
+    if source_pack:
+        validation_parts.append(f"  --operator-resolution-source-pack-input {_bash_quote(source_pack)}")
+    validation_parts.extend(
+        [
+            f"  --operator-resolution-validation-output {_bash_quote(validation_prefix + '.json')}",
+            f"  --operator-resolution-validation-csv-output {_bash_quote(validation_prefix + '.csv')}",
+            f"  --operator-resolution-validation-markdown-output {_bash_quote(validation_prefix + '.md')}",
+        ]
+    )
+    chain_parts = [
+        "python3 scripts/financial_official_source_evidence_assistant.py",
+        "  --mode operator-resolution-chain-preview",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+        f"  --operator-resolution-input {_bash_quote(refill)}",
+    ]
+    if source_pack:
+        chain_parts.append(f"  --operator-resolution-source-pack-input {_bash_quote(source_pack)}")
+    if intake:
+        chain_parts.append(f"  --document-intake-input {_bash_quote(intake)}")
+    if source_intake:
+        chain_parts.append(f"  --source-intake-input {_bash_quote(source_intake)}")
+    lines = [
+        "# Operator Resolution Chain Rerun",
+        "",
+        "## 1. Validate Refilled Workspace",
+        "",
+        "```bash",
+        " \\\n".join(validation_parts),
+        "```",
+        "",
+        "## 2. Rerun Real Preview Chain",
+        "",
+        "```bash",
+        " \\\n".join(chain_parts),
+        "```",
+        "",
+    ]
+    if not intake:
+        lines.extend(
+            [
+                "## Required Manual Completion",
+                "",
+                "- Add `--document-intake-input <path>` to the chain-preview command before running it.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Safety Notes",
+            "",
+            "- These commands keep original intake unchanged.",
+            "- These commands do not update DB, scoring, or trading.",
+            "- Historical fallback URLs remain diagnostic-only.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _markdown_count_lines(counts: dict[str, Any]) -> list[str]:
+    return [f"- {key}: {value}" for key, value in counts.items()] or ["- none"]
+
+
+def _markdown_table_cell(value: Any) -> str:
+    return _csv_value(value).replace("|", "\\|").replace("\n", " ")
+
+
+def _bash_quote(value: str) -> str:
+    return shlex.quote(value)
 
 
 def _render_availability_operator_view_sections(summary: dict[str, Any], rows: list[dict[str, Any]]) -> list[str]:
@@ -17151,6 +18006,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review synthetic positive-control artifacts; real intake, extraction, import, scoring, and trading remain unchanged."]
     if mode == "operator-resolution-chain-preview":
         return ["Review real-input chain preview artifacts and draft gate blockers; original intake and downstream systems remain unchanged."]
+    if mode == "operator-resolution-chain-review-board":
+        return ["Edit the generated refill workspace CSV, then rerun Task119 validation and the Task124 preview chain."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -17230,6 +18087,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args.source_intake_input,
         ]
         if args.mode == "operator-resolution-chain-preview"
+        else [
+            args.operator_resolution_chain_summary_input,
+            args.operator_resolution_input,
+            args.operator_resolution_source_pack_input,
+        ]
+        if args.mode == "operator-resolution-chain-review-board"
         else []
     )
     return all(
