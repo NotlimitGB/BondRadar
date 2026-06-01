@@ -46,6 +46,7 @@ MODE_CHOICES = (
     "operator-resolution-happy-path-synthetic",
     "operator-resolution-chain-preview",
     "operator-resolution-chain-review-board",
+    "operator-resolution-source-trust-workspace",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -1434,6 +1435,90 @@ OPERATOR_RESOLUTION_REFILL_WORKSPACE_FIELDS = [
     "operator_fill_accounting_standard",
     "operator_fill_notes",
 ]
+OPERATOR_RESOLUTION_SOURCE_TRUST_ARTIFACT_NAMES = {
+    "workspace_json": "operator_resolution_source_trust_workspace_task126.json",
+    "workspace_csv": "operator_resolution_source_trust_workspace_task126.csv",
+    "workspace_markdown": "operator_resolution_source_trust_workspace_task126.md",
+    "refill_csv": "operator_resolution_source_trust_refill_task126.csv",
+    "rerun_markdown": "operator_resolution_source_trust_rerun_task126.md",
+}
+OPERATOR_RESOLUTION_SOURCE_TRUST_FIELDS = [
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "source_trust_status",
+    "source_trust_severity",
+    "trusted_source_hosts",
+    "trusted_source_urls",
+    "trusted_source_status_reason_codes",
+    "current_known_source_page_url",
+    "current_known_document_url",
+    "latest_historical_document_url",
+    "latest_historical_period",
+    "historical_fallback_allowed_as_trusted_source",
+    "historical_fallback_allowed_as_target_evidence",
+    "operator_fill_source_page_url",
+    "operator_fill_exact_document_url",
+    "review_board_overall_status",
+    "review_board_primary_blocker",
+    "review_board_next_required_action",
+    "next_required_action",
+    "operator_instruction",
+    "safe_source_fill_hint",
+    "safe_document_fill_hint",
+    "ready_for_exact_document_url_refill",
+    "needs_baseline_source_context",
+    "needs_operator_source_review",
+    "would_update_source_pack",
+    "would_update_operator_pack",
+    "would_update_original_intake",
+    "would_update_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+]
+OPERATOR_RESOLUTION_SOURCE_TRUST_REFILL_FIELDS = [
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "READONLY_source_trust_status",
+    "READONLY_trusted_source_hosts",
+    "READONLY_current_known_source_page_url",
+    "READONLY_current_known_document_url",
+    "READONLY_latest_historical_document_url",
+    "READONLY_historical_fallback_allowed_as_trusted_source",
+    "READONLY_historical_fallback_allowed_as_target_evidence",
+    "READONLY_next_required_action",
+    "READONLY_operator_instruction",
+    "READONLY_safe_source_fill_hint",
+    "operator_fill_current_known_source_page_url",
+    "operator_fill_current_known_document_url",
+    "operator_fill_source_review_status",
+    "operator_fill_source_notes",
+]
+SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
+    "co.uk",
+    "com.au",
+    "com.br",
+    "com.cn",
+    "com.ru",
+    "co.jp",
+    "co.kr",
+    "co.nz",
+    "com.sg",
+    "org.uk",
+}
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -1715,6 +1800,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-chain-review-board-markdown-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-refill-workspace-csv-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-chain-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-chain-review-board-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-refill-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -1793,6 +1884,8 @@ def run_assistant(
         report = run_operator_resolution_chain_preview(args)
     elif args.mode == "operator-resolution-chain-review-board":
         report = run_operator_resolution_chain_review_board(args)
+    elif args.mode == "operator-resolution-source-trust-workspace":
+        report = run_operator_resolution_source_trust_workspace(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -4687,6 +4780,436 @@ def _build_operator_resolution_chain_review_board_report(
     }
 
 
+def run_operator_resolution_source_trust_workspace(args: argparse.Namespace) -> dict[str, Any]:
+    board_path = _operator_resolution_source_trust_board_path(args)
+    if board_path is None:
+        return _failed_operator_resolution_source_trust_workspace(
+            [{"message": "operator_resolution_chain_review_board_required"}],
+        )
+    try:
+        board_report = _load_json_object(board_path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _failed_operator_resolution_source_trust_workspace(
+            [{"message": "operator_resolution_chain_review_board_required", "path": str(board_path)}],
+        )
+    board_rows = board_report.get("rows")
+    if board_report.get("mode") != "operator-resolution-chain-review-board" or not isinstance(board_rows, list):
+        return _failed_operator_resolution_source_trust_workspace(
+            [{"message": "operator_resolution_chain_review_board_required", "path": str(board_path)}],
+        )
+
+    warnings: list[dict[str, Any]] = []
+    source_rows: list[dict[str, Any]] = []
+    if args.operator_resolution_source_pack_input is not None:
+        try:
+            source_rows, _ = load_operator_resolution_input(args.operator_resolution_source_pack_input)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            warnings.append({"message": f"source_pack_unreadable_trusted_hosts_unavailable:{exc}"})
+    else:
+        warnings.append({"message": "source_pack_missing_trusted_hosts_unavailable"})
+
+    artifacts = _operator_resolution_source_trust_artifacts(args, board_path)
+    collision_errors = _operator_resolution_source_trust_collision_errors(
+        args,
+        board_path=board_path,
+        artifacts=artifacts,
+    )
+    if collision_errors:
+        return _failed_operator_resolution_source_trust_workspace(collision_errors)
+
+    rows = _build_operator_resolution_source_trust_rows(
+        board_rows=board_rows,
+        source_rows=source_rows,
+        source_pack_provided=args.operator_resolution_source_pack_input is not None,
+    )
+    report = _build_operator_resolution_source_trust_report(
+        args,
+        board_path=board_path,
+        artifacts=artifacts,
+        rows=rows,
+        warnings=warnings,
+    )
+    try:
+        write_json_report(report, artifacts["workspace_json"])
+        write_operator_resolution_source_trust_csv(rows, artifacts["workspace_csv"])
+        write_operator_resolution_source_trust_markdown(report, artifacts["workspace_markdown"])
+        write_operator_resolution_source_trust_refill_csv(rows, artifacts["refill_csv"])
+        write_operator_resolution_source_trust_rerun_markdown(report, artifacts["rerun_markdown"])
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+    return report
+
+
+def _operator_resolution_source_trust_board_path(args: argparse.Namespace) -> Path | None:
+    if args.operator_resolution_chain_review_board_input is not None:
+        return args.operator_resolution_chain_review_board_input
+    if args.operator_resolution_chain_output_dir is not None:
+        return (
+            args.operator_resolution_chain_output_dir
+            / OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES["board_json"]
+        )
+    return None
+
+
+def _operator_resolution_source_trust_artifacts(
+    args: argparse.Namespace,
+    board_path: Path,
+) -> dict[str, Path]:
+    output_dir = args.operator_resolution_chain_output_dir or board_path.parent
+    overrides = {
+        "workspace_json": args.operator_resolution_source_trust_output,
+        "workspace_csv": args.operator_resolution_source_trust_csv_output,
+        "workspace_markdown": args.operator_resolution_source_trust_markdown_output,
+        "refill_csv": args.operator_resolution_source_trust_refill_csv_output,
+        "rerun_markdown": args.operator_resolution_source_trust_rerun_markdown_output,
+    }
+    return {
+        key: overrides[key] or output_dir / file_name
+        for key, file_name in OPERATOR_RESOLUTION_SOURCE_TRUST_ARTIFACT_NAMES.items()
+    }
+
+
+def _operator_resolution_source_trust_collision_errors(
+    args: argparse.Namespace,
+    *,
+    board_path: Path,
+    artifacts: dict[str, Path],
+) -> list[dict[str, Any]]:
+    protected_inputs = [
+        board_path,
+        *(
+            path
+            for path in (args.operator_resolution_source_pack_input,)
+            if path is not None
+        ),
+    ]
+    outputs = [
+        *artifacts.values(),
+        *(path for path in (args.json_output, args.markdown_output) if path is not None),
+    ]
+    errors: list[dict[str, Any]] = []
+    for output_path in outputs:
+        for input_path in protected_inputs:
+            if _paths_equal(output_path, input_path):
+                errors.append(
+                    {
+                        "message": "operator_resolution_source_trust_output_must_not_equal_input",
+                        "output_path": str(output_path),
+                        "input_path": str(input_path),
+                    }
+                )
+    return errors
+
+
+def _failed_operator_resolution_source_trust_workspace(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "operator-resolution-source-trust-workspace",
+        "row_count": 0,
+        "trusted_source_available_count": 0,
+        "trusted_source_missing_count": 0,
+        "trusted_source_needs_review_count": 0,
+        "trusted_source_conflict_count": 0,
+        "needs_baseline_source_context_count": 0,
+        "ready_for_document_url_refill_count": 0,
+        "source_trust_status_counts": {},
+        "rows": [],
+        "warnings": [],
+        "errors": errors,
+        "would_update_source_pack": False,
+        "would_update_operator_pack": False,
+        "would_update_original_intake": False,
+        "would_update_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
+def _build_operator_resolution_source_trust_rows(
+    *,
+    board_rows: list[dict[str, Any]],
+    source_rows: list[dict[str, Any]],
+    source_pack_provided: bool,
+) -> list[dict[str, Any]]:
+    source_by_id = _rows_by_resolution_id(source_rows)
+    source_by_company = {_company_key(row): row for row in source_rows if _company_key(row)}
+    rows: list[dict[str, Any]] = []
+    for board_row in board_rows:
+        resolution_id = str(board_row.get("resolution_id") or "")
+        source_row = source_by_id.get(resolution_id) or source_by_company.get(_company_key(board_row)) or {}
+        trusted_urls = _operator_resolution_source_trust_urls(source_row)
+        trusted_hosts = sorted({_host(url) for url in trusted_urls if _host(url)})
+        historical_url = str(
+            source_row.get("latest_historical_document_url")
+            or board_row.get("latest_historical_document_url")
+            or ""
+        )
+        historical_period = str(
+            source_row.get("latest_historical_period")
+            or board_row.get("latest_historical_period")
+            or ""
+        )
+        reason_codes = _operator_resolution_source_trust_reason_codes(
+            board_row=board_row,
+            source_row=source_row,
+            trusted_urls=trusted_urls,
+            historical_url=historical_url,
+            source_pack_provided=source_pack_provided,
+        )
+        status = _operator_resolution_source_trust_status(
+            board_row=board_row,
+            source_row=source_row,
+            trusted_urls=trusted_urls,
+            historical_url=historical_url,
+        )
+        guidance = _operator_resolution_source_trust_guidance(
+            status,
+            trusted_hosts=trusted_hosts,
+        )
+        rows.append(
+            {
+                "resolution_id": resolution_id,
+                "company_id": board_row.get("company_id") or source_row.get("company_id") or "",
+                "company_name": board_row.get("company_name") or source_row.get("company_name") or "",
+                "canonical_company_id": board_row.get("canonical_company_id")
+                or source_row.get("canonical_company_id")
+                or board_row.get("company_id")
+                or source_row.get("company_id")
+                or "",
+                "canonical_company_name": board_row.get("canonical_company_name")
+                or source_row.get("canonical_company_name")
+                or board_row.get("company_name")
+                or source_row.get("company_name")
+                or "",
+                "target_reporting_period": board_row.get("target_reporting_period") or "",
+                "required_report_type": board_row.get("required_report_type") or "",
+                "required_standard": board_row.get("required_standard") or "",
+                "source_trust_status": status,
+                "source_trust_severity": "info"
+                if status in {"trusted_source_available", "ready_for_document_url_refill"}
+                else "warning",
+                "trusted_source_hosts": trusted_hosts,
+                "trusted_source_urls": trusted_urls,
+                "trusted_source_status_reason_codes": reason_codes,
+                "current_known_source_page_url": source_row.get("current_known_source_page_url") or "",
+                "current_known_document_url": source_row.get("current_known_document_url") or "",
+                "latest_historical_document_url": historical_url,
+                "latest_historical_period": historical_period,
+                "historical_fallback_allowed_as_trusted_source": False,
+                "historical_fallback_allowed_as_target_evidence": False,
+                "operator_fill_source_page_url": board_row.get("operator_fill_source_page_url") or "",
+                "operator_fill_exact_document_url": board_row.get("operator_fill_exact_document_url") or "",
+                "review_board_overall_status": board_row.get("overall_status") or "",
+                "review_board_primary_blocker": board_row.get("primary_blocker") or "",
+                "review_board_next_required_action": board_row.get("next_required_action") or "",
+                **guidance,
+                "ready_for_exact_document_url_refill": status == "ready_for_document_url_refill",
+                "needs_baseline_source_context": status in {"trusted_source_missing", "trusted_source_conflict"},
+                "needs_operator_source_review": status
+                in {"trusted_source_missing", "trusted_source_needs_review", "trusted_source_conflict"},
+                "would_update_source_pack": False,
+                "would_update_operator_pack": False,
+                "would_update_original_intake": False,
+                "would_update_database": False,
+                "would_extract_values": False,
+                "would_import_report": False,
+                "would_mutate_scores": False,
+                "would_trigger_paper_trading": False,
+            }
+        )
+    return sorted(rows, key=lambda row: str(row.get("resolution_id") or ""))
+
+
+def _operator_resolution_source_trust_urls(source_row: dict[str, Any]) -> list[str]:
+    urls: set[str] = set()
+    for field in (
+        "current_known_source_page_url",
+        "current_known_document_url",
+        "official_source_url",
+        "source_url",
+    ):
+        for item in _split_source_context_urls(str(source_row.get(field) or "")):
+            parsed = urllib.parse.urlparse(item)
+            if parsed.scheme in {"http", "https"} and parsed.netloc:
+                urls.add(item)
+    return sorted(urls)
+
+
+def _operator_resolution_source_trust_status(
+    *,
+    board_row: dict[str, Any],
+    source_row: dict[str, Any],
+    trusted_urls: list[str],
+    historical_url: str,
+) -> str:
+    domains = {_source_trust_registrable_domain(_host(url)) for url in trusted_urls}
+    domains.discard("")
+    if len(domains) > 1 or (not trusted_urls and historical_url):
+        return "trusted_source_conflict"
+    if not trusted_urls:
+        return "trusted_source_missing"
+    if _source_trust_has_archive_or_history_url(trusted_urls) or _operator_resolution_source_trust_requires_review(
+        board_row,
+        source_row,
+    ):
+        return "trusted_source_needs_review"
+    if not str(board_row.get("operator_fill_exact_document_url") or ""):
+        return "ready_for_document_url_refill"
+    return "trusted_source_available"
+
+
+def _operator_resolution_source_trust_reason_codes(
+    *,
+    board_row: dict[str, Any],
+    source_row: dict[str, Any],
+    trusted_urls: list[str],
+    historical_url: str,
+    source_pack_provided: bool,
+) -> list[str]:
+    reasons: list[str] = []
+    domains = {_source_trust_registrable_domain(_host(url)) for url in trusted_urls}
+    domains.discard("")
+    if trusted_urls:
+        reasons.append("baseline_trusted_source_available")
+    else:
+        reasons.append("baseline_trusted_source_missing")
+    if len(domains) > 1:
+        reasons.append("baseline_source_domain_conflict")
+    if _source_trust_has_archive_or_history_url(trusted_urls):
+        reasons.append("archive_or_history_baseline_source_needs_review")
+    if historical_url:
+        if not trusted_urls:
+            reasons.append("historical_fallback_only_not_trusted_source")
+        reasons.append("historical_fallback_diagnostic_only")
+    if board_row.get("operator_fill_source_page_url") or board_row.get("operator_fill_exact_document_url"):
+        reasons.append("manual_operator_fill_urls_not_trusted")
+    if not source_pack_provided:
+        reasons.append("source_pack_missing_trusted_hosts_unavailable")
+    if _operator_resolution_source_trust_requires_review(board_row, source_row):
+        reasons.append("operator_source_review_required")
+    return list(dict.fromkeys(reasons))
+
+
+def _source_trust_registrable_domain(host: str) -> str:
+    labels = [label for label in host.casefold().strip(".").split(".") if label]
+    if len(labels) <= 2:
+        return ".".join(labels)
+    suffix = ".".join(labels[-2:])
+    if suffix in SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES and len(labels) >= 3:
+        return ".".join(labels[-3:])
+    return suffix
+
+
+def _source_trust_has_archive_or_history_url(urls: list[str]) -> bool:
+    pattern = re.compile(r"(?:^|[./_-])(archive|archives|history|historical|old)(?:[./?&=_-]|$)", re.IGNORECASE)
+    return any(pattern.search(url) for url in urls)
+
+
+def _operator_resolution_source_trust_requires_review(
+    board_row: dict[str, Any],
+    source_row: dict[str, Any],
+) -> bool:
+    return bool(
+        _operator_resolution_bool(source_row.get("requires_official_seed_review"))
+        or board_row.get("resolution_action_type") == "review_or_promote_official_seed"
+        or "source_review" in str(board_row.get("next_required_action") or "").casefold()
+    )
+
+
+def _operator_resolution_source_trust_guidance(
+    status: str,
+    *,
+    trusted_hosts: list[str],
+) -> dict[str, str]:
+    trusted = ", ".join(trusted_hosts) if trusted_hosts else "baseline trusted hosts unavailable"
+    safe_source_fill_hint = (
+        "Paste an official issuer reporting, investor-relations, or official disclosure page for later controlled review. "
+        "Manual URLs do not become trusted automatically."
+    )
+    safe_document_fill_hint = (
+        f"Use an exact official target-period annual IFRS PDF from baseline hosts: {trusted}. "
+        "Historical fallback is diagnostic-only."
+    )
+    if status == "trusted_source_conflict":
+        action = "review_or_replace_conflicting_baseline_source_context"
+        instruction = (
+            "Review baseline source context before filling an exact document URL. "
+            "Historical-only fallback and conflicting official domains cannot establish trusted source context."
+        )
+    elif status == "trusted_source_missing":
+        action = "fill_official_baseline_source_page_for_future_review"
+        instruction = (
+            "Fill an official issuer reporting or disclosure page in the source trust refill CSV. "
+            "A later controlled validation/merge task must review it before it becomes trusted."
+        )
+    elif status == "trusted_source_needs_review":
+        action = "review_baseline_source_context"
+        instruction = (
+            "Review the baseline source context before document refill. Archive/history context is not automatically trusted "
+            "for the current target report."
+        )
+    elif status == "ready_for_document_url_refill":
+        action = "fill_exact_official_target_period_annual_ifrs_url"
+        instruction = (
+            "Baseline trusted source context is available. Fill the exact official target-period annual IFRS document URL."
+        )
+    else:
+        action = "no_baseline_source_refill_required"
+        instruction = "Baseline trusted source context is available. No source-context refill is required."
+    return {
+        "next_required_action": action,
+        "operator_instruction": instruction,
+        "safe_source_fill_hint": safe_source_fill_hint,
+        "safe_document_fill_hint": safe_document_fill_hint,
+    }
+
+
+def _build_operator_resolution_source_trust_report(
+    args: argparse.Namespace,
+    *,
+    board_path: Path,
+    artifacts: dict[str, Path],
+    rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    allowed_statuses = {"trusted_source_available", "ready_for_document_url_refill"}
+    status = "passed" if rows and all(row.get("source_trust_status") in allowed_statuses for row in rows) and not warnings else "warning"
+    return {
+        "status": status,
+        "mode": "operator-resolution-source-trust-workspace",
+        "operator_resolution_chain_review_board_input": str(board_path),
+        "operator_resolution_source_pack_input": _path_value(args.operator_resolution_source_pack_input),
+        "row_count": len(rows),
+        "trusted_source_available_count": sum(1 for row in rows if row.get("trusted_source_hosts")),
+        "trusted_source_missing_count": sum(1 for row in rows if row.get("source_trust_status") == "trusted_source_missing"),
+        "trusted_source_needs_review_count": sum(
+            1 for row in rows if row.get("source_trust_status") == "trusted_source_needs_review"
+        ),
+        "trusted_source_conflict_count": sum(
+            1 for row in rows if row.get("source_trust_status") == "trusted_source_conflict"
+        ),
+        "needs_baseline_source_context_count": sum(1 for row in rows if row.get("needs_baseline_source_context")),
+        "ready_for_document_url_refill_count": sum(
+            1 for row in rows if row.get("ready_for_exact_document_url_refill")
+        ),
+        "source_trust_status_counts": _count_by_key(rows, "source_trust_status"),
+        "rows": rows,
+        "artifacts": {key: str(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": [],
+        "next_steps": _next_steps("operator-resolution-source-trust-workspace", status),
+        "would_update_source_pack": False,
+        "would_update_operator_pack": False,
+        "would_update_original_intake": False,
+        "would_update_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
     return [
         args.document_intake_draft_output,
@@ -7288,6 +7811,75 @@ def write_operator_resolution_chain_rerun_markdown(report: dict[str, Any], path:
     path.write_text(render_operator_resolution_chain_rerun_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_source_trust_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OPERATOR_RESOLUTION_SOURCE_TRUST_FIELDS,
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    field: _csv_value(row.get(field))
+                    for field in OPERATOR_RESOLUTION_SOURCE_TRUST_FIELDS
+                }
+            )
+
+
+def write_operator_resolution_source_trust_refill_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=OPERATOR_RESOLUTION_SOURCE_TRUST_REFILL_FIELDS,
+            extrasaction="ignore",
+        )
+        writer.writeheader()
+        for row in rows:
+            refill = dict(row)
+            refill.update(
+                {
+                    "READONLY_source_trust_status": row.get("source_trust_status"),
+                    "READONLY_trusted_source_hosts": row.get("trusted_source_hosts"),
+                    "READONLY_current_known_source_page_url": row.get("current_known_source_page_url"),
+                    "READONLY_current_known_document_url": row.get("current_known_document_url"),
+                    "READONLY_latest_historical_document_url": row.get("latest_historical_document_url"),
+                    "READONLY_historical_fallback_allowed_as_trusted_source": row.get(
+                        "historical_fallback_allowed_as_trusted_source"
+                    ),
+                    "READONLY_historical_fallback_allowed_as_target_evidence": row.get(
+                        "historical_fallback_allowed_as_target_evidence"
+                    ),
+                    "READONLY_next_required_action": row.get("next_required_action"),
+                    "READONLY_operator_instruction": row.get("operator_instruction"),
+                    "READONLY_safe_source_fill_hint": row.get("safe_source_fill_hint"),
+                    "operator_fill_current_known_source_page_url": "",
+                    "operator_fill_current_known_document_url": "",
+                    "operator_fill_source_review_status": "",
+                    "operator_fill_source_notes": "",
+                }
+            )
+            writer.writerow(
+                {
+                    field: _csv_value(refill.get(field))
+                    for field in OPERATOR_RESOLUTION_SOURCE_TRUST_REFILL_FIELDS
+                }
+            )
+
+
+def write_operator_resolution_source_trust_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_source_trust_markdown(report), encoding="utf-8")
+
+
+def write_operator_resolution_source_trust_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_source_trust_rerun_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -7431,6 +8023,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_resolution_chain_preview_markdown(report)
     if report.get("mode") == "operator-resolution-chain-review-board":
         return render_operator_resolution_chain_review_board_markdown(report)
+    if report.get("mode") == "operator-resolution-source-trust-workspace":
+        return render_operator_resolution_source_trust_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -8188,6 +8782,136 @@ def render_operator_resolution_chain_rerun_markdown(report: dict[str, Any]) -> s
             "- These commands keep original intake unchanged.",
             "- These commands do not update DB, scoring, or trading.",
             "- Historical fallback URLs remain diagnostic-only.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_source_trust_markdown(report: dict[str, Any]) -> str:
+    rows = report.get("rows") or []
+    lines = [
+        "# Operator Resolution Source Trust Workspace",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- baseline trusted source available: {report.get('trusted_source_available_count', 0)}",
+        f"- trusted source missing: {report.get('trusted_source_missing_count', 0)}",
+        f"- trusted source needs review: {report.get('trusted_source_needs_review_count', 0)}",
+        f"- trusted source conflicts: {report.get('trusted_source_conflict_count', 0)}",
+        f"- needs baseline source context: {report.get('needs_baseline_source_context_count', 0)}",
+        f"- ready for exact document URL refill: {report.get('ready_for_document_url_refill_count', 0)}",
+        "",
+        "## Source Trust Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("source_trust_status_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Issuer Source Trust Workspace",
+            "",
+            "| Company | Source trust status | Trusted hosts | Current source page | Historical fallback | Next action |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_table_cell(value)
+                    for value in (
+                        row.get("company_name") or row.get("company_id"),
+                        row.get("source_trust_status"),
+                        row.get("trusted_source_hosts"),
+                        row.get("current_known_source_page_url"),
+                        row.get("latest_historical_document_url"),
+                        row.get("next_required_action"),
+                    )
+                )
+                + " |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |  |")
+    lines.extend(["", "## Generated Artifacts", ""])
+    artifacts = report.get("artifacts") or {}
+    lines.extend(f"- {key}: `{value}`" for key, value in artifacts.items()) if artifacts else lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    lines.extend(f"- {_message_text(item)}" for item in report.get("warnings") or []) if report.get("warnings") else lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Operator Instructions",
+            "",
+            "- Edit only the generated source trust refill CSV.",
+            "- Fill official issuer reporting, investor-relations, or official disclosure pages for rows without baseline context.",
+            "- Manual URLs require a later controlled source-trust validation/merge task before they become trusted.",
+            "- Historical fallback URLs are diagnostic-only.",
+            "",
+            "## Safety Notes",
+            "",
+            "- This workspace is advisory only.",
+            "- This task does not validate new source URLs by itself.",
+            "- This task does not overwrite source packs.",
+            "- This task does not modify exact document intake.",
+            "- This task does not fetch or parse documents.",
+            "- This task does not extract/import/score/trade.",
+            "- Trusted hosts come only from baseline source-pack fields, not from manual operator-fill fields.",
+            "- Historical fallback URLs are diagnostic-only.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_resolution_source_trust_rerun_markdown(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    refill = str(artifacts.get("refill_csv") or "")
+    board_path = str(report.get("operator_resolution_chain_review_board_input") or "")
+    output_dir = str(Path(board_path or ".").parent)
+    source_pack = str(report.get("operator_resolution_source_pack_input") or "")
+    lines = [
+        "# Operator Resolution Source Trust Rerun",
+        "",
+        "## 1. Fill Source Trust Workspace",
+        "",
+        f"- Review and edit `{refill}`.",
+        "- Fill only official issuer reporting, investor-relations, or official disclosure URLs.",
+        "- Do not paste historical fallback URLs as trusted source context.",
+        "",
+        "## 2. Future Controlled Source Trust Validation / Merge",
+        "",
+        "```bash",
+        "# Task126 does not apply source trust changes.",
+        "# A later controlled validation/merge task must process this refill file.",
+        f"# future-command --operator-resolution-source-trust-refill-input {_bash_quote(refill)}",
+        "```",
+        "",
+        "## 3. Rebuild Task125 Review Board After Controlled Merge",
+        "",
+        "```bash",
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode operator-resolution-chain-review-board \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}"
+        + (" \\" if source_pack else ""),
+    ]
+    if source_pack:
+        lines.append(f"  --operator-resolution-source-pack-input {_bash_quote(source_pack)}")
+    lines.extend(
+        [
+            "```",
+            "",
+            "## 4. Rerun Task124 Chain Preview",
+            "",
+            "- Use the Task125 refill workspace and Task124 chain-preview command after source trust changes pass a later controlled merge.",
+            "",
+            "## Safety Notes",
+            "",
+            "- Task126 does not apply source trust changes.",
+            "- Original source packs, operator packs, exact document intake, DB, scoring, and trading remain unchanged.",
             "",
         ]
     )
@@ -18008,6 +18732,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review real-input chain preview artifacts and draft gate blockers; original intake and downstream systems remain unchanged."]
     if mode == "operator-resolution-chain-review-board":
         return ["Edit the generated refill workspace CSV, then rerun Task119 validation and the Task124 preview chain."]
+    if mode == "operator-resolution-source-trust-workspace":
+        return ["Fill the source trust refill CSV; a later controlled validation/merge task must review it before trust changes apply."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -18093,6 +18819,11 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args.operator_resolution_source_pack_input,
         ]
         if args.mode == "operator-resolution-chain-review-board"
+        else [
+            args.operator_resolution_chain_review_board_input,
+            args.operator_resolution_source_pack_input,
+        ]
+        if args.mode == "operator-resolution-source-trust-workspace"
         else []
     )
     return all(

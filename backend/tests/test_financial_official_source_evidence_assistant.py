@@ -4376,6 +4376,248 @@ def test_operator_resolution_chain_review_board_requires_summary() -> None:
     assert report["errors"] == [{"message": "operator_resolution_chain_summary_required"}]
 
 
+def test_operator_resolution_source_trust_workspace_classifies_missing_and_ready_rows(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_workspace(
+        tmp_path,
+        [
+            _operator_resolution_source_trust_board_row(
+                resolution_id="financial_report_resolution:18:2025:annual:IFRS:fill_exact_document_url",
+                company_id="18",
+                company_name="RZD",
+            ),
+            _operator_resolution_source_trust_board_row(),
+        ],
+        [
+            _operator_resolution_source_trust_source_row(
+                resolution_id="financial_report_resolution:18:2025:annual:IFRS:fill_exact_document_url",
+                company_id="18",
+                company_name="RZD",
+            ),
+            _operator_resolution_source_trust_source_row(
+                current_known_source_page_url="https://mostotrest.ru/ru/invest/financial-results/",
+            ),
+        ],
+    )
+    rows = {row["company_id"]: row for row in report["rows"]}
+
+    assert report["status"] == "warning"
+    assert report["row_count"] == 2
+    assert report["trusted_source_missing_count"] == 1
+    assert report["ready_for_document_url_refill_count"] == 1
+    assert rows["18"]["source_trust_status"] == "trusted_source_missing"
+    assert rows["67"]["source_trust_status"] == "ready_for_document_url_refill"
+    assert rows["67"]["trusted_source_hosts"] == ["mostotrest.ru"]
+
+
+def test_operator_resolution_source_trust_workspace_uses_baseline_aliases_only(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_workspace(
+        tmp_path,
+        [
+            _operator_resolution_source_trust_board_row(
+                trusted_source_hosts=["task125-derived.example"],
+                operator_fill_source_page_url="https://manual-source.example/reports/",
+                operator_fill_exact_document_url="https://manual-document.example/annual-ifrs-2025.pdf",
+            )
+        ],
+        [
+            _operator_resolution_source_trust_source_row(
+                official_source_url="https://invest.mostotrest.ru/reports/",
+                source_url="https://docs.mostotrest.ru/annual-ifrs-2025.pdf",
+                operator_fill_source_page_url="https://operator-pack.example/reports/",
+                latest_historical_document_url="https://history.example/annual-ifrs-2019.pdf",
+            )
+        ],
+    )
+    row = report["rows"][0]
+
+    assert row["source_trust_status"] == "trusted_source_available"
+    assert row["trusted_source_hosts"] == ["docs.mostotrest.ru", "invest.mostotrest.ru"]
+    assert "task125-derived.example" not in row["trusted_source_hosts"]
+    assert "manual-source.example" not in row["trusted_source_hosts"]
+    assert "manual-document.example" not in row["trusted_source_hosts"]
+    assert "operator-pack.example" not in row["trusted_source_hosts"]
+    assert "history.example" not in row["trusted_source_hosts"]
+    assert "manual_operator_fill_urls_not_trusted" in row["trusted_source_status_reason_codes"]
+
+
+def test_operator_resolution_source_trust_workspace_historical_only_is_conflict(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_workspace(
+        tmp_path,
+        [_operator_resolution_source_trust_board_row()],
+        [
+            _operator_resolution_source_trust_source_row(
+                latest_historical_document_url="https://mostotrest.ru/archive/annual-ifrs-2019.pdf",
+                latest_historical_period="2019",
+            )
+        ],
+    )
+    row = report["rows"][0]
+
+    assert row["source_trust_status"] == "trusted_source_conflict"
+    assert row["trusted_source_hosts"] == []
+    assert row["historical_fallback_allowed_as_trusted_source"] is False
+    assert row["historical_fallback_allowed_as_target_evidence"] is False
+    assert "historical_fallback_only_not_trusted_source" in row["trusted_source_status_reason_codes"]
+
+
+def test_operator_resolution_source_trust_workspace_compares_registrable_domains(tmp_path: Path) -> None:
+    compatible = _run_operator_resolution_source_trust_workspace(
+        tmp_path / "compatible",
+        [_operator_resolution_source_trust_board_row()],
+        [
+            _operator_resolution_source_trust_source_row(
+                current_known_source_page_url="https://mostotrest.ru/reports/",
+                current_known_document_url="https://docs.mostotrest.ru/annual-ifrs-2025.pdf",
+            )
+        ],
+    )
+    conflict = _run_operator_resolution_source_trust_workspace(
+        tmp_path / "conflict",
+        [_operator_resolution_source_trust_board_row()],
+        [
+            _operator_resolution_source_trust_source_row(
+                current_known_source_page_url="https://mostotrest.ru/reports/",
+                current_known_document_url="https://archive.example/annual-ifrs-2025.pdf",
+            )
+        ],
+    )
+
+    assert compatible["rows"][0]["source_trust_status"] == "ready_for_document_url_refill"
+    assert conflict["rows"][0]["source_trust_status"] == "trusted_source_conflict"
+    assert "baseline_source_domain_conflict" in conflict["rows"][0]["trusted_source_status_reason_codes"]
+
+
+def test_operator_resolution_source_trust_workspace_archive_baseline_needs_review(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_workspace(
+        tmp_path,
+        [_operator_resolution_source_trust_board_row()],
+        [
+            _operator_resolution_source_trust_source_row(
+                current_known_source_page_url="https://mostotrest.ru/archive/reports/",
+            )
+        ],
+    )
+    row = report["rows"][0]
+
+    assert row["source_trust_status"] == "trusted_source_needs_review"
+    assert "archive_or_history_baseline_source_needs_review" in row["trusted_source_status_reason_codes"]
+
+
+def test_operator_resolution_source_trust_workspace_missing_source_pack_warns_and_writes_outputs(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_workspace(
+        tmp_path,
+        [_operator_resolution_source_trust_board_row()],
+        include_source_pack=False,
+    )
+
+    assert report["status"] == "warning"
+    assert report["rows"][0]["trusted_source_hosts"] == []
+    assert any(
+        warning["message"] == "source_pack_missing_trusted_hosts_unavailable"
+        for warning in report["warnings"]
+    )
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    refill_rows = list(csv.DictReader(Path(report["artifacts"]["refill_csv"]).open(encoding="utf-8")))
+    assert "operator_fill_current_known_source_page_url" in refill_rows[0]
+    assert "READONLY_source_trust_status" in refill_rows[0]
+    markdown = Path(report["artifacts"]["workspace_markdown"]).read_text(encoding="utf-8")
+    assert "Operator Resolution Source Trust Workspace" in markdown
+    assert "Trusted hosts come only from baseline source-pack fields" in markdown
+    rerun = Path(report["artifacts"]["rerun_markdown"]).read_text(encoding="utf-8")
+    assert "Task126 does not apply source trust changes" in rerun
+
+
+def test_operator_resolution_source_trust_workspace_direct_board_and_explicit_output(tmp_path: Path) -> None:
+    board = tmp_path / "inputs" / "board.json"
+    source_pack = tmp_path / "inputs" / "source_pack.json"
+    _write_operator_resolution_source_trust_board(board, [_operator_resolution_source_trust_board_row()])
+    _write_operator_resolution_source_trust_source_pack(
+        source_pack,
+        [_operator_resolution_source_trust_source_row(current_known_source_page_url="https://mostotrest.ru/reports/")],
+    )
+    explicit = tmp_path / "custom" / "workspace.json"
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-workspace",
+            "--operator-resolution-chain-review-board-input",
+            str(board),
+            "--operator-resolution-source-pack-input",
+            str(source_pack),
+            "--operator-resolution-source-trust-output",
+            str(explicit),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert Path(report["artifacts"]["workspace_json"]) == explicit
+    assert explicit.is_file()
+    assert Path(report["artifacts"]["refill_csv"]).parent == board.parent
+
+
+def test_operator_resolution_source_trust_workspace_output_collision_fails_safely(tmp_path: Path) -> None:
+    board = tmp_path / "board.json"
+    _write_operator_resolution_source_trust_board(board, [_operator_resolution_source_trust_board_row()])
+    original = board.read_bytes()
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-workspace",
+            "--operator-resolution-chain-review-board-input",
+            str(board),
+            "--operator-resolution-source-trust-output",
+            str(board),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(
+        error["message"] == "operator_resolution_source_trust_output_must_not_equal_input"
+        for error in report["errors"]
+    )
+    assert board.read_bytes() == original
+
+
+def test_operator_resolution_source_trust_workspace_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task126 source trust workspace must not fetch, probe, or download documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_operator_resolution_source_trust_workspace(
+        tmp_path,
+        [_operator_resolution_source_trust_board_row()],
+        [_operator_resolution_source_trust_source_row(current_known_source_page_url="https://mostotrest.ru/reports/")],
+    )
+
+    assert report["would_update_source_pack"] is False
+    assert report["would_update_operator_pack"] is False
+    assert report["would_update_original_intake"] is False
+    assert report["would_update_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+
+
+def test_operator_resolution_source_trust_workspace_requires_board() -> None:
+    args = assistant.parse_args(["--mode", "operator-resolution-source-trust-workspace"])
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "operator_resolution_chain_review_board_required"}]
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -8286,6 +8528,112 @@ def _run_operator_resolution_chain_review_board(
                 [
                     "--operator-resolution-source-pack-input",
                     str(tmp_path / "operator_resolution_chain_source_pack.json"),
+                ]
+                if include_source_pack
+                else []
+            ),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    return report
+
+
+def _operator_resolution_source_trust_board_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "resolution_id": "financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "resolution_action_type": "fill_exact_document_url",
+        "overall_status": "needs_operator_exact_document_url",
+        "primary_blocker": "missing_exact_document_url",
+        "next_required_action": "fill_exact_official_target_period_annual_ifrs_url",
+        "operator_fill_source_page_url": "",
+        "operator_fill_exact_document_url": "",
+        "trusted_source_hosts": [],
+        "latest_historical_document_url": "",
+        "latest_historical_period": "",
+    }
+    row.update(updates)
+    return row
+
+
+def _operator_resolution_source_trust_source_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "resolution_id": "financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "current_known_source_page_url": "",
+        "current_known_document_url": "",
+        "latest_historical_document_url": "",
+        "latest_historical_period": "",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_operator_resolution_source_trust_board(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-resolution-chain-review-board",
+                "rows": rows,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_operator_resolution_source_trust_source_pack(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "template",
+                "mode": "operator-resolution-pack",
+                "resolutions": rows,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _run_operator_resolution_source_trust_workspace(
+    tmp_path: Path,
+    board_rows: list[dict[str, object]],
+    source_rows: list[dict[str, object]] | None = None,
+    *,
+    include_source_pack: bool = True,
+    extra_args: list[str] | None = None,
+) -> dict:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    board = tmp_path / assistant.OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES["board_json"]
+    source_pack = tmp_path / "operator_resolution_source_pack.json"
+    _write_operator_resolution_source_trust_board(board, board_rows)
+    if include_source_pack:
+        _write_operator_resolution_source_trust_source_pack(source_pack, source_rows or [])
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-workspace",
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            *(
+                [
+                    "--operator-resolution-source-pack-input",
+                    str(source_pack),
                 ]
                 if include_source_pack
                 else []
