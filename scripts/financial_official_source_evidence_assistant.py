@@ -51,6 +51,7 @@ MODE_CHOICES = (
     "operator-resolution-source-trust-draft-review",
     "operator-resolution-source-trust-promote-apply-draft",
     "financial-metric-registry-preview",
+    "financial-extraction-evidence-schema-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2012,6 +2013,278 @@ FINANCIAL_METRIC_FEATURE_MAP = [
     {"feature_id": "debt_growth_yoy", "feature_name": "Debt growth YoY", "feature_category": "growth", "required_metric_ids": ["total_debt"], "optional_metric_ids": [], "formula_description": "(total_debt_current / total_debt_prior) - 1", "model_usage": "trend", "risk_direction": "higher_is_riskier", "min_required_periods": 2},
     {"feature_id": "cash_change_yoy", "feature_name": "Cash change YoY", "feature_category": "growth", "required_metric_ids": ["cash_and_cash_equivalents"], "optional_metric_ids": [], "formula_description": "(cash_current / cash_prior) - 1", "model_usage": "trend", "risk_direction": "lower_is_riskier", "min_required_periods": 2},
 ]
+FINANCIAL_EXTRACTION_EVIDENCE_SCHEMA_ARTIFACT_NAMES = {
+    "schema_json": "financial_extraction_evidence_schema_task131.json",
+    "schema_markdown": "financial_extraction_evidence_schema_task131.md",
+    "value_candidate_csv": "financial_extraction_value_candidate_template_task131.csv",
+    "evidence_csv": "financial_extraction_evidence_template_task131.csv",
+    "normalized_fact_csv": "financial_extraction_normalized_fact_template_task131.csv",
+    "validation_status_csv": "financial_extraction_validation_status_task131.csv",
+}
+FINANCIAL_EXTRACTION_TEMPLATE_METRIC_IDS = (
+    "revenue",
+    "total_debt",
+    "cash_and_cash_equivalents",
+    "net_debt",
+    "ebitda",
+    "interest_expense",
+    "operating_cash_flow",
+)
+FINANCIAL_EXTRACTION_EVIDENCE_TYPES = (
+    "pdf_text_layer",
+    "pdf_table",
+    "html_table",
+    "xlsx_cell",
+    "xbrl_fact",
+    "manual_operator_evidence",
+    "synthetic_test_evidence",
+)
+FINANCIAL_EXTRACTION_EVIDENCE_LOCATOR_TYPES = (
+    "page",
+    "table_cell",
+    "text_span",
+    "xbrl_fact_id",
+    "xlsx_cell",
+    "manual_reference",
+)
+
+
+def _financial_extraction_schema_field(
+    field_name: str,
+    field_group: str,
+    field_type: str,
+    *,
+    required: bool = False,
+    description: str,
+) -> dict[str, Any]:
+    return {
+        "field_name": field_name,
+        "field_group": field_group,
+        "field_type": field_type,
+        "required": required,
+        "description": description,
+    }
+
+
+def _financial_extraction_schema_fields(
+    fields: list[tuple[str, str, str, bool, str]],
+) -> list[dict[str, Any]]:
+    return [
+        _financial_extraction_schema_field(name, group, field_type, required=required, description=description)
+        for name, group, field_type, required, description in fields
+    ]
+
+
+FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS = _financial_extraction_schema_fields(
+    [
+        ("candidate_id", "identity", "string", True, "Deterministic candidate identifier."),
+        ("candidate_group_id", "identity", "string", True, "Collection group for related extraction candidates."),
+        ("company_id", "issuer", "string", True, "Issuer identifier."),
+        ("company_name", "issuer", "string", True, "Issuer display name."),
+        ("canonical_company_id", "issuer", "string", False, "Canonical issuer identifier when available."),
+        ("canonical_company_name", "issuer", "string", False, "Canonical issuer name when available."),
+        ("metric_id", "metric", "string", True, "Semantic metric identifier from Task130 registry."),
+        ("metric_name", "metric", "string", True, "Human-readable metric name."),
+        ("metric_category", "metric", "string", True, "Metric category from Task130 registry."),
+        ("statement_type", "metric", "string", True, "Expected statement source from Task130 registry."),
+        ("canonical_financial_report_field", "metric", "string", False, "Nullable legacy ingest compatibility field."),
+        ("document_id", "document", "string", True, "Exact report document identifier."),
+        ("document_url", "document", "string", True, "Exact official report URL."),
+        ("document_sha256", "document", "string", False, "Optional immutable document hash."),
+        ("report_period", "document", "string", True, "Reporting period represented by the document."),
+        ("report_type", "document", "string", True, "Expected annual or quarterly report type."),
+        ("accounting_standard", "document", "string", True, "Accounting standard, such as IFRS."),
+        ("consolidation_scope", "document", "string", False, "Consolidated or standalone reporting scope."),
+        ("document_language", "document", "string", False, "Document language."),
+        ("raw_value_text", "raw_value", "string", True, "Value text exactly as presented in evidence."),
+        ("raw_value_numeric", "raw_value", "decimal_string", False, "Parsed numeric text before normalization."),
+        ("raw_currency", "raw_value", "string", False, "Currency explicitly stated in the source."),
+        ("raw_unit", "raw_value", "string", False, "Unit explicitly stated in the source."),
+        ("raw_scale", "raw_value", "string", False, "Scale explicitly stated in the source."),
+        ("raw_sign_presentation", "raw_value", "string", False, "Original sign, parentheses, or dash presentation."),
+        ("raw_context_text", "raw_value", "string", False, "Nearby label or table context."),
+        ("normalized_value", "normalized_value", "decimal_string", False, "Future normalized numeric value."),
+        ("normalized_currency", "normalized_value", "string", False, "Future normalized currency."),
+        ("normalized_unit", "normalized_value", "string", False, "Future normalized unit."),
+        ("normalized_scale", "normalized_value", "string", False, "Future normalized scale."),
+        ("normalization_multiplier", "normalized_value", "decimal_string", False, "Future explicit scale multiplier."),
+        ("normalization_sign_adjustment", "normalized_value", "string", False, "Future explicit sign handling."),
+        ("normalization_status", "normalized_value", "status_id", True, "Lifecycle state for normalization."),
+        ("source_label", "evidence_hint", "string", False, "Matched label used to locate evidence."),
+        ("matched_alias", "evidence_hint", "string", False, "Registry alias matched by a future extractor."),
+        ("matched_alias_language", "evidence_hint", "string", False, "Language of the matched alias."),
+        ("evidence_id", "evidence_hint", "string", True, "Primary supporting evidence row identifier."),
+        ("evidence_count", "evidence_hint", "integer", True, "Number of linked evidence rows."),
+        ("page_number", "locator_hint", "string", False, "Page locator when applicable."),
+        ("table_title", "locator_hint", "string", False, "Table title when applicable."),
+        ("row_label", "locator_hint", "string", False, "Row label when applicable."),
+        ("column_label", "locator_hint", "string", False, "Column label when applicable."),
+        ("cell_reference", "locator_hint", "string", False, "Cell reference when applicable."),
+        ("extraction_method", "extraction", "string", True, "Future extraction method identifier."),
+        ("extraction_method_version", "extraction", "string", True, "Future extraction method version."),
+        ("extraction_confidence", "extraction", "string", False, "Future confidence value."),
+        ("candidate_status", "lifecycle", "status_id", True, "Candidate lifecycle status."),
+        ("validation_status", "lifecycle", "status_id", True, "Candidate validation status."),
+        ("validation_reason_codes", "lifecycle", "string_list", True, "Deterministic validation reason codes."),
+        ("validation_errors", "lifecycle", "string_list", True, "Candidate validation errors."),
+        ("validation_warnings", "lifecycle", "string_list", True, "Candidate validation warnings."),
+        ("operator_review_status", "review", "string", False, "Optional future operator-review state."),
+        ("operator_review_notes", "review", "string", False, "Optional future operator-review notes."),
+        ("created_at_utc", "audit", "string", True, "Creation timestamp or deterministic template placeholder."),
+        ("created_by_mode", "audit", "string", True, "Mode that created the candidate."),
+        ("ready_for_validation", "readiness", "boolean", True, "Whether future validation may run."),
+        ("ready_for_normalization", "readiness", "boolean", True, "Whether future normalization may run."),
+        ("ready_for_model_usage", "readiness", "boolean", True, "Whether model usage is allowed."),
+        ("would_fetch_documents", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_parse_documents", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_extract_values", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_import_report", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_mutate_database", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_mutate_scores", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_trigger_paper_trading", "safety", "boolean", True, "Always false in this schema preview."),
+    ]
+)
+FINANCIAL_EXTRACTION_EVIDENCE_FIELDS = _financial_extraction_schema_fields(
+    [
+        ("evidence_id", "identity", "string", True, "Deterministic evidence identifier."),
+        ("candidate_id", "identity", "string", True, "Linked value candidate identifier."),
+        ("candidate_group_id", "identity", "string", True, "Collection group identifier."),
+        ("company_id", "issuer", "string", True, "Issuer identifier."),
+        ("metric_id", "metric", "string", True, "Semantic metric identifier."),
+        ("document_id", "document", "string", True, "Exact report document identifier."),
+        ("document_url", "document", "string", True, "Exact official report URL."),
+        ("document_sha256", "document", "string", False, "Optional immutable document hash."),
+        ("report_period", "document", "string", True, "Reporting period."),
+        ("evidence_type", "evidence", "enum", True, "Supported evidence representation."),
+        ("evidence_locator_type", "evidence", "enum", True, "Supported evidence locator type."),
+        ("evidence_locator_value", "evidence", "string", True, "Locator value inside the source."),
+        ("page_number", "evidence", "string", False, "PDF page when applicable."),
+        ("table_title", "evidence", "string", False, "Table title when applicable."),
+        ("row_label", "evidence", "string", False, "Row label when applicable."),
+        ("column_label", "evidence", "string", False, "Column label when applicable."),
+        ("cell_reference", "evidence", "string", False, "Cell or fact reference when applicable."),
+        ("text_span", "evidence", "string", False, "Relevant source text span."),
+        ("source_label", "evidence", "string", False, "Metric label from evidence."),
+        ("raw_value_text", "evidence", "string", True, "Value as shown in evidence."),
+        ("raw_context_text", "evidence", "string", False, "Additional source context."),
+        ("evidence_language", "evidence", "string", False, "Evidence language."),
+        ("evidence_quality_status", "lifecycle", "status_id", True, "Evidence quality lifecycle status."),
+        ("validation_status", "lifecycle", "status_id", True, "Evidence validation state."),
+        ("validation_reason_codes", "lifecycle", "string_list", True, "Deterministic validation reasons."),
+        ("validation_errors", "lifecycle", "string_list", True, "Evidence validation errors."),
+        ("validation_warnings", "lifecycle", "string_list", True, "Evidence validation warnings."),
+        ("created_at_utc", "audit", "string", True, "Creation timestamp or deterministic placeholder."),
+        ("created_by_mode", "audit", "string", True, "Mode that created the evidence."),
+        ("would_fetch_documents", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_parse_documents", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_extract_values", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_import_report", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_mutate_database", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_mutate_scores", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_trigger_paper_trading", "safety", "boolean", True, "Always false in this schema preview."),
+    ]
+)
+FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS = _financial_extraction_schema_fields(
+    [
+        ("fact_id", "identity", "string", True, "Deterministic normalized fact draft identifier."),
+        ("candidate_id", "identity", "string", True, "Linked value candidate identifier."),
+        ("evidence_ids", "identity", "string_list", True, "Linked evidence identifiers."),
+        ("candidate_group_id", "identity", "string", True, "Collection group identifier."),
+        ("company_id", "issuer", "string", True, "Issuer identifier."),
+        ("company_name", "issuer", "string", True, "Issuer display name."),
+        ("metric_id", "metric", "string", True, "Semantic metric identifier."),
+        ("metric_name", "metric", "string", True, "Metric display name."),
+        ("canonical_financial_report_field", "metric", "string", False, "Nullable legacy ingest compatibility field."),
+        ("document_id", "document", "string", True, "Exact report document identifier."),
+        ("document_url", "document", "string", True, "Exact official report URL."),
+        ("document_sha256", "document", "string", False, "Optional immutable document hash."),
+        ("report_period", "document", "string", True, "Reporting period."),
+        ("report_type", "document", "string", True, "Report type."),
+        ("accounting_standard", "document", "string", True, "Accounting standard."),
+        ("consolidation_scope", "document", "string", False, "Consolidated or standalone scope."),
+        ("normalized_value", "normalized_value", "decimal_string", True, "Future normalized value."),
+        ("normalized_currency", "normalized_value", "string", False, "Explicit normalized currency."),
+        ("normalized_unit", "normalized_value", "string", False, "Explicit normalized unit."),
+        ("normalized_scale", "normalized_value", "string", False, "Explicit normalized scale."),
+        ("normalization_multiplier", "normalized_value", "decimal_string", False, "Explicit normalization multiplier."),
+        ("normalization_sign_adjustment", "normalized_value", "string", False, "Explicit sign adjustment."),
+        ("candidate_status", "lifecycle", "status_id", True, "Source candidate lifecycle state."),
+        ("normalization_status", "lifecycle", "status_id", True, "Normalization lifecycle state."),
+        ("validation_status", "lifecycle", "status_id", True, "Fact validation lifecycle state."),
+        ("validation_reason_codes", "lifecycle", "string_list", True, "Deterministic fact validation reasons."),
+        ("validation_errors", "lifecycle", "string_list", True, "Fact validation errors."),
+        ("validation_warnings", "lifecycle", "string_list", True, "Fact validation warnings."),
+        ("created_at_utc", "audit", "string", True, "Creation timestamp or deterministic placeholder."),
+        ("created_by_mode", "audit", "string", True, "Mode that created the fact draft."),
+        ("ready_for_validation", "readiness", "boolean", True, "Whether future validation may run."),
+        ("ready_for_normalization", "readiness", "boolean", True, "Whether future normalization may run."),
+        ("ready_for_model_usage", "readiness", "boolean", True, "Whether model usage is allowed."),
+        ("ready_for_feature_builder", "readiness", "boolean", True, "Whether feature building is allowed."),
+        ("would_import_report", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_mutate_database", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_mutate_scores", "safety", "boolean", True, "Always false in this schema preview."),
+        ("would_trigger_paper_trading", "safety", "boolean", True, "Always false in this schema preview."),
+    ]
+)
+FINANCIAL_EXTRACTION_VALIDATION_STATUS_FIELDS = [
+    "status_id",
+    "status_group",
+    "status_name",
+    "severity",
+    "description",
+    "blocks_normalization",
+    "blocks_model_usage",
+    "requires_operator_review",
+]
+
+
+def _financial_extraction_validation_status(
+    status_id: str,
+    status_group: str,
+    status_name: str,
+    severity: str,
+    description: str,
+    *,
+    blocks_normalization: bool,
+    blocks_model_usage: bool,
+    requires_operator_review: bool = False,
+) -> dict[str, Any]:
+    return {
+        "status_id": status_id,
+        "status_group": status_group,
+        "status_name": status_name,
+        "severity": severity,
+        "description": description,
+        "blocks_normalization": blocks_normalization,
+        "blocks_model_usage": blocks_model_usage,
+        "requires_operator_review": requires_operator_review,
+    }
+
+
+FINANCIAL_EXTRACTION_VALIDATION_STATUSES = [
+    _financial_extraction_validation_status("template_only", "template", "Template only", "info", "Placeholder lifecycle state used only by Task131 schema examples.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("candidate_created", "candidate", "Candidate created", "info", "Candidate exists but is not validated.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("evidence_attached", "candidate", "Evidence attached", "info", "Candidate has evidence awaiting validation.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("missing_evidence", "evidence", "Missing evidence", "error", "Candidate has no evidence row.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("invalid_evidence_locator", "evidence", "Invalid evidence locator", "error", "Evidence locator is missing or unsupported.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("ambiguous_metric_match", "metric", "Ambiguous metric match", "warning", "Candidate label can map to multiple metrics.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("currency_required", "normalization", "Currency required", "error", "Monetary fact requires explicit currency.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("unit_required", "normalization", "Unit required", "error", "Monetary fact requires explicit unit.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("scale_required", "normalization", "Scale required", "error", "Monetary fact requires explicit scale.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("normalization_pending", "normalization", "Normalization pending", "info", "Normalization has not run.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("normalization_failed", "normalization", "Normalization failed", "error", "Candidate cannot be normalized safely.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("normalized_value_ready_for_validation", "normalization", "Normalized value ready for validation", "info", "Normalized value awaits validation.", blocks_normalization=False, blocks_model_usage=True),
+    _financial_extraction_validation_status("reconciliation_review_required", "validation", "Reconciliation review required", "warning", "Candidate needs a reconciliation review.", blocks_normalization=False, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("reconciliation_failed", "validation", "Reconciliation failed", "error", "Candidate failed deterministic reconciliation.", blocks_normalization=False, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("wrong_reporting_period", "validation", "Wrong reporting period", "error", "Candidate does not belong to target period.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("wrong_report_type", "validation", "Wrong report type", "error", "Candidate does not belong to required report type.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("wrong_accounting_standard", "validation", "Wrong accounting standard", "error", "Candidate does not belong to required accounting standard.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("non_consolidated_report", "validation", "Non-consolidated report", "error", "Candidate is not from required consolidated reporting.", blocks_normalization=True, blocks_model_usage=True),
+    _financial_extraction_validation_status("operator_review_required", "review", "Operator review required", "warning", "Operator review is required.", blocks_normalization=True, blocks_model_usage=True, requires_operator_review=True),
+    _financial_extraction_validation_status("validated_fact_draft", "validation", "Validated fact draft", "info", "Fact draft passed validation but is not imported.", blocks_normalization=False, blocks_model_usage=True),
+    _financial_extraction_validation_status("ready_for_future_controlled_import_review", "lifecycle", "Ready for future controlled import review", "info", "Fact may enter a future controlled import review.", blocks_normalization=False, blocks_model_usage=True),
+    _financial_extraction_validation_status("rejected_candidate", "lifecycle", "Rejected candidate", "error", "Candidate must not progress.", blocks_normalization=True, blocks_model_usage=True),
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -2347,6 +2620,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--financial-metric-registry-category", choices=FINANCIAL_METRIC_CATEGORIES, default=None)
     parser.add_argument("--financial-metric-registry-model-critical-only", action="store_true")
     parser.add_argument("--financial-metric-registry-required-only", action="store_true")
+    parser.add_argument("--financial-extraction-evidence-schema-output", type=Path, default=None)
+    parser.add_argument("--financial-extraction-evidence-schema-markdown-output", type=Path, default=None)
+    parser.add_argument("--financial-extraction-value-candidate-template-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-extraction-evidence-template-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-extraction-normalized-fact-template-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-extraction-validation-status-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-input", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -2435,6 +2715,8 @@ def run_assistant(
         report = run_operator_resolution_source_trust_promote_apply_draft(args)
     elif args.mode == "financial-metric-registry-preview":
         report = run_financial_metric_registry_preview(args)
+    elif args.mode == "financial-extraction-evidence-schema-preview":
+        report = run_financial_extraction_evidence_schema_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -7611,6 +7893,362 @@ def _build_financial_metric_registry_report(
     }
 
 
+def run_financial_extraction_evidence_schema_preview(args: argparse.Namespace) -> dict[str, Any]:
+    artifacts = _financial_extraction_evidence_schema_artifacts(args)
+    registry_metrics: list[dict[str, Any]] = []
+    registry_source = "in_code_registry"
+    registry_input: Path | None = None
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    try:
+        registry_metrics, registry_source, registry_input, registry_warnings = _resolve_financial_extraction_metric_registry(
+            args
+        )
+        warnings.extend(registry_warnings)
+    except (OSError, ValueError, json.JSONDecodeError):
+        errors.append({"message": "financial_metric_registry_input_invalid"})
+    if not errors and registry_input is not None:
+        output_paths = [*artifacts.values(), args.json_output, args.markdown_output]
+        if any(path is not None and _paths_equal(path, registry_input) for path in output_paths):
+            errors.append({"message": "financial_extraction_evidence_schema_output_must_not_equal_input"})
+
+    candidates: list[dict[str, Any]] = []
+    evidence_rows: list[dict[str, Any]] = []
+    normalized_facts: list[dict[str, Any]] = []
+    if not errors:
+        candidates, evidence_rows, normalized_facts = _build_financial_extraction_evidence_templates(registry_metrics)
+        if not candidates:
+            warnings.append({"message": "financial_extraction_template_metrics_unavailable"})
+        errors.extend(
+            _financial_extraction_evidence_schema_integrity_errors(
+                registry_metrics=registry_metrics,
+                candidates=candidates,
+                evidence_rows=evidence_rows,
+                normalized_facts=normalized_facts,
+            )
+        )
+    report = _build_financial_extraction_evidence_schema_report(
+        registry_metrics=registry_metrics,
+        registry_source=registry_source,
+        candidates=candidates,
+        evidence_rows=evidence_rows,
+        normalized_facts=normalized_facts,
+        artifacts=artifacts,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            if artifacts["schema_json"] is not None:
+                write_json_report(report, artifacts["schema_json"])
+            if artifacts["schema_markdown"] is not None:
+                write_financial_extraction_evidence_schema_markdown(report, artifacts["schema_markdown"])
+            if artifacts["value_candidate_csv"] is not None:
+                _write_flat_csv(
+                    candidates,
+                    _financial_extraction_descriptor_field_names(FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS),
+                    artifacts["value_candidate_csv"],
+                )
+            if artifacts["evidence_csv"] is not None:
+                _write_flat_csv(
+                    evidence_rows,
+                    _financial_extraction_descriptor_field_names(FINANCIAL_EXTRACTION_EVIDENCE_FIELDS),
+                    artifacts["evidence_csv"],
+                )
+            if artifacts["normalized_fact_csv"] is not None:
+                _write_flat_csv(
+                    normalized_facts,
+                    _financial_extraction_descriptor_field_names(FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS),
+                    artifacts["normalized_fact_csv"],
+                )
+            if artifacts["validation_status_csv"] is not None:
+                _write_flat_csv(
+                    FINANCIAL_EXTRACTION_VALIDATION_STATUSES,
+                    FINANCIAL_EXTRACTION_VALIDATION_STATUS_FIELDS,
+                    artifacts["validation_status_csv"],
+                )
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _financial_extraction_evidence_schema_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "schema_json": args.financial_extraction_evidence_schema_output,
+        "schema_markdown": args.financial_extraction_evidence_schema_markdown_output,
+        "value_candidate_csv": args.financial_extraction_value_candidate_template_csv_output,
+        "evidence_csv": args.financial_extraction_evidence_template_csv_output,
+        "normalized_fact_csv": args.financial_extraction_normalized_fact_template_csv_output,
+        "validation_status_csv": args.financial_extraction_validation_status_csv_output,
+    }
+    return {
+        key: overrides[key] or (output_dir / file_name if output_dir is not None else None)
+        for key, file_name in FINANCIAL_EXTRACTION_EVIDENCE_SCHEMA_ARTIFACT_NAMES.items()
+    }
+
+
+def _resolve_financial_extraction_metric_registry(
+    args: argparse.Namespace,
+) -> tuple[list[dict[str, Any]], str, Path | None, list[dict[str, Any]]]:
+    if args.financial_metric_registry_input is not None:
+        path = args.financial_metric_registry_input
+        return _load_financial_extraction_metric_registry(path), str(path), path, []
+    if args.operator_resolution_chain_output_dir is not None:
+        path = args.operator_resolution_chain_output_dir / FINANCIAL_METRIC_REGISTRY_ARTIFACT_NAMES["registry_json"]
+        if path.is_file():
+            return _load_financial_extraction_metric_registry(path), str(path), path, []
+        return (
+            copy.deepcopy(FINANCIAL_METRIC_REGISTRY),
+            "in_code_registry",
+            None,
+            [{"message": "financial_metric_registry_default_artifact_missing_using_in_code_registry"}],
+        )
+    return copy.deepcopy(FINANCIAL_METRIC_REGISTRY), "in_code_registry", None, []
+
+
+def _load_financial_extraction_metric_registry(path: Path) -> list[dict[str, Any]]:
+    payload = _load_json_object(path)
+    metrics = payload.get("metrics")
+    if not isinstance(metrics, list) or not all(isinstance(metric, dict) for metric in metrics):
+        raise ValueError("financial_metric_registry_input_invalid")
+    metric_ids = [str(metric.get("metric_id") or "").strip() for metric in metrics]
+    if any(not metric_id for metric_id in metric_ids) or len(set(metric_ids)) != len(metric_ids):
+        raise ValueError("financial_metric_registry_input_invalid")
+    return copy.deepcopy(metrics)
+
+
+def _financial_extraction_descriptor_field_names(descriptors: list[dict[str, Any]]) -> list[str]:
+    return [str(descriptor["field_name"]) for descriptor in descriptors]
+
+
+def _financial_extraction_template_row(descriptors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        str(descriptor["field_name"]): []
+        if descriptor["field_type"] == "string_list"
+        else False
+        if descriptor["field_type"] == "boolean"
+        else ""
+        for descriptor in descriptors
+    }
+
+
+def _build_financial_extraction_evidence_templates(
+    registry_metrics: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    registry_by_id = {str(metric.get("metric_id") or ""): metric for metric in registry_metrics}
+    candidates: list[dict[str, Any]] = []
+    evidence_rows: list[dict[str, Any]] = []
+    normalized_facts: list[dict[str, Any]] = []
+    for metric_id in FINANCIAL_EXTRACTION_TEMPLATE_METRIC_IDS:
+        metric = registry_by_id.get(metric_id)
+        if metric is None:
+            continue
+        candidate_id = f"template_candidate:{metric_id}"
+        evidence_id = f"template_evidence:{metric_id}"
+        fact_id = f"template_fact:{metric_id}"
+        common = {
+            "candidate_group_id": "template_group:financial_extraction",
+            "company_id": "TEMPLATE_COMPANY_ID",
+            "company_name": "TEMPLATE_COMPANY_NAME",
+            "metric_id": metric_id,
+            "metric_name": str(metric.get("metric_name") or metric_id),
+            "canonical_financial_report_field": str(metric.get("canonical_financial_report_field") or ""),
+            "document_id": "TEMPLATE_DOCUMENT_ID",
+            "document_url": "TEMPLATE_DOCUMENT_URL",
+            "document_sha256": "TEMPLATE_DOCUMENT_SHA256",
+            "created_at_utc": "TEMPLATE_CREATED_AT_UTC",
+            "created_by_mode": "financial-extraction-evidence-schema-preview",
+        }
+        candidate = {
+            **_financial_extraction_template_row(FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS),
+            **common,
+            "candidate_id": candidate_id,
+            "metric_category": str(metric.get("metric_category") or ""),
+            "statement_type": str(metric.get("statement_type") or ""),
+            "raw_value_text": "TEMPLATE_VALUE",
+            "normalized_value": "TEMPLATE_VALUE",
+            "evidence_id": evidence_id,
+            "evidence_count": 1,
+            "page_number": "TEMPLATE_PAGE_NUMBER",
+            "extraction_method": "template_only",
+            "extraction_method_version": "template_only",
+            "candidate_status": "template_only",
+            "normalization_status": "template_only",
+            "validation_status": "template_only",
+            "validation_reason_codes": ["template_only"],
+            "ready_for_validation": False,
+            "ready_for_normalization": False,
+            "ready_for_model_usage": False,
+        }
+        evidence = {
+            **_financial_extraction_template_row(FINANCIAL_EXTRACTION_EVIDENCE_FIELDS),
+            **common,
+            "evidence_id": evidence_id,
+            "candidate_id": candidate_id,
+            "evidence_type": "synthetic_test_evidence",
+            "evidence_locator_type": "manual_reference",
+            "evidence_locator_value": "TEMPLATE_PAGE_NUMBER",
+            "page_number": "TEMPLATE_PAGE_NUMBER",
+            "raw_value_text": "TEMPLATE_VALUE",
+            "evidence_quality_status": "template_only",
+            "validation_status": "template_only",
+            "validation_reason_codes": ["template_only"],
+        }
+        fact = {
+            **_financial_extraction_template_row(FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS),
+            **common,
+            "fact_id": fact_id,
+            "candidate_id": candidate_id,
+            "evidence_ids": [evidence_id],
+            "normalized_value": "TEMPLATE_VALUE",
+            "candidate_status": "template_only",
+            "normalization_status": "template_only",
+            "validation_status": "template_only",
+            "validation_reason_codes": ["template_only"],
+            "ready_for_validation": False,
+            "ready_for_normalization": False,
+            "ready_for_model_usage": False,
+            "ready_for_feature_builder": False,
+        }
+        candidates.append(candidate)
+        evidence_rows.append(evidence)
+        normalized_facts.append(fact)
+    return candidates, evidence_rows, normalized_facts
+
+
+def _financial_extraction_evidence_schema_integrity_errors(
+    *,
+    registry_metrics: list[dict[str, Any]],
+    candidates: list[dict[str, Any]],
+    evidence_rows: list[dict[str, Any]],
+    normalized_facts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    for schema_name, descriptors in (
+        ("value_candidate", FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS),
+        ("evidence", FINANCIAL_EXTRACTION_EVIDENCE_FIELDS),
+        ("normalized_fact", FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS),
+    ):
+        names = _financial_extraction_descriptor_field_names(descriptors)
+        if len(names) != len(set(names)):
+            errors.append({"message": f"duplicate_schema_field_name:{schema_name}"})
+    status_ids = [str(status.get("status_id") or "") for status in FINANCIAL_EXTRACTION_VALIDATION_STATUSES]
+    if any(not status_id for status_id in status_ids):
+        errors.append({"message": "missing_validation_status_id"})
+    if len(status_ids) != len(set(status_ids)):
+        errors.append({"message": "duplicate_validation_status_id"})
+    registered_statuses = set(status_ids)
+    registry_metric_ids = {str(metric.get("metric_id") or "") for metric in registry_metrics}
+    candidate_ids = {str(candidate.get("candidate_id") or "") for candidate in candidates}
+    evidence_ids = {str(evidence.get("evidence_id") or "") for evidence in evidence_rows}
+    for candidate in candidates:
+        metric_id = str(candidate.get("metric_id") or "")
+        if metric_id not in registry_metric_ids:
+            errors.append({"message": f"unknown_template_candidate_metric_id:{metric_id}"})
+        _append_financial_extraction_template_status_errors(
+            errors,
+            candidate,
+            ("candidate_status", "normalization_status", "validation_status"),
+            registered_statuses,
+        )
+        _append_financial_extraction_template_safety_errors(errors, "candidate", candidate)
+    for evidence in evidence_rows:
+        if evidence.get("candidate_id") not in candidate_ids:
+            errors.append({"message": f"unknown_template_evidence_candidate_id:{evidence.get('candidate_id')}"})
+        if evidence.get("evidence_type") not in FINANCIAL_EXTRACTION_EVIDENCE_TYPES:
+            errors.append({"message": f"invalid_template_evidence_type:{evidence.get('evidence_type')}"})
+        if evidence.get("evidence_locator_type") not in FINANCIAL_EXTRACTION_EVIDENCE_LOCATOR_TYPES:
+            errors.append({"message": f"invalid_template_evidence_locator_type:{evidence.get('evidence_locator_type')}"})
+        _append_financial_extraction_template_status_errors(
+            errors,
+            evidence,
+            ("evidence_quality_status", "validation_status"),
+            registered_statuses,
+        )
+        _append_financial_extraction_template_safety_errors(errors, "evidence", evidence)
+    for fact in normalized_facts:
+        if fact.get("candidate_id") not in candidate_ids:
+            errors.append({"message": f"unknown_template_fact_candidate_id:{fact.get('candidate_id')}"})
+        for evidence_id in fact.get("evidence_ids") or []:
+            if evidence_id not in evidence_ids:
+                errors.append({"message": f"unknown_template_fact_evidence_id:{evidence_id}"})
+        _append_financial_extraction_template_status_errors(
+            errors,
+            fact,
+            ("candidate_status", "normalization_status", "validation_status"),
+            registered_statuses,
+        )
+        _append_financial_extraction_template_safety_errors(errors, "normalized_fact", fact)
+    return errors
+
+
+def _append_financial_extraction_template_status_errors(
+    errors: list[dict[str, Any]],
+    row: dict[str, Any],
+    fields: tuple[str, ...],
+    registered_statuses: set[str],
+) -> None:
+    for field in fields:
+        if row.get(field) not in registered_statuses:
+            errors.append({"message": f"unknown_template_status:{field}:{row.get(field)}"})
+
+
+def _append_financial_extraction_template_safety_errors(
+    errors: list[dict[str, Any]],
+    row_type: str,
+    row: dict[str, Any],
+) -> None:
+    for field, value in row.items():
+        if (field.startswith("would_") or field.startswith("ready_")) and value is not False:
+            errors.append({"message": f"unsafe_template_flag:{row_type}:{field}"})
+
+
+def _build_financial_extraction_evidence_schema_report(
+    *,
+    registry_metrics: list[dict[str, Any]],
+    registry_source: str,
+    candidates: list[dict[str, Any]],
+    evidence_rows: list[dict[str, Any]],
+    normalized_facts: list[dict[str, Any]],
+    artifacts: dict[str, Path | None],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    status = "failed" if errors else "warning" if warnings else "passed"
+    return {
+        "status": status,
+        "mode": "financial-extraction-evidence-schema-preview",
+        "registry_source": registry_source,
+        "registry_metric_count": len(registry_metrics),
+        "value_candidate_field_count": len(FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS),
+        "evidence_field_count": len(FINANCIAL_EXTRACTION_EVIDENCE_FIELDS),
+        "normalized_fact_field_count": len(FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS),
+        "validation_status_count": len(FINANCIAL_EXTRACTION_VALIDATION_STATUSES),
+        "template_candidate_count": len(candidates),
+        "template_evidence_count": len(evidence_rows),
+        "template_normalized_fact_count": len(normalized_facts),
+        "value_candidate_fields": copy.deepcopy(FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS),
+        "evidence_fields": copy.deepcopy(FINANCIAL_EXTRACTION_EVIDENCE_FIELDS),
+        "normalized_fact_fields": copy.deepcopy(FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS),
+        "validation_statuses": copy.deepcopy(FINANCIAL_EXTRACTION_VALIDATION_STATUSES),
+        "template_value_candidates": candidates,
+        "template_evidence_rows": evidence_rows,
+        "template_normalized_facts": normalized_facts,
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("financial-extraction-evidence-schema-preview", status),
+        "would_fetch_documents": False,
+        "would_parse_documents": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
     return [
         args.document_intake_draft_output,
@@ -10343,6 +10981,11 @@ def write_financial_metric_registry_markdown(report: dict[str, Any], path: Path)
     path.write_text(render_financial_metric_registry_markdown(report), encoding="utf-8")
 
 
+def write_financial_extraction_evidence_schema_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_financial_extraction_evidence_schema_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -10500,6 +11143,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_resolution_source_trust_promote_apply_markdown(report)
     if report.get("mode") == "financial-metric-registry-preview":
         return render_financial_metric_registry_markdown(report)
+    if report.get("mode") == "financial-extraction-evidence-schema-preview":
+        return render_financial_extraction_evidence_schema_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -11836,6 +12481,130 @@ def render_financial_metric_registry_markdown(report: dict[str, Any]) -> str:
             "- This task does not import reports.",
             "- This task does not score issuers or trigger paper trading.",
             "- Only future exact official annual IFRS reports that pass existing gates may use this registry.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_financial_extraction_evidence_schema_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Financial Extraction Evidence Schema",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- registry source: `{report.get('registry_source')}`",
+        f"- registry metrics: {report.get('registry_metric_count', 0)}",
+        f"- value candidate fields: {report.get('value_candidate_field_count', 0)}",
+        f"- evidence fields: {report.get('evidence_field_count', 0)}",
+        f"- normalized fact fields: {report.get('normalized_fact_field_count', 0)}",
+        f"- lifecycle statuses: {report.get('validation_status_count', 0)}",
+        f"- candidate templates: {report.get('template_candidate_count', 0)}",
+        f"- evidence templates: {report.get('template_evidence_count', 0)}",
+        f"- normalized fact templates: {report.get('template_normalized_fact_count', 0)}",
+    ]
+    for title, descriptors in (
+        ("Value Candidate Schema", report.get("value_candidate_fields") or []),
+        ("Evidence Schema", report.get("evidence_fields") or []),
+        ("Normalized Fact Draft Schema", report.get("normalized_fact_fields") or []),
+    ):
+        lines.extend(
+            [
+                "",
+                f"## {title}",
+                "",
+                "| Field | Group | Type | Required | Description |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
+        for descriptor in descriptors:
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_table_cell(value)
+                    for value in (
+                        descriptor.get("field_name"),
+                        descriptor.get("field_group"),
+                        descriptor.get("field_type"),
+                        descriptor.get("required"),
+                        descriptor.get("description"),
+                    )
+                )
+                + " |"
+            )
+    lines.extend(
+        [
+            "",
+            "## Validation Status Registry",
+            "",
+            "| Status | Group | Severity | Blocks normalization | Blocks model usage | Operator review |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for status in report.get("validation_statuses") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    status.get("status_id"),
+                    status.get("status_group"),
+                    status.get("severity"),
+                    status.get("blocks_normalization"),
+                    status.get("blocks_model_usage"),
+                    status.get("requires_operator_review"),
+                )
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Template Metrics",
+            "",
+            "| Metric | Candidate | Evidence | Fact draft | Status |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    evidence_by_candidate = {
+        row.get("candidate_id"): row
+        for row in report.get("template_evidence_rows") or []
+    }
+    facts_by_candidate = {
+        row.get("candidate_id"): row
+        for row in report.get("template_normalized_facts") or []
+    }
+    for candidate in report.get("template_value_candidates") or []:
+        evidence = evidence_by_candidate.get(candidate.get("candidate_id")) or {}
+        fact = facts_by_candidate.get(candidate.get("candidate_id")) or {}
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    candidate.get("metric_id"),
+                    candidate.get("candidate_id"),
+                    evidence.get("evidence_id"),
+                    fact.get("fact_id"),
+                    candidate.get("candidate_status"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("template_value_candidates"):
+        lines.append("| none |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task defines typed extraction evidence contracts and placeholder templates only.",
+            "- This task does not read, fetch, download, or parse reports.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports or mutate database records.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Template rows are examples, not financial facts.",
             "",
         ]
     )
@@ -21666,6 +22435,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review the promoted apply draft; baseline source trust still requires a later controlled merge task."]
     if mode == "financial-metric-registry-preview":
         return ["Use this deterministic registry as the contract for a future evidence-first extraction preview task."]
+    if mode == "financial-extraction-evidence-schema-preview":
+        return ["Use these typed placeholder templates as the contract for a future evidence-backed extraction preview task."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -21773,6 +22544,16 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args.operator_resolution_source_pack_promote_draft_input,
         ]
         if args.mode == "operator-resolution-source-trust-promote-apply-draft"
+        else [
+            args.financial_metric_registry_input,
+            (
+                args.operator_resolution_chain_output_dir
+                / FINANCIAL_METRIC_REGISTRY_ARTIFACT_NAMES["registry_json"]
+                if args.operator_resolution_chain_output_dir is not None
+                else None
+            ),
+        ]
+        if args.mode == "financial-extraction-evidence-schema-preview"
         else []
     )
     return all(

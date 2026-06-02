@@ -5671,6 +5671,197 @@ def test_financial_metric_registry_preview_never_calls_network_helpers(monkeypat
     assert report["paper_trading_called"] is False
 
 
+def test_financial_extraction_evidence_schema_preview_has_typed_templates_and_safe_contract() -> None:
+    report = _run_financial_extraction_evidence_schema_preview()
+
+    assert report["status"] == "passed"
+    assert report["registry_source"] == "in_code_registry"
+    assert report["registry_metric_count"] >= 30
+    assert report["value_candidate_field_count"] >= 60
+    assert report["evidence_field_count"] >= 30
+    assert report["normalized_fact_field_count"] >= 30
+    assert report["validation_status_count"] >= 20
+    assert report["template_candidate_count"] == 7
+    assert report["template_evidence_count"] == 7
+    assert report["template_normalized_fact_count"] == 7
+    assert {row["metric_id"] for row in report["template_value_candidates"]} == set(
+        assistant.FINANCIAL_EXTRACTION_TEMPLATE_METRIC_IDS
+    )
+    assert "template_only" in {row["status_id"] for row in report["validation_statuses"]}
+    for key in (
+        "would_fetch_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_database",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[key] is False
+
+
+def test_financial_extraction_evidence_schema_template_references_and_fields_are_consistent() -> None:
+    report = _run_financial_extraction_evidence_schema_preview()
+    metric_ids = {row["metric_id"] for row in assistant.FINANCIAL_METRIC_REGISTRY}
+    candidate_ids = {row["candidate_id"] for row in report["template_value_candidates"]}
+    evidence_ids = {row["evidence_id"] for row in report["template_evidence_rows"]}
+
+    for descriptors in (
+        report["value_candidate_fields"],
+        report["evidence_fields"],
+        report["normalized_fact_fields"],
+    ):
+        names = [row["field_name"] for row in descriptors]
+        assert len(names) == len(set(names))
+        assert all({"field_name", "field_group", "field_type", "required", "description"} <= set(row) for row in descriptors)
+    assert all(row["metric_id"] in metric_ids for row in report["template_value_candidates"])
+    assert all(row["candidate_id"] in candidate_ids for row in report["template_evidence_rows"])
+    assert all(row["candidate_id"] in candidate_ids for row in report["template_normalized_facts"])
+    assert all(set(row["evidence_ids"]).issubset(evidence_ids) for row in report["template_normalized_facts"])
+    for row in [
+        *report["template_value_candidates"],
+        *report["template_evidence_rows"],
+        *report["template_normalized_facts"],
+    ]:
+        assert all(
+            value is False
+            for field, value in row.items()
+            if field.startswith("would_") or field.startswith("ready_")
+        )
+
+
+def test_financial_extraction_evidence_schema_preview_writes_default_and_explicit_outputs(tmp_path: Path) -> None:
+    custom_markdown = tmp_path / "custom" / "schema.md"
+    report = _run_financial_extraction_evidence_schema_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--financial-extraction-evidence-schema-markdown-output",
+            str(custom_markdown),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert {"message": "financial_metric_registry_default_artifact_missing_using_in_code_registry"} in report["warnings"]
+    assert report["artifacts"]["schema_markdown"] == str(custom_markdown)
+    for path in report["artifacts"].values():
+        assert Path(path).is_file()
+    markdown = custom_markdown.read_text(encoding="utf-8")
+    assert "# Financial Extraction Evidence Schema" in markdown
+    assert "This task does not read, fetch, download, or parse reports." in markdown
+
+
+def test_financial_extraction_evidence_schema_preview_loads_reduced_registry_intersection(tmp_path: Path) -> None:
+    registry = tmp_path / "registry.json"
+    registry.write_text(
+        json.dumps({"metrics": [{"metric_id": "revenue", "metric_name": "Revenue"}]}),
+        encoding="utf-8",
+    )
+
+    report = _run_financial_extraction_evidence_schema_preview(
+        ["--financial-metric-registry-input", str(registry)]
+    )
+
+    assert report["status"] == "passed"
+    assert report["registry_source"] == str(registry)
+    assert report["registry_metric_count"] == 1
+    assert report["template_candidate_count"] == 1
+    assert report["template_value_candidates"][0]["metric_id"] == "revenue"
+
+
+def test_financial_extraction_evidence_schema_preview_warns_for_empty_template_intersection(tmp_path: Path) -> None:
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"metrics": [{"metric_id": "custom_metric"}]}), encoding="utf-8")
+
+    report = _run_financial_extraction_evidence_schema_preview(
+        ["--financial-metric-registry-input", str(registry)]
+    )
+
+    assert report["status"] == "warning"
+    assert report["template_candidate_count"] == 0
+    assert {"message": "financial_extraction_template_metrics_unavailable"} in report["warnings"]
+
+
+def test_financial_extraction_evidence_schema_preview_rejects_invalid_registry_input(tmp_path: Path) -> None:
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"metrics": "not-a-list"}), encoding="utf-8")
+
+    report = _run_financial_extraction_evidence_schema_preview(
+        ["--financial-metric-registry-input", str(registry)]
+    )
+
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "financial_metric_registry_input_invalid"}]
+
+
+def test_financial_extraction_evidence_schema_preview_rejects_output_collision(tmp_path: Path) -> None:
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"metrics": [{"metric_id": "revenue"}]}), encoding="utf-8")
+    original = registry.read_bytes()
+
+    report = _run_financial_extraction_evidence_schema_preview(
+        [
+            "--financial-metric-registry-input",
+            str(registry),
+            "--json-output",
+            str(registry),
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "financial_extraction_evidence_schema_output_must_not_equal_input"}]
+    assert registry.read_bytes() == original
+
+
+def test_financial_extraction_evidence_schema_preview_integrity_failure_is_safe(monkeypatch) -> None:
+    duplicate = dict(assistant.FINANCIAL_EXTRACTION_VALIDATION_STATUSES[0])
+    monkeypatch.setattr(
+        assistant,
+        "FINANCIAL_EXTRACTION_VALIDATION_STATUSES",
+        [*assistant.FINANCIAL_EXTRACTION_VALIDATION_STATUSES, duplicate],
+    )
+
+    report = _run_financial_extraction_evidence_schema_preview()
+
+    assert report["status"] == "failed"
+    assert {"message": "duplicate_validation_status_id"} in report["errors"]
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+
+
+def test_financial_extraction_evidence_schema_preview_bad_template_reference_is_safe(monkeypatch) -> None:
+    original_builder = assistant._build_financial_extraction_evidence_templates
+
+    def build_bad_reference(registry_metrics):
+        candidates, evidence_rows, normalized_facts = original_builder(registry_metrics)
+        evidence_rows[0]["candidate_id"] = "template_candidate:missing"
+        return candidates, evidence_rows, normalized_facts
+
+    monkeypatch.setattr(assistant, "_build_financial_extraction_evidence_templates", build_bad_reference)
+
+    report = _run_financial_extraction_evidence_schema_preview()
+
+    assert report["status"] == "failed"
+    assert {"message": "unknown_template_evidence_candidate_id:template_candidate:missing"} in report["errors"]
+    assert report["would_extract_values"] is False
+
+
+def test_financial_extraction_evidence_schema_preview_never_calls_network_helpers(monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task131 evidence schema must not fetch, probe, or download documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_financial_extraction_evidence_schema_preview()
+
+    assert report["status"] == "passed"
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -9990,6 +10181,21 @@ def _run_financial_metric_registry_preview(extra_args: list[str] | None = None) 
         [
             "--mode",
             "financial-metric-registry-preview",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _run_financial_extraction_evidence_schema_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "financial-extraction-evidence-schema-preview",
             *(extra_args or []),
         ]
     )
