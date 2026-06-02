@@ -6669,6 +6669,396 @@ def test_backup_retention_apply_preview_optional_inventory_warning_and_no_networ
     } in malformed_inventory["warnings"]
 
 
+def test_backup_retention_controlled_apply_dry_run_writes_ledger_and_snapshot_without_deletion(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    first = _write_backup_retention_apply_file(backups / "old.dump", b"old", timestamp=1000)
+    second = _write_backup_retention_apply_file(backups / "new.dump", b"newer", timestamp=2000)
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_controlled_apply_inputs(output_dir, [first, second])
+
+    report, exit_code = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["execute_requested"] is False
+    assert report["deletion_execution_enabled"] is False
+    assert report["controlled_apply_row_count"] == 2
+    assert report["dry_run_eligible_count"] == 2
+    assert report["deleted_count"] == 0
+    assert report["cleanup_executed"] is False
+    assert report["files_deleted"] is False
+    assert report["would_delete_files"] is True
+    assert {row["ledger_status"] for row in report["deletion_ledger_rows"]} == {"dry_run_noop"}
+    assert first.read_bytes() == b"old"
+    assert second.read_bytes() == b"newer"
+    assert {row["file_name"] for row in report["post_apply_snapshot_rows"]} == {"old.dump", "new.dump"}
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    markdown = Path(report["artifacts"]["controlled_apply_markdown"]).read_text(encoding="utf-8")
+    assert "# Backup Retention Controlled Apply" in markdown
+    assert "Dry-run mode does not delete backup files." in markdown
+
+
+def test_backup_retention_controlled_apply_execute_requires_exact_token_and_manifest_hash(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    path = _write_backup_retention_apply_file(backups / "safe.dump", b"safe", timestamp=1000)
+    output_dir = tmp_path / "reports"
+    manifest = _write_backup_retention_controlled_apply_inputs(output_dir, [path])
+    sha256, token = _backup_retention_controlled_apply_confirmation(manifest)
+
+    missing, missing_exit = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-execute",
+            "true",
+        ]
+    )
+    assert missing_exit == 1
+    assert missing["status"] == "blocked"
+    assert missing["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_confirmation_required"
+    assert path.is_file()
+
+    wrong_token, wrong_token_exit = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-execute",
+            "true",
+            "--backup-retention-confirmation-token",
+            "wrong",
+            "--backup-retention-expected-manifest-sha256",
+            sha256,
+        ]
+    )
+    assert wrong_token_exit == 1
+    assert wrong_token["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_confirmation_token_mismatch"
+    assert path.is_file()
+
+    wrong_hash, wrong_hash_exit = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-execute",
+            "true",
+            "--backup-retention-confirmation-token",
+            token,
+            "--backup-retention-expected-manifest-sha256",
+            "0" * 64,
+        ]
+    )
+    assert wrong_hash_exit == 1
+    assert wrong_hash["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_manifest_hash_mismatch"
+    assert path.is_file()
+
+
+def test_backup_retention_controlled_apply_execute_deletes_only_guarded_tmp_files(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    first = _write_backup_retention_apply_file(backups / "old.dump", b"old", timestamp=1000)
+    second = _write_backup_retention_apply_file(backups / "new.sql.gz", b"newer", timestamp=2000)
+    output_dir = tmp_path / "reports"
+    manifest = _write_backup_retention_controlled_apply_inputs(output_dir, [first, second])
+    sha256, token = _backup_retention_controlled_apply_confirmation(manifest)
+    input_snapshots = {path: path.read_bytes() for path in output_dir.glob("*task139.json")}
+
+    report, exit_code = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-execute",
+            "true",
+            "--backup-retention-confirmation-token",
+            token,
+            "--backup-retention-expected-manifest-sha256",
+            sha256,
+        ]
+    )
+
+    assert exit_code == 0
+    assert report["status"] == "passed"
+    assert report["deletion_execution_enabled"] is True
+    assert report["deleted_count"] == 2
+    assert report["actual_reclaimed_bytes"] == 8
+    assert report["cleanup_executed"] is True
+    assert report["files_deleted"] is True
+    assert not first.exists()
+    assert not second.exists()
+    assert {row["ledger_status"] for row in report["deletion_ledger_rows"]} == {"deleted"}
+    assert report["post_apply_snapshot_rows"] == []
+    assert all(path.read_bytes() == content for path, content in input_snapshots.items())
+
+
+def test_backup_retention_controlled_apply_blocks_drift_symlink_outside_and_limits_oldest_first(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    oldest = _write_backup_retention_apply_file(backups / "oldest.dump", b"oldest", timestamp=1000)
+    middle = _write_backup_retention_apply_file(backups / "middle.dump", b"middle", timestamp=2000)
+    newest = _write_backup_retention_apply_file(backups / "newest.dump", b"newest", timestamp=3000)
+    outside = _write_backup_retention_apply_file(tmp_path / "outside.dump", b"outside", timestamp=4000)
+    missing = backups / "missing.dump"
+    external = _write_backup_retention_apply_file(tmp_path / "external.dump", b"external", timestamp=5000)
+    linked = backups / "linked.dump"
+    try:
+        linked.symlink_to(external)
+    except OSError:
+        linked = None
+    output_dir = tmp_path / "reports"
+    rows = [
+        _backup_retention_controlled_apply_manifest_row(newest),
+        _backup_retention_controlled_apply_manifest_row(middle),
+        _backup_retention_controlled_apply_manifest_row(oldest),
+        _backup_retention_controlled_apply_manifest_row(outside),
+        _backup_retention_controlled_apply_manifest_row(missing, size_bytes=1, mtime_utc="2026-01-01T00:00:00Z"),
+    ]
+    if linked is not None:
+        rows.append(_backup_retention_controlled_apply_manifest_row(linked))
+    _write_backup_retention_controlled_apply_manifest(output_dir, rows)
+
+    report, _ = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-max-delete-count",
+            "1",
+        ]
+    )
+    statuses = {row["file_name"]: row["controlled_apply_status"] for row in report["controlled_apply_rows"]}
+
+    assert statuses["oldest.dump"] == "dry_run_eligible_for_delete"
+    assert statuses["middle.dump"] == "blocked_delete_count_limit_exceeded"
+    assert statuses["newest.dump"] == "blocked_delete_count_limit_exceeded"
+    assert statuses["outside.dump"] == "blocked_unsafe_path"
+    assert statuses["missing.dump"] == "blocked_file_missing"
+    if linked is not None:
+        assert statuses["linked.dump"] == "blocked_symlink"
+
+    drifted = _write_backup_retention_apply_file(backups / "drift.dump", b"before", timestamp=6000)
+    _write_backup_retention_controlled_apply_manifest(
+        output_dir,
+        [_backup_retention_controlled_apply_manifest_row(drifted)],
+    )
+    drifted.write_bytes(b"after-size-change")
+    drift_report, _ = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+    assert drift_report["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_file_drift_detected"
+
+
+def test_backup_retention_controlled_apply_reclaim_limit_manual_review_and_optional_warnings(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    first = _write_backup_retention_apply_file(backups / "first.dump", b"1234567890", timestamp=1000)
+    second = _write_backup_retention_apply_file(backups / "second.dump", b"1234567890", timestamp=2000)
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_controlled_apply_manifest(
+        output_dir,
+        [
+            _backup_retention_controlled_apply_manifest_row(first),
+            _backup_retention_controlled_apply_manifest_row(second, manual_review_required=False),
+        ],
+    )
+
+    report, _ = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-max-delete-gb",
+            str(5 / 1024**3),
+        ]
+    )
+    statuses = {row["file_name"]: row["controlled_apply_status"] for row in report["controlled_apply_rows"]}
+
+    assert statuses["first.dump"] == "blocked_reclaim_limit_exceeded"
+    assert statuses["second.dump"] == "blocked_manual_review_required"
+    assert {"message": "backup_retention_controlled_apply_optional_input_missing:apply_preview"} in report["warnings"]
+    assert {"message": "backup_retention_controlled_apply_optional_input_missing:apply_blockers"} in report["warnings"]
+    assert first.is_file()
+    assert second.is_file()
+
+
+def test_backup_retention_controlled_apply_aborts_after_delete_exception_and_persists_pending_ledger(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    first = _write_backup_retention_apply_file(backups / "first.dump", b"first", timestamp=1000)
+    second = _write_backup_retention_apply_file(backups / "second.dump", b"second", timestamp=2000)
+    output_dir = tmp_path / "reports"
+    manifest = _write_backup_retention_controlled_apply_inputs(output_dir, [first, second])
+    sha256, token = _backup_retention_controlled_apply_confirmation(manifest)
+    ledger_path = output_dir / "backup_retention_deletion_ledger_task140.json"
+
+    def fail_after_ledger(*args, **kwargs):
+        payload = json.loads(ledger_path.read_text(encoding="utf-8"))
+        assert payload["deletion_ledger_rows"][0]["ledger_status"] == "delete_attempt_pending"
+        raise OSError("simulated guarded delete failure")
+
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", fail_after_ledger)
+    report, exit_code = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-execute",
+            "true",
+            "--backup-retention-confirmation-token",
+            token,
+            "--backup-retention-expected-manifest-sha256",
+            sha256,
+        ]
+    )
+
+    assert exit_code == 0
+    assert report["status"] == "warning"
+    assert report["controlled_apply_rows"][0]["controlled_apply_status"] == "failed_delete_exception"
+    assert report["controlled_apply_rows"][1]["controlled_apply_status"] == "blocked_execution_aborted_after_delete_exception"
+    assert first.is_file()
+    assert second.is_file()
+
+
+def test_backup_retention_controlled_apply_detects_manifest_drift_before_unlink(tmp_path: Path, monkeypatch) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    path = _write_backup_retention_apply_file(backups / "safe.dump", b"safe", timestamp=1000)
+    output_dir = tmp_path / "reports"
+    manifest = _write_backup_retention_controlled_apply_inputs(output_dir, [path])
+    sha256, token = _backup_retention_controlled_apply_confirmation(manifest)
+    original_persist = assistant._persist_backup_retention_controlled_apply_ledger
+    persist_calls = 0
+
+    def persist_then_mutate(*args, **kwargs):
+        nonlocal persist_calls
+        original_persist(*args, **kwargs)
+        persist_calls += 1
+        if persist_calls == 1:
+            manifest.write_text(manifest.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(assistant, "_persist_backup_retention_controlled_apply_ledger", persist_then_mutate)
+    report, exit_code = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-execute",
+            "true",
+            "--backup-retention-confirmation-token",
+            token,
+            "--backup-retention-expected-manifest-sha256",
+            sha256,
+        ]
+    )
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert report["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_file_drift_detected"
+    assert {"message": "backup_retention_controlled_apply_input_changed"} in report["errors"]
+    assert path.is_file()
+
+
+def test_backup_retention_controlled_apply_rejects_manifest_mutation_collision_and_unrelated_calls(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    path = _write_backup_retention_apply_file(backups / "safe.dump", b"safe", timestamp=1000)
+    output_dir = tmp_path / "reports"
+    manifest = _write_backup_retention_controlled_apply_inputs(output_dir, [path])
+
+    collision, collision_exit = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-controlled-apply-output",
+            str(manifest),
+        ]
+    )
+    assert collision_exit == 1
+    assert collision["errors"] == [{"message": "backup_retention_controlled_apply_output_must_not_equal_input"}]
+
+    generic_collision, generic_collision_exit = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--json-output",
+            str(path),
+        ]
+    )
+    assert generic_collision_exit == 1
+    assert generic_collision["errors"] == [{"message": "backup_retention_controlled_apply_output_must_not_equal_input"}]
+    assert path.read_bytes() == b"safe"
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task140 must not call unrelated network or document helpers")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report, _ = _run_backup_retention_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+    for field in (
+        "files_moved",
+        "files_compressed",
+        "files_uploaded",
+        "database_mutated",
+        "documents_downloaded",
+        "documents_parsed",
+        "would_move_files",
+        "would_compress_files",
+        "would_upload_files",
+        "would_mutate_database",
+        "would_fetch_documents",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[field] is False
+
+
 def test_financial_document_fetch_plan_warns_without_candidates_and_uses_safe_retention_fallback() -> None:
     report = _run_financial_document_fetch_plan_preview()
 
@@ -12654,6 +13044,19 @@ def _run_backup_retention_apply_preview(extra_args: list[str] | None = None) -> 
     return report
 
 
+def _run_backup_retention_controlled_apply(extra_args: list[str] | None = None) -> tuple[dict, int]:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "backup-retention-controlled-apply",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+    return report, exit_code
+
+
 def _write_backup_retention_apply_file(path: Path, content: bytes, *, timestamp: float) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
@@ -12722,6 +13125,96 @@ def _write_backup_retention_apply_inputs(
             ),
             encoding="utf-8",
         )
+
+
+def _backup_retention_controlled_apply_manifest_row(path: Path, **updates: object) -> dict[str, object]:
+    stat = path.stat() if path.exists() else None
+    apply_id = f"backup_retention_apply:{path.name}"
+    row: dict[str, object] = {
+        "manifest_id": f"backup_retention_cleanup_manifest:{apply_id}",
+        "apply_id": apply_id,
+        "file_name": path.name,
+        "file_path": str(path),
+        "size_bytes": stat.st_size if stat is not None else 0,
+        "size_mb": assistant._bytes_to_mb(stat.st_size if stat is not None else 0),
+        "size_gb": assistant._bytes_to_gb(stat.st_size if stat is not None else 0),
+        "mtime_utc": assistant._timestamp_to_utc_iso(stat.st_mtime if stat is not None else None),
+        "sha256_optional": "not_calculated_preview_only",
+        "eligible_for_future_manual_delete": True,
+        "manual_review_required": True,
+        "cleanup_script_line": f"# rm -- '{path}'",
+        "cleanup_script_line_enabled": False,
+        "would_delete_file": False,
+    }
+    row.update(updates)
+    return row
+
+
+def _write_backup_retention_controlled_apply_manifest(
+    output_dir: Path,
+    manifest_rows: list[dict[str, object]],
+    *,
+    include_optional: bool = False,
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest = output_dir / "backup_retention_cleanup_manifest_task139.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "backup-retention-cleanup-manifest-preview",
+                "manifest_row_count": len(manifest_rows),
+                "cleanup_manifest_rows": manifest_rows,
+            }
+        ),
+        encoding="utf-8",
+    )
+    if include_optional:
+        (output_dir / "backup_retention_apply_preview_task139.json").write_text(
+            json.dumps(
+                {
+                    "status": "warning",
+                    "mode": "backup-retention-apply-draft-preview",
+                    "apply_rows": [
+                        {
+                            "apply_id": row["apply_id"],
+                            "file_path": row["file_path"],
+                            "current_size_bytes": row["size_bytes"],
+                            "current_mtime_utc": row["mtime_utc"],
+                            "apply_status": "eligible_manual_delete_preview",
+                        }
+                        for row in manifest_rows
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (output_dir / "backup_retention_apply_blockers_task139.json").write_text(
+            json.dumps(
+                {
+                    "status": "warning",
+                    "mode": "backup-retention-apply-blockers-preview",
+                    "blocker_rows": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+    return manifest
+
+
+def _write_backup_retention_controlled_apply_inputs(output_dir: Path, paths: list[Path]) -> Path:
+    return _write_backup_retention_controlled_apply_manifest(
+        output_dir,
+        [_backup_retention_controlled_apply_manifest_row(path) for path in paths],
+        include_optional=True,
+    )
+
+
+def _backup_retention_controlled_apply_confirmation(manifest: Path) -> tuple[str, str]:
+    sha256 = assistant.hashlib.sha256(manifest.read_bytes()).hexdigest()
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    token = f"CONFIRM_BACKUP_DELETE_TASK139_{sha256[:12]}_{len(payload['cleanup_manifest_rows'])}"
+    return sha256, token
 
 
 def _document_artifact_retention_test_paths(tmp_path: Path) -> list[str]:

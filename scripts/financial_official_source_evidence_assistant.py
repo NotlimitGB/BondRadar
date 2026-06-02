@@ -9,6 +9,7 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import sys
 import tempfile
 import time
@@ -63,6 +64,7 @@ MODE_CHOICES = (
     "exact-document-draft-gate-v2",
     "backup-retention-preview",
     "backup-retention-apply-draft-preview",
+    "backup-retention-controlled-apply",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2557,6 +2559,107 @@ BACKUP_RETENTION_CLEANUP_MANIFEST_FIELDS = [
     "cleanup_script_line_enabled",
     "would_delete_file",
 ]
+BACKUP_RETENTION_CONTROLLED_APPLY_ARTIFACT_NAMES = {
+    "controlled_apply_json": "backup_retention_controlled_apply_task140.json",
+    "controlled_apply_csv": "backup_retention_controlled_apply_task140.csv",
+    "controlled_apply_markdown": "backup_retention_controlled_apply_task140.md",
+    "blockers_json": "backup_retention_controlled_apply_blockers_task140.json",
+    "blockers_csv": "backup_retention_controlled_apply_blockers_task140.csv",
+    "ledger_json": "backup_retention_deletion_ledger_task140.json",
+    "ledger_csv": "backup_retention_deletion_ledger_task140.csv",
+    "snapshot_json": "backup_retention_post_apply_snapshot_task140.json",
+    "snapshot_csv": "backup_retention_post_apply_snapshot_task140.csv",
+}
+BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS = {
+    "execute": False,
+    "confirmation_token": "",
+    "expected_manifest_sha256": "",
+    "max_delete_count": 25,
+    "max_delete_gb": 1.0,
+    "require_manual_review": True,
+}
+BACKUP_RETENTION_CONTROLLED_APPLY_FIELDS = [
+    "controlled_apply_id",
+    "manifest_id",
+    "apply_id",
+    "file_name",
+    "file_path",
+    "file_extension",
+    "task139_size_bytes",
+    "current_size_bytes",
+    "task139_mtime_utc",
+    "current_mtime_utc",
+    "file_exists_before",
+    "file_exists_after",
+    "is_regular_file_before",
+    "is_symlink_before",
+    "path_inside_backups_dir",
+    "recognized_backup_file",
+    "eligible_for_future_manual_delete",
+    "manual_review_required",
+    "manual_review_status",
+    "execute_requested",
+    "deletion_execution_enabled",
+    "confirmation_token_matches",
+    "expected_manifest_sha256_matches",
+    "controlled_apply_status",
+    "controlled_apply_severity",
+    "controlled_apply_action",
+    "controlled_apply_reason_codes",
+    "controlled_apply_errors",
+    "controlled_apply_warnings",
+    "delete_order",
+    "delete_limit_status",
+    "reclaim_limit_status",
+    "would_delete_file",
+    "did_delete_file",
+    "delete_exception",
+    "ledger_status",
+    "ledger_reason_codes",
+]
+BACKUP_RETENTION_CONTROLLED_APPLY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "controlled_apply_id",
+    "manifest_id",
+    "apply_id",
+    "file_name",
+    "file_path",
+    "controlled_apply_status",
+    "blocker_code",
+    "severity",
+    "next_manual_action",
+    "would_delete_file",
+]
+BACKUP_RETENTION_DELETION_LEDGER_FIELDS = [
+    "ledger_id",
+    "controlled_apply_id",
+    "file_name",
+    "file_path",
+    "size_bytes",
+    "mtime_utc",
+    "execute_requested",
+    "deletion_execution_enabled",
+    "controlled_apply_status",
+    "did_delete_file",
+    "file_exists_before",
+    "file_exists_after",
+    "delete_exception",
+    "ledger_status",
+    "ledger_reason_codes",
+]
+BACKUP_RETENTION_POST_APPLY_SNAPSHOT_FIELDS = [
+    "snapshot_id",
+    "file_name",
+    "file_path",
+    "entry_type",
+    "recognized_backup_file",
+    "size_bytes",
+    "size_mb",
+    "size_gb",
+    "mtime_utc",
+    "is_regular_file",
+    "is_symlink",
+]
 FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES = {
     "fetch_plan_json": "financial_document_fetch_plan_task133.json",
     "fetch_plan_csv": "financial_document_fetch_plan_task133.csv",
@@ -3471,8 +3574,23 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--backup-retention-cleanup-script-output", type=Path, default=None)
     parser.add_argument("--backup-retention-cleanup-manifest-output", type=Path, default=None)
     parser.add_argument("--backup-retention-cleanup-manifest-csv-output", type=Path, default=None)
-    parser.add_argument("--backup-retention-max-delete-count", type=int, default=BACKUP_RETENTION_APPLY_DEFAULTS["max_delete_count"])
-    parser.add_argument("--backup-retention-max-delete-gb", type=float, default=BACKUP_RETENTION_APPLY_DEFAULTS["max_delete_gb"])
+    parser.add_argument("--backup-retention-apply-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-cleanup-manifest-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-apply-blockers-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-controlled-apply-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-controlled-apply-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-controlled-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-controlled-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-controlled-apply-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-deletion-ledger-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-deletion-ledger-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-post-apply-snapshot-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-post-apply-snapshot-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute", type=_parse_bool, default=BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["execute"])
+    parser.add_argument("--backup-retention-confirmation-token", default=BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["confirmation_token"])
+    parser.add_argument("--backup-retention-expected-manifest-sha256", default=BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["expected_manifest_sha256"])
+    parser.add_argument("--backup-retention-max-delete-count", type=int, default=None)
+    parser.add_argument("--backup-retention-max-delete-gb", type=float, default=None)
     parser.add_argument("--backup-retention-require-preview-status", choices=("passed", "warning"), default=BACKUP_RETENTION_APPLY_DEFAULTS["require_preview_status"])
     parser.add_argument("--backup-retention-require-manual-review", type=_parse_bool, default=BACKUP_RETENTION_APPLY_DEFAULTS["require_manual_review"])
     parser.add_argument("--financial-document-fetch-plan-output", type=Path, default=None)
@@ -3559,7 +3677,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--document-download-dir", type=Path, default=None)
     parser.add_argument("--download-source-documents", action="store_true")
     parser.add_argument("--source-download-dir", type=Path, default=None)
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    controlled_apply = args.mode == "backup-retention-controlled-apply"
+    if args.backup_retention_max_delete_count is None:
+        args.backup_retention_max_delete_count = (
+            BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["max_delete_count"]
+            if controlled_apply
+            else BACKUP_RETENTION_APPLY_DEFAULTS["max_delete_count"]
+        )
+    if args.backup_retention_max_delete_gb is None:
+        args.backup_retention_max_delete_gb = (
+            BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["max_delete_gb"]
+            if controlled_apply
+            else BACKUP_RETENTION_APPLY_DEFAULTS["max_delete_gb"]
+        )
+    return args
 
 
 def run_assistant(
@@ -3644,13 +3776,16 @@ def run_assistant(
         report = run_backup_retention_preview(args)
     elif args.mode == "backup-retention-apply-draft-preview":
         report = run_backup_retention_apply_draft_preview(args)
+    elif args.mode == "backup-retention-controlled-apply":
+        report = run_backup_retention_controlled_apply(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
         report = run_candidate_fill(args)
     else:
         report = run_preview(args, http_request=http_request)
-    return report, 1 if report["status"] == "failed" else 0
+    blocked_controlled_apply = args.mode == "backup-retention-controlled-apply" and report["status"] == "blocked"
+    return report, 1 if report["status"] == "failed" or blocked_controlled_apply else 0
 
 
 def run_source_template(args: argparse.Namespace) -> dict[str, Any]:
@@ -10804,6 +10939,948 @@ def _backup_retention_cleanup_manifest_report(report: dict[str, Any]) -> dict[st
     }
 
 
+def run_backup_retention_controlled_apply(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors = _backup_retention_controlled_apply_config_errors(args)
+    inputs = _backup_retention_controlled_apply_inputs(args)
+    manifest_report, manifest_bytes, manifest_errors = _load_backup_retention_controlled_apply_manifest(
+        inputs["manifest"]
+    )
+    errors.extend(manifest_errors)
+    apply_report = _load_backup_retention_controlled_apply_optional_report(
+        inputs["apply"],
+        expected_mode="backup-retention-apply-draft-preview",
+        rows_field="apply_rows",
+        role="apply_preview",
+        warnings=warnings,
+    )
+    task139_blocker_report = _load_backup_retention_controlled_apply_optional_report(
+        inputs["blockers"],
+        expected_mode="backup-retention-apply-blockers-preview",
+        rows_field="blocker_rows",
+        role="apply_blockers",
+        warnings=warnings,
+    )
+    manifest_rows = list(manifest_report.get("cleanup_manifest_rows") or [])
+    artifacts = _backup_retention_controlled_apply_artifacts(args)
+    errors.extend(
+        _backup_retention_controlled_apply_output_errors(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            manifest_rows=manifest_rows,
+        )
+    )
+    if args.backup_retention_execute and artifacts["ledger_json"] is None:
+        errors.append({"message": "backup_retention_deletion_ledger_output_required_for_execute"})
+    snapshots = _backup_retention_apply_snapshots(inputs)
+    cleanup_manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest() if manifest_bytes else ""
+    confirmation_token_expected = (
+        f"CONFIRM_BACKUP_DELETE_TASK139_{cleanup_manifest_sha256[:12]}_{len(manifest_rows)}"
+        if cleanup_manifest_sha256
+        else ""
+    )
+    confirmation_token_matches = bool(
+        args.backup_retention_confirmation_token
+        and args.backup_retention_confirmation_token == confirmation_token_expected
+    )
+    expected_manifest_sha256_matches = bool(
+        args.backup_retention_expected_manifest_sha256
+        and args.backup_retention_expected_manifest_sha256 == cleanup_manifest_sha256
+    )
+    global_block_status, global_block_reason = _backup_retention_controlled_apply_global_block(
+        args,
+        confirmation_token_matches=confirmation_token_matches,
+        expected_manifest_sha256_matches=expected_manifest_sha256_matches,
+    )
+    deletion_execution_enabled = bool(args.backup_retention_execute and not global_block_status and not errors)
+    task139_apply_by_id = _group_rows_by_field(apply_report.get("apply_rows") or [], "apply_id")
+    task139_blockers_by_id = _group_rows_by_field(task139_blocker_report.get("blocker_rows") or [], "apply_id")
+    controlled_apply_rows = [
+        _build_backup_retention_controlled_apply_row(
+            args,
+            row,
+            task139_apply_by_id=task139_apply_by_id,
+            task139_blockers_by_id=task139_blockers_by_id,
+            deletion_execution_enabled=deletion_execution_enabled,
+            confirmation_token_matches=confirmation_token_matches,
+            expected_manifest_sha256_matches=expected_manifest_sha256_matches,
+        )
+        for row in manifest_rows
+    ]
+    _apply_backup_retention_controlled_apply_limits(args, rows=controlled_apply_rows)
+    for row in controlled_apply_rows:
+        if row["controlled_apply_status"]:
+            continue
+        if not args.backup_retention_execute:
+            _set_backup_retention_controlled_apply_status(
+                row,
+                status="dry_run_eligible_for_delete",
+                reason="",
+            )
+        elif global_block_status:
+            _set_backup_retention_controlled_apply_status(
+                row,
+                status=global_block_status,
+                reason=global_block_reason,
+            )
+    cleanup_attempted = False
+    if deletion_execution_enabled:
+        ledger_rows = _build_backup_retention_deletion_ledger_rows(controlled_apply_rows)
+        try:
+            _persist_backup_retention_controlled_apply_ledger(
+                ledger_rows,
+                json_path=artifacts["ledger_json"],
+                csv_path=artifacts["ledger_csv"],
+                safety_flags=_backup_retention_controlled_apply_safety_flags(
+                    execute_requested=True,
+                    cleanup_attempted=False,
+                    deleted_count=0,
+                    estimated_reclaimable_bytes=_backup_retention_controlled_apply_estimated_bytes(
+                        controlled_apply_rows
+                    ),
+                ),
+            )
+        except OSError as exc:
+            errors.append({"message": "backup_retention_controlled_apply_ledger_write_failed", "error": str(exc)})
+            deletion_execution_enabled = False
+    if deletion_execution_enabled:
+        aborted = False
+        for row in controlled_apply_rows:
+            if row["controlled_apply_status"]:
+                continue
+            if aborted:
+                _set_backup_retention_controlled_apply_status(
+                    row,
+                    status="blocked_execution_aborted_after_delete_exception",
+                    reason="execution_aborted_after_delete_exception",
+                )
+                continue
+            if not _backup_retention_controlled_apply_manifest_unchanged(inputs["manifest"], manifest_bytes):
+                _set_backup_retention_controlled_apply_status(
+                    row,
+                    status="blocked_file_drift_detected",
+                    reason="cleanup_manifest_changed_after_preflight",
+                )
+                aborted = True
+                continue
+            fresh_status, fresh_reason = _revalidate_backup_retention_controlled_apply_row(
+                row,
+                backups_dir=args.backup_retention_backups_dir,
+            )
+            if fresh_status:
+                _set_backup_retention_controlled_apply_status(row, status=fresh_status, reason=fresh_reason)
+                continue
+            cleanup_attempted = True
+            row["controlled_apply_action"] = "delete_backup_file_after_all_guards"
+            row["ledger_status"] = "delete_attempt_pending"
+            ledger_rows = _build_backup_retention_deletion_ledger_rows(controlled_apply_rows)
+            try:
+                _persist_backup_retention_controlled_apply_ledger(
+                    ledger_rows,
+                    json_path=artifacts["ledger_json"],
+                    csv_path=artifacts["ledger_csv"],
+                    safety_flags=_backup_retention_controlled_apply_safety_flags(
+                        execute_requested=True,
+                        cleanup_attempted=True,
+                        deleted_count=sum(bool(item["did_delete_file"]) for item in controlled_apply_rows),
+                        estimated_reclaimable_bytes=_backup_retention_controlled_apply_estimated_bytes(
+                            controlled_apply_rows
+                        ),
+                    ),
+                )
+                _delete_backup_file_after_all_guards(
+                    args,
+                    row,
+                    confirmation_token_matches=confirmation_token_matches,
+                    expected_manifest_sha256_matches=expected_manifest_sha256_matches,
+                )
+                row["file_exists_after"] = Path(row["file_path"]).exists()
+                if row["file_exists_after"]:
+                    raise OSError("backup file still exists after guarded unlink")
+                row["did_delete_file"] = True
+                _set_backup_retention_controlled_apply_status(row, status="deleted", reason="")
+            except (OSError, RuntimeError) as exc:
+                row["delete_exception"] = str(exc)
+                row["controlled_apply_errors"] = [str(exc)]
+                _set_backup_retention_controlled_apply_status(
+                    row,
+                    status="failed_delete_exception",
+                    reason="delete_exception",
+                )
+                aborted = True
+            ledger_rows = _build_backup_retention_deletion_ledger_rows(controlled_apply_rows)
+            try:
+                _persist_backup_retention_controlled_apply_ledger(
+                    ledger_rows,
+                    json_path=artifacts["ledger_json"],
+                    csv_path=artifacts["ledger_csv"],
+                    safety_flags=_backup_retention_controlled_apply_safety_flags(
+                        execute_requested=True,
+                        cleanup_attempted=cleanup_attempted,
+                        deleted_count=sum(bool(item["did_delete_file"]) for item in controlled_apply_rows),
+                        estimated_reclaimable_bytes=_backup_retention_controlled_apply_estimated_bytes(
+                            controlled_apply_rows
+                        ),
+                    ),
+                )
+            except OSError as exc:
+                errors.append({"message": "backup_retention_controlled_apply_ledger_write_failed", "error": str(exc)})
+                aborted = True
+        if aborted:
+            for row in controlled_apply_rows:
+                if not row["controlled_apply_status"]:
+                    _set_backup_retention_controlled_apply_status(
+                        row,
+                        status="blocked_execution_aborted_after_delete_exception",
+                        reason="execution_aborted_after_delete_exception",
+                    )
+    if not _backup_retention_apply_snapshots_unchanged(snapshots):
+        errors.append({"message": "backup_retention_controlled_apply_input_changed"})
+    snapshot_rows, snapshot_warnings = _scan_backup_retention_controlled_apply_snapshot(
+        args.backup_retention_backups_dir
+    )
+    warnings.extend(snapshot_warnings)
+    blocker_rows = _build_backup_retention_controlled_apply_blocker_rows(
+        controlled_apply_rows,
+        task139_blocker_rows=task139_blocker_report.get("blocker_rows") or [],
+    )
+    ledger_rows = _build_backup_retention_deletion_ledger_rows(controlled_apply_rows)
+    report = _build_backup_retention_controlled_apply_report(
+        args,
+        controlled_apply_rows=controlled_apply_rows,
+        blocker_rows=blocker_rows,
+        ledger_rows=ledger_rows,
+        snapshot_rows=snapshot_rows,
+        artifacts=artifacts,
+        manifest_rows=manifest_rows,
+        cleanup_manifest_sha256=cleanup_manifest_sha256,
+        confirmation_token_expected=confirmation_token_expected,
+        confirmation_token_matches=confirmation_token_matches,
+        expected_manifest_sha256_matches=expected_manifest_sha256_matches,
+        deletion_execution_enabled=deletion_execution_enabled,
+        cleanup_attempted=cleanup_attempted,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            _write_backup_retention_controlled_apply_outputs(report, artifacts=artifacts)
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _backup_retention_controlled_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "apply": args.backup_retention_apply_input
+        or (output_dir / BACKUP_RETENTION_APPLY_ARTIFACT_NAMES["apply_json"] if output_dir else None),
+        "manifest": args.backup_retention_cleanup_manifest_input
+        or (output_dir / BACKUP_RETENTION_APPLY_ARTIFACT_NAMES["manifest_json"] if output_dir else None),
+        "blockers": args.backup_retention_apply_blockers_input
+        or (output_dir / BACKUP_RETENTION_APPLY_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+    }
+
+
+def _backup_retention_controlled_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "controlled_apply_json": args.backup_retention_controlled_apply_output,
+        "controlled_apply_csv": args.backup_retention_controlled_apply_csv_output,
+        "controlled_apply_markdown": args.backup_retention_controlled_apply_markdown_output,
+        "blockers_json": args.backup_retention_controlled_apply_blockers_output,
+        "blockers_csv": args.backup_retention_controlled_apply_blockers_csv_output,
+        "ledger_json": args.backup_retention_deletion_ledger_output,
+        "ledger_csv": args.backup_retention_deletion_ledger_csv_output,
+        "snapshot_json": args.backup_retention_post_apply_snapshot_output,
+        "snapshot_csv": args.backup_retention_post_apply_snapshot_csv_output,
+    }
+    return {
+        key: overrides[key] or (output_dir / file_name if output_dir is not None else None)
+        for key, file_name in BACKUP_RETENTION_CONTROLLED_APPLY_ARTIFACT_NAMES.items()
+    }
+
+
+def _backup_retention_controlled_apply_config_errors(args: argparse.Namespace) -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    if args.backup_retention_max_delete_count < 0:
+        errors.append({"message": "invalid_backup_retention_controlled_apply_policy_value:backup_retention_max_delete_count"})
+    if args.backup_retention_max_delete_gb < 0:
+        errors.append({"message": "invalid_backup_retention_controlled_apply_policy_value:backup_retention_max_delete_gb"})
+    if not _backup_retention_backups_dir_is_safe(args.backup_retention_backups_dir):
+        errors.append({"message": "backup_retention_backups_dir_unsafe"})
+    return errors
+
+
+def _load_backup_retention_controlled_apply_manifest(
+    path: Path | None,
+) -> tuple[dict[str, Any], bytes, list[dict[str, Any]]]:
+    if path is None or not path.is_file():
+        return {}, b"", [{"message": "backup_retention_controlled_apply_input_required"}]
+    try:
+        content = path.read_bytes()
+        payload = json.loads(content.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}, b"", [{"message": "backup_retention_controlled_apply_input_invalid", "path": str(path)}]
+    if (
+        not isinstance(payload, dict)
+        or payload.get("mode") != "backup-retention-cleanup-manifest-preview"
+        or not isinstance(payload.get("cleanup_manifest_rows"), list)
+        or not all(isinstance(row, dict) for row in payload.get("cleanup_manifest_rows") or [])
+    ):
+        return {}, b"", [{"message": "backup_retention_controlled_apply_input_invalid", "path": str(path)}]
+    return payload, content, []
+
+
+def _load_backup_retention_controlled_apply_optional_report(
+    path: Path | None,
+    *,
+    expected_mode: str,
+    rows_field: str,
+    role: str,
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if path is None or not path.is_file():
+        warnings.append({"message": f"backup_retention_controlled_apply_optional_input_missing:{role}"})
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        warnings.append({"message": f"backup_retention_controlled_apply_optional_input_unreadable:{role}", "path": str(path)})
+        return {}
+    if (
+        not isinstance(payload, dict)
+        or payload.get("mode") != expected_mode
+        or not isinstance(payload.get(rows_field), list)
+        or not all(isinstance(row, dict) for row in payload.get(rows_field) or [])
+    ):
+        warnings.append({"message": f"backup_retention_controlled_apply_optional_input_unreadable:{role}", "path": str(path)})
+        return {}
+    return payload
+
+
+def _backup_retention_controlled_apply_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    manifest_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected = [
+        path
+        for path in [
+            *inputs.values(),
+            args.backup_retention_backups_dir,
+            *(Path(str(row.get("file_path") or "")) for row in manifest_rows if str(row.get("file_path") or "")),
+        ]
+        if path is not None
+    ]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "backup_retention_controlled_apply_output_must_not_equal_input"}]
+        if any(_paths_equal(output, path) for path in protected):
+            return [{"message": "backup_retention_controlled_apply_output_must_not_equal_input"}]
+        if _path_is_within(output, args.backup_retention_backups_dir):
+            return [{"message": "backup_retention_controlled_apply_output_must_not_equal_input"}]
+    return []
+
+
+def _backup_retention_controlled_apply_global_block(
+    args: argparse.Namespace,
+    *,
+    confirmation_token_matches: bool,
+    expected_manifest_sha256_matches: bool,
+) -> tuple[str, str]:
+    if not args.backup_retention_execute:
+        return "", ""
+    if not args.backup_retention_confirmation_token:
+        return "blocked_confirmation_required", "confirmation_token_required"
+    if not args.backup_retention_expected_manifest_sha256:
+        return "blocked_manifest_hash_required", "expected_manifest_sha256_required"
+    if not confirmation_token_matches:
+        return "blocked_confirmation_token_mismatch", "confirmation_token_mismatch"
+    if not expected_manifest_sha256_matches:
+        return "blocked_manifest_hash_mismatch", "expected_manifest_sha256_mismatch"
+    return "", ""
+
+
+def _group_rows_by_field(rows: list[dict[str, Any]], field: str) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        value = str(row.get(field) or "")
+        if value:
+            grouped.setdefault(value, []).append(row)
+    return grouped
+
+
+def _backup_retention_controlled_apply_current_file(path: Path) -> dict[str, Any]:
+    try:
+        file_stat = os.lstat(path)
+    except OSError:
+        return {
+            "exists": False,
+            "is_regular": False,
+            "is_symlink": False,
+            "size_bytes": None,
+            "mtime_timestamp": None,
+            "mtime_utc": "",
+        }
+    return {
+        "exists": True,
+        "is_regular": stat.S_ISREG(file_stat.st_mode),
+        "is_symlink": stat.S_ISLNK(file_stat.st_mode),
+        "size_bytes": file_stat.st_size,
+        "mtime_timestamp": file_stat.st_mtime,
+        "mtime_utc": _timestamp_to_utc_iso(file_stat.st_mtime),
+    }
+
+
+def _build_backup_retention_controlled_apply_row(
+    args: argparse.Namespace,
+    manifest_row: dict[str, Any],
+    *,
+    task139_apply_by_id: dict[str, list[dict[str, Any]]],
+    task139_blockers_by_id: dict[str, list[dict[str, Any]]],
+    deletion_execution_enabled: bool,
+    confirmation_token_matches: bool,
+    expected_manifest_sha256_matches: bool,
+) -> dict[str, Any]:
+    path = Path(str(manifest_row.get("file_path") or ""))
+    current = _backup_retention_controlled_apply_current_file(path)
+    apply_id = str(manifest_row.get("apply_id") or "")
+    task139_rows = task139_apply_by_id.get(apply_id) or []
+    task139_metadata_consistent = not task139_apply_by_id or (
+        len(task139_rows) == 1
+        and str(task139_rows[0].get("file_path") or "") == str(path)
+        and _as_int(task139_rows[0].get("current_size_bytes")) == _as_int(manifest_row.get("size_bytes"))
+        and str(task139_rows[0].get("current_mtime_utc") or "") == str(manifest_row.get("mtime_utc") or "")
+        and task139_rows[0].get("apply_status") == "eligible_manual_delete_preview"
+    )
+    row = {
+        "controlled_apply_id": f"backup_retention_controlled_apply:{manifest_row.get('manifest_id') or hashlib.sha256(str(path).encode('utf-8')).hexdigest()}",
+        "manifest_id": str(manifest_row.get("manifest_id") or ""),
+        "apply_id": apply_id,
+        "file_name": path.name,
+        "file_path": str(path),
+        "file_extension": _backup_retention_recognized_extension(path.name),
+        "task139_size_bytes": _as_int(manifest_row.get("size_bytes")),
+        "current_size_bytes": current["size_bytes"],
+        "task139_mtime_utc": str(manifest_row.get("mtime_utc") or ""),
+        "current_mtime_utc": current["mtime_utc"],
+        "current_mtime_timestamp": current["mtime_timestamp"],
+        "file_exists_before": current["exists"],
+        "file_exists_after": current["exists"],
+        "is_regular_file_before": current["is_regular"],
+        "is_symlink_before": current["is_symlink"],
+        "path_inside_backups_dir": _backup_retention_apply_path_inside_backups_dir(
+            path, args.backup_retention_backups_dir
+        ),
+        "recognized_backup_file": bool(_backup_retention_recognized_extension(path.name)),
+        "eligible_for_future_manual_delete": manifest_row.get("eligible_for_future_manual_delete") is True,
+        "manual_review_required": manifest_row.get("manual_review_required") is True,
+        "manual_review_status": (
+            "required_confirmed_by_token_and_manifest_hash"
+            if args.backup_retention_require_manual_review and deletion_execution_enabled
+            else "required_pending_explicit_execute_confirmation"
+            if args.backup_retention_require_manual_review
+            else "not_required_by_configuration"
+        ),
+        "execute_requested": args.backup_retention_execute,
+        "deletion_execution_enabled": deletion_execution_enabled,
+        "confirmation_token_matches": confirmation_token_matches,
+        "expected_manifest_sha256_matches": expected_manifest_sha256_matches,
+        "controlled_apply_status": "",
+        "controlled_apply_severity": "",
+        "controlled_apply_action": "",
+        "controlled_apply_reason_codes": [],
+        "controlled_apply_errors": [],
+        "controlled_apply_warnings": [],
+        "delete_order": None,
+        "delete_limit_status": "within_limit",
+        "reclaim_limit_status": "within_limit",
+        "would_delete_file": False,
+        "did_delete_file": False,
+        "delete_exception": "",
+        "ledger_status": "",
+        "ledger_reason_codes": [],
+    }
+    status, reason = _classify_backup_retention_controlled_apply_row(
+        args,
+        row,
+        manifest_row=manifest_row,
+        task139_metadata_consistent=task139_metadata_consistent,
+        task139_blocker_present=bool(task139_blockers_by_id.get(apply_id)),
+    )
+    if status:
+        _set_backup_retention_controlled_apply_status(row, status=status, reason=reason)
+    return row
+
+
+def _classify_backup_retention_controlled_apply_row(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    *,
+    manifest_row: dict[str, Any],
+    task139_metadata_consistent: bool,
+    task139_blocker_present: bool,
+) -> tuple[str, str]:
+    if (
+        manifest_row.get("eligible_for_future_manual_delete") is not True
+        or manifest_row.get("cleanup_script_line_enabled") is not False
+        or manifest_row.get("would_delete_file") is not False
+        or task139_blocker_present
+        or not task139_metadata_consistent
+    ):
+        return "blocked_not_manifest_eligible", "task139_manifest_not_eligible_or_inconsistent"
+    if args.backup_retention_require_manual_review and manifest_row.get("manual_review_required") is not True:
+        return "blocked_manual_review_required", "manual_review_metadata_required"
+    return _revalidate_backup_retention_controlled_apply_row(
+        row,
+        backups_dir=args.backup_retention_backups_dir,
+    )
+
+
+def _revalidate_backup_retention_controlled_apply_row(
+    row: dict[str, Any],
+    *,
+    backups_dir: Path,
+) -> tuple[str, str]:
+    path = Path(row["file_path"])
+    current = _backup_retention_controlled_apply_current_file(path)
+    row["file_exists_after"] = current["exists"]
+    row["current_size_bytes"] = current["size_bytes"]
+    row["current_mtime_utc"] = current["mtime_utc"]
+    row["current_mtime_timestamp"] = current["mtime_timestamp"]
+    if not _backup_retention_apply_path_inside_backups_dir(path, backups_dir):
+        return "blocked_unsafe_path", "unsafe_path"
+    if current["is_symlink"]:
+        return "blocked_symlink", "symlink_not_allowed"
+    if not current["exists"]:
+        return "blocked_file_missing", "file_missing"
+    if not current["is_regular"]:
+        return "blocked_not_regular_file", "file_not_regular"
+    if not _backup_retention_recognized_extension(path.name):
+        return "blocked_unrecognized_extension", "unrecognized_extension"
+    if row["task139_size_bytes"] != current["size_bytes"]:
+        return "blocked_file_drift_detected", "file_size_drift"
+    task139_mtime = _parse_utc_timestamp(row["task139_mtime_utc"])
+    if (
+        task139_mtime is None
+        or current["mtime_timestamp"] is None
+        or abs(float(current["mtime_timestamp"]) - task139_mtime) > 1.0
+    ):
+        return "blocked_file_drift_detected", "file_mtime_drift"
+    return "", ""
+
+
+def _apply_backup_retention_controlled_apply_limits(
+    args: argparse.Namespace,
+    *,
+    rows: list[dict[str, Any]],
+) -> None:
+    candidates = sorted(
+        (row for row in rows if not row["controlled_apply_status"]),
+        key=lambda row: (row["current_mtime_timestamp"] or 0, row["file_path"]),
+    )
+    accepted_count = 0
+    accepted_bytes = 0
+    max_bytes = args.backup_retention_max_delete_gb * (1024**3)
+    for delete_order, row in enumerate(candidates, start=1):
+        row["delete_order"] = delete_order
+        size_bytes = int(row["current_size_bytes"] or 0)
+        if accepted_count >= args.backup_retention_max_delete_count:
+            row["delete_limit_status"] = "delete_count_limit_exceeded"
+            _set_backup_retention_controlled_apply_status(
+                row,
+                status="blocked_delete_count_limit_exceeded",
+                reason="delete_count_limit_exceeded",
+            )
+            continue
+        if accepted_bytes + size_bytes > max_bytes:
+            row["reclaim_limit_status"] = "reclaim_size_limit_exceeded"
+            _set_backup_retention_controlled_apply_status(
+                row,
+                status="blocked_reclaim_limit_exceeded",
+                reason="reclaim_size_limit_exceeded",
+            )
+            continue
+        accepted_count += 1
+        accepted_bytes += size_bytes
+
+
+def _set_backup_retention_controlled_apply_status(
+    row: dict[str, Any],
+    *,
+    status: str,
+    reason: str,
+) -> None:
+    row["controlled_apply_status"] = status
+    row["controlled_apply_reason_codes"] = [reason] if reason else []
+    row["controlled_apply_severity"] = "info" if status in {"dry_run_eligible_for_delete", "deleted"} else "error" if status.startswith("failed_") else "warning"
+    row["controlled_apply_action"] = (
+        "delete_backup_file_after_all_guards"
+        if status == "deleted"
+        else "preview_delete_after_all_guards"
+        if status == "dry_run_eligible_for_delete"
+        else "block"
+    )
+    row["would_delete_file"] = status == "dry_run_eligible_for_delete"
+    row["ledger_status"] = (
+        "deleted"
+        if status == "deleted"
+        else "dry_run_noop"
+        if status == "dry_run_eligible_for_delete"
+        else "failed"
+        if status.startswith("failed_")
+        else "blocked"
+    )
+    row["ledger_reason_codes"] = [reason] if reason else []
+
+
+def _backup_retention_controlled_apply_manifest_unchanged(path: Path | None, expected: bytes) -> bool:
+    try:
+        return path is not None and path.is_file() and path.read_bytes() == expected
+    except OSError:
+        return False
+
+
+def _delete_backup_file_after_all_guards(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    *,
+    confirmation_token_matches: bool,
+    expected_manifest_sha256_matches: bool,
+) -> None:
+    path = Path(row["file_path"])
+    if args.mode != "backup-retention-controlled-apply" or not args.backup_retention_execute:
+        raise RuntimeError("guarded backup deletion called outside controlled execute mode")
+    if not confirmation_token_matches or not expected_manifest_sha256_matches:
+        raise RuntimeError("guarded backup deletion confirmation mismatch")
+    status, reason = _revalidate_backup_retention_controlled_apply_row(
+        row,
+        backups_dir=args.backup_retention_backups_dir,
+    )
+    if status:
+        raise RuntimeError(reason)
+    path.unlink()
+
+
+def _build_backup_retention_deletion_ledger_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "ledger_id": f"backup_retention_deletion_ledger:{row['controlled_apply_id']}",
+            "controlled_apply_id": row["controlled_apply_id"],
+            "file_name": row["file_name"],
+            "file_path": row["file_path"],
+            "size_bytes": row["task139_size_bytes"],
+            "mtime_utc": row["task139_mtime_utc"],
+            "execute_requested": row["execute_requested"],
+            "deletion_execution_enabled": row["deletion_execution_enabled"],
+            "controlled_apply_status": row["controlled_apply_status"],
+            "did_delete_file": row["did_delete_file"],
+            "file_exists_before": row["file_exists_before"],
+            "file_exists_after": row["file_exists_after"],
+            "delete_exception": row["delete_exception"],
+            "ledger_status": row["ledger_status"] or "pending_controlled_delete",
+            "ledger_reason_codes": row["ledger_reason_codes"],
+        }
+        for row in rows
+    ]
+
+
+def _persist_backup_retention_controlled_apply_ledger(
+    rows: list[dict[str, Any]],
+    *,
+    json_path: Path | None,
+    csv_path: Path | None,
+    safety_flags: dict[str, Any],
+) -> None:
+    if json_path is not None:
+        _write_json_report_atomic(
+            {
+                "status": "warning",
+                "mode": "backup-retention-deletion-ledger",
+                "ledger_row_count": len(rows),
+                "deletion_ledger_rows": rows,
+                **safety_flags,
+            },
+            json_path,
+        )
+    if csv_path is not None:
+        _write_flat_csv_atomic(rows, BACKUP_RETENTION_DELETION_LEDGER_FIELDS, csv_path)
+
+
+def _write_json_report_atomic(payload: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        temp_path = Path(handle.name)
+    os.replace(temp_path, path)
+
+
+def _write_flat_csv_atomic(rows: list[dict[str, Any]], fieldnames: list[str], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", newline="", dir=path.parent, delete=False) as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: _csv_value(row.get(field)) for field in fieldnames})
+        temp_path = Path(handle.name)
+    os.replace(temp_path, path)
+
+
+def _scan_backup_retention_controlled_apply_snapshot(
+    backups_dir: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    inventory_rows, warnings, errors = _scan_backup_retention_inventory(backups_dir)
+    warnings.extend(errors)
+    rows = [
+        {
+            "snapshot_id": f"backup_retention_post_apply_snapshot:{hashlib.sha256(str(row['path']).encode('utf-8')).hexdigest()}",
+            "file_name": row["file_name"],
+            "file_path": row["path"],
+            "entry_type": row["entry_type"],
+            "recognized_backup_file": row["recognized_backup"],
+            "size_bytes": row["size_bytes"],
+            "size_mb": row["size_mb"],
+            "size_gb": row["size_gb"],
+            "mtime_utc": row["mtime_utc"],
+            "is_regular_file": row["is_regular_file"],
+            "is_symlink": row["is_symlink"],
+        }
+        for row in inventory_rows
+    ]
+    return rows, _dedupe_messages(warnings)
+
+
+def _build_backup_retention_controlled_apply_blocker_rows(
+    rows: list[dict[str, Any]],
+    *,
+    task139_blocker_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    blockers = [
+        {
+            "blocker_id": f"backup_retention_controlled_apply_blocker:{row['controlled_apply_id']}:{reason}",
+            "controlled_apply_id": row["controlled_apply_id"],
+            "manifest_id": row["manifest_id"],
+            "apply_id": row["apply_id"],
+            "file_name": row["file_name"],
+            "file_path": row["file_path"],
+            "controlled_apply_status": row["controlled_apply_status"],
+            "blocker_code": reason,
+            "severity": row["controlled_apply_severity"],
+            "next_manual_action": "Resolve this blocker and regenerate Task139 artifacts before any future controlled execute.",
+            "would_delete_file": False,
+        }
+        for row in rows
+        if row["controlled_apply_status"] not in {"dry_run_eligible_for_delete", "deleted"}
+        for reason in (row["controlled_apply_reason_codes"] or ["unknown_readiness"])
+    ]
+    blockers.extend(
+        {
+            "blocker_id": f"backup_retention_controlled_apply_blocker:task139:{row.get('blocker_id') or index}",
+            "controlled_apply_id": "",
+            "manifest_id": "",
+            "apply_id": str(row.get("apply_id") or ""),
+            "file_name": str(row.get("file_name") or ""),
+            "file_path": str(row.get("file_path") or ""),
+            "controlled_apply_status": "task139_blocker_diagnostic",
+            "blocker_code": str(row.get("blocker_code") or "task139_blocker_present"),
+            "severity": str(row.get("severity") or "warning"),
+            "next_manual_action": "Review the Task139 blocker before any future controlled execute.",
+            "would_delete_file": False,
+        }
+        for index, row in enumerate(task139_blocker_rows)
+    )
+    return blockers
+
+
+def _backup_retention_controlled_apply_estimated_bytes(rows: list[dict[str, Any]]) -> int:
+    return sum(
+        int(row["task139_size_bytes"] or 0)
+        for row in rows
+        if row["controlled_apply_status"] in {"", "dry_run_eligible_for_delete", "deleted"}
+    )
+
+
+def _backup_retention_controlled_apply_safety_flags(
+    *,
+    execute_requested: bool,
+    cleanup_attempted: bool,
+    deleted_count: int,
+    estimated_reclaimable_bytes: int,
+) -> dict[str, Any]:
+    flags = _backup_retention_safety_flags()
+    flags.update(
+        {
+            "read_only": False,
+            "dry_run_only": not execute_requested,
+            "cleanup_executed": cleanup_attempted,
+            "files_deleted": deleted_count > 0,
+            "would_delete_files": estimated_reclaimable_bytes > 0 and not execute_requested,
+        }
+    )
+    return flags
+
+
+def _build_backup_retention_controlled_apply_report(
+    args: argparse.Namespace,
+    *,
+    controlled_apply_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    ledger_rows: list[dict[str, Any]],
+    snapshot_rows: list[dict[str, Any]],
+    artifacts: dict[str, Path | None],
+    manifest_rows: list[dict[str, Any]],
+    cleanup_manifest_sha256: str,
+    confirmation_token_expected: str,
+    confirmation_token_matches: bool,
+    expected_manifest_sha256_matches: bool,
+    deletion_execution_enabled: bool,
+    cleanup_attempted: bool,
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    warnings = _dedupe_messages(warnings)
+    deleted_count = sum(bool(row["did_delete_file"]) for row in controlled_apply_rows)
+    dry_run_eligible_count = sum(row["controlled_apply_status"] == "dry_run_eligible_for_delete" for row in controlled_apply_rows)
+    failed_count = sum(row["controlled_apply_status"].startswith("failed_") for row in controlled_apply_rows)
+    blocked_count = sum(row["controlled_apply_status"].startswith("blocked_") for row in controlled_apply_rows)
+    manifest_reclaimable_bytes = sum(int(row.get("size_bytes") or 0) for row in manifest_rows)
+    estimated_reclaimable_bytes = _backup_retention_controlled_apply_estimated_bytes(controlled_apply_rows)
+    actual_reclaimed_bytes = sum(int(row["task139_size_bytes"] or 0) for row in controlled_apply_rows if row["did_delete_file"])
+    recognized_snapshot_rows = [row for row in snapshot_rows if row["recognized_backup_file"]]
+    global_execute_blocked = bool(args.backup_retention_execute and not deletion_execution_enabled and not errors)
+    status = (
+        "failed"
+        if errors
+        else "blocked"
+        if global_execute_blocked
+        else "warning"
+        if warnings or blocker_rows or dry_run_eligible_count or failed_count
+        else "passed"
+    )
+    safety_flags = _backup_retention_controlled_apply_safety_flags(
+        execute_requested=args.backup_retention_execute,
+        cleanup_attempted=cleanup_attempted,
+        deleted_count=deleted_count,
+        estimated_reclaimable_bytes=estimated_reclaimable_bytes,
+    )
+    return {
+        "status": status,
+        "mode": "backup-retention-controlled-apply",
+        "backups_dir": str(args.backup_retention_backups_dir),
+        "execute_requested": args.backup_retention_execute,
+        "deletion_execution_enabled": deletion_execution_enabled,
+        "cleanup_manifest_sha256": cleanup_manifest_sha256,
+        "confirmation_token_expected": confirmation_token_expected,
+        "confirmation_token_provided": args.backup_retention_confirmation_token,
+        "confirmation_token_matches": confirmation_token_matches,
+        "expected_manifest_sha256_provided": args.backup_retention_expected_manifest_sha256,
+        "expected_manifest_sha256_matches": expected_manifest_sha256_matches,
+        "manifest_input_count": len(manifest_rows),
+        "controlled_apply_row_count": len(controlled_apply_rows),
+        "dry_run_eligible_count": dry_run_eligible_count,
+        "deleted_count": deleted_count,
+        "blocked_count": blocked_count,
+        "failed_count": failed_count,
+        "ledger_row_count": len(ledger_rows),
+        "post_apply_backup_file_count": len(snapshot_rows),
+        "post_apply_recognized_backup_file_count": len(recognized_snapshot_rows),
+        "post_apply_recognized_backup_size_bytes": sum(int(row["size_bytes"] or 0) for row in recognized_snapshot_rows),
+        "post_apply_recognized_backup_size_gb": _bytes_to_gb(sum(int(row["size_bytes"] or 0) for row in recognized_snapshot_rows)),
+        "manifest_reclaimable_bytes": manifest_reclaimable_bytes,
+        "manifest_reclaimable_gb": _bytes_to_gb(manifest_reclaimable_bytes),
+        "estimated_reclaimable_bytes": estimated_reclaimable_bytes,
+        "estimated_reclaimable_gb": _bytes_to_gb(estimated_reclaimable_bytes),
+        "actual_reclaimed_bytes": actual_reclaimed_bytes,
+        "actual_reclaimed_gb": _bytes_to_gb(actual_reclaimed_bytes),
+        "max_delete_count": args.backup_retention_max_delete_count,
+        "max_delete_gb": args.backup_retention_max_delete_gb,
+        "require_manual_review": args.backup_retention_require_manual_review,
+        "controlled_apply_status_counts": _count_values(controlled_apply_rows, "controlled_apply_status"),
+        "blocker_code_counts": _count_values(blocker_rows, "blocker_code"),
+        "controlled_apply_rows": controlled_apply_rows,
+        "blocker_rows": blocker_rows,
+        "deletion_ledger_rows": ledger_rows,
+        "post_apply_snapshot_rows": snapshot_rows,
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("backup-retention-controlled-apply", status),
+        **safety_flags,
+    }
+
+
+def _write_backup_retention_controlled_apply_outputs(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts["controlled_apply_json"] is not None:
+        write_json_report(report, artifacts["controlled_apply_json"])
+    if artifacts["controlled_apply_csv"] is not None:
+        _write_flat_csv(report["controlled_apply_rows"], BACKUP_RETENTION_CONTROLLED_APPLY_FIELDS, artifacts["controlled_apply_csv"])
+    if artifacts["controlled_apply_markdown"] is not None:
+        write_backup_retention_controlled_apply_markdown(report, artifacts["controlled_apply_markdown"])
+    if artifacts["blockers_json"] is not None:
+        write_json_report(_backup_retention_controlled_apply_blockers_report(report), artifacts["blockers_json"])
+    if artifacts["blockers_csv"] is not None:
+        _write_flat_csv(report["blocker_rows"], BACKUP_RETENTION_CONTROLLED_APPLY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    _persist_backup_retention_controlled_apply_ledger(
+        report["deletion_ledger_rows"],
+        json_path=artifacts["ledger_json"],
+        csv_path=artifacts["ledger_csv"],
+        safety_flags=_backup_retention_controlled_apply_safety_flags(
+            execute_requested=report["execute_requested"],
+            cleanup_attempted=report["cleanup_executed"],
+            deleted_count=report["deleted_count"],
+            estimated_reclaimable_bytes=report["estimated_reclaimable_bytes"],
+        ),
+    )
+    if artifacts["snapshot_json"] is not None:
+        write_json_report(_backup_retention_controlled_apply_snapshot_report(report), artifacts["snapshot_json"])
+    if artifacts["snapshot_csv"] is not None:
+        _write_flat_csv(report["post_apply_snapshot_rows"], BACKUP_RETENTION_POST_APPLY_SNAPSHOT_FIELDS, artifacts["snapshot_csv"])
+
+
+def _backup_retention_controlled_apply_blockers_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "backup-retention-controlled-apply-blockers",
+        "blocker_row_count": len(report["blocker_rows"]),
+        "blocker_code_counts": report["blocker_code_counts"],
+        "blocker_rows": report["blocker_rows"],
+        **_backup_retention_controlled_apply_safety_flags(
+            execute_requested=report["execute_requested"],
+            cleanup_attempted=report["cleanup_executed"],
+            deleted_count=report["deleted_count"],
+            estimated_reclaimable_bytes=report["estimated_reclaimable_bytes"],
+        ),
+    }
+
+
+def _backup_retention_controlled_apply_snapshot_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "backup-retention-post-apply-snapshot",
+        "post_apply_backup_file_count": report["post_apply_backup_file_count"],
+        "post_apply_recognized_backup_file_count": report["post_apply_recognized_backup_file_count"],
+        "post_apply_recognized_backup_size_bytes": report["post_apply_recognized_backup_size_bytes"],
+        "post_apply_recognized_backup_size_gb": report["post_apply_recognized_backup_size_gb"],
+        "post_apply_snapshot_rows": report["post_apply_snapshot_rows"],
+        **_backup_retention_controlled_apply_safety_flags(
+            execute_requested=report["execute_requested"],
+            cleanup_attempted=report["cleanup_executed"],
+            deleted_count=report["deleted_count"],
+            estimated_reclaimable_bytes=report["estimated_reclaimable_bytes"],
+        ),
+    }
+
+
 def _count_values(rows: list[dict[str, Any]], field: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for row in rows:
@@ -17157,6 +18234,11 @@ def write_backup_retention_apply_markdown(report: dict[str, Any], path: Path) ->
     path.write_text(render_backup_retention_apply_markdown(report), encoding="utf-8")
 
 
+def write_backup_retention_controlled_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_backup_retention_controlled_apply_markdown(report), encoding="utf-8")
+
+
 def write_financial_document_fetch_plan_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_financial_document_fetch_plan_markdown(report), encoding="utf-8")
@@ -17352,6 +18434,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_backup_retention_markdown(report)
     if report.get("mode") == "backup-retention-apply-draft-preview":
         return render_backup_retention_apply_markdown(report)
+    if report.get("mode") == "backup-retention-controlled-apply":
+        return render_backup_retention_controlled_apply_markdown(report)
     if report.get("mode") == "financial-document-fetch-plan-preview":
         return render_financial_document_fetch_plan_markdown(report)
     if report.get("mode") == "operator-exact-document-refill-workspace-v2":
@@ -19186,6 +20270,126 @@ def render_backup_retention_apply_markdown(report: dict[str, Any]) -> str:
             "- This task does not download or parse reports.",
             "- This task does not score issuers or trigger paper trading.",
             "- Any real cleanup must be a separate explicit manual action or future apply task.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_backup_retention_controlled_apply_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Backup Retention Controlled Apply",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- backups directory: `{report.get('backups_dir')}`",
+        f"- execute requested: `{report.get('execute_requested')}`",
+        f"- deletion execution enabled: `{report.get('deletion_execution_enabled')}`",
+        f"- manifest rows: {report.get('manifest_input_count', 0)}",
+        f"- controlled apply rows: {report.get('controlled_apply_row_count', 0)}",
+        f"- dry-run eligible rows: {report.get('dry_run_eligible_count', 0)}",
+        f"- deleted rows: {report.get('deleted_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        f"- failed rows: {report.get('failed_count', 0)}",
+        f"- bounded reclaim preview: {report.get('estimated_reclaimable_gb', 0)} GB",
+        f"- actual reclaimed space: {report.get('actual_reclaimed_gb', 0)} GB",
+        "",
+        "## Confirmation",
+        "",
+        f"- cleanup manifest SHA-256: `{report.get('cleanup_manifest_sha256')}`",
+        f"- expected token: `{report.get('confirmation_token_expected')}`",
+        f"- provided token matches: `{report.get('confirmation_token_matches')}`",
+        f"- provided manifest SHA-256 matches: `{report.get('expected_manifest_sha256_matches')}`",
+        f"- max delete count: {report.get('max_delete_count')}",
+        f"- max delete size: {report.get('max_delete_gb')} GB",
+        f"- manual review required: `{report.get('require_manual_review')}`",
+        "",
+        "## Apply Status Counts",
+        "",
+    ]
+    lines.extend(f"- `{key}`: {value}" for key, value in (report.get("controlled_apply_status_counts") or {}).items())
+    if not report.get("controlled_apply_status_counts"):
+        lines.append("- none")
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(f"- `{key}`: {value}" for key, value in (report.get("blocker_code_counts") or {}).items())
+    if not report.get("blocker_code_counts"):
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Controlled Apply Rows",
+            "",
+            "| File | Status | Bytes | Modified UTC | Deleted | Reasons |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("controlled_apply_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("file_name"),
+                    row.get("controlled_apply_status"),
+                    row.get("current_size_bytes"),
+                    row.get("current_mtime_utc"),
+                    row.get("did_delete_file"),
+                    _csv_value(row.get("controlled_apply_reason_codes")),
+                )
+            )
+            + " |"
+        )
+    if not report.get("controlled_apply_rows"):
+        lines.append("| none | none | 0 | none | false | none |")
+    lines.extend(
+        [
+            "",
+            "## Post-Apply Snapshot",
+            "",
+            f"- backup entries: {report.get('post_apply_backup_file_count', 0)}",
+            f"- recognized backup files: {report.get('post_apply_recognized_backup_file_count', 0)}",
+            f"- recognized backup size: {report.get('post_apply_recognized_backup_size_gb', 0)} GB",
+            "",
+        ]
+    )
+    if not report.get("execute_requested"):
+        lines.extend(
+            [
+                "## Future Explicit Execute Template",
+                "",
+                "```bash",
+                "python3 scripts/financial_official_source_evidence_assistant.py \\",
+                "  --mode backup-retention-controlled-apply \\",
+                "  --operator-resolution-chain-output-dir logs/financial_reports/task124_chain_preview \\",
+                "  --backup-retention-execute true \\",
+                f"  --backup-retention-expected-manifest-sha256 {report.get('cleanup_manifest_sha256')} \\",
+                f"  --backup-retention-confirmation-token {report.get('confirmation_token_expected')} \\",
+                f"  --backup-retention-max-delete-count {report.get('max_delete_count')} \\",
+                f"  --backup-retention-max-delete-gb {report.get('max_delete_gb')}",
+                "```",
+                "",
+                "Do not run this command until the Task140 manifest has been reviewed explicitly.",
+                "",
+            ]
+        )
+    lines.extend(["## Next Steps", ""])
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task supports controlled backup deletion, but deletion is disabled by default.",
+            "- Dry-run mode does not delete backup files.",
+            "- Execute mode requires an exact confirmation token and exact cleanup manifest SHA-256.",
+            "- This task does not move backup files.",
+            "- This task does not compress backup files.",
+            "- This task does not upload backup files.",
+            "- This task does not restore backups.",
+            "- This task does not mutate the database.",
+            "- This task does not download or parse reports.",
+            "- This task does not score issuers or trigger paper trading.",
             "",
         ]
     )
@@ -29513,6 +30717,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task138 rotation candidates manually; this preview never deletes or modifies backup files."]
     if mode == "backup-retention-apply-draft-preview":
         return ["Review the Task139 manifest and inert shell-script preview; any real cleanup remains a separate explicit manual action."]
+    if mode == "backup-retention-controlled-apply":
+        return ["Review Task140 blockers and ledger. Run execute mode only after explicit manifest review with the exact token and SHA-256."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -29653,6 +30859,23 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             inputs=inputs,
             artifacts=artifacts,
             rotation_rows=rotation_rows,
+        )
+    if args.mode == "backup-retention-controlled-apply":
+        inputs = _backup_retention_controlled_apply_inputs(args)
+        artifacts = _backup_retention_controlled_apply_artifacts(args)
+        manifest_rows: list[dict[str, Any]] = []
+        manifest_path = inputs["manifest"]
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path is not None else {}
+            if isinstance(payload, dict) and isinstance(payload.get("cleanup_manifest_rows"), list):
+                manifest_rows = [row for row in payload["cleanup_manifest_rows"] if isinstance(row, dict)]
+        except (OSError, json.JSONDecodeError):
+            pass
+        return not _backup_retention_controlled_apply_output_errors(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            manifest_rows=manifest_rows,
         )
     protected_inputs = (
         [args.document_intake_input]
