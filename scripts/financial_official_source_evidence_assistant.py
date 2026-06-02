@@ -57,6 +57,7 @@ MODE_CHOICES = (
     "financial-extraction-evidence-schema-preview",
     "financial-document-artifact-retention-preview",
     "financial-document-fetch-plan-preview",
+    "operator-exact-document-refill-workspace-v2",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2451,6 +2452,107 @@ FINANCIAL_DOCUMENT_FETCH_BLOCKER_FIELDS = [
     "blocker_severity",
     "blocker_next_action",
 ]
+OPERATOR_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES = {
+    "workspace_json": "operator_exact_document_refill_workspace_task134.json",
+    "workspace_csv": "operator_exact_document_refill_workspace_task134.csv",
+    "workspace_markdown": "operator_exact_document_refill_workspace_task134.md",
+    "template_json": "operator_exact_document_refill_template_task134.json",
+    "template_csv": "operator_exact_document_refill_template_task134.csv",
+    "rerun_markdown": "operator_exact_document_refill_rerun_task134.md",
+}
+OPERATOR_EXACT_DOCUMENT_REFILL_WORKSPACE_FIELDS = [
+    "workspace_id",
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "required_consolidated",
+    "fetch_plan_status",
+    "fetch_plan_reason_codes",
+    "fetch_plan_warnings",
+    "download_attempt_allowed_now",
+    "planned_raw_document_path",
+    "planned_hash_manifest_path",
+    "source_trust_status",
+    "trusted_source_hosts",
+    "source_context_status",
+    "source_context_next_action",
+    "source_context_blocker_codes",
+    "current_known_source_page_url",
+    "current_known_document_url",
+    "latest_historical_document_url",
+    "historical_fallback_allowed_as_target_evidence",
+    "historical_fallback_allowed_as_trusted_source",
+    "workspace_status",
+    "workspace_priority",
+    "workspace_action",
+    "workspace_reason_codes",
+    "workspace_errors",
+    "workspace_warnings",
+    "operator_instruction",
+    "safe_source_hint",
+    "safe_document_hint",
+    "forbidden_url_hint",
+    "rerun_after_fill_hint",
+    "READONLY_company_id",
+    "READONLY_company_name",
+    "READONLY_target_reporting_period",
+    "READONLY_required_report_type",
+    "READONLY_required_standard",
+    "READONLY_required_consolidated",
+    "READONLY_fetch_plan_status",
+    "READONLY_source_trust_status",
+    "READONLY_trusted_source_hosts",
+    "READONLY_current_known_source_page_url",
+    "READONLY_latest_historical_document_url",
+    "READONLY_planned_raw_document_path",
+    "READONLY_planned_hash_manifest_path",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_publication_date",
+    "operator_fill_document_report_type",
+    "operator_fill_document_accounting_standard",
+    "operator_fill_document_consolidated",
+    "operator_fill_document_language",
+    "operator_fill_notes",
+    "would_fetch_document",
+    "would_download_document",
+    "would_parse_document",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_database",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+OPERATOR_EXACT_DOCUMENT_REFILL_TEMPLATE_FIELDS = [
+    "workspace_id",
+    "company_id",
+    "company_name",
+    "workspace_status",
+    "workspace_action",
+    "operator_instruction",
+    "READONLY_target_reporting_period",
+    "READONLY_required_report_type",
+    "READONLY_required_standard",
+    "READONLY_required_consolidated",
+    "READONLY_trusted_source_hosts",
+    "READONLY_current_known_source_page_url",
+    "READONLY_latest_historical_document_url",
+    "READONLY_forbidden_url_hint",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_publication_date",
+    "operator_fill_document_report_type",
+    "operator_fill_document_accounting_standard",
+    "operator_fill_document_consolidated",
+    "operator_fill_document_language",
+    "operator_fill_notes",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -2831,6 +2933,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--financial-document-fetch-required-consolidated", type=_parse_bool, default=True)
     parser.add_argument("--financial-document-fetch-max-planned-downloads", type=int, default=20)
     parser.add_argument("--financial-document-fetch-max-single-file-mb", type=float, default=250.0)
+    parser.add_argument("--operator-exact-document-refill-workspace-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-workspace-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-workspace-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-template-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-template-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--financial-document-fetch-plan-input", type=Path, default=None)
+    parser.add_argument("--financial-document-fetch-blockers-input", type=Path, default=None)
+    parser.add_argument("--financial-document-download-manifest-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-workspace-input", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-target-period", default="2025")
+    parser.add_argument("--operator-exact-document-refill-required-report-type", default="annual")
+    parser.add_argument("--operator-exact-document-refill-required-standard", default="IFRS")
+    parser.add_argument("--operator-exact-document-refill-required-consolidated", type=_parse_bool, default=True)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -2925,6 +3041,8 @@ def run_assistant(
         report = run_financial_document_artifact_retention_preview(args)
     elif args.mode == "financial-document-fetch-plan-preview":
         report = run_financial_document_fetch_plan_preview(args)
+    elif args.mode == "operator-exact-document-refill-workspace-v2":
+        report = run_operator_exact_document_refill_workspace_v2(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -9872,6 +9990,699 @@ def _financial_document_fetch_plan_safety_flags() -> dict[str, Any]:
     }
 
 
+def run_operator_exact_document_refill_workspace_v2(args: argparse.Namespace) -> dict[str, Any]:
+    fetch_plan_path = _operator_exact_document_refill_fetch_plan_path(args)
+    if fetch_plan_path is None or not fetch_plan_path.is_file():
+        return _failed_operator_exact_document_refill_workspace(
+            [{"message": "operator_exact_document_refill_fetch_plan_input_required"}],
+        )
+    try:
+        fetch_report = _load_json_object(fetch_plan_path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _failed_operator_exact_document_refill_workspace(
+            [{"message": "operator_exact_document_refill_fetch_plan_input_invalid", "path": str(fetch_plan_path)}],
+        )
+    fetch_rows = fetch_report.get("fetch_plan_rows")
+    if fetch_report.get("mode") != "financial-document-fetch-plan-preview" or not isinstance(fetch_rows, list) or not all(
+        isinstance(row, dict) for row in fetch_rows
+    ):
+        return _failed_operator_exact_document_refill_workspace(
+            [{"message": "operator_exact_document_refill_fetch_plan_input_invalid", "path": str(fetch_plan_path)}],
+        )
+
+    warnings: list[dict[str, Any]] = []
+    optional_paths = _operator_exact_document_refill_optional_paths(args)
+    optional_rows = {
+        "fetch_blockers": _load_operator_exact_document_refill_optional_rows(
+            optional_paths["fetch_blockers"],
+            role="fetch_blockers",
+            row_keys=("fetch_blocker_rows", "rows"),
+            warnings=warnings,
+        ),
+        "download_manifest": _load_operator_exact_document_refill_optional_rows(
+            optional_paths["download_manifest"],
+            role="download_manifest",
+            row_keys=("download_manifest_rows", "rows"),
+            warnings=warnings,
+        ),
+        "review_board": _load_operator_exact_document_refill_optional_rows(
+            optional_paths["review_board"],
+            role="review_board",
+            row_keys=("rows",),
+            warnings=warnings,
+        ),
+        "source_trust_workspace": _load_operator_exact_document_refill_optional_rows(
+            optional_paths["source_trust_workspace"],
+            role="source_trust_workspace",
+            row_keys=("rows",),
+            warnings=warnings,
+        ),
+        "source_trust_validation": _load_operator_exact_document_refill_optional_rows(
+            optional_paths["source_trust_validation"],
+            role="source_trust_validation",
+            row_keys=("rows",),
+            warnings=warnings,
+        ),
+        "source_pack_draft": _load_operator_exact_document_refill_optional_rows(
+            optional_paths["source_pack_draft"],
+            role="source_pack_draft",
+            row_keys=("resolutions", "rows"),
+            warnings=warnings,
+            allow_raw_list=True,
+        ),
+    }
+    artifacts = _operator_exact_document_refill_artifacts(args, fetch_plan_path)
+    errors = _operator_exact_document_refill_output_errors(
+        args,
+        fetch_plan_path=fetch_plan_path,
+        optional_paths=optional_paths,
+        artifacts=artifacts,
+    )
+    indexes = {
+        role: _operator_exact_document_refill_context_index(rows)
+        for role, rows in optional_rows.items()
+    }
+    rows = [
+        _build_operator_exact_document_refill_workspace_row(
+            args,
+            fetch_row=fetch_row,
+            fetch_report=fetch_report,
+            indexes=indexes,
+            warnings=warnings,
+        )
+        for fetch_row in fetch_rows
+    ]
+    template_rows = [_operator_exact_document_refill_template_row(row) for row in rows]
+    report = _build_operator_exact_document_refill_workspace_report(
+        args,
+        fetch_plan_path=fetch_plan_path,
+        optional_paths=optional_paths,
+        artifacts=artifacts,
+        rows=rows,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            write_json_report(report, artifacts["workspace_json"])
+            _write_flat_csv(rows, OPERATOR_EXACT_DOCUMENT_REFILL_WORKSPACE_FIELDS, artifacts["workspace_csv"])
+            write_operator_exact_document_refill_workspace_markdown(report, artifacts["workspace_markdown"])
+            write_json_report(
+                {
+                    "status": report["status"],
+                    "mode": "operator-exact-document-refill-template-v2",
+                    "row_count": len(template_rows),
+                    "template_rows": template_rows,
+                    **_operator_exact_document_refill_safety_flags(),
+                },
+                artifacts["template_json"],
+            )
+            _write_flat_csv(template_rows, OPERATOR_EXACT_DOCUMENT_REFILL_TEMPLATE_FIELDS, artifacts["template_csv"])
+            write_operator_exact_document_refill_rerun_markdown(report, artifacts["rerun_markdown"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _operator_exact_document_refill_fetch_plan_path(args: argparse.Namespace) -> Path | None:
+    if args.financial_document_fetch_plan_input is not None:
+        return args.financial_document_fetch_plan_input
+    if args.operator_resolution_chain_output_dir is not None:
+        return args.operator_resolution_chain_output_dir / FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["fetch_plan_json"]
+    return None
+
+
+def _operator_exact_document_refill_optional_paths(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    defaults = {
+        "fetch_blockers": FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["fetch_blockers_json"],
+        "download_manifest": FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["download_manifest_json"],
+        "review_board": OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES["board_json"],
+        "source_trust_workspace": OPERATOR_RESOLUTION_SOURCE_TRUST_ARTIFACT_NAMES["workspace_json"],
+        "source_trust_validation": OPERATOR_RESOLUTION_SOURCE_TRUST_REFILL_ARTIFACT_NAMES["validation_json"],
+        "source_pack_draft": OPERATOR_RESOLUTION_SOURCE_TRUST_REFILL_ARTIFACT_NAMES["source_pack_draft_json"],
+    }
+    overrides = {
+        "fetch_blockers": args.financial_document_fetch_blockers_input,
+        "download_manifest": args.financial_document_download_manifest_input,
+        "review_board": args.operator_resolution_chain_review_board_input,
+        "source_trust_workspace": args.operator_resolution_source_trust_workspace_input,
+        "source_trust_validation": args.operator_resolution_source_trust_validation_input,
+        "source_pack_draft": args.operator_resolution_source_pack_draft_input,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in defaults.items()
+    }
+
+
+def _load_operator_exact_document_refill_optional_rows(
+    path: Path | None,
+    *,
+    role: str,
+    row_keys: Sequence[str],
+    warnings: list[dict[str, Any]],
+    allow_raw_list: bool = False,
+) -> list[dict[str, Any]]:
+    if path is None or not path.is_file():
+        warnings.append({"message": f"operator_exact_document_refill_optional_artifact_missing:{role}"})
+        return []
+    try:
+        with path.open("r", encoding="utf-8-sig") as handle:
+            payload = json.load(handle)
+        rows: Any = payload if allow_raw_list and isinstance(payload, list) else None
+        if isinstance(payload, dict):
+            for key in row_keys:
+                if payload.get(key) is not None:
+                    rows = payload.get(key)
+                    break
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError("optional artifact rows are malformed")
+        return rows
+    except (OSError, ValueError, json.JSONDecodeError):
+        warnings.append({"message": f"operator_exact_document_refill_optional_artifact_unreadable:{role}", "path": str(path)})
+        return []
+
+
+def _operator_exact_document_refill_artifacts(args: argparse.Namespace, fetch_plan_path: Path) -> dict[str, Path]:
+    output_dir = args.operator_resolution_chain_output_dir or fetch_plan_path.parent
+    overrides = {
+        "workspace_json": args.operator_exact_document_refill_workspace_output,
+        "workspace_csv": args.operator_exact_document_refill_workspace_csv_output,
+        "workspace_markdown": args.operator_exact_document_refill_workspace_markdown_output,
+        "template_json": args.operator_exact_document_refill_template_output,
+        "template_csv": args.operator_exact_document_refill_template_csv_output,
+        "rerun_markdown": args.operator_exact_document_refill_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or output_dir / filename
+        for role, filename in OPERATOR_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES.items()
+    }
+
+
+def _operator_exact_document_refill_output_errors(
+    args: argparse.Namespace,
+    *,
+    fetch_plan_path: Path,
+    optional_paths: dict[str, Path | None],
+    artifacts: dict[str, Path],
+) -> list[dict[str, Any]]:
+    inputs = [fetch_plan_path, *(path for path in optional_paths.values() if path is not None)]
+    outputs = [*artifacts.values(), *(path for path in (args.json_output, args.markdown_output) if path is not None)]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "operator_exact_document_refill_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in inputs):
+            return [{"message": "operator_exact_document_refill_output_must_not_equal_input"}]
+    return []
+
+
+def _operator_exact_document_refill_context_index(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    index: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        for key in _operator_exact_document_refill_join_keys(row):
+            index.setdefault(key, []).append(row)
+    return index
+
+
+def _operator_exact_document_refill_join_keys(row: dict[str, Any]) -> list[str]:
+    keys: list[str] = []
+    resolution_id = str(row.get("resolution_id") or "")
+    if resolution_id:
+        keys.append(f"resolution:{resolution_id}")
+    company_id = str(row.get("canonical_company_id") or row.get("company_id") or "")
+    if company_id:
+        keys.append(f"company:{company_id}")
+    fetch_plan_id = str(row.get("fetch_plan_id") or "")
+    if fetch_plan_id:
+        keys.append(f"fetch:{fetch_plan_id}")
+    return keys
+
+
+def _operator_exact_document_refill_match_context(
+    fetch_row: dict[str, Any],
+    *,
+    role: str,
+    index: dict[str, list[dict[str, Any]]],
+    warnings: list[dict[str, Any]],
+) -> tuple[dict[str, Any], bool]:
+    preferred_keys = _operator_exact_document_refill_join_keys(fetch_row)
+    for prefix in ("fetch:", "resolution:", "company:"):
+        matches: list[dict[str, Any]] = []
+        for key in preferred_keys:
+            if key.startswith(prefix):
+                matches = index.get(key) or []
+                break
+        unique = _operator_exact_document_refill_unique_rows(matches)
+        if len(unique) == 1:
+            return unique[0], False
+        if len(unique) > 1:
+            if role == "fetch_blockers":
+                return {
+                    "blocker_codes": [
+                        str(row.get("blocker_code") or "")
+                        for row in unique
+                        if row.get("blocker_code")
+                    ]
+                }, False
+            warnings.append({"message": f"operator_exact_document_refill_ambiguous_context:{role}"})
+            return {}, True
+    return {}, False
+
+
+def _operator_exact_document_refill_unique_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    unique: list[dict[str, Any]] = []
+    for row in rows:
+        if not any(existing is row for existing in unique):
+            unique.append(row)
+    return unique
+
+
+def _build_operator_exact_document_refill_workspace_row(
+    args: argparse.Namespace,
+    *,
+    fetch_row: dict[str, Any],
+    fetch_report: dict[str, Any],
+    indexes: dict[str, dict[str, list[dict[str, Any]]]],
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    contexts: dict[str, dict[str, Any]] = {}
+    ambiguous = False
+    for role, index in indexes.items():
+        contexts[role], role_ambiguous = _operator_exact_document_refill_match_context(
+            fetch_row,
+            role=role,
+            index=index,
+            warnings=warnings,
+        )
+        ambiguous = ambiguous or role_ambiguous
+    trust = _operator_exact_document_refill_baseline_context(contexts)
+    board = contexts["review_board"]
+    blockers = contexts["fetch_blockers"]
+    manifest = contexts["download_manifest"]
+    historical_url = str(
+        fetch_row.get("historical_fallback_url")
+        or trust.get("latest_historical_document_url")
+        or board.get("latest_historical_document_url")
+        or ""
+    )
+    manual_exact_url = str(board.get("operator_fill_exact_document_url") or "")
+    manual_preserved = bool(
+        manual_exact_url
+        or board.get("operator_fill_document_title")
+        or board.get("operator_fill_document_date")
+        or board.get("operator_fill_notes")
+    )
+    status = _operator_exact_document_refill_workspace_status(
+        fetch_row,
+        fetch_report=fetch_report,
+        trust=trust,
+        ambiguous=ambiguous,
+        historical_url=historical_url,
+        manual_exact_url=manual_exact_url,
+    )
+    action = _operator_exact_document_refill_workspace_action(status)
+    reasons = _operator_exact_document_refill_workspace_reasons(
+        args,
+        fetch_row=fetch_row,
+        trust=trust,
+        status=status,
+        historical_url=historical_url,
+        manual_preserved=manual_preserved,
+    )
+    guidance = _operator_exact_document_refill_guidance(
+        status,
+        trusted_hosts=trust["trusted_source_hosts"],
+    )
+    target_period = fetch_row.get("target_reporting_period") or args.operator_exact_document_refill_target_period
+    required_type = fetch_row.get("required_report_type") or args.operator_exact_document_refill_required_report_type
+    required_standard = fetch_row.get("required_standard") or args.operator_exact_document_refill_required_standard
+    required_consolidated = _as_bool(
+        fetch_row.get("required_consolidated")
+        if fetch_row.get("required_consolidated") is not None
+        else args.operator_exact_document_refill_required_consolidated
+    )
+    company_id = fetch_row.get("company_id") or ""
+    company_name = fetch_row.get("company_name") or ""
+    trusted_hosts = trust["trusted_source_hosts"]
+    planned_raw_path = fetch_row.get("planned_raw_document_path") or manifest.get("planned_raw_document_path") or ""
+    planned_hash_path = fetch_row.get("planned_hash_manifest_path") or manifest.get("planned_hash_manifest_path") or ""
+    return {
+        "workspace_id": f"operator_exact_document_refill:{fetch_row.get('fetch_plan_id') or company_id}",
+        "resolution_id": fetch_row.get("resolution_id") or board.get("resolution_id") or "",
+        "company_id": company_id,
+        "company_name": company_name,
+        "canonical_company_id": fetch_row.get("canonical_company_id") or company_id,
+        "canonical_company_name": fetch_row.get("canonical_company_name") or company_name,
+        "target_reporting_period": target_period,
+        "required_report_type": required_type,
+        "required_standard": required_standard,
+        "required_consolidated": required_consolidated,
+        "fetch_plan_status": fetch_row.get("fetch_plan_status") or "",
+        "fetch_plan_reason_codes": list(fetch_row.get("fetch_plan_reason_codes") or []),
+        "fetch_plan_warnings": list(fetch_row.get("fetch_plan_warnings") or []),
+        "download_attempt_allowed_now": bool(fetch_row.get("download_attempt_allowed_now")),
+        "planned_raw_document_path": planned_raw_path,
+        "planned_hash_manifest_path": planned_hash_path,
+        "source_trust_status": trust["source_trust_status"],
+        "trusted_source_hosts": trusted_hosts,
+        "source_context_status": trust["source_context_status"],
+        "source_context_next_action": trust["source_context_next_action"],
+        "source_context_blocker_codes": trust["source_context_blocker_codes"],
+        "current_known_source_page_url": trust["current_known_source_page_url"],
+        "current_known_document_url": trust["current_known_document_url"],
+        "latest_historical_document_url": historical_url,
+        "historical_fallback_allowed_as_target_evidence": False,
+        "historical_fallback_allowed_as_trusted_source": False,
+        "workspace_status": status,
+        "workspace_priority": "high" if status != "diagnostic_only" else "low",
+        "workspace_action": action,
+        "workspace_reason_codes": reasons,
+        "workspace_errors": [],
+        "workspace_warnings": ["manual_url_requires_future_validation"] if manual_preserved else [],
+        **guidance,
+        "READONLY_company_id": company_id,
+        "READONLY_company_name": company_name,
+        "READONLY_target_reporting_period": target_period,
+        "READONLY_required_report_type": required_type,
+        "READONLY_required_standard": required_standard,
+        "READONLY_required_consolidated": required_consolidated,
+        "READONLY_fetch_plan_status": fetch_row.get("fetch_plan_status") or "",
+        "READONLY_source_trust_status": trust["source_trust_status"],
+        "READONLY_trusted_source_hosts": trusted_hosts,
+        "READONLY_current_known_source_page_url": trust["current_known_source_page_url"],
+        "READONLY_latest_historical_document_url": historical_url,
+        "READONLY_planned_raw_document_path": planned_raw_path,
+        "READONLY_planned_hash_manifest_path": planned_hash_path,
+        "operator_fill_exact_document_url": manual_exact_url,
+        "operator_fill_document_title": board.get("operator_fill_document_title") or "",
+        "operator_fill_document_publication_date": board.get("operator_fill_document_publication_date")
+        or board.get("operator_fill_document_date")
+        or "",
+        "operator_fill_document_report_type": board.get("operator_fill_document_report_type")
+        or board.get("operator_fill_report_type")
+        or required_type,
+        "operator_fill_document_accounting_standard": board.get("operator_fill_document_accounting_standard")
+        or board.get("operator_fill_accounting_standard")
+        or required_standard,
+        "operator_fill_document_consolidated": board.get("operator_fill_document_consolidated")
+        if board.get("operator_fill_document_consolidated") is not None
+        else required_consolidated,
+        "operator_fill_document_language": board.get("operator_fill_document_language") or "",
+        "operator_fill_notes": board.get("operator_fill_notes") or "",
+        **_operator_exact_document_refill_row_safety_flags(),
+    }
+
+
+def _operator_exact_document_refill_baseline_context(contexts: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    workspace = contexts["source_trust_workspace"]
+    validation = contexts["source_trust_validation"]
+    draft = contexts["source_pack_draft"]
+    board = contexts["review_board"]
+    if workspace:
+        hosts = _financial_document_fetch_list(workspace.get("trusted_source_hosts"))
+        return _operator_exact_document_refill_baseline_result(
+            status=str(workspace.get("source_trust_status") or ""),
+            hosts=hosts,
+            page_url=str(workspace.get("current_known_source_page_url") or ""),
+            document_url=str(workspace.get("current_known_document_url") or ""),
+            historical_url=str(workspace.get("latest_historical_document_url") or ""),
+            next_action=str(workspace.get("next_required_action") or ""),
+            blockers=_financial_document_fetch_list(workspace.get("trusted_source_status_reason_codes")),
+        )
+    if validation:
+        hosts = _financial_document_fetch_list(validation.get("baseline_trusted_source_hosts"))
+        return _operator_exact_document_refill_baseline_result(
+            status="ready_for_document_url_refill" if hosts else "trusted_source_missing",
+            hosts=hosts,
+            page_url=str(validation.get("baseline_current_known_source_page_url") or ""),
+            document_url=str(validation.get("baseline_current_known_document_url") or ""),
+            historical_url=str(validation.get("latest_historical_document_url") or ""),
+            next_action=str(validation.get("operator_next_step") or ""),
+            blockers=_financial_document_fetch_list(validation.get("validation_reason_codes")),
+        )
+    if draft:
+        page_url = str(draft.get("current_known_source_page_url") or "")
+        document_url = str(draft.get("current_known_document_url") or "")
+        hosts = sorted({_host(url) for url in (page_url, document_url) if _financial_document_fetch_url_is_http(url)})
+        return _operator_exact_document_refill_baseline_result(
+            status="ready_for_document_url_refill" if hosts else "trusted_source_missing",
+            hosts=hosts,
+            page_url=page_url,
+            document_url=document_url,
+            historical_url=str(draft.get("latest_historical_document_url") or ""),
+            next_action="",
+            blockers=[],
+        )
+    if board:
+        hosts = _financial_document_fetch_list(board.get("trusted_source_hosts"))
+        return _operator_exact_document_refill_baseline_result(
+            status="ready_for_document_url_refill" if hosts else "trusted_source_missing",
+            hosts=hosts,
+            page_url="",
+            document_url="",
+            historical_url=str(board.get("latest_historical_document_url") or ""),
+            next_action=str(board.get("next_required_action") or ""),
+            blockers=[],
+        )
+    return _operator_exact_document_refill_baseline_result(
+        status="",
+        hosts=[],
+        page_url="",
+        document_url="",
+        historical_url="",
+        next_action="",
+        blockers=[],
+    )
+
+
+def _operator_exact_document_refill_baseline_result(
+    *,
+    status: str,
+    hosts: list[str],
+    page_url: str,
+    document_url: str,
+    historical_url: str,
+    next_action: str,
+    blockers: list[str],
+) -> dict[str, Any]:
+    return {
+        "source_trust_status": status,
+        "trusted_source_hosts": sorted(set(hosts)),
+        "current_known_source_page_url": page_url,
+        "current_known_document_url": document_url,
+        "latest_historical_document_url": historical_url,
+        "source_context_status": status,
+        "source_context_next_action": next_action,
+        "source_context_blocker_codes": blockers,
+        "context_available": bool(status or hosts or page_url or document_url or historical_url),
+    }
+
+
+def _operator_exact_document_refill_workspace_status(
+    fetch_row: dict[str, Any],
+    *,
+    fetch_report: dict[str, Any],
+    trust: dict[str, Any],
+    ambiguous: bool,
+    historical_url: str,
+    manual_exact_url: str,
+) -> str:
+    fetch_status = str(fetch_row.get("fetch_plan_status") or "")
+    if fetch_status == "blocked_disk_guard" or fetch_report.get("disk_guard_status") == "blocked":
+        return "blocked_disk_guard"
+    historical_only = bool(
+        fetch_status == "blocked_historical_fallback_only"
+        or (historical_url and manual_exact_url == historical_url)
+        or (historical_url and not trust["trusted_source_hosts"] and not trust["current_known_source_page_url"])
+    )
+    if historical_only:
+        return "blocked_historical_fallback_only"
+    if fetch_status != "blocked_missing_exact_document_url":
+        return "blocked_fetch_plan_not_missing_exact_url"
+    if ambiguous:
+        return "blocked_unknown_readiness"
+    if trust["source_trust_status"] in {"trusted_source_missing", "trusted_source_conflict", "trusted_source_needs_review"}:
+        return "blocked_source_trust_required_before_exact_document_refill"
+    if trust["trusted_source_hosts"]:
+        return "ready_for_exact_document_url_refill"
+    if not trust["context_available"]:
+        return "blocked_unknown_readiness"
+    return "blocked_source_trust_required_before_exact_document_refill"
+
+
+def _operator_exact_document_refill_workspace_action(status: str) -> str:
+    return {
+        "ready_for_exact_document_url_refill": "fill_exact_target_annual_ifrs_document_url",
+        "blocked_source_trust_required_before_exact_document_refill": "fill_official_baseline_source_page_first",
+        "blocked_historical_fallback_only": "do_not_copy_historical_fallback",
+        "blocked_disk_guard": "review_fetch_plan_blocker_first",
+        "blocked_fetch_plan_not_missing_exact_url": "review_fetch_plan_blocker_first",
+        "blocked_unknown_readiness": "review_fetch_plan_blocker_first",
+        "diagnostic_only": "noop",
+    }.get(status, "noop")
+
+
+def _operator_exact_document_refill_workspace_reasons(
+    args: argparse.Namespace,
+    *,
+    fetch_row: dict[str, Any],
+    trust: dict[str, Any],
+    status: str,
+    historical_url: str,
+    manual_preserved: bool,
+) -> list[str]:
+    reasons = list(fetch_row.get("fetch_plan_reason_codes") or [])
+    _append_unique(reasons, f"target_period_required_{args.operator_exact_document_refill_target_period}")
+    _append_unique(reasons, "annual_report_required")
+    _append_unique(reasons, "ifrs_required")
+    if args.operator_exact_document_refill_required_consolidated:
+        _append_unique(reasons, "consolidated_required")
+    if status == "blocked_disk_guard":
+        _append_unique(reasons, "disk_guard_blocked")
+    else:
+        _append_unique(reasons, "disk_guard_passed")
+    if trust["trusted_source_hosts"]:
+        _append_unique(reasons, "trusted_source_available")
+    if trust["source_trust_status"] in {"trusted_source_missing", "trusted_source_conflict", "trusted_source_needs_review"}:
+        _append_unique(reasons, "source_trust_missing")
+        _append_unique(reasons, "source_context_required_before_document_refill")
+    if historical_url:
+        _append_unique(reasons, "historical_fallback_diagnostic_only")
+    if manual_preserved:
+        _append_unique(reasons, "manual_url_requires_future_validation")
+    return reasons
+
+
+def _operator_exact_document_refill_guidance(status: str, *, trusted_hosts: list[str]) -> dict[str, str]:
+    hosts = ", ".join(trusted_hosts) if trusted_hosts else "baseline trusted hosts unavailable"
+    safe_source_hint = (
+        "Use only an official issuer reporting, investor-relations, or official disclosure page. "
+        "Manual source URLs require a separate controlled source-trust validation."
+    )
+    safe_document_hint = (
+        f"Fill only an exact official target-period annual IFRS document URL from baseline hosts: {hosts}. "
+        "The URL remains a future-validation candidate."
+    )
+    forbidden = "Do not copy historical fallback URLs, generic landing pages, interim reports, RAS reports, or prospectuses."
+    if status == "ready_for_exact_document_url_refill":
+        instruction = "Fill the exact official target-period annual IFRS document URL. It will require future strict validation."
+    elif status == "blocked_source_trust_required_before_exact_document_refill":
+        instruction = "Fill or review official baseline source context first through the Task126/127 source-trust workflow."
+    elif status == "blocked_historical_fallback_only":
+        instruction = "Do not copy the historical fallback URL. Find current baseline source context or the exact target-period report."
+    else:
+        instruction = "Review the fetch-plan blocker before filling an exact document URL."
+    return {
+        "operator_instruction": instruction,
+        "safe_source_hint": safe_source_hint,
+        "safe_document_hint": safe_document_hint,
+        "forbidden_url_hint": forbidden,
+        "rerun_after_fill_hint": "After editing the Task134 template, run the future operator-exact-document-refill-validate-v2 mode.",
+    }
+
+
+def _operator_exact_document_refill_template_row(row: dict[str, Any]) -> dict[str, Any]:
+    template = {field: row.get(field, "") for field in OPERATOR_EXACT_DOCUMENT_REFILL_TEMPLATE_FIELDS}
+    template["READONLY_forbidden_url_hint"] = row.get("forbidden_url_hint") or ""
+    return template
+
+
+def _build_operator_exact_document_refill_workspace_report(
+    args: argparse.Namespace,
+    *,
+    fetch_plan_path: Path,
+    optional_paths: dict[str, Path | None],
+    artifacts: dict[str, Path],
+    rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    ready_count = sum(1 for row in rows if row.get("workspace_status") == "ready_for_exact_document_url_refill")
+    status = "failed" if errors else "passed" if rows and ready_count == len(rows) and not warnings else "warning"
+    return {
+        "status": status,
+        "mode": "operator-exact-document-refill-workspace-v2",
+        "financial_document_fetch_plan_input": str(fetch_plan_path),
+        "optional_inputs": {role: _path_value(path) for role, path in optional_paths.items()},
+        "target_reporting_period": str(args.operator_exact_document_refill_target_period),
+        "required_report_type": str(args.operator_exact_document_refill_required_report_type),
+        "required_standard": str(args.operator_exact_document_refill_required_standard),
+        "required_consolidated": args.operator_exact_document_refill_required_consolidated,
+        "row_count": len(rows),
+        "ready_for_exact_document_url_refill_count": ready_count,
+        "blocked_source_trust_count": sum(
+            1 for row in rows if row.get("workspace_status") == "blocked_source_trust_required_before_exact_document_refill"
+        ),
+        "blocked_historical_fallback_count": sum(
+            1 for row in rows if row.get("workspace_status") == "blocked_historical_fallback_only"
+        ),
+        "blocked_disk_guard_count": sum(1 for row in rows if row.get("workspace_status") == "blocked_disk_guard"),
+        "blocked_unknown_readiness_count": sum(
+            1 for row in rows if row.get("workspace_status") == "blocked_unknown_readiness"
+        ),
+        "diagnostic_only_count": sum(1 for row in rows if row.get("workspace_status") == "diagnostic_only"),
+        "workspace_status_counts": _count_by_key(rows, "workspace_status"),
+        "workspace_action_counts": _count_by_key(rows, "workspace_action"),
+        "rows": rows,
+        "artifacts": {role: str(path) for role, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("operator-exact-document-refill-workspace-v2", status),
+        **_operator_exact_document_refill_safety_flags(),
+    }
+
+
+def _failed_operator_exact_document_refill_workspace(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "operator-exact-document-refill-workspace-v2",
+        "row_count": 0,
+        "ready_for_exact_document_url_refill_count": 0,
+        "blocked_source_trust_count": 0,
+        "blocked_historical_fallback_count": 0,
+        "blocked_disk_guard_count": 0,
+        "blocked_unknown_readiness_count": 0,
+        "diagnostic_only_count": 0,
+        "workspace_status_counts": {},
+        "workspace_action_counts": {},
+        "rows": [],
+        "warnings": [],
+        "errors": errors,
+        **_operator_exact_document_refill_safety_flags(),
+    }
+
+
+def _operator_exact_document_refill_row_safety_flags() -> dict[str, Any]:
+    return {
+        "would_fetch_document": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _operator_exact_document_refill_safety_flags() -> dict[str, Any]:
+    return {
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "would_fetch_documents": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _financial_document_fetch_url_is_http(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
@@ -12659,6 +13470,16 @@ def write_financial_document_fetch_plan_markdown(report: dict[str, Any], path: P
     path.write_text(render_financial_document_fetch_plan_markdown(report), encoding="utf-8")
 
 
+def write_operator_exact_document_refill_workspace_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_exact_document_refill_workspace_markdown(report), encoding="utf-8")
+
+
+def write_operator_exact_document_refill_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_exact_document_refill_rerun_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -12822,6 +13643,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_document_artifact_retention_markdown(report)
     if report.get("mode") == "financial-document-fetch-plan-preview":
         return render_financial_document_fetch_plan_markdown(report)
+    if report.get("mode") == "operator-exact-document-refill-workspace-v2":
+        return render_operator_exact_document_refill_workspace_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -14521,6 +15344,126 @@ def render_financial_document_fetch_plan_markdown(report: dict[str, Any]) -> str
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def render_operator_exact_document_refill_workspace_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Operator Exact Document URL Refill Workspace v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- ready for exact URL refill: {report.get('ready_for_exact_document_url_refill_count', 0)}",
+        f"- blocked by source trust: {report.get('blocked_source_trust_count', 0)}",
+        f"- blocked by historical fallback: {report.get('blocked_historical_fallback_count', 0)}",
+        f"- blocked by disk guard: {report.get('blocked_disk_guard_count', 0)}",
+        f"- blocked by unknown readiness: {report.get('blocked_unknown_readiness_count', 0)}",
+        "",
+        "## Status Counts",
+        "",
+    ]
+    lines.extend(f"- `{status}`: {count}" for status, count in (report.get("workspace_status_counts") or {}).items())
+    if not report.get("workspace_status_counts"):
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Issuer Workspace",
+            "",
+            "| Company | Workspace status | Action | Fetch status | Source trust | Trusted hosts | Historical fallback |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("workspace_status"),
+                    row.get("workspace_action"),
+                    row.get("fetch_plan_status"),
+                    row.get("source_trust_status"),
+                    row.get("trusted_source_hosts"),
+                    row.get("latest_historical_document_url"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("rows"):
+        lines.append("| none |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Operator Instructions",
+            "",
+            "- Fill exact document fields only for rows marked `ready_for_exact_document_url_refill`.",
+            "- For `blocked_source_trust_required_before_exact_document_refill`, complete the Task126/127 source-trust workflow first.",
+            "- Manual URLs remain future-validation candidates only.",
+            "- Historical fallback URLs are diagnostic-only and must not be copied as target-period evidence.",
+            "",
+            "## Warnings",
+            "",
+        ]
+    )
+    lines.extend(f"- {_message_text(item)}" for item in report.get("warnings") or [])
+    if not report.get("warnings"):
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates an operator refill workspace only.",
+            "- This task does not search for URLs.",
+            "- This task does not download reports.",
+            "- This task does not parse reports.",
+            "- This task does not create raw cache files.",
+            "- This task does not validate manual URLs.",
+            "- This task does not accept manual URLs as trusted evidence.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Historical fallback URLs are diagnostic-only and must not be copied as target-period evidence.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_exact_document_refill_rerun_markdown(report: dict[str, Any]) -> str:
+    template_path = str((report.get("artifacts") or {}).get("template_csv") or "operator_exact_document_refill_template_task134.csv")
+    output_dir = str(Path(template_path).parent)
+    return "\n".join(
+        [
+            "# Operator Exact Document URL Refill Workspace v2 - Rerun",
+            "",
+            "## Operator Instructions",
+            "",
+            f"Edit `{template_path}`.",
+            "Fill only exact official target-period annual IFRS document URLs for ready rows.",
+            "Fix source-trust blockers through the Task126/127 workflow before filling blocked rows.",
+            "",
+            "## Rerun Commands After Filling",
+            "",
+            "```bash",
+            f"# After filling {template_path}, run the future validation task:",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode operator-exact-document-refill-validate-v2 \\",
+            f"  --operator-exact-document-refill-input {_bash_quote(template_path)} \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+            "",
+            "## Safety Notes",
+            "",
+            "- Task134 does not validate or apply manual URLs.",
+            "- Original source packs and exact document intake remain unchanged.",
+            "- No network, download, parse, extraction, import, scoring, or trading action runs here.",
+            "",
+        ]
+    ) + "\n"
 
 
 def _markdown_count_lines(counts: dict[str, Any]) -> list[str]:
@@ -24353,6 +25296,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review disk guard reasons and inspect-only cleanup guidance before any future document download or extraction task."]
     if mode == "financial-document-fetch-plan-preview":
         return ["Review fetch blockers and rerun the Task132 disk guard immediately before any future controlled raw-document write."]
+    if mode == "operator-exact-document-refill-workspace-v2":
+        return ["Edit the Task134 refill template; manual URLs remain future-validation candidates and source-trust blockers must be resolved first."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -24437,6 +25382,13 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             protected_inputs=[path for path in [retention_path, *optional_inputs] if path is not None],
             retention_paths=_financial_document_fetch_retention_paths(retention_report),
         )
+    if args.mode == "operator-exact-document-refill-workspace-v2":
+        fetch_plan_path = _operator_exact_document_refill_fetch_plan_path(args)
+        protected_inputs = [
+            fetch_plan_path,
+            *_operator_exact_document_refill_optional_paths(args).values(),
+        ]
+        return all(path is None or not _paths_equal(output_path, path) for path in protected_inputs)
     protected_inputs = (
         [args.document_intake_input]
         if args.mode == "operator-resolution-apply-draft"

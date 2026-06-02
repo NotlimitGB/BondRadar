@@ -6408,6 +6408,387 @@ def test_financial_document_fetch_plan_never_calls_network_helpers(tmp_path: Pat
         assert report[key] is False
 
 
+def test_operator_exact_document_refill_workspace_splits_vds_like_rows_and_writes_artifacts(tmp_path: Path) -> None:
+    fetch_plan = tmp_path / "financial_document_fetch_plan_task133.json"
+    source_trust = tmp_path / "operator_resolution_source_trust_workspace_task126.json"
+    _write_operator_exact_document_refill_fetch_plan(
+        fetch_plan,
+        [
+            _operator_exact_document_refill_fetch_row(company_id="18", company_name="RZD"),
+            _operator_exact_document_refill_fetch_row(company_id="67", company_name="Mostotrest"),
+        ],
+    )
+    _write_operator_exact_document_refill_rows(
+        source_trust,
+        "operator-resolution-source-trust-workspace",
+        [
+            _operator_exact_document_refill_source_trust_row(
+                company_id="18",
+                company_name="RZD",
+                source_trust_status="trusted_source_missing",
+                trusted_source_hosts=[],
+            ),
+            _operator_exact_document_refill_source_trust_row(),
+        ],
+    )
+
+    report = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--operator-resolution-source-trust-workspace-input",
+            str(source_trust),
+        ]
+    )
+    rows = {str(row["company_id"]): row for row in report["rows"]}
+
+    assert report["row_count"] == 2
+    assert report["ready_for_exact_document_url_refill_count"] == 1
+    assert report["blocked_source_trust_count"] == 1
+    assert rows["18"]["workspace_status"] == "blocked_source_trust_required_before_exact_document_refill"
+    assert rows["18"]["workspace_action"] == "fill_official_baseline_source_page_first"
+    assert rows["67"]["workspace_status"] == "ready_for_exact_document_url_refill"
+    assert rows["67"]["workspace_action"] == "fill_exact_target_annual_ifrs_document_url"
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    template = json.loads(Path(report["artifacts"]["template_json"]).read_text(encoding="utf-8"))
+    assert len(template["template_rows"]) == 2
+    assert "operator_fill_exact_document_url" in template["template_rows"][0]
+    markdown = Path(report["artifacts"]["workspace_markdown"]).read_text(encoding="utf-8")
+    assert "# Operator Exact Document URL Refill Workspace v2" in markdown
+    assert "This task does not download reports." in markdown
+    rerun = Path(report["artifacts"]["rerun_markdown"]).read_text(encoding="utf-8")
+    assert "--mode operator-exact-document-refill-validate-v2" in rerun
+
+
+def test_operator_exact_document_refill_workspace_blocks_unknown_without_source_context(tmp_path: Path) -> None:
+    fetch_plan = tmp_path / "fetch.json"
+    _write_operator_exact_document_refill_fetch_plan(fetch_plan, [_operator_exact_document_refill_fetch_row()])
+
+    report = _run_operator_exact_document_refill_workspace(
+        ["--financial-document-fetch-plan-input", str(fetch_plan)]
+    )
+
+    assert report["rows"][0]["workspace_status"] == "blocked_unknown_readiness"
+    assert report["rows"][0]["workspace_action"] == "review_fetch_plan_blocker_first"
+    assert any(
+        warning["message"] == "operator_exact_document_refill_optional_artifact_missing:source_trust_workspace"
+        for warning in report["warnings"]
+    )
+
+
+def test_operator_exact_document_refill_workspace_resolves_output_dir_defaults_and_warns_for_malformed_optional(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "task124_chain_preview"
+    fetch_plan = output_dir / "financial_document_fetch_plan_task133.json"
+    source_trust = output_dir / "operator_resolution_source_trust_workspace_task126.json"
+    malformed_blockers = output_dir / "financial_document_fetch_blockers_task133.json"
+    _write_operator_exact_document_refill_fetch_plan(fetch_plan, [_operator_exact_document_refill_fetch_row()])
+    _write_operator_exact_document_refill_rows(
+        source_trust,
+        "operator-resolution-source-trust-workspace",
+        [_operator_exact_document_refill_source_trust_row()],
+    )
+    malformed_blockers.write_text("{", encoding="utf-8")
+
+    report = _run_operator_exact_document_refill_workspace(
+        ["--operator-resolution-chain-output-dir", str(output_dir)]
+    )
+
+    assert report["rows"][0]["workspace_status"] == "ready_for_exact_document_url_refill"
+    assert any(
+        warning["message"] == "operator_exact_document_refill_optional_artifact_unreadable:fetch_blockers"
+        for warning in report["warnings"]
+    )
+    assert Path(report["artifacts"]["workspace_json"]) == output_dir / "operator_exact_document_refill_workspace_task134.json"
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+
+
+def test_operator_exact_document_refill_workspace_blocks_historical_only_and_disk_guard(tmp_path: Path) -> None:
+    historical = tmp_path / "historical.json"
+    _write_operator_exact_document_refill_fetch_plan(
+        historical,
+        [
+            _operator_exact_document_refill_fetch_row(
+                historical_fallback_url="https://mostotrest.ru/reports/history/annual-ifrs-2024.pdf",
+            )
+        ],
+    )
+    historical_report = _run_operator_exact_document_refill_workspace(
+        ["--financial-document-fetch-plan-input", str(historical)]
+    )
+    historical_row = historical_report["rows"][0]
+
+    assert historical_row["workspace_status"] == "blocked_historical_fallback_only"
+    assert historical_row["workspace_action"] == "do_not_copy_historical_fallback"
+    assert "historical_fallback_diagnostic_only" in historical_row["workspace_reason_codes"]
+    assert historical_row["historical_fallback_allowed_as_target_evidence"] is False
+    assert historical_row["historical_fallback_allowed_as_trusted_source"] is False
+
+    disk = tmp_path / "disk.json"
+    _write_operator_exact_document_refill_fetch_plan(
+        disk,
+        [_operator_exact_document_refill_fetch_row(fetch_plan_status="blocked_disk_guard")],
+        disk_guard_status="blocked",
+    )
+    disk_report = _run_operator_exact_document_refill_workspace(
+        ["--financial-document-fetch-plan-input", str(disk)]
+    )
+
+    assert disk_report["rows"][0]["workspace_status"] == "blocked_disk_guard"
+    assert disk_report["rows"][0]["workspace_action"] == "review_fetch_plan_blocker_first"
+
+
+def test_operator_exact_document_refill_workspace_non_missing_fetch_status_is_diagnostic_block(tmp_path: Path) -> None:
+    fetch_plan = tmp_path / "fetch.json"
+    _write_operator_exact_document_refill_fetch_plan(
+        fetch_plan,
+        [_operator_exact_document_refill_fetch_row(fetch_plan_status="blocked_wrong_period")],
+    )
+
+    report = _run_operator_exact_document_refill_workspace(
+        ["--financial-document-fetch-plan-input", str(fetch_plan)]
+    )
+
+    assert report["rows"][0]["workspace_status"] == "blocked_fetch_plan_not_missing_exact_url"
+    assert report["rows"][0]["workspace_action"] == "review_fetch_plan_blocker_first"
+
+
+def test_operator_exact_document_refill_workspace_uses_baseline_only_fallbacks(tmp_path: Path) -> None:
+    fetch_plan = tmp_path / "fetch.json"
+    validation = tmp_path / "validation.json"
+    _write_operator_exact_document_refill_fetch_plan(fetch_plan, [_operator_exact_document_refill_fetch_row()])
+    _write_operator_exact_document_refill_rows(
+        validation,
+        "operator-resolution-source-trust-refill-validate",
+        [
+            {
+                "company_id": "67",
+                "canonical_company_id": "67",
+                "baseline_trusted_source_hosts": ["mostotrest.ru"],
+                "baseline_current_known_source_page_url": "https://mostotrest.ru/reports/",
+                "operator_fill_current_known_source_page_url": "https://manual.example/reports/",
+            }
+        ],
+    )
+
+    report = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--operator-resolution-source-trust-validation-input",
+            str(validation),
+        ]
+    )
+    row = report["rows"][0]
+
+    assert row["workspace_status"] == "ready_for_exact_document_url_refill"
+    assert row["trusted_source_hosts"] == ["mostotrest.ru"]
+    assert "manual.example" not in row["trusted_source_hosts"]
+
+    candidate_only = tmp_path / "draft.json"
+    candidate_only.write_text(
+        json.dumps(
+            {
+                "resolutions": [
+                    {
+                        "company_id": "67",
+                        "canonical_company_id": "67",
+                        "candidate_current_known_source_page_url": "https://manual.example/reports/",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    blocked = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--operator-resolution-source-pack-draft-input",
+            str(candidate_only),
+        ]
+    )
+    assert blocked["rows"][0]["workspace_status"] == "blocked_source_trust_required_before_exact_document_refill"
+    assert blocked["rows"][0]["trusted_source_hosts"] == []
+
+
+def test_operator_exact_document_refill_workspace_preserves_manual_values_as_unvalidated_candidates(
+    tmp_path: Path,
+) -> None:
+    fetch_plan = tmp_path / "fetch.json"
+    board = tmp_path / "board.json"
+    _write_operator_exact_document_refill_fetch_plan(fetch_plan, [_operator_exact_document_refill_fetch_row()])
+    _write_operator_exact_document_refill_rows(
+        board,
+        "operator-resolution-chain-review-board",
+        [
+            {
+                "company_id": "67",
+                "canonical_company_id": "67",
+                "trusted_source_hosts": ["mostotrest.ru"],
+                "operator_fill_exact_document_url": "https://mostotrest.ru/reports/new.pdf",
+                "operator_fill_document_title": "Manual title",
+                "operator_fill_document_date": "2026-04-30",
+                "operator_fill_notes": "Needs validation",
+            }
+        ],
+    )
+
+    report = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--operator-resolution-chain-review-board-input",
+            str(board),
+        ]
+    )
+    row = report["rows"][0]
+
+    assert row["workspace_status"] == "ready_for_exact_document_url_refill"
+    assert row["operator_fill_exact_document_url"] == "https://mostotrest.ru/reports/new.pdf"
+    assert row["operator_fill_document_title"] == "Manual title"
+    assert row["operator_fill_document_publication_date"] == "2026-04-30"
+    assert "manual_url_requires_future_validation" in row["workspace_reason_codes"]
+    assert "manual_url_requires_future_validation" in row["workspace_warnings"]
+
+
+def test_operator_exact_document_refill_workspace_blocks_ambiguous_source_context_but_aggregates_fetch_blockers(
+    tmp_path: Path,
+) -> None:
+    fetch_plan = tmp_path / "fetch.json"
+    source_trust = tmp_path / "trust.json"
+    blockers = tmp_path / "blockers.json"
+    _write_operator_exact_document_refill_fetch_plan(fetch_plan, [_operator_exact_document_refill_fetch_row()])
+    _write_operator_exact_document_refill_rows(
+        source_trust,
+        "operator-resolution-source-trust-workspace",
+        [
+            _operator_exact_document_refill_source_trust_row(current_known_source_page_url="https://mostotrest.ru/reports/"),
+            _operator_exact_document_refill_source_trust_row(current_known_source_page_url="https://mostotrest.ru/investors/"),
+        ],
+    )
+    blockers.write_text(
+        json.dumps(
+            {
+                "fetch_blocker_rows": [
+                    {
+                        "fetch_plan_id": "financial_document_fetch_plan:67:2025:missing_exact_document_url",
+                        "blocker_code": "missing_exact_document_url",
+                    },
+                    {
+                        "fetch_plan_id": "financial_document_fetch_plan:67:2025:missing_exact_document_url",
+                        "blocker_code": "manual_review_required",
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--operator-resolution-source-trust-workspace-input",
+            str(source_trust),
+            "--financial-document-fetch-blockers-input",
+            str(blockers),
+        ]
+    )
+
+    assert report["rows"][0]["workspace_status"] == "blocked_unknown_readiness"
+    assert any(
+        warning["message"] == "operator_exact_document_refill_ambiguous_context:source_trust_workspace"
+        for warning in report["warnings"]
+    )
+    assert not any(
+        warning["message"] == "operator_exact_document_refill_ambiguous_context:fetch_blockers"
+        for warning in report["warnings"]
+    )
+
+
+def test_operator_exact_document_refill_workspace_rejects_invalid_input_and_output_collisions(tmp_path: Path) -> None:
+    missing = _run_operator_exact_document_refill_workspace([])
+    assert missing["status"] == "failed"
+    assert missing["errors"] == [{"message": "operator_exact_document_refill_fetch_plan_input_required"}]
+
+    malformed = tmp_path / "fetch.json"
+    malformed.write_text("{}", encoding="utf-8")
+    invalid = _run_operator_exact_document_refill_workspace(
+        ["--financial-document-fetch-plan-input", str(malformed)]
+    )
+    assert invalid["status"] == "failed"
+    assert invalid["errors"][0]["message"] == "operator_exact_document_refill_fetch_plan_input_invalid"
+
+    fetch_plan = tmp_path / "valid.json"
+    _write_operator_exact_document_refill_fetch_plan(fetch_plan, [_operator_exact_document_refill_fetch_row()])
+    collision = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--operator-exact-document-refill-workspace-output",
+            str(fetch_plan),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "operator_exact_document_refill_output_must_not_equal_input"}]
+
+    generic = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--json-output",
+            str(fetch_plan),
+        ]
+    )
+    assert generic["status"] == "failed"
+    assert generic["errors"] == [{"message": "operator_exact_document_refill_output_must_not_equal_input"}]
+
+
+def test_operator_exact_document_refill_workspace_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task134 refill workspace must not fetch, probe, download, or parse documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    fetch_plan = tmp_path / "fetch.json"
+    source_trust = tmp_path / "trust.json"
+    _write_operator_exact_document_refill_fetch_plan(fetch_plan, [_operator_exact_document_refill_fetch_row()])
+    _write_operator_exact_document_refill_rows(
+        source_trust,
+        "operator-resolution-source-trust-workspace",
+        [_operator_exact_document_refill_source_trust_row()],
+    )
+
+    report = _run_operator_exact_document_refill_workspace(
+        [
+            "--financial-document-fetch-plan-input",
+            str(fetch_plan),
+            "--operator-resolution-source-trust-workspace-input",
+            str(source_trust),
+        ]
+    )
+
+    assert report["status"] in {"passed", "warning"}
+    for key in (
+        "documents_downloaded",
+        "documents_parsed",
+        "files_deleted",
+        "would_fetch_documents",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_database",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[key] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -10925,6 +11306,107 @@ def _write_financial_document_fetch_board(path: Path, rows: list[dict[str, objec
             indent=2,
         )
         + "\n",
+        encoding="utf-8",
+    )
+
+
+def _run_operator_exact_document_refill_workspace(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-exact-document-refill-workspace-v2",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _operator_exact_document_refill_fetch_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "fetch_plan_id": "financial_document_fetch_plan:67:2025:missing_exact_document_url",
+        "resolution_id": "",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "required_consolidated": True,
+        "fetch_plan_status": "blocked_missing_exact_document_url",
+        "fetch_plan_reason_codes": ["missing_exact_document_url"],
+        "fetch_plan_warnings": [],
+        "disk_guard_status": "passed",
+        "planned_raw_document_path": "logs/financial_reports/document_artifacts/raw_cache/67/2025/missing_exact_document_url.downloaded.pdf",
+        "planned_hash_manifest_path": "logs/financial_reports/document_artifacts/hash_manifest/67/2025/missing_exact_document_url.json",
+        "historical_fallback_url": "",
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    if "company_name" in updates and "canonical_company_name" not in updates:
+        row["canonical_company_name"] = updates["company_name"]
+    if "fetch_plan_id" not in updates:
+        row["fetch_plan_id"] = (
+            f"financial_document_fetch_plan:{row.get('canonical_company_id') or row.get('company_id')}:"
+            "2025:missing_exact_document_url"
+        )
+    return row
+
+
+def _write_operator_exact_document_refill_fetch_plan(
+    path: Path,
+    rows: list[dict[str, object]],
+    *,
+    disk_guard_status: str = "passed",
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "financial-document-fetch-plan-preview",
+                "disk_guard_status": disk_guard_status,
+                "fetch_plan_rows": rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _operator_exact_document_refill_source_trust_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "resolution_id": "",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "source_trust_status": "ready_for_document_url_refill",
+        "trusted_source_hosts": ["mostotrest.ru"],
+        "current_known_source_page_url": "https://mostotrest.ru/reports/",
+        "current_known_document_url": "",
+        "latest_historical_document_url": "",
+        "next_required_action": "fill_exact_official_target_period_annual_ifrs_url",
+        "trusted_source_status_reason_codes": ["baseline_trusted_source_available"],
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    if "company_name" in updates and "canonical_company_name" not in updates:
+        row["canonical_company_name"] = updates["company_name"]
+    return row
+
+
+def _write_operator_exact_document_refill_rows(path: Path, mode: str, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"status": "warning", "mode": mode, "rows": rows}, indent=2) + "\n",
         encoding="utf-8",
     )
 
