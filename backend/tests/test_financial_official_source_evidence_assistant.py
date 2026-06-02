@@ -7095,6 +7095,307 @@ def test_operator_exact_document_refill_validation_never_calls_network_helpers(t
         assert report[key] is False
 
 
+def test_operator_exact_document_refill_apply_draft_vds_like_rows_create_minimal_placeholders(tmp_path: Path) -> None:
+    _write_operator_exact_document_refill_apply_validation(
+        tmp_path / "operator_exact_document_refill_validation_task135.json",
+        [
+            _operator_exact_document_refill_apply_validation_row(
+                company_id="18",
+                company_name="RZD",
+                validation_status="blocked_source_trust_required",
+                accepted_candidate_id="",
+                accepted_for_future_apply_draft=False,
+            ),
+            _operator_exact_document_refill_apply_validation_row(
+                validation_status="incomplete_missing_exact_document_url",
+                accepted_candidate_id="",
+                accepted_for_future_apply_draft=False,
+                normalized_document_url="",
+            ),
+        ],
+    )
+    _write_operator_exact_document_refill_apply_candidates(
+        tmp_path / "operator_exact_document_refill_accepted_candidates_task135.json",
+        [],
+    )
+
+    report = _run_operator_exact_document_refill_apply_draft(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "warning"
+    assert report["applied_count"] == 0
+    assert report["skipped_count"] == 2
+    assert report["failed_count"] == 0
+    assert report["exact_document_intake_apply_draft_row_count"] == 2
+    assert report["apply_status_counts"] == {
+        "skipped_blocked_source_trust_required": 1,
+        "skipped_incomplete_missing_exact_document_url": 1,
+    }
+    draft = json.loads((tmp_path / "operator_exact_document_intake_apply_draft_task136.json").read_text(encoding="utf-8"))
+    assert [row["document_status"] for row in draft["documents"]] == ["not_found", "not_found"]
+    assert all(row["document_url"] == "" for row in draft["documents"])
+
+
+def test_operator_exact_document_refill_apply_draft_updates_only_new_draft_and_writes_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task136 apply draft must not fetch, probe, download, or parse documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    validation = _operator_exact_document_refill_apply_validation_row()
+    candidate = _operator_exact_document_refill_apply_candidate_row()
+    validation_path = tmp_path / "operator_exact_document_refill_validation_task135.json"
+    accepted_path = tmp_path / "operator_exact_document_refill_accepted_candidates_task135.json"
+    base_path = tmp_path / "exact_document_intake_draft_chain_task124.json"
+    _write_operator_exact_document_refill_apply_validation(validation_path, [validation])
+    _write_operator_exact_document_refill_apply_candidates(accepted_path, [candidate])
+    _write_document_intake(base_path, [_empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/reports/")])
+    snapshots = {path: path.read_bytes() for path in (validation_path, accepted_path, base_path)}
+
+    report = _run_operator_exact_document_refill_apply_draft(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "passed"
+    assert report["applied_count"] == 1
+    assert report["skipped_count"] == 0
+    assert report["failed_count"] == 0
+    assert report["apply_rows"][0]["apply_status"] == "applied_to_exact_document_intake_draft"
+    assert report["apply_rows"][0]["would_change_draft"] is True
+    for path, content in snapshots.items():
+        assert path.read_bytes() == content
+    draft_path = tmp_path / "operator_exact_document_intake_apply_draft_task136.json"
+    draft = json.loads(draft_path.read_text(encoding="utf-8"))
+    document = draft["documents"][0]
+    assert document["document_url"] == candidate["exact_document_url"]
+    assert document["document_status"] == "draft_candidate_pending_future_gate_validation"
+    assert document["ready_for_document_download"] is False
+    assert document["ready_for_value_extraction"] is False
+    for filename in assistant.OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES.values():
+        assert (tmp_path / filename).is_file()
+    assert "Operator Exact Document Refill Apply Draft v2" in (
+        tmp_path / "operator_exact_document_refill_apply_task136.md"
+    ).read_text(encoding="utf-8")
+    for key in (
+        "documents_downloaded",
+        "documents_parsed",
+        "files_deleted",
+        "would_fetch_documents",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_database",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[key] is False
+
+
+def test_operator_exact_document_refill_apply_draft_requires_validation_cross_check_and_candidate_pair(
+    tmp_path: Path,
+) -> None:
+    candidate = _operator_exact_document_refill_apply_candidate_row()
+    accepted_only = tmp_path / "accepted_only.json"
+    accepted_only_draft = tmp_path / "accepted_only_draft.json"
+    _write_operator_exact_document_refill_apply_candidates(accepted_only, [candidate])
+
+    accepted_report = _run_operator_exact_document_refill_apply_draft(
+        [
+            "--operator-exact-document-refill-accepted-candidates-input",
+            str(accepted_only),
+            "--operator-exact-document-intake-apply-draft-output",
+            str(accepted_only_draft),
+        ]
+    )
+
+    assert accepted_report["status"] == "warning"
+    assert accepted_report["apply_rows"][0]["apply_status"] == "skipped_not_accepted_candidate"
+    assert accepted_report["apply_rows"][0]["apply_reason_codes"] == ["validation_cross_check_required"]
+    validation_only = tmp_path / "validation_only.json"
+    _write_operator_exact_document_refill_apply_validation(
+        validation_only,
+        [_operator_exact_document_refill_apply_validation_row()],
+    )
+    validation_report = _run_operator_exact_document_refill_apply_draft(
+        ["--operator-exact-document-refill-validation-input", str(validation_only)]
+    )
+    assert validation_report["apply_rows"][0]["apply_status"] == "skipped_not_accepted_candidate"
+
+
+def test_operator_exact_document_refill_apply_draft_blocks_empty_duplicate_mismatch_unsafe_and_drift(
+    tmp_path: Path,
+) -> None:
+    cases = [
+        (
+            "empty",
+            [_operator_exact_document_refill_apply_validation_row()],
+            [_operator_exact_document_refill_apply_candidate_row(exact_document_url="")],
+            None,
+            "failed_missing_exact_document_url",
+        ),
+        (
+            "mismatch",
+            [_operator_exact_document_refill_apply_validation_row()],
+            [_operator_exact_document_refill_apply_candidate_row(document_report_type="interim")],
+            None,
+            "skipped_strict_mismatch",
+        ),
+        (
+            "unsafe",
+            [_operator_exact_document_refill_apply_validation_row()],
+            [_operator_exact_document_refill_apply_candidate_row(would_extract_values=True)],
+            None,
+            "failed_input_drift",
+        ),
+        (
+            "artifact_drift",
+            [_operator_exact_document_refill_apply_validation_row()],
+            [_operator_exact_document_refill_apply_candidate_row(workspace_id="operator_exact_document_refill:other")],
+            None,
+            "failed_input_drift",
+        ),
+        (
+            "drift",
+            [_operator_exact_document_refill_apply_validation_row()],
+            [_operator_exact_document_refill_apply_candidate_row()],
+            "https://mostotrest.ru/reports/different-annual-ifrs-consolidated-2025.pdf",
+            "failed_input_drift",
+        ),
+    ]
+    for name, validations, candidates, base_url, expected_status in cases:
+        case_dir = tmp_path / name
+        case_dir.mkdir()
+        validation_path = case_dir / "validation.json"
+        accepted_path = case_dir / "accepted.json"
+        draft_path = case_dir / "draft.json"
+        _write_operator_exact_document_refill_apply_validation(validation_path, validations)
+        _write_operator_exact_document_refill_apply_candidates(accepted_path, candidates)
+        args = [
+            "--operator-exact-document-refill-validation-input",
+            str(validation_path),
+            "--operator-exact-document-refill-accepted-candidates-input",
+            str(accepted_path),
+            "--operator-exact-document-intake-apply-draft-output",
+            str(draft_path),
+        ]
+        if base_url:
+            base_path = case_dir / "base.json"
+            base_row = _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/reports/")
+            base_row["document_url"] = base_url
+            _write_document_intake(base_path, [base_row])
+            args.extend(["--document-intake-draft-input", str(base_path)])
+        report = _run_operator_exact_document_refill_apply_draft(args)
+        assert report["apply_rows"][0]["apply_status"] == expected_status
+        assert report["applied_count"] == 0
+
+    duplicate_dir = tmp_path / "duplicate"
+    duplicate_dir.mkdir()
+    validation_path = duplicate_dir / "validation.json"
+    accepted_path = duplicate_dir / "accepted.json"
+    _write_operator_exact_document_refill_apply_validation(
+        validation_path,
+        [_operator_exact_document_refill_apply_validation_row()],
+    )
+    _write_operator_exact_document_refill_apply_candidates(
+        accepted_path,
+        [
+            _operator_exact_document_refill_apply_candidate_row(),
+            _operator_exact_document_refill_apply_candidate_row(),
+        ],
+    )
+    duplicate = _run_operator_exact_document_refill_apply_draft(
+        [
+            "--operator-exact-document-refill-validation-input",
+            str(validation_path),
+            "--operator-exact-document-refill-accepted-candidates-input",
+            str(accepted_path),
+        ]
+    )
+    assert duplicate["apply_rows"][0]["apply_status"] == "skipped_duplicate_candidate"
+
+
+def test_operator_exact_document_refill_apply_draft_uses_embedded_candidates_and_task124_base_priority(
+    tmp_path: Path,
+) -> None:
+    validation_path = tmp_path / "operator_exact_document_refill_validation_task135.json"
+    candidate = _operator_exact_document_refill_apply_candidate_row()
+    _write_operator_exact_document_refill_apply_validation(
+        validation_path,
+        [_operator_exact_document_refill_apply_validation_row()],
+        accepted_rows=[candidate],
+    )
+    task124 = tmp_path / "exact_document_intake_draft_chain_task124.json"
+    legacy = tmp_path / "exact_document_intake_draft_task121.json"
+    task124_row = _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/task124/")
+    task124_row["base_marker"] = "task124"
+    legacy_row = _empty_document_intake_item(67, "Mostotrest", "https://mostotrest.ru/legacy/")
+    legacy_row["base_marker"] = "legacy"
+    _write_document_intake(task124, [task124_row])
+    _write_document_intake(legacy, [legacy_row])
+
+    report = _run_operator_exact_document_refill_apply_draft(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["applied_count"] == 1
+    assert {"message": "operator_exact_document_refill_accepted_candidates_missing_using_embedded_validation_rows"} in report[
+        "warnings"
+    ]
+    draft = json.loads((tmp_path / "operator_exact_document_intake_apply_draft_task136.json").read_text(encoding="utf-8"))
+    assert draft["documents"][0]["base_marker"] == "task124"
+
+
+def test_operator_exact_document_refill_apply_draft_output_collisions_fail_safely(tmp_path: Path) -> None:
+    validation_path = tmp_path / "validation.json"
+    accepted_path = tmp_path / "accepted.json"
+    _write_operator_exact_document_refill_apply_validation(
+        validation_path,
+        [_operator_exact_document_refill_apply_validation_row()],
+    )
+    _write_operator_exact_document_refill_apply_candidates(accepted_path, [])
+    original = validation_path.read_bytes()
+
+    dedicated = _run_operator_exact_document_refill_apply_draft(
+        [
+            "--operator-exact-document-refill-validation-input",
+            str(validation_path),
+            "--operator-exact-document-refill-accepted-candidates-input",
+            str(accepted_path),
+            "--operator-exact-document-refill-apply-output",
+            str(accepted_path),
+        ]
+    )
+    assert dedicated["status"] == "failed"
+    assert dedicated["errors"] == [{"message": "operator_exact_document_refill_apply_output_must_not_equal_input"}]
+    assert accepted_path.is_file()
+    assert validation_path.read_bytes() == original
+
+    valid_validation_path = tmp_path / "valid_validation.json"
+    _write_operator_exact_document_refill_apply_validation(
+        valid_validation_path,
+        [_operator_exact_document_refill_apply_validation_row()],
+    )
+    generic = _run_operator_exact_document_refill_apply_draft(
+        [
+            "--operator-exact-document-refill-validation-input",
+            str(valid_validation_path),
+            "--operator-exact-document-refill-accepted-candidates-input",
+            str(accepted_path),
+            "--json-output",
+            str(valid_validation_path),
+        ]
+    )
+    assert generic["status"] == "failed"
+    assert generic["errors"] == [{"message": "operator_exact_document_refill_apply_output_must_not_equal_input"}]
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -11814,6 +12115,135 @@ def _write_operator_exact_document_refill_validation_inputs(
         [_operator_exact_document_refill_validation_workspace_row(**(workspace_updates or {}))],
     )
     return template, workspace
+
+
+def _run_operator_exact_document_refill_apply_draft(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-exact-document-refill-apply-draft-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _operator_exact_document_refill_apply_validation_row(**updates: object) -> dict[str, object]:
+    url = "https://mostotrest.ru/reports/annual-ifrs-consolidated-2025.pdf"
+    row: dict[str, object] = {
+        "validation_id": "operator_exact_document_refill_validation:operator_exact_document_refill:67",
+        "accepted_candidate_id": "operator_exact_document_refill_candidate:operator_exact_document_refill:67",
+        "workspace_id": "operator_exact_document_refill:67",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "required_consolidated": True,
+        "normalized_document_url": url,
+        "validation_status": "valid_future_exact_document_candidate",
+        "accepted_for_future_apply_draft": True,
+        "trusted_source_hosts": ["mostotrest.ru"],
+        "would_accept_url": False,
+        "would_update_exact_document_intake": False,
+        "would_fetch_document": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    return row
+
+
+def _operator_exact_document_refill_apply_candidate_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "accepted_candidate_id": "operator_exact_document_refill_candidate:operator_exact_document_refill:67",
+        "validation_id": "operator_exact_document_refill_validation:operator_exact_document_refill:67",
+        "workspace_id": "operator_exact_document_refill:67",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "required_consolidated": True,
+        "exact_document_url": "https://mostotrest.ru/reports/annual-ifrs-consolidated-2025.pdf",
+        "document_title": "Mostotrest annual consolidated IFRS financial statements 2025",
+        "document_publication_date": "2026-04-30",
+        "document_report_type": "annual",
+        "document_accounting_standard": "IFRS",
+        "document_consolidated": "true",
+        "document_language": "en",
+        "trusted_source_hosts": ["mostotrest.ru"],
+        "document_url_host": "mostotrest.ru",
+        "document_url_registrable_domain": "mostotrest.ru",
+        "accepted_candidate_status": "future_apply_draft_candidate_only",
+        "future_apply_draft_allowed": True,
+        "would_accept_url": False,
+        "would_update_exact_document_intake": False,
+        "would_fetch_document": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    return row
+
+
+def _write_operator_exact_document_refill_apply_validation(
+    path: Path,
+    rows: list[dict[str, object]],
+    *,
+    accepted_rows: list[dict[str, object]] | None = None,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-exact-document-refill-validate-v2",
+                "validation_rows": rows,
+                "accepted_candidate_rows": accepted_rows or [],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_operator_exact_document_refill_apply_candidates(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-exact-document-refill-accepted-candidates-v2",
+                "accepted_candidate_rows": rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _run_availability_discovery(

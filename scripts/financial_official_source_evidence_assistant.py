@@ -59,6 +59,7 @@ MODE_CHOICES = (
     "financial-document-fetch-plan-preview",
     "operator-exact-document-refill-workspace-v2",
     "operator-exact-document-refill-validate-v2",
+    "operator-exact-document-refill-apply-draft-v2",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2677,6 +2678,113 @@ OPERATOR_EXACT_DOCUMENT_REFILL_BLOCKER_FIELDS = [
     "operator_action",
     "safe_hint",
 ]
+OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES = {
+    "apply_json": "operator_exact_document_refill_apply_task136.json",
+    "apply_csv": "operator_exact_document_refill_apply_task136.csv",
+    "apply_markdown": "operator_exact_document_refill_apply_task136.md",
+    "blockers_json": "operator_exact_document_refill_apply_blockers_task136.json",
+    "blockers_csv": "operator_exact_document_refill_apply_blockers_task136.csv",
+    "intake_draft_json": "operator_exact_document_intake_apply_draft_task136.json",
+    "intake_draft_csv": "operator_exact_document_intake_apply_draft_task136.csv",
+}
+OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_FIELDS = [
+    "apply_id",
+    "validation_id",
+    "accepted_candidate_id",
+    "workspace_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "required_consolidated",
+    "validation_status",
+    "accepted_candidate_status",
+    "future_apply_draft_allowed",
+    "exact_document_url",
+    "document_title",
+    "document_publication_date",
+    "document_report_type",
+    "document_accounting_standard",
+    "document_consolidated",
+    "document_language",
+    "trusted_source_hosts",
+    "document_url_host",
+    "document_url_registrable_domain",
+    "apply_status",
+    "apply_severity",
+    "apply_action",
+    "apply_reason_codes",
+    "apply_errors",
+    "apply_warnings",
+    "existing_intake_status",
+    "existing_exact_document_url",
+    "existing_document_title",
+    "existing_document_report_type",
+    "existing_document_accounting_standard",
+    "existing_document_consolidated",
+    "draft_exact_document_url",
+    "draft_document_title",
+    "draft_document_publication_date",
+    "draft_document_report_type",
+    "draft_document_accounting_standard",
+    "draft_document_consolidated",
+    "draft_document_language",
+    "draft_context_status",
+    "draft_origin",
+    "draft_requires_future_gate_validation",
+    "draft_ready_for_download",
+    "draft_ready_for_extraction",
+    "draft_ready_for_import",
+    "draft_ready_for_scoring",
+    "draft_ready_for_paper_trading",
+    "would_change_draft",
+    "would_update_original_intake",
+    "would_update_source_pack",
+    "would_accept_url_now",
+    "would_fetch_document",
+    "would_download_document",
+    "would_parse_document",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_database",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "apply_id",
+    "validation_id",
+    "workspace_id",
+    "company_id",
+    "company_name",
+    "apply_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+OPERATOR_EXACT_DOCUMENT_INTAKE_APPLY_DRAFT_FIELDS = list(
+    dict.fromkeys(
+        [
+            *DOCUMENT_INTAKE_DRAFT_FIELDS,
+            "required_consolidated",
+            "document_consolidated",
+            "document_language",
+            "document_context_status",
+            "document_context_origin",
+            "manual_candidate_status",
+            "ready_for_document_download",
+            "ready_for_value_extraction",
+            "ready_for_import",
+            "ready_for_scoring",
+            "ready_for_paper_trading",
+        ]
+    )
+)
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -3080,6 +3188,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-exact-document-refill-blockers-output", type=Path, default=None)
     parser.add_argument("--operator-exact-document-refill-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--operator-exact-document-refill-workspace-input", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-validation-input", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-accepted-candidates-input", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-blockers-input", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-apply-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-apply-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-refill-apply-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-intake-apply-draft-output", type=Path, default=None)
+    parser.add_argument("--operator-exact-document-intake-apply-draft-csv-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3178,6 +3296,8 @@ def run_assistant(
         report = run_operator_exact_document_refill_workspace_v2(args)
     elif args.mode == "operator-exact-document-refill-validate-v2":
         report = run_operator_exact_document_refill_validate_v2(args)
+    elif args.mode == "operator-exact-document-refill-apply-draft-v2":
+        report = run_operator_exact_document_refill_apply_draft_v2(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -11588,6 +11708,761 @@ def _write_optional_flat_csv(rows: list[dict[str, Any]], fieldnames: list[str], 
         _write_flat_csv(rows, fieldnames, path)
 
 
+def run_operator_exact_document_refill_apply_draft_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _operator_exact_document_refill_apply_inputs(args)
+    validation_path = inputs["validation"]
+    accepted_path = inputs["accepted_candidates"]
+    if (validation_path is None or not validation_path.is_file()) and (
+        accepted_path is None or not accepted_path.is_file()
+    ):
+        return _failed_operator_exact_document_refill_apply(
+            [{"message": "operator_exact_document_refill_validation_input_required"}],
+        )
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    validation_report: dict[str, Any] = {}
+    validation_rows: list[dict[str, Any]] = []
+    if validation_path is not None and validation_path.is_file():
+        try:
+            validation_report = _load_json_object(validation_path)
+            loaded_validation_rows = validation_report.get("validation_rows")
+            if validation_report.get("mode") != "operator-exact-document-refill-validate-v2":
+                raise ValueError("unexpected Task135 validation mode")
+            if not isinstance(loaded_validation_rows, list) or not all(
+                isinstance(row, dict) for row in loaded_validation_rows
+            ):
+                raise ValueError("Task135 validation rows are malformed")
+            validation_rows = loaded_validation_rows
+        except (OSError, ValueError, json.JSONDecodeError):
+            return _failed_operator_exact_document_refill_apply(
+                [{"message": "operator_exact_document_refill_validation_input_invalid", "path": str(validation_path)}],
+            )
+    accepted_rows = _operator_exact_document_refill_apply_load_accepted_rows(
+        accepted_path,
+        validation_report=validation_report,
+        warnings=warnings,
+    )
+    if accepted_rows is None:
+        return _failed_operator_exact_document_refill_apply(
+            [{"message": "operator_exact_document_refill_accepted_candidates_input_invalid", "path": _path_value(accepted_path)}],
+        )
+    if not validation_rows and accepted_rows:
+        warnings.append({"message": "operator_exact_document_refill_validation_cross_check_required"})
+        validation_rows = [
+            _operator_exact_document_refill_apply_validation_shell(candidate)
+            for candidate in accepted_rows
+        ]
+
+    try:
+        intake_payload, intake_documents, base_intake_path = _operator_exact_document_refill_apply_load_base_intake(
+            args,
+            validation_rows=validation_rows,
+            warnings=warnings,
+        )
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _failed_operator_exact_document_refill_apply(
+            [{"message": "operator_exact_document_refill_base_intake_input_invalid"}],
+        )
+    inputs["base_intake"] = base_intake_path
+    artifacts = _operator_exact_document_refill_apply_artifacts(args)
+    errors.extend(
+        _operator_exact_document_refill_apply_output_errors(
+            args,
+            inputs=list(inputs.values()),
+            artifacts=artifacts,
+        )
+    )
+    snapshots = _operator_exact_document_refill_apply_snapshots(inputs)
+    draft_documents = copy.deepcopy(intake_documents)
+    apply_rows = _build_operator_exact_document_refill_apply_rows(
+        args,
+        validation_rows=validation_rows,
+        accepted_rows=accepted_rows,
+        draft_documents=draft_documents,
+        validation_cross_check_available=bool(validation_report),
+    )
+    blocker_rows = [
+        _operator_exact_document_refill_apply_blocker_row(row)
+        for row in apply_rows
+        if row.get("apply_status") != "applied_to_exact_document_intake_draft"
+    ]
+    report = _build_operator_exact_document_refill_apply_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        apply_rows=apply_rows,
+        blocker_rows=blocker_rows,
+        accepted_rows=accepted_rows,
+        draft_documents=draft_documents,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            _write_optional_json_report(report, artifacts["apply_json"])
+            _write_optional_flat_csv(apply_rows, OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_FIELDS, artifacts["apply_csv"])
+            if artifacts["apply_markdown"] is not None:
+                write_operator_exact_document_refill_apply_markdown(report, artifacts["apply_markdown"])
+            _write_optional_json_report(
+                {
+                    "status": report["status"],
+                    "mode": "operator-exact-document-refill-apply-blockers-v2",
+                    "row_count": len(blocker_rows),
+                    "blocker_rows": blocker_rows,
+                    **_operator_exact_document_refill_apply_safety_flags(),
+                },
+                artifacts["blockers_json"],
+            )
+            _write_optional_flat_csv(
+                blocker_rows,
+                OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_BLOCKER_FIELDS,
+                artifacts["blockers_csv"],
+            )
+            if artifacts["intake_draft_json"] is not None:
+                write_document_intake_draft_json(intake_payload, draft_documents, artifacts["intake_draft_json"])
+            if artifacts["intake_draft_csv"] is not None:
+                _write_flat_csv(
+                    draft_documents,
+                    OPERATOR_EXACT_DOCUMENT_INTAKE_APPLY_DRAFT_FIELDS,
+                    artifacts["intake_draft_csv"],
+                )
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    if not _operator_exact_document_refill_apply_snapshots_unchanged(snapshots):
+        report["status"] = "failed"
+        report["errors"] = [*report["errors"], {"message": "operator_exact_document_refill_apply_input_was_modified"}]
+    return report
+
+
+def _operator_exact_document_refill_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "validation": args.operator_exact_document_refill_validation_input
+        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES["validation_json"] if output_dir else None),
+        "accepted_candidates": args.operator_exact_document_refill_accepted_candidates_input
+        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES["accepted_candidates_json"] if output_dir else None),
+        "validation_blockers": args.operator_exact_document_refill_blockers_input
+        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+    }
+
+
+def _operator_exact_document_refill_apply_load_accepted_rows(
+    path: Path | None,
+    *,
+    validation_report: dict[str, Any],
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]] | None:
+    if path is None or not path.is_file():
+        embedded = validation_report.get("accepted_candidate_rows")
+        if isinstance(embedded, list) and all(isinstance(row, dict) for row in embedded):
+            warnings.append({"message": "operator_exact_document_refill_accepted_candidates_missing_using_embedded_validation_rows"})
+            return embedded
+        return []
+    try:
+        payload = _load_json_object(path)
+        rows = payload.get("accepted_candidate_rows")
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError("accepted candidates rows are malformed")
+        return rows
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None
+
+
+def _operator_exact_document_refill_apply_validation_shell(candidate: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "validation_id": candidate.get("validation_id") or "",
+        "accepted_candidate_id": candidate.get("accepted_candidate_id") or "",
+        "workspace_id": candidate.get("workspace_id") or "",
+        "company_id": candidate.get("company_id") or "",
+        "company_name": candidate.get("company_name") or "",
+        "canonical_company_id": candidate.get("canonical_company_id") or candidate.get("company_id") or "",
+        "canonical_company_name": candidate.get("canonical_company_name") or candidate.get("company_name") or "",
+        "target_reporting_period": candidate.get("target_reporting_period") or "",
+        "required_report_type": candidate.get("document_report_type") or "",
+        "required_standard": candidate.get("document_accounting_standard") or "",
+        "required_consolidated": candidate.get("document_consolidated") or False,
+        "validation_status": "validation_cross_check_required",
+    }
+
+
+def _operator_exact_document_refill_apply_load_base_intake(
+    args: argparse.Namespace,
+    *,
+    validation_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+) -> tuple[Any, list[dict[str, Any]], Path | None]:
+    base_path = _operator_exact_document_refill_apply_base_intake_path(args)
+    if base_path is not None and base_path.is_file():
+        payload, documents = load_document_intake_payload(base_path)
+        return payload, documents, base_path
+    warnings.append({"message": "operator_exact_document_refill_base_intake_missing_using_minimal_draft"})
+    documents = [_operator_exact_document_refill_apply_placeholder_row(row) for row in validation_rows]
+    return {"documents": documents}, documents, None
+
+
+def _operator_exact_document_refill_apply_base_intake_path(args: argparse.Namespace) -> Path | None:
+    if args.document_intake_draft_input is not None:
+        return args.document_intake_draft_input
+    if args.document_intake_input is not None:
+        return args.document_intake_input
+    output_dir = args.operator_resolution_chain_output_dir
+    if output_dir is None:
+        return None
+    for filename in (
+        OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES["exact_document_intake_draft_json"],
+        "document_intake_apply_draft_task121.json",
+        "document_intake_draft_task121.json",
+        "exact_document_intake_draft_task121.json",
+    ):
+        path = output_dir / filename
+        if path.is_file():
+            return path
+    return None
+
+
+def _operator_exact_document_refill_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "apply_json": args.operator_exact_document_refill_apply_output,
+        "apply_csv": args.operator_exact_document_refill_apply_csv_output,
+        "apply_markdown": args.operator_exact_document_refill_apply_markdown_output,
+        "blockers_json": args.operator_exact_document_refill_apply_blockers_output,
+        "blockers_csv": args.operator_exact_document_refill_apply_blockers_csv_output,
+        "intake_draft_json": args.operator_exact_document_intake_apply_draft_output,
+        "intake_draft_csv": args.operator_exact_document_intake_apply_draft_csv_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES.items()
+    }
+
+
+def _operator_exact_document_refill_apply_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: list[Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [
+        *(path for path in artifacts.values() if path is not None),
+        *(path for path in (args.json_output, args.markdown_output) if path is not None),
+    ]
+    protected = [path for path in inputs if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "operator_exact_document_refill_apply_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected):
+            return [{"message": "operator_exact_document_refill_apply_output_must_not_equal_input"}]
+    return []
+
+
+def _operator_exact_document_refill_apply_snapshots(inputs: dict[str, Path | None]) -> dict[Path, bytes]:
+    snapshots: dict[Path, bytes] = {}
+    for path in inputs.values():
+        if path is not None and path.is_file():
+            snapshots[path] = path.read_bytes()
+    return snapshots
+
+
+def _operator_exact_document_refill_apply_snapshots_unchanged(snapshots: dict[Path, bytes]) -> bool:
+    try:
+        return all(path.is_file() and path.read_bytes() == content for path, content in snapshots.items())
+    except OSError:
+        return False
+
+
+def _operator_exact_document_refill_apply_placeholder_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "canonical_company_id": row.get("canonical_company_id") or row.get("company_id") or "",
+        "canonical_company_name": row.get("canonical_company_name") or row.get("company_name") or "",
+        "report_period": row.get("target_reporting_period") or "",
+        "report_type": row.get("required_report_type") or "",
+        "accounting_standard": row.get("required_standard") or "",
+        "document_url": "",
+        "document_title": "",
+        "document_date": "",
+        "document_status": "not_found",
+        "operator_review_status": "operator_to_fill",
+        "filter_status": "placeholder_not_found",
+        "fallback_status": "not_fallback",
+    }
+
+
+def _operator_exact_document_refill_apply_candidate_index(
+    accepted_rows: list[dict[str, Any]],
+) -> tuple[dict[str, list[dict[str, Any]]], set[str]]:
+    by_validation: dict[str, list[dict[str, Any]]] = {}
+    url_companies: dict[str, set[str]] = {}
+    for row in accepted_rows:
+        validation_id = str(row.get("validation_id") or "")
+        if validation_id:
+            by_validation.setdefault(validation_id, []).append(row)
+        url = _normalize_candidate_url(str(row.get("exact_document_url") or ""))
+        company = str(row.get("canonical_company_id") or row.get("company_id") or "")
+        if url:
+            url_companies.setdefault(url, set()).add(company)
+    duplicate_urls = {url for url, companies in url_companies.items() if len(companies) > 1}
+    return by_validation, duplicate_urls
+
+
+def _build_operator_exact_document_refill_apply_rows(
+    args: argparse.Namespace,
+    *,
+    validation_rows: list[dict[str, Any]],
+    accepted_rows: list[dict[str, Any]],
+    draft_documents: list[dict[str, Any]],
+    validation_cross_check_available: bool,
+) -> list[dict[str, Any]]:
+    accepted_by_validation, duplicate_urls = _operator_exact_document_refill_apply_candidate_index(accepted_rows)
+    accepted_identity_counts: dict[str, int] = {}
+    for row in accepted_rows:
+        identity = str(row.get("canonical_company_id") or row.get("company_id") or "")
+        if identity:
+            accepted_identity_counts[identity] = accepted_identity_counts.get(identity, 0) + 1
+    validation_identity_counts: dict[str, int] = {}
+    validation_id_counts: dict[str, int] = {}
+    for row in validation_rows:
+        identity = str(row.get("canonical_company_id") or row.get("company_id") or "")
+        validation_id = str(row.get("validation_id") or "")
+        if identity:
+            validation_identity_counts[identity] = validation_identity_counts.get(identity, 0) + 1
+        if validation_id:
+            validation_id_counts[validation_id] = validation_id_counts.get(validation_id, 0) + 1
+    rows = [
+        _build_operator_exact_document_refill_apply_row(
+            args,
+            validation=validation,
+            candidates=accepted_by_validation.get(str(validation.get("validation_id") or ""), []),
+            duplicate_urls=duplicate_urls,
+            duplicate_companies={
+                identity
+                for counts in (accepted_identity_counts, validation_identity_counts)
+                for identity, count in counts.items()
+                if count > 1
+            },
+            duplicate_validation_ids={
+                validation_id for validation_id, count in validation_id_counts.items() if count > 1
+            },
+            draft_documents=draft_documents,
+            validation_cross_check_available=validation_cross_check_available,
+        )
+        for validation in validation_rows
+    ]
+    return sorted(rows, key=lambda row: str(row.get("apply_id") or ""))
+
+
+def _build_operator_exact_document_refill_apply_row(
+    args: argparse.Namespace,
+    *,
+    validation: dict[str, Any],
+    candidates: list[dict[str, Any]],
+    duplicate_urls: set[str],
+    duplicate_companies: set[str],
+    duplicate_validation_ids: set[str],
+    draft_documents: list[dict[str, Any]],
+    validation_cross_check_available: bool,
+) -> dict[str, Any]:
+    validation_id = str(validation.get("validation_id") or "")
+    workspace_id = str(validation.get("workspace_id") or "")
+    company_id = str(validation.get("company_id") or "")
+    canonical_company_id = str(validation.get("canonical_company_id") or company_id)
+    apply_id = f"operator_exact_document_refill_apply:{validation_id or workspace_id or canonical_company_id}"
+    validation_status = str(validation.get("validation_status") or "")
+    candidate = candidates[0] if len(candidates) == 1 else {}
+    exact_url = str(candidate.get("exact_document_url") or "")
+    reasons: list[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    status = _operator_exact_document_refill_apply_skip_status(validation_status)
+    if not validation_cross_check_available:
+        status = "skipped_not_accepted_candidate"
+        reasons.append("validation_cross_check_required")
+    elif status is None and len(candidates) != 1:
+        status = "skipped_duplicate_candidate" if len(candidates) > 1 else "skipped_not_accepted_candidate"
+        reasons.append("duplicate_candidate" if len(candidates) > 1 else "accepted_candidate_missing")
+    elif status is None and not exact_url:
+        status = "failed_missing_exact_document_url"
+        errors.append("missing_exact_document_url")
+    elif status is None and (
+        _normalize_candidate_url(exact_url) in duplicate_urls
+        or canonical_company_id in duplicate_companies
+        or validation_id in duplicate_validation_ids
+    ):
+        status = "skipped_duplicate_candidate"
+        reasons.append("duplicate_candidate")
+    elif status is None and not _operator_exact_document_refill_apply_candidate_contract_allowed(validation, candidate):
+        status = "skipped_not_accepted_candidate"
+        reasons.append("accepted_candidate_contract_not_allowed")
+    elif status is None and _operator_exact_document_refill_apply_candidate_has_input_drift(validation, candidate):
+        status = "failed_input_drift"
+        errors.append("task135_validation_candidate_artifact_drift")
+    elif status is None and _operator_exact_document_refill_apply_candidate_has_strict_mismatch(args, validation, candidate):
+        status = "skipped_strict_mismatch"
+        reasons.append("strict_mismatch")
+    elif status is None and _operator_exact_document_refill_apply_has_unsafe_flags(validation, candidate):
+        status = "failed_input_drift"
+        errors.append("unsafe_input_flags")
+    elif status is None:
+        status = "applied_to_exact_document_intake_draft"
+        reasons.append("future_apply_draft_candidate_only")
+    matching = _operator_exact_document_refill_apply_matching_intake(validation, draft_documents)
+    existing = matching[0] if len(matching) == 1 else {}
+    existing_snapshot = copy.deepcopy(existing)
+    if status == "applied_to_exact_document_intake_draft":
+        if len(matching) > 1:
+            status = "failed_input_drift"
+            errors.append("duplicate_matching_intake_rows")
+        elif existing.get("document_url") and _normalize_candidate_url(str(existing.get("document_url"))) != _normalize_candidate_url(exact_url):
+            status = "failed_input_drift"
+            errors.append("existing_intake_document_url_conflict")
+        else:
+            target = existing
+            if not target:
+                target = _operator_exact_document_refill_apply_placeholder_row(validation)
+                draft_documents.append(target)
+            target.update(_operator_exact_document_refill_apply_draft_row(validation, candidate))
+    changed = status == "applied_to_exact_document_intake_draft"
+    return {
+        "apply_id": apply_id,
+        "validation_id": validation_id,
+        "accepted_candidate_id": candidate.get("accepted_candidate_id") or "",
+        "workspace_id": workspace_id,
+        "company_id": company_id,
+        "company_name": validation.get("company_name") or "",
+        "canonical_company_id": canonical_company_id,
+        "canonical_company_name": validation.get("canonical_company_name") or validation.get("company_name") or "",
+        "target_reporting_period": validation.get("target_reporting_period") or "",
+        "required_report_type": validation.get("required_report_type") or "",
+        "required_standard": validation.get("required_standard") or "",
+        "required_consolidated": bool(validation.get("required_consolidated")),
+        "validation_status": validation_status,
+        "accepted_candidate_status": candidate.get("accepted_candidate_status") or "",
+        "future_apply_draft_allowed": bool(candidate.get("future_apply_draft_allowed")),
+        "exact_document_url": exact_url,
+        "document_title": candidate.get("document_title") or "",
+        "document_publication_date": candidate.get("document_publication_date") or "",
+        "document_report_type": candidate.get("document_report_type") or "",
+        "document_accounting_standard": candidate.get("document_accounting_standard") or "",
+        "document_consolidated": candidate.get("document_consolidated") or "",
+        "document_language": candidate.get("document_language") or "",
+        "trusted_source_hosts": candidate.get("trusted_source_hosts") or validation.get("trusted_source_hosts") or [],
+        "document_url_host": candidate.get("document_url_host") or _host(exact_url),
+        "document_url_registrable_domain": candidate.get("document_url_registrable_domain") or _source_trust_registrable_domain(_host(exact_url)),
+        "apply_status": status,
+        "apply_severity": "info" if changed else "error" if status.startswith("failed_") else "warning",
+        "apply_action": "apply_candidate_to_exact_document_intake_draft" if changed else "skip",
+        "apply_reason_codes": list(dict.fromkeys(reasons)),
+        "apply_errors": list(dict.fromkeys(errors)),
+        "apply_warnings": warnings,
+        "existing_intake_status": "matching_intake_row" if existing else "no_matching_intake_row",
+        "existing_exact_document_url": existing_snapshot.get("document_url") or "",
+        "existing_document_title": existing_snapshot.get("document_title") or "",
+        "existing_document_report_type": existing_snapshot.get("report_type") or "",
+        "existing_document_accounting_standard": existing_snapshot.get("accounting_standard") or "",
+        "existing_document_consolidated": existing_snapshot.get("document_consolidated") or "",
+        "draft_exact_document_url": exact_url if changed else "",
+        "draft_document_title": candidate.get("document_title") or "" if changed else "",
+        "draft_document_publication_date": candidate.get("document_publication_date") or "" if changed else "",
+        "draft_document_report_type": candidate.get("document_report_type") or "" if changed else "",
+        "draft_document_accounting_standard": candidate.get("document_accounting_standard") or "" if changed else "",
+        "draft_document_consolidated": candidate.get("document_consolidated") or "" if changed else "",
+        "draft_document_language": candidate.get("document_language") or "" if changed else "",
+        "draft_context_status": "exact_document_url_apply_draft_for_future_gate" if changed else "",
+        "draft_origin": "operator_exact_document_refill_apply_draft_task136" if changed else "",
+        "draft_requires_future_gate_validation": changed,
+        "draft_ready_for_download": False,
+        "draft_ready_for_extraction": False,
+        "draft_ready_for_import": False,
+        "draft_ready_for_scoring": False,
+        "draft_ready_for_paper_trading": False,
+        "would_change_draft": changed,
+        **_operator_exact_document_refill_apply_row_safety_flags(),
+    }
+
+
+def _operator_exact_document_refill_apply_skip_status(validation_status: str) -> str | None:
+    if validation_status == "valid_future_exact_document_candidate":
+        return None
+    if validation_status == "incomplete_missing_exact_document_url":
+        return "skipped_incomplete_missing_exact_document_url"
+    if validation_status == "blocked_source_trust_required":
+        return "skipped_blocked_source_trust_required"
+    if validation_status == "blocked_unknown_readiness":
+        return "skipped_blocked_unknown_readiness"
+    if validation_status.startswith("invalid_"):
+        return "skipped_invalid_candidate"
+    return "skipped_not_accepted_candidate"
+
+
+def _operator_exact_document_refill_apply_candidate_contract_allowed(
+    validation: dict[str, Any],
+    candidate: dict[str, Any],
+) -> bool:
+    return bool(
+        _as_bool(validation.get("accepted_for_future_apply_draft"))
+        and candidate.get("accepted_candidate_status") == "future_apply_draft_candidate_only"
+        and _as_bool(candidate.get("future_apply_draft_allowed"))
+    )
+
+
+def _operator_exact_document_refill_apply_candidate_has_input_drift(
+    validation: dict[str, Any],
+    candidate: dict[str, Any],
+) -> bool:
+    candidate_url = _normalize_candidate_url(str(candidate.get("exact_document_url") or ""))
+    validation_url = _normalize_candidate_url(str(validation.get("normalized_document_url") or ""))
+    return not bool(
+        str(candidate.get("validation_id") or "") == str(validation.get("validation_id") or "")
+        and str(candidate.get("accepted_candidate_id") or "") == str(validation.get("accepted_candidate_id") or "")
+        and str(candidate.get("workspace_id") or "") == str(validation.get("workspace_id") or "")
+        and str(candidate.get("canonical_company_id") or candidate.get("company_id") or "")
+        == str(validation.get("canonical_company_id") or validation.get("company_id") or "")
+        and candidate_url
+        and candidate_url == validation_url
+    )
+
+
+def _operator_exact_document_refill_apply_candidate_has_strict_mismatch(
+    args: argparse.Namespace,
+    validation: dict[str, Any],
+    candidate: dict[str, Any],
+) -> bool:
+    return not bool(
+        str(validation.get("target_reporting_period") or "") == str(args.operator_exact_document_refill_target_period)
+        and str(validation.get("required_report_type") or "").casefold()
+        == str(args.operator_exact_document_refill_required_report_type).casefold()
+        and str(validation.get("required_standard") or "").casefold()
+        == str(args.operator_exact_document_refill_required_standard).casefold()
+        and str(candidate.get("target_reporting_period") or "") == str(args.operator_exact_document_refill_target_period)
+        and str(candidate.get("document_report_type") or "").casefold()
+        == str(args.operator_exact_document_refill_required_report_type).casefold()
+        and str(candidate.get("document_accounting_standard") or "").casefold()
+        == str(args.operator_exact_document_refill_required_standard).casefold()
+        and (
+            not args.operator_exact_document_refill_required_consolidated
+            or _as_bool(candidate.get("document_consolidated"))
+        )
+    )
+
+
+def _operator_exact_document_refill_apply_has_unsafe_flags(
+    validation: dict[str, Any],
+    candidate: dict[str, Any],
+) -> bool:
+    return any(
+        _as_bool(row.get(flag))
+        for row in (validation, candidate)
+        for flag in (
+            "would_accept_url",
+            "would_trust_manual_url",
+            "would_update_source_pack",
+            "would_update_exact_document_intake",
+            "would_fetch_document",
+            "would_download_document",
+            "would_parse_document",
+            "would_extract_values",
+            "would_import_report",
+            "would_mutate_database",
+            "would_mutate_scores",
+            "would_trigger_paper_trading",
+            "would_delete_files",
+        )
+    )
+
+
+def _operator_exact_document_refill_apply_matching_intake(
+    validation: dict[str, Any],
+    documents: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    company_ids = {
+        str(validation.get("company_id") or ""),
+        str(validation.get("canonical_company_id") or ""),
+    } - {""}
+    return [
+        document
+        for document in documents
+        if not company_ids.isdisjoint(
+            {
+                str(document.get("company_id") or ""),
+                str(document.get("canonical_company_id") or ""),
+            }
+        )
+        and str(document.get("report_period") or "") == str(validation.get("target_reporting_period") or "")
+        and str(document.get("report_type") or "") == str(validation.get("required_report_type") or "")
+        and str(document.get("accounting_standard") or "") == str(validation.get("required_standard") or "")
+    ]
+
+
+def _operator_exact_document_refill_apply_draft_row(
+    validation: dict[str, Any],
+    candidate: dict[str, Any],
+) -> dict[str, Any]:
+    document_url = str(candidate.get("exact_document_url") or "")
+    return {
+        "company_id": validation.get("company_id") or "",
+        "company_name": validation.get("company_name") or "",
+        "canonical_company_id": validation.get("canonical_company_id") or validation.get("company_id") or "",
+        "canonical_company_name": validation.get("canonical_company_name") or validation.get("company_name") or "",
+        "report_period": validation.get("target_reporting_period") or "",
+        "report_type": validation.get("required_report_type") or "",
+        "accounting_standard": validation.get("required_standard") or "",
+        "required_consolidated": bool(validation.get("required_consolidated")),
+        "document_url": document_url,
+        "document_title": candidate.get("document_title") or "",
+        "document_date": candidate.get("document_publication_date") or "",
+        "source_file_name": Path(urllib.parse.urlparse(document_url).path).name,
+        "document_consolidated": candidate.get("document_consolidated") or "",
+        "document_language": candidate.get("document_language") or "",
+        "document_context_status": "exact_document_url_apply_draft_for_future_gate",
+        "document_context_origin": "operator_exact_document_refill_apply_draft_task136",
+        "manual_candidate_status": "future_gate_validation_required",
+        "document_status": "draft_candidate_pending_future_gate_validation",
+        "operator_review_status": "pending_future_gate_validation",
+        "filter_status": "draft_pending_future_gate_validation",
+        "fallback_status": "not_fallback",
+        "ready_for_document_download": False,
+        "ready_for_value_extraction": False,
+        "ready_for_import": False,
+        "ready_for_scoring": False,
+        "ready_for_paper_trading": False,
+    }
+
+
+def _operator_exact_document_refill_apply_blocker_row(row: dict[str, Any]) -> dict[str, Any]:
+    code = _operator_exact_document_refill_apply_blocker_code(str(row.get("apply_status") or ""))
+    return {
+        "blocker_id": f"operator_exact_document_refill_apply_blocker:{row.get('apply_id')}:{code}",
+        "apply_id": row.get("apply_id") or "",
+        "validation_id": row.get("validation_id") or "",
+        "workspace_id": row.get("workspace_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "apply_status": row.get("apply_status") or "",
+        "blocker_code": code,
+        "blocker_severity": row.get("apply_severity") or "warning",
+        "operator_action": "Review Task135 blocker or rerun Task135 after correcting the refill candidate.",
+        "safe_hint": "Task136 creates a draft only. No URL is accepted into production intake.",
+    }
+
+
+def _operator_exact_document_refill_apply_blocker_code(status: str) -> str:
+    return {
+        "skipped_incomplete_missing_exact_document_url": "missing_exact_document_url",
+        "skipped_blocked_source_trust_required": "source_trust_required",
+        "skipped_invalid_candidate": "invalid_candidate",
+        "skipped_blocked_unknown_readiness": "unknown_readiness",
+        "skipped_not_accepted_candidate": "not_accepted_candidate",
+        "skipped_duplicate_candidate": "duplicate_candidate",
+        "skipped_strict_mismatch": "strict_mismatch",
+        "failed_missing_exact_document_url": "missing_exact_document_url",
+        "failed_input_drift": "input_drift",
+    }.get(status, "not_accepted_candidate")
+
+
+def _build_operator_exact_document_refill_apply_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    apply_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    accepted_rows: list[dict[str, Any]],
+    draft_documents: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    applied_count = sum(1 for row in apply_rows if row.get("apply_status") == "applied_to_exact_document_intake_draft")
+    failed_count = sum(1 for row in apply_rows if str(row.get("apply_status") or "").startswith("failed_"))
+    status = "failed" if errors else "passed" if apply_rows and applied_count == len(apply_rows) and not warnings else "warning"
+    return {
+        "status": status,
+        "mode": "operator-exact-document-refill-apply-draft-v2",
+        "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        "row_count": len(apply_rows),
+        "accepted_candidate_input_count": len(accepted_rows),
+        "applied_count": applied_count,
+        "skipped_count": sum(1 for row in apply_rows if str(row.get("apply_status") or "").startswith("skipped_")),
+        "failed_count": failed_count,
+        "blocker_row_count": len(blocker_rows),
+        "exact_document_intake_apply_draft_created": artifacts["intake_draft_json"] is not None and not errors,
+        "exact_document_intake_apply_draft_row_count": len(draft_documents),
+        "apply_status_counts": _count_by_key(apply_rows, "apply_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "apply_rows": apply_rows,
+        "blocker_rows": blocker_rows,
+        "artifacts": {role: str(path) for role, path in artifacts.items() if path is not None},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("operator-exact-document-refill-apply-draft-v2", status),
+        **_operator_exact_document_refill_apply_safety_flags(),
+    }
+
+
+def _failed_operator_exact_document_refill_apply(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "operator-exact-document-refill-apply-draft-v2",
+        "row_count": 0,
+        "accepted_candidate_input_count": 0,
+        "applied_count": 0,
+        "skipped_count": 0,
+        "failed_count": 0,
+        "blocker_row_count": 0,
+        "exact_document_intake_apply_draft_created": False,
+        "exact_document_intake_apply_draft_row_count": 0,
+        "apply_status_counts": {},
+        "blocker_code_counts": {},
+        "apply_rows": [],
+        "blocker_rows": [],
+        "warnings": [],
+        "errors": errors,
+        **_operator_exact_document_refill_apply_safety_flags(),
+    }
+
+
+def _operator_exact_document_refill_apply_row_safety_flags() -> dict[str, bool]:
+    return {
+        "would_update_original_intake": False,
+        "would_update_source_pack": False,
+        "would_accept_url_now": False,
+        "would_fetch_document": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _operator_exact_document_refill_apply_safety_flags() -> dict[str, Any]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+        "would_update_original_intake": False,
+        "would_update_source_pack": False,
+        "would_accept_urls_now": False,
+        "would_fetch_documents": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+    }
+
+
 def _financial_document_fetch_url_is_http(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
@@ -14390,6 +15265,11 @@ def write_operator_exact_document_refill_validation_markdown(report: dict[str, A
     path.write_text(render_operator_exact_document_refill_validation_markdown(report), encoding="utf-8")
 
 
+def write_operator_exact_document_refill_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_exact_document_refill_apply_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -14557,6 +15437,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_exact_document_refill_workspace_markdown(report)
     if report.get("mode") == "operator-exact-document-refill-validate-v2":
         return render_operator_exact_document_refill_validation_markdown(report)
+    if report.get("mode") == "operator-exact-document-refill-apply-draft-v2":
+        return render_operator_exact_document_refill_apply_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -16474,6 +17356,75 @@ def render_operator_exact_document_refill_validation_markdown(report: dict[str, 
             "- This task does not import reports.",
             "- This task does not score issuers or trigger paper trading.",
             "- Historical fallback URLs are diagnostic-only and must not be copied as target-period evidence.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_operator_exact_document_refill_apply_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Operator Exact Document Refill Apply Draft v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- accepted candidate inputs: {report.get('accepted_candidate_input_count', 0)}",
+        f"- applied to new draft: {report.get('applied_count', 0)}",
+        f"- skipped: {report.get('skipped_count', 0)}",
+        f"- failed rows: {report.get('failed_count', 0)}",
+        f"- blocker rows: {report.get('blocker_row_count', 0)}",
+        f"- draft created: {report.get('exact_document_intake_apply_draft_created', False)}",
+        f"- draft rows: {report.get('exact_document_intake_apply_draft_row_count', 0)}",
+        "",
+        "## Apply Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("apply_status_counts") or {}))
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("blocker_code_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Per-Issuer Apply Preview",
+            "",
+            "| Company | Validation | Apply status | Action | Candidate URL | Changed draft | Reasons |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("apply_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("validation_status"),
+                    row.get("apply_status"),
+                    row.get("apply_action"),
+                    row.get("exact_document_url"),
+                    row.get("would_change_draft"),
+                    row.get("apply_reason_codes") or row.get("apply_errors"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("apply_rows"):
+        lines.append("| none |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates only a new exact-document intake apply-draft copy.",
+            "- Task135 validation inputs and any existing intake inputs remain unchanged.",
+            "- Manual URLs do not become trusted, accepted, or downstream-ready automatically.",
+            "- This task does not fetch or download documents.",
+            "- This task does not parse reports.",
+            "- This task does not extract or import financial values.",
+            "- This task does not mutate the database, scoring, schedules, or paper trading.",
+            "- A later strict document gate must validate every draft candidate before any downstream use.",
             "",
         ]
     )
@@ -26314,6 +27265,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Edit the Task134 refill template; manual URLs remain future-validation candidates and source-trust blockers must be resolved first."]
     if mode == "operator-exact-document-refill-validate-v2":
         return ["Review Task135 candidates and blockers; valid URLs remain future apply-draft candidates only."]
+    if mode == "operator-exact-document-refill-apply-draft-v2":
+        return ["Review the Task136 draft copy and run a later strict document gate before any download, extraction, or import task."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -26412,6 +27365,13 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             _operator_exact_document_refill_validation_fetch_plan_path(args),
         ]
         return all(path is None or not _paths_equal(output_path, path) for path in protected_inputs)
+    if args.mode == "operator-exact-document-refill-apply-draft-v2":
+        apply_inputs = _operator_exact_document_refill_apply_inputs(args)
+        apply_inputs["base_intake"] = _operator_exact_document_refill_apply_base_intake_path(args)
+        return all(
+            path is None or not _paths_equal(output_path, path)
+            for path in apply_inputs.values()
+        )
     protected_inputs = (
         [args.document_intake_input]
         if args.mode == "operator-resolution-apply-draft"
