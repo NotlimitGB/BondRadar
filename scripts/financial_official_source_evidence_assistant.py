@@ -5,14 +5,17 @@ import copy
 import csv
 import hashlib
 import json
+import os
 import re
 import shlex
+import shutil
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Sequence
@@ -52,6 +55,7 @@ MODE_CHOICES = (
     "operator-resolution-source-trust-promote-apply-draft",
     "financial-metric-registry-preview",
     "financial-extraction-evidence-schema-preview",
+    "financial-document-artifact-retention-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2285,6 +2289,94 @@ FINANCIAL_EXTRACTION_VALIDATION_STATUSES = [
     _financial_extraction_validation_status("ready_for_future_controlled_import_review", "lifecycle", "Ready for future controlled import review", "info", "Fact may enter a future controlled import review.", blocks_normalization=False, blocks_model_usage=True),
     _financial_extraction_validation_status("rejected_candidate", "lifecycle", "Rejected candidate", "error", "Candidate must not progress.", blocks_normalization=True, blocks_model_usage=True),
 ]
+DOCUMENT_ARTIFACT_RETENTION_ARTIFACT_NAMES = {
+    "policy_json": "document_artifact_retention_policy_task132.json",
+    "policy_csv": "document_artifact_retention_policy_task132.csv",
+    "policy_markdown": "document_artifact_retention_policy_task132.md",
+    "cleanup_plan_json": "document_artifact_cleanup_plan_task132.json",
+    "cleanup_plan_csv": "document_artifact_cleanup_plan_task132.csv",
+    "disk_snapshot_json": "document_artifact_disk_snapshot_task132.json",
+    "disk_snapshot_csv": "document_artifact_disk_snapshot_task132.csv",
+}
+DOCUMENT_ARTIFACT_RETENTION_DEFAULTS = {
+    "vds_disk_limit_gb": 50.0,
+    "min_free_gb": 10.0,
+    "min_free_percent": 20.0,
+    "raw_cache_max_gb": 2.0,
+    "debug_quarantine_max_gb": 1.0,
+    "backups_max_gb": 3.0,
+    "logs_max_gb": 5.0,
+    "raw_cache_ttl_hours": 72.0,
+    "debug_quarantine_ttl_hours": 168.0,
+}
+DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS = {
+    "artifact_root": Path("logs/financial_reports/document_artifacts"),
+    "raw_cache": Path("logs/financial_reports/document_artifacts/raw_cache"),
+    "debug_quarantine": Path("logs/financial_reports/document_artifacts/debug_quarantine"),
+    "extraction_artifacts": Path("logs/financial_reports"),
+    "postgres_backups": Path("backups"),
+    "application_logs": Path("logs"),
+}
+DOCUMENT_ARTIFACT_RETENTION_POLICY_FIELDS = [
+    "policy_id",
+    "artifact_class",
+    "path_role",
+    "default_path",
+    "max_size_gb",
+    "ttl_hours",
+    "retention_action",
+    "backup_allowed",
+    "git_allowed",
+    "db_storage_allowed",
+    "permanent_storage_allowed",
+    "operator_review_required_before_delete",
+    "description",
+]
+DOCUMENT_ARTIFACT_DISK_SNAPSHOT_FIELDS = [
+    "path_role",
+    "path",
+    "exists",
+    "scan_status",
+    "scan_error",
+    "size_bytes",
+    "size_mb",
+    "size_gb",
+    "file_count",
+    "oldest_file_mtime",
+    "newest_file_mtime",
+    "max_size_gb",
+    "over_size_limit",
+    "ttl_hours",
+    "expired_file_count_estimate",
+    "expired_size_bytes_estimate",
+    "would_delete_files",
+]
+DOCUMENT_ARTIFACT_CLEANUP_PLAN_FIELDS = [
+    "cleanup_action_id",
+    "artifact_class",
+    "path_role",
+    "path",
+    "cleanup_reason",
+    "priority",
+    "ttl_hours",
+    "max_size_gb",
+    "candidate_file_count_estimate",
+    "candidate_size_bytes_estimate",
+    "would_delete_files",
+    "manual_command_hint",
+    "safety_note",
+]
+DOCUMENT_ARTIFACT_RECOMMENDED_GITIGNORE_PATTERNS = [
+    "logs/financial_reports/document_artifacts/raw_cache/",
+    "logs/financial_reports/document_artifacts/debug_quarantine/",
+    "*.downloaded.pdf",
+    "*.downloaded.xlsx",
+    "*.downloaded.html",
+    "*.raw-report.tmp",
+]
+DOCUMENT_ARTIFACT_RECOMMENDED_BACKUP_EXCLUDE_PATTERNS = copy.deepcopy(
+    DOCUMENT_ARTIFACT_RECOMMENDED_GITIGNORE_PATTERNS
+)
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -2627,6 +2719,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--financial-extraction-normalized-fact-template-csv-output", type=Path, default=None)
     parser.add_argument("--financial-extraction-validation-status-csv-output", type=Path, default=None)
     parser.add_argument("--financial-metric-registry-input", type=Path, default=None)
+    parser.add_argument("--document-artifact-retention-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-retention-csv-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-retention-markdown-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-cleanup-plan-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-cleanup-plan-csv-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-disk-snapshot-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-disk-snapshot-csv-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-root-dir", type=Path, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["artifact_root"])
+    parser.add_argument("--document-artifact-raw-cache-dir", type=Path, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["raw_cache"])
+    parser.add_argument("--document-artifact-debug-quarantine-dir", type=Path, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["debug_quarantine"])
+    parser.add_argument("--document-artifact-extraction-artifacts-dir", type=Path, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["extraction_artifacts"])
+    parser.add_argument("--document-artifact-backups-dir", type=Path, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["postgres_backups"])
+    parser.add_argument("--document-artifact-logs-dir", type=Path, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["application_logs"])
+    parser.add_argument("--document-artifact-vds-disk-limit-gb", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["vds_disk_limit_gb"])
+    parser.add_argument("--document-artifact-min-free-gb", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["min_free_gb"])
+    parser.add_argument("--document-artifact-min-free-percent", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["min_free_percent"])
+    parser.add_argument("--document-artifact-raw-cache-max-gb", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["raw_cache_max_gb"])
+    parser.add_argument("--document-artifact-debug-quarantine-max-gb", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["debug_quarantine_max_gb"])
+    parser.add_argument("--document-artifact-backups-max-gb", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["backups_max_gb"])
+    parser.add_argument("--document-artifact-logs-max-gb", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["logs_max_gb"])
+    parser.add_argument("--document-artifact-raw-cache-ttl-hours", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["raw_cache_ttl_hours"])
+    parser.add_argument("--document-artifact-debug-quarantine-ttl-hours", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["debug_quarantine_ttl_hours"])
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -2717,6 +2831,8 @@ def run_assistant(
         report = run_financial_metric_registry_preview(args)
     elif args.mode == "financial-extraction-evidence-schema-preview":
         report = run_financial_extraction_evidence_schema_preview(args)
+    elif args.mode == "financial-document-artifact-retention-preview":
+        report = run_financial_document_artifact_retention_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -8249,6 +8365,708 @@ def _build_financial_extraction_evidence_schema_report(
     }
 
 
+def run_financial_document_artifact_retention_preview(args: argparse.Namespace) -> dict[str, Any]:
+    paths = _document_artifact_retention_paths(args)
+    artifacts = _document_artifact_retention_artifacts(args)
+    errors = _document_artifact_retention_preflight_errors(args, paths=paths, artifacts=artifacts)
+    warnings: list[dict[str, Any]] = []
+    policy_rows = _build_document_artifact_retention_policy_rows(args, paths=paths)
+    snapshot_rows: list[dict[str, Any]] = []
+    filesystem_snapshot = _empty_document_artifact_filesystem_snapshot()
+    if not errors:
+        snapshot_rows = _build_document_artifact_disk_snapshot_rows(args, paths=paths)
+        filesystem_snapshot, filesystem_warnings = _document_artifact_filesystem_snapshot(paths["artifact_root"])
+        warnings.extend(filesystem_warnings)
+    guard = _document_artifact_disk_guard(
+        args,
+        snapshot_rows=snapshot_rows,
+        filesystem_snapshot=filesystem_snapshot,
+        warnings=warnings,
+    )
+    cleanup_rows = _build_document_artifact_cleanup_plan_rows(args, paths=paths, snapshot_rows=snapshot_rows)
+    report = _build_document_artifact_retention_report(
+        args,
+        policy_rows=policy_rows,
+        snapshot_rows=snapshot_rows,
+        cleanup_rows=cleanup_rows,
+        filesystem_snapshot=filesystem_snapshot,
+        guard=guard,
+        artifacts=artifacts,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            if artifacts["policy_json"] is not None:
+                write_json_report(report, artifacts["policy_json"])
+            if artifacts["policy_csv"] is not None:
+                _write_flat_csv(policy_rows, DOCUMENT_ARTIFACT_RETENTION_POLICY_FIELDS, artifacts["policy_csv"])
+            if artifacts["policy_markdown"] is not None:
+                write_document_artifact_retention_markdown(report, artifacts["policy_markdown"])
+            if artifacts["cleanup_plan_json"] is not None:
+                write_json_report(_document_artifact_cleanup_plan_report(report), artifacts["cleanup_plan_json"])
+            if artifacts["cleanup_plan_csv"] is not None:
+                _write_flat_csv(cleanup_rows, DOCUMENT_ARTIFACT_CLEANUP_PLAN_FIELDS, artifacts["cleanup_plan_csv"])
+            if artifacts["disk_snapshot_json"] is not None:
+                write_json_report(_document_artifact_disk_snapshot_report(report), artifacts["disk_snapshot_json"])
+            if artifacts["disk_snapshot_csv"] is not None:
+                _write_flat_csv(snapshot_rows, DOCUMENT_ARTIFACT_DISK_SNAPSHOT_FIELDS, artifacts["disk_snapshot_csv"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _document_artifact_retention_paths(args: argparse.Namespace) -> dict[str, Path]:
+    return {
+        "artifact_root": args.document_artifact_root_dir,
+        "raw_cache": args.document_artifact_raw_cache_dir,
+        "debug_quarantine": args.document_artifact_debug_quarantine_dir,
+        "extraction_artifacts": args.document_artifact_extraction_artifacts_dir,
+        "postgres_backups": args.document_artifact_backups_dir,
+        "application_logs": args.document_artifact_logs_dir,
+    }
+
+
+def _document_artifact_retention_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "policy_json": args.document_artifact_retention_output,
+        "policy_csv": args.document_artifact_retention_csv_output,
+        "policy_markdown": args.document_artifact_retention_markdown_output,
+        "cleanup_plan_json": args.document_artifact_cleanup_plan_output,
+        "cleanup_plan_csv": args.document_artifact_cleanup_plan_csv_output,
+        "disk_snapshot_json": args.document_artifact_disk_snapshot_output,
+        "disk_snapshot_csv": args.document_artifact_disk_snapshot_csv_output,
+    }
+    return {
+        key: overrides[key] or (output_dir / file_name if output_dir is not None else None)
+        for key, file_name in DOCUMENT_ARTIFACT_RETENTION_ARTIFACT_NAMES.items()
+    }
+
+
+def _document_artifact_retention_preflight_errors(
+    args: argparse.Namespace,
+    *,
+    paths: dict[str, Path],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    numeric_values = {
+        "document_artifact_min_free_gb": args.document_artifact_min_free_gb,
+        "document_artifact_raw_cache_max_gb": args.document_artifact_raw_cache_max_gb,
+        "document_artifact_debug_quarantine_max_gb": args.document_artifact_debug_quarantine_max_gb,
+        "document_artifact_backups_max_gb": args.document_artifact_backups_max_gb,
+        "document_artifact_logs_max_gb": args.document_artifact_logs_max_gb,
+        "document_artifact_raw_cache_ttl_hours": args.document_artifact_raw_cache_ttl_hours,
+        "document_artifact_debug_quarantine_ttl_hours": args.document_artifact_debug_quarantine_ttl_hours,
+    }
+    for name, value in numeric_values.items():
+        if value < 0:
+            errors.append({"message": f"invalid_document_artifact_retention_policy_value:{name}"})
+    if args.document_artifact_vds_disk_limit_gb <= 0:
+        errors.append({"message": "invalid_document_artifact_retention_policy_value:document_artifact_vds_disk_limit_gb"})
+    if not 0 <= args.document_artifact_min_free_percent <= 100:
+        errors.append({"message": "invalid_document_artifact_retention_policy_value:document_artifact_min_free_percent"})
+    output_paths = [
+        path
+        for path in [*artifacts.values(), args.json_output, args.markdown_output]
+        if path is not None
+    ]
+    for index, path in enumerate(output_paths):
+        if any(_paths_equal(path, other) for other in output_paths[index + 1 :]):
+            errors.append({"message": "document_artifact_retention_output_must_not_equal_protected_path"})
+            break
+    if not errors and any(
+        not _document_artifact_retention_output_path_is_safe(path, protected_paths=paths)
+        for path in output_paths
+    ):
+        errors.append({"message": "document_artifact_retention_output_must_not_equal_protected_path"})
+    return errors
+
+
+def _document_artifact_retention_output_path_is_safe(
+    output_path: Path,
+    *,
+    protected_paths: dict[str, Path],
+) -> bool:
+    if any(_paths_equal(output_path, path) for path in protected_paths.values()):
+        return False
+    return not any(
+        _path_is_within(output_path, protected_paths[path_role])
+        for path_role in ("raw_cache", "debug_quarantine")
+    )
+
+
+def _path_is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def _build_document_artifact_retention_policy_rows(
+    args: argparse.Namespace,
+    *,
+    paths: dict[str, Path],
+) -> list[dict[str, Any]]:
+    return [
+        _document_artifact_retention_policy_row(
+            "raw_report_cache",
+            "raw_cache",
+            paths["raw_cache"],
+            max_size_gb=args.document_artifact_raw_cache_max_gb,
+            ttl_hours=args.document_artifact_raw_cache_ttl_hours,
+            retention_action="temporary_ttl_and_size_bounded_cache",
+            backup_allowed=False,
+            git_allowed=False,
+            db_storage_allowed=False,
+            permanent_storage_allowed=False,
+            operator_review_required_before_delete=True,
+            description="Temporary raw downloaded report cache only; never retain permanently.",
+        ),
+        _document_artifact_retention_policy_row(
+            "debug_quarantine",
+            "debug_quarantine",
+            paths["debug_quarantine"],
+            max_size_gb=args.document_artifact_debug_quarantine_max_gb,
+            ttl_hours=args.document_artifact_debug_quarantine_ttl_hours,
+            retention_action="temporary_ttl_and_size_bounded_quarantine",
+            backup_allowed=False,
+            git_allowed=False,
+            db_storage_allowed=False,
+            permanent_storage_allowed=False,
+            operator_review_required_before_delete=True,
+            description="Temporary debugging quarantine for problematic raw artifacts.",
+        ),
+        _document_artifact_retention_policy_row(
+            "extraction_artifacts",
+            "extraction_artifacts",
+            paths["extraction_artifacts"],
+            retention_action="retain_small_structured_json_csv_markdown_only",
+            backup_allowed=True,
+            git_allowed=False,
+            db_storage_allowed=False,
+            permanent_storage_allowed=True,
+            description="Structured evidence and candidate exports may remain; raw PDFs are forbidden.",
+        ),
+        _document_artifact_retention_policy_row(
+            "normalized_facts",
+            "normalized_facts",
+            paths["extraction_artifacts"] / "normalized_facts",
+            retention_action="retain_structured_normalized_data_only",
+            backup_allowed=True,
+            git_allowed=False,
+            db_storage_allowed=True,
+            permanent_storage_allowed=True,
+            description="Permanent structured facts are allowed; raw report bytes are forbidden.",
+        ),
+        _document_artifact_retention_policy_row(
+            "hash_manifest",
+            "hash_manifest",
+            paths["artifact_root"] / "hash_manifest",
+            retention_action="retain_metadata_only",
+            backup_allowed=True,
+            git_allowed=False,
+            db_storage_allowed=True,
+            permanent_storage_allowed=True,
+            description="Store URL, hash, size, and page-count metadata only; never raw document bytes.",
+        ),
+        _document_artifact_retention_policy_row(
+            "operator_reports",
+            "operator_reports",
+            paths["extraction_artifacts"],
+            retention_action="retain_small_review_reports_only",
+            backup_allowed=True,
+            git_allowed=False,
+            db_storage_allowed=False,
+            permanent_storage_allowed=True,
+            description="Retain compact operator JSON, CSV, and Markdown reports.",
+        ),
+        _document_artifact_retention_policy_row(
+            "postgres_backups",
+            "postgres_backups",
+            paths["postgres_backups"],
+            max_size_gb=args.document_artifact_backups_max_gb,
+            retention_action="rotate_by_size_and_count_after_manual_review",
+            backup_allowed=True,
+            git_allowed=False,
+            db_storage_allowed=False,
+            permanent_storage_allowed=False,
+            operator_review_required_before_delete=True,
+            description="Bounded PostgreSQL backups only; raw report files must never be included.",
+        ),
+        _document_artifact_retention_policy_row(
+            "application_logs",
+            "application_logs",
+            paths["application_logs"],
+            max_size_gb=args.document_artifact_logs_max_gb,
+            retention_action="rotate_or_compress_by_size_after_manual_review",
+            backup_allowed=False,
+            git_allowed=False,
+            db_storage_allowed=False,
+            permanent_storage_allowed=False,
+            operator_review_required_before_delete=True,
+            description="Bounded logs only; raw report bytes must never be logged.",
+        ),
+        _document_artifact_retention_policy_row(
+            "docker_artifacts",
+            "docker_artifacts",
+            Path("docker_runtime_managed_storage"),
+            retention_action="inspect_and_prune_only_via_separate_operations_review",
+            backup_allowed=False,
+            git_allowed=False,
+            db_storage_allowed=False,
+            permanent_storage_allowed=False,
+            operator_review_required_before_delete=True,
+            description="Docker runtime storage is outside Task132 cleanup and requires separate review.",
+        ),
+    ]
+
+
+def _document_artifact_retention_policy_row(
+    artifact_class: str,
+    path_role: str,
+    path: Path,
+    *,
+    max_size_gb: float | None = None,
+    ttl_hours: float | None = None,
+    retention_action: str,
+    backup_allowed: bool,
+    git_allowed: bool,
+    db_storage_allowed: bool,
+    permanent_storage_allowed: bool,
+    operator_review_required_before_delete: bool = False,
+    description: str,
+) -> dict[str, Any]:
+    return {
+        "policy_id": f"document_artifact_retention:{artifact_class}",
+        "artifact_class": artifact_class,
+        "path_role": path_role,
+        "default_path": str(path),
+        "max_size_gb": max_size_gb,
+        "ttl_hours": ttl_hours,
+        "retention_action": retention_action,
+        "backup_allowed": backup_allowed,
+        "git_allowed": git_allowed,
+        "db_storage_allowed": db_storage_allowed,
+        "permanent_storage_allowed": permanent_storage_allowed,
+        "operator_review_required_before_delete": operator_review_required_before_delete,
+        "description": description,
+    }
+
+
+def _build_document_artifact_disk_snapshot_rows(
+    args: argparse.Namespace,
+    *,
+    paths: dict[str, Path],
+) -> list[dict[str, Any]]:
+    now = time.time()
+    settings = (
+        ("artifact_root", None, None),
+        ("raw_cache", args.document_artifact_raw_cache_max_gb, args.document_artifact_raw_cache_ttl_hours),
+        (
+            "debug_quarantine",
+            args.document_artifact_debug_quarantine_max_gb,
+            args.document_artifact_debug_quarantine_ttl_hours,
+        ),
+        ("extraction_artifacts", None, None),
+        ("postgres_backups", args.document_artifact_backups_max_gb, None),
+        ("application_logs", args.document_artifact_logs_max_gb, None),
+    )
+    return [
+        _scan_document_artifact_path(
+            path_role,
+            paths[path_role],
+            max_size_gb=max_size_gb,
+            ttl_hours=ttl_hours,
+            now=now,
+        )
+        for path_role, max_size_gb, ttl_hours in settings
+    ]
+
+
+def _scan_document_artifact_path(
+    path_role: str,
+    path: Path,
+    *,
+    max_size_gb: float | None,
+    ttl_hours: float | None,
+    now: float,
+) -> dict[str, Any]:
+    row = {
+        "path_role": path_role,
+        "path": str(path),
+        "exists": path.exists(),
+        "scan_status": "missing",
+        "scan_error": "",
+        "size_bytes": 0,
+        "size_mb": 0.0,
+        "size_gb": 0.0,
+        "file_count": 0,
+        "oldest_file_mtime": "",
+        "newest_file_mtime": "",
+        "max_size_gb": max_size_gb,
+        "over_size_limit": False,
+        "ttl_hours": ttl_hours,
+        "expired_file_count_estimate": 0,
+        "expired_size_bytes_estimate": 0,
+        "would_delete_files": False,
+    }
+    if not path.exists():
+        return row
+    if path.is_symlink() or not path.is_dir():
+        row["scan_status"] = "unavailable"
+        row["scan_error"] = "path_is_not_a_scannable_directory"
+        return row
+    oldest: float | None = None
+    newest: float | None = None
+    cutoff = now - ttl_hours * 60 * 60 if ttl_hours is not None else None
+    stack = [path]
+    try:
+        while stack:
+            current = stack.pop()
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    if entry.is_symlink():
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(Path(entry.path))
+                        continue
+                    if not entry.is_file(follow_symlinks=False):
+                        continue
+                    stat = entry.stat(follow_symlinks=False)
+                    row["size_bytes"] += stat.st_size
+                    row["file_count"] += 1
+                    oldest = stat.st_mtime if oldest is None else min(oldest, stat.st_mtime)
+                    newest = stat.st_mtime if newest is None else max(newest, stat.st_mtime)
+                    if cutoff is not None and stat.st_mtime < cutoff:
+                        row["expired_file_count_estimate"] += 1
+                        row["expired_size_bytes_estimate"] += stat.st_size
+        row["scan_status"] = "scanned"
+    except OSError as exc:
+        row["scan_status"] = "unavailable"
+        row["scan_error"] = str(exc)
+    row["size_mb"] = _bytes_to_mb(row["size_bytes"])
+    row["size_gb"] = _bytes_to_gb(row["size_bytes"])
+    row["oldest_file_mtime"] = _timestamp_to_utc_iso(oldest)
+    row["newest_file_mtime"] = _timestamp_to_utc_iso(newest)
+    row["over_size_limit"] = max_size_gb is not None and row["size_gb"] > max_size_gb
+    return row
+
+
+def _empty_document_artifact_filesystem_snapshot() -> dict[str, Any]:
+    return {
+        "filesystem_stat_available": False,
+        "filesystem_stat_path": "",
+        "filesystem_total_gb": 0.0,
+        "filesystem_used_gb": 0.0,
+        "filesystem_free_gb": 0.0,
+        "filesystem_used_percent": 0.0,
+        "filesystem_free_percent": 0.0,
+    }
+
+
+def _document_artifact_filesystem_snapshot(root_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    snapshot = _empty_document_artifact_filesystem_snapshot()
+    try:
+        stat_path = _nearest_existing_directory(root_path)
+        usage = shutil.disk_usage(stat_path)
+        snapshot.update(
+            {
+                "filesystem_stat_available": True,
+                "filesystem_stat_path": str(stat_path),
+                "filesystem_total_gb": _bytes_to_gb(usage.total),
+                "filesystem_used_gb": _bytes_to_gb(usage.used),
+                "filesystem_free_gb": _bytes_to_gb(usage.free),
+                "filesystem_used_percent": _percentage(usage.used, usage.total),
+                "filesystem_free_percent": _percentage(usage.free, usage.total),
+            }
+        )
+        return snapshot, []
+    except OSError:
+        return snapshot, [{"message": "document_artifact_filesystem_stat_unavailable"}]
+
+
+def _nearest_existing_directory(path: Path) -> Path:
+    candidate = path
+    while not candidate.exists() and candidate != candidate.parent:
+        candidate = candidate.parent
+    if candidate.is_file():
+        candidate = candidate.parent
+    return candidate if candidate.exists() and candidate.is_dir() else Path.cwd()
+
+
+def _document_artifact_disk_guard(
+    args: argparse.Namespace,
+    *,
+    snapshot_rows: list[dict[str, Any]],
+    filesystem_snapshot: dict[str, Any],
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    rows = {row["path_role"]: row for row in snapshot_rows}
+    blocker_codes: list[str] = []
+    warning_codes: list[str] = []
+    if not filesystem_snapshot["filesystem_stat_available"]:
+        blocker_codes.append("filesystem_stat_unavailable")
+    else:
+        if filesystem_snapshot["filesystem_free_gb"] < args.document_artifact_min_free_gb:
+            blocker_codes.append("free_disk_below_minimum_gb")
+        if filesystem_snapshot["filesystem_free_percent"] < args.document_artifact_min_free_percent:
+            blocker_codes.append("free_disk_below_minimum_percent")
+    for path_role in ("raw_cache", "debug_quarantine"):
+        row = rows.get(path_role) or {}
+        if row.get("scan_status") == "unavailable":
+            blocker_codes.append(f"{path_role}_scan_unavailable")
+        if row.get("over_size_limit"):
+            blocker_codes.append(f"{path_role}_over_size_limit")
+        if row.get("expired_file_count_estimate", 0) > 0:
+            warning_codes.append(f"{path_role}_ttl_expired_files_present")
+    for path_role in ("postgres_backups", "application_logs"):
+        row = rows.get(path_role) or {}
+        if row.get("scan_status") == "unavailable":
+            warning_codes.append(f"{path_role}_scan_unavailable")
+        if row.get("over_size_limit"):
+            warning_codes.append(f"{path_role}_over_size_limit")
+    blocker_codes = list(dict.fromkeys(blocker_codes))
+    warning_codes = list(dict.fromkeys(warning_codes))
+    existing_warnings = {_message_text(item) for item in warnings}
+    warnings.extend(
+        {"message": code}
+        for code in warning_codes
+        if code not in existing_warnings
+    )
+    disk_guard_status = "blocked" if blocker_codes else "warning" if warning_codes or warnings else "passed"
+    return {
+        "disk_guard_status": disk_guard_status,
+        "download_allowed": disk_guard_status != "blocked",
+        "future_extraction_allowed": disk_guard_status != "blocked",
+        "guard_reason_codes": [*blocker_codes, *warning_codes],
+    }
+
+
+def _build_document_artifact_cleanup_plan_rows(
+    args: argparse.Namespace,
+    *,
+    paths: dict[str, Path],
+    snapshot_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows = {row["path_role"]: row for row in snapshot_rows}
+    return [
+        _document_artifact_cleanup_plan_row(
+            "raw_cache_ttl_review",
+            "raw_report_cache",
+            "raw_cache",
+            paths["raw_cache"],
+            cleanup_reason="preview_ttl_expired_raw_report_cache_files",
+            priority="high",
+            ttl_hours=args.document_artifact_raw_cache_ttl_hours,
+            max_size_gb=args.document_artifact_raw_cache_max_gb,
+            candidate_file_count_estimate=(rows.get("raw_cache") or {}).get("expired_file_count_estimate", 0),
+            candidate_size_bytes_estimate=(rows.get("raw_cache") or {}).get("expired_size_bytes_estimate", 0),
+            manual_command_hint=f"find {_bash_quote(str(paths['raw_cache']))} -type f -printf '%T@ %s %p\\n' | sort -n",
+        ),
+        _document_artifact_cleanup_plan_row(
+            "raw_cache_size_review",
+            "raw_report_cache",
+            "raw_cache",
+            paths["raw_cache"],
+            cleanup_reason="preview_raw_report_cache_size_limit_review",
+            priority="high",
+            ttl_hours=args.document_artifact_raw_cache_ttl_hours,
+            max_size_gb=args.document_artifact_raw_cache_max_gb,
+            candidate_file_count_estimate=(rows.get("raw_cache") or {}).get("file_count", 0),
+            candidate_size_bytes_estimate=(rows.get("raw_cache") or {}).get("size_bytes", 0),
+            manual_command_hint=f"du -sh {_bash_quote(str(paths['raw_cache']))}",
+        ),
+        _document_artifact_cleanup_plan_row(
+            "debug_quarantine_ttl_review",
+            "debug_quarantine",
+            "debug_quarantine",
+            paths["debug_quarantine"],
+            cleanup_reason="preview_ttl_expired_debug_quarantine_files",
+            priority="medium",
+            ttl_hours=args.document_artifact_debug_quarantine_ttl_hours,
+            max_size_gb=args.document_artifact_debug_quarantine_max_gb,
+            candidate_file_count_estimate=(rows.get("debug_quarantine") or {}).get("expired_file_count_estimate", 0),
+            candidate_size_bytes_estimate=(rows.get("debug_quarantine") or {}).get("expired_size_bytes_estimate", 0),
+            manual_command_hint=f"find {_bash_quote(str(paths['debug_quarantine']))} -type f -printf '%T@ %s %p\\n' | sort -n",
+        ),
+        _document_artifact_cleanup_plan_row(
+            "debug_quarantine_size_review",
+            "debug_quarantine",
+            "debug_quarantine",
+            paths["debug_quarantine"],
+            cleanup_reason="preview_debug_quarantine_size_limit_review",
+            priority="medium",
+            ttl_hours=args.document_artifact_debug_quarantine_ttl_hours,
+            max_size_gb=args.document_artifact_debug_quarantine_max_gb,
+            candidate_file_count_estimate=(rows.get("debug_quarantine") or {}).get("file_count", 0),
+            candidate_size_bytes_estimate=(rows.get("debug_quarantine") or {}).get("size_bytes", 0),
+            manual_command_hint=f"du -sh {_bash_quote(str(paths['debug_quarantine']))}",
+        ),
+        _document_artifact_cleanup_plan_row(
+            "postgres_backups_rotation_review",
+            "postgres_backups",
+            "postgres_backups",
+            paths["postgres_backups"],
+            cleanup_reason="preview_postgres_backup_size_rotation_review",
+            priority="medium",
+            max_size_gb=args.document_artifact_backups_max_gb,
+            candidate_file_count_estimate=(rows.get("postgres_backups") or {}).get("file_count", 0),
+            candidate_size_bytes_estimate=(rows.get("postgres_backups") or {}).get("size_bytes", 0),
+            manual_command_hint=f"du -sh {_bash_quote(str(paths['postgres_backups']))}",
+        ),
+        _document_artifact_cleanup_plan_row(
+            "application_logs_rotation_review",
+            "application_logs",
+            "application_logs",
+            paths["application_logs"],
+            cleanup_reason="preview_application_log_compression_rotation_review",
+            priority="medium",
+            max_size_gb=args.document_artifact_logs_max_gb,
+            candidate_file_count_estimate=(rows.get("application_logs") or {}).get("file_count", 0),
+            candidate_size_bytes_estimate=(rows.get("application_logs") or {}).get("size_bytes", 0),
+            manual_command_hint=f"du -sh {_bash_quote(str(paths['application_logs']))}",
+        ),
+    ]
+
+
+def _document_artifact_cleanup_plan_row(
+    cleanup_action_id: str,
+    artifact_class: str,
+    path_role: str,
+    path: Path,
+    *,
+    cleanup_reason: str,
+    priority: str,
+    ttl_hours: float | None = None,
+    max_size_gb: float | None = None,
+    candidate_file_count_estimate: int,
+    candidate_size_bytes_estimate: int,
+    manual_command_hint: str,
+) -> dict[str, Any]:
+    return {
+        "cleanup_action_id": cleanup_action_id,
+        "artifact_class": artifact_class,
+        "path_role": path_role,
+        "path": str(path),
+        "cleanup_reason": cleanup_reason,
+        "priority": priority,
+        "ttl_hours": ttl_hours,
+        "max_size_gb": max_size_gb,
+        "candidate_file_count_estimate": candidate_file_count_estimate,
+        "candidate_size_bytes_estimate": candidate_size_bytes_estimate,
+        "would_delete_files": False,
+        "manual_command_hint": manual_command_hint,
+        "safety_note": "Inspection guidance only; Task132 never deletes files.",
+    }
+
+
+def _build_document_artifact_retention_report(
+    args: argparse.Namespace,
+    *,
+    policy_rows: list[dict[str, Any]],
+    snapshot_rows: list[dict[str, Any]],
+    cleanup_rows: list[dict[str, Any]],
+    filesystem_snapshot: dict[str, Any],
+    guard: dict[str, Any],
+    artifacts: dict[str, Path | None],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    status = "failed" if errors else "warning" if guard["disk_guard_status"] != "passed" or warnings else "passed"
+    return {
+        "status": status,
+        "mode": "financial-document-artifact-retention-preview",
+        "vds_disk_limit_gb": args.document_artifact_vds_disk_limit_gb,
+        "min_free_gb": args.document_artifact_min_free_gb,
+        "min_free_percent": args.document_artifact_min_free_percent,
+        **guard,
+        "policy_row_count": len(policy_rows),
+        "disk_snapshot_row_count": len(snapshot_rows),
+        "cleanup_plan_row_count": len(cleanup_rows),
+        **filesystem_snapshot,
+        "policy_rows": policy_rows,
+        "disk_snapshot_rows": snapshot_rows,
+        "cleanup_plan_rows": cleanup_rows,
+        "recommended_gitignore_patterns": copy.deepcopy(DOCUMENT_ARTIFACT_RECOMMENDED_GITIGNORE_PATTERNS),
+        "recommended_backup_exclude_patterns": copy.deepcopy(DOCUMENT_ARTIFACT_RECOMMENDED_BACKUP_EXCLUDE_PATTERNS),
+        "recommended_raw_artifact_paths": [
+            str(args.document_artifact_raw_cache_dir),
+            str(args.document_artifact_debug_quarantine_dir),
+        ],
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("financial-document-artifact-retention-preview", status),
+        **_document_artifact_retention_safety_flags(),
+    }
+
+
+def _document_artifact_cleanup_plan_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "financial-document-artifact-cleanup-plan-preview",
+        "cleanup_plan_row_count": report["cleanup_plan_row_count"],
+        "cleanup_plan_rows": report["cleanup_plan_rows"],
+        **_document_artifact_retention_safety_flags(),
+    }
+
+
+def _document_artifact_disk_snapshot_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "financial-document-artifact-disk-snapshot-preview",
+        "disk_guard_status": report["disk_guard_status"],
+        "download_allowed": report["download_allowed"],
+        "future_extraction_allowed": report["future_extraction_allowed"],
+        "guard_reason_codes": report["guard_reason_codes"],
+        "disk_snapshot_row_count": report["disk_snapshot_row_count"],
+        "disk_snapshot_rows": report["disk_snapshot_rows"],
+        "filesystem_stat_available": report["filesystem_stat_available"],
+        "filesystem_stat_path": report["filesystem_stat_path"],
+        "filesystem_total_gb": report["filesystem_total_gb"],
+        "filesystem_used_gb": report["filesystem_used_gb"],
+        "filesystem_free_gb": report["filesystem_free_gb"],
+        "filesystem_used_percent": report["filesystem_used_percent"],
+        "filesystem_free_percent": report["filesystem_free_percent"],
+        **_document_artifact_retention_safety_flags(),
+    }
+
+
+def _document_artifact_retention_safety_flags() -> dict[str, Any]:
+    return {
+        "cleanup_executed": False,
+        "files_deleted": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "would_fetch_documents": False,
+        "would_parse_documents": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        **SAFETY_FLAGS,
+    }
+
+
+def _bytes_to_mb(value: int) -> float:
+    return round(value / (1024**2), 6)
+
+
+def _bytes_to_gb(value: int) -> float:
+    return round(value / (1024**3), 6)
+
+
+def _percentage(value: int, total: int) -> float:
+    return round(value * 100 / total, 4) if total else 0.0
+
+
+def _timestamp_to_utc_iso(value: float | None) -> str:
+    return "" if value is None else datetime.fromtimestamp(value, timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
     return [
         args.document_intake_draft_output,
@@ -10986,6 +11804,11 @@ def write_financial_extraction_evidence_schema_markdown(report: dict[str, Any], 
     path.write_text(render_financial_extraction_evidence_schema_markdown(report), encoding="utf-8")
 
 
+def write_document_artifact_retention_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_document_artifact_retention_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -11145,6 +11968,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_financial_metric_registry_markdown(report)
     if report.get("mode") == "financial-extraction-evidence-schema-preview":
         return render_financial_extraction_evidence_schema_markdown(report)
+    if report.get("mode") == "financial-document-artifact-retention-preview":
+        return render_document_artifact_retention_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -12605,6 +13430,150 @@ def render_financial_extraction_evidence_schema_markdown(report: dict[str, Any])
             "- This task does not import reports or mutate database records.",
             "- This task does not score issuers or trigger paper trading.",
             "- Template rows are examples, not financial facts.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_document_artifact_retention_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Document Artifact Retention Policy",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- disk guard: `{report.get('disk_guard_status')}`",
+        f"- future downloads allowed: `{report.get('download_allowed')}`",
+        f"- future extraction allowed: `{report.get('future_extraction_allowed')}`",
+        f"- policy rows: {report.get('policy_row_count', 0)}",
+        f"- disk snapshot rows: {report.get('disk_snapshot_row_count', 0)}",
+        f"- cleanup preview rows: {report.get('cleanup_plan_row_count', 0)}",
+        "",
+        "## Filesystem Budget",
+        "",
+        f"- configured VDS disk limit: {report.get('vds_disk_limit_gb', 0)} GB",
+        f"- filesystem stat available: `{report.get('filesystem_stat_available')}`",
+        f"- filesystem stat path: `{report.get('filesystem_stat_path')}`",
+        f"- filesystem total: {report.get('filesystem_total_gb', 0)} GB",
+        f"- filesystem used: {report.get('filesystem_used_gb', 0)} GB ({report.get('filesystem_used_percent', 0)}%)",
+        f"- filesystem free: {report.get('filesystem_free_gb', 0)} GB ({report.get('filesystem_free_percent', 0)}%)",
+        f"- minimum free: {report.get('min_free_gb', 0)} GB and {report.get('min_free_percent', 0)}%",
+        "",
+        "## Guard Reasons",
+        "",
+    ]
+    lines.extend(f"- `{code}`" for code in report.get("guard_reason_codes") or [])
+    if not report.get("guard_reason_codes"):
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Retention Policy",
+            "",
+            "| Artifact | Path role | Path | Max GB | TTL hours | Permanent | Backup | Git | Action |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("policy_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("artifact_class"),
+                    row.get("path_role"),
+                    row.get("default_path"),
+                    row.get("max_size_gb"),
+                    row.get("ttl_hours"),
+                    row.get("permanent_storage_allowed"),
+                    row.get("backup_allowed"),
+                    row.get("git_allowed"),
+                    row.get("retention_action"),
+                )
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Disk Snapshot",
+            "",
+            "| Path role | Path | Exists | Scan | Files | GB | Max GB | Over limit | TTL expired |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("disk_snapshot_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("path_role"),
+                    row.get("path"),
+                    row.get("exists"),
+                    row.get("scan_status"),
+                    row.get("file_count"),
+                    row.get("size_gb"),
+                    row.get("max_size_gb"),
+                    row.get("over_size_limit"),
+                    row.get("expired_file_count_estimate"),
+                )
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Cleanup Plan Preview",
+            "",
+            "| Action | Artifact | Reason | Priority | Candidate files | Candidate bytes | Inspect-only hint |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("cleanup_plan_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("cleanup_action_id"),
+                    row.get("artifact_class"),
+                    row.get("cleanup_reason"),
+                    row.get("priority"),
+                    row.get("candidate_file_count_estimate"),
+                    row.get("candidate_size_bytes_estimate"),
+                    row.get("manual_command_hint"),
+                )
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Recommended Exclusions",
+            "",
+            "### Git",
+            "",
+        ]
+    )
+    lines.extend(f"- `{pattern}`" for pattern in report.get("recommended_gitignore_patterns") or [])
+    lines.extend(["", "### Backups", ""])
+    lines.extend(f"- `{pattern}`" for pattern in report.get("recommended_backup_exclude_patterns") or [])
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task defines and previews artifact retention only.",
+            "- This task does not download reports.",
+            "- This task does not parse reports.",
+            "- This task does not extract financial values.",
+            "- This task does not delete files.",
+            "- This task does not modify backups.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Raw report files must be temporary and bounded by TTL and max-size policy.",
             "",
         ]
     )
@@ -22437,6 +23406,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use this deterministic registry as the contract for a future evidence-first extraction preview task."]
     if mode == "financial-extraction-evidence-schema-preview":
         return ["Use these typed placeholder templates as the contract for a future evidence-backed extraction preview task."]
+    if mode == "financial-document-artifact-retention-preview":
+        return ["Review disk guard reasons and inspect-only cleanup guidance before any future document download or extraction task."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -22504,6 +23475,11 @@ def _as_float(value: Any) -> float | None:
 def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path | None) -> bool:
     if output_path is None:
         return False
+    if args.mode == "financial-document-artifact-retention-preview":
+        return _document_artifact_retention_output_path_is_safe(
+            output_path,
+            protected_paths=_document_artifact_retention_paths(args),
+        )
     protected_inputs = (
         [args.document_intake_input]
         if args.mode == "operator-resolution-apply-draft"

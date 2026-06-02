@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from pathlib import Path
 import sys
+import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -5862,6 +5864,203 @@ def test_financial_extraction_evidence_schema_preview_never_calls_network_helper
     assert report["paper_trading_called"] is False
 
 
+def test_document_artifact_retention_preview_has_expected_policy_and_safe_contract(tmp_path: Path) -> None:
+    report = _run_document_artifact_retention_preview(_document_artifact_retention_test_paths(tmp_path))
+    by_class = {row["artifact_class"]: row for row in report["policy_rows"]}
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["policy_row_count"] >= 9
+    assert report["disk_snapshot_row_count"] == 6
+    assert report["cleanup_plan_row_count"] > 0
+    assert report["vds_disk_limit_gb"] == 50
+    assert isinstance(report["download_allowed"], bool)
+    assert isinstance(report["future_extraction_allowed"], bool)
+    assert by_class["raw_report_cache"]["permanent_storage_allowed"] is False
+    assert by_class["raw_report_cache"]["backup_allowed"] is False
+    assert by_class["raw_report_cache"]["git_allowed"] is False
+    assert by_class["debug_quarantine"]["permanent_storage_allowed"] is False
+    assert "logs/financial_reports/document_artifacts/raw_cache/" in report["recommended_gitignore_patterns"]
+    for key in (
+        "cleanup_executed",
+        "files_deleted",
+        "documents_downloaded",
+        "documents_parsed",
+        "would_fetch_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_database",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[key] is False
+    assert all(row["would_delete_files"] is False for row in report["cleanup_plan_rows"])
+    assert all("rm " not in row["manual_command_hint"] for row in report["cleanup_plan_rows"])
+    assert all("-delete" not in row["manual_command_hint"] for row in report["cleanup_plan_rows"])
+
+
+def test_document_artifact_retention_preview_low_free_space_blocks_downloads(tmp_path: Path, monkeypatch) -> None:
+    class FakeUsage:
+        total = 50 * 1024**3
+        used = 49 * 1024**3
+        free = 1 * 1024**3
+
+    monkeypatch.setattr(assistant.shutil, "disk_usage", lambda path: FakeUsage())
+
+    report = _run_document_artifact_retention_preview(_document_artifact_retention_test_paths(tmp_path))
+
+    assert report["disk_guard_status"] == "blocked"
+    assert report["download_allowed"] is False
+    assert report["future_extraction_allowed"] is False
+    assert "free_disk_below_minimum_gb" in report["guard_reason_codes"]
+
+
+def test_document_artifact_retention_preview_raw_cache_over_size_blocks_and_previews_cleanup(tmp_path: Path) -> None:
+    raw_cache = tmp_path / "artifacts" / "raw_cache"
+    raw_cache.mkdir(parents=True)
+    (raw_cache / "report.downloaded.pdf").write_bytes(b"x" * 2048)
+
+    report = _run_document_artifact_retention_preview(
+        [
+            *_document_artifact_retention_test_paths(tmp_path),
+            "--document-artifact-raw-cache-max-gb",
+            "0.0000001",
+        ]
+    )
+
+    assert report["disk_guard_status"] == "blocked"
+    assert report["download_allowed"] is False
+    assert "raw_cache_over_size_limit" in report["guard_reason_codes"]
+    raw_cleanup = [row for row in report["cleanup_plan_rows"] if row["path_role"] == "raw_cache"]
+    assert raw_cleanup
+    assert all(row["would_delete_files"] is False for row in raw_cleanup)
+
+
+def test_document_artifact_retention_preview_ttl_expired_files_are_warning_only(tmp_path: Path) -> None:
+    raw_cache = tmp_path / "artifacts" / "raw_cache"
+    raw_cache.mkdir(parents=True)
+    old_report = raw_cache / "old.downloaded.pdf"
+    old_report.write_bytes(b"old")
+    old_timestamp = time.time() - 96 * 60 * 60
+    os.utime(old_report, (old_timestamp, old_timestamp))
+
+    report = _run_document_artifact_retention_preview(_document_artifact_retention_test_paths(tmp_path))
+    raw_snapshot = next(row for row in report["disk_snapshot_rows"] if row["path_role"] == "raw_cache")
+
+    assert report["disk_guard_status"] == "warning"
+    assert report["download_allowed"] is True
+    assert "raw_cache_ttl_expired_files_present" in report["guard_reason_codes"]
+    assert raw_snapshot["expired_file_count_estimate"] == 1
+    assert old_report.is_file()
+    assert report["files_deleted"] is False
+
+
+def test_document_artifact_retention_preview_missing_paths_are_zero_sized(tmp_path: Path) -> None:
+    report = _run_document_artifact_retention_preview(_document_artifact_retention_test_paths(tmp_path))
+    by_role = {row["path_role"]: row for row in report["disk_snapshot_rows"]}
+
+    assert by_role["raw_cache"]["exists"] is False
+    assert by_role["raw_cache"]["size_bytes"] == 0
+    assert by_role["raw_cache"]["file_count"] == 0
+    assert by_role["debug_quarantine"]["exists"] is False
+
+
+def test_document_artifact_retention_preview_filesystem_stat_failure_blocks_safely(tmp_path: Path, monkeypatch) -> None:
+    def unavailable(path):
+        raise OSError("stat unavailable")
+
+    monkeypatch.setattr(assistant.shutil, "disk_usage", unavailable)
+
+    report = _run_document_artifact_retention_preview(_document_artifact_retention_test_paths(tmp_path))
+
+    assert report["status"] == "warning"
+    assert report["disk_guard_status"] == "blocked"
+    assert report["download_allowed"] is False
+    assert {"message": "document_artifact_filesystem_stat_unavailable"} in report["warnings"]
+    assert "filesystem_stat_unavailable" in report["guard_reason_codes"]
+
+
+def test_document_artifact_retention_preview_does_not_follow_symlinks(tmp_path: Path) -> None:
+    raw_cache = tmp_path / "artifacts" / "raw_cache"
+    raw_cache.mkdir(parents=True)
+    external = tmp_path / "external.downloaded.pdf"
+    external.write_bytes(b"x" * 4096)
+    link = raw_cache / "linked.downloaded.pdf"
+    try:
+        link.symlink_to(external)
+    except OSError:
+        return
+
+    report = _run_document_artifact_retention_preview(
+        [
+            *_document_artifact_retention_test_paths(tmp_path),
+            "--document-artifact-raw-cache-max-gb",
+            "0",
+        ]
+    )
+    raw_snapshot = next(row for row in report["disk_snapshot_rows"] if row["path_role"] == "raw_cache")
+
+    assert raw_snapshot["file_count"] == 0
+    assert raw_snapshot["size_bytes"] == 0
+    assert raw_snapshot["over_size_limit"] is False
+
+
+def test_document_artifact_retention_preview_writes_default_and_explicit_outputs(tmp_path: Path) -> None:
+    output_dir = tmp_path / "outputs"
+    markdown = tmp_path / "custom" / "retention.md"
+    report = _run_document_artifact_retention_preview(
+        [
+            *_document_artifact_retention_test_paths(tmp_path),
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--document-artifact-retention-markdown-output",
+            str(markdown),
+        ]
+    )
+
+    assert report["artifacts"]["policy_markdown"] == str(markdown)
+    for path in report["artifacts"].values():
+        assert Path(path).is_file()
+    content = markdown.read_text(encoding="utf-8")
+    assert "# Document Artifact Retention Policy" in content
+    assert "This task does not download reports." in content
+    assert "This task does not delete files." in content
+
+
+def test_document_artifact_retention_preview_rejects_protected_output_collision(tmp_path: Path) -> None:
+    raw_cache = tmp_path / "artifacts" / "raw_cache"
+    raw_cache.mkdir(parents=True)
+    output = raw_cache / "unsafe.json"
+
+    report = _run_document_artifact_retention_preview(
+        [
+            *_document_artifact_retention_test_paths(tmp_path),
+            "--document-artifact-retention-output",
+            str(output),
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "document_artifact_retention_output_must_not_equal_protected_path"}]
+    assert not output.exists()
+
+
+def test_document_artifact_retention_preview_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task132 retention preview must not fetch, probe, download, or parse documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_document_artifact_retention_preview(_document_artifact_retention_test_paths(tmp_path))
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["documents_downloaded"] is False
+    assert report["documents_parsed"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -10204,6 +10403,38 @@ def _run_financial_extraction_evidence_schema_preview(extra_args: list[str] | No
 
     assert exit_code == (1 if report["status"] == "failed" else 0)
     return report
+
+
+def _run_document_artifact_retention_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "financial-document-artifact-retention-preview",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _document_artifact_retention_test_paths(tmp_path: Path) -> list[str]:
+    return [
+        "--document-artifact-root-dir",
+        str(tmp_path / "artifacts"),
+        "--document-artifact-raw-cache-dir",
+        str(tmp_path / "artifacts" / "raw_cache"),
+        "--document-artifact-debug-quarantine-dir",
+        str(tmp_path / "artifacts" / "debug_quarantine"),
+        "--document-artifact-extraction-artifacts-dir",
+        str(tmp_path / "financial_reports"),
+        "--document-artifact-backups-dir",
+        str(tmp_path / "backups"),
+        "--document-artifact-logs-dir",
+        str(tmp_path / "logs"),
+    ]
 
 
 def _run_availability_discovery(
