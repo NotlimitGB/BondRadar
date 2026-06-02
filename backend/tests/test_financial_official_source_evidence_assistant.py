@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -6061,6 +6062,275 @@ def test_document_artifact_retention_preview_never_calls_network_helpers(tmp_pat
     assert report["documents_parsed"] is False
 
 
+def test_backup_retention_preview_missing_dir_is_safe_warning(tmp_path: Path) -> None:
+    report = _run_backup_retention_preview(["--backup-retention-backups-dir", str(tmp_path / "missing")])
+
+    assert report["status"] == "warning"
+    assert report["inventory_row_count"] == 0
+    assert report["rotation_plan_row_count"] == 0
+    assert {"message": "backup_retention_backups_dir_missing", "path": str(tmp_path / "missing")} in report["warnings"]
+    assert report["files_deleted"] is False
+    assert report["would_delete_files"] is False
+
+
+def test_backup_retention_preview_below_threshold_passes(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    (backups / "bondradar_20260101T000000Z.dump").write_bytes(b"backup")
+
+    report = _run_backup_retention_preview(["--backup-retention-backups-dir", str(backups)])
+
+    assert report["status"] == "passed"
+    assert report["recognized_backup_file_count"] == 1
+    assert report["recognized_backup_size_bytes"] == 6
+    assert report["rotation_candidate_count"] == 0
+
+
+def test_backup_retention_preview_near_and_over_limit_create_safe_rotation_candidates(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    for index in range(3):
+        path = backups / f"bondradar_2026010{index + 1}T000000Z.dump"
+        path.write_bytes(b"x" * 1024)
+        os.utime(path, (1000 + index, 1000 + index))
+
+    near = _run_backup_retention_preview(
+        [
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-max-size-gb",
+            "0.000003",
+            "--backup-retention-warning-threshold-percent",
+            "90",
+            "--backup-retention-keep-latest-count",
+            "0",
+            "--backup-retention-keep-daily-count",
+            "0",
+            "--backup-retention-keep-weekly-count",
+            "0",
+        ]
+    )
+
+    assert near["status"] == "warning"
+    assert near["at_or_over_warning_threshold"] is True
+    assert near["rotation_candidate_count"] == 3
+    assert near["estimated_reclaimable_bytes"] == 3072
+    assert all(row["rotation_action"] == "candidate_delete_old_backup" for row in near["rotation_plan_rows"])
+    assert all(row["would_delete_files"] is False for row in near["rotation_plan_rows"])
+
+    over = _run_backup_retention_preview(
+        [
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-max-size-gb",
+            "0.000001",
+            "--backup-retention-keep-latest-count",
+            "0",
+            "--backup-retention-keep-daily-count",
+            "0",
+            "--backup-retention-keep-weekly-count",
+            "0",
+        ]
+    )
+    assert over["over_max_size_limit"] is True
+    assert {"message": "backup_retention_max_size_exceeded"} in over["warnings"]
+
+
+def test_backup_retention_preview_protects_latest_daily_and_weekly_utc_buckets(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    timestamps = [
+        datetime(2026, 1, 12, 12, tzinfo=timezone.utc).timestamp(),
+        datetime(2026, 1, 12, 8, tzinfo=timezone.utc).timestamp(),
+        datetime(2026, 1, 5, 12, tzinfo=timezone.utc).timestamp(),
+        datetime(2025, 12, 29, 12, tzinfo=timezone.utc).timestamp(),
+    ]
+    for index, timestamp in enumerate(timestamps):
+        path = backups / f"bondradar_{index}.dump"
+        path.write_bytes(b"x" * 1024)
+        os.utime(path, (timestamp, timestamp))
+
+    report = _run_backup_retention_preview(
+        [
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-max-size-gb",
+            "0.000001",
+            "--backup-retention-keep-latest-count",
+            "1",
+            "--backup-retention-keep-daily-count",
+            "1",
+            "--backup-retention-keep-weekly-count",
+            "2",
+        ]
+    )
+    by_name = {row["file_name"]: row for row in report["inventory_rows"]}
+
+    assert by_name["bondradar_0.dump"]["protected_latest"] is True
+    assert by_name["bondradar_0.dump"]["protected_daily"] is True
+    assert by_name["bondradar_0.dump"]["protected_weekly"] is True
+    assert by_name["bondradar_1.dump"]["protection_reasons"] == []
+    assert by_name["bondradar_2.dump"]["protected_weekly"] is True
+    assert by_name["bondradar_3.dump"]["rotation_candidate"] is True
+
+
+def test_backup_retention_preview_unknown_nested_and_symlink_entries_are_diagnostic_only(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    (backups / "notes.txt").write_text("manual review", encoding="utf-8")
+    nested = backups / "nested"
+    nested.mkdir()
+    (nested / "ignored.dump").write_bytes(b"nested")
+    external = tmp_path / "outside.dump"
+    external.write_bytes(b"outside")
+    link = backups / "linked.dump"
+    try:
+        link.symlink_to(external)
+    except OSError:
+        link = None
+
+    report = _run_backup_retention_preview(["--backup-retention-backups-dir", str(backups)])
+    actions = {row["rotation_action"] for row in report["rotation_plan_rows"]}
+
+    assert "candidate_manual_review_unknown_file" in actions
+    assert report["estimated_reclaimable_bytes"] == 0
+    assert report["nested_directory_count"] == 1
+    assert {"message": "backup_retention_nested_directory_skipped", "path": str(nested)} in report["warnings"]
+    if link is not None:
+        link_row = next(row for row in report["inventory_rows"] if row["path"] == str(link))
+        assert link_row["is_symlink"] is True
+        assert link_row["rotation_candidate"] is False
+
+
+def test_backup_retention_preview_filesystem_warning_and_projected_minimum_do_not_expand_candidates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    (backups / "bondradar.dump").write_bytes(b"x")
+
+    class LowUsage:
+        total = 50 * 1024**3
+        used = 49 * 1024**3
+        free = 1 * 1024**3
+
+    monkeypatch.setattr(assistant.shutil, "disk_usage", lambda path: LowUsage())
+    report = _run_backup_retention_preview(
+        [
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-min-free-gb-after-rotation",
+            "10",
+        ]
+    )
+
+    assert {"message": "backup_retention_projected_free_space_below_minimum"} in report["warnings"]
+    assert report["rotation_candidate_count"] == 0
+
+    monkeypatch.setattr(assistant.shutil, "disk_usage", lambda path: (_ for _ in ()).throw(OSError("unavailable")))
+    unavailable = _run_backup_retention_preview(["--backup-retention-backups-dir", str(backups)])
+    assert {"message": "backup_retention_filesystem_stat_unavailable"} in unavailable["warnings"]
+
+
+def test_backup_retention_preview_writes_outputs_and_rejects_unsafe_paths(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    existing = backups / "bondradar.dump"
+    existing.write_bytes(b"backup")
+    outputs = tmp_path / "outputs"
+    markdown = tmp_path / "custom" / "backup.md"
+
+    report = _run_backup_retention_preview(
+        [
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--operator-resolution-chain-output-dir",
+            str(outputs),
+            "--backup-retention-markdown-output",
+            str(markdown),
+        ]
+    )
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    assert "# Backup Retention Preview" in markdown.read_text(encoding="utf-8")
+    assert "does not delete, move, compress, upload, or restore" in markdown.read_text(encoding="utf-8")
+
+    for extra_args in (
+        ["--backup-retention-backups-dir", str(Path.cwd())],
+        [
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-output",
+            str(backups / "unsafe.json"),
+        ],
+        [
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--json-output",
+            str(existing),
+        ],
+    ):
+        blocked = _run_backup_retention_preview(extra_args)
+        assert blocked["status"] == "failed"
+        assert blocked["errors"]
+
+
+def test_backup_retention_preview_rejects_invalid_policy_and_symlink_root(tmp_path: Path) -> None:
+    invalid = _run_backup_retention_preview(["--backup-retention-max-size-gb", "-1"])
+    assert invalid["status"] == "failed"
+    assert {"message": "invalid_backup_retention_policy_value:backup_retention_max_size_gb"} in invalid["errors"]
+
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    linked = tmp_path / "linked_backups"
+    try:
+        linked.symlink_to(backups, target_is_directory=True)
+    except OSError:
+        return
+    unsafe = _run_backup_retention_preview(["--backup-retention-backups-dir", str(linked)])
+    assert unsafe["status"] == "failed"
+    assert {"message": "backup_retention_backups_dir_unsafe"} in unsafe["errors"]
+
+
+def test_backup_retention_preview_never_calls_network_helpers_and_flags_remain_false(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task138 backup retention preview must remain read-only")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_backup_retention_preview(["--backup-retention-backups-dir", str(tmp_path / "missing")])
+
+    for field in (
+        "cleanup_executed",
+        "files_deleted",
+        "files_moved",
+        "files_compressed",
+        "files_uploaded",
+        "database_mutated",
+        "documents_downloaded",
+        "documents_parsed",
+        "would_delete_files",
+        "would_move_files",
+        "would_compress_files",
+        "would_upload_files",
+        "would_mutate_database",
+        "would_fetch_documents",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[field] is False
+
+
 def test_financial_document_fetch_plan_warns_without_candidates_and_uses_safe_retention_fallback() -> None:
     report = _run_financial_document_fetch_plan_preview()
 
@@ -12006,6 +12276,21 @@ def _run_document_artifact_retention_preview(extra_args: list[str] | None = None
         [
             "--mode",
             "financial-document-artifact-retention-preview",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _run_backup_retention_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "backup-retention-preview",
             *(extra_args or []),
         ]
     )
