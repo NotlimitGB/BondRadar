@@ -6061,6 +6061,353 @@ def test_document_artifact_retention_preview_never_calls_network_helpers(tmp_pat
     assert report["documents_parsed"] is False
 
 
+def test_financial_document_fetch_plan_warns_without_candidates_and_uses_safe_retention_fallback() -> None:
+    report = _run_financial_document_fetch_plan_preview()
+
+    assert report["status"] == "warning"
+    assert report["fetch_plan_row_count"] == 0
+    assert report["disk_guard_status"] == "blocked"
+    assert {"message": "document_artifact_retention_policy_missing_using_safe_defaults"} in report["warnings"]
+    assert {"message": "financial_document_fetch_plan_no_candidate_rows"} in report["warnings"]
+
+
+def test_financial_document_fetch_plan_strict_ready_row_is_manifest_eligible(tmp_path: Path) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    summary = tmp_path / "draft_gate_summary.json"
+    url = "https://mostotrest.ru/reports/annual-ifrs-2025.pdf"
+    _write_financial_document_fetch_summary(summary, [_financial_document_fetch_summary_row(draft_document_url=url)])
+    output_dir = tmp_path / "outputs"
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--document-intake-draft-gate-summary-input",
+            str(summary),
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+        ]
+    )
+    row = report["fetch_plan_rows"][0]
+
+    assert report["fetch_plan_eligible_count"] == 1
+    assert report["download_attempt_allowed_now_count"] == 1
+    assert row["fetch_plan_status"] == "eligible_for_future_controlled_download"
+    assert row["download_attempt_allowed_now"] is True
+    assert row["future_pre_write_size_check_required"] is True
+    assert row["source_document_url_sha256"] == assistant.hashlib.sha256(url.encode("utf-8")).hexdigest()
+    assert row["planned_raw_document_path"].endswith(f"{row['source_document_url_sha256']}.downloaded.pdf")
+    assert not (tmp_path / "artifacts" / "raw_cache" / "67").exists()
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    markdown = Path(report["artifacts"]["fetch_plan_markdown"]).read_text(encoding="utf-8")
+    assert "# Financial Document Fetch Plan" in markdown
+    assert "This task does not download reports." in markdown
+
+
+def test_financial_document_fetch_plan_disk_block_overrides_strict_ready_row(tmp_path: Path) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path, disk_guard_status="blocked")
+    summary = tmp_path / "draft_gate_summary.json"
+    _write_financial_document_fetch_summary(summary, [_financial_document_fetch_summary_row()])
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--document-intake-draft-gate-summary-input",
+            str(summary),
+        ]
+    )
+
+    assert report["fetch_plan_rows"][0]["fetch_plan_status"] == "blocked_disk_guard"
+    assert report["download_attempt_allowed_now_count"] == 0
+
+
+def test_financial_document_fetch_plan_disk_warning_keeps_future_eligibility_but_blocks_attempt_now(tmp_path: Path) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path, disk_guard_status="warning")
+    summary = tmp_path / "draft_gate_summary.json"
+    _write_financial_document_fetch_summary(summary, [_financial_document_fetch_summary_row()])
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--document-intake-draft-gate-summary-input",
+            str(summary),
+        ]
+    )
+    row = report["fetch_plan_rows"][0]
+
+    assert row["fetch_plan_status"] == "eligible_for_future_controlled_download"
+    assert row["ready_for_future_download"] is True
+    assert row["download_attempt_allowed_now"] is False
+
+
+def test_financial_document_fetch_plan_vds_like_board_rows_need_exact_urls(tmp_path: Path) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    board = tmp_path / "board.json"
+    _write_financial_document_fetch_board(
+        board,
+        [
+            _financial_document_fetch_board_row(company_id="18", company_name="RZD"),
+            _financial_document_fetch_board_row(company_id="67", company_name="Mostotrest"),
+        ],
+    )
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--operator-resolution-chain-review-board-input",
+            str(board),
+        ]
+    )
+
+    assert report["fetch_plan_row_count"] == 2
+    assert report["fetch_plan_eligible_count"] == 0
+    assert report["fetch_plan_status_counts"] == {"blocked_missing_exact_document_url": 2}
+
+
+def test_financial_document_fetch_plan_blocks_historical_fallback_and_known_oversize(tmp_path: Path) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    summary = tmp_path / "draft_gate_summary.json"
+    _write_financial_document_fetch_summary(
+        summary,
+        [
+            _financial_document_fetch_summary_row(
+                company_id="18",
+                draft_document_url="https://rzd.ru/reports/history/annual-ifrs-2024.pdf",
+                draft_fallback_status="historical_fallback",
+            ),
+            _financial_document_fetch_summary_row(
+                company_id="67",
+                source_document_size_bytes_expected=300 * 1024**2,
+            ),
+        ],
+    )
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--document-intake-draft-gate-summary-input",
+            str(summary),
+        ]
+    )
+    rows = {str(row["company_id"]): row for row in report["fetch_plan_rows"]}
+
+    assert rows["18"]["fetch_plan_status"] == "blocked_historical_fallback_only"
+    assert rows["67"]["fetch_plan_status"] == "blocked_single_file_size_exceeded"
+
+
+def test_financial_document_fetch_plan_blocks_strict_mismatches_and_non_consolidated_board_fallback(
+    tmp_path: Path,
+) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    summary = tmp_path / "draft_gate_summary.json"
+    _write_financial_document_fetch_summary(
+        summary,
+        [
+            _financial_document_fetch_summary_row(
+                company_id="18",
+                canonical_company_id="18",
+                target_reporting_period="2024",
+            ),
+            _financial_document_fetch_summary_row(
+                company_id="19",
+                canonical_company_id="19",
+                required_report_type="quarterly",
+            ),
+            _financial_document_fetch_summary_row(
+                company_id="20",
+                canonical_company_id="20",
+                required_standard="RAS",
+            ),
+        ],
+    )
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--document-intake-draft-gate-summary-input",
+            str(summary),
+        ]
+    )
+    rows = {str(row["company_id"]): row for row in report["fetch_plan_rows"]}
+
+    assert rows["18"]["fetch_plan_status"] == "blocked_wrong_period"
+    assert rows["19"]["fetch_plan_status"] == "blocked_wrong_report_type"
+    assert rows["20"]["fetch_plan_status"] == "blocked_wrong_accounting_standard"
+
+    board = tmp_path / "board.json"
+    _write_financial_document_fetch_board(
+        board,
+        [
+            _financial_document_fetch_board_row(
+                overall_status="ready_for_future_extraction_preview",
+                draft_gate_status="draft_ready_for_future_extraction_preview",
+                ready_for_value_extraction=True,
+                operator_fill_exact_document_url="https://mostotrest.ru/reports/annual-ifrs-2025.pdf",
+                source_document_consolidated=False,
+            )
+        ],
+    )
+    board_report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--operator-resolution-chain-review-board-input",
+            str(board),
+        ]
+    )
+
+    assert board_report["fetch_plan_rows"][0]["fetch_plan_status"] == "blocked_non_consolidated"
+
+
+def test_financial_document_fetch_plan_caps_sorted_eligible_rows(tmp_path: Path) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    summary = tmp_path / "draft_gate_summary.json"
+    _write_financial_document_fetch_summary(
+        summary,
+        [
+            _financial_document_fetch_summary_row(company_id="67", draft_document_url="https://mostotrest.ru/reports/67.pdf"),
+            _financial_document_fetch_summary_row(
+                company_id="18",
+                canonical_company_id="18",
+                draft_document_url="https://rzd.ru/reports/18.pdf",
+            ),
+        ],
+    )
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--document-intake-draft-gate-summary-input",
+            str(summary),
+            "--financial-document-fetch-max-planned-downloads",
+            "1",
+        ]
+    )
+    rows = {str(row["company_id"]): row for row in report["fetch_plan_rows"]}
+
+    assert rows["18"]["fetch_plan_status"] == "eligible_for_future_controlled_download"
+    assert rows["67"]["fetch_plan_status"] == "blocked_max_planned_downloads_exceeded"
+
+
+def test_financial_document_fetch_plan_rejects_malformed_retention_and_output_collision(tmp_path: Path) -> None:
+    malformed = tmp_path / "retention.json"
+    malformed.write_text("{", encoding="utf-8")
+    report = _run_financial_document_fetch_plan_preview(
+        ["--document-artifact-retention-input", str(malformed)]
+    )
+    assert report["status"] == "failed"
+    assert report["errors"][0]["message"] == "document_artifact_retention_input_invalid"
+
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    collision = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--financial-document-fetch-plan-output",
+            str(retention),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "financial_document_fetch_plan_output_must_not_equal_input"}]
+
+    generic_collision = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--json-output",
+            str(retention),
+        ]
+    )
+    assert generic_collision["status"] == "failed"
+    assert generic_collision["errors"] == [{"message": "financial_document_fetch_plan_output_must_not_equal_input"}]
+
+    unsafe_raw_output = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--financial-document-fetch-plan-output",
+            str(tmp_path / "artifacts" / "raw_cache" / "unsafe.json"),
+        ]
+    )
+    assert unsafe_raw_output["status"] == "failed"
+    assert unsafe_raw_output["errors"] == [{"message": "financial_document_fetch_plan_output_must_not_equal_input"}]
+
+
+def test_financial_document_fetch_plan_prefers_task124_summary_and_falls_back_after_malformed_optional(
+    tmp_path: Path,
+) -> None:
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    output_dir = tmp_path / "outputs"
+    output_dir.mkdir()
+    chain_summary = output_dir / "document_intake_draft_gate_summary_chain_task124.json"
+    chain_summary.write_text("{", encoding="utf-8")
+    direct_summary = output_dir / "document_intake_draft_gate_summary_task122.json"
+    _write_financial_document_fetch_summary(
+        direct_summary,
+        [_financial_document_fetch_summary_row(company_id="18", company_name="Fallback issuer")],
+    )
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+        ]
+    )
+
+    assert report["fetch_plan_rows"][0]["company_name"] == "Fallback issuer"
+    assert any(
+        warning["message"] == "financial_document_fetch_optional_artifact_unreadable:document_intake_draft_gate_summary"
+        for warning in report["warnings"]
+    )
+
+
+def test_financial_document_fetch_plan_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task133 fetch plan preview must not fetch, probe, download, or parse documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    retention = _write_financial_document_fetch_retention(tmp_path)
+    summary = tmp_path / "draft_gate_summary.json"
+    _write_financial_document_fetch_summary(summary, [_financial_document_fetch_summary_row()])
+
+    report = _run_financial_document_fetch_plan_preview(
+        [
+            "--document-artifact-retention-input",
+            str(retention),
+            "--document-intake-draft-gate-summary-input",
+            str(summary),
+        ]
+    )
+
+    assert report["fetch_plan_eligible_count"] == 1
+    for key in (
+        "documents_downloaded",
+        "documents_parsed",
+        "would_fetch_documents",
+        "would_create_download_directories",
+        "would_write_raw_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_database",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+        "files_deleted",
+    ):
+        assert report[key] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -10435,6 +10782,151 @@ def _document_artifact_retention_test_paths(tmp_path: Path) -> list[str]:
         "--document-artifact-logs-dir",
         str(tmp_path / "logs"),
     ]
+
+
+def _run_financial_document_fetch_plan_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "financial-document-fetch-plan-preview",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _write_financial_document_fetch_retention(
+    tmp_path: Path,
+    *,
+    disk_guard_status: str = "passed",
+) -> Path:
+    path = tmp_path / "retention.json"
+    guard_reasons = [] if disk_guard_status == "passed" else ["raw_cache_ttl_expired_files_present"]
+    path.write_text(
+        json.dumps(
+            {
+                "status": "passed" if disk_guard_status == "passed" else "warning",
+                "mode": "financial-document-artifact-retention-preview",
+                "disk_guard_status": disk_guard_status,
+                "download_allowed": disk_guard_status != "blocked",
+                "future_extraction_allowed": disk_guard_status != "blocked",
+                "guard_reason_codes": guard_reasons,
+                "policy_rows": [
+                    {
+                        "artifact_class": "raw_report_cache",
+                        "path_role": "raw_cache",
+                        "default_path": str(tmp_path / "artifacts" / "raw_cache"),
+                    },
+                    {
+                        "artifact_class": "debug_quarantine",
+                        "path_role": "debug_quarantine",
+                        "default_path": str(tmp_path / "artifacts" / "debug_quarantine"),
+                    },
+                    {
+                        "artifact_class": "hash_manifest",
+                        "path_role": "hash_manifest",
+                        "default_path": str(tmp_path / "artifacts" / "hash_manifest"),
+                    },
+                    {
+                        "artifact_class": "extraction_artifacts",
+                        "path_role": "extraction_artifacts",
+                        "default_path": str(tmp_path / "financial_reports"),
+                    },
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _financial_document_fetch_summary_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "draft_row_status": "draft_ready_for_future_extraction_preview",
+        "draft_document_url": "https://mostotrest.ru/reports/annual-ifrs-2025.pdf",
+        "draft_document_title": "Mostotrest annual IFRS 2025",
+        "draft_fallback_status": "not_fallback",
+        "validation_status": "passed",
+        "document_kind": "exact_report_document",
+        "document_period_year": "2025",
+        "document_period_status": "target_period",
+        "report_type_match_status": "annual_match",
+        "accounting_standard_match_status": "standard_match",
+        "gate_status": "passed",
+        "gate_passed": True,
+        "ready_for_value_extraction": True,
+        "ready_for_import": False,
+        "has_exact_target_document": True,
+        "blocked_reason_codes": [],
+    }
+    row.update(updates)
+    return row
+
+
+def _write_financial_document_fetch_summary(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "passed",
+                "mode": "document-intake-draft-gate-preview",
+                "draft_gate_summary_rows": rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _financial_document_fetch_board_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "resolution_id": "",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "overall_status": "needs_operator_exact_document_url",
+        "draft_gate_status": "draft_placeholder_not_ready",
+        "ready_for_value_extraction": False,
+        "trusted_source_hosts": ["mostotrest.ru"],
+        "operator_fill_exact_document_url": "",
+        "latest_historical_document_url": "",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_financial_document_fetch_board(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-resolution-chain-review-board",
+                "rows": rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _run_availability_discovery(

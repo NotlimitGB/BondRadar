@@ -56,6 +56,7 @@ MODE_CHOICES = (
     "financial-metric-registry-preview",
     "financial-extraction-evidence-schema-preview",
     "financial-document-artifact-retention-preview",
+    "financial-document-fetch-plan-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2377,6 +2378,79 @@ DOCUMENT_ARTIFACT_RECOMMENDED_GITIGNORE_PATTERNS = [
 DOCUMENT_ARTIFACT_RECOMMENDED_BACKUP_EXCLUDE_PATTERNS = copy.deepcopy(
     DOCUMENT_ARTIFACT_RECOMMENDED_GITIGNORE_PATTERNS
 )
+FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES = {
+    "fetch_plan_json": "financial_document_fetch_plan_task133.json",
+    "fetch_plan_csv": "financial_document_fetch_plan_task133.csv",
+    "fetch_plan_markdown": "financial_document_fetch_plan_task133.md",
+    "download_manifest_json": "financial_document_download_manifest_task133.json",
+    "download_manifest_csv": "financial_document_download_manifest_task133.csv",
+    "fetch_blockers_json": "financial_document_fetch_blockers_task133.json",
+    "fetch_blockers_csv": "financial_document_fetch_blockers_task133.csv",
+}
+FINANCIAL_DOCUMENT_FETCH_PLAN_FIELDS = [
+    "fetch_plan_id",
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "candidate_source",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "required_consolidated",
+    "source_document_url",
+    "source_document_url_sha256",
+    "source_document_title",
+    "source_document_size_bytes_expected",
+    "source_document_consolidated",
+    "document_kind",
+    "document_period_year",
+    "document_period_status",
+    "report_type_match_status",
+    "accounting_standard_match_status",
+    "document_gate_status",
+    "source_gate_status",
+    "trusted_source_hosts",
+    "historical_fallback_url",
+    "historical_fallback_allowed_as_target_evidence",
+    "disk_guard_status",
+    "disk_guard_reason_codes",
+    "fetch_plan_status",
+    "fetch_plan_reason_codes",
+    "fetch_plan_warnings",
+    "ready_for_future_download",
+    "download_attempt_allowed_now",
+    "future_pre_write_size_check_required",
+    "planned_raw_document_path",
+    "planned_hash_manifest_path",
+    "planned_debug_quarantine_dir",
+    "planned_extraction_artifact_prefix",
+    "actual_document_sha256_required_after_download",
+    "would_fetch_documents",
+    "would_create_download_directories",
+    "would_write_raw_documents",
+    "would_parse_documents",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_database",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "files_deleted",
+]
+FINANCIAL_DOCUMENT_DOWNLOAD_MANIFEST_FIELDS = copy.deepcopy(FINANCIAL_DOCUMENT_FETCH_PLAN_FIELDS)
+FINANCIAL_DOCUMENT_FETCH_BLOCKER_FIELDS = [
+    "fetch_plan_id",
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "fetch_plan_status",
+    "blocker_code",
+    "blocker_severity",
+    "blocker_next_action",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -2741,6 +2815,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--document-artifact-logs-max-gb", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["logs_max_gb"])
     parser.add_argument("--document-artifact-raw-cache-ttl-hours", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["raw_cache_ttl_hours"])
     parser.add_argument("--document-artifact-debug-quarantine-ttl-hours", type=float, default=DOCUMENT_ARTIFACT_RETENTION_DEFAULTS["debug_quarantine_ttl_hours"])
+    parser.add_argument("--financial-document-fetch-plan-output", type=Path, default=None)
+    parser.add_argument("--financial-document-fetch-plan-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-document-fetch-plan-markdown-output", type=Path, default=None)
+    parser.add_argument("--financial-document-download-manifest-output", type=Path, default=None)
+    parser.add_argument("--financial-document-download-manifest-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-document-fetch-blockers-output", type=Path, default=None)
+    parser.add_argument("--financial-document-fetch-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--document-artifact-retention-input", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-gate-input", type=Path, default=None)
+    parser.add_argument("--document-intake-draft-gate-summary-input", type=Path, default=None)
+    parser.add_argument("--financial-document-fetch-target-period", default="2025")
+    parser.add_argument("--financial-document-fetch-required-report-type", default="annual")
+    parser.add_argument("--financial-document-fetch-required-standard", default="IFRS")
+    parser.add_argument("--financial-document-fetch-required-consolidated", type=_parse_bool, default=True)
+    parser.add_argument("--financial-document-fetch-max-planned-downloads", type=int, default=20)
+    parser.add_argument("--financial-document-fetch-max-single-file-mb", type=float, default=250.0)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -2833,6 +2923,8 @@ def run_assistant(
         report = run_financial_extraction_evidence_schema_preview(args)
     elif args.mode == "financial-document-artifact-retention-preview":
         report = run_financial_document_artifact_retention_preview(args)
+    elif args.mode == "financial-document-fetch-plan-preview":
+        report = run_financial_document_fetch_plan_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -9051,6 +9143,759 @@ def _document_artifact_retention_safety_flags() -> dict[str, Any]:
     }
 
 
+def run_financial_document_fetch_plan_preview(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors = _financial_document_fetch_plan_config_errors(args)
+    retention_report, retention_path, retention_errors = _load_financial_document_fetch_retention_report(
+        args,
+        warnings=warnings,
+    )
+    errors.extend(retention_errors)
+    retention_paths = _financial_document_fetch_retention_paths(retention_report)
+    artifacts = _financial_document_fetch_plan_artifacts(args)
+    summary_report, summary_path = _load_financial_document_fetch_optional_report(
+        _financial_document_fetch_optional_paths(
+            args.document_intake_draft_gate_summary_input,
+            args.operator_resolution_chain_output_dir,
+            (
+                OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES["document_intake_draft_gate_summary_json"],
+                "document_intake_draft_gate_summary_task122.json",
+            ),
+        ),
+        role="document_intake_draft_gate_summary",
+        warnings=warnings,
+    )
+    gate_report, gate_path = _load_financial_document_fetch_optional_report(
+        _financial_document_fetch_optional_paths(
+            args.document_intake_draft_gate_input,
+            args.operator_resolution_chain_output_dir,
+            (
+                OPERATOR_RESOLUTION_CHAIN_PREVIEW_ARTIFACT_NAMES["document_intake_draft_gate_json"],
+                "document_intake_draft_gate_task122.json",
+            ),
+        ),
+        role="document_intake_draft_gate",
+        warnings=warnings,
+    )
+    board_report, board_path = _load_financial_document_fetch_optional_report(
+        _financial_document_fetch_optional_paths(
+            args.operator_resolution_chain_review_board_input,
+            args.operator_resolution_chain_output_dir,
+            (OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES["board_json"],),
+        ),
+        role="operator_resolution_chain_review_board",
+        warnings=warnings,
+    )
+    protected_inputs = [
+        path
+        for path in (retention_path, summary_path, gate_path, board_path)
+        if path is not None
+    ]
+    errors.extend(
+        _financial_document_fetch_plan_output_errors(
+            args,
+            artifacts=artifacts,
+            protected_inputs=protected_inputs,
+            retention_paths=retention_paths,
+        )
+    )
+    source_rows = _financial_document_fetch_candidate_rows(
+        args,
+        summary_report=summary_report,
+        gate_report=gate_report,
+        board_report=board_report,
+    )
+    if not source_rows:
+        warnings.append({"message": "financial_document_fetch_plan_no_candidate_rows"})
+    plan_rows = [
+        _build_financial_document_fetch_plan_row(
+            args,
+            row,
+            retention_report=retention_report,
+            retention_paths=retention_paths,
+        )
+        for row in source_rows
+    ]
+    _apply_financial_document_fetch_download_cap(args, plan_rows)
+    manifest_rows = copy.deepcopy(plan_rows)
+    blocker_rows = _build_financial_document_fetch_blocker_rows(plan_rows)
+    report = _build_financial_document_fetch_plan_report(
+        args,
+        plan_rows=plan_rows,
+        manifest_rows=manifest_rows,
+        blocker_rows=blocker_rows,
+        retention_report=retention_report,
+        retention_path=retention_path,
+        summary_path=summary_path,
+        gate_path=gate_path,
+        board_path=board_path,
+        artifacts=artifacts,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            if artifacts["fetch_plan_json"] is not None:
+                write_json_report(report, artifacts["fetch_plan_json"])
+            if artifacts["fetch_plan_csv"] is not None:
+                _write_flat_csv(plan_rows, FINANCIAL_DOCUMENT_FETCH_PLAN_FIELDS, artifacts["fetch_plan_csv"])
+            if artifacts["fetch_plan_markdown"] is not None:
+                write_financial_document_fetch_plan_markdown(report, artifacts["fetch_plan_markdown"])
+            if artifacts["download_manifest_json"] is not None:
+                write_json_report(_financial_document_download_manifest_report(report), artifacts["download_manifest_json"])
+            if artifacts["download_manifest_csv"] is not None:
+                _write_flat_csv(
+                    manifest_rows,
+                    FINANCIAL_DOCUMENT_DOWNLOAD_MANIFEST_FIELDS,
+                    artifacts["download_manifest_csv"],
+                )
+            if artifacts["fetch_blockers_json"] is not None:
+                write_json_report(_financial_document_fetch_blockers_report(report), artifacts["fetch_blockers_json"])
+            if artifacts["fetch_blockers_csv"] is not None:
+                _write_flat_csv(blocker_rows, FINANCIAL_DOCUMENT_FETCH_BLOCKER_FIELDS, artifacts["fetch_blockers_csv"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _financial_document_fetch_plan_config_errors(args: argparse.Namespace) -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    if args.financial_document_fetch_max_planned_downloads < 0:
+        errors.append({"message": "invalid_financial_document_fetch_plan_value:financial_document_fetch_max_planned_downloads"})
+    if args.financial_document_fetch_max_single_file_mb <= 0:
+        errors.append({"message": "invalid_financial_document_fetch_plan_value:financial_document_fetch_max_single_file_mb"})
+    return errors
+
+
+def _load_financial_document_fetch_retention_report(
+    args: argparse.Namespace,
+    *,
+    warnings: list[dict[str, Any]],
+) -> tuple[dict[str, Any], Path | None, list[dict[str, Any]]]:
+    explicit = args.document_artifact_retention_input
+    auto_path = (
+        args.operator_resolution_chain_output_dir / DOCUMENT_ARTIFACT_RETENTION_ARTIFACT_NAMES["policy_json"]
+        if args.operator_resolution_chain_output_dir is not None
+        else None
+    )
+    path = explicit or (auto_path if auto_path is not None and auto_path.is_file() else None)
+    if path is None:
+        warnings.append({"message": "document_artifact_retention_policy_missing_using_safe_defaults"})
+        return _financial_document_fetch_safe_default_retention_report(), None, []
+    try:
+        report = _load_json_object(path)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _financial_document_fetch_safe_default_retention_report(), path, [
+            {"message": "document_artifact_retention_input_invalid", "path": str(path)}
+        ]
+    if report.get("mode") != "financial-document-artifact-retention-preview":
+        return _financial_document_fetch_safe_default_retention_report(), path, [
+            {"message": "document_artifact_retention_input_invalid", "path": str(path)}
+        ]
+    return report, path, []
+
+
+def _financial_document_fetch_safe_default_retention_report() -> dict[str, Any]:
+    paths = DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS
+    return {
+        "mode": "financial-document-artifact-retention-preview",
+        "status": "warning",
+        "disk_guard_status": "blocked",
+        "download_allowed": False,
+        "future_extraction_allowed": False,
+        "guard_reason_codes": ["document_artifact_retention_policy_missing_using_safe_defaults"],
+        "policy_rows": [
+            {"artifact_class": "raw_report_cache", "path_role": "raw_cache", "default_path": str(paths["raw_cache"])},
+            {
+                "artifact_class": "debug_quarantine",
+                "path_role": "debug_quarantine",
+                "default_path": str(paths["debug_quarantine"]),
+            },
+            {
+                "artifact_class": "extraction_artifacts",
+                "path_role": "extraction_artifacts",
+                "default_path": str(paths["extraction_artifacts"]),
+            },
+            {
+                "artifact_class": "hash_manifest",
+                "path_role": "hash_manifest",
+                "default_path": str(paths["artifact_root"] / "hash_manifest"),
+            },
+        ],
+    }
+
+
+def _financial_document_fetch_retention_paths(report: dict[str, Any]) -> dict[str, Path]:
+    defaults = {
+        "raw_cache": DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["raw_cache"],
+        "debug_quarantine": DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["debug_quarantine"],
+        "extraction_artifacts": DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["extraction_artifacts"],
+        "hash_manifest": DOCUMENT_ARTIFACT_RETENTION_DEFAULT_PATHS["artifact_root"] / "hash_manifest",
+    }
+    for row in report.get("policy_rows") or []:
+        if not isinstance(row, dict):
+            continue
+        path_role = str(row.get("path_role") or "")
+        default_path = str(row.get("default_path") or "")
+        if path_role in defaults and default_path:
+            defaults[path_role] = Path(default_path)
+    return defaults
+
+
+def _financial_document_fetch_plan_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "fetch_plan_json": args.financial_document_fetch_plan_output,
+        "fetch_plan_csv": args.financial_document_fetch_plan_csv_output,
+        "fetch_plan_markdown": args.financial_document_fetch_plan_markdown_output,
+        "download_manifest_json": args.financial_document_download_manifest_output,
+        "download_manifest_csv": args.financial_document_download_manifest_csv_output,
+        "fetch_blockers_json": args.financial_document_fetch_blockers_output,
+        "fetch_blockers_csv": args.financial_document_fetch_blockers_csv_output,
+    }
+    return {
+        key: overrides[key] or (output_dir / file_name if output_dir is not None else None)
+        for key, file_name in FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES.items()
+    }
+
+
+def _financial_document_fetch_optional_paths(
+    explicit: Path | None,
+    output_dir: Path | None,
+    filenames: Sequence[str],
+) -> list[Path]:
+    paths: list[Path] = []
+    if explicit is not None:
+        paths.append(explicit)
+    if output_dir is not None:
+        paths.extend(output_dir / name for name in filenames)
+    deduplicated: list[Path] = []
+    for path in paths:
+        if not any(_paths_equal(path, existing) for existing in deduplicated):
+            deduplicated.append(path)
+    return deduplicated
+
+
+def _load_financial_document_fetch_optional_report(
+    paths: list[Path],
+    *,
+    role: str,
+    warnings: list[dict[str, Any]],
+) -> tuple[dict[str, Any], Path | None]:
+    for path in paths:
+        if not path.is_file():
+            if paths and path == paths[0]:
+                warnings.append({"message": f"financial_document_fetch_optional_artifact_unreadable:{role}", "path": str(path)})
+            continue
+        try:
+            return _load_json_object(path), path
+        except (OSError, ValueError, json.JSONDecodeError):
+            warnings.append({"message": f"financial_document_fetch_optional_artifact_unreadable:{role}", "path": str(path)})
+    return {}, None
+
+
+def _financial_document_fetch_plan_output_errors(
+    args: argparse.Namespace,
+    *,
+    artifacts: dict[str, Path | None],
+    protected_inputs: list[Path],
+    retention_paths: dict[str, Path],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    for index, path in enumerate(outputs):
+        if any(_paths_equal(path, other) for other in outputs[index + 1 :]):
+            return [{"message": "financial_document_fetch_plan_output_must_not_equal_input"}]
+    for path in outputs:
+        if not _financial_document_fetch_plan_output_path_is_safe(
+            path,
+            protected_inputs=protected_inputs,
+            retention_paths=retention_paths,
+        ):
+            return [{"message": "financial_document_fetch_plan_output_must_not_equal_input"}]
+    return []
+
+
+def _financial_document_fetch_plan_output_path_is_safe(
+    output_path: Path,
+    *,
+    protected_inputs: Sequence[Path],
+    retention_paths: dict[str, Path],
+) -> bool:
+    if any(_paths_equal(output_path, path) for path in protected_inputs):
+        return False
+    return not any(
+        _path_is_within(output_path, retention_paths[path_role])
+        for path_role in ("raw_cache", "debug_quarantine", "hash_manifest")
+    )
+
+
+def _financial_document_fetch_candidate_rows(
+    args: argparse.Namespace,
+    *,
+    summary_report: dict[str, Any],
+    gate_report: dict[str, Any],
+    board_report: dict[str, Any],
+) -> list[dict[str, Any]]:
+    summary_rows = summary_report.get("draft_gate_summary_rows") or []
+    gate_rows = gate_report.get("required_issuers") or []
+    board_rows = board_report.get("rows") or []
+    board_by_key = {
+        _financial_document_fetch_candidate_key(row): row
+        for row in board_rows
+        if isinstance(row, dict)
+    }
+    if isinstance(summary_rows, list) and any(isinstance(row, dict) for row in summary_rows):
+        return [
+            _financial_document_fetch_summary_candidate(args, row, board_by_key=board_by_key)
+            for row in summary_rows
+            if isinstance(row, dict)
+        ]
+    if isinstance(gate_rows, list) and any(isinstance(row, dict) for row in gate_rows):
+        return [
+            _financial_document_fetch_gate_candidate(args, row, gate_report=gate_report, board_by_key=board_by_key)
+            for row in gate_rows
+            if isinstance(row, dict)
+        ]
+    return [
+        _financial_document_fetch_board_candidate(args, row)
+        for row in board_rows
+        if isinstance(row, dict)
+    ]
+
+
+def _financial_document_fetch_candidate_key(row: dict[str, Any]) -> str:
+    resolution_id = str(row.get("resolution_id") or "")
+    if resolution_id:
+        return f"resolution:{resolution_id}"
+    return "company:" + str(row.get("canonical_company_id") or row.get("company_id") or "")
+
+
+def _financial_document_fetch_board_match(
+    row: dict[str, Any],
+    *,
+    board_by_key: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    return board_by_key.get(_financial_document_fetch_candidate_key(row)) or {}
+
+
+def _financial_document_fetch_identity(row: dict[str, Any], board: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "resolution_id": row.get("resolution_id") or board.get("resolution_id") or "",
+        "company_id": row.get("company_id") or board.get("company_id") or "",
+        "company_name": row.get("company_name") or board.get("company_name") or "",
+        "canonical_company_id": row.get("canonical_company_id") or board.get("canonical_company_id") or row.get("company_id") or "",
+        "canonical_company_name": row.get("canonical_company_name") or board.get("canonical_company_name") or row.get("company_name") or "",
+    }
+
+
+def _financial_document_fetch_summary_candidate(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    *,
+    board_by_key: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    board = _financial_document_fetch_board_match(row, board_by_key=board_by_key)
+    strict_ready = bool(
+        row.get("draft_row_status") == "draft_ready_for_future_extraction_preview"
+        and _as_bool(row.get("has_exact_target_document"))
+        and _as_bool(row.get("gate_passed"))
+        and _as_bool(row.get("ready_for_value_extraction"))
+    )
+    return {
+        **_financial_document_fetch_identity(row, board),
+        "candidate_source": "document_intake_draft_gate_summary",
+        "target_reporting_period": row.get("target_reporting_period") or args.financial_document_fetch_target_period,
+        "required_report_type": row.get("required_report_type") or args.financial_document_fetch_required_report_type,
+        "required_standard": row.get("required_standard") or args.financial_document_fetch_required_standard,
+        "source_document_url": row.get("draft_document_url") or "",
+        "source_document_title": row.get("draft_document_title") or "",
+        "source_document_size_bytes_expected": _financial_document_fetch_expected_size(row),
+        "source_document_consolidated": True if strict_ready else _as_bool(row.get("source_document_consolidated")),
+        "document_kind": row.get("document_kind") or "",
+        "document_period_year": row.get("document_period_year") or "",
+        "document_period_status": row.get("document_period_status") or "",
+        "report_type_match_status": row.get("report_type_match_status") or "",
+        "accounting_standard_match_status": row.get("accounting_standard_match_status") or "",
+        "document_gate_ready": bool(row.get("draft_document_url") and _as_bool(row.get("has_exact_target_document"))),
+        "source_gate_ready": strict_ready,
+        "document_gate_status": row.get("validation_status") or row.get("draft_row_status") or "",
+        "source_gate_status": row.get("gate_status") or "",
+        "trusted_source_hosts": _financial_document_fetch_list(board.get("trusted_source_hosts")),
+        "historical_fallback_url": board.get("latest_historical_document_url") or "",
+        "historical_fallback_only": _financial_document_fetch_historical_fallback_only(row, board),
+    }
+
+
+def _financial_document_fetch_gate_candidate(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    *,
+    gate_report: dict[str, Any],
+    board_by_key: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    board = _financial_document_fetch_board_match(row, board_by_key=board_by_key)
+    gate_ready = bool(row.get("gate_status") == "passed" and gate_report.get("ready_for_value_extraction"))
+    document_url = row.get("document_url") or ""
+    return {
+        **_financial_document_fetch_identity(row, board),
+        "candidate_source": "document_intake_draft_gate",
+        "target_reporting_period": row.get("target_reporting_period") or args.financial_document_fetch_target_period,
+        "required_report_type": row.get("required_report_type") or args.financial_document_fetch_required_report_type,
+        "required_standard": row.get("required_standard") or args.financial_document_fetch_required_standard,
+        "source_document_url": document_url,
+        "source_document_title": row.get("document_title") or "",
+        "source_document_size_bytes_expected": _financial_document_fetch_expected_size(row),
+        "source_document_consolidated": _as_bool(row.get("source_document_consolidated")),
+        "document_kind": row.get("document_kind") or "",
+        "document_period_year": row.get("document_period_year") or "",
+        "document_period_status": row.get("document_period_status") or "",
+        "report_type_match_status": row.get("report_type_match_status") or "",
+        "accounting_standard_match_status": row.get("accounting_standard_match_status") or "",
+        "document_gate_ready": bool(document_url and gate_ready),
+        "source_gate_ready": gate_ready,
+        "document_gate_status": row.get("gate_status") or "",
+        "source_gate_status": row.get("gate_status") or "",
+        "trusted_source_hosts": _financial_document_fetch_list(board.get("trusted_source_hosts")),
+        "historical_fallback_url": board.get("latest_historical_document_url") or "",
+        "historical_fallback_only": _financial_document_fetch_historical_fallback_only(row, board),
+    }
+
+
+def _financial_document_fetch_board_candidate(args: argparse.Namespace, row: dict[str, Any]) -> dict[str, Any]:
+    trusted_hosts = _financial_document_fetch_list(row.get("trusted_source_hosts"))
+    gate_ready = bool(
+        row.get("overall_status") == "ready_for_future_extraction_preview"
+        and row.get("draft_gate_status") == "draft_ready_for_future_extraction_preview"
+        and _as_bool(row.get("ready_for_value_extraction"))
+        and trusted_hosts
+    )
+    return {
+        **_financial_document_fetch_identity(row, {}),
+        "candidate_source": "operator_resolution_chain_review_board",
+        "target_reporting_period": row.get("target_reporting_period") or args.financial_document_fetch_target_period,
+        "required_report_type": row.get("required_report_type") or args.financial_document_fetch_required_report_type,
+        "required_standard": row.get("required_standard") or args.financial_document_fetch_required_standard,
+        "source_document_url": row.get("operator_fill_exact_document_url") if gate_ready else "",
+        "source_document_title": row.get("operator_fill_document_title") or "",
+        "source_document_size_bytes_expected": _financial_document_fetch_expected_size(row),
+        "source_document_consolidated": _as_bool(row.get("source_document_consolidated")),
+        "document_kind": row.get("document_kind") or ("exact_report_document" if gate_ready else ""),
+        "document_period_year": row.get("operator_fill_report_period") or row.get("target_reporting_period") or "",
+        "document_period_status": row.get("document_period_status") or ("target_period" if gate_ready else ""),
+        "report_type_match_status": row.get("report_type_match_status") or ("annual_match" if gate_ready else ""),
+        "accounting_standard_match_status": row.get("accounting_standard_match_status") or ("standard_match" if gate_ready else ""),
+        "document_gate_ready": gate_ready,
+        "source_gate_ready": gate_ready,
+        "document_gate_status": row.get("draft_gate_status") or "",
+        "source_gate_status": row.get("overall_status") or "",
+        "trusted_source_hosts": trusted_hosts,
+        "historical_fallback_url": row.get("latest_historical_document_url") or "",
+        "historical_fallback_only": _financial_document_fetch_historical_fallback_only(row, row),
+    }
+
+
+def _financial_document_fetch_historical_fallback_only(row: dict[str, Any], board: dict[str, Any]) -> bool:
+    fallback_status = str(row.get("draft_fallback_status") or row.get("fallback_status") or "")
+    blockers = _financial_document_fetch_list(row.get("blocked_reason_codes"))
+    historical_url = str(board.get("latest_historical_document_url") or "")
+    document_url = str(row.get("draft_document_url") or row.get("document_url") or row.get("operator_fill_exact_document_url") or "")
+    return bool(
+        fallback_status not in {"", "not_fallback"}
+        or "historical_fallback_not_target_evidence" in blockers
+        or "historical_fallback_url_used_as_exact_document" in blockers
+        or (historical_url and (not document_url or document_url == historical_url))
+    )
+
+
+def _financial_document_fetch_expected_size(row: dict[str, Any]) -> int | None:
+    for field in (
+        "source_document_size_bytes_expected",
+        "expected_size_bytes",
+        "document_size_bytes_expected",
+        "document_size_bytes",
+    ):
+        value = _as_int(row.get(field))
+        if value is not None and value >= 0:
+            return value
+    return None
+
+
+def _build_financial_document_fetch_plan_row(
+    args: argparse.Namespace,
+    candidate: dict[str, Any],
+    *,
+    retention_report: dict[str, Any],
+    retention_paths: dict[str, Path],
+) -> dict[str, Any]:
+    source_url = str(candidate.get("source_document_url") or "")
+    sha256 = hashlib.sha256(source_url.encode("utf-8")).hexdigest() if source_url else ""
+    safe_company = _financial_document_fetch_safe_path_component(
+        candidate.get("canonical_company_id") or candidate.get("company_id"),
+        fallback="unknown_company",
+    )
+    safe_period = _financial_document_fetch_safe_path_component(
+        candidate.get("target_reporting_period"),
+        fallback="unknown_period",
+    )
+    file_component = sha256 or "missing_exact_document_url"
+    warnings: list[str] = []
+    if candidate.get("source_document_size_bytes_expected") is None:
+        warnings.append("single_file_size_unknown_requires_future_pre_write_check")
+    status, reasons = _financial_document_fetch_plan_status(args, candidate, retention_report=retention_report)
+    ready = status == "eligible_for_future_controlled_download"
+    disk_guard_status = str(retention_report.get("disk_guard_status") or "blocked")
+    fetch_plan_id = f"financial_document_fetch_plan:{safe_company}:{safe_period}:{file_component}"
+    return {
+        "fetch_plan_id": fetch_plan_id,
+        "resolution_id": candidate.get("resolution_id") or "",
+        "company_id": candidate.get("company_id") or "",
+        "company_name": candidate.get("company_name") or "",
+        "canonical_company_id": candidate.get("canonical_company_id") or candidate.get("company_id") or "",
+        "canonical_company_name": candidate.get("canonical_company_name") or candidate.get("company_name") or "",
+        "candidate_source": candidate.get("candidate_source") or "",
+        "target_reporting_period": candidate.get("target_reporting_period") or "",
+        "required_report_type": candidate.get("required_report_type") or "",
+        "required_standard": candidate.get("required_standard") or "",
+        "required_consolidated": args.financial_document_fetch_required_consolidated,
+        "source_document_url": source_url,
+        "source_document_url_sha256": sha256,
+        "source_document_title": candidate.get("source_document_title") or "",
+        "source_document_size_bytes_expected": candidate.get("source_document_size_bytes_expected"),
+        "source_document_consolidated": bool(candidate.get("source_document_consolidated")),
+        "document_kind": candidate.get("document_kind") or "",
+        "document_period_year": candidate.get("document_period_year") or "",
+        "document_period_status": candidate.get("document_period_status") or "",
+        "report_type_match_status": candidate.get("report_type_match_status") or "",
+        "accounting_standard_match_status": candidate.get("accounting_standard_match_status") or "",
+        "document_gate_status": candidate.get("document_gate_status") or "",
+        "source_gate_status": candidate.get("source_gate_status") or "",
+        "trusted_source_hosts": candidate.get("trusted_source_hosts") or [],
+        "historical_fallback_url": candidate.get("historical_fallback_url") or "",
+        "historical_fallback_allowed_as_target_evidence": False,
+        "disk_guard_status": disk_guard_status,
+        "disk_guard_reason_codes": list(retention_report.get("guard_reason_codes") or []),
+        "fetch_plan_status": status,
+        "fetch_plan_reason_codes": reasons,
+        "fetch_plan_warnings": warnings,
+        "ready_for_future_download": ready,
+        "download_attempt_allowed_now": bool(ready and disk_guard_status == "passed"),
+        "future_pre_write_size_check_required": candidate.get("source_document_size_bytes_expected") is None,
+        "planned_raw_document_path": str(retention_paths["raw_cache"] / safe_company / safe_period / f"{file_component}.downloaded.pdf"),
+        "planned_hash_manifest_path": str(retention_paths["hash_manifest"] / safe_company / safe_period / f"{file_component}.json"),
+        "planned_debug_quarantine_dir": str(retention_paths["debug_quarantine"] / safe_company / safe_period),
+        "planned_extraction_artifact_prefix": str(retention_paths["extraction_artifacts"] / safe_company / safe_period),
+        "actual_document_sha256_required_after_download": True,
+        **_financial_document_fetch_plan_safety_flags(),
+    }
+
+
+def _financial_document_fetch_plan_status(
+    args: argparse.Namespace,
+    candidate: dict[str, Any],
+    *,
+    retention_report: dict[str, Any],
+) -> tuple[str, list[str]]:
+    source_url = str(candidate.get("source_document_url") or "")
+    if retention_report.get("disk_guard_status") == "blocked":
+        return "blocked_disk_guard", list(retention_report.get("guard_reason_codes") or ["disk_guard_blocked"])
+    if candidate.get("historical_fallback_only"):
+        return "blocked_historical_fallback_only", ["historical_fallback_not_target_evidence"]
+    if not source_url:
+        return "blocked_missing_exact_document_url", ["missing_exact_document_url"]
+    if not _financial_document_fetch_url_is_http(source_url):
+        return "blocked_invalid_document_url", ["invalid_document_url"]
+    if str(candidate.get("target_reporting_period") or "") != str(args.financial_document_fetch_target_period):
+        return "blocked_wrong_period", ["wrong_period"]
+    if candidate.get("document_period_status") not in {"", "target_period"}:
+        return "blocked_wrong_period", ["wrong_period"]
+    if str(candidate.get("required_report_type") or "") != str(args.financial_document_fetch_required_report_type):
+        return "blocked_wrong_report_type", ["wrong_report_type"]
+    if candidate.get("report_type_match_status") not in {"", "annual_match"}:
+        return "blocked_wrong_report_type", ["wrong_report_type"]
+    if str(candidate.get("required_standard") or "") != str(args.financial_document_fetch_required_standard):
+        return "blocked_wrong_accounting_standard", ["wrong_accounting_standard"]
+    if candidate.get("accounting_standard_match_status") not in {"", "standard_match"}:
+        return "blocked_wrong_accounting_standard", ["wrong_accounting_standard"]
+    if args.financial_document_fetch_required_consolidated and not candidate.get("source_document_consolidated"):
+        return "blocked_non_consolidated", ["non_consolidated"]
+    if not candidate.get("document_gate_ready"):
+        return "blocked_document_gate_not_ready", ["document_gate_not_ready"]
+    if not candidate.get("source_gate_ready"):
+        return "blocked_source_gate_not_ready", ["source_gate_not_ready"]
+    size = candidate.get("source_document_size_bytes_expected")
+    if size is not None and size > args.financial_document_fetch_max_single_file_mb * 1024**2:
+        return "blocked_single_file_size_exceeded", ["single_file_size_exceeded"]
+    return "eligible_for_future_controlled_download", []
+
+
+def _apply_financial_document_fetch_download_cap(args: argparse.Namespace, rows: list[dict[str, Any]]) -> None:
+    eligible = sorted(
+        (row for row in rows if row.get("fetch_plan_status") == "eligible_for_future_controlled_download"),
+        key=lambda row: (
+            str(row.get("canonical_company_id") or row.get("company_id") or ""),
+            str(row.get("resolution_id") or ""),
+            str(row.get("source_document_url") or ""),
+        ),
+    )
+    for row in eligible[args.financial_document_fetch_max_planned_downloads :]:
+        row["fetch_plan_status"] = "blocked_max_planned_downloads_exceeded"
+        row["fetch_plan_reason_codes"] = ["max_planned_downloads_exceeded"]
+        row["ready_for_future_download"] = False
+        row["download_attempt_allowed_now"] = False
+
+
+def _build_financial_document_fetch_blocker_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    blockers: list[dict[str, Any]] = []
+    for row in rows:
+        if row.get("fetch_plan_status") == "eligible_for_future_controlled_download":
+            continue
+        reason_codes = row.get("fetch_plan_reason_codes") or [row.get("fetch_plan_status")]
+        for reason in reason_codes:
+            blockers.append(
+                {
+                    "fetch_plan_id": row.get("fetch_plan_id"),
+                    "resolution_id": row.get("resolution_id"),
+                    "company_id": row.get("company_id"),
+                    "company_name": row.get("company_name"),
+                    "canonical_company_id": row.get("canonical_company_id"),
+                    "canonical_company_name": row.get("canonical_company_name"),
+                    "fetch_plan_status": row.get("fetch_plan_status"),
+                    "blocker_code": reason,
+                    "blocker_severity": "high",
+                    "blocker_next_action": _financial_document_fetch_blocker_next_action(str(reason)),
+                }
+            )
+    return blockers
+
+
+def _financial_document_fetch_blocker_next_action(code: str) -> str:
+    if code in {"missing_exact_document_url", "historical_fallback_not_target_evidence"}:
+        return "Provide an exact official target-period annual IFRS document URL and rerun the strict preview chain."
+    if code in {"filesystem_stat_unavailable", "free_disk_below_minimum_gb", "free_disk_below_minimum_percent"}:
+        return "Rerun Task132 and review filesystem capacity before any future download."
+    if "size" in code or "raw_cache" in code or "quarantine" in code:
+        return "Review Task132 inspect-only cleanup guidance and storage limits before any future download."
+    return "Review strict document/source gate diagnostics and rerun the preview chain."
+
+
+def _build_financial_document_fetch_plan_report(
+    args: argparse.Namespace,
+    *,
+    plan_rows: list[dict[str, Any]],
+    manifest_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    retention_report: dict[str, Any],
+    retention_path: Path | None,
+    summary_path: Path | None,
+    gate_path: Path | None,
+    board_path: Path | None,
+    artifacts: dict[str, Path | None],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    row_warning_count = sum(len(row.get("fetch_plan_warnings") or []) for row in plan_rows)
+    eligible_count = sum(1 for row in plan_rows if row.get("fetch_plan_status") == "eligible_for_future_controlled_download")
+    blocked_count = len(plan_rows) - eligible_count
+    status = "failed" if errors else "warning" if warnings or blocked_count or row_warning_count else "passed"
+    return {
+        "status": status,
+        "mode": "financial-document-fetch-plan-preview",
+        "target_reporting_period": str(args.financial_document_fetch_target_period),
+        "required_report_type": str(args.financial_document_fetch_required_report_type),
+        "required_standard": str(args.financial_document_fetch_required_standard),
+        "required_consolidated": args.financial_document_fetch_required_consolidated,
+        "max_planned_downloads": args.financial_document_fetch_max_planned_downloads,
+        "max_single_file_mb": args.financial_document_fetch_max_single_file_mb,
+        "document_artifact_retention_input": _path_value(retention_path),
+        "document_intake_draft_gate_summary_input": _path_value(summary_path),
+        "document_intake_draft_gate_input": _path_value(gate_path),
+        "operator_resolution_chain_review_board_input": _path_value(board_path),
+        "disk_guard_status": retention_report.get("disk_guard_status") or "blocked",
+        "download_allowed_by_disk_guard": bool(retention_report.get("download_allowed")),
+        "future_extraction_allowed_by_disk_guard": bool(retention_report.get("future_extraction_allowed")),
+        "disk_guard_reason_codes": list(retention_report.get("guard_reason_codes") or []),
+        "fetch_plan_row_count": len(plan_rows),
+        "fetch_plan_eligible_count": eligible_count,
+        "fetch_plan_blocked_count": blocked_count,
+        "download_attempt_allowed_now_count": sum(1 for row in plan_rows if row.get("download_attempt_allowed_now")),
+        "download_manifest_row_count": len(manifest_rows),
+        "fetch_blocker_row_count": len(blocker_rows),
+        "fetch_plan_status_counts": _count_by_key(plan_rows, "fetch_plan_status"),
+        "fetch_blocker_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "fetch_plan_rows": plan_rows,
+        "download_manifest_rows": manifest_rows,
+        "fetch_blocker_rows": blocker_rows,
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("financial-document-fetch-plan-preview", status),
+        **_financial_document_fetch_plan_safety_flags(),
+    }
+
+
+def _financial_document_download_manifest_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "financial-document-download-manifest-preview",
+        "disk_guard_status": report["disk_guard_status"],
+        "download_manifest_row_count": report["download_manifest_row_count"],
+        "download_manifest_rows": report["download_manifest_rows"],
+        **_financial_document_fetch_plan_safety_flags(),
+    }
+
+
+def _financial_document_fetch_blockers_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "financial-document-fetch-blockers-preview",
+        "fetch_blocker_row_count": report["fetch_blocker_row_count"],
+        "fetch_blocker_counts": report["fetch_blocker_counts"],
+        "fetch_blocker_rows": report["fetch_blocker_rows"],
+        **_financial_document_fetch_plan_safety_flags(),
+    }
+
+
+def _financial_document_fetch_plan_safety_flags() -> dict[str, Any]:
+    return {
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "would_fetch_documents": False,
+        "would_create_download_directories": False,
+        "would_write_raw_documents": False,
+        "would_parse_documents": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "files_deleted": False,
+        **SAFETY_FLAGS,
+    }
+
+
+def _financial_document_fetch_url_is_http(url: str) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
+
+
+def _financial_document_fetch_safe_path_component(value: Any, *, fallback: str) -> str:
+    normalized = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value or "")).strip("._-")
+    return normalized or fallback
+
+
+def _financial_document_fetch_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    if isinstance(value, str):
+        return [item.strip() for item in re.split(r"[;,]", value) if item.strip()]
+    return []
+
+
+def _as_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().casefold() in {"1", "true", "yes", "y", "on"}
+
+
 def _bytes_to_mb(value: int) -> float:
     return round(value / (1024**2), 6)
 
@@ -11809,6 +12654,11 @@ def write_document_artifact_retention_markdown(report: dict[str, Any], path: Pat
     path.write_text(render_document_artifact_retention_markdown(report), encoding="utf-8")
 
 
+def write_financial_document_fetch_plan_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_financial_document_fetch_plan_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -11970,6 +12820,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_financial_extraction_evidence_schema_markdown(report)
     if report.get("mode") == "financial-document-artifact-retention-preview":
         return render_document_artifact_retention_markdown(report)
+    if report.get("mode") == "financial-document-fetch-plan-preview":
+        return render_financial_document_fetch_plan_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -13574,6 +14426,97 @@ def render_document_artifact_retention_markdown(report: dict[str, Any]) -> str:
             "- This task does not import reports.",
             "- This task does not score issuers or trigger paper trading.",
             "- Raw report files must be temporary and bounded by TTL and max-size policy.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_financial_document_fetch_plan_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Financial Document Fetch Plan",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- disk guard: `{report.get('disk_guard_status')}`",
+        f"- fetch plan rows: {report.get('fetch_plan_row_count', 0)}",
+        f"- eligible rows: {report.get('fetch_plan_eligible_count', 0)}",
+        f"- blocked rows: {report.get('fetch_plan_blocked_count', 0)}",
+        f"- download attempts allowed now: {report.get('download_attempt_allowed_now_count', 0)}",
+        f"- blocker rows: {report.get('fetch_blocker_row_count', 0)}",
+        f"- max planned downloads: {report.get('max_planned_downloads')}",
+        f"- max single file: {report.get('max_single_file_mb')} MB",
+        "",
+        "## Target Requirements",
+        "",
+        f"- period: `{report.get('target_reporting_period')}`",
+        f"- report type: `{report.get('required_report_type')}`",
+        f"- accounting standard: `{report.get('required_standard')}`",
+        f"- consolidated required: `{report.get('required_consolidated')}`",
+        "",
+        "## Status Counts",
+        "",
+    ]
+    for status, count in (report.get("fetch_plan_status_counts") or {}).items():
+        lines.append(f"- `{status}`: {count}")
+    if not report.get("fetch_plan_status_counts"):
+        lines.append("- none")
+    lines.extend(["", "## Blocker Counts", ""])
+    for blocker, count in (report.get("fetch_blocker_counts") or {}).items():
+        lines.append(f"- `{blocker}`: {count}")
+    if not report.get("fetch_blocker_counts"):
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Planned Documents",
+            "",
+            "| Company | Candidate source | Plan status | URL | Raw path | Attempt now | Warnings |",
+            "| --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("fetch_plan_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("candidate_source"),
+                    row.get("fetch_plan_status"),
+                    row.get("source_document_url"),
+                    row.get("planned_raw_document_path"),
+                    row.get("download_attempt_allowed_now"),
+                    row.get("fetch_plan_warnings"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("fetch_plan_rows"):
+        lines.append("| none |  |  |  |  |  |  |")
+    lines.extend(["", "## Guard Reasons", ""])
+    lines.extend(f"- `{code}`" for code in report.get("disk_guard_reason_codes") or [])
+    if not report.get("disk_guard_reason_codes"):
+        lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    lines.extend(f"- {_message_text(item)}" for item in report.get("warnings") or [])
+    if not report.get("warnings"):
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates a preview manifest only.",
+            "- This task does not create raw download directories.",
+            "- This task does not download reports.",
+            "- This task does not parse reports or run OCR.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports or mutate database records.",
+            "- This task does not delete files.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- A future downloader must rerun the Task132 disk guard and enforce the actual size limit before writing a raw file.",
             "",
         ]
     )
@@ -23408,6 +24351,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use these typed placeholder templates as the contract for a future evidence-backed extraction preview task."]
     if mode == "financial-document-artifact-retention-preview":
         return ["Review disk guard reasons and inspect-only cleanup guidance before any future document download or extraction task."]
+    if mode == "financial-document-fetch-plan-preview":
+        return ["Review fetch blockers and rerun the Task132 disk guard immediately before any future controlled raw-document write."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -23479,6 +24424,18 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
         return _document_artifact_retention_output_path_is_safe(
             output_path,
             protected_paths=_document_artifact_retention_paths(args),
+        )
+    if args.mode == "financial-document-fetch-plan-preview":
+        retention_report, retention_path, _ = _load_financial_document_fetch_retention_report(args, warnings=[])
+        optional_inputs = [
+            args.document_intake_draft_gate_summary_input,
+            args.document_intake_draft_gate_input,
+            args.operator_resolution_chain_review_board_input,
+        ]
+        return _financial_document_fetch_plan_output_path_is_safe(
+            output_path,
+            protected_inputs=[path for path in [retention_path, *optional_inputs] if path is not None],
+            retention_paths=_financial_document_fetch_retention_paths(retention_report),
         )
     protected_inputs = (
         [args.document_intake_input]
