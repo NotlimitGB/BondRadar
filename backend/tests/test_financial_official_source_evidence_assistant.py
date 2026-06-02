@@ -5535,6 +5535,142 @@ def test_operator_resolution_source_trust_promote_apply_requires_draft_input(tmp
     assert report["errors"] == [{"message": "operator_resolution_source_pack_promote_draft_input_required"}]
 
 
+def test_financial_metric_registry_preview_has_expected_core_metrics_and_safe_contract() -> None:
+    report = _run_financial_metric_registry_preview()
+    by_id = {row["metric_id"]: row for row in report["metrics"]}
+
+    assert report["status"] == "passed"
+    assert report["metric_count"] >= 30
+    assert report["alias_count"] >= 40
+    assert report["validation_rule_count"] >= 10
+    assert report["feature_count"] >= 10
+    for metric_id in (
+        "revenue",
+        "total_debt",
+        "cash_and_cash_equivalents",
+        "net_debt",
+        "ebitda",
+        "finance_costs",
+    ):
+        assert metric_id in by_id
+    assert by_id["cash_and_cash_equivalents"]["canonical_financial_report_field"] == "cash"
+    assert by_id["total_equity"]["canonical_financial_report_field"] == "equity"
+    assert by_id["revenue"]["canonical_financial_report_field"] == "revenue"
+    for metric in report["metrics"]:
+        if metric["expected_value_type"] == "monetary":
+            assert metric["default_currency"] == ""
+            assert metric["default_scale"] == ""
+    assert report["would_fetch_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+
+
+def test_financial_metric_registry_preview_writes_default_and_explicit_outputs(tmp_path: Path) -> None:
+    explicit_aliases = tmp_path / "custom" / "aliases.csv"
+    report = _run_financial_metric_registry_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--financial-metric-registry-alias-csv-output",
+            str(explicit_aliases),
+        ]
+    )
+
+    assert report["artifacts"]["alias_csv"] == str(explicit_aliases)
+    for path in report["artifacts"].values():
+        assert Path(path).is_file()
+    assert "# Financial Metric Registry" in Path(report["artifacts"]["registry_markdown"]).read_text(encoding="utf-8")
+    assert "This task does not fetch or parse reports." in Path(report["artifacts"]["registry_markdown"]).read_text(
+        encoding="utf-8"
+    )
+    registry_csv = Path(report["artifacts"]["registry_csv"]).read_text(encoding="utf-8")
+    assert "metric_id" in registry_csv
+    assert "canonical_financial_report_field" in registry_csv
+
+
+def test_financial_metric_registry_preview_filters_debt_metrics_and_related_rows() -> None:
+    report = _run_financial_metric_registry_preview(["--financial-metric-registry-category", "debt"])
+    visible_ids = {row["metric_id"] for row in report["metrics"]}
+
+    assert visible_ids
+    assert all(row["metric_category"] == "debt" for row in report["metrics"])
+    assert all(row["metric_id"] in visible_ids for row in report["aliases"])
+    assert all(
+        visible_ids.intersection([*row["required_metric_ids"], *row["optional_metric_ids"]])
+        for row in report["validation_rules"]
+    )
+    assert all(
+        visible_ids.intersection([*row["required_metric_ids"], *row["optional_metric_ids"]])
+        for row in report["feature_map"]
+    )
+
+
+def test_financial_metric_registry_preview_filters_required_and_model_critical_metrics() -> None:
+    critical = _run_financial_metric_registry_preview(["--financial-metric-registry-model-critical-only"])
+    required = _run_financial_metric_registry_preview(["--financial-metric-registry-required-only"])
+    combined = _run_financial_metric_registry_preview(
+        [
+            "--financial-metric-registry-category",
+            "debt",
+            "--financial-metric-registry-model-critical-only",
+            "--financial-metric-registry-required-only",
+        ]
+    )
+
+    assert critical["metrics"]
+    assert all(row["model_critical"] is True for row in critical["metrics"])
+    assert required["metrics"]
+    assert all(row["required_for_model"] is True for row in required["metrics"])
+    assert combined["metrics"]
+    assert all(
+        row["metric_category"] == "debt"
+        and row["model_critical"] is True
+        and row["required_for_model"] is True
+        for row in combined["metrics"]
+    )
+
+
+def test_financial_metric_registry_preview_dependencies_reference_known_metrics() -> None:
+    report = _run_financial_metric_registry_preview()
+    metric_ids = {row["metric_id"] for row in report["metrics"]}
+
+    assert all(row["metric_id"] in metric_ids for row in report["aliases"])
+    for row in [*report["validation_rules"], *report["feature_map"]]:
+        assert set([*row["required_metric_ids"], *row["optional_metric_ids"]]).issubset(metric_ids)
+
+
+def test_financial_metric_registry_preview_integrity_failure_is_safe(monkeypatch) -> None:
+    duplicate = dict(assistant.FINANCIAL_METRIC_REGISTRY[0])
+    monkeypatch.setattr(assistant, "FINANCIAL_METRIC_REGISTRY", [*assistant.FINANCIAL_METRIC_REGISTRY, duplicate])
+
+    report = _run_financial_metric_registry_preview()
+
+    assert report["status"] == "failed"
+    assert {"message": f"duplicate_metric_id:{duplicate['metric_id']}"} in report["errors"]
+    assert report["would_fetch_documents"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+
+
+def test_financial_metric_registry_preview_never_calls_network_helpers(monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task130 metric registry must not fetch, probe, or download documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_financial_metric_registry_preview()
+
+    assert report["status"] == "passed"
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -9846,6 +9982,21 @@ def _run_operator_resolution_source_trust_promote_apply(
     report, exit_code = assistant.run_assistant(args)
 
     assert exit_code == 0
+    return report
+
+
+def _run_financial_metric_registry_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "financial-metric-registry-preview",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
     return report
 
 

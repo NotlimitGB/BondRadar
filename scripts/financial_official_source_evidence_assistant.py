@@ -50,6 +50,7 @@ MODE_CHOICES = (
     "operator-resolution-source-trust-refill-validate",
     "operator-resolution-source-trust-draft-review",
     "operator-resolution-source-trust-promote-apply-draft",
+    "financial-metric-registry-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -1737,6 +1738,280 @@ OPERATOR_RESOLUTION_SOURCE_TRUST_PROMOTE_APPLY_FIELDS = [
     "would_mutate_scores",
     "would_trigger_paper_trading",
 ]
+FINANCIAL_METRIC_REGISTRY_ARTIFACT_NAMES = {
+    "registry_json": "financial_metric_registry_task130.json",
+    "registry_csv": "financial_metric_registry_task130.csv",
+    "registry_markdown": "financial_metric_registry_task130.md",
+    "alias_csv": "financial_metric_aliases_task130.csv",
+    "validation_csv": "financial_metric_validation_rules_task130.csv",
+    "feature_map_csv": "financial_metric_feature_map_task130.csv",
+}
+FINANCIAL_METRIC_CATEGORIES = (
+    "income_statement",
+    "balance_sheet",
+    "cash_flow",
+    "debt",
+    "liquidity",
+    "profitability",
+    "audit_risk",
+    "derived_only",
+)
+FINANCIAL_METRIC_STATEMENT_TYPES = (
+    "statement_of_profit_or_loss",
+    "statement_of_financial_position",
+    "statement_of_cash_flows",
+    "notes_to_financial_statements",
+    "audit_report",
+    "derived",
+)
+FINANCIAL_METRIC_KINDS = ("reported_value", "derived_value", "qualitative_flag")
+FINANCIAL_METRIC_PERIOD_TYPES = ("point_in_time", "period_flow", "period_average", "not_applicable")
+FINANCIAL_METRIC_VALUE_TYPES = ("monetary", "ratio", "boolean", "text")
+FINANCIAL_METRIC_EXPECTED_SIGNS = (
+    "positive_or_zero",
+    "positive_negative_or_zero",
+    "negative_or_zero",
+    "boolean",
+    "text",
+)
+FINANCIAL_METRIC_CANONICAL_REPORT_FIELDS = {
+    "revenue",
+    "ebitda",
+    "net_debt",
+    "total_debt",
+    "cash",
+    "equity",
+    "short_term_debt",
+    "operating_cash_flow",
+    "net_profit",
+    "interest_expense",
+    "debt_to_ebitda",
+    "interest_coverage",
+}
+FINANCIAL_METRIC_REGISTRY_FIELDS = [
+    "metric_id",
+    "metric_name",
+    "metric_category",
+    "statement_type",
+    "metric_kind",
+    "canonical_financial_report_field",
+    "required_for_model",
+    "model_critical",
+    "priority",
+    "expected_value_type",
+    "expected_sign",
+    "period_type",
+    "currency_required",
+    "unit_required",
+    "scale_required",
+    "consolidated_required",
+    "ifrs_required",
+    "allow_negative",
+    "allow_zero",
+    "default_currency",
+    "default_scale",
+    "description",
+    "extraction_notes",
+]
+FINANCIAL_METRIC_ALIAS_FIELDS = [
+    "metric_id",
+    "alias",
+    "language",
+    "alias_type",
+    "match_priority",
+    "case_sensitive",
+    "notes",
+]
+FINANCIAL_METRIC_VALIDATION_RULE_FIELDS = [
+    "rule_id",
+    "rule_name",
+    "rule_category",
+    "required_metric_ids",
+    "optional_metric_ids",
+    "severity",
+    "rule_description",
+    "failure_status",
+    "blocks_model_usage",
+]
+FINANCIAL_METRIC_FEATURE_MAP_FIELDS = [
+    "feature_id",
+    "feature_name",
+    "feature_category",
+    "required_metric_ids",
+    "optional_metric_ids",
+    "formula_description",
+    "model_usage",
+    "risk_direction",
+    "min_required_periods",
+]
+
+
+def _financial_metric_registry_row(
+    metric_id: str,
+    metric_name: str,
+    metric_category: str,
+    statement_type: str,
+    *,
+    canonical_field: str = "",
+    required: bool = False,
+    model_critical: bool = False,
+    priority: str = "medium",
+    value_type: str = "monetary",
+    expected_sign: str = "positive_or_zero",
+    period_type: str = "period_flow",
+    description: str = "",
+    extraction_notes: str = "",
+) -> dict[str, Any]:
+    monetary = value_type == "monetary"
+    return {
+        "metric_id": metric_id,
+        "metric_name": metric_name,
+        "metric_category": metric_category,
+        "statement_type": statement_type,
+        "metric_kind": "qualitative_flag" if value_type == "boolean" else "reported_value",
+        "canonical_financial_report_field": canonical_field,
+        "required_for_model": required,
+        "model_critical": model_critical,
+        "priority": priority,
+        "expected_value_type": value_type,
+        "expected_sign": "boolean" if value_type == "boolean" else expected_sign,
+        "period_type": "not_applicable" if value_type == "boolean" else period_type,
+        "currency_required": monetary,
+        "unit_required": monetary,
+        "scale_required": monetary,
+        "consolidated_required": value_type != "boolean",
+        "ifrs_required": True,
+        "allow_negative": expected_sign in {"positive_negative_or_zero", "negative_or_zero"},
+        "allow_zero": True,
+        "default_currency": "",
+        "default_scale": "",
+        "description": description or metric_name,
+        "extraction_notes": extraction_notes,
+    }
+
+
+def _financial_metric_alias(
+    metric_id: str,
+    alias: str,
+    language: str,
+    *,
+    priority: int = 100,
+    alias_type: str = "exact",
+    notes: str = "",
+) -> dict[str, Any]:
+    return {
+        "metric_id": metric_id,
+        "alias": alias,
+        "language": language,
+        "alias_type": alias_type,
+        "match_priority": priority,
+        "case_sensitive": False,
+        "notes": notes,
+    }
+
+
+FINANCIAL_METRIC_REGISTRY = [
+    _financial_metric_registry_row("revenue", "Revenue", "income_statement", "statement_of_profit_or_loss", canonical_field="revenue", required=True, model_critical=True, priority="high"),
+    _financial_metric_registry_row("operating_profit", "Operating profit", "income_statement", "statement_of_profit_or_loss", expected_sign="positive_negative_or_zero"),
+    _financial_metric_registry_row("ebitda", "EBITDA", "profitability", "notes_to_financial_statements", canonical_field="ebitda", required=True, model_critical=True, priority="high", expected_sign="positive_negative_or_zero", extraction_notes="May be disclosed in notes or management reconciliation; preserve evidence."),
+    _financial_metric_registry_row("adjusted_ebitda", "Adjusted EBITDA", "profitability", "notes_to_financial_statements", expected_sign="positive_negative_or_zero", extraction_notes="Extract only when explicitly disclosed; do not infer adjustments."),
+    _financial_metric_registry_row("net_profit", "Net profit", "income_statement", "statement_of_profit_or_loss", canonical_field="net_profit", required=True, model_critical=True, priority="high", expected_sign="positive_negative_or_zero"),
+    _financial_metric_registry_row("finance_costs", "Finance costs", "income_statement", "statement_of_profit_or_loss", extraction_notes="Normalize presentation minus or parentheses to a positive expense amount."),
+    _financial_metric_registry_row("interest_expense", "Interest expense", "income_statement", "notes_to_financial_statements", canonical_field="interest_expense", required=True, model_critical=True, priority="high", extraction_notes="Normalize presentation minus or parentheses to a positive expense amount."),
+    _financial_metric_registry_row("income_tax_expense", "Income tax expense", "income_statement", "statement_of_profit_or_loss", extraction_notes="Normalize presentation minus or parentheses to a positive expense amount."),
+    _financial_metric_registry_row("total_assets", "Total assets", "balance_sheet", "statement_of_financial_position", period_type="point_in_time"),
+    _financial_metric_registry_row("total_equity", "Total equity", "balance_sheet", "statement_of_financial_position", canonical_field="equity", required=True, model_critical=True, priority="high", expected_sign="positive_negative_or_zero", period_type="point_in_time"),
+    _financial_metric_registry_row("total_liabilities", "Total liabilities", "balance_sheet", "statement_of_financial_position", period_type="point_in_time"),
+    _financial_metric_registry_row("cash_and_cash_equivalents", "Cash and cash equivalents", "liquidity", "statement_of_financial_position", canonical_field="cash", required=True, model_critical=True, priority="high", period_type="point_in_time"),
+    _financial_metric_registry_row("current_assets", "Current assets", "liquidity", "statement_of_financial_position", period_type="point_in_time"),
+    _financial_metric_registry_row("current_liabilities", "Current liabilities", "liquidity", "statement_of_financial_position", period_type="point_in_time"),
+    _financial_metric_registry_row("short_term_debt", "Short-term debt", "debt", "notes_to_financial_statements", canonical_field="short_term_debt", required=True, model_critical=True, priority="high", period_type="point_in_time"),
+    _financial_metric_registry_row("long_term_debt", "Long-term debt", "debt", "notes_to_financial_statements", period_type="point_in_time"),
+    _financial_metric_registry_row("total_debt", "Total debt", "debt", "notes_to_financial_statements", canonical_field="total_debt", required=True, model_critical=True, priority="high", period_type="point_in_time", extraction_notes="Extract reported total when available; reconcile with debt components later."),
+    _financial_metric_registry_row("lease_liabilities", "Lease liabilities", "debt", "notes_to_financial_statements", period_type="point_in_time"),
+    _financial_metric_registry_row("net_debt", "Net debt", "debt", "notes_to_financial_statements", canonical_field="net_debt", required=True, model_critical=True, priority="high", expected_sign="positive_negative_or_zero", period_type="point_in_time", extraction_notes="Extract reported value when available; reconcile against total debt minus cash later."),
+    _financial_metric_registry_row("operating_cash_flow", "Operating cash flow", "cash_flow", "statement_of_cash_flows", canonical_field="operating_cash_flow", required=True, model_critical=True, priority="high", expected_sign="positive_negative_or_zero"),
+    _financial_metric_registry_row("investing_cash_flow", "Investing cash flow", "cash_flow", "statement_of_cash_flows", expected_sign="positive_negative_or_zero"),
+    _financial_metric_registry_row("financing_cash_flow", "Financing cash flow", "cash_flow", "statement_of_cash_flows", expected_sign="positive_negative_or_zero"),
+    _financial_metric_registry_row("capex", "Capital expenditure", "cash_flow", "statement_of_cash_flows", extraction_notes="Normalize presentation minus or parentheses to a positive expenditure amount."),
+    _financial_metric_registry_row("free_cash_flow", "Free cash flow", "cash_flow", "derived", expected_sign="positive_negative_or_zero", extraction_notes="Extract only when explicitly reported; future logic may reconcile against operating cash flow and capex."),
+    _financial_metric_registry_row("borrowings", "Borrowings", "debt", "notes_to_financial_statements", period_type="point_in_time"),
+    _financial_metric_registry_row("bonds_outstanding", "Bonds outstanding", "debt", "notes_to_financial_statements", period_type="point_in_time"),
+    _financial_metric_registry_row("bank_loans", "Bank loans", "debt", "notes_to_financial_statements", period_type="point_in_time"),
+    _financial_metric_registry_row("debt_due_within_12_months", "Debt due within 12 months", "debt", "notes_to_financial_statements", period_type="point_in_time"),
+    _financial_metric_registry_row("debt_due_after_12_months", "Debt due after 12 months", "debt", "notes_to_financial_statements", period_type="point_in_time"),
+    _financial_metric_registry_row("audit_opinion_modified", "Modified audit opinion", "audit_risk", "audit_report", value_type="boolean"),
+    _financial_metric_registry_row("going_concern_warning", "Going concern warning", "audit_risk", "audit_report", value_type="boolean"),
+    _financial_metric_registry_row("material_uncertainty", "Material uncertainty", "audit_risk", "audit_report", value_type="boolean"),
+    _financial_metric_registry_row("covenant_breach", "Covenant breach", "audit_risk", "notes_to_financial_statements", value_type="boolean"),
+    _financial_metric_registry_row("default_or_restructuring_mention", "Default or restructuring mention", "audit_risk", "notes_to_financial_statements", value_type="boolean"),
+    _financial_metric_registry_row("related_party_debt_risk", "Related-party debt risk", "audit_risk", "notes_to_financial_statements", value_type="boolean"),
+]
+FINANCIAL_METRIC_ALIAS_REGISTRY = [
+    _financial_metric_alias("revenue", "Revenue", "en"), _financial_metric_alias("revenue", "Sales", "en", priority=60, notes="Ambiguous; require statement context."), _financial_metric_alias("revenue", "Выручка", "ru"), _financial_metric_alias("revenue", "Выручка от реализации", "ru"),
+    _financial_metric_alias("operating_profit", "Operating profit", "en"), _financial_metric_alias("operating_profit", "Операционная прибыль", "ru"),
+    _financial_metric_alias("ebitda", "EBITDA", "mixed"), _financial_metric_alias("ebitda", "Adjusted EBITDA", "en", priority=50, notes="Do not use for unadjusted EBITDA without evidence."),
+    _financial_metric_alias("adjusted_ebitda", "Adjusted EBITDA", "en"), _financial_metric_alias("adjusted_ebitda", "Скорректированная EBITDA", "ru"),
+    _financial_metric_alias("net_profit", "Net profit", "en"), _financial_metric_alias("net_profit", "Чистая прибыль", "ru"),
+    _financial_metric_alias("finance_costs", "Finance costs", "en", priority=80, notes="May include non-interest finance costs."), _financial_metric_alias("finance_costs", "Финансовые расходы", "ru"),
+    _financial_metric_alias("interest_expense", "Interest expense", "en"), _financial_metric_alias("interest_expense", "Процентные расходы", "ru"),
+    _financial_metric_alias("income_tax_expense", "Income tax expense", "en"), _financial_metric_alias("income_tax_expense", "Расходы по налогу на прибыль", "ru"),
+    _financial_metric_alias("total_assets", "Total assets", "en"), _financial_metric_alias("total_assets", "Итого активы", "ru"),
+    _financial_metric_alias("total_equity", "Total equity", "en"), _financial_metric_alias("total_equity", "Итого капитал", "ru"),
+    _financial_metric_alias("total_liabilities", "Total liabilities", "en"), _financial_metric_alias("total_liabilities", "Итого обязательства", "ru"),
+    _financial_metric_alias("cash_and_cash_equivalents", "Cash and cash equivalents", "en"), _financial_metric_alias("cash_and_cash_equivalents", "Cash", "en", priority=50, notes="Ambiguous; require balance-sheet context."), _financial_metric_alias("cash_and_cash_equivalents", "Денежные средства и их эквиваленты", "ru"), _financial_metric_alias("cash_and_cash_equivalents", "Денежные средства", "ru", priority=60),
+    _financial_metric_alias("current_assets", "Current assets", "en"), _financial_metric_alias("current_assets", "Оборотные активы", "ru"),
+    _financial_metric_alias("current_liabilities", "Current liabilities", "en"), _financial_metric_alias("current_liabilities", "Краткосрочные обязательства", "ru"),
+    _financial_metric_alias("short_term_debt", "Short-term debt", "en"), _financial_metric_alias("short_term_debt", "Краткосрочные кредиты и займы", "ru"),
+    _financial_metric_alias("long_term_debt", "Long-term debt", "en"), _financial_metric_alias("long_term_debt", "Долгосрочные кредиты и займы", "ru"),
+    _financial_metric_alias("total_debt", "Total debt", "en"), _financial_metric_alias("total_debt", "Debt", "en", priority=40, notes="Ambiguous; require debt-note context."), _financial_metric_alias("total_debt", "Кредиты и займы", "ru", priority=60), _financial_metric_alias("total_debt", "Заемные средства", "ru", priority=60), _financial_metric_alias("total_debt", "Облигационные займы", "ru", priority=40, notes="May represent only bonds."),
+    _financial_metric_alias("lease_liabilities", "Lease liabilities", "en"), _financial_metric_alias("lease_liabilities", "Обязательства по аренде", "ru"),
+    _financial_metric_alias("net_debt", "Net debt", "en"), _financial_metric_alias("net_debt", "Чистый долг", "ru"),
+    _financial_metric_alias("operating_cash_flow", "Net cash from operating activities", "en"), _financial_metric_alias("operating_cash_flow", "Денежные потоки от операционной деятельности", "ru"),
+    _financial_metric_alias("investing_cash_flow", "Net cash used in investing activities", "en"), _financial_metric_alias("investing_cash_flow", "Денежные потоки от инвестиционной деятельности", "ru"),
+    _financial_metric_alias("financing_cash_flow", "Net cash from financing activities", "en"), _financial_metric_alias("financing_cash_flow", "Денежные потоки от финансовой деятельности", "ru"),
+    _financial_metric_alias("capex", "Capital expenditure", "en"), _financial_metric_alias("capex", "Приобретение основных средств", "ru"),
+    _financial_metric_alias("free_cash_flow", "Free cash flow", "en"), _financial_metric_alias("free_cash_flow", "Свободный денежный поток", "ru"),
+    _financial_metric_alias("borrowings", "Borrowings", "en", priority=70, notes="Ambiguous; require debt-note context."), _financial_metric_alias("borrowings", "Заемные средства", "ru", priority=70),
+    _financial_metric_alias("bonds_outstanding", "Bonds outstanding", "en"), _financial_metric_alias("bonds_outstanding", "Облигационные займы", "ru"),
+    _financial_metric_alias("bank_loans", "Bank loans", "en"), _financial_metric_alias("bank_loans", "Банковские кредиты", "ru"),
+    _financial_metric_alias("debt_due_within_12_months", "Debt due within 12 months", "en"), _financial_metric_alias("debt_due_within_12_months", "Задолженность к погашению в течение 12 месяцев", "ru"),
+    _financial_metric_alias("debt_due_after_12_months", "Debt due after 12 months", "en"), _financial_metric_alias("debt_due_after_12_months", "Задолженность к погашению после 12 месяцев", "ru"),
+    _financial_metric_alias("audit_opinion_modified", "Modified audit opinion", "en"), _financial_metric_alias("audit_opinion_modified", "Модифицированное аудиторское заключение", "ru"),
+    _financial_metric_alias("going_concern_warning", "Going concern", "en"), _financial_metric_alias("going_concern_warning", "Непрерывность деятельности", "ru"),
+    _financial_metric_alias("material_uncertainty", "Material uncertainty", "en"), _financial_metric_alias("material_uncertainty", "Существенная неопределенность", "ru"),
+    _financial_metric_alias("covenant_breach", "Covenant breach", "en"), _financial_metric_alias("covenant_breach", "Нарушение ковенантов", "ru"),
+    _financial_metric_alias("default_or_restructuring_mention", "Default or restructuring", "en"), _financial_metric_alias("default_or_restructuring_mention", "Дефолт или реструктуризация", "ru"),
+    _financial_metric_alias("related_party_debt_risk", "Related-party debt", "en"), _financial_metric_alias("related_party_debt_risk", "Задолженность перед связанными сторонами", "ru"),
+]
+FINANCIAL_METRIC_VALIDATION_RULES = [
+    {"rule_id": "assets_equal_liabilities_plus_equity", "rule_name": "Assets equal liabilities plus equity", "rule_category": "reconciliation", "required_metric_ids": ["total_assets", "total_liabilities", "total_equity"], "optional_metric_ids": [], "severity": "error", "rule_description": "Balance sheet equation should reconcile.", "failure_status": "reconciliation_failed", "blocks_model_usage": True},
+    {"rule_id": "net_debt_equals_total_debt_minus_cash", "rule_name": "Net debt equals total debt minus cash", "rule_category": "reconciliation", "required_metric_ids": ["net_debt", "total_debt", "cash_and_cash_equivalents"], "optional_metric_ids": [], "severity": "warning", "rule_description": "Reported net debt should be reconciled against total debt less cash.", "failure_status": "reconciliation_review_required", "blocks_model_usage": False},
+    {"rule_id": "current_ratio_requires_current_assets_and_liabilities", "rule_name": "Current ratio inputs required", "rule_category": "feature_dependency", "required_metric_ids": ["current_assets", "current_liabilities"], "optional_metric_ids": [], "severity": "warning", "rule_description": "Current ratio requires both current assets and current liabilities.", "failure_status": "feature_not_available", "blocks_model_usage": False},
+    {"rule_id": "interest_coverage_requires_ebitda_and_interest", "rule_name": "Interest coverage inputs required", "rule_category": "feature_dependency", "required_metric_ids": ["ebitda", "interest_expense"], "optional_metric_ids": ["finance_costs"], "severity": "error", "rule_description": "Interest coverage requires EBITDA and interest expense.", "failure_status": "feature_not_available", "blocks_model_usage": True},
+    {"rule_id": "debt_to_equity_requires_debt_and_equity", "rule_name": "Debt to equity inputs required", "rule_category": "feature_dependency", "required_metric_ids": ["total_debt", "total_equity"], "optional_metric_ids": [], "severity": "error", "rule_description": "Debt-to-equity requires total debt and total equity.", "failure_status": "feature_not_available", "blocks_model_usage": True},
+    {"rule_id": "cash_to_short_term_debt_requires_cash_and_short_debt", "rule_name": "Cash to short-term debt inputs required", "rule_category": "feature_dependency", "required_metric_ids": ["cash_and_cash_equivalents", "short_term_debt"], "optional_metric_ids": [], "severity": "error", "rule_description": "Cash-to-short-term-debt requires cash and short-term debt.", "failure_status": "feature_not_available", "blocks_model_usage": True},
+    {"rule_id": "negative_equity_blocks_model_ready", "rule_name": "Negative equity blocks model readiness", "rule_category": "value_quality", "required_metric_ids": ["total_equity"], "optional_metric_ids": [], "severity": "error", "rule_description": "Negative equity requires explicit risk handling before model usage.", "failure_status": "model_not_ready", "blocks_model_usage": True},
+    {"rule_id": "missing_model_critical_metric_blocks_feature", "rule_name": "Missing model-critical metric blocks dependent feature", "rule_category": "completeness", "required_metric_ids": [], "optional_metric_ids": [], "severity": "error", "rule_description": "Missing model-critical extraction targets block dependent features.", "failure_status": "feature_not_available", "blocks_model_usage": True},
+    {"rule_id": "stale_period_blocks_model_ready", "rule_name": "Stale period blocks model readiness", "rule_category": "report_metadata", "required_metric_ids": [], "optional_metric_ids": [], "severity": "error", "rule_description": "Stale reporting periods cannot become model-ready.", "failure_status": "model_not_ready", "blocks_model_usage": True},
+    {"rule_id": "non_ifrs_report_blocks_model_ready", "rule_name": "Non-IFRS report blocks model readiness", "rule_category": "report_metadata", "required_metric_ids": [], "optional_metric_ids": [], "severity": "error", "rule_description": "Only IFRS reports may become model-ready in this workflow.", "failure_status": "model_not_ready", "blocks_model_usage": True},
+    {"rule_id": "non_consolidated_report_blocks_model_ready", "rule_name": "Non-consolidated report blocks model readiness", "rule_category": "report_metadata", "required_metric_ids": [], "optional_metric_ids": [], "severity": "error", "rule_description": "Only consolidated reports may become model-ready in this workflow.", "failure_status": "model_not_ready", "blocks_model_usage": True},
+]
+FINANCIAL_METRIC_FEATURE_MAP = [
+    {"feature_id": "net_debt_to_ebitda", "feature_name": "Net debt to EBITDA", "feature_category": "leverage", "required_metric_ids": ["net_debt", "ebitda"], "optional_metric_ids": ["total_debt", "cash_and_cash_equivalents"], "formula_description": "net_debt / ebitda", "model_usage": "credit_risk", "risk_direction": "higher_is_riskier", "min_required_periods": 1},
+    {"feature_id": "interest_coverage", "feature_name": "Interest coverage", "feature_category": "coverage", "required_metric_ids": ["ebitda", "interest_expense"], "optional_metric_ids": ["finance_costs"], "formula_description": "ebitda / interest_expense", "model_usage": "credit_risk", "risk_direction": "lower_is_riskier", "min_required_periods": 1},
+    {"feature_id": "debt_to_equity", "feature_name": "Debt to equity", "feature_category": "leverage", "required_metric_ids": ["total_debt", "total_equity"], "optional_metric_ids": [], "formula_description": "total_debt / total_equity", "model_usage": "credit_risk", "risk_direction": "higher_is_riskier", "min_required_periods": 1},
+    {"feature_id": "cash_to_short_term_debt", "feature_name": "Cash to short-term debt", "feature_category": "liquidity", "required_metric_ids": ["cash_and_cash_equivalents", "short_term_debt"], "optional_metric_ids": [], "formula_description": "cash_and_cash_equivalents / short_term_debt", "model_usage": "credit_risk", "risk_direction": "lower_is_riskier", "min_required_periods": 1},
+    {"feature_id": "current_ratio", "feature_name": "Current ratio", "feature_category": "liquidity", "required_metric_ids": ["current_assets", "current_liabilities"], "optional_metric_ids": [], "formula_description": "current_assets / current_liabilities", "model_usage": "credit_risk", "risk_direction": "lower_is_riskier", "min_required_periods": 1},
+    {"feature_id": "operating_cash_flow_to_debt", "feature_name": "Operating cash flow to debt", "feature_category": "cash_flow", "required_metric_ids": ["operating_cash_flow", "total_debt"], "optional_metric_ids": [], "formula_description": "operating_cash_flow / total_debt", "model_usage": "credit_risk", "risk_direction": "lower_is_riskier", "min_required_periods": 1},
+    {"feature_id": "free_cash_flow_margin", "feature_name": "Free cash flow margin", "feature_category": "cash_flow", "required_metric_ids": ["free_cash_flow", "revenue"], "optional_metric_ids": ["operating_cash_flow", "capex"], "formula_description": "free_cash_flow / revenue", "model_usage": "credit_risk", "risk_direction": "lower_is_riskier", "min_required_periods": 1},
+    {"feature_id": "revenue_growth_yoy", "feature_name": "Revenue growth YoY", "feature_category": "growth", "required_metric_ids": ["revenue"], "optional_metric_ids": [], "formula_description": "(revenue_current / revenue_prior) - 1", "model_usage": "trend", "risk_direction": "lower_is_riskier", "min_required_periods": 2},
+    {"feature_id": "ebitda_growth_yoy", "feature_name": "EBITDA growth YoY", "feature_category": "growth", "required_metric_ids": ["ebitda"], "optional_metric_ids": [], "formula_description": "(ebitda_current / ebitda_prior) - 1", "model_usage": "trend", "risk_direction": "lower_is_riskier", "min_required_periods": 2},
+    {"feature_id": "net_profit_margin", "feature_name": "Net profit margin", "feature_category": "profitability", "required_metric_ids": ["net_profit", "revenue"], "optional_metric_ids": [], "formula_description": "net_profit / revenue", "model_usage": "credit_risk", "risk_direction": "lower_is_riskier", "min_required_periods": 1},
+    {"feature_id": "equity_ratio", "feature_name": "Equity ratio", "feature_category": "capitalization", "required_metric_ids": ["total_equity", "total_assets"], "optional_metric_ids": [], "formula_description": "total_equity / total_assets", "model_usage": "credit_risk", "risk_direction": "lower_is_riskier", "min_required_periods": 1},
+    {"feature_id": "debt_growth_yoy", "feature_name": "Debt growth YoY", "feature_category": "growth", "required_metric_ids": ["total_debt"], "optional_metric_ids": [], "formula_description": "(total_debt_current / total_debt_prior) - 1", "model_usage": "trend", "risk_direction": "higher_is_riskier", "min_required_periods": 2},
+    {"feature_id": "cash_change_yoy", "feature_name": "Cash change YoY", "feature_category": "growth", "required_metric_ids": ["cash_and_cash_equivalents"], "optional_metric_ids": [], "formula_description": "(cash_current / cash_prior) - 1", "model_usage": "trend", "risk_direction": "lower_is_riskier", "min_required_periods": 2},
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -2063,6 +2338,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-source-trust-promote-apply-markdown-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-source-pack-promoted-apply-draft-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-source-pack-promoted-apply-draft-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-markdown-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-alias-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-validation-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-feature-map-csv-output", type=Path, default=None)
+    parser.add_argument("--financial-metric-registry-category", choices=FINANCIAL_METRIC_CATEGORIES, default=None)
+    parser.add_argument("--financial-metric-registry-model-critical-only", action="store_true")
+    parser.add_argument("--financial-metric-registry-required-only", action="store_true")
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -2149,6 +2433,8 @@ def run_assistant(
         report = run_operator_resolution_source_trust_draft_review(args)
     elif args.mode == "operator-resolution-source-trust-promote-apply-draft":
         report = run_operator_resolution_source_trust_promote_apply_draft(args)
+    elif args.mode == "financial-metric-registry-preview":
+        report = run_financial_metric_registry_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -7129,6 +7415,202 @@ def _failed_operator_resolution_source_trust_promote_apply(errors: list[dict[str
     }
 
 
+def run_financial_metric_registry_preview(args: argparse.Namespace) -> dict[str, Any]:
+    errors = _financial_metric_registry_integrity_errors()
+    filters = {
+        "metric_category": args.financial_metric_registry_category or "",
+        "model_critical_only": bool(args.financial_metric_registry_model_critical_only),
+        "required_only": bool(args.financial_metric_registry_required_only),
+    }
+    metrics, aliases, validation_rules, feature_map = _filtered_financial_metric_registry(filters)
+    artifacts = _financial_metric_registry_artifacts(args)
+    report = _build_financial_metric_registry_report(
+        metrics=metrics,
+        aliases=aliases,
+        validation_rules=validation_rules,
+        feature_map=feature_map,
+        filters=filters,
+        artifacts=artifacts,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            if artifacts["registry_json"] is not None:
+                write_json_report(report, artifacts["registry_json"])
+            if artifacts["registry_csv"] is not None:
+                _write_flat_csv(metrics, FINANCIAL_METRIC_REGISTRY_FIELDS, artifacts["registry_csv"])
+            if artifacts["registry_markdown"] is not None:
+                write_financial_metric_registry_markdown(report, artifacts["registry_markdown"])
+            if artifacts["alias_csv"] is not None:
+                _write_flat_csv(aliases, FINANCIAL_METRIC_ALIAS_FIELDS, artifacts["alias_csv"])
+            if artifacts["validation_csv"] is not None:
+                _write_flat_csv(validation_rules, FINANCIAL_METRIC_VALIDATION_RULE_FIELDS, artifacts["validation_csv"])
+            if artifacts["feature_map_csv"] is not None:
+                _write_flat_csv(feature_map, FINANCIAL_METRIC_FEATURE_MAP_FIELDS, artifacts["feature_map_csv"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _financial_metric_registry_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "registry_json": args.financial_metric_registry_output,
+        "registry_csv": args.financial_metric_registry_csv_output,
+        "registry_markdown": args.financial_metric_registry_markdown_output,
+        "alias_csv": args.financial_metric_registry_alias_csv_output,
+        "validation_csv": args.financial_metric_registry_validation_csv_output,
+        "feature_map_csv": args.financial_metric_registry_feature_map_csv_output,
+    }
+    return {
+        key: overrides[key] or (output_dir / file_name if output_dir is not None else None)
+        for key, file_name in FINANCIAL_METRIC_REGISTRY_ARTIFACT_NAMES.items()
+    }
+
+
+def _filtered_financial_metric_registry(
+    filters: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    metrics = [
+        copy.deepcopy(metric)
+        for metric in FINANCIAL_METRIC_REGISTRY
+        if (
+            not filters["metric_category"]
+            or metric["metric_category"] == filters["metric_category"]
+        )
+        and (not filters["model_critical_only"] or metric["model_critical"])
+        and (not filters["required_only"] or metric["required_for_model"])
+    ]
+    visible_metric_ids = {str(metric["metric_id"]) for metric in metrics}
+    aliases = [
+        copy.deepcopy(alias)
+        for alias in FINANCIAL_METRIC_ALIAS_REGISTRY
+        if alias["metric_id"] in visible_metric_ids
+    ]
+    filtered = bool(
+        filters["metric_category"]
+        or filters["model_critical_only"]
+        or filters["required_only"]
+    )
+    validation_rules = [
+        copy.deepcopy(rule)
+        for rule in FINANCIAL_METRIC_VALIDATION_RULES
+        if not filtered
+        or visible_metric_ids.intersection(
+            [*rule["required_metric_ids"], *rule["optional_metric_ids"]]
+        )
+    ]
+    feature_map = [
+        copy.deepcopy(feature)
+        for feature in FINANCIAL_METRIC_FEATURE_MAP
+        if not filtered
+        or visible_metric_ids.intersection(
+            [*feature["required_metric_ids"], *feature["optional_metric_ids"]]
+        )
+    ]
+    return metrics, aliases, validation_rules, feature_map
+
+
+def _financial_metric_registry_integrity_errors() -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    metric_ids = [str(metric.get("metric_id") or "") for metric in FINANCIAL_METRIC_REGISTRY]
+    metric_id_set = set(metric_ids)
+    _append_registry_duplicate_errors(errors, metric_ids, "metric_id")
+    for metric in FINANCIAL_METRIC_REGISTRY:
+        metric_id = str(metric.get("metric_id") or "")
+        checks = (
+            ("metric_category", FINANCIAL_METRIC_CATEGORIES),
+            ("statement_type", FINANCIAL_METRIC_STATEMENT_TYPES),
+            ("metric_kind", FINANCIAL_METRIC_KINDS),
+            ("period_type", FINANCIAL_METRIC_PERIOD_TYPES),
+            ("expected_value_type", FINANCIAL_METRIC_VALUE_TYPES),
+            ("expected_sign", FINANCIAL_METRIC_EXPECTED_SIGNS),
+        )
+        for field, allowed in checks:
+            if metric.get(field) not in allowed:
+                errors.append({"message": f"invalid_{field}:{metric_id}:{metric.get(field)}"})
+        canonical_field = str(metric.get("canonical_financial_report_field") or "")
+        if canonical_field and canonical_field not in FINANCIAL_METRIC_CANONICAL_REPORT_FIELDS:
+            errors.append({"message": f"invalid_canonical_financial_report_field:{metric_id}:{canonical_field}"})
+    for alias in FINANCIAL_METRIC_ALIAS_REGISTRY:
+        if alias.get("metric_id") not in metric_id_set:
+            errors.append({"message": f"unknown_alias_metric_id:{alias.get('metric_id')}"})
+        if alias.get("language") not in {"en", "ru", "mixed"}:
+            errors.append({"message": f"invalid_alias_language:{alias.get('metric_id')}:{alias.get('language')}"})
+        if alias.get("alias_type") not in {"exact", "contains", "normalized_contains", "regex_hint"}:
+            errors.append({"message": f"invalid_alias_type:{alias.get('metric_id')}:{alias.get('alias_type')}"})
+    rule_ids = [str(rule.get("rule_id") or "") for rule in FINANCIAL_METRIC_VALIDATION_RULES]
+    _append_registry_duplicate_errors(errors, rule_ids, "rule_id")
+    feature_ids = [str(feature.get("feature_id") or "") for feature in FINANCIAL_METRIC_FEATURE_MAP]
+    _append_registry_duplicate_errors(errors, feature_ids, "feature_id")
+    for row_type, rows in (
+        ("rule", FINANCIAL_METRIC_VALIDATION_RULES),
+        ("feature", FINANCIAL_METRIC_FEATURE_MAP),
+    ):
+        id_field = "rule_id" if row_type == "rule" else "feature_id"
+        for row in rows:
+            for metric_id in [*row["required_metric_ids"], *row["optional_metric_ids"]]:
+                if metric_id not in metric_id_set:
+                    errors.append({"message": f"unknown_{row_type}_metric_id:{row.get(id_field)}:{metric_id}"})
+    return errors
+
+
+def _append_registry_duplicate_errors(
+    errors: list[dict[str, Any]],
+    values: list[str],
+    field: str,
+) -> None:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for value in values:
+        if not value:
+            errors.append({"message": f"missing_{field}"})
+        elif value in seen:
+            duplicates.add(value)
+        seen.add(value)
+    errors.extend({"message": f"duplicate_{field}:{value}"} for value in sorted(duplicates))
+
+
+def _build_financial_metric_registry_report(
+    *,
+    metrics: list[dict[str, Any]],
+    aliases: list[dict[str, Any]],
+    validation_rules: list[dict[str, Any]],
+    feature_map: list[dict[str, Any]],
+    filters: dict[str, Any],
+    artifacts: dict[str, Path | None],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    status = "failed" if errors else "passed"
+    return {
+        "status": status,
+        "mode": "financial-metric-registry-preview",
+        "metric_count": len(metrics),
+        "alias_count": len(aliases),
+        "validation_rule_count": len(validation_rules),
+        "feature_count": len(feature_map),
+        "required_metric_count": sum(1 for metric in metrics if metric["required_for_model"]),
+        "model_critical_metric_count": sum(1 for metric in metrics if metric["model_critical"]),
+        "category_counts": _count_by_key(metrics, "metric_category"),
+        "statement_type_counts": _count_by_key(metrics, "statement_type"),
+        "filters": filters,
+        "metrics": metrics,
+        "aliases": aliases,
+        "validation_rules": validation_rules,
+        "feature_map": feature_map,
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "warnings": [],
+        "errors": errors,
+        "next_steps": _next_steps("financial-metric-registry-preview", status),
+        "would_fetch_documents": False,
+        "would_parse_documents": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
     return [
         args.document_intake_draft_output,
@@ -9856,6 +10338,11 @@ def write_operator_resolution_source_trust_promote_apply_markdown(report: dict[s
     path.write_text(render_operator_resolution_source_trust_promote_apply_markdown(report), encoding="utf-8")
 
 
+def write_financial_metric_registry_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_financial_metric_registry_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -10011,6 +10498,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_resolution_source_trust_promote_preview_markdown(report)
     if report.get("mode") == "operator-resolution-source-trust-promote-apply-draft":
         return render_operator_resolution_source_trust_promote_apply_markdown(report)
+    if report.get("mode") == "financial-metric-registry-preview":
+        return render_financial_metric_registry_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -11227,6 +11716,126 @@ def render_operator_resolution_source_trust_promote_apply_markdown(report: dict[
             "- This task does not promote sources now.",
             "- This task does not fetch or probe URLs.",
             "- This task does not extract/import/score/trade.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_financial_metric_registry_markdown(report: dict[str, Any]) -> str:
+    metrics = report.get("metrics") or []
+    features = report.get("feature_map") or []
+    rules = report.get("validation_rules") or []
+    lines = [
+        "# Financial Metric Registry",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- metrics: {report.get('metric_count', 0)}",
+        f"- aliases: {report.get('alias_count', 0)}",
+        f"- validation rules: {report.get('validation_rule_count', 0)}",
+        f"- derived feature definitions: {report.get('feature_count', 0)}",
+        f"- required metrics: {report.get('required_metric_count', 0)}",
+        f"- model-critical metrics: {report.get('model_critical_metric_count', 0)}",
+        "",
+        "## Category Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("category_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Metrics",
+            "",
+            "| Metric | Category | Statement | Required | Critical | Canonical field |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if metrics:
+        for metric in metrics:
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_table_cell(value)
+                    for value in (
+                        metric.get("metric_id"),
+                        metric.get("metric_category"),
+                        metric.get("statement_type"),
+                        metric.get("required_for_model"),
+                        metric.get("model_critical"),
+                        metric.get("canonical_financial_report_field"),
+                    )
+                )
+                + " |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Feature Dependencies",
+            "",
+            "| Feature | Required metrics | Optional metrics | Risk direction | Periods |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    if features:
+        for feature in features:
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_table_cell(value)
+                    for value in (
+                        feature.get("feature_id"),
+                        feature.get("required_metric_ids"),
+                        feature.get("optional_metric_ids"),
+                        feature.get("risk_direction"),
+                        feature.get("min_required_periods"),
+                    )
+                )
+                + " |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Validation Rules",
+            "",
+            "| Rule | Category | Severity | Metrics | Blocks model usage |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rules:
+        for rule in rules:
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_table_cell(value)
+                    for value in (
+                        rule.get("rule_id"),
+                        rule.get("rule_category"),
+                        rule.get("severity"),
+                        [*rule.get("required_metric_ids", []), *rule.get("optional_metric_ids", [])],
+                        rule.get("blocks_model_usage"),
+                    )
+                )
+                + " |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task defines extraction targets only.",
+            "- This task does not fetch or parse reports.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Only future exact official annual IFRS reports that pass existing gates may use this registry.",
             "",
         ]
     )
@@ -21055,6 +21664,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review promote-draft candidates; a later controlled merge task is still required before baseline source trust changes."]
     if mode == "operator-resolution-source-trust-promote-apply-draft":
         return ["Review the promoted apply draft; baseline source trust still requires a later controlled merge task."]
+    if mode == "financial-metric-registry-preview":
+        return ["Use this deterministic registry as the contract for a future evidence-first extraction preview task."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
