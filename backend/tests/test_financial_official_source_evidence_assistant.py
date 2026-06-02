@@ -6331,6 +6331,344 @@ def test_backup_retention_preview_never_calls_network_helpers_and_flags_remain_f
         assert report[field] is False
 
 
+def test_backup_retention_apply_preview_builds_manifest_and_inert_script_without_mutation(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    first = _write_backup_retention_apply_file(backups / "bondradar_old.dump", b"old", timestamp=1000)
+    second = _write_backup_retention_apply_file(backups / "bondradar_new.dump", b"newer", timestamp=2000)
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(first), _backup_retention_apply_rotation_row(second)])
+    input_snapshots = {path: path.read_bytes() for path in output_dir.glob("*task138.json")}
+
+    report = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert report["apply_row_count"] == 2
+    assert report["eligible_manual_delete_preview_count"] == 2
+    assert report["manifest_row_count"] == 2
+    assert report["estimated_reclaimable_bytes"] == 8
+    assert all(row["would_delete_file"] is False for row in report["apply_rows"])
+    assert all(path.read_bytes() == content for path, content in input_snapshots.items())
+    assert first.read_bytes() == b"old"
+    assert second.read_bytes() == b"newer"
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    script = Path(report["artifacts"]["cleanup_script"]).read_text(encoding="utf-8")
+    assert script.index("exit 0") < script.index("# rm --")
+    assert "# rm --" in script
+    assert not any(line.startswith("rm ") for line in script.splitlines())
+    assert "find -delete" not in script
+    markdown = Path(report["artifacts"]["apply_markdown"]).read_text(encoding="utf-8")
+    assert "# Backup Retention Apply Draft Preview" in markdown
+    assert "does not delete backup files" in markdown
+
+
+def test_backup_retention_apply_preview_skips_missing_and_drifted_files(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    missing = backups / "missing.dump"
+    size_drift = _write_backup_retention_apply_file(backups / "size.dump", b"size", timestamp=1000)
+    mtime_drift = _write_backup_retention_apply_file(backups / "mtime.dump", b"mtime", timestamp=2000)
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_apply_inputs(
+        output_dir,
+        [
+            _backup_retention_apply_rotation_row(missing, size_bytes=1, mtime_utc="2026-01-01T00:00:00Z"),
+            _backup_retention_apply_rotation_row(size_drift, size_bytes=999),
+            _backup_retention_apply_rotation_row(mtime_drift, mtime_utc="2026-01-01T00:00:00Z"),
+        ],
+    )
+
+    report = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+    statuses = {row["file_name"]: row for row in report["apply_rows"]}
+
+    assert statuses["missing.dump"]["apply_status"] == "skipped_file_missing"
+    assert statuses["missing.dump"]["apply_reason_codes"] == ["file_missing"]
+    assert statuses["size.dump"]["apply_reason_codes"] == ["file_size_drift"]
+    assert statuses["mtime.dump"]["apply_reason_codes"] == ["file_mtime_drift"]
+    assert report["manifest_row_count"] == 0
+
+
+def test_backup_retention_apply_preview_blocks_symlink_outside_nested_unknown_and_protected_rows(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    outside = _write_backup_retention_apply_file(tmp_path / "outside.dump", b"outside", timestamp=1000)
+    nested_dir = backups / "nested"
+    nested_dir.mkdir()
+    nested = _write_backup_retention_apply_file(nested_dir / "nested.dump", b"nested", timestamp=1100)
+    unknown = _write_backup_retention_apply_file(backups / "notes.txt", b"notes", timestamp=1200)
+    protected = _write_backup_retention_apply_file(backups / "protected.dump", b"protected", timestamp=1300)
+    external = _write_backup_retention_apply_file(tmp_path / "external.dump", b"external", timestamp=1400)
+    linked = backups / "linked.dump"
+    try:
+        linked.symlink_to(external)
+    except OSError:
+        linked = None
+    rows = [
+        _backup_retention_apply_rotation_row(outside),
+        _backup_retention_apply_rotation_row(nested),
+        _backup_retention_apply_rotation_row(
+            unknown,
+            rotation_action="candidate_manual_review_unknown_file",
+            recognized_backup=False,
+        ),
+        _backup_retention_apply_rotation_row(protected, protection_reasons=["keep_latest"]),
+    ]
+    if linked is not None:
+        rows.append(_backup_retention_apply_rotation_row(linked))
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_apply_inputs(output_dir, rows)
+
+    report = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+    statuses = {row["file_name"]: row["apply_status"] for row in report["apply_rows"]}
+
+    assert statuses["outside.dump"] == "blocked_unsafe_path"
+    assert statuses["nested.dump"] == "blocked_unsafe_path"
+    assert statuses["notes.txt"] == "skipped_unknown_file_manual_review"
+    assert statuses["protected.dump"] == "blocked_protected_by_policy"
+    if linked is not None:
+        assert statuses["linked.dump"] == "blocked_symlink"
+    assert report["manifest_row_count"] == 0
+
+
+def test_backup_retention_apply_preview_limits_oldest_first_and_preview_status_gate(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    files = [
+        _write_backup_retention_apply_file(backups / f"{name}.dump", b"x" * 10, timestamp=timestamp)
+        for name, timestamp in (("oldest", 1000), ("middle", 2000), ("newest", 3000))
+    ]
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(path) for path in reversed(files)])
+
+    count_limited = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-max-delete-count",
+            "1",
+        ]
+    )
+    by_name = {row["file_name"]: row["apply_status"] for row in count_limited["apply_rows"]}
+    assert by_name["oldest.dump"] == "eligible_manual_delete_preview"
+    assert by_name["middle.dump"] == "blocked_delete_limit_exceeded"
+    assert by_name["newest.dump"] == "blocked_delete_limit_exceeded"
+
+    size_limited = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-max-delete-gb",
+            str(15 / 1024**3),
+        ]
+    )
+    by_name = {row["file_name"]: row["apply_status"] for row in size_limited["apply_rows"]}
+    assert by_name["oldest.dump"] == "eligible_manual_delete_preview"
+    assert by_name["middle.dump"] == "blocked_reclaim_limit_exceeded"
+
+    _write_backup_retention_apply_inputs(
+        output_dir,
+        [_backup_retention_apply_rotation_row(files[0])],
+        preview_status="warning",
+    )
+    status_blocked = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-require-preview-status",
+            "passed",
+        ]
+    )
+    assert status_blocked["apply_rows"][0]["apply_status"] == "blocked_preview_status_not_allowed"
+
+
+def test_backup_retention_apply_preview_passed_is_safer_and_manual_review_flag_is_metadata_only(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    path = _write_backup_retention_apply_file(backups / "safe.dump", b"safe", timestamp=1000)
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(path)], preview_status="passed")
+
+    report = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-require-manual-review",
+            "false",
+        ]
+    )
+
+    assert report["status"] == "passed"
+    assert report["manifest_row_count"] == 1
+    assert report["apply_rows"][0]["manual_review_status"] == "not_required_by_configuration_preview_only"
+    assert report["apply_rows"][0]["cleanup_script_line_enabled"] is False
+
+
+def test_backup_retention_apply_preview_rejects_malformed_inputs_and_output_collisions(tmp_path: Path) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    path = _write_backup_retention_apply_file(backups / "safe.dump", b"safe", timestamp=1000)
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(path)])
+    rotation = output_dir / "backup_retention_rotation_plan_task138.json"
+
+    collision = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--backup-retention-apply-output",
+            str(rotation),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "backup_retention_apply_output_must_not_equal_input"}]
+
+    generic_collision = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--json-output",
+            str(path),
+        ]
+    )
+    assert generic_collision["status"] == "failed"
+    assert generic_collision["errors"] == [{"message": "backup_retention_apply_output_must_not_equal_input"}]
+
+    outside = _write_backup_retention_apply_file(tmp_path / "outside.dump", b"outside", timestamp=1000)
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(outside)])
+    generic_args = assistant.parse_args(
+        [
+            "--mode",
+            "backup-retention-apply-draft-preview",
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+            "--json-output",
+            str(outside),
+        ]
+    )
+    outside_collision, _ = assistant.run_assistant(generic_args)
+    assert outside_collision["status"] == "failed"
+    assert assistant._generic_report_output_is_safe(generic_args, outside) is False
+    assert outside.read_bytes() == b"outside"
+
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(path)])
+    rotation.write_text("{", encoding="utf-8")
+    malformed = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+    assert malformed["status"] == "failed"
+    assert {"message": "backup_retention_apply_preview_input_invalid", "path": str(rotation)} in malformed["errors"]
+
+    missing = _run_backup_retention_apply_preview(["--backup-retention-backups-dir", str(backups)])
+    assert missing["status"] == "failed"
+    assert {"message": "backup_retention_apply_preview_input_required"} in missing["errors"]
+
+
+def test_backup_retention_apply_preview_optional_inventory_warning_and_no_network_calls(tmp_path: Path, monkeypatch) -> None:
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    path = _write_backup_retention_apply_file(backups / "safe.dump", b"safe", timestamp=1000)
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(path)], include_inventory=False)
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task139 backup apply preview must remain read-only")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+
+    assert {"message": "backup_retention_apply_inventory_input_missing"} in report["warnings"]
+    for field in (
+        "cleanup_executed",
+        "files_deleted",
+        "files_moved",
+        "files_compressed",
+        "files_uploaded",
+        "database_mutated",
+        "documents_downloaded",
+        "documents_parsed",
+        "would_delete_files",
+        "would_move_files",
+        "would_compress_files",
+        "would_upload_files",
+        "would_mutate_database",
+        "would_fetch_documents",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[field] is False
+
+    _write_backup_retention_apply_inputs(output_dir, [_backup_retention_apply_rotation_row(path)])
+    inventory = output_dir / "backup_retention_inventory_task138.json"
+    inventory.write_text("{", encoding="utf-8")
+    malformed_inventory = _run_backup_retention_apply_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(backups),
+        ]
+    )
+    assert {
+        "message": "backup_retention_apply_inventory_input_unreadable",
+        "path": str(inventory),
+    } in malformed_inventory["warnings"]
+
+
 def test_financial_document_fetch_plan_warns_without_candidates_and_uses_safe_retention_fallback() -> None:
     report = _run_financial_document_fetch_plan_preview()
 
@@ -12299,6 +12637,91 @@ def _run_backup_retention_preview(extra_args: list[str] | None = None) -> dict:
 
     assert exit_code == (1 if report["status"] == "failed" else 0)
     return report
+
+
+def _run_backup_retention_apply_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "backup-retention-apply-draft-preview",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _write_backup_retention_apply_file(path: Path, content: bytes, *, timestamp: float) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    os.utime(path, (timestamp, timestamp))
+    return path
+
+
+def _backup_retention_apply_rotation_row(path: Path, **updates: object) -> dict[str, object]:
+    stat = path.stat() if path.exists() else None
+    row: dict[str, object] = {
+        "rotation_plan_id": f"backup_retention_rotation:{path.name}",
+        "path": str(path),
+        "file_name": path.name,
+        "rotation_action": "candidate_delete_old_backup",
+        "rotation_reason": "recognized_backup_unprotected_at_or_above_warning_threshold",
+        "size_bytes": stat.st_size if stat is not None else 0,
+        "size_mb": assistant._bytes_to_mb(stat.st_size if stat is not None else 0),
+        "size_gb": assistant._bytes_to_gb(stat.st_size if stat is not None else 0),
+        "mtime_utc": assistant._timestamp_to_utc_iso(stat.st_mtime if stat is not None else None),
+        "recognized_backup": True,
+        "protection_reasons": [],
+        "estimated_reclaimable_bytes": stat.st_size if stat is not None else 0,
+        "manual_command_hint": "# Preview only: review this file manually before deletion.",
+        "would_delete_files": False,
+    }
+    row.update(updates)
+    return row
+
+
+def _write_backup_retention_apply_inputs(
+    output_dir: Path,
+    rotation_rows: list[dict[str, object]],
+    *,
+    preview_status: str = "warning",
+    include_inventory: bool = True,
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "backup_retention_preview_task138.json").write_text(
+        json.dumps({"status": preview_status, "mode": "backup-retention-preview"}),
+        encoding="utf-8",
+    )
+    (output_dir / "backup_retention_rotation_plan_task138.json").write_text(
+        json.dumps(
+            {
+                "status": preview_status,
+                "mode": "backup-retention-rotation-plan-preview",
+                "rotation_plan_rows": rotation_rows,
+            }
+        ),
+        encoding="utf-8",
+    )
+    if include_inventory:
+        (output_dir / "backup_retention_inventory_task138.json").write_text(
+            json.dumps(
+                {
+                    "status": preview_status,
+                    "mode": "backup-retention-inventory-preview",
+                    "inventory_rows": [
+                        {
+                            "inventory_id": f"backup_retention_inventory:{row['file_name']}",
+                            "path": row["path"],
+                        }
+                        for row in rotation_rows
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
 
 
 def _document_artifact_retention_test_paths(tmp_path: Path) -> list[str]:

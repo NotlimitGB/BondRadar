@@ -62,6 +62,7 @@ MODE_CHOICES = (
     "operator-exact-document-refill-apply-draft-v2",
     "exact-document-draft-gate-v2",
     "backup-retention-preview",
+    "backup-retention-apply-draft-preview",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2472,6 +2473,90 @@ BACKUP_RETENTION_ROTATION_PLAN_FIELDS = [
     "manual_command_hint",
     "would_delete_files",
 ]
+BACKUP_RETENTION_APPLY_ARTIFACT_NAMES = {
+    "apply_json": "backup_retention_apply_preview_task139.json",
+    "apply_csv": "backup_retention_apply_preview_task139.csv",
+    "apply_markdown": "backup_retention_apply_preview_task139.md",
+    "blockers_json": "backup_retention_apply_blockers_task139.json",
+    "blockers_csv": "backup_retention_apply_blockers_task139.csv",
+    "cleanup_script": "backup_retention_cleanup_script_task139.sh",
+    "manifest_json": "backup_retention_cleanup_manifest_task139.json",
+    "manifest_csv": "backup_retention_cleanup_manifest_task139.csv",
+}
+BACKUP_RETENTION_APPLY_DEFAULTS = {
+    "max_delete_count": 100,
+    "max_delete_gb": 3.0,
+    "require_preview_status": "warning",
+    "require_manual_review": True,
+}
+BACKUP_RETENTION_APPLY_FIELDS = [
+    "apply_id",
+    "rotation_plan_id",
+    "inventory_id",
+    "file_name",
+    "file_path",
+    "recognized_backup_file",
+    "file_extension",
+    "task138_size_bytes",
+    "current_size_bytes",
+    "task138_mtime_utc",
+    "current_mtime_utc",
+    "file_exists_now",
+    "is_regular_file_now",
+    "is_symlink_now",
+    "path_inside_backups_dir",
+    "rotation_action",
+    "task138_rotation_reason",
+    "apply_status",
+    "apply_severity",
+    "apply_action",
+    "apply_reason_codes",
+    "apply_errors",
+    "apply_warnings",
+    "protected_by_latest_count",
+    "protected_by_daily_policy",
+    "protected_by_weekly_policy",
+    "protected_by_extension_policy",
+    "eligible_for_future_manual_delete",
+    "requires_manual_review",
+    "manual_review_status",
+    "cleanup_script_line",
+    "cleanup_script_line_enabled",
+    "cleanup_script_line_comment",
+    "would_delete_file",
+    "would_move_file",
+    "would_compress_file",
+    "would_upload_file",
+    "would_mutate_database",
+]
+BACKUP_RETENTION_APPLY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "apply_id",
+    "rotation_plan_id",
+    "file_name",
+    "file_path",
+    "apply_status",
+    "blocker_code",
+    "severity",
+    "next_manual_action",
+    "would_delete_file",
+]
+BACKUP_RETENTION_CLEANUP_MANIFEST_FIELDS = [
+    "manifest_id",
+    "apply_id",
+    "file_name",
+    "file_path",
+    "size_bytes",
+    "size_mb",
+    "size_gb",
+    "mtime_utc",
+    "sha256_optional",
+    "eligible_for_future_manual_delete",
+    "manual_review_required",
+    "cleanup_script_line",
+    "cleanup_script_line_enabled",
+    "would_delete_file",
+]
 FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES = {
     "fetch_plan_json": "financial_document_fetch_plan_task133.json",
     "fetch_plan_csv": "financial_document_fetch_plan_task133.csv",
@@ -3375,6 +3460,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--backup-retention-keep-weekly-count", type=int, default=BACKUP_RETENTION_DEFAULTS["keep_weekly_count"])
     parser.add_argument("--backup-retention-min-free-gb-after-rotation", type=float, default=BACKUP_RETENTION_DEFAULTS["min_free_gb_after_rotation"])
     parser.add_argument("--backup-retention-warning-threshold-percent", type=float, default=BACKUP_RETENTION_DEFAULTS["warning_threshold_percent"])
+    parser.add_argument("--backup-retention-preview-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-rotation-plan-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-inventory-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-apply-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-apply-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-apply-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-cleanup-script-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-cleanup-manifest-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-cleanup-manifest-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-max-delete-count", type=int, default=BACKUP_RETENTION_APPLY_DEFAULTS["max_delete_count"])
+    parser.add_argument("--backup-retention-max-delete-gb", type=float, default=BACKUP_RETENTION_APPLY_DEFAULTS["max_delete_gb"])
+    parser.add_argument("--backup-retention-require-preview-status", choices=("passed", "warning"), default=BACKUP_RETENTION_APPLY_DEFAULTS["require_preview_status"])
+    parser.add_argument("--backup-retention-require-manual-review", type=_parse_bool, default=BACKUP_RETENTION_APPLY_DEFAULTS["require_manual_review"])
     parser.add_argument("--financial-document-fetch-plan-output", type=Path, default=None)
     parser.add_argument("--financial-document-fetch-plan-csv-output", type=Path, default=None)
     parser.add_argument("--financial-document-fetch-plan-markdown-output", type=Path, default=None)
@@ -3542,6 +3642,8 @@ def run_assistant(
         report = run_exact_document_draft_gate_v2(args)
     elif args.mode == "backup-retention-preview":
         report = run_backup_retention_preview(args)
+    elif args.mode == "backup-retention-apply-draft-preview":
+        report = run_backup_retention_apply_draft_preview(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -10173,6 +10275,543 @@ def _backup_retention_safety_flags() -> dict[str, Any]:
     }
 
 
+def run_backup_retention_apply_draft_preview(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors = _backup_retention_apply_config_errors(args)
+    inputs = _backup_retention_apply_inputs(args)
+    preview_report, preview_errors = _load_backup_retention_apply_required_report(
+        inputs["preview"],
+        expected_mode="backup-retention-preview",
+    )
+    rotation_report, rotation_errors = _load_backup_retention_apply_required_report(
+        inputs["rotation_plan"],
+        expected_mode="backup-retention-rotation-plan-preview",
+    )
+    errors.extend(preview_errors)
+    errors.extend(rotation_errors)
+    inventory_report = _load_backup_retention_apply_inventory(inputs["inventory"], warnings=warnings)
+    rotation_rows = list(rotation_report.get("rotation_plan_rows") or [])
+    inventory_by_path = {
+        str(row.get("path") or ""): row
+        for row in inventory_report.get("inventory_rows") or []
+        if str(row.get("path") or "")
+    }
+    artifacts = _backup_retention_apply_artifacts(args)
+    errors.extend(
+        _backup_retention_apply_output_errors(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            rotation_rows=rotation_rows,
+        )
+    )
+    snapshots = _backup_retention_apply_snapshots(inputs)
+    apply_rows = [
+        _build_backup_retention_apply_row(
+            args,
+            row,
+            inventory_by_path=inventory_by_path,
+            preview_status=str(preview_report.get("status") or ""),
+        )
+        for row in rotation_rows
+    ]
+    _apply_backup_retention_apply_limits(args, apply_rows=apply_rows)
+    manifest_rows = _build_backup_retention_cleanup_manifest_rows(apply_rows)
+    blocker_rows = _build_backup_retention_apply_blocker_rows(apply_rows)
+    if manifest_rows and args.backup_retention_require_manual_review:
+        warnings.append({"message": "backup_retention_apply_manual_review_pending"})
+    if blocker_rows:
+        warnings.append({"message": "backup_retention_apply_blockers_present"})
+    if not errors and artifacts["cleanup_script"] is not None:
+        try:
+            _write_backup_retention_cleanup_script(manifest_rows, artifacts["cleanup_script"])
+            try:
+                os.chmod(artifacts["cleanup_script"], 0o644)
+            except OSError:
+                warnings.append({"message": "backup_retention_cleanup_script_chmod_unavailable"})
+        except OSError as exc:
+            errors.append({"message": str(exc)})
+    if not _backup_retention_apply_snapshots_unchanged(snapshots):
+        errors.append({"message": "backup_retention_apply_input_changed"})
+    report = _build_backup_retention_apply_report(
+        args,
+        preview_report=preview_report,
+        rotation_rows=rotation_rows,
+        apply_rows=apply_rows,
+        blocker_rows=blocker_rows,
+        manifest_rows=manifest_rows,
+        artifacts=artifacts,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            if artifacts["apply_json"] is not None:
+                write_json_report(report, artifacts["apply_json"])
+            if artifacts["apply_csv"] is not None:
+                _write_flat_csv(apply_rows, BACKUP_RETENTION_APPLY_FIELDS, artifacts["apply_csv"])
+            if artifacts["apply_markdown"] is not None:
+                write_backup_retention_apply_markdown(report, artifacts["apply_markdown"])
+            if artifacts["blockers_json"] is not None:
+                write_json_report(_backup_retention_apply_blockers_report(report), artifacts["blockers_json"])
+            if artifacts["blockers_csv"] is not None:
+                _write_flat_csv(blocker_rows, BACKUP_RETENTION_APPLY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+            if artifacts["manifest_json"] is not None:
+                write_json_report(_backup_retention_cleanup_manifest_report(report), artifacts["manifest_json"])
+            if artifacts["manifest_csv"] is not None:
+                _write_flat_csv(manifest_rows, BACKUP_RETENTION_CLEANUP_MANIFEST_FIELDS, artifacts["manifest_csv"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _backup_retention_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "preview": args.backup_retention_preview_input
+        or (output_dir / BACKUP_RETENTION_ARTIFACT_NAMES["preview_json"] if output_dir else None),
+        "rotation_plan": args.backup_retention_rotation_plan_input
+        or (output_dir / BACKUP_RETENTION_ARTIFACT_NAMES["rotation_plan_json"] if output_dir else None),
+        "inventory": args.backup_retention_inventory_input
+        or (output_dir / BACKUP_RETENTION_ARTIFACT_NAMES["inventory_json"] if output_dir else None),
+    }
+
+
+def _backup_retention_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "apply_json": args.backup_retention_apply_output,
+        "apply_csv": args.backup_retention_apply_csv_output,
+        "apply_markdown": args.backup_retention_apply_markdown_output,
+        "blockers_json": args.backup_retention_apply_blockers_output,
+        "blockers_csv": args.backup_retention_apply_blockers_csv_output,
+        "cleanup_script": args.backup_retention_cleanup_script_output,
+        "manifest_json": args.backup_retention_cleanup_manifest_output,
+        "manifest_csv": args.backup_retention_cleanup_manifest_csv_output,
+    }
+    return {
+        key: overrides[key] or (output_dir / file_name if output_dir is not None else None)
+        for key, file_name in BACKUP_RETENTION_APPLY_ARTIFACT_NAMES.items()
+    }
+
+
+def _backup_retention_apply_config_errors(args: argparse.Namespace) -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    if args.backup_retention_max_delete_count < 0:
+        errors.append({"message": "invalid_backup_retention_apply_policy_value:backup_retention_max_delete_count"})
+    if args.backup_retention_max_delete_gb < 0:
+        errors.append({"message": "invalid_backup_retention_apply_policy_value:backup_retention_max_delete_gb"})
+    if not _backup_retention_backups_dir_is_safe(args.backup_retention_backups_dir):
+        errors.append({"message": "backup_retention_backups_dir_unsafe"})
+    return errors
+
+
+def _load_backup_retention_apply_required_report(
+    path: Path | None,
+    *,
+    expected_mode: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    if path is None or not path.is_file():
+        return {}, [{"message": "backup_retention_apply_preview_input_required"}]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}, [{"message": "backup_retention_apply_preview_input_invalid", "path": str(path)}]
+    if not isinstance(payload, dict) or payload.get("mode") != expected_mode:
+        return {}, [{"message": "backup_retention_apply_preview_input_invalid", "path": str(path)}]
+    if expected_mode == "backup-retention-rotation-plan-preview" and not isinstance(
+        payload.get("rotation_plan_rows"), list
+    ):
+        return {}, [{"message": "backup_retention_apply_preview_input_invalid", "path": str(path)}]
+    if expected_mode == "backup-retention-rotation-plan-preview" and not all(
+        isinstance(row, dict) for row in payload.get("rotation_plan_rows") or []
+    ):
+        return {}, [{"message": "backup_retention_apply_preview_input_invalid", "path": str(path)}]
+    return payload, []
+
+
+def _load_backup_retention_apply_inventory(
+    path: Path | None,
+    *,
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if path is None or not path.is_file():
+        warnings.append({"message": "backup_retention_apply_inventory_input_missing"})
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        warnings.append({"message": "backup_retention_apply_inventory_input_unreadable", "path": str(path)})
+        return {}
+    if (
+        not isinstance(payload, dict)
+        or payload.get("mode") != "backup-retention-inventory-preview"
+        or not isinstance(payload.get("inventory_rows"), list)
+        or not all(isinstance(row, dict) for row in payload.get("inventory_rows") or [])
+    ):
+        warnings.append({"message": "backup_retention_apply_inventory_input_unreadable", "path": str(path)})
+        return {}
+    return payload
+
+
+def _backup_retention_apply_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    rotation_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected = [
+        path
+        for path in [
+            *inputs.values(),
+            args.backup_retention_backups_dir,
+            *(Path(str(row.get("path") or "")) for row in rotation_rows if str(row.get("path") or "")),
+        ]
+        if path is not None
+    ]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "backup_retention_apply_output_must_not_equal_input"}]
+        if any(_paths_equal(output, path) for path in protected):
+            return [{"message": "backup_retention_apply_output_must_not_equal_input"}]
+        if _path_is_within(output, args.backup_retention_backups_dir):
+            return [{"message": "backup_retention_apply_output_must_not_equal_input"}]
+    return []
+
+
+def _backup_retention_apply_snapshots(inputs: dict[str, Path | None]) -> dict[Path, bytes]:
+    return {
+        path: path.read_bytes()
+        for path in inputs.values()
+        if path is not None and path.is_file()
+    }
+
+
+def _backup_retention_apply_snapshots_unchanged(snapshots: dict[Path, bytes]) -> bool:
+    try:
+        return all(path.is_file() and path.read_bytes() == content for path, content in snapshots.items())
+    except OSError:
+        return False
+
+
+def _build_backup_retention_apply_row(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    *,
+    inventory_by_path: dict[str, dict[str, Any]],
+    preview_status: str,
+) -> dict[str, Any]:
+    path = Path(str(row.get("path") or ""))
+    inventory = inventory_by_path.get(str(row.get("path") or "")) or {}
+    rotation_action = str(row.get("rotation_action") or "")
+    protection_reasons = _financial_document_fetch_list(row.get("protection_reasons"))
+    extension = _backup_retention_recognized_extension(path.name)
+    direct_child = _backup_retention_apply_path_inside_backups_dir(path, args.backup_retention_backups_dir)
+    is_symlink = path.is_symlink()
+    exists = path.exists()
+    is_regular = exists and path.is_file() and not is_symlink
+    current_size: int | None = None
+    current_mtime = ""
+    current_mtime_timestamp: float | None = None
+    if is_regular:
+        try:
+            stat = path.stat()
+            current_size = stat.st_size
+            current_mtime_timestamp = stat.st_mtime
+            current_mtime = _timestamp_to_utc_iso(stat.st_mtime)
+        except OSError:
+            is_regular = False
+    cleanup_line = f"# rm -- {_bash_quote(str(path))}"
+    apply = {
+        "apply_id": f"backup_retention_apply:{row.get('rotation_plan_id') or hashlib.sha256(str(path).encode('utf-8')).hexdigest()}",
+        "rotation_plan_id": str(row.get("rotation_plan_id") or ""),
+        "inventory_id": str(inventory.get("inventory_id") or ""),
+        "file_name": path.name,
+        "file_path": str(path),
+        "recognized_backup_file": bool(row.get("recognized_backup")),
+        "file_extension": extension,
+        "task138_size_bytes": _as_int(row.get("size_bytes")),
+        "current_size_bytes": current_size,
+        "task138_mtime_utc": str(row.get("mtime_utc") or ""),
+        "current_mtime_utc": current_mtime,
+        "current_mtime_timestamp": current_mtime_timestamp,
+        "file_exists_now": exists,
+        "is_regular_file_now": is_regular,
+        "is_symlink_now": is_symlink,
+        "path_inside_backups_dir": direct_child,
+        "rotation_action": rotation_action,
+        "task138_rotation_reason": str(row.get("rotation_reason") or ""),
+        "apply_status": "",
+        "apply_severity": "",
+        "apply_action": "",
+        "apply_reason_codes": [],
+        "apply_errors": [],
+        "apply_warnings": [],
+        "protected_by_latest_count": "keep_latest" in protection_reasons,
+        "protected_by_daily_policy": "keep_daily" in protection_reasons,
+        "protected_by_weekly_policy": "keep_weekly" in protection_reasons,
+        "protected_by_extension_policy": not bool(extension),
+        "eligible_for_future_manual_delete": False,
+        "requires_manual_review": args.backup_retention_require_manual_review,
+        "manual_review_status": (
+            "required_pending_manual_review"
+            if args.backup_retention_require_manual_review
+            else "not_required_by_configuration_preview_only"
+        ),
+        "cleanup_script_line": cleanup_line,
+        "cleanup_script_line_enabled": False,
+        "cleanup_script_line_comment": "Candidate command remains commented after mandatory exit 0.",
+        "would_delete_file": False,
+        "would_move_file": False,
+        "would_compress_file": False,
+        "would_upload_file": False,
+        "would_mutate_database": False,
+    }
+    status, reason = _classify_backup_retention_apply_row(args, apply, preview_status=preview_status)
+    _set_backup_retention_apply_status(apply, status=status, reason=reason)
+    return apply
+
+
+def _classify_backup_retention_apply_row(
+    args: argparse.Namespace,
+    row: dict[str, Any],
+    *,
+    preview_status: str,
+) -> tuple[str, str]:
+    if not _backup_retention_apply_preview_status_allowed(args.backup_retention_require_preview_status, preview_status):
+        return "blocked_preview_status_not_allowed", "preview_status_not_allowed"
+    if not row["path_inside_backups_dir"]:
+        return "blocked_unsafe_path", "unsafe_path"
+    if row["is_symlink_now"]:
+        return "blocked_symlink", "symlink_not_allowed"
+    if row["rotation_action"] == "candidate_manual_review_unknown_file":
+        return "skipped_unknown_file_manual_review", "unknown_file_manual_review"
+    if row["rotation_action"] != "candidate_delete_old_backup":
+        if row["rotation_action"] in {"", "none", "preview_noop"}:
+            return "skipped_not_rotation_candidate", "not_rotation_candidate"
+        return "blocked_invalid_rotation_action", "invalid_rotation_action"
+    if not row["file_exists_now"]:
+        return "skipped_file_missing", "file_missing"
+    if not row["is_regular_file_now"]:
+        return "blocked_unknown_readiness", "file_not_regular"
+    if row["protected_by_extension_policy"] or not row["recognized_backup_file"]:
+        return "skipped_unknown_file_manual_review", "unknown_file_manual_review"
+    if (
+        row["protected_by_latest_count"]
+        or row["protected_by_daily_policy"]
+        or row["protected_by_weekly_policy"]
+    ):
+        return "blocked_protected_by_policy", "protected_by_retention_policy"
+    if row["task138_size_bytes"] != row["current_size_bytes"]:
+        return "skipped_file_drift_detected", "file_size_drift"
+    task138_mtime = _parse_utc_timestamp(row["task138_mtime_utc"])
+    if (
+        task138_mtime is None
+        or row["current_mtime_timestamp"] is None
+        or abs(float(row["current_mtime_timestamp"]) - task138_mtime) > 1.0
+    ):
+        return "skipped_file_drift_detected", "file_mtime_drift"
+    return "eligible_manual_delete_preview", ""
+
+
+def _backup_retention_apply_preview_status_allowed(required: str, actual: str) -> bool:
+    return actual == "passed" if required == "passed" else actual in {"passed", "warning"}
+
+
+def _backup_retention_apply_path_inside_backups_dir(path: Path, backups_dir: Path) -> bool:
+    try:
+        return path.absolute().parent.resolve() == backups_dir.resolve()
+    except OSError:
+        return False
+
+
+def _parse_utc_timestamp(value: Any) -> float | None:
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def _set_backup_retention_apply_status(row: dict[str, Any], *, status: str, reason: str) -> None:
+    row["apply_status"] = status
+    row["apply_reason_codes"] = [reason] if reason else []
+    row["apply_severity"] = "info" if status == "eligible_manual_delete_preview" else "warning"
+    row["apply_action"] = "include_in_cleanup_manifest_preview" if status == "eligible_manual_delete_preview" else "skip"
+    row["eligible_for_future_manual_delete"] = status == "eligible_manual_delete_preview"
+
+
+def _apply_backup_retention_apply_limits(args: argparse.Namespace, *, apply_rows: list[dict[str, Any]]) -> None:
+    candidates = sorted(
+        (row for row in apply_rows if row["apply_status"] == "eligible_manual_delete_preview"),
+        key=lambda row: (row["current_mtime_timestamp"] or 0, row["file_path"]),
+    )
+    accepted_count = 0
+    accepted_bytes = 0
+    max_bytes = args.backup_retention_max_delete_gb * (1024**3)
+    for row in candidates:
+        size_bytes = int(row["current_size_bytes"] or 0)
+        if accepted_count >= args.backup_retention_max_delete_count:
+            _set_backup_retention_apply_status(
+                row,
+                status="blocked_delete_limit_exceeded",
+                reason="delete_count_limit_exceeded",
+            )
+            continue
+        if accepted_bytes + size_bytes > max_bytes:
+            _set_backup_retention_apply_status(
+                row,
+                status="blocked_reclaim_limit_exceeded",
+                reason="reclaim_size_limit_exceeded",
+            )
+            continue
+        accepted_count += 1
+        accepted_bytes += size_bytes
+
+
+def _build_backup_retention_cleanup_manifest_rows(apply_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    eligible = sorted(
+        (row for row in apply_rows if row["apply_status"] == "eligible_manual_delete_preview"),
+        key=lambda row: (row["current_mtime_timestamp"] or 0, row["file_path"]),
+    )
+    return [
+        {
+            "manifest_id": f"backup_retention_cleanup_manifest:{row['apply_id']}",
+            "apply_id": row["apply_id"],
+            "file_name": row["file_name"],
+            "file_path": row["file_path"],
+            "size_bytes": row["current_size_bytes"],
+            "size_mb": _bytes_to_mb(int(row["current_size_bytes"] or 0)),
+            "size_gb": _bytes_to_gb(int(row["current_size_bytes"] or 0)),
+            "mtime_utc": row["current_mtime_utc"],
+            "sha256_optional": "not_calculated_preview_only",
+            "eligible_for_future_manual_delete": True,
+            "manual_review_required": row["requires_manual_review"],
+            "cleanup_script_line": row["cleanup_script_line"],
+            "cleanup_script_line_enabled": False,
+            "would_delete_file": False,
+        }
+        for row in eligible
+    ]
+
+
+def _build_backup_retention_apply_blocker_rows(apply_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "blocker_id": f"backup_retention_apply_blocker:{row['apply_id']}:{reason}",
+            "apply_id": row["apply_id"],
+            "rotation_plan_id": row["rotation_plan_id"],
+            "file_name": row["file_name"],
+            "file_path": row["file_path"],
+            "apply_status": row["apply_status"],
+            "blocker_code": reason,
+            "severity": row["apply_severity"],
+            "next_manual_action": "Review the Task139 blocker before any future explicit manual cleanup.",
+            "would_delete_file": False,
+        }
+        for row in apply_rows
+        if row["apply_status"] != "eligible_manual_delete_preview"
+        for reason in (row["apply_reason_codes"] or ["unknown_readiness"])
+    ]
+
+
+def _write_backup_retention_cleanup_script(rows: list[dict[str, Any]], path: Path) -> None:
+    lines = [
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "",
+        'echo "Backup retention cleanup preview only. No deletion commands are enabled."',
+        'echo "Review Task139 manifest before any manual cleanup."',
+        "exit 0",
+        "",
+    ]
+    for row in rows:
+        lines.extend(["# Candidate after manual review:", row["cleanup_script_line"], ""])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _build_backup_retention_apply_report(
+    args: argparse.Namespace,
+    *,
+    preview_report: dict[str, Any],
+    rotation_rows: list[dict[str, Any]],
+    apply_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    manifest_rows: list[dict[str, Any]],
+    artifacts: dict[str, Path | None],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    warnings = _dedupe_messages(warnings)
+    status_counts = _count_values(apply_rows, "apply_status")
+    blocker_counts = _count_values(blocker_rows, "blocker_code")
+    reclaimable_bytes = sum(int(row["size_bytes"] or 0) for row in manifest_rows)
+    status = "failed" if errors else "warning" if warnings or blocker_rows else "passed"
+    return {
+        "status": status,
+        "mode": "backup-retention-apply-draft-preview",
+        "backups_dir": str(args.backup_retention_backups_dir),
+        "task138_preview_status": preview_report.get("status"),
+        "rotation_plan_input_count": len(rotation_rows),
+        "apply_row_count": len(apply_rows),
+        "eligible_manual_delete_preview_count": len(manifest_rows),
+        "skipped_count": sum(row["apply_status"].startswith("skipped_") for row in apply_rows),
+        "blocked_count": sum(row["apply_status"].startswith("blocked_") for row in apply_rows),
+        "failed_count": sum(row["apply_status"].startswith("failed_") for row in apply_rows),
+        "manifest_row_count": len(manifest_rows),
+        "estimated_reclaimable_bytes": reclaimable_bytes,
+        "estimated_reclaimable_gb": _bytes_to_gb(reclaimable_bytes),
+        "max_delete_count": args.backup_retention_max_delete_count,
+        "max_delete_gb": args.backup_retention_max_delete_gb,
+        "require_preview_status": args.backup_retention_require_preview_status,
+        "require_manual_review": args.backup_retention_require_manual_review,
+        "apply_status_counts": status_counts,
+        "blocker_code_counts": blocker_counts,
+        "apply_rows": apply_rows,
+        "blocker_rows": blocker_rows,
+        "cleanup_manifest_rows": manifest_rows,
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("backup-retention-apply-draft-preview", status),
+        **_backup_retention_safety_flags(),
+    }
+
+
+def _backup_retention_apply_blockers_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "backup-retention-apply-blockers-preview",
+        "blocker_row_count": len(report["blocker_rows"]),
+        "blocker_code_counts": report["blocker_code_counts"],
+        "blocker_rows": report["blocker_rows"],
+        **_backup_retention_safety_flags(),
+    }
+
+
+def _backup_retention_cleanup_manifest_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "backup-retention-cleanup-manifest-preview",
+        "manifest_row_count": report["manifest_row_count"],
+        "estimated_reclaimable_bytes": report["estimated_reclaimable_bytes"],
+        "estimated_reclaimable_gb": report["estimated_reclaimable_gb"],
+        "cleanup_manifest_rows": report["cleanup_manifest_rows"],
+        **_backup_retention_safety_flags(),
+    }
+
+
+def _count_values(rows: list[dict[str, Any]], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        value = str(row.get(field) or "")
+        counts[value] = counts.get(value, 0) + 1
+    return counts
+
+
 def _dedupe_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen: set[tuple[tuple[str, str], ...]] = set()
     output: list[dict[str, Any]] = []
@@ -16513,6 +17152,11 @@ def write_backup_retention_markdown(report: dict[str, Any], path: Path) -> None:
     path.write_text(render_backup_retention_markdown(report), encoding="utf-8")
 
 
+def write_backup_retention_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_backup_retention_apply_markdown(report), encoding="utf-8")
+
+
 def write_financial_document_fetch_plan_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_financial_document_fetch_plan_markdown(report), encoding="utf-8")
@@ -16706,6 +17350,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_document_artifact_retention_markdown(report)
     if report.get("mode") == "backup-retention-preview":
         return render_backup_retention_markdown(report)
+    if report.get("mode") == "backup-retention-apply-draft-preview":
+        return render_backup_retention_apply_markdown(report)
     if report.get("mode") == "financial-document-fetch-plan-preview":
         return render_financial_document_fetch_plan_markdown(report)
     if report.get("mode") == "operator-exact-document-refill-workspace-v2":
@@ -18428,6 +19074,118 @@ def render_backup_retention_markdown(report: dict[str, Any]) -> str:
             "- This task does not call ops_retention.py.",
             "- This task does not modify postgres_backup.sh.",
             "- This task does not mutate database state, import reports, score issuers, or trigger paper trading.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_backup_retention_apply_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Backup Retention Apply Draft Preview",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- backups directory: `{report.get('backups_dir')}`",
+        f"- Task138 preview status: `{report.get('task138_preview_status')}`",
+        f"- Task138 rotation rows: {report.get('rotation_plan_input_count', 0)}",
+        f"- apply rows: {report.get('apply_row_count', 0)}",
+        f"- eligible manual-delete preview rows: {report.get('eligible_manual_delete_preview_count', 0)}",
+        f"- skipped rows: {report.get('skipped_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        f"- manifest rows: {report.get('manifest_row_count', 0)}",
+        f"- estimated reclaimable space: {report.get('estimated_reclaimable_gb', 0)} GB",
+        "",
+        "## Apply Limits",
+        "",
+        f"- max delete-preview count: {report.get('max_delete_count', 0)}",
+        f"- max reclaim-preview size: {report.get('max_delete_gb', 0)} GB",
+        f"- required Task138 preview status: `{report.get('require_preview_status')}`",
+        f"- manual review required: `{report.get('require_manual_review')}`",
+        "",
+        "## Apply Status Counts",
+        "",
+    ]
+    lines.extend(f"- `{key}`: {value}" for key, value in (report.get("apply_status_counts") or {}).items())
+    if not report.get("apply_status_counts"):
+        lines.append("- none")
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(f"- `{key}`: {value}" for key, value in (report.get("blocker_code_counts") or {}).items())
+    if not report.get("blocker_code_counts"):
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Apply Rows",
+            "",
+            "| File | Status | Current bytes | Modified UTC | Action | Reasons |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("apply_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("file_name"),
+                    row.get("apply_status"),
+                    row.get("current_size_bytes"),
+                    row.get("current_mtime_utc"),
+                    row.get("apply_action"),
+                    _csv_value(row.get("apply_reason_codes")),
+                )
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Cleanup Manifest Preview",
+            "",
+            f"- cleanup script: `{(report.get('artifacts') or {}).get('cleanup_script')}`",
+            "",
+            "| File | Bytes | Modified UTC | Manual review | Script enabled |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("cleanup_manifest_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("file_name"),
+                    row.get("size_bytes"),
+                    row.get("mtime_utc"),
+                    row.get("manual_review_required"),
+                    row.get("cleanup_script_line_enabled"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("cleanup_manifest_rows"):
+        lines.append("| none | 0 | none | none | false |")
+    lines.extend(["", "## Next Steps", ""])
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates a backup cleanup apply-draft preview only.",
+            "- This task does not delete backup files.",
+            "- This task does not move backup files.",
+            "- This task does not compress backup files.",
+            "- This task does not upload backup files.",
+            "- This task does not restore backups.",
+            "- The generated shell script exits before any candidate commands.",
+            "- All candidate cleanup commands are commented.",
+            "- This task does not mutate the database.",
+            "- This task does not download or parse reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Any real cleanup must be a separate explicit manual action or future apply task.",
             "",
         ]
     )
@@ -28753,6 +29511,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Resolve Task137 blockers; rerun the Task132 disk guard immediately before any future controlled document write."]
     if mode == "backup-retention-preview":
         return ["Review Task138 rotation candidates manually; this preview never deletes or modifies backup files."]
+    if mode == "backup-retention-apply-draft-preview":
+        return ["Review the Task139 manifest and inert shell-script preview; any real cleanup remains a separate explicit manual action."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -28876,6 +29636,23 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
         return not duplicate and _backup_retention_output_path_is_safe(
             output_path,
             backups_dir=args.backup_retention_backups_dir,
+        )
+    if args.mode == "backup-retention-apply-draft-preview":
+        inputs = _backup_retention_apply_inputs(args)
+        artifacts = _backup_retention_apply_artifacts(args)
+        rotation_rows: list[dict[str, Any]] = []
+        rotation_path = inputs["rotation_plan"]
+        try:
+            payload = json.loads(rotation_path.read_text(encoding="utf-8")) if rotation_path is not None else {}
+            if isinstance(payload, dict) and isinstance(payload.get("rotation_plan_rows"), list):
+                rotation_rows = [row for row in payload["rotation_plan_rows"] if isinstance(row, dict)]
+        except (OSError, json.JSONDecodeError):
+            pass
+        return not _backup_retention_apply_output_errors(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            rotation_rows=rotation_rows,
         )
     protected_inputs = (
         [args.document_intake_input]
