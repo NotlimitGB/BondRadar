@@ -5215,6 +5215,326 @@ def test_operator_resolution_source_trust_draft_review_requires_input() -> None:
     assert report["errors"] == [{"message": "operator_resolution_source_pack_draft_input_required"}]
 
 
+def test_operator_resolution_source_trust_promote_apply_vds_like_preview_applies_nothing(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path,
+        [
+            _operator_resolution_source_trust_promote_preview_row(
+                resolution_id="financial_report_resolution:18:2025:annual:IFRS:fill_exact_document_url",
+                company_id="18",
+                company_name="RZD",
+                promote_preview_status="not_eligible_no_candidate",
+                promote_preview_action="preview_noop",
+            ),
+            _operator_resolution_source_trust_promote_preview_row(
+                promote_preview_status="not_eligible_no_candidate",
+                promote_preview_action="preview_noop",
+            ),
+        ],
+        [
+            _operator_resolution_source_pack_draft_row(
+                resolution_id="financial_report_resolution:18:2025:annual:IFRS:fill_exact_document_url",
+                company_id="18",
+                company_name="RZD",
+            ),
+            _operator_resolution_source_pack_draft_row(),
+        ],
+    )
+
+    assert report["row_count"] == 2
+    assert report["applied_count"] == 0
+    assert report["skipped_count"] == 2
+    assert report["failed_count"] == 0
+    assert report["apply_status_counts"] == {"skipped_not_eligible_no_candidate": 2}
+
+
+def test_operator_resolution_source_trust_promote_apply_eligible_row_updates_new_draft_only(tmp_path: Path) -> None:
+    preview = _operator_resolution_source_trust_promote_preview_row()
+    draft = _operator_resolution_source_pack_promote_draft_row()
+    report = _run_operator_resolution_source_trust_promote_apply(tmp_path, [preview], [draft])
+    applied = report["apply_rows"][0]
+    promoted = json.loads(
+        Path(report["artifacts"]["source_pack_promoted_apply_draft_json"]).read_text(encoding="utf-8")
+    )["resolutions"][0]
+
+    assert applied["apply_status"] == "applied_to_promoted_source_pack_draft"
+    assert applied["would_change_promoted_apply_draft"] is True
+    assert report["applied_count"] == 1
+    assert promoted["source_context_status"] == "source_context_promoted_apply_draft_for_future_merge"
+    assert promoted["trusted_host_status"] == "promoted_apply_draft_not_baseline_trusted"
+    assert promoted["candidate_current_known_source_page_url"] == preview["proposed_current_known_source_page_url"]
+    assert report["would_update_original_source_pack"] is False
+    assert report["would_promote_source_now"] is False
+
+
+def test_operator_resolution_source_trust_promote_apply_eligible_missing_source_fails_row(tmp_path: Path) -> None:
+    report = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path,
+        [_operator_resolution_source_trust_promote_preview_row(proposed_current_known_source_page_url="")],
+        [_operator_resolution_source_pack_promote_draft_row(current_known_source_page_url="")],
+    )
+
+    assert report["status"] == "warning"
+    assert report["failed_count"] == 1
+    assert report["apply_rows"][0]["apply_status"] == "failed_apply_missing_proposed_source"
+
+
+def test_operator_resolution_source_trust_promote_apply_skips_noneligible_statuses(tmp_path: Path) -> None:
+    statuses = {
+        "not_eligible_pending_review": "skipped_not_eligible_pending_review",
+        "not_eligible_invalid_candidate": "skipped_not_eligible_invalid_candidate",
+        "not_eligible_candidate_conflict": "skipped_not_eligible_candidate_conflict",
+        "not_eligible_warning_requires_manual_decision": "skipped_not_eligible_warning_requires_manual_decision",
+    }
+    preview_rows = [
+        _operator_resolution_source_trust_promote_preview_row(
+            resolution_id=f"resolution:{index}",
+            company_id=str(index),
+            promote_preview_status=status,
+            promote_preview_action="preview_noop",
+        )
+        for index, status in enumerate(statuses, start=1)
+    ]
+    draft_rows = [
+        _operator_resolution_source_pack_promote_draft_row(
+            resolution_id=str(row["resolution_id"]),
+            company_id=str(row["company_id"]),
+        )
+        for row in preview_rows
+    ]
+
+    report = _run_operator_resolution_source_trust_promote_apply(tmp_path, preview_rows, draft_rows)
+
+    assert [row["apply_status"] for row in report["apply_rows"]] == list(statuses.values())
+    assert report["skipped_count"] == 4
+
+
+def test_operator_resolution_source_trust_promote_apply_blocks_missing_match_drift_and_unsafe_flags(tmp_path: Path) -> None:
+    missing = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path / "missing",
+        [_operator_resolution_source_trust_promote_preview_row()],
+        [],
+    )
+    drift = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path / "drift",
+        [_operator_resolution_source_trust_promote_preview_row()],
+        [_operator_resolution_source_pack_promote_draft_row(current_known_source_page_url="https://mostotrest.ru/other-reports/")],
+    )
+    unsafe = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path / "unsafe",
+        [_operator_resolution_source_trust_promote_preview_row(would_extract_values=True)],
+        [_operator_resolution_source_pack_promote_draft_row()],
+    )
+
+    assert missing["apply_rows"][0]["apply_status"] == "failed_apply_missing_matching_promote_draft_row"
+    assert drift["apply_rows"][0]["apply_status"] == "failed_apply_task128_artifact_drift"
+    assert unsafe["apply_rows"][0]["apply_status"] == "failed_apply_unsafe_preview_flags"
+
+
+def test_operator_resolution_source_trust_promote_apply_blocks_duplicate_resolution_ids(tmp_path: Path) -> None:
+    preview = _operator_resolution_source_trust_promote_preview_row()
+    report = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path,
+        [preview, dict(preview)],
+        [_operator_resolution_source_pack_promote_draft_row()],
+    )
+
+    assert report["failed_count"] == 2
+    assert all(row["apply_status"] == "failed_apply_duplicate_resolution_id" for row in report["apply_rows"])
+
+
+def test_operator_resolution_source_trust_promote_apply_blocks_duplicate_draft_resolution_ids(tmp_path: Path) -> None:
+    draft = _operator_resolution_source_pack_promote_draft_row()
+    report = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path,
+        [_operator_resolution_source_trust_promote_preview_row()],
+        [draft, dict(draft)],
+    )
+
+    assert report["failed_count"] == 1
+    assert report["apply_rows"][0]["apply_status"] == "failed_apply_duplicate_resolution_id"
+
+
+def test_operator_resolution_source_trust_promote_apply_preserves_inputs_and_raw_list_shape(tmp_path: Path) -> None:
+    preview_path = tmp_path / "preview.json"
+    draft_path = tmp_path / "promote_draft.json"
+    preview = _operator_resolution_source_trust_promote_preview_row()
+    draft = _operator_resolution_source_pack_promote_draft_row()
+    _write_operator_resolution_source_trust_promote_preview(preview_path, [preview])
+    draft_path.write_text(json.dumps([draft]), encoding="utf-8")
+    preview_original = preview_path.read_bytes()
+    draft_original = draft_path.read_bytes()
+
+    report = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path,
+        [preview],
+        [draft],
+        preview_path=preview_path,
+        draft_path=draft_path,
+    )
+    promoted = json.loads(
+        Path(report["artifacts"]["source_pack_promoted_apply_draft_json"]).read_text(encoding="utf-8")
+    )
+
+    assert isinstance(promoted, list)
+    assert preview_path.read_bytes() == preview_original
+    assert draft_path.read_bytes() == draft_original
+    assert report["promote_preview_input_modified"] is False
+    assert report["task128_promote_draft_modified"] is False
+
+
+def test_operator_resolution_source_trust_promote_apply_preserves_rows_shape_and_explicit_output(tmp_path: Path) -> None:
+    preview_path = tmp_path / "preview.json"
+    draft_path = tmp_path / "promote_draft.json"
+    output_path = tmp_path / "custom" / "promoted_apply_draft.json"
+    _write_operator_resolution_source_trust_promote_preview(
+        preview_path,
+        [_operator_resolution_source_trust_promote_preview_row()],
+    )
+    draft_path.write_text(
+        json.dumps({"rows": [_operator_resolution_source_pack_promote_draft_row()]}),
+        encoding="utf-8",
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-promote-apply-draft",
+            "--operator-resolution-source-trust-promote-preview-input",
+            str(preview_path),
+            "--operator-resolution-source-pack-promote-draft-input",
+            str(draft_path),
+            "--operator-resolution-source-pack-promoted-apply-draft-output",
+            str(output_path),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["applied_count"] == 1
+    assert report["artifacts"]["source_pack_promoted_apply_draft_json"] == str(output_path)
+    promoted = json.loads(output_path.read_text(encoding="utf-8"))
+    assert "rows" in promoted
+    assert "resolutions" not in promoted
+
+
+def test_operator_resolution_source_trust_promote_apply_output_dir_defaults_write_artifacts(tmp_path: Path) -> None:
+    preview_path = tmp_path / assistant.OPERATOR_RESOLUTION_SOURCE_TRUST_DRAFT_REVIEW_ARTIFACT_NAMES["promote_preview_json"]
+    draft_path = tmp_path / assistant.OPERATOR_RESOLUTION_SOURCE_TRUST_DRAFT_REVIEW_ARTIFACT_NAMES[
+        "source_pack_promote_draft_json"
+    ]
+    _write_operator_resolution_source_trust_promote_preview(
+        preview_path,
+        [_operator_resolution_source_trust_promote_preview_row()],
+    )
+    _write_operator_resolution_source_pack_draft(
+        draft_path,
+        [_operator_resolution_source_pack_promote_draft_row()],
+    )
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-promote-apply-draft",
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    assert report["applied_count"] == 1
+    for path in report["artifacts"].values():
+        assert Path(path).is_file()
+    assert "# Operator Source Trust Promote Apply Draft" in Path(report["artifacts"]["apply_markdown"]).read_text(
+        encoding="utf-8"
+    )
+
+
+def test_operator_resolution_source_trust_promote_apply_output_collision_fails_safely(tmp_path: Path) -> None:
+    preview_path = tmp_path / "preview.json"
+    draft_path = tmp_path / "promote_draft.json"
+    _write_operator_resolution_source_trust_promote_preview(preview_path, [])
+    _write_operator_resolution_source_pack_draft(draft_path, [])
+    original = draft_path.read_bytes()
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-promote-apply-draft",
+            "--operator-resolution-source-trust-promote-preview-input",
+            str(preview_path),
+            "--operator-resolution-source-pack-promote-draft-input",
+            str(draft_path),
+            "--json-output",
+            str(draft_path),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["status"] == "failed"
+    assert any(
+        error["message"] == "operator_resolution_source_trust_promote_apply_output_must_not_equal_input"
+        for error in report["errors"]
+    )
+    assert draft_path.read_bytes() == original
+
+
+def test_operator_resolution_source_trust_promote_apply_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task129 promote apply draft must not fetch, probe, or download documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_operator_resolution_source_trust_promote_apply(
+        tmp_path,
+        [_operator_resolution_source_trust_promote_preview_row()],
+        [_operator_resolution_source_pack_promote_draft_row()],
+    )
+
+    assert report["would_update_original_source_pack"] is False
+    assert report["would_update_task127_draft"] is False
+    assert report["would_update_task128_promote_draft"] is False
+    assert report["would_trust_manual_source"] is False
+    assert report["would_promote_source_now"] is False
+    assert report["would_update_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+
+
+def test_operator_resolution_source_trust_promote_apply_requires_inputs() -> None:
+    args = assistant.parse_args(["--mode", "operator-resolution-source-trust-promote-apply-draft"])
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["errors"] == [{"message": "operator_resolution_source_trust_promote_preview_input_required"}]
+
+
+def test_operator_resolution_source_trust_promote_apply_requires_draft_input(tmp_path: Path) -> None:
+    preview = tmp_path / "preview.json"
+    _write_operator_resolution_source_trust_promote_preview(preview, [])
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-promote-apply-draft",
+            "--operator-resolution-source-trust-promote-preview-input",
+            str(preview),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 1
+    assert report["errors"] == [{"message": "operator_resolution_source_pack_promote_draft_input_required"}]
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -9435,6 +9755,98 @@ def _run_operator_resolution_source_trust_draft_review(
 def _load_task128_promote_rows(report: dict) -> list[dict]:
     payload = json.loads(Path(report["artifacts"]["promote_preview_json"]).read_text(encoding="utf-8"))
     return payload["promote_preview_rows"]
+
+
+def _operator_resolution_source_trust_promote_preview_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "promote_preview_id": "operator_source_trust_promote_preview:financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "review_id": "operator_source_trust_review:financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "resolution_id": "financial_report_resolution:67:2025:annual:IFRS:fill_exact_document_url",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "promote_preview_status": "eligible_for_source_pack_promote_draft",
+        "promote_preview_action": "preview_promote_candidate_source_context_in_draft",
+        "promote_preview_reason_codes": [],
+        "proposed_current_known_source_page_url": "https://mostotrest.ru/reports/",
+        "proposed_current_known_document_url": "https://docs.mostotrest.ru/reports/annual-ifrs-2025.pdf",
+        "would_update_original_source_pack": False,
+        "would_trust_manual_source": False,
+        "would_promote_source_now": False,
+        "would_update_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+    }
+    row.update(updates)
+    return row
+
+
+def _operator_resolution_source_pack_promote_draft_row(**updates: object) -> dict[str, object]:
+    row = _operator_resolution_source_pack_draft_row(
+        current_known_source_page_url="https://mostotrest.ru/reports/",
+        current_known_document_url="https://docs.mostotrest.ru/reports/annual-ifrs-2025.pdf",
+        candidate_current_known_source_page_url="https://mostotrest.ru/reports/",
+        candidate_current_known_document_url="https://docs.mostotrest.ru/reports/annual-ifrs-2025.pdf",
+        source_context_status="source_context_candidate_reviewed_for_future_merge",
+        operator_source_review_status="reviewed_for_future_controlled_merge",
+        source_context_origin="operator_resolution_source_trust_draft_review_task128",
+        trusted_host_status="candidate_reviewed_not_yet_baseline_trusted",
+    )
+    row.update(updates)
+    return row
+
+
+def _write_operator_resolution_source_trust_promote_preview(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-resolution-source-trust-promote-preview",
+                "promote_preview_rows": rows,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _run_operator_resolution_source_trust_promote_apply(
+    tmp_path: Path,
+    preview_rows: list[dict[str, object]],
+    draft_rows: list[dict[str, object]],
+    *,
+    preview_path: Path | None = None,
+    draft_path: Path | None = None,
+    extra_args: list[str] | None = None,
+) -> dict:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    preview = preview_path or tmp_path / assistant.OPERATOR_RESOLUTION_SOURCE_TRUST_DRAFT_REVIEW_ARTIFACT_NAMES[
+        "promote_preview_json"
+    ]
+    draft = draft_path or tmp_path / assistant.OPERATOR_RESOLUTION_SOURCE_TRUST_DRAFT_REVIEW_ARTIFACT_NAMES[
+        "source_pack_promote_draft_json"
+    ]
+    if preview_path is None:
+        _write_operator_resolution_source_trust_promote_preview(preview, preview_rows)
+    if draft_path is None:
+        _write_operator_resolution_source_pack_draft(draft, draft_rows)
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-resolution-source-trust-promote-apply-draft",
+            "--operator-resolution-source-trust-promote-preview-input",
+            str(preview),
+            "--operator-resolution-source-pack-promote-draft-input",
+            str(draft),
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == 0
+    return report
 
 
 def _run_availability_discovery(

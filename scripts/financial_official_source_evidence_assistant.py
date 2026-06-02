@@ -49,6 +49,7 @@ MODE_CHOICES = (
     "operator-resolution-source-trust-workspace",
     "operator-resolution-source-trust-refill-validate",
     "operator-resolution-source-trust-draft-review",
+    "operator-resolution-source-trust-promote-apply-draft",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -1687,6 +1688,55 @@ OPERATOR_RESOLUTION_SOURCE_TRUST_PROMOTE_PREVIEW_FIELDS = [
     "would_trigger_paper_trading",
     "future_chain_rerun_required",
 ]
+OPERATOR_RESOLUTION_SOURCE_TRUST_PROMOTE_APPLY_ARTIFACT_NAMES = {
+    "apply_json": "operator_resolution_source_trust_promote_apply_task129.json",
+    "apply_csv": "operator_resolution_source_trust_promote_apply_task129.csv",
+    "apply_markdown": "operator_resolution_source_trust_promote_apply_task129.md",
+    "source_pack_promoted_apply_draft_json": "operator_resolution_source_pack_promoted_apply_draft_task129.json",
+    "source_pack_promoted_apply_draft_csv": "operator_resolution_source_pack_promoted_apply_draft_task129.csv",
+}
+OPERATOR_RESOLUTION_SOURCE_TRUST_PROMOTE_APPLY_FIELDS = [
+    "apply_id",
+    "promote_preview_id",
+    "review_id",
+    "resolution_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "promote_preview_status",
+    "promote_preview_action",
+    "promote_preview_reason_codes",
+    "apply_status",
+    "apply_action",
+    "apply_reason_codes",
+    "apply_errors",
+    "apply_warnings",
+    "existing_current_known_source_page_url",
+    "existing_current_known_document_url",
+    "proposed_current_known_source_page_url",
+    "proposed_current_known_document_url",
+    "applied_current_known_source_page_url",
+    "applied_current_known_document_url",
+    "applied_source_context_status",
+    "applied_operator_source_review_status",
+    "applied_trusted_host_status",
+    "applied_source_context_origin",
+    "would_change_promoted_apply_draft",
+    "would_update_original_source_pack",
+    "would_update_task127_draft",
+    "would_update_task128_promote_draft",
+    "would_trust_manual_source",
+    "would_promote_source_now",
+    "would_update_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -2006,6 +2056,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-source-trust-promote-preview-markdown-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-source-pack-promote-draft-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-source-pack-promote-draft-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-promote-preview-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-pack-promote-draft-input", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-promote-apply-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-promote-apply-csv-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-trust-promote-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-pack-promoted-apply-draft-output", type=Path, default=None)
+    parser.add_argument("--operator-resolution-source-pack-promoted-apply-draft-csv-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -2090,6 +2147,8 @@ def run_assistant(
         report = run_operator_resolution_source_trust_refill_validate(args)
     elif args.mode == "operator-resolution-source-trust-draft-review":
         report = run_operator_resolution_source_trust_draft_review(args)
+    elif args.mode == "operator-resolution-source-trust-promote-apply-draft":
+        report = run_operator_resolution_source_trust_promote_apply_draft(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -6683,6 +6742,393 @@ def _failed_operator_resolution_source_trust_draft_review(errors: list[dict[str,
     }
 
 
+def run_operator_resolution_source_trust_promote_apply_draft(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _operator_resolution_source_trust_promote_apply_inputs(args)
+    preview_path = inputs["promote_preview"]
+    if preview_path is None or not preview_path.is_file():
+        return _failed_operator_resolution_source_trust_promote_apply(
+            [{"message": "operator_resolution_source_trust_promote_preview_input_required"}],
+        )
+    draft_path = inputs["promote_draft"]
+    if draft_path is None or not draft_path.is_file():
+        return _failed_operator_resolution_source_trust_promote_apply(
+            [{"message": "operator_resolution_source_pack_promote_draft_input_required"}],
+        )
+    try:
+        preview_original_bytes = preview_path.read_bytes()
+        draft_original_bytes = draft_path.read_bytes()
+        preview_report = _load_json_object(preview_path)
+        preview_rows = preview_report.get("promote_preview_rows")
+        if not isinstance(preview_rows, list) or not all(isinstance(row, dict) for row in preview_rows):
+            raise ValueError("Task128 promote preview JSON must contain promote_preview_rows")
+        draft_payload, draft_rows = _load_operator_resolution_source_pack_payload(draft_path)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _failed_operator_resolution_source_trust_promote_apply(
+            [{"message": f"operator_resolution_source_trust_promote_apply_input_unreadable:{exc}"}],
+        )
+
+    artifacts = _operator_resolution_source_trust_promote_apply_artifacts(args, draft_path)
+    collision_errors = _operator_resolution_source_trust_promote_apply_collision_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if collision_errors:
+        return _failed_operator_resolution_source_trust_promote_apply(collision_errors)
+
+    apply_rows = _build_operator_resolution_source_trust_promote_apply_rows(
+        preview_rows=preview_rows,
+        draft_rows=draft_rows,
+    )
+    promoted_draft_rows = _build_operator_resolution_source_pack_promoted_apply_draft_rows(
+        draft_rows=draft_rows,
+        apply_rows=apply_rows,
+    )
+    report = _build_operator_resolution_source_trust_promote_apply_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        rows=apply_rows,
+    )
+    try:
+        write_json_report(report, artifacts["apply_json"])
+        _write_flat_csv(apply_rows, OPERATOR_RESOLUTION_SOURCE_TRUST_PROMOTE_APPLY_FIELDS, artifacts["apply_csv"])
+        write_operator_resolution_source_trust_promote_apply_markdown(report, artifacts["apply_markdown"])
+        write_operator_resolution_source_pack_draft_json(
+            draft_payload,
+            promoted_draft_rows,
+            artifacts["source_pack_promoted_apply_draft_json"],
+        )
+        write_operator_resolution_source_pack_draft_csv(
+            promoted_draft_rows,
+            artifacts["source_pack_promoted_apply_draft_csv"],
+        )
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+
+    if preview_path.is_file() and preview_path.read_bytes() != preview_original_bytes:
+        report["status"] = "failed"
+        report["promote_preview_input_modified"] = True
+        report["errors"] = [*report.get("errors", []), {"message": "operator_resolution_source_trust_promote_preview_was_modified"}]
+    if draft_path.is_file() and draft_path.read_bytes() != draft_original_bytes:
+        report["status"] = "failed"
+        report["task128_promote_draft_modified"] = True
+        report["errors"] = [*report.get("errors", []), {"message": "operator_resolution_source_pack_promote_draft_was_modified"}]
+    return report
+
+
+def _operator_resolution_source_trust_promote_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "promote_preview": args.operator_resolution_source_trust_promote_preview_input
+        or (output_dir / OPERATOR_RESOLUTION_SOURCE_TRUST_DRAFT_REVIEW_ARTIFACT_NAMES["promote_preview_json"] if output_dir else None),
+        "promote_draft": args.operator_resolution_source_pack_promote_draft_input
+        or (output_dir / OPERATOR_RESOLUTION_SOURCE_TRUST_DRAFT_REVIEW_ARTIFACT_NAMES["source_pack_promote_draft_json"] if output_dir else None),
+    }
+
+
+def _operator_resolution_source_trust_promote_apply_artifacts(
+    args: argparse.Namespace,
+    draft_path: Path,
+) -> dict[str, Path]:
+    output_dir = args.operator_resolution_chain_output_dir or draft_path.parent
+    overrides = {
+        "apply_json": args.operator_resolution_source_trust_promote_apply_output,
+        "apply_csv": args.operator_resolution_source_trust_promote_apply_csv_output,
+        "apply_markdown": args.operator_resolution_source_trust_promote_apply_markdown_output,
+        "source_pack_promoted_apply_draft_json": args.operator_resolution_source_pack_promoted_apply_draft_output,
+        "source_pack_promoted_apply_draft_csv": args.operator_resolution_source_pack_promoted_apply_draft_csv_output,
+    }
+    return {
+        key: overrides[key] or output_dir / file_name
+        for key, file_name in OPERATOR_RESOLUTION_SOURCE_TRUST_PROMOTE_APPLY_ARTIFACT_NAMES.items()
+    }
+
+
+def _operator_resolution_source_trust_promote_apply_collision_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path],
+) -> list[dict[str, Any]]:
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    outputs = [
+        *artifacts.values(),
+        *(path for path in (args.json_output, args.markdown_output) if path is not None),
+    ]
+    errors: list[dict[str, Any]] = []
+    for output_path in outputs:
+        for input_path in protected_inputs:
+            if _paths_equal(output_path, input_path):
+                errors.append(
+                    {
+                        "message": "operator_resolution_source_trust_promote_apply_output_must_not_equal_input",
+                        "output_path": str(output_path),
+                        "input_path": str(input_path),
+                    }
+                )
+    return errors
+
+
+def _build_operator_resolution_source_trust_promote_apply_rows(
+    *,
+    preview_rows: list[dict[str, Any]],
+    draft_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    preview_counts = _operator_resolution_id_counts(preview_rows)
+    draft_counts = _operator_resolution_id_counts(draft_rows)
+    draft_by_id = _rows_by_resolution_id(draft_rows)
+    return [
+        _build_operator_resolution_source_trust_promote_apply_row(
+            preview,
+            draft=draft_by_id.get(str(preview.get("resolution_id") or "")),
+            duplicate_resolution_id=preview_counts.get(str(preview.get("resolution_id") or ""), 0) > 1
+            or draft_counts.get(str(preview.get("resolution_id") or ""), 0) > 1,
+        )
+        for preview in preview_rows
+    ]
+
+
+def _operator_resolution_id_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in rows:
+        resolution_id = str(row.get("resolution_id") or "")
+        if resolution_id:
+            counts[resolution_id] = counts.get(resolution_id, 0) + 1
+    return counts
+
+
+def _build_operator_resolution_source_trust_promote_apply_row(
+    preview: dict[str, Any],
+    *,
+    draft: dict[str, Any] | None,
+    duplicate_resolution_id: bool,
+) -> dict[str, Any]:
+    preview_status = str(preview.get("promote_preview_status") or "")
+    preview_action = str(preview.get("promote_preview_action") or "")
+    proposed_page = str(preview.get("proposed_current_known_source_page_url") or "")
+    proposed_document = str(preview.get("proposed_current_known_document_url") or "")
+    errors: list[str] = []
+    warnings: list[str] = []
+    reasons = list(preview.get("promote_preview_reason_codes") or [])
+    skipped_status = {
+        "not_eligible_no_candidate": "skipped_not_eligible_no_candidate",
+        "not_eligible_pending_review": "skipped_not_eligible_pending_review",
+        "not_eligible_invalid_candidate": "skipped_not_eligible_invalid_candidate",
+        "not_eligible_candidate_conflict": "skipped_not_eligible_candidate_conflict",
+        "not_eligible_warning_requires_manual_decision": "skipped_not_eligible_warning_requires_manual_decision",
+    }.get(preview_status)
+    if skipped_status:
+        status = skipped_status
+        action = "skip"
+    elif preview_status != "eligible_for_source_pack_promote_draft":
+        status = "failed_apply_unexpected_promote_preview_action"
+        action = "fail"
+        errors.append("unexpected_promote_preview_status")
+    elif preview_action != "preview_promote_candidate_source_context_in_draft":
+        status = "failed_apply_unexpected_promote_preview_action"
+        action = "fail"
+        errors.append("unexpected_promote_preview_action")
+    elif not proposed_page:
+        status = "failed_apply_missing_proposed_source"
+        action = "fail"
+        errors.append("missing_proposed_current_known_source_page_url")
+    elif duplicate_resolution_id:
+        status = "failed_apply_duplicate_resolution_id"
+        action = "fail"
+        errors.append("duplicate_resolution_id")
+    elif draft is None:
+        status = "failed_apply_missing_matching_promote_draft_row"
+        action = "fail"
+        errors.append("missing_matching_promote_draft_row")
+    elif _operator_resolution_source_trust_promote_apply_has_unsafe_flags(preview):
+        status = "failed_apply_unsafe_preview_flags"
+        action = "fail"
+        errors.append("unsafe_preview_mutation_flags")
+    elif _operator_resolution_source_trust_promote_apply_has_drift(
+        draft,
+        proposed_page=proposed_page,
+        proposed_document=proposed_document,
+    ):
+        status = "failed_apply_task128_artifact_drift"
+        action = "fail"
+        errors.append("task128_promote_preview_draft_mismatch")
+    else:
+        status = "applied_to_promoted_source_pack_draft"
+        action = "apply_candidate_to_promoted_source_pack_draft"
+    changed = status == "applied_to_promoted_source_pack_draft"
+    return {
+        "apply_id": f"operator_source_trust_promote_apply:{preview.get('resolution_id') or ''}",
+        "promote_preview_id": preview.get("promote_preview_id") or "",
+        "review_id": preview.get("review_id") or "",
+        "resolution_id": preview.get("resolution_id") or "",
+        "company_id": preview.get("company_id") or (draft or {}).get("company_id") or "",
+        "company_name": preview.get("company_name") or (draft or {}).get("company_name") or "",
+        "canonical_company_id": preview.get("canonical_company_id") or (draft or {}).get("canonical_company_id") or "",
+        "canonical_company_name": preview.get("canonical_company_name") or (draft or {}).get("canonical_company_name") or "",
+        "target_reporting_period": preview.get("target_reporting_period") or (draft or {}).get("target_reporting_period") or "",
+        "required_report_type": preview.get("required_report_type") or (draft or {}).get("required_report_type") or "",
+        "required_standard": preview.get("required_standard") or (draft or {}).get("required_standard") or "",
+        "promote_preview_status": preview_status,
+        "promote_preview_action": preview_action,
+        "promote_preview_reason_codes": reasons,
+        "apply_status": status,
+        "apply_action": action,
+        "apply_reason_codes": list(dict.fromkeys([*reasons, *errors])),
+        "apply_errors": errors,
+        "apply_warnings": warnings,
+        "existing_current_known_source_page_url": (draft or {}).get("current_known_source_page_url") or "",
+        "existing_current_known_document_url": (draft or {}).get("current_known_document_url") or "",
+        "proposed_current_known_source_page_url": proposed_page,
+        "proposed_current_known_document_url": proposed_document,
+        "applied_current_known_source_page_url": proposed_page if changed else "",
+        "applied_current_known_document_url": proposed_document if changed else "",
+        "applied_source_context_status": "source_context_promoted_apply_draft_for_future_merge" if changed else "",
+        "applied_operator_source_review_status": "reviewed_for_future_controlled_merge" if changed else "",
+        "applied_trusted_host_status": "promoted_apply_draft_not_baseline_trusted" if changed else "",
+        "applied_source_context_origin": "operator_resolution_source_trust_promote_apply_draft_task129" if changed else "",
+        "would_change_promoted_apply_draft": changed,
+        "would_update_original_source_pack": False,
+        "would_update_task127_draft": False,
+        "would_update_task128_promote_draft": False,
+        "would_trust_manual_source": False,
+        "would_promote_source_now": False,
+        "would_update_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+    }
+
+
+def _operator_resolution_source_trust_promote_apply_has_unsafe_flags(preview: dict[str, Any]) -> bool:
+    return any(
+        _operator_resolution_bool(preview.get(field))
+        for field in (
+            "would_update_original_source_pack",
+            "would_trust_manual_source",
+            "would_promote_source_now",
+            "would_update_database",
+            "would_extract_values",
+            "would_import_report",
+            "would_mutate_scores",
+            "would_trigger_paper_trading",
+        )
+    )
+
+
+def _operator_resolution_source_trust_promote_apply_has_drift(
+    draft: dict[str, Any],
+    *,
+    proposed_page: str,
+    proposed_document: str,
+) -> bool:
+    return bool(
+        str(draft.get("current_known_source_page_url") or "") != proposed_page
+        or str(draft.get("current_known_document_url") or "") != proposed_document
+        or draft.get("source_context_status") != "source_context_candidate_reviewed_for_future_merge"
+        or draft.get("operator_source_review_status") != "reviewed_for_future_controlled_merge"
+        or draft.get("trusted_host_status") != "candidate_reviewed_not_yet_baseline_trusted"
+    )
+
+
+def _build_operator_resolution_source_pack_promoted_apply_draft_rows(
+    *,
+    draft_rows: list[dict[str, Any]],
+    apply_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    result = copy.deepcopy(draft_rows)
+    apply_by_id = {
+        str(row.get("resolution_id") or ""): row
+        for row in apply_rows
+        if row.get("apply_status") == "applied_to_promoted_source_pack_draft"
+    }
+    for row in result:
+        applied = apply_by_id.get(str(row.get("resolution_id") or ""))
+        if not applied:
+            continue
+        row.update(
+            {
+                "current_known_source_page_url": applied.get("applied_current_known_source_page_url") or "",
+                "current_known_document_url": applied.get("applied_current_known_document_url") or "",
+                "source_context_status": "source_context_promoted_apply_draft_for_future_merge",
+                "operator_source_review_status": "reviewed_for_future_controlled_merge",
+                "source_context_origin": "operator_resolution_source_trust_promote_apply_draft_task129",
+                "trusted_host_status": "promoted_apply_draft_not_baseline_trusted",
+            }
+        )
+    return result
+
+
+def _build_operator_resolution_source_trust_promote_apply_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path],
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    summary = {
+        "row_count": len(rows),
+        "applied_count": sum(1 for row in rows if row.get("apply_status") == "applied_to_promoted_source_pack_draft"),
+        "skipped_count": sum(1 for row in rows if str(row.get("apply_status") or "").startswith("skipped_")),
+        "failed_count": sum(1 for row in rows if str(row.get("apply_status") or "").startswith("failed_")),
+        "apply_status_counts": _count_by_key(rows, "apply_status"),
+        "apply_action_counts": _count_by_key(rows, "apply_action"),
+    }
+    status = "passed" if rows and summary["skipped_count"] == 0 and summary["failed_count"] == 0 else "warning"
+    return {
+        "status": status,
+        "mode": "operator-resolution-source-trust-promote-apply-draft",
+        "operator_resolution_source_trust_promote_preview_input": _path_value(inputs["promote_preview"]),
+        "operator_resolution_source_pack_promote_draft_input": _path_value(inputs["promote_draft"]),
+        **summary,
+        "promoted_source_pack_apply_draft_created": True,
+        "promote_preview_input_modified": False,
+        "task128_promote_draft_modified": False,
+        "apply_rows": rows,
+        "artifacts": {key: str(path) for key, path in artifacts.items()},
+        "warnings": [],
+        "errors": [],
+        "next_steps": _next_steps("operator-resolution-source-trust-promote-apply-draft", status),
+        "would_update_original_source_pack": False,
+        "would_update_task127_draft": False,
+        "would_update_task128_promote_draft": False,
+        "would_trust_manual_source": False,
+        "would_promote_source_now": False,
+        "would_update_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
+def _failed_operator_resolution_source_trust_promote_apply(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "operator-resolution-source-trust-promote-apply-draft",
+        "row_count": 0,
+        "applied_count": 0,
+        "skipped_count": 0,
+        "failed_count": 0,
+        "promoted_source_pack_apply_draft_created": False,
+        "apply_status_counts": {},
+        "apply_action_counts": {},
+        "apply_rows": [],
+        "warnings": [],
+        "errors": errors,
+        "would_update_original_source_pack": False,
+        "would_update_task127_draft": False,
+        "would_update_task128_promote_draft": False,
+        "would_trust_manual_source": False,
+        "would_promote_source_now": False,
+        "would_update_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        **SAFETY_FLAGS,
+    }
+
+
 def _operator_resolution_apply_draft_output_paths(args: argparse.Namespace) -> list[Path | None]:
     return [
         args.document_intake_draft_output,
@@ -9405,6 +9851,11 @@ def write_operator_resolution_source_trust_promote_preview_markdown(report: dict
     path.write_text(render_operator_resolution_source_trust_promote_preview_markdown(report), encoding="utf-8")
 
 
+def write_operator_resolution_source_trust_promote_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_operator_resolution_source_trust_promote_apply_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -9558,6 +10009,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_resolution_source_trust_draft_review_markdown(report)
     if report.get("mode") == "operator-resolution-source-trust-promote-preview":
         return render_operator_resolution_source_trust_promote_preview_markdown(report)
+    if report.get("mode") == "operator-resolution-source-trust-promote-apply-draft":
+        return render_operator_resolution_source_trust_promote_apply_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -10709,6 +11162,75 @@ def _operator_resolution_source_trust_draft_review_safety_notes() -> list[str]:
         "- Historical fallback URLs are diagnostic-only.",
         "",
     ]
+
+
+def render_operator_resolution_source_trust_promote_apply_markdown(report: dict[str, Any]) -> str:
+    rows = report.get("apply_rows") or []
+    lines = [
+        "# Operator Source Trust Promote Apply Draft",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- applied: {report.get('applied_count', 0)}",
+        f"- skipped: {report.get('skipped_count', 0)}",
+        f"- failed: {report.get('failed_count', 0)}",
+        f"- promoted source-pack apply draft created: {report.get('promoted_source_pack_apply_draft_created')}",
+        "",
+        "## Apply Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("apply_status_counts") or {}))
+    lines.extend(["", "## Apply Action Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("apply_action_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Promoted Apply Draft Rows",
+            "",
+            "| Company | Promote preview | Apply status | Proposed source | Applied source | Action |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    if rows:
+        for row in rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    _markdown_table_cell(value)
+                    for value in (
+                        row.get("company_name") or row.get("company_id"),
+                        row.get("promote_preview_status"),
+                        row.get("apply_status"),
+                        row.get("proposed_current_known_source_page_url"),
+                        row.get("applied_current_known_source_page_url"),
+                        row.get("apply_action"),
+                    )
+                )
+                + " |"
+            )
+    else:
+        lines.append("| none |  |  |  |  |  |")
+    lines.extend(["", "## Generated Artifacts", ""])
+    artifacts = report.get("artifacts") or {}
+    lines.extend(f"- {key}: `{value}`" for key, value in artifacts.items()) if artifacts else lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates a promoted source-pack apply draft only.",
+            "- This task does not overwrite original source packs.",
+            "- This task does not overwrite Task127 or Task128 drafts.",
+            "- This task does not make manual URLs trusted automatically.",
+            "- This task does not promote sources now.",
+            "- This task does not fetch or probe URLs.",
+            "- This task does not extract/import/score/trade.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
 
 
 def _markdown_count_lines(counts: dict[str, Any]) -> list[str]:
@@ -20531,6 +21053,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review pending source-pack draft candidates; manual URLs remain untrusted until a future controlled review task."]
     if mode == "operator-resolution-source-trust-draft-review":
         return ["Review promote-draft candidates; a later controlled merge task is still required before baseline source trust changes."]
+    if mode == "operator-resolution-source-trust-promote-apply-draft":
+        return ["Review the promoted apply draft; baseline source trust still requires a later controlled merge task."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -20633,6 +21157,11 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args.operator_resolution_source_trust_patch_preview_input,
         ]
         if args.mode == "operator-resolution-source-trust-draft-review"
+        else [
+            args.operator_resolution_source_trust_promote_preview_input,
+            args.operator_resolution_source_pack_promote_draft_input,
+        ]
+        if args.mode == "operator-resolution-source-trust-promote-apply-draft"
         else []
     )
     return all(
