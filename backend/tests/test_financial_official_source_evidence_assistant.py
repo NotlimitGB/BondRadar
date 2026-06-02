@@ -6789,6 +6789,312 @@ def test_operator_exact_document_refill_workspace_never_calls_network_helpers(tm
         assert report[key] is False
 
 
+def test_operator_exact_document_refill_validation_splits_vds_like_rows_and_writes_artifacts(tmp_path: Path) -> None:
+    output_dir = tmp_path / "task124_chain_preview"
+    template = output_dir / "operator_exact_document_refill_template_task134.csv"
+    workspace = output_dir / "operator_exact_document_refill_workspace_task134.json"
+    fetch = output_dir / "financial_document_fetch_plan_task133.json"
+    _write_operator_exact_document_refill_template(
+        template,
+        [
+            _operator_exact_document_refill_validation_template_row(
+                workspace_id="operator_exact_document_refill:18",
+                company_id="18",
+                company_name="RZD",
+                workspace_status="blocked_source_trust_required_before_exact_document_refill",
+                operator_fill_exact_document_url="",
+            ),
+            _operator_exact_document_refill_validation_template_row(operator_fill_exact_document_url=""),
+        ],
+    )
+    _write_operator_exact_document_refill_rows(
+        workspace,
+        "operator-exact-document-refill-workspace-v2",
+        [
+            _operator_exact_document_refill_validation_workspace_row(
+                workspace_id="operator_exact_document_refill:18",
+                company_id="18",
+                company_name="RZD",
+                workspace_status="blocked_source_trust_required_before_exact_document_refill",
+                source_trust_status="trusted_source_missing",
+                trusted_source_hosts=[],
+            ),
+            _operator_exact_document_refill_validation_workspace_row(),
+        ],
+    )
+    _write_operator_exact_document_refill_fetch_plan(fetch, [_operator_exact_document_refill_fetch_row()])
+
+    report = _run_operator_exact_document_refill_validation(
+        ["--operator-resolution-chain-output-dir", str(output_dir)]
+    )
+    rows = {str(row["company_id"]): row for row in report["validation_rows"]}
+
+    assert report["row_count"] == 2
+    assert report["valid_candidate_count"] == 0
+    assert report["accepted_candidate_count"] == 0
+    assert report["blocked_source_trust_count"] == 1
+    assert report["incomplete_count"] == 1
+    assert rows["18"]["validation_status"] == "blocked_source_trust_required"
+    assert rows["67"]["validation_status"] == "incomplete_missing_exact_document_url"
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    markdown = Path(report["artifacts"]["validation_markdown"]).read_text(encoding="utf-8")
+    assert "# Operator Exact Document Refill Validation v2" in markdown
+    assert "This task does not download reports." in markdown
+
+
+def test_operator_exact_document_refill_validation_accepts_future_pdf_candidate_only(tmp_path: Path) -> None:
+    template, workspace = _write_operator_exact_document_refill_validation_inputs(
+        tmp_path,
+        operator_fill_exact_document_url="https://docs.mostotrest.ru/reports/annual-ifrs-consolidated-2025.pdf",
+        operator_fill_document_title="Mostotrest annual consolidated IFRS financial statements 2025",
+    )
+
+    report = _run_operator_exact_document_refill_validation(
+        [
+            "--operator-exact-document-refill-input",
+            str(template),
+            "--operator-exact-document-refill-workspace-input",
+            str(workspace),
+        ]
+    )
+    row = report["validation_rows"][0]
+    candidate = report["accepted_candidate_rows"][0]
+
+    assert row["validation_status"] == "valid_future_exact_document_candidate"
+    assert row["accepted_for_future_apply_draft"] is True
+    assert report["accepted_candidate_count"] == 1
+    assert candidate["future_apply_draft_allowed"] is True
+    assert candidate["document_url_registrable_domain"] == "mostotrest.ru"
+    assert row["would_accept_url"] is False
+    assert row["would_update_exact_document_intake"] is False
+    assert row["would_download_document"] is False
+
+
+def test_operator_exact_document_refill_validation_rejects_unsafe_urls(tmp_path: Path) -> None:
+    cases = [
+        (
+            "https://mostotrest.ru/reports/history/annual-ifrs-2024.pdf",
+            {"latest_historical_document_url": "https://mostotrest.ru/reports/history/annual-ifrs-2024.pdf"},
+            "invalid_historical_fallback_url",
+        ),
+        ("https://mostotrest.ru/archive/annual-ifrs-2025.pdf", {}, "invalid_archive_or_history_url"),
+        ("https://evil.example/reports/annual-ifrs-2025.pdf", {}, "invalid_untrusted_host"),
+        ("not-a-url", {}, "invalid_malformed_url"),
+        ("ftp://mostotrest.ru/reports/annual-ifrs-2025.pdf", {}, "invalid_non_http_url"),
+    ]
+    for index, (url, workspace_updates, expected) in enumerate(cases):
+        template, workspace = _write_operator_exact_document_refill_validation_inputs(
+            tmp_path / str(index),
+            operator_fill_exact_document_url=url,
+            operator_fill_document_title="Mostotrest annual consolidated IFRS financial statements 2025",
+            workspace_updates=workspace_updates,
+        )
+        report = _run_operator_exact_document_refill_validation(
+            [
+                "--operator-exact-document-refill-input",
+                str(template),
+                "--operator-exact-document-refill-workspace-input",
+                str(workspace),
+            ]
+        )
+        assert report["validation_rows"][0]["validation_status"] == expected
+        assert report["accepted_candidate_count"] == 0
+
+
+def test_operator_exact_document_refill_validation_rejects_strict_mismatches(tmp_path: Path) -> None:
+    cases = [
+        (
+            {
+                "operator_fill_exact_document_url": "https://mostotrest.ru/reports/annual-ifrs-consolidated-2024.pdf",
+                "operator_fill_document_title": "Mostotrest annual consolidated IFRS financial statements 2024",
+            },
+            "invalid_wrong_period",
+        ),
+        (
+            {
+                "operator_fill_exact_document_url": "https://mostotrest.ru/reports/q1-ifrs-consolidated-2025.pdf",
+                "operator_fill_document_title": "Mostotrest Q1 IFRS financial statements 2025",
+                "operator_fill_document_report_type": "quarterly",
+            },
+            "invalid_wrong_report_type",
+        ),
+        (
+            {
+                "operator_fill_exact_document_url": "https://mostotrest.ru/reports/annual-ras-consolidated-2025.pdf",
+                "operator_fill_document_title": "Mostotrest annual RAS financial statements 2025",
+                "operator_fill_document_accounting_standard": "RAS",
+            },
+            "invalid_wrong_standard",
+        ),
+        (
+            {
+                "operator_fill_exact_document_url": "https://mostotrest.ru/reports/annual-ifrs-2025.pdf",
+                "operator_fill_document_title": "Mostotrest annual IFRS financial statements 2025",
+                "operator_fill_document_consolidated": "false",
+            },
+            "invalid_non_consolidated",
+        ),
+    ]
+    for index, (updates, expected) in enumerate(cases):
+        template, workspace = _write_operator_exact_document_refill_validation_inputs(tmp_path / str(index), **updates)
+        report = _run_operator_exact_document_refill_validation(
+            [
+                "--operator-exact-document-refill-input",
+                str(template),
+                "--operator-exact-document-refill-workspace-input",
+                str(workspace),
+            ]
+        )
+        assert report["validation_rows"][0]["validation_status"] == expected
+
+
+def test_operator_exact_document_refill_validation_blocks_landing_forbidden_and_warns_for_non_pdf(tmp_path: Path) -> None:
+    landing_template, landing_workspace = _write_operator_exact_document_refill_validation_inputs(
+        tmp_path / "landing",
+        operator_fill_exact_document_url="https://mostotrest.ru/reports",
+        operator_fill_document_title="Mostotrest reports",
+    )
+    landing = _run_operator_exact_document_refill_validation(
+        ["--operator-exact-document-refill-input", str(landing_template), "--operator-exact-document-refill-workspace-input", str(landing_workspace)]
+    )
+    assert landing["validation_rows"][0]["validation_status"] == "invalid_landing_page_url"
+
+    forbidden_template, forbidden_workspace = _write_operator_exact_document_refill_validation_inputs(
+        tmp_path / "forbidden",
+        operator_fill_exact_document_url="https://mostotrest.ru/reports/prospectus-annual-ifrs-2025.pdf",
+        operator_fill_document_title="Mostotrest prospectus annual IFRS 2025",
+    )
+    forbidden = _run_operator_exact_document_refill_validation(
+        ["--operator-exact-document-refill-input", str(forbidden_template), "--operator-exact-document-refill-workspace-input", str(forbidden_workspace)]
+    )
+    assert forbidden["validation_rows"][0]["validation_status"] == "invalid_forbidden_document_type"
+
+    for extension in ("xlsx", "xls", "zip"):
+        template, workspace = _write_operator_exact_document_refill_validation_inputs(
+            tmp_path / extension,
+            operator_fill_exact_document_url=f"https://mostotrest.ru/reports/annual-ifrs-consolidated-2025.{extension}",
+            operator_fill_document_title="Mostotrest annual consolidated IFRS financial statements 2025",
+        )
+        report = _run_operator_exact_document_refill_validation(
+            ["--operator-exact-document-refill-input", str(template), "--operator-exact-document-refill-workspace-input", str(workspace)]
+        )
+        assert report["validation_rows"][0]["validation_status"] == "valid_future_exact_document_candidate"
+        assert "non_pdf_document_requires_future_content_type_check" in report["validation_rows"][0]["validation_warnings"]
+
+
+def test_operator_exact_document_refill_validation_blocks_missing_workspace_requirement_drift_and_duplicates(tmp_path: Path) -> None:
+    template = tmp_path / "missing" / "template.csv"
+    _write_operator_exact_document_refill_template(template, [_operator_exact_document_refill_validation_template_row()])
+    missing = _run_operator_exact_document_refill_validation(["--operator-exact-document-refill-input", str(template)])
+    assert missing["validation_rows"][0]["validation_status"] == "blocked_unknown_readiness"
+    assert any(warning["message"] == "operator_exact_document_refill_workspace_missing_validation_conservative" for warning in missing["warnings"])
+
+    drift_template, drift_workspace = _write_operator_exact_document_refill_validation_inputs(
+        tmp_path / "drift",
+        workspace_updates={"target_reporting_period": "2024"},
+    )
+    drift = _run_operator_exact_document_refill_validation(
+        ["--operator-exact-document-refill-input", str(drift_template), "--operator-exact-document-refill-workspace-input", str(drift_workspace)]
+    )
+    assert drift["validation_rows"][0]["validation_status"] == "blocked_workspace_not_ready"
+
+    duplicate_template = tmp_path / "duplicate" / "template.csv"
+    duplicate_workspace = tmp_path / "duplicate" / "workspace.json"
+    shared_url = "https://mostotrest.ru/reports/annual-ifrs-consolidated-2025.pdf"
+    _write_operator_exact_document_refill_template(
+        duplicate_template,
+        [
+            _operator_exact_document_refill_validation_template_row(operator_fill_exact_document_url=shared_url),
+            _operator_exact_document_refill_validation_template_row(
+                workspace_id="operator_exact_document_refill:68",
+                company_id="68",
+                company_name="Other issuer",
+                operator_fill_exact_document_url=shared_url,
+            ),
+        ],
+    )
+    _write_operator_exact_document_refill_rows(
+        duplicate_workspace,
+        "operator-exact-document-refill-workspace-v2",
+        [
+            _operator_exact_document_refill_validation_workspace_row(),
+            _operator_exact_document_refill_validation_workspace_row(workspace_id="operator_exact_document_refill:68", company_id="68", company_name="Other issuer"),
+        ],
+    )
+    duplicate = _run_operator_exact_document_refill_validation(
+        ["--operator-exact-document-refill-input", str(duplicate_template), "--operator-exact-document-refill-workspace-input", str(duplicate_workspace)]
+    )
+    assert {row["validation_status"] for row in duplicate["validation_rows"]} == {"invalid_duplicate_candidate"}
+
+
+def test_operator_exact_document_refill_validation_explicit_exports_and_collisions(tmp_path: Path) -> None:
+    template, workspace = _write_operator_exact_document_refill_validation_inputs(tmp_path)
+    accepted_json = tmp_path / "accepted.json"
+    accepted_csv = tmp_path / "accepted.csv"
+    report = _run_operator_exact_document_refill_validation(
+        [
+            "--operator-exact-document-refill-input", str(template),
+            "--operator-exact-document-refill-workspace-input", str(workspace),
+            "--operator-exact-document-refill-accepted-candidates-output", str(accepted_json),
+            "--operator-exact-document-refill-accepted-candidates-csv-output", str(accepted_csv),
+        ]
+    )
+    assert report["artifacts"] == {"accepted_candidates_json": str(accepted_json), "accepted_candidates_csv": str(accepted_csv)}
+    assert len(json.loads(accepted_json.read_text(encoding="utf-8"))["accepted_candidate_rows"]) == 1
+    assert accepted_csv.is_file()
+
+    collision = _run_operator_exact_document_refill_validation(
+        [
+            "--operator-exact-document-refill-input", str(template),
+            "--operator-exact-document-refill-workspace-input", str(workspace),
+            "--operator-exact-document-refill-validation-output", str(template),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "operator_exact_document_refill_validation_output_must_not_equal_input"}]
+
+    generic_collision = _run_operator_exact_document_refill_validation(
+        [
+            "--operator-exact-document-refill-input", str(template),
+            "--operator-exact-document-refill-workspace-input", str(workspace),
+            "--json-output", str(template),
+        ]
+    )
+    assert generic_collision["status"] == "failed"
+    assert generic_collision["errors"] == [{"message": "operator_exact_document_refill_validation_output_must_not_equal_input"}]
+
+
+def test_operator_exact_document_refill_validation_never_calls_network_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task135 validation must not fetch, probe, download, or parse documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    template, workspace = _write_operator_exact_document_refill_validation_inputs(tmp_path)
+
+    report = _run_operator_exact_document_refill_validation(
+        ["--operator-exact-document-refill-input", str(template), "--operator-exact-document-refill-workspace-input", str(workspace)]
+    )
+
+    assert report["status"] in {"passed", "warning"}
+    for key in (
+        "documents_downloaded",
+        "documents_parsed",
+        "files_deleted",
+        "would_fetch_documents",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_database",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[key] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -11409,6 +11715,105 @@ def _write_operator_exact_document_refill_rows(path: Path, mode: str, rows: list
         json.dumps({"status": "warning", "mode": mode, "rows": rows}, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def _run_operator_exact_document_refill_validation(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "operator-exact-document-refill-validate-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _operator_exact_document_refill_validation_template_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "workspace_id": "operator_exact_document_refill:67",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "workspace_status": "ready_for_exact_document_url_refill",
+        "workspace_action": "fill_exact_target_annual_ifrs_document_url",
+        "operator_instruction": "Fill the exact document URL.",
+        "READONLY_target_reporting_period": "2025",
+        "READONLY_required_report_type": "annual",
+        "READONLY_required_standard": "IFRS",
+        "READONLY_required_consolidated": "true",
+        "READONLY_trusted_source_hosts": "mostotrest.ru",
+        "READONLY_current_known_source_page_url": "https://mostotrest.ru/reports/",
+        "READONLY_latest_historical_document_url": "",
+        "READONLY_forbidden_url_hint": "Do not copy historical fallback URLs.",
+        "operator_fill_exact_document_url": "https://mostotrest.ru/reports/annual-ifrs-consolidated-2025.pdf",
+        "operator_fill_document_title": "Mostotrest annual consolidated IFRS financial statements 2025",
+        "operator_fill_document_publication_date": "2026-04-30",
+        "operator_fill_document_report_type": "annual",
+        "operator_fill_document_accounting_standard": "IFRS",
+        "operator_fill_document_consolidated": "true",
+        "operator_fill_document_language": "en",
+        "operator_fill_notes": "",
+    }
+    row.update(updates)
+    return row
+
+
+def _operator_exact_document_refill_validation_workspace_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "workspace_id": "operator_exact_document_refill:67",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "required_consolidated": True,
+        "workspace_status": "ready_for_exact_document_url_refill",
+        "workspace_action": "fill_exact_target_annual_ifrs_document_url",
+        "source_trust_status": "ready_for_document_url_refill",
+        "trusted_source_hosts": ["mostotrest.ru"],
+        "current_known_source_page_url": "https://mostotrest.ru/reports/",
+        "latest_historical_document_url": "",
+        "historical_fallback_allowed_as_target_evidence": False,
+        "historical_fallback_allowed_as_trusted_source": False,
+        "fetch_plan_status": "blocked_missing_exact_document_url",
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    if "company_name" in updates and "canonical_company_name" not in updates:
+        row["canonical_company_name"] = updates["company_name"]
+    return row
+
+
+def _write_operator_exact_document_refill_template(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=assistant.OPERATOR_EXACT_DOCUMENT_REFILL_TEMPLATE_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _write_operator_exact_document_refill_validation_inputs(
+    path: Path,
+    *,
+    workspace_updates: dict[str, object] | None = None,
+    **template_updates: object,
+) -> tuple[Path, Path]:
+    template = path / "template.csv"
+    workspace = path / "workspace.json"
+    _write_operator_exact_document_refill_template(
+        template,
+        [_operator_exact_document_refill_validation_template_row(**template_updates)],
+    )
+    _write_operator_exact_document_refill_rows(
+        workspace,
+        "operator-exact-document-refill-workspace-v2",
+        [_operator_exact_document_refill_validation_workspace_row(**(workspace_updates or {}))],
+    )
+    return template, workspace
 
 
 def _run_availability_discovery(
