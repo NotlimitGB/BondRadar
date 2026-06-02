@@ -7396,6 +7396,267 @@ def test_operator_exact_document_refill_apply_draft_output_collisions_fail_safel
     assert generic["errors"] == [{"message": "operator_exact_document_refill_apply_output_must_not_equal_input"}]
 
 
+def test_exact_document_draft_gate_vds_like_rows_remain_blocked(tmp_path: Path) -> None:
+    _write_exact_document_draft_gate_inputs(
+        tmp_path,
+        documents=[
+            _exact_document_draft_gate_placeholder_document(company_id="18", company_name="RZD"),
+            _exact_document_draft_gate_placeholder_document(),
+        ],
+        apply_rows=[
+            _exact_document_draft_gate_apply_row(
+                company_id="18",
+                company_name="RZD",
+                apply_id="operator_exact_document_refill_apply:rzd",
+                apply_status="skipped_blocked_source_trust_required",
+            ),
+            _exact_document_draft_gate_apply_row(
+                apply_status="skipped_incomplete_missing_exact_document_url",
+            ),
+        ],
+        blocker_rows=[
+            _exact_document_draft_gate_apply_blocker_row(
+                apply_id="operator_exact_document_refill_apply:rzd",
+                blocker_code="source_trust_required",
+            ),
+            _exact_document_draft_gate_apply_blocker_row(
+                blocker_code="missing_exact_document_url",
+            ),
+        ],
+    )
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["row_count"] == 2
+    assert report["ready_count"] == 0
+    assert report["blocked_count"] == 2
+    assert report["blocker_row_count"] == 2
+    assert report["ready_for_future_controlled_download"] is False
+    statuses = {str(row["company_id"]): row["gate_status"] for row in report["gate_rows"]}
+    assert statuses == {
+        "18": "blocked_source_trust_required",
+        "67": "blocked_incomplete_operator_refill",
+    }
+
+
+def test_exact_document_draft_gate_valid_row_is_download_preview_only_and_writes_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task137 must not fetch, probe, download, or parse documents")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    _write_exact_document_draft_gate_inputs(
+        tmp_path,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[_exact_document_draft_gate_apply_row()],
+        blocker_rows=[],
+    )
+    snapshot_paths = [
+        tmp_path / "operator_exact_document_intake_apply_draft_task136.json",
+        tmp_path / "operator_exact_document_refill_apply_task136.json",
+        tmp_path / "operator_exact_document_refill_apply_blockers_task136.json",
+        tmp_path / "document_artifact_retention_policy_task132.json",
+        tmp_path / "financial_document_fetch_plan_task133.json",
+    ]
+    snapshots = {path: path.read_bytes() for path in snapshot_paths}
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["ready_count"] == 1
+    assert report["blocked_count"] == 0
+    row = report["gate_rows"][0]
+    assert row["gate_status"] == "ready_for_future_controlled_download"
+    assert row["ready_for_future_controlled_download"] is True
+    assert row["ready_for_future_parse"] is False
+    assert row["ready_for_future_extraction"] is False
+    assert row["ready_for_future_import"] is False
+    assert row["ready_for_future_scoring"] is False
+    assert row["ready_for_future_paper_trading"] is False
+    assert row["would_download_document"] is False
+    for path, content in snapshots.items():
+        assert path.read_bytes() == content
+    for filename in assistant.EXACT_DOCUMENT_DRAFT_GATE_ARTIFACT_NAMES.values():
+        assert (tmp_path / filename).is_file()
+    ready = json.loads((tmp_path / "exact_document_draft_gate_ready_task137.json").read_text(encoding="utf-8"))
+    assert len(ready["ready_rows"]) == 1
+    assert ready["ready_rows"][0]["would_write_raw_file"] is False
+    markdown = (tmp_path / "exact_document_draft_gate_task137.md").read_text(encoding="utf-8")
+    assert "Exact Document Draft Gate v2" in markdown
+    assert "does not download reports" in markdown
+
+
+def test_exact_document_draft_gate_blocks_leak_and_disk_guard(tmp_path: Path) -> None:
+    leak_dir = tmp_path / "leak"
+    leak_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        leak_dir,
+        documents=[_exact_document_draft_gate_applied_document(ready_for_value_extraction=True)],
+        apply_rows=[_exact_document_draft_gate_apply_row()],
+        blocker_rows=[],
+    )
+    leak = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(leak_dir)])
+    assert leak["gate_rows"][0]["gate_status"] == "blocked_downstream_ready_flag_leak"
+    assert leak["blocker_rows"][0]["blocker_code"] == "downstream_ready_flag_leak"
+
+    blocked_dir = tmp_path / "blocked"
+    blocked_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        blocked_dir,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[_exact_document_draft_gate_apply_row()],
+        blocker_rows=[],
+        retention_status="blocked",
+    )
+    blocked = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(blocked_dir)])
+    assert blocked["gate_rows"][0]["gate_status"] == "blocked_disk_guard"
+    assert blocked["ready_count"] == 0
+
+    missing_dir = tmp_path / "missing"
+    missing_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        missing_dir,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[_exact_document_draft_gate_apply_row()],
+        blocker_rows=[],
+        write_retention=False,
+    )
+    missing = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(missing_dir)])
+    assert missing["gate_rows"][0]["gate_status"] == "blocked_disk_guard"
+    assert {"message": "exact_document_draft_gate_retention_policy_missing_using_safe_defaults"} in missing["warnings"]
+
+
+def test_exact_document_draft_gate_disk_warning_allows_future_ready_and_malformed_retention_fails(tmp_path: Path) -> None:
+    warning_dir = tmp_path / "warning"
+    warning_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        warning_dir,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[_exact_document_draft_gate_apply_row()],
+        blocker_rows=[],
+        retention_status="warning",
+    )
+    warning = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(warning_dir)])
+    assert warning["status"] == "warning"
+    assert warning["ready_count"] == 1
+    assert warning["gate_rows"][0]["gate_status"] == "ready_for_future_controlled_download"
+
+    malformed_dir = tmp_path / "malformed"
+    malformed_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        malformed_dir,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[_exact_document_draft_gate_apply_row()],
+        blocker_rows=[],
+    )
+    retention = malformed_dir / "document_artifact_retention_policy_task132.json"
+    retention.write_text("{broken", encoding="utf-8")
+    malformed = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(malformed_dir)])
+    assert malformed["status"] == "failed"
+    assert malformed["errors"] == [{"message": "document_artifact_retention_input_invalid", "path": str(retention)}]
+
+
+def test_exact_document_draft_gate_blocks_strict_mismatches_and_missing_context(tmp_path: Path) -> None:
+    cases = [
+        (
+            "period",
+            _exact_document_draft_gate_applied_document(
+                report_period="2024",
+                document_url="https://mostotrest.ru/reports/annual-ifrs-consolidated-2024.pdf",
+            ),
+            _exact_document_draft_gate_apply_row(target_reporting_period="2024"),
+            "blocked_wrong_period",
+        ),
+        (
+            "type",
+            _exact_document_draft_gate_applied_document(report_type="interim"),
+            _exact_document_draft_gate_apply_row(required_report_type="interim"),
+            "blocked_wrong_report_type",
+        ),
+        (
+            "standard",
+            _exact_document_draft_gate_applied_document(accounting_standard="RAS"),
+            _exact_document_draft_gate_apply_row(required_standard="RAS"),
+            "blocked_wrong_standard",
+        ),
+        (
+            "consolidated",
+            _exact_document_draft_gate_applied_document(document_consolidated="false"),
+            _exact_document_draft_gate_apply_row(),
+            "blocked_non_consolidated",
+        ),
+        (
+            "origin",
+            _exact_document_draft_gate_applied_document(document_context_origin="unexpected_origin"),
+            _exact_document_draft_gate_apply_row(),
+            "blocked_draft_not_from_task136",
+        ),
+    ]
+    for name, document, apply_row, expected in cases:
+        case_dir = tmp_path / name
+        case_dir.mkdir()
+        _write_exact_document_draft_gate_inputs(
+            case_dir,
+            documents=[document],
+            apply_rows=[apply_row],
+            blocker_rows=[],
+        )
+        report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(case_dir)])
+        assert report["gate_rows"][0]["gate_status"] == expected
+
+    missing_apply_dir = tmp_path / "missing_apply"
+    missing_apply_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        missing_apply_dir,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[],
+        blocker_rows=[],
+    )
+    missing_apply = _run_exact_document_draft_gate(
+        ["--operator-resolution-chain-output-dir", str(missing_apply_dir)]
+    )
+    assert missing_apply["gate_rows"][0]["gate_status"] == "blocked_unknown_readiness"
+
+
+def test_exact_document_draft_gate_collisions_and_invalid_input_fail_safely(tmp_path: Path) -> None:
+    draft = tmp_path / "draft.json"
+    draft.write_text("{broken", encoding="utf-8")
+    invalid = _run_exact_document_draft_gate(["--exact-document-draft-gate-input", str(draft)])
+    assert invalid["status"] == "failed"
+    assert invalid["errors"] == [{"message": "exact_document_draft_gate_input_invalid", "path": str(draft)}]
+
+    _write_document_intake(draft, [_exact_document_draft_gate_placeholder_document()])
+    original = draft.read_bytes()
+    collision = _run_exact_document_draft_gate(
+        [
+            "--exact-document-draft-gate-input",
+            str(draft),
+            "--exact-document-draft-gate-output",
+            str(draft),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "exact_document_draft_gate_output_must_not_equal_input"}]
+    assert draft.read_bytes() == original
+
+    generic = _run_exact_document_draft_gate(
+        [
+            "--exact-document-draft-gate-input",
+            str(draft),
+            "--json-output",
+            str(draft),
+        ]
+    )
+    assert generic["status"] == "failed"
+    assert generic["errors"] == [{"message": "exact_document_draft_gate_output_must_not_equal_input"}]
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -12238,6 +12499,169 @@ def _write_operator_exact_document_refill_apply_candidates(path: Path, rows: lis
                 "status": "warning",
                 "mode": "operator-exact-document-refill-accepted-candidates-v2",
                 "accepted_candidate_rows": rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _run_exact_document_draft_gate(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "exact-document-draft-gate-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _exact_document_draft_gate_placeholder_document(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "report_period": "2025",
+        "report_type": "annual",
+        "accounting_standard": "IFRS",
+        "document_url": "",
+        "document_title": "",
+        "document_date": "",
+        "document_status": "not_found",
+        "operator_review_status": "operator_to_fill",
+        "filter_status": "placeholder_not_found",
+        "fallback_status": "not_fallback",
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    if "company_name" in updates and "canonical_company_name" not in updates:
+        row["canonical_company_name"] = updates["company_name"]
+    return row
+
+
+def _exact_document_draft_gate_applied_document(**updates: object) -> dict[str, object]:
+    row = {
+        **_exact_document_draft_gate_placeholder_document(),
+        "document_url": "https://mostotrest.ru/reports/annual-ifrs-consolidated-2025.pdf",
+        "document_title": "Mostotrest annual consolidated IFRS financial statements 2025",
+        "document_date": "2026-04-30",
+        "document_consolidated": "true",
+        "document_language": "en",
+        "document_context_status": "exact_document_url_apply_draft_for_future_gate",
+        "document_context_origin": "operator_exact_document_refill_apply_draft_task136",
+        "manual_candidate_status": "future_gate_validation_required",
+        "document_status": "draft_candidate_pending_future_gate_validation",
+        "operator_review_status": "pending_future_gate_validation",
+        "filter_status": "draft_pending_future_gate_validation",
+        "fallback_status": "not_fallback",
+        "ready_for_document_download": False,
+        "ready_for_value_extraction": False,
+        "ready_for_import": False,
+        "ready_for_scoring": False,
+        "ready_for_paper_trading": False,
+    }
+    row.update(updates)
+    return row
+
+
+def _exact_document_draft_gate_apply_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "apply_id": "operator_exact_document_refill_apply:mostotrest",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "required_consolidated": True,
+        "apply_status": "applied_to_exact_document_intake_draft",
+        "trusted_source_hosts": ["mostotrest.ru"],
+        "apply_warnings": [],
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    if "company_name" in updates and "canonical_company_name" not in updates:
+        row["canonical_company_name"] = updates["company_name"]
+    return row
+
+
+def _exact_document_draft_gate_apply_blocker_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "apply_id": "operator_exact_document_refill_apply:mostotrest",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "blocker_code": "missing_exact_document_url",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_exact_document_draft_gate_inputs(
+    path: Path,
+    *,
+    documents: list[dict[str, object]],
+    apply_rows: list[dict[str, object]],
+    blocker_rows: list[dict[str, object]],
+    retention_status: str = "passed",
+    write_retention: bool = True,
+) -> None:
+    _write_document_intake(path / "operator_exact_document_intake_apply_draft_task136.json", documents)
+    (path / "operator_exact_document_refill_apply_task136.json").write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-exact-document-refill-apply-draft-v2",
+                "apply_rows": apply_rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (path / "operator_exact_document_refill_apply_blockers_task136.json").write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-exact-document-refill-apply-blockers-v2",
+                "blocker_rows": blocker_rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    if write_retention:
+        (path / "document_artifact_retention_policy_task132.json").write_text(
+            json.dumps(
+                {
+                    "status": "passed" if retention_status == "passed" else "warning",
+                    "mode": "financial-document-artifact-retention-preview",
+                    "disk_guard_status": retention_status,
+                    "download_allowed": retention_status != "blocked",
+                    "future_extraction_allowed": retention_status != "blocked",
+                    "filesystem_free_gb": 30,
+                    "filesystem_free_percent": 60,
+                    "vds_disk_limit_gb": 50,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    (path / "financial_document_fetch_plan_task133.json").write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "financial-document-fetch-plan-preview",
+                "fetch_plan_rows": [],
             },
             indent=2,
         )
