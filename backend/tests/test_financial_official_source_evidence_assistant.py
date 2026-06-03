@@ -7059,6 +7059,177 @@ def test_backup_retention_controlled_apply_rejects_manifest_mutation_collision_a
         assert report[field] is False
 
 
+def test_backup_retention_execute_readiness_ready_for_operator_review_from_task140_dry_run(
+    tmp_path: Path,
+) -> None:
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_execute_readiness_inputs(output_dir, eligible_count=25, limit_blocked_count=53)
+
+    report = _run_backup_retention_execute_readiness(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-backups-dir",
+            str(tmp_path / "backups"),
+        ]
+    )
+
+    assert report["readiness_status"] == "ready_for_operator_execute_review"
+    assert report["ready_for_operator_execute_review"] is True
+    assert report["execute_allowed_by_board"] is False
+    assert report["operator_manual_approval_required"] is True
+    assert report["dry_run_eligible_count"] == 25
+    assert report["expected_limit_blocker_count"] == 53
+    assert report["unsafe_blocker_count"] == 0
+    assert "backup-retention-controlled-apply" in report["future_execute_command"]
+    assert all(Path(path).is_file() for path in report["artifacts"].values())
+    markdown = Path(report["artifacts"]["readiness_markdown"]).read_text(encoding="utf-8")
+    assert "# Backup Retention Execute Readiness Board" in markdown
+    assert "DO NOT RUN UNTIL MANUAL APPROVAL" in markdown
+    assert "This task does not delete backup files." in markdown
+
+
+def test_backup_retention_execute_readiness_missing_required_inputs_fail_safely(tmp_path: Path) -> None:
+    missing_task140 = _run_backup_retention_execute_readiness(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path / "missing"),
+        ]
+    )
+    assert missing_task140["status"] == "failed"
+    assert {"message": "backup_retention_execute_readiness_task140_input_required"} in missing_task140["errors"]
+    assert {"message": "backup_retention_execute_readiness_manifest_input_required"} in missing_task140["errors"]
+
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_execute_readiness_inputs(output_dir)
+    (output_dir / "backup_retention_cleanup_manifest_task139.json").unlink()
+    missing_manifest = _run_backup_retention_execute_readiness(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+        ]
+    )
+    assert missing_manifest["status"] == "failed"
+    assert {"message": "backup_retention_execute_readiness_manifest_input_required"} in missing_manifest["errors"]
+
+
+def test_backup_retention_execute_readiness_blocks_execute_or_deleted_task140_artifacts(tmp_path: Path) -> None:
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_execute_readiness_inputs(
+        output_dir,
+        task140_updates={"execute_requested": True, "dry_run_only": False},
+    )
+    execute_report = _run_backup_retention_execute_readiness(["--operator-resolution-chain-output-dir", str(output_dir)])
+    assert execute_report["readiness_status"] == "blocked_task140_not_dry_run"
+    assert execute_report["ready_for_operator_execute_review"] is False
+
+    _write_backup_retention_execute_readiness_inputs(
+        output_dir,
+        task140_updates={
+            "files_deleted": True,
+            "deleted_count": 1,
+            "actual_reclaimed_bytes": 10,
+        },
+        ledger_updates={"did_delete_file": True, "ledger_status": "deleted"},
+    )
+    deleted_report = _run_backup_retention_execute_readiness(["--operator-resolution-chain-output-dir", str(output_dir)])
+    assert deleted_report["readiness_status"] == "blocked_task140_deleted_files"
+    assert deleted_report["ready_for_operator_execute_review"] is False
+
+
+def test_backup_retention_execute_readiness_blocks_missing_hash_token_and_unsafe_blockers(tmp_path: Path) -> None:
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_execute_readiness_inputs(output_dir, omit_hash=True)
+    missing_hash = _run_backup_retention_execute_readiness(["--operator-resolution-chain-output-dir", str(output_dir)])
+    assert missing_hash["readiness_status"] == "blocked_manifest_hash_missing"
+
+    _write_backup_retention_execute_readiness_inputs(output_dir, omit_token=True)
+    missing_token = _run_backup_retention_execute_readiness(["--operator-resolution-chain-output-dir", str(output_dir)])
+    assert missing_token["readiness_status"] == "blocked_token_missing"
+
+    _write_backup_retention_execute_readiness_inputs(
+        output_dir,
+        unsafe_blocker_code="unsafe_path",
+        unsafe_status="blocked_unsafe_path",
+    )
+    unsafe = _run_backup_retention_execute_readiness(["--operator-resolution-chain-output-dir", str(output_dir)])
+    assert unsafe["readiness_status"] == "blocked_unsafe_blockers_present"
+    assert unsafe["unsafe_blocker_count"] == 1
+
+
+def test_backup_retention_execute_readiness_blocks_limit_mismatch_and_no_eligible_rows(tmp_path: Path) -> None:
+    output_dir = tmp_path / "reports"
+    _write_backup_retention_execute_readiness_inputs(output_dir, eligible_count=25)
+    mismatch = _run_backup_retention_execute_readiness(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-proposed-max-delete-count",
+            "10",
+        ]
+    )
+    assert mismatch["readiness_status"] == "blocked_delete_limits_mismatch"
+
+    _write_backup_retention_execute_readiness_inputs(output_dir, eligible_count=0, limit_blocked_count=0)
+    no_eligible = _run_backup_retention_execute_readiness(["--operator-resolution-chain-output-dir", str(output_dir)])
+    assert no_eligible["readiness_status"] == "blocked_no_dry_run_eligible_rows"
+
+
+def test_backup_retention_execute_readiness_output_collision_optional_warnings_and_no_mutation_calls(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    output_dir = tmp_path / "reports"
+    manifest = _write_backup_retention_execute_readiness_inputs(output_dir, include_optional=False)
+
+    collision = _run_backup_retention_execute_readiness(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(output_dir),
+            "--backup-retention-execute-readiness-output",
+            str(manifest),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "backup_retention_execute_readiness_output_must_not_equal_input"}]
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task141 readiness board must remain advisory")
+
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+
+    report = _run_backup_retention_execute_readiness(["--operator-resolution-chain-output-dir", str(output_dir)])
+    assert {"message": "backup_retention_execute_readiness_optional_input_missing:task140_deletion_ledger"} in report["warnings"]
+    assert report["readiness_status"] in {"blocked_execute_not_ready", "blocked_backup_pressure_missing"}
+    for field in (
+        "cleanup_executed",
+        "files_deleted",
+        "files_moved",
+        "files_compressed",
+        "files_uploaded",
+        "database_mutated",
+        "documents_downloaded",
+        "documents_parsed",
+        "would_delete_files",
+        "would_move_files",
+        "would_compress_files",
+        "would_upload_files",
+        "would_mutate_database",
+        "would_fetch_documents",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+    ):
+        assert report[field] is False
+
+
 def test_financial_document_fetch_plan_warns_without_candidates_and_uses_safe_retention_fallback() -> None:
     report = _run_financial_document_fetch_plan_preview()
 
@@ -13057,6 +13228,21 @@ def _run_backup_retention_controlled_apply(extra_args: list[str] | None = None) 
     return report, exit_code
 
 
+def _run_backup_retention_execute_readiness(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "backup-retention-execute-readiness-board",
+            *(extra_args or []),
+        ]
+    )
+
+    report, exit_code = assistant.run_assistant(args)
+
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _write_backup_retention_apply_file(path: Path, content: bytes, *, timestamp: float) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
@@ -13215,6 +13401,220 @@ def _backup_retention_controlled_apply_confirmation(manifest: Path) -> tuple[str
     payload = json.loads(manifest.read_text(encoding="utf-8"))
     token = f"CONFIRM_BACKUP_DELETE_TASK139_{sha256[:12]}_{len(payload['cleanup_manifest_rows'])}"
     return sha256, token
+
+
+def _write_backup_retention_execute_readiness_inputs(
+    output_dir: Path,
+    *,
+    eligible_count: int = 25,
+    limit_blocked_count: int = 53,
+    unsafe_blocker_code: str | None = None,
+    unsafe_status: str = "blocked_unsafe_path",
+    task140_updates: dict[str, object] | None = None,
+    ledger_updates: dict[str, object] | None = None,
+    include_optional: bool = True,
+    omit_hash: bool = False,
+    omit_token: bool = False,
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_rows = [
+        _backup_retention_controlled_apply_manifest_row(
+            output_dir.parent / "backups" / f"backup_{index:03d}.dump",
+            size_bytes=10,
+            size_mb=assistant._bytes_to_mb(10),
+            size_gb=assistant._bytes_to_gb(10),
+            mtime_utc="2026-01-01T00:00:00Z",
+        )
+        for index in range(eligible_count + limit_blocked_count + (1 if unsafe_blocker_code else 0))
+    ]
+    manifest = _write_backup_retention_controlled_apply_manifest(output_dir, manifest_rows, include_optional=True)
+    sha256, token = _backup_retention_controlled_apply_confirmation(manifest)
+    eligible_rows = [
+        {
+            "controlled_apply_id": f"controlled:{index}",
+            "manifest_id": manifest_rows[index]["manifest_id"],
+            "apply_id": manifest_rows[index]["apply_id"],
+            "file_name": manifest_rows[index]["file_name"],
+            "file_path": manifest_rows[index]["file_path"],
+            "controlled_apply_status": "dry_run_eligible_for_delete",
+            "controlled_apply_reason_codes": [],
+            "did_delete_file": False,
+        }
+        for index in range(eligible_count)
+    ]
+    limit_rows = [
+        {
+            "controlled_apply_id": f"controlled:limit:{index}",
+            "manifest_id": manifest_rows[eligible_count + index]["manifest_id"],
+            "apply_id": manifest_rows[eligible_count + index]["apply_id"],
+            "file_name": manifest_rows[eligible_count + index]["file_name"],
+            "file_path": manifest_rows[eligible_count + index]["file_path"],
+            "controlled_apply_status": "blocked_delete_count_limit_exceeded",
+            "controlled_apply_reason_codes": ["delete_count_limit_exceeded"],
+            "did_delete_file": False,
+        }
+        for index in range(limit_blocked_count)
+    ]
+    unsafe_rows = []
+    if unsafe_blocker_code:
+        row_index = eligible_count + limit_blocked_count
+        unsafe_rows.append(
+            {
+                "controlled_apply_id": "controlled:unsafe:0",
+                "manifest_id": manifest_rows[row_index]["manifest_id"],
+                "apply_id": manifest_rows[row_index]["apply_id"],
+                "file_name": manifest_rows[row_index]["file_name"],
+                "file_path": manifest_rows[row_index]["file_path"],
+                "controlled_apply_status": unsafe_status,
+                "controlled_apply_reason_codes": [unsafe_blocker_code],
+                "did_delete_file": False,
+            }
+        )
+    controlled_rows = eligible_rows + limit_rows + unsafe_rows
+    blocker_rows = [
+        {
+            "blocker_id": f"blocker:{index}",
+            "controlled_apply_id": row["controlled_apply_id"],
+            "manifest_id": row["manifest_id"],
+            "apply_id": row["apply_id"],
+            "file_name": row["file_name"],
+            "file_path": row["file_path"],
+            "controlled_apply_status": row["controlled_apply_status"],
+            "blocker_code": (row["controlled_apply_reason_codes"] or [""])[0],
+            "severity": "warning",
+            "next_manual_action": "Review blocker.",
+            "would_delete_file": False,
+        }
+        for index, row in enumerate(limit_rows + unsafe_rows)
+    ]
+    ledger_rows = [
+        {
+            "ledger_id": f"ledger:{index}",
+            "controlled_apply_id": row["controlled_apply_id"],
+            "file_name": row["file_name"],
+            "file_path": row["file_path"],
+            "size_bytes": 10,
+            "mtime_utc": "2026-01-01T00:00:00Z",
+            "execute_requested": False,
+            "deletion_execution_enabled": False,
+            "controlled_apply_status": row["controlled_apply_status"],
+            "did_delete_file": False,
+            "file_exists_before": True,
+            "file_exists_after": True,
+            "delete_exception": "",
+            "ledger_status": "dry_run_noop" if row["controlled_apply_status"] == "dry_run_eligible_for_delete" else "blocked",
+            "ledger_reason_codes": row["controlled_apply_reason_codes"],
+            **(ledger_updates or {}),
+        }
+        for index, row in enumerate(controlled_rows)
+    ]
+    estimated_bytes = eligible_count * 10
+    task140 = {
+        "status": "warning",
+        "mode": "backup-retention-controlled-apply",
+        "execute_requested": False,
+        "deletion_execution_enabled": False,
+        "cleanup_manifest_sha256": "" if omit_hash else sha256,
+        "confirmation_token_expected": "" if omit_token else token,
+        "manifest_input_count": len(manifest_rows),
+        "dry_run_eligible_count": eligible_count,
+        "deleted_count": 0,
+        "blocked_count": len(blocker_rows),
+        "failed_count": 0,
+        "ledger_row_count": len(ledger_rows),
+        "post_apply_backup_file_count": 102,
+        "post_apply_recognized_backup_file_count": 102,
+        "post_apply_recognized_backup_size_gb": 3.036186,
+        "manifest_reclaimable_bytes": len(manifest_rows) * 10,
+        "estimated_reclaimable_bytes": estimated_bytes,
+        "estimated_reclaimable_gb": assistant._bytes_to_gb(estimated_bytes),
+        "actual_reclaimed_bytes": 0,
+        "actual_reclaimed_gb": 0,
+        "max_delete_count": 25,
+        "max_delete_gb": 1.0,
+        "controlled_apply_status_counts": assistant._count_values(controlled_rows, "controlled_apply_status"),
+        "blocker_code_counts": assistant._count_values(blocker_rows, "blocker_code"),
+        "controlled_apply_rows": controlled_rows,
+        "blocker_rows": blocker_rows,
+        "deletion_ledger_rows": ledger_rows,
+        "post_apply_snapshot_rows": [
+            {
+                "snapshot_id": f"snapshot:{index}",
+                "file_name": f"backup_{index:03d}.dump",
+                "file_path": str(output_dir.parent / "backups" / f"backup_{index:03d}.dump"),
+                "entry_type": "recognized_backup",
+                "recognized_backup_file": True,
+                "size_bytes": 10,
+                "size_mb": assistant._bytes_to_mb(10),
+                "size_gb": assistant._bytes_to_gb(10),
+                "mtime_utc": "2026-01-01T00:00:00Z",
+                "is_regular_file": True,
+                "is_symlink": False,
+            }
+            for index in range(102)
+        ],
+        "read_only": False,
+        "dry_run_only": True,
+        "cleanup_executed": False,
+        "files_deleted": False,
+        "files_moved": False,
+        "files_compressed": False,
+        "files_uploaded": False,
+        "database_mutated": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+        "would_delete_files": True,
+        "would_fetch_documents": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+    }
+    task140.update(task140_updates or {})
+    (output_dir / "backup_retention_controlled_apply_task140.json").write_text(
+        json.dumps(task140),
+        encoding="utf-8",
+    )
+    if include_optional:
+        (output_dir / "backup_retention_preview_task138.json").write_text(
+            json.dumps(
+                {
+                    "status": "warning",
+                    "mode": "backup-retention-preview",
+                    "at_or_over_warning_threshold": True,
+                    "over_max_size_limit": True,
+                    "rotation_candidate_count": len(manifest_rows),
+                    "recognized_backup_size_gb": 3.1,
+                    "warning_threshold_size_gb": 2.7,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (output_dir / "backup_retention_deletion_ledger_task140.json").write_text(
+            json.dumps(
+                {
+                    "status": "warning",
+                    "mode": "backup-retention-deletion-ledger",
+                    "deletion_ledger_rows": ledger_rows,
+                }
+            ),
+            encoding="utf-8",
+        )
+        (output_dir / "backup_retention_post_apply_snapshot_task140.json").write_text(
+            json.dumps(
+                {
+                    "status": "warning",
+                    "mode": "backup-retention-post-apply-snapshot",
+                    "post_apply_snapshot_rows": task140["post_apply_snapshot_rows"],
+                }
+            ),
+            encoding="utf-8",
+        )
+    return manifest
 
 
 def _document_artifact_retention_test_paths(tmp_path: Path) -> list[str]:

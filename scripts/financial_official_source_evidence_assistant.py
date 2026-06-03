@@ -65,6 +65,7 @@ MODE_CHOICES = (
     "backup-retention-preview",
     "backup-retention-apply-draft-preview",
     "backup-retention-controlled-apply",
+    "backup-retention-execute-readiness-board",
     "official-seed-resolve",
     "candidate-fill",
     "preview",
@@ -2660,6 +2661,81 @@ BACKUP_RETENTION_POST_APPLY_SNAPSHOT_FIELDS = [
     "is_regular_file",
     "is_symlink",
 ]
+BACKUP_RETENTION_EXECUTE_READINESS_ARTIFACT_NAMES = {
+    "readiness_json": "backup_retention_execute_readiness_task141.json",
+    "readiness_csv": "backup_retention_execute_readiness_task141.csv",
+    "readiness_markdown": "backup_retention_execute_readiness_task141.md",
+    "board_json": "backup_retention_execute_readiness_board_task141.json",
+    "board_csv": "backup_retention_execute_readiness_board_task141.csv",
+    "blockers_json": "backup_retention_execute_readiness_blockers_task141.json",
+    "blockers_csv": "backup_retention_execute_readiness_blockers_task141.csv",
+}
+BACKUP_RETENTION_EXECUTE_READINESS_DEFAULTS = {
+    "proposed_max_delete_count": 25,
+    "proposed_max_delete_gb": 1.0,
+    "require_dry_run_status": "warning",
+    "require_paper_schedule_paused": True,
+    "require_financial_reports_count": 1,
+}
+BACKUP_RETENTION_EXECUTE_READINESS_FIELDS = [
+    "status",
+    "mode",
+    "readiness_status",
+    "ready_for_operator_execute_review",
+    "execute_allowed_by_board",
+    "operator_manual_approval_required",
+    "task140_status",
+    "task140_execute_requested",
+    "task140_deletion_execution_enabled",
+    "task140_deleted_count",
+    "task140_files_deleted",
+    "task140_cleanup_executed",
+    "cleanup_manifest_sha256",
+    "confirmation_token_expected",
+    "manifest_input_count",
+    "dry_run_eligible_count",
+    "blocked_count",
+    "expected_limit_blocker_count",
+    "unsafe_blocker_count",
+    "proposed_max_delete_count",
+    "proposed_max_delete_gb",
+    "estimated_reclaimable_bytes",
+    "estimated_reclaimable_gb",
+    "actual_reclaimed_bytes",
+    "actual_reclaimed_gb",
+    "post_apply_backup_file_count",
+    "post_apply_recognized_backup_file_count",
+    "post_apply_recognized_backup_size_gb",
+    "board_check_count",
+    "passed_check_count",
+    "warning_check_count",
+    "failed_check_count",
+    "blocker_row_count",
+    "cleanup_executed",
+    "files_deleted",
+    "would_delete_files",
+]
+BACKUP_RETENTION_EXECUTE_READINESS_BOARD_FIELDS = [
+    "board_check_id",
+    "check_group",
+    "check_name",
+    "check_status",
+    "check_severity",
+    "check_reason_codes",
+    "check_observed_value",
+    "check_expected_value",
+    "operator_action",
+    "safe_hint",
+]
+BACKUP_RETENTION_EXECUTE_READINESS_BLOCKER_FIELDS = [
+    "blocker_id",
+    "board_check_id",
+    "check_group",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
 FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES = {
     "fetch_plan_json": "financial_document_fetch_plan_task133.json",
     "fetch_plan_csv": "financial_document_fetch_plan_task133.csv",
@@ -3566,6 +3642,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--backup-retention-preview-input", type=Path, default=None)
     parser.add_argument("--backup-retention-rotation-plan-input", type=Path, default=None)
     parser.add_argument("--backup-retention-inventory-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-apply-preview-input", type=Path, default=None)
     parser.add_argument("--backup-retention-apply-output", type=Path, default=None)
     parser.add_argument("--backup-retention-apply-csv-output", type=Path, default=None)
     parser.add_argument("--backup-retention-apply-markdown-output", type=Path, default=None)
@@ -3586,6 +3663,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--backup-retention-deletion-ledger-csv-output", type=Path, default=None)
     parser.add_argument("--backup-retention-post-apply-snapshot-output", type=Path, default=None)
     parser.add_argument("--backup-retention-post-apply-snapshot-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-controlled-apply-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-deletion-ledger-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-post-apply-snapshot-input", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute-readiness-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute-readiness-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute-readiness-markdown-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute-readiness-board-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute-readiness-board-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute-readiness-blockers-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-execute-readiness-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--backup-retention-proposed-max-delete-count", type=int, default=BACKUP_RETENTION_EXECUTE_READINESS_DEFAULTS["proposed_max_delete_count"])
+    parser.add_argument("--backup-retention-proposed-max-delete-gb", type=float, default=BACKUP_RETENTION_EXECUTE_READINESS_DEFAULTS["proposed_max_delete_gb"])
+    parser.add_argument("--backup-retention-require-dry-run-status", choices=("passed", "warning"), default=BACKUP_RETENTION_EXECUTE_READINESS_DEFAULTS["require_dry_run_status"])
+    parser.add_argument("--backup-retention-require-paper-schedule-paused", type=_parse_bool, default=BACKUP_RETENTION_EXECUTE_READINESS_DEFAULTS["require_paper_schedule_paused"])
+    parser.add_argument("--backup-retention-require-financial-reports-count", type=int, default=BACKUP_RETENTION_EXECUTE_READINESS_DEFAULTS["require_financial_reports_count"])
     parser.add_argument("--backup-retention-execute", type=_parse_bool, default=BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["execute"])
     parser.add_argument("--backup-retention-confirmation-token", default=BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["confirmation_token"])
     parser.add_argument("--backup-retention-expected-manifest-sha256", default=BACKUP_RETENTION_CONTROLLED_APPLY_DEFAULTS["expected_manifest_sha256"])
@@ -3778,6 +3870,8 @@ def run_assistant(
         report = run_backup_retention_apply_draft_preview(args)
     elif args.mode == "backup-retention-controlled-apply":
         report = run_backup_retention_controlled_apply(args)
+    elif args.mode == "backup-retention-execute-readiness-board":
+        report = run_backup_retention_execute_readiness_board(args)
     elif args.mode == "official-seed-resolve":
         report = run_official_seed_resolve(args)
     elif args.mode == "candidate-fill":
@@ -11881,6 +11975,816 @@ def _backup_retention_controlled_apply_snapshot_report(report: dict[str, Any]) -
     }
 
 
+def run_backup_retention_execute_readiness_board(args: argparse.Namespace) -> dict[str, Any]:
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    inputs = _backup_retention_execute_readiness_inputs(args)
+    task140_report, task140_errors = _load_backup_retention_execute_readiness_required_report(
+        inputs["task140"],
+        expected_mode="backup-retention-controlled-apply",
+        missing_code="backup_retention_execute_readiness_task140_input_required",
+        invalid_code="backup_retention_execute_readiness_task140_input_invalid",
+    )
+    manifest_report, manifest_errors, manifest_bytes = _load_backup_retention_execute_readiness_manifest(
+        inputs["manifest"]
+    )
+    errors.extend(task140_errors)
+    errors.extend(manifest_errors)
+    task138_report = _load_backup_retention_execute_readiness_optional_report(
+        inputs["preview"],
+        expected_mode="backup-retention-preview",
+        role="task138_preview",
+        warnings=warnings,
+    )
+    _load_backup_retention_execute_readiness_optional_report(
+        inputs["apply_preview"],
+        expected_mode="backup-retention-apply-draft-preview",
+        role="task139_apply_preview",
+        warnings=warnings,
+    )
+    ledger_report = _load_backup_retention_execute_readiness_optional_report(
+        inputs["ledger"],
+        expected_mode="backup-retention-deletion-ledger",
+        role="task140_deletion_ledger",
+        warnings=warnings,
+    )
+    snapshot_report = _load_backup_retention_execute_readiness_optional_report(
+        inputs["snapshot"],
+        expected_mode="backup-retention-post-apply-snapshot",
+        role="task140_post_apply_snapshot",
+        warnings=warnings,
+    )
+    manifest_rows = [
+        row
+        for row in manifest_report.get("cleanup_manifest_rows") or []
+        if isinstance(row, dict)
+    ]
+    artifacts = _backup_retention_execute_readiness_artifacts(args)
+    errors.extend(
+        _backup_retention_execute_readiness_output_errors(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            manifest_rows=manifest_rows,
+        )
+    )
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest() if manifest_bytes else ""
+    board_rows: list[dict[str, Any]] = []
+    if not errors:
+        board_rows = _build_backup_retention_execute_readiness_board_rows(
+            args,
+            task140_report=task140_report,
+            manifest_report=manifest_report,
+            manifest_sha256=manifest_sha256,
+            task138_report=task138_report,
+            ledger_report=ledger_report,
+            snapshot_report=snapshot_report,
+            warnings=warnings,
+        )
+    blocker_rows = _backup_retention_execute_readiness_blocker_rows(board_rows)
+    readiness_status = _backup_retention_execute_readiness_status(errors=errors, board_rows=board_rows)
+    report = _build_backup_retention_execute_readiness_report(
+        args,
+        task140_report=task140_report,
+        manifest_report=manifest_report,
+        task138_report=task138_report,
+        ledger_report=ledger_report,
+        snapshot_report=snapshot_report,
+        manifest_sha256=manifest_sha256,
+        readiness_status=readiness_status,
+        board_rows=board_rows,
+        blocker_rows=blocker_rows,
+        artifacts=artifacts,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            _write_backup_retention_execute_readiness_outputs(report, artifacts=artifacts)
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _backup_retention_execute_readiness_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "preview": args.backup_retention_preview_input
+        or (output_dir / BACKUP_RETENTION_ARTIFACT_NAMES["preview_json"] if output_dir else None),
+        "apply_preview": args.backup_retention_apply_preview_input
+        or (output_dir / BACKUP_RETENTION_APPLY_ARTIFACT_NAMES["apply_json"] if output_dir else None),
+        "manifest": args.backup_retention_cleanup_manifest_input
+        or (output_dir / BACKUP_RETENTION_APPLY_ARTIFACT_NAMES["manifest_json"] if output_dir else None),
+        "task140": args.backup_retention_controlled_apply_input
+        or (
+            output_dir / BACKUP_RETENTION_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_apply_json"]
+            if output_dir
+            else None
+        ),
+        "ledger": args.backup_retention_deletion_ledger_input
+        or (output_dir / BACKUP_RETENTION_CONTROLLED_APPLY_ARTIFACT_NAMES["ledger_json"] if output_dir else None),
+        "snapshot": args.backup_retention_post_apply_snapshot_input
+        or (output_dir / BACKUP_RETENTION_CONTROLLED_APPLY_ARTIFACT_NAMES["snapshot_json"] if output_dir else None),
+    }
+
+
+def _backup_retention_execute_readiness_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "readiness_json": args.backup_retention_execute_readiness_output,
+        "readiness_csv": args.backup_retention_execute_readiness_csv_output,
+        "readiness_markdown": args.backup_retention_execute_readiness_markdown_output,
+        "board_json": args.backup_retention_execute_readiness_board_output,
+        "board_csv": args.backup_retention_execute_readiness_board_csv_output,
+        "blockers_json": args.backup_retention_execute_readiness_blockers_output,
+        "blockers_csv": args.backup_retention_execute_readiness_blockers_csv_output,
+    }
+    return {
+        key: overrides[key] or (output_dir / file_name if output_dir is not None else None)
+        for key, file_name in BACKUP_RETENTION_EXECUTE_READINESS_ARTIFACT_NAMES.items()
+    }
+
+
+def _load_backup_retention_execute_readiness_required_report(
+    path: Path | None,
+    *,
+    expected_mode: str,
+    missing_code: str,
+    invalid_code: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    if path is None or not path.is_file():
+        return {}, [{"message": missing_code}]
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}, [{"message": invalid_code, "path": str(path)}]
+    if not isinstance(payload, dict) or payload.get("mode") != expected_mode:
+        return {}, [{"message": invalid_code, "path": str(path)}]
+    return payload, []
+
+
+def _load_backup_retention_execute_readiness_manifest(
+    path: Path | None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], bytes]:
+    if path is None or not path.is_file():
+        return {}, [{"message": "backup_retention_execute_readiness_manifest_input_required"}], b""
+    try:
+        content = path.read_bytes()
+        payload = json.loads(content.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}, [{"message": "backup_retention_execute_readiness_manifest_input_invalid", "path": str(path)}], b""
+    if (
+        not isinstance(payload, dict)
+        or payload.get("mode") != "backup-retention-cleanup-manifest-preview"
+        or not isinstance(payload.get("cleanup_manifest_rows"), list)
+        or not all(isinstance(row, dict) for row in payload.get("cleanup_manifest_rows") or [])
+    ):
+        return {}, [{"message": "backup_retention_execute_readiness_manifest_input_invalid", "path": str(path)}], b""
+    return payload, [], content
+
+
+def _load_backup_retention_execute_readiness_optional_report(
+    path: Path | None,
+    *,
+    expected_mode: str,
+    role: str,
+    warnings: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if path is None or not path.is_file():
+        warnings.append({"message": f"backup_retention_execute_readiness_optional_input_missing:{role}"})
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        warnings.append({"message": f"backup_retention_execute_readiness_optional_input_unreadable:{role}", "path": str(path)})
+        return {}
+    if not isinstance(payload, dict) or payload.get("mode") != expected_mode:
+        warnings.append({"message": f"backup_retention_execute_readiness_optional_input_unreadable:{role}", "path": str(path)})
+        return {}
+    return payload
+
+
+def _backup_retention_execute_readiness_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    manifest_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected = [
+        path
+        for path in [
+            *inputs.values(),
+            args.backup_retention_backups_dir,
+            *(Path(str(row.get("file_path") or "")) for row in manifest_rows if str(row.get("file_path") or "")),
+        ]
+        if path is not None
+    ]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "backup_retention_execute_readiness_output_must_not_equal_input"}]
+        if any(_paths_equal(output, path) for path in protected):
+            return [{"message": "backup_retention_execute_readiness_output_must_not_equal_input"}]
+        if _path_is_within(output, args.backup_retention_backups_dir):
+            return [{"message": "backup_retention_execute_readiness_output_must_not_equal_input"}]
+    return []
+
+
+def _backup_retention_execute_readiness_check(
+    rows: list[dict[str, Any]],
+    *,
+    group: str,
+    name: str,
+    status: str,
+    reasons: list[str],
+    observed: Any,
+    expected: Any,
+    action: str,
+    hint: str,
+) -> None:
+    rows.append(
+        {
+            "board_check_id": f"backup_retention_execute_readiness:{group}:{name}".replace(" ", "_"),
+            "check_group": group,
+            "check_name": name,
+            "check_status": status,
+            "check_severity": "info" if status == "passed" else "warning" if status == "warning" else "error",
+            "check_reason_codes": reasons,
+            "check_observed_value": observed,
+            "check_expected_value": expected,
+            "operator_action": action,
+            "safe_hint": hint,
+        }
+    )
+
+
+def _build_backup_retention_execute_readiness_board_rows(
+    args: argparse.Namespace,
+    *,
+    task140_report: dict[str, Any],
+    manifest_report: dict[str, Any],
+    manifest_sha256: str,
+    task138_report: dict[str, Any],
+    ledger_report: dict[str, Any],
+    snapshot_report: dict[str, Any],
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    expected_limit_blocker_count, unsafe_blocker_count = _backup_retention_execute_readiness_blocker_counts(task140_report)
+    ledger_rows = _backup_retention_execute_readiness_ledger_rows(task140_report, ledger_report)
+    dry_run_eligible_count = int(task140_report.get("dry_run_eligible_count") or 0)
+    estimated_gb = float(task140_report.get("estimated_reclaimable_gb") or 0.0)
+    pressure_known, pressure_present = _backup_retention_execute_readiness_backup_pressure(task138_report)
+    paper_value = _first_present(task140_report, ("paper_schedule_status", "paper_schedule_state", "paper_schedule"))
+    financial_count = _first_present(task140_report, ("financial_reports_count", "financial_reports_count_after"))
+    if paper_value is None or financial_count is None:
+        warnings.append({"message": "backup_retention_execute_readiness_db_paper_safety_unknown_from_artifacts"})
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="artifact_presence",
+        name="Task140 controlled apply dry-run present",
+        status="passed",
+        reasons=[],
+        observed=task140_report.get("mode"),
+        expected="backup-retention-controlled-apply",
+        action="Review Task140 dry-run artifact.",
+        hint="Task141 uses this artifact as the readiness source of truth.",
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="artifact_presence",
+        name="Task139 cleanup manifest present",
+        status="passed",
+        reasons=[],
+        observed=manifest_report.get("manifest_row_count", len(manifest_report.get("cleanup_manifest_rows") or [])),
+        expected="readable cleanup manifest",
+        action="Review the candidate manifest.",
+        hint="Task141 does not modify manifest files.",
+    )
+    task140_dry_run = (
+        task140_report.get("execute_requested") is False
+        and task140_report.get("deletion_execution_enabled") is False
+        and task140_report.get("dry_run_only") is True
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="task140_dry_run_safety",
+        name="Task140 was dry-run only",
+        status="passed" if task140_dry_run else "failed",
+        reasons=[] if task140_dry_run else ["task140_not_dry_run"],
+        observed=f"execute_requested={task140_report.get('execute_requested')}; deletion_execution_enabled={task140_report.get('deletion_execution_enabled')}; dry_run_only={task140_report.get('dry_run_only')}",
+        expected="execute_requested=false; deletion_execution_enabled=false; dry_run_only=true",
+        action="Rerun Task140 dry-run before considering execute.",
+        hint="Task141 must never evaluate an already-executed Task140 artifact as ready.",
+    )
+    files_deleted = _backup_retention_execute_readiness_deleted_evidence(task140_report, ledger_rows)
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="task140_dry_run_safety",
+        name="No files were deleted",
+        status="passed" if not files_deleted else "failed",
+        reasons=[] if not files_deleted else ["files_already_deleted"],
+        observed=f"deleted_count={task140_report.get('deleted_count')}; files_deleted={task140_report.get('files_deleted')}; actual_reclaimed_bytes={task140_report.get('actual_reclaimed_bytes')}",
+        expected="no deletion evidence",
+        action="Stop and inspect Task140 execution artifacts.",
+        hint="Readiness requires proof that Task140 remained a dry-run.",
+    )
+    task140_status_allowed = _backup_retention_apply_preview_status_allowed(
+        args.backup_retention_require_dry_run_status,
+        str(task140_report.get("status") or ""),
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="task140_dry_run_safety",
+        name="Task140 status allowed",
+        status="passed" if task140_status_allowed else "failed",
+        reasons=[] if task140_status_allowed else ["task140_status_not_allowed"],
+        observed=task140_report.get("status"),
+        expected=args.backup_retention_require_dry_run_status,
+        action="Review Task140 warnings before execute.",
+        hint="The default accepts warning because bounded dry-run candidates create a warning status.",
+    )
+    hash_matches = bool(manifest_sha256 and manifest_sha256 == task140_report.get("cleanup_manifest_sha256"))
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="manifest_integrity",
+        name="Manifest SHA-256 available and stable",
+        status="passed" if hash_matches else "failed",
+        reasons=[] if hash_matches else ["manifest_hash_missing_or_mismatch"],
+        observed=task140_report.get("cleanup_manifest_sha256"),
+        expected=manifest_sha256,
+        action="Regenerate Task139 and Task140 dry-run artifacts.",
+        hint="The future execute command must use the exact manifest SHA-256.",
+    )
+    token_available = bool(task140_report.get("confirmation_token_expected"))
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="manifest_integrity",
+        name="Confirmation token available",
+        status="passed" if token_available else "failed",
+        reasons=[] if token_available else ["confirmation_token_missing"],
+        observed=task140_report.get("confirmation_token_expected"),
+        expected="non-empty deterministic token",
+        action="Rerun Task140 dry-run to regenerate token.",
+        hint="Task141 only displays the token; it never executes cleanup.",
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="candidate_quality",
+        name="Dry-run eligible rows present",
+        status="passed" if dry_run_eligible_count > 0 else "failed",
+        reasons=[] if dry_run_eligible_count > 0 else ["no_dry_run_eligible_rows"],
+        observed=dry_run_eligible_count,
+        expected="> 0",
+        action="Review Task139 manifest and Task140 dry-run blockers.",
+        hint="No execute review is useful without a bounded eligible batch.",
+    )
+    limit_match = (
+        int(task140_report.get("max_delete_count") or -1) == args.backup_retention_proposed_max_delete_count
+        and abs(float(task140_report.get("max_delete_gb") or -1.0) - args.backup_retention_proposed_max_delete_gb) < 0.000001
+        and dry_run_eligible_count <= args.backup_retention_proposed_max_delete_count
+        and estimated_gb <= args.backup_retention_proposed_max_delete_gb + 0.000001
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="delete_limits",
+        name="Dry-run bounded by proposed limits",
+        status="passed" if limit_match else "failed",
+        reasons=[] if limit_match else ["delete_limits_mismatch"],
+        observed=f"task140_count={task140_report.get('max_delete_count')}; task140_gb={task140_report.get('max_delete_gb')}; eligible={dry_run_eligible_count}; estimated_gb={estimated_gb}",
+        expected=f"count={args.backup_retention_proposed_max_delete_count}; gb={args.backup_retention_proposed_max_delete_gb}",
+        action="Rerun Task140 dry-run with the same proposed limits.",
+        hint="Readiness requires the command template to match the dry-run batch.",
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="candidate_quality",
+        name="No unsafe blockers present",
+        status="passed" if unsafe_blocker_count == 0 else "failed",
+        reasons=[] if unsafe_blocker_count == 0 else ["unsafe_blockers_present"],
+        observed=f"unsafe={unsafe_blocker_count}; expected_limit={expected_limit_blocker_count}",
+        expected="unsafe=0",
+        action="Resolve unsafe blockers and regenerate Task139/Task140 artifacts.",
+        hint="Expected limit blockers may remain advisory; unsafe filesystem blockers cannot.",
+    )
+    ledger_safe = bool(ledger_rows) and all(row.get("did_delete_file") is False for row in ledger_rows)
+    ledger_dry_run_noop = all(
+        row.get("ledger_status") in {"dry_run_noop", "blocked"}
+        for row in ledger_rows
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="ledger_safety",
+        name="Ledger confirms no deletion",
+        status="passed" if ledger_safe and ledger_dry_run_noop else "failed",
+        reasons=[] if ledger_safe and ledger_dry_run_noop else ["ledger_deletion_evidence_or_missing"],
+        observed=f"ledger_rows={len(ledger_rows)}",
+        expected="dry-run ledger rows with did_delete_file=false",
+        action="Rerun Task140 dry-run and inspect ledger.",
+        hint="The ledger is safety evidence, not an execution instruction.",
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="backup_pressure",
+        name="Backup pressure present",
+        status="passed" if pressure_known and pressure_present else "failed",
+        reasons=[] if pressure_known and pressure_present else ["backup_pressure_missing"],
+        observed=_backup_retention_execute_readiness_pressure_observed(task138_report),
+        expected="near or over configured retention threshold",
+        action="Rerun Task138 backup retention preview.",
+        hint="Task141 needs retention pressure evidence before presenting execute for review.",
+    )
+    snapshot_rows = _backup_retention_execute_readiness_snapshot_rows(task140_report, snapshot_report)
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="post_apply_snapshot",
+        name="Post-apply snapshot available",
+        status="passed" if snapshot_rows else "warning",
+        reasons=[] if snapshot_rows else ["post_apply_snapshot_missing"],
+        observed=len(snapshot_rows),
+        expected="snapshot rows available",
+        action="Review Task140 post-apply snapshot.",
+        hint="Missing snapshot does not delete files, but it weakens operator context.",
+    )
+    db_paper_status = _backup_retention_execute_readiness_db_paper_status(
+        args,
+        task140_report=task140_report,
+        paper_value=paper_value,
+        financial_count=financial_count,
+    )
+    _backup_retention_execute_readiness_check(rows, **db_paper_status)
+    command = _backup_retention_execute_readiness_command(args, task140_report=task140_report)
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="execute_command",
+        name="Future execute command generated",
+        status="passed" if command else "failed",
+        reasons=[] if command else ["future_execute_command_unavailable"],
+        observed=command,
+        expected="command template only",
+        action="Do not run until manual approval.",
+        hint="The board never runs this command.",
+    )
+    _backup_retention_execute_readiness_check(
+        rows,
+        group="manual_review",
+        name="Manual approval still required",
+        status="warning",
+        reasons=["operator_manual_approval_required"],
+        observed=True,
+        expected=True,
+        action="Complete the manual checklist before any execute command.",
+        hint="Ready-for-review is not auto-approval.",
+    )
+    return rows
+
+
+def _backup_retention_execute_readiness_ledger_rows(
+    task140_report: dict[str, Any],
+    ledger_report: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows = ledger_report.get("deletion_ledger_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    rows = task140_report.get("deletion_ledger_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
+def _backup_retention_execute_readiness_snapshot_rows(
+    task140_report: dict[str, Any],
+    snapshot_report: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows = snapshot_report.get("post_apply_snapshot_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    rows = task140_report.get("post_apply_snapshot_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
+def _backup_retention_execute_readiness_deleted_evidence(
+    task140_report: dict[str, Any],
+    ledger_rows: list[dict[str, Any]],
+) -> bool:
+    return bool(
+        task140_report.get("files_deleted")
+        or int(task140_report.get("deleted_count") or 0) > 0
+        or int(task140_report.get("actual_reclaimed_bytes") or 0) > 0
+        or any(row.get("did_delete_file") is True for row in ledger_rows)
+    )
+
+
+def _backup_retention_execute_readiness_blocker_counts(task140_report: dict[str, Any]) -> tuple[int, int]:
+    expected = {
+        "delete_count_limit_exceeded",
+        "reclaim_size_limit_exceeded",
+        "blocked_delete_count_limit_exceeded",
+        "blocked_reclaim_limit_exceeded",
+    }
+    counts = task140_report.get("blocker_code_counts") or {}
+    status_counts = task140_report.get("controlled_apply_status_counts") or {}
+    blocker_rows = [
+        row
+        for row in task140_report.get("blocker_rows") or []
+        if isinstance(row, dict)
+    ]
+    if blocker_rows:
+        expected_count = 0
+        unsafe_count = 0
+        for row in blocker_rows:
+            code = str(row.get("blocker_code") or row.get("controlled_apply_status") or "")
+            if code in expected:
+                expected_count += 1
+            else:
+                unsafe_count += 1
+        return expected_count, unsafe_count
+    expected_count = sum(int(counts.get(code, 0) or 0) for code in expected)
+    expected_count += sum(int(status_counts.get(code, 0) or 0) for code in expected)
+    unsafe_count = 0
+    for key, value in {**counts, **status_counts}.items():
+        if str(key) and str(key) not in expected and str(key) not in {
+            "dry_run_eligible_for_delete",
+            "deleted",
+        }:
+            unsafe_count += int(value or 0)
+    return expected_count, unsafe_count
+
+
+def _backup_retention_execute_readiness_backup_pressure(report: dict[str, Any]) -> tuple[bool, bool]:
+    if not report:
+        return False, False
+    known = any(
+        key in report
+        for key in (
+            "at_or_over_warning_threshold",
+            "over_max_size_limit",
+            "rotation_candidate_count",
+            "recognized_backup_size_gb",
+            "warning_threshold_size_gb",
+        )
+    )
+    pressure = bool(
+        report.get("at_or_over_warning_threshold")
+        or report.get("over_max_size_limit")
+        or int(report.get("rotation_candidate_count") or 0) > 0
+    )
+    if not pressure and report.get("recognized_backup_size_gb") is not None and report.get("warning_threshold_size_gb") is not None:
+        pressure = float(report.get("recognized_backup_size_gb") or 0.0) >= float(report.get("warning_threshold_size_gb") or 0.0)
+    return known, pressure
+
+
+def _backup_retention_execute_readiness_pressure_observed(report: dict[str, Any]) -> str:
+    if not report:
+        return "missing"
+    return (
+        f"at_or_over_warning_threshold={report.get('at_or_over_warning_threshold')}; "
+        f"over_max_size_limit={report.get('over_max_size_limit')}; "
+        f"rotation_candidate_count={report.get('rotation_candidate_count')}; "
+        f"recognized_backup_size_gb={report.get('recognized_backup_size_gb')}"
+    )
+
+
+def _backup_retention_execute_readiness_db_paper_status(
+    args: argparse.Namespace,
+    *,
+    task140_report: dict[str, Any],
+    paper_value: Any,
+    financial_count: Any,
+) -> dict[str, Any]:
+    reasons: list[str] = []
+    status = "passed"
+    if paper_value is None or financial_count is None:
+        return {
+            "group": "db_paper_safety",
+            "name": "DB and paper safety artifact evidence",
+            "status": "warning",
+            "reasons": ["db_paper_safety_unknown_from_artifacts"],
+            "observed": "unknown_from_artifacts",
+            "expected": f"paper_paused={args.backup_retention_require_paper_schedule_paused}; financial_reports_count={args.backup_retention_require_financial_reports_count}",
+            "action": "Confirm financial_reports_count and paper schedule outside Task141 before execute.",
+            "hint": "Task141 does not connect to DB or scheduler.",
+        }
+    if args.backup_retention_require_paper_schedule_paused and str(paper_value).casefold() not in {"paused", "pause", "true"}:
+        status = "failed"
+        reasons.append("paper_schedule_not_paused")
+    if _as_int(financial_count) != args.backup_retention_require_financial_reports_count:
+        status = "failed"
+        reasons.append("financial_reports_count_mismatch")
+    return {
+        "group": "db_paper_safety",
+        "name": "DB and paper safety artifact evidence",
+        "status": status,
+        "reasons": reasons,
+        "observed": f"paper={paper_value}; financial_reports_count={financial_count}",
+        "expected": f"paper_paused={args.backup_retention_require_paper_schedule_paused}; financial_reports_count={args.backup_retention_require_financial_reports_count}",
+        "action": "Resolve DB/paper safety evidence before execute.",
+        "hint": "Task141 only uses artifact fields.",
+    }
+
+
+def _backup_retention_execute_readiness_command(
+    args: argparse.Namespace,
+    *,
+    task140_report: dict[str, Any],
+) -> str:
+    sha256 = str(task140_report.get("cleanup_manifest_sha256") or "")
+    token = str(task140_report.get("confirmation_token_expected") or "")
+    if not sha256 or not token:
+        return ""
+    output_dir = args.operator_resolution_chain_output_dir or Path("logs/financial_reports/task124_chain_preview")
+    return "\n".join(
+        [
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode backup-retention-controlled-apply \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(str(output_dir))} \\",
+            "  --backup-retention-execute true \\",
+            f"  --backup-retention-expected-manifest-sha256 {sha256} \\",
+            f"  --backup-retention-confirmation-token {token} \\",
+            f"  --backup-retention-max-delete-count {args.backup_retention_proposed_max_delete_count} \\",
+            f"  --backup-retention-max-delete-gb {args.backup_retention_proposed_max_delete_gb}",
+        ]
+    )
+
+
+def _backup_retention_execute_readiness_blocker_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "blocker_id": f"backup_retention_execute_readiness_blocker:{row['board_check_id']}:{reason}",
+            "board_check_id": row["board_check_id"],
+            "check_group": row["check_group"],
+            "blocker_code": reason,
+            "blocker_severity": row["check_severity"],
+            "operator_action": row["operator_action"],
+            "safe_hint": row["safe_hint"],
+        }
+        for row in rows
+        if row["check_status"] == "failed"
+        for reason in (row["check_reason_codes"] or ["readiness_check_failed"])
+    ]
+
+
+def _backup_retention_execute_readiness_status(
+    *,
+    errors: list[dict[str, Any]],
+    board_rows: list[dict[str, Any]],
+) -> str:
+    if errors:
+        return "blocked_missing_required_artifacts"
+    failed_reasons = [
+        reason
+        for row in board_rows
+        if row.get("check_status") == "failed"
+        for reason in row.get("check_reason_codes") or []
+    ]
+    priority = [
+        ("task140_not_dry_run", "blocked_task140_not_dry_run"),
+        ("files_already_deleted", "blocked_task140_deleted_files"),
+        ("manifest_hash_missing_or_mismatch", "blocked_manifest_hash_missing"),
+        ("confirmation_token_missing", "blocked_token_missing"),
+        ("no_dry_run_eligible_rows", "blocked_no_dry_run_eligible_rows"),
+        ("delete_limits_mismatch", "blocked_delete_limits_mismatch"),
+        ("unsafe_blockers_present", "blocked_unsafe_blockers_present"),
+        ("backup_pressure_missing", "blocked_backup_pressure_missing"),
+        ("paper_schedule_not_paused", "blocked_db_or_paper_safety_unknown"),
+        ("financial_reports_count_mismatch", "blocked_db_or_paper_safety_unknown"),
+    ]
+    for reason, status in priority:
+        if reason in failed_reasons:
+            return status
+    if failed_reasons:
+        return "blocked_execute_not_ready"
+    return "ready_for_operator_execute_review"
+
+
+def _build_backup_retention_execute_readiness_report(
+    args: argparse.Namespace,
+    *,
+    task140_report: dict[str, Any],
+    manifest_report: dict[str, Any],
+    task138_report: dict[str, Any],
+    ledger_report: dict[str, Any],
+    snapshot_report: dict[str, Any],
+    manifest_sha256: str,
+    readiness_status: str,
+    board_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    artifacts: dict[str, Path | None],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    warnings = _dedupe_messages(warnings)
+    ready = readiness_status == "ready_for_operator_execute_review"
+    status = "failed" if errors else "warning" if warnings or blocker_rows else "passed"
+    expected_limit_blocker_count, unsafe_blocker_count = _backup_retention_execute_readiness_blocker_counts(task140_report)
+    ledger_rows = _backup_retention_execute_readiness_ledger_rows(task140_report, ledger_report)
+    snapshot_rows = _backup_retention_execute_readiness_snapshot_rows(task140_report, snapshot_report)
+    recognized_snapshot_rows = [row for row in snapshot_rows if row.get("recognized_backup_file")]
+    command = _backup_retention_execute_readiness_command(args, task140_report=task140_report)
+    return {
+        "status": status,
+        "mode": "backup-retention-execute-readiness-board",
+        "readiness_status": readiness_status,
+        "ready_for_operator_execute_review": ready,
+        "execute_allowed_by_board": False,
+        "operator_manual_approval_required": True,
+        "task140_status": task140_report.get("status"),
+        "task140_execute_requested": task140_report.get("execute_requested"),
+        "task140_deletion_execution_enabled": task140_report.get("deletion_execution_enabled"),
+        "task140_deleted_count": task140_report.get("deleted_count", 0),
+        "task140_files_deleted": task140_report.get("files_deleted", False),
+        "task140_cleanup_executed": task140_report.get("cleanup_executed", False),
+        "cleanup_manifest_sha256": task140_report.get("cleanup_manifest_sha256") or manifest_sha256,
+        "task139_manifest_sha256": manifest_sha256,
+        "confirmation_token_expected": task140_report.get("confirmation_token_expected", ""),
+        "manifest_input_count": len(manifest_report.get("cleanup_manifest_rows") or []),
+        "dry_run_eligible_count": task140_report.get("dry_run_eligible_count", 0),
+        "blocked_count": task140_report.get("blocked_count", 0),
+        "expected_limit_blocker_count": expected_limit_blocker_count,
+        "unsafe_blocker_count": unsafe_blocker_count,
+        "proposed_max_delete_count": args.backup_retention_proposed_max_delete_count,
+        "proposed_max_delete_gb": args.backup_retention_proposed_max_delete_gb,
+        "estimated_reclaimable_bytes": task140_report.get("estimated_reclaimable_bytes", 0),
+        "estimated_reclaimable_gb": task140_report.get("estimated_reclaimable_gb", 0),
+        "actual_reclaimed_bytes": task140_report.get("actual_reclaimed_bytes", 0),
+        "actual_reclaimed_gb": task140_report.get("actual_reclaimed_gb", 0),
+        "task138_recognized_backup_size_gb": task138_report.get("recognized_backup_size_gb"),
+        "post_apply_backup_file_count": task140_report.get("post_apply_backup_file_count") or len(snapshot_rows),
+        "post_apply_recognized_backup_file_count": task140_report.get("post_apply_recognized_backup_file_count") or len(recognized_snapshot_rows),
+        "post_apply_recognized_backup_size_gb": task140_report.get("post_apply_recognized_backup_size_gb")
+        or _bytes_to_gb(sum(int(row.get("size_bytes") or 0) for row in recognized_snapshot_rows)),
+        "future_execute_command": command,
+        "board_check_count": len(board_rows),
+        "passed_check_count": sum(row["check_status"] == "passed" for row in board_rows),
+        "warning_check_count": sum(row["check_status"] == "warning" for row in board_rows),
+        "failed_check_count": sum(row["check_status"] == "failed" for row in board_rows),
+        "blocker_row_count": len(blocker_rows),
+        "board_rows": board_rows,
+        "blocker_rows": blocker_rows,
+        "warnings": warnings,
+        "errors": errors,
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "next_steps": _next_steps("backup-retention-execute-readiness-board", status),
+        **_backup_retention_safety_flags(),
+    }
+
+
+def _backup_retention_execute_readiness_summary_row(report: dict[str, Any]) -> dict[str, Any]:
+    return {field: report.get(field) for field in BACKUP_RETENTION_EXECUTE_READINESS_FIELDS}
+
+
+def _backup_retention_execute_readiness_board_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "backup-retention-execute-readiness-board-checks",
+        "board_check_count": report["board_check_count"],
+        "board_rows": report["board_rows"],
+        **_backup_retention_safety_flags(),
+    }
+
+
+def _backup_retention_execute_readiness_blockers_report(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report["status"],
+        "mode": "backup-retention-execute-readiness-blockers",
+        "blocker_row_count": report["blocker_row_count"],
+        "blocker_rows": report["blocker_rows"],
+        **_backup_retention_safety_flags(),
+    }
+
+
+def _write_backup_retention_execute_readiness_outputs(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts["readiness_json"] is not None:
+        write_json_report(report, artifacts["readiness_json"])
+    if artifacts["readiness_csv"] is not None:
+        _write_flat_csv([_backup_retention_execute_readiness_summary_row(report)], BACKUP_RETENTION_EXECUTE_READINESS_FIELDS, artifacts["readiness_csv"])
+    if artifacts["readiness_markdown"] is not None:
+        write_backup_retention_execute_readiness_markdown(report, artifacts["readiness_markdown"])
+    if artifacts["board_json"] is not None:
+        write_json_report(_backup_retention_execute_readiness_board_report(report), artifacts["board_json"])
+    if artifacts["board_csv"] is not None:
+        _write_flat_csv(report["board_rows"], BACKUP_RETENTION_EXECUTE_READINESS_BOARD_FIELDS, artifacts["board_csv"])
+    if artifacts["blockers_json"] is not None:
+        write_json_report(_backup_retention_execute_readiness_blockers_report(report), artifacts["blockers_json"])
+    if artifacts["blockers_csv"] is not None:
+        _write_flat_csv(report["blocker_rows"], BACKUP_RETENTION_EXECUTE_READINESS_BLOCKER_FIELDS, artifacts["blockers_csv"])
+
+
+def _first_present(row: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if key in row and row.get(key) is not None:
+            return row.get(key)
+    return None
+
+
 def _count_values(rows: list[dict[str, Any]], field: str) -> dict[str, int]:
     counts: dict[str, int] = {}
     for row in rows:
@@ -18239,6 +19143,11 @@ def write_backup_retention_controlled_apply_markdown(report: dict[str, Any], pat
     path.write_text(render_backup_retention_controlled_apply_markdown(report), encoding="utf-8")
 
 
+def write_backup_retention_execute_readiness_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_backup_retention_execute_readiness_markdown(report), encoding="utf-8")
+
+
 def write_financial_document_fetch_plan_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_financial_document_fetch_plan_markdown(report), encoding="utf-8")
@@ -18436,6 +19345,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_backup_retention_apply_markdown(report)
     if report.get("mode") == "backup-retention-controlled-apply":
         return render_backup_retention_controlled_apply_markdown(report)
+    if report.get("mode") == "backup-retention-execute-readiness-board":
+        return render_backup_retention_execute_readiness_markdown(report)
     if report.get("mode") == "financial-document-fetch-plan-preview":
         return render_financial_document_fetch_plan_markdown(report)
     if report.get("mode") == "operator-exact-document-refill-workspace-v2":
@@ -20390,6 +21301,119 @@ def render_backup_retention_controlled_apply_markdown(report: dict[str, Any]) ->
             "- This task does not mutate the database.",
             "- This task does not download or parse reports.",
             "- This task does not score issuers or trigger paper trading.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_backup_retention_execute_readiness_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Backup Retention Execute Readiness Board",
+        "",
+        "## Summary Verdict",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- readiness: `{report.get('readiness_status')}`",
+        f"- ready for operator execute review: `{report.get('ready_for_operator_execute_review')}`",
+        f"- execute allowed by board: `{report.get('execute_allowed_by_board')}`",
+        f"- manual approval required: `{report.get('operator_manual_approval_required')}`",
+        "- this task did not delete files",
+        "",
+        "## Task140 Dry-Run Evidence",
+        "",
+        f"- Task140 status: `{report.get('task140_status')}`",
+        f"- execute requested: `{report.get('task140_execute_requested')}`",
+        f"- deletion execution enabled: `{report.get('task140_deletion_execution_enabled')}`",
+        f"- deleted count: {report.get('task140_deleted_count', 0)}",
+        f"- files deleted: `{report.get('task140_files_deleted')}`",
+        f"- cleanup executed: `{report.get('task140_cleanup_executed')}`",
+        f"- dry-run eligible rows: {report.get('dry_run_eligible_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        f"- expected limit blockers: {report.get('expected_limit_blocker_count', 0)}",
+        f"- unsafe blockers: {report.get('unsafe_blocker_count', 0)}",
+        "",
+        "## Manifest And Limits",
+        "",
+        f"- cleanup manifest SHA-256: `{report.get('cleanup_manifest_sha256')}`",
+        f"- expected confirmation token: `{report.get('confirmation_token_expected')}`",
+        f"- proposed max delete count: {report.get('proposed_max_delete_count')}",
+        f"- proposed max delete size: {report.get('proposed_max_delete_gb')} GB",
+        f"- bounded reclaim preview: {report.get('estimated_reclaimable_gb', 0)} GB",
+        f"- actual reclaimed space: {report.get('actual_reclaimed_gb', 0)} GB",
+        "",
+        "## Post-Apply Snapshot",
+        "",
+        f"- backup entries: {report.get('post_apply_backup_file_count', 0)}",
+        f"- recognized backup files: {report.get('post_apply_recognized_backup_file_count', 0)}",
+        f"- recognized backup size: {report.get('post_apply_recognized_backup_size_gb', 0)} GB",
+        "",
+        "## Board Checks",
+        "",
+        "| Group | Check | Status | Observed | Expected | Reasons |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in report.get("board_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("check_group"),
+                    row.get("check_name"),
+                    row.get("check_status"),
+                    row.get("check_observed_value"),
+                    row.get("check_expected_value"),
+                    _csv_value(row.get("check_reason_codes")),
+                )
+            )
+            + " |"
+        )
+    if not report.get("board_rows"):
+        lines.append("| none | none | none | none | none | none |")
+    lines.extend(["", "## Future Execute Command Template", ""])
+    lines.extend(
+        [
+            "DO NOT RUN UNTIL MANUAL APPROVAL.",
+            "",
+            "```bash",
+            str(report.get("future_execute_command") or "# unavailable until hash and token are present"),
+            "```",
+            "",
+            "## Manual Approval Checklist",
+            "",
+            "- confirm latest fresh backup exists",
+            "- confirm `financial_reports_count = 1`",
+            "- confirm paper schedule is paused",
+            "- confirm current `du -sh backups`",
+            "- confirm current backup count",
+            "- confirm generated manifest hash",
+            "- confirm token",
+            "- confirm delete count/GB limits",
+            "- run Task140 dry-run again immediately before execute",
+            "- only then consider execute",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task is an advisory execute readiness board only.",
+            "- This task does not delete backup files.",
+            "- This task does not move backup files.",
+            "- This task does not compress backup files.",
+            "- This task does not upload backup files.",
+            "- This task does not restore backups.",
+            "- This task does not run Task140 execute mode.",
+            "- This task does not mutate the database.",
+            "- This task does not download or parse reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Any real deletion requires a separate explicit operator command with confirmation token and manifest SHA-256.",
             "",
         ]
     )
@@ -30719,6 +31743,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review the Task139 manifest and inert shell-script preview; any real cleanup remains a separate explicit manual action."]
     if mode == "backup-retention-controlled-apply":
         return ["Review Task140 blockers and ledger. Run execute mode only after explicit manifest review with the exact token and SHA-256."]
+    if mode == "backup-retention-execute-readiness-board":
+        return ["Complete the manual checklist, rerun Task140 dry-run immediately before execute, and use the generated command only after explicit approval."]
     if mode == "official-seed-resolve":
         return ["Use resolved official seeds for controlled candidate discovery; exact documents still require the quality gate."]
     if mode == "candidate-fill":
@@ -30872,6 +31898,23 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
         except (OSError, json.JSONDecodeError):
             pass
         return not _backup_retention_controlled_apply_output_errors(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            manifest_rows=manifest_rows,
+        )
+    if args.mode == "backup-retention-execute-readiness-board":
+        inputs = _backup_retention_execute_readiness_inputs(args)
+        artifacts = _backup_retention_execute_readiness_artifacts(args)
+        manifest_rows: list[dict[str, Any]] = []
+        manifest_path = inputs["manifest"]
+        try:
+            payload = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path is not None else {}
+            if isinstance(payload, dict) and isinstance(payload.get("cleanup_manifest_rows"), list):
+                manifest_rows = [row for row in payload["cleanup_manifest_rows"] if isinstance(row, dict)]
+        except (OSError, json.JSONDecodeError):
+            pass
+        return not _backup_retention_execute_readiness_output_errors(
             args,
             inputs=inputs,
             artifacts=artifacts,
