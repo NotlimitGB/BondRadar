@@ -63,6 +63,7 @@ MODE_CHOICES = (
     "operator-exact-document-refill-apply-draft-v2",
     "exact-document-draft-gate-v2",
     "source-trust-recovery-workspace-v2",
+    "source-trust-recovery-validate-v2",
     "backup-retention-preview",
     "backup-retention-apply-draft-preview",
     "backup-retention-controlled-apply",
@@ -3354,6 +3355,118 @@ SOURCE_TRUST_RECOVERY_BLOCKER_FIELDS = [
     "operator_action",
     "safe_hint",
 ]
+SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES = {
+    "validation_json": "source_trust_recovery_validation_task143.json",
+    "validation_csv": "source_trust_recovery_validation_task143.csv",
+    "validation_markdown": "source_trust_recovery_validation_task143.md",
+    "accepted_candidates_json": "source_trust_recovery_accepted_candidates_task143.json",
+    "accepted_candidates_csv": "source_trust_recovery_accepted_candidates_task143.csv",
+    "blockers_json": "source_trust_recovery_validation_blockers_task143.json",
+    "blockers_csv": "source_trust_recovery_validation_blockers_task143.csv",
+    "rerun_markdown": "source_trust_recovery_validation_rerun_task143.md",
+}
+SOURCE_TRUST_RECOVERY_VALIDATION_FIELDS = [
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "required_consolidated",
+    "recovery_status",
+    "gate_status",
+    "gate_blocker_codes",
+    "current_known_source_page_url",
+    "current_known_document_url",
+    "latest_historical_document_url",
+    "operator_fill_official_source_page_url",
+    "operator_fill_source_page_title",
+    "operator_fill_source_page_language",
+    "operator_fill_source_page_notes",
+    "normalized_source_page_url",
+    "source_page_scheme",
+    "source_page_host",
+    "source_page_path",
+    "source_page_file_extension",
+    "source_page_registrable_domain",
+    "validation_status",
+    "validation_severity",
+    "validation_action",
+    "validation_reason_codes",
+    "validation_errors",
+    "validation_warnings",
+    "url_shape_validation_status",
+    "host_validation_status",
+    "source_page_type_validation_status",
+    "historical_fallback_validation_status",
+    "document_url_validation_status",
+    "blocked_domain_validation_status",
+    "accepted_candidate_id",
+    "accepted_for_future_source_pack_draft",
+    "future_strict_validation_required",
+    "future_source_pack_apply_draft_required",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_trust_source_url",
+    "would_update_source_pack",
+    "would_update_document_intake",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+SOURCE_TRUST_RECOVERY_ACCEPTED_CANDIDATE_FIELDS = [
+    "accepted_candidate_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "official_source_page_url",
+    "source_page_title",
+    "source_page_language",
+    "source_page_notes",
+    "source_page_host",
+    "source_page_registrable_domain",
+    "accepted_candidate_status",
+    "accepted_candidate_reason_codes",
+    "accepted_for_future_source_pack_draft",
+    "future_strict_validation_required",
+    "future_source_pack_apply_draft_required",
+    "would_trust_source_url",
+    "would_update_source_pack",
+    "would_update_document_intake",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+SOURCE_TRUST_RECOVERY_VALIDATION_BLOCKER_FIELDS = [
+    "blocker_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "validation_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -3851,6 +3964,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-trust-recovery-blockers-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-template-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-workspace-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-blockers-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-accepted-candidates-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-accepted-candidates-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-blockers-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3969,6 +4093,8 @@ def run_assistant(
         report = run_exact_document_draft_gate_v2(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
+    elif args.mode == "source-trust-recovery-validate-v2":
+        report = run_source_trust_recovery_validate_v2(args)
     elif args.mode == "backup-retention-preview":
         report = run_backup_retention_preview(args)
     elif args.mode == "backup-retention-apply-draft-preview":
@@ -17114,6 +17240,720 @@ def _source_trust_recovery_safety_flags() -> dict[str, Any]:
     }
 
 
+def run_source_trust_recovery_validate_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _source_trust_recovery_validation_inputs(args)
+    template_path = inputs["template"]
+    if template_path is None or not template_path.is_file():
+        return _failed_source_trust_recovery_validation(
+            [{"message": "source_trust_recovery_template_input_required"}]
+        )
+    try:
+        template_rows, _ = load_operator_resolution_input(template_path)
+    except (OSError, ValueError, json.JSONDecodeError, csv.Error):
+        return _failed_source_trust_recovery_validation(
+            [{"message": "source_trust_recovery_template_input_required", "path": str(template_path)}]
+        )
+
+    warnings: list[dict[str, Any]] = []
+    workspace_rows = _source_trust_recovery_validation_optional_rows(
+        inputs["workspace"],
+        role="workspace",
+        row_keys=("recovery_rows", "rows"),
+        expected_mode="source-trust-recovery-workspace-v2",
+        warnings=warnings,
+    )
+    blocker_rows_context = _source_trust_recovery_validation_optional_rows(
+        inputs["blockers"],
+        role="blockers",
+        row_keys=("blocker_rows",),
+        expected_mode="source-trust-recovery-blockers-v2",
+        warnings=warnings,
+    )
+    source_pack_rows = _source_trust_recovery_source_pack_rows(inputs["source_pack"], warnings=warnings)
+    artifacts = _source_trust_recovery_validation_artifacts(args, template_path)
+    errors = _source_trust_recovery_validation_output_errors(args, inputs=inputs, artifacts=artifacts)
+    validation_rows = [
+        _source_trust_recovery_validation_row(
+            template_row,
+            workspace_rows=workspace_rows,
+            blocker_rows=blocker_rows_context,
+            source_pack_rows=source_pack_rows,
+        )
+        for template_row in template_rows
+    ]
+    accepted_rows = [
+        _source_trust_recovery_accepted_candidate_row(row)
+        for row in validation_rows
+        if row.get("validation_status") == "valid_future_source_page_candidate"
+    ]
+    blocker_rows = [
+        _source_trust_recovery_validation_blocker_row(row)
+        for row in validation_rows
+        if row.get("validation_status") != "valid_future_source_page_candidate"
+    ]
+    report = _build_source_trust_recovery_validation_report(
+        inputs=inputs,
+        artifacts=artifacts,
+        validation_rows=validation_rows,
+        accepted_rows=accepted_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            _write_optional_json_report(report, artifacts["validation_json"])
+            _write_optional_flat_csv(
+                validation_rows,
+                SOURCE_TRUST_RECOVERY_VALIDATION_FIELDS,
+                artifacts["validation_csv"],
+            )
+            if artifacts["validation_markdown"] is not None:
+                write_source_trust_recovery_validation_markdown(report, artifacts["validation_markdown"])
+            _write_optional_json_report(
+                {
+                    "status": report["status"],
+                    "mode": "source-trust-recovery-accepted-candidates-v2",
+                    "row_count": len(accepted_rows),
+                    "accepted_candidate_rows": accepted_rows,
+                    **_source_trust_recovery_validation_safety_flags(),
+                },
+                artifacts["accepted_candidates_json"],
+            )
+            _write_optional_flat_csv(
+                accepted_rows,
+                SOURCE_TRUST_RECOVERY_ACCEPTED_CANDIDATE_FIELDS,
+                artifacts["accepted_candidates_csv"],
+            )
+            _write_optional_json_report(
+                {
+                    "status": report["status"],
+                    "mode": "source-trust-recovery-validation-blockers-v2",
+                    "row_count": len(blocker_rows),
+                    "blocker_rows": blocker_rows,
+                    **_source_trust_recovery_validation_safety_flags(),
+                },
+                artifacts["blockers_json"],
+            )
+            _write_optional_flat_csv(
+                blocker_rows,
+                SOURCE_TRUST_RECOVERY_VALIDATION_BLOCKER_FIELDS,
+                artifacts["blockers_csv"],
+            )
+            if artifacts["rerun_markdown"] is not None:
+                write_source_trust_recovery_validation_rerun_markdown(report, artifacts["rerun_markdown"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _source_trust_recovery_validation_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "template": args.source_trust_recovery_template_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES["template_csv"] if output_dir else None),
+        "workspace": args.source_trust_recovery_workspace_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES["workspace_json"] if output_dir else None),
+        "blockers": args.source_trust_recovery_blockers_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+        "source_pack": _source_trust_recovery_source_pack_path(args),
+    }
+
+
+def _source_trust_recovery_validation_artifacts(
+    args: argparse.Namespace,
+    template_path: Path,
+) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    default_dir = output_dir if output_dir is not None else None
+    overrides = {
+        "validation_json": args.source_trust_recovery_validation_output,
+        "validation_csv": args.source_trust_recovery_validation_csv_output,
+        "validation_markdown": args.source_trust_recovery_validation_markdown_output,
+        "accepted_candidates_json": args.source_trust_recovery_accepted_candidates_output,
+        "accepted_candidates_csv": args.source_trust_recovery_accepted_candidates_csv_output,
+        "blockers_json": args.source_trust_recovery_validation_blockers_output,
+        "blockers_csv": args.source_trust_recovery_validation_blockers_csv_output,
+        "rerun_markdown": args.source_trust_recovery_validation_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (default_dir / filename if default_dir is not None else None)
+        for role, filename in SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES.items()
+    }
+
+
+def _source_trust_recovery_validation_optional_rows(
+    path: Path | None,
+    *,
+    role: str,
+    row_keys: Sequence[str],
+    expected_mode: str,
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if path is None or not path.is_file():
+        return []
+    try:
+        payload = _load_json_object(path)
+        if payload.get("mode") != expected_mode:
+            raise ValueError("unexpected optional artifact mode")
+        for key in row_keys:
+            rows = payload.get(key)
+            if isinstance(rows, list):
+                return [row for row in rows if isinstance(row, dict)]
+        raise ValueError("optional artifact rows are malformed")
+    except (OSError, ValueError, json.JSONDecodeError):
+        warnings.append({"message": f"source_trust_recovery_validation_optional_artifact_unreadable:{role}", "path": str(path)})
+        return []
+
+
+def _source_trust_recovery_validation_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "source_trust_recovery_validation_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "source_trust_recovery_validation_output_must_not_equal_input"}]
+    return []
+
+
+def _source_trust_recovery_validation_row(
+    template_row: dict[str, Any],
+    *,
+    workspace_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    source_pack_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    workspace = _source_trust_recovery_validation_context(template_row, workspace_rows)
+    source_pack = _source_trust_recovery_validation_context(template_row, source_pack_rows)
+    recovery_id = str(template_row.get("recovery_id") or workspace.get("recovery_id") or "")
+    company_id = str(template_row.get("company_id") or workspace.get("company_id") or source_pack.get("company_id") or "")
+    company_name = str(template_row.get("company_name") or workspace.get("company_name") or source_pack.get("company_name") or "")
+    canonical_company_id = str(
+        template_row.get("canonical_company_id")
+        or workspace.get("canonical_company_id")
+        or source_pack.get("canonical_company_id")
+        or company_id
+    )
+    canonical_company_name = str(
+        template_row.get("canonical_company_name")
+        or workspace.get("canonical_company_name")
+        or source_pack.get("canonical_company_name")
+        or company_name
+    )
+    target_period = str(
+        template_row.get("READONLY_target_reporting_period")
+        or workspace.get("target_reporting_period")
+        or ""
+    )
+    required_type = str(template_row.get("READONLY_required_report_type") or workspace.get("required_report_type") or "")
+    required_standard = str(template_row.get("READONLY_required_standard") or workspace.get("required_standard") or "")
+    required_consolidated = template_row.get("READONLY_required_consolidated")
+    if required_consolidated is None or required_consolidated == "":
+        required_consolidated = workspace.get("required_consolidated", "")
+    recovery_status = str(workspace.get("recovery_status") or template_row.get("recovery_status") or "")
+    gate_status = str(template_row.get("READONLY_gate_status") or workspace.get("gate_status") or "")
+    gate_blocker_codes = _financial_document_fetch_list(
+        template_row.get("READONLY_gate_blocker_codes") or workspace.get("gate_blocker_codes")
+    )
+    for blocker in blocker_rows:
+        if _source_trust_recovery_validation_rows_match(template_row, blocker):
+            _append_unique(gate_blocker_codes, str(blocker.get("blocker_code") or ""))
+    current_source_url = str(
+        template_row.get("READONLY_current_known_source_page_url")
+        or workspace.get("current_known_source_page_url")
+        or source_pack.get("current_known_source_page_url")
+        or ""
+    )
+    current_document_url = str(
+        template_row.get("READONLY_current_known_document_url")
+        or workspace.get("current_known_document_url")
+        or source_pack.get("current_known_document_url")
+        or ""
+    )
+    historical_url = str(
+        template_row.get("READONLY_latest_historical_document_url")
+        or workspace.get("latest_historical_document_url")
+        or source_pack.get("latest_historical_document_url")
+        or ""
+    )
+    raw_url = str(template_row.get("operator_fill_official_source_page_url") or "").strip()
+    parsed = urllib.parse.urlparse(raw_url)
+    normalized_url = _normalize_candidate_url(raw_url)
+    normalized_parsed = urllib.parse.urlparse(normalized_url)
+    extension = Path(parsed.path or normalized_parsed.path).suffix.casefold()
+    status, diagnostics = _source_trust_recovery_validation_status(
+        raw_url=raw_url,
+        normalized_url=normalized_url,
+        parsed=parsed,
+        extension=extension,
+        recovery_status=recovery_status,
+        gate_status=gate_status,
+        company_id=company_id,
+        company_name=company_name,
+        canonical_company_id=canonical_company_id,
+        canonical_company_name=canonical_company_name,
+        current_source_url=current_source_url,
+        current_document_url=current_document_url,
+        historical_url=historical_url,
+        source_pack=source_pack,
+    )
+    accepted = status == "valid_future_source_page_candidate"
+    accepted_candidate_id = f"source_trust_recovery_candidate:{recovery_id}" if accepted else ""
+    return {
+        "validation_id": f"source_trust_recovery_validation:{recovery_id or company_id or 'unknown'}",
+        "recovery_id": recovery_id,
+        "company_id": company_id,
+        "company_name": company_name,
+        "canonical_company_id": canonical_company_id,
+        "canonical_company_name": canonical_company_name,
+        "target_reporting_period": target_period,
+        "required_report_type": required_type,
+        "required_standard": required_standard,
+        "required_consolidated": required_consolidated,
+        "recovery_status": recovery_status,
+        "gate_status": gate_status,
+        "gate_blocker_codes": gate_blocker_codes,
+        "current_known_source_page_url": current_source_url,
+        "current_known_document_url": current_document_url,
+        "latest_historical_document_url": historical_url,
+        "operator_fill_official_source_page_url": raw_url,
+        "operator_fill_source_page_title": template_row.get("operator_fill_source_page_title") or "",
+        "operator_fill_source_page_language": template_row.get("operator_fill_source_page_language") or "",
+        "operator_fill_source_page_notes": template_row.get("operator_fill_source_page_notes") or "",
+        "normalized_source_page_url": normalized_url,
+        "source_page_scheme": normalized_parsed.scheme or parsed.scheme or "",
+        "source_page_host": _host(normalized_url) if normalized_url else parsed.netloc.casefold(),
+        "source_page_path": normalized_parsed.path or parsed.path or "",
+        "source_page_file_extension": extension,
+        "source_page_registrable_domain": _source_trust_registrable_domain(_host(normalized_url)) if normalized_url else "",
+        "validation_status": status,
+        "validation_severity": "info" if accepted else "warning" if status.startswith("incomplete_") else "error",
+        "validation_action": _source_trust_recovery_validation_action(status),
+        "validation_reason_codes": diagnostics["reasons"],
+        "validation_errors": diagnostics["errors"],
+        "validation_warnings": diagnostics["warnings"],
+        "url_shape_validation_status": diagnostics["url_shape_status"],
+        "host_validation_status": diagnostics["host_status"],
+        "source_page_type_validation_status": diagnostics["source_page_type_status"],
+        "historical_fallback_validation_status": diagnostics["historical_status"],
+        "document_url_validation_status": diagnostics["document_status"],
+        "blocked_domain_validation_status": diagnostics["blocked_domain_status"],
+        "accepted_candidate_id": accepted_candidate_id,
+        "accepted_for_future_source_pack_draft": accepted,
+        "future_strict_validation_required": accepted,
+        "future_source_pack_apply_draft_required": accepted,
+        **_source_trust_recovery_validation_row_safety_flags(),
+    }
+
+
+def _source_trust_recovery_validation_context(
+    template_row: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    matches = [row for row in rows if _source_trust_recovery_validation_rows_match(template_row, row)]
+    return matches[0] if matches else {}
+
+
+def _source_trust_recovery_validation_rows_match(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    recovery_id = str(left.get("recovery_id") or "")
+    if recovery_id and recovery_id == str(right.get("recovery_id") or ""):
+        return True
+    left_ids = {str(left.get("company_id") or ""), str(left.get("canonical_company_id") or "")} - {""}
+    right_ids = {str(right.get("company_id") or ""), str(right.get("canonical_company_id") or "")} - {""}
+    if left_ids and right_ids and not left_ids.isdisjoint(right_ids):
+        return True
+    left_names = {str(left.get("company_name") or "").casefold(), str(left.get("canonical_company_name") or "").casefold()} - {""}
+    right_names = {str(right.get("company_name") or "").casefold(), str(right.get("canonical_company_name") or "").casefold()} - {""}
+    return bool(left_names and right_names and not left_names.isdisjoint(right_names))
+
+
+def _source_trust_recovery_validation_status(
+    *,
+    raw_url: str,
+    normalized_url: str,
+    parsed: urllib.parse.ParseResult,
+    extension: str,
+    recovery_status: str,
+    gate_status: str,
+    company_id: str,
+    company_name: str,
+    canonical_company_id: str,
+    canonical_company_name: str,
+    current_source_url: str,
+    current_document_url: str,
+    historical_url: str,
+    source_pack: dict[str, Any],
+) -> tuple[str, dict[str, list[str] | str]]:
+    reasons: list[str] = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    url_shape_status = "not_provided"
+    host_status = "not_checked"
+    source_page_type_status = "not_checked"
+    historical_status = "not_checked"
+    document_status = "not_checked"
+    blocked_domain_status = "not_checked"
+
+    status = "valid_future_source_page_candidate"
+    if not (company_id or canonical_company_id) or not (company_name or canonical_company_name):
+        status = "blocked_missing_company_identity"
+    elif recovery_status and recovery_status != "needs_official_source_page_refill":
+        status = "blocked_not_recovery_candidate"
+    elif not recovery_status and gate_status != "blocked_source_trust_required":
+        status = "blocked_unknown_readiness"
+    elif not raw_url:
+        status = "incomplete_missing_official_source_page_url"
+    elif parsed.scheme and parsed.scheme.casefold() not in {"http", "https"}:
+        status = "invalid_non_http_url"
+        url_shape_status = "non_http_url"
+    elif not normalized_url:
+        status = "invalid_malformed_url"
+        url_shape_status = "malformed_url"
+    else:
+        url_shape_status = "valid_http_url"
+        normalized_current_document = _normalize_candidate_url(current_document_url)
+        normalized_historical = _normalize_candidate_url(historical_url)
+        normalized_current_source = _normalize_candidate_url(current_source_url)
+        if normalized_historical and normalized_url == normalized_historical:
+            status = "invalid_historical_fallback_url"
+            historical_status = "historical_fallback_url_not_allowed"
+        elif normalized_current_document and normalized_url == normalized_current_document:
+            status = "invalid_historical_fallback_url"
+            historical_status = "current_known_document_url_not_allowed"
+        elif _source_trust_recovery_url_is_document_file(normalized_url, extension):
+            status = "invalid_pdf_or_document_url"
+            document_status = "document_url_not_allowed"
+        elif _source_trust_has_archive_or_history_url([normalized_url]):
+            status = "invalid_archive_or_history_url"
+            historical_status = "archive_or_history_url_not_allowed"
+        elif _source_trust_recovery_is_social_or_external_platform(normalized_url):
+            status = "invalid_social_or_external_platform_url"
+            host_status = "social_or_external_platform_not_allowed"
+        elif _source_trust_recovery_is_search_or_news_url(normalized_url):
+            status = "invalid_search_or_news_url"
+            source_page_type_status = "search_or_news_url_not_allowed"
+        elif _has_blocked_source_hint(normalized_url):
+            status = "invalid_blocked_domain"
+            blocked_domain_status = "blocked_domain"
+        elif _source_trust_recovery_wrong_company_context(
+            normalized_url,
+            current_source_url=normalized_current_source,
+            source_pack=source_pack,
+        ):
+            status = "invalid_wrong_company_context"
+            host_status = "wrong_company_context"
+        elif not _source_trust_recovery_source_page_has_context_signal(normalized_url):
+            status = "invalid_generic_landing_page_url"
+            source_page_type_status = "generic_landing_page_not_allowed"
+        else:
+            source_page_type_status = "source_page_shape_ok"
+            classification = classify_source_url(normalized_url, allow_unknown_source=True)
+            host_status = str(classification.get("status") or "")
+            if classification.get("status") == "unknown_warning":
+                warnings.append("unknown_host_requires_future_officiality_review")
+
+    blocker_code = _source_trust_recovery_validation_blocker_code(status)
+    _append_unique(reasons, blocker_code)
+    if status.startswith("invalid_") or status.startswith("blocked_"):
+        _append_unique(errors, blocker_code)
+    if status == "valid_future_source_page_candidate":
+        _append_unique(reasons, "future_source_page_candidate_only")
+    if status == "incomplete_missing_official_source_page_url":
+        _append_unique(warnings, "operator_fill_required")
+    return status, {
+        "reasons": reasons,
+        "errors": errors,
+        "warnings": warnings,
+        "url_shape_status": url_shape_status,
+        "host_status": host_status,
+        "source_page_type_status": source_page_type_status,
+        "historical_status": historical_status if historical_status != "not_checked" else "not_historical_fallback",
+        "document_status": document_status if document_status != "not_checked" else "not_document_url",
+        "blocked_domain_status": blocked_domain_status if blocked_domain_status != "not_checked" else "not_blocked_domain",
+    }
+
+
+def _source_trust_recovery_url_is_document_file(url: str, extension: str) -> bool:
+    document_extensions = {".pdf", ".xls", ".xlsx", ".zip", ".doc", ".docx"}
+    if extension.casefold() in document_extensions:
+        return True
+    path = urllib.parse.urlparse(url).path.casefold()
+    name = Path(path).name
+    return bool(name and "." in name and Path(name).suffix.casefold() in document_extensions)
+
+
+def _source_trust_recovery_is_social_or_external_platform(url: str) -> bool:
+    host = _host(url)
+    social_hosts = (
+        "vk.com",
+        "t.me",
+        "telegram.me",
+        "youtube.com",
+        "youtu.be",
+        "facebook.com",
+        "x.com",
+        "twitter.com",
+        "linkedin.com",
+    )
+    return any(host == item or host.endswith(f".{item}") for item in social_hosts)
+
+
+def _source_trust_recovery_is_search_or_news_url(url: str) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    host = _host(url)
+    text = urllib.parse.unquote(f"{host} {parsed.path} {parsed.query}").casefold()
+    if any(host == item or host.endswith(f".{item}") for item in ("google.com", "yandex.ru", "yandex.com", "bing.com", "duckduckgo.com", "yahoo.com")):
+        return True
+    return _contains_any(text, ("/search", "search?", "/news", "/press", "press-release", "newsroom", "/media"))
+
+
+def _source_trust_recovery_wrong_company_context(
+    url: str,
+    *,
+    current_source_url: str,
+    source_pack: dict[str, Any],
+) -> bool:
+    candidate_domain = _source_trust_registrable_domain(_host(url))
+    known_urls = [
+        current_source_url,
+        str(source_pack.get("current_known_source_page_url") or ""),
+        str(source_pack.get("official_source_url") or ""),
+        str(source_pack.get("source_url") or ""),
+    ]
+    known_domains = {
+        _source_trust_registrable_domain(_host(known_url))
+        for known_url in known_urls
+        if _financial_document_fetch_url_is_http(known_url)
+    } - {""}
+    return bool(candidate_domain and known_domains and candidate_domain not in known_domains)
+
+
+def _source_trust_recovery_source_page_has_context_signal(url: str) -> bool:
+    if _operator_source_page_has_context_signal(url):
+        return True
+    parsed = urllib.parse.urlparse(url)
+    text = urllib.parse.unquote(f"{parsed.path}?{parsed.query}").casefold()
+    return _contains_any(
+        text,
+        (
+            "shareholder",
+            "shareholders",
+            "investoram",
+            "raskrytie",
+            "otchetnost",
+            "otchety",
+            "finansovaya-otchetnost",
+            "akcioneram",
+            "aktsioneram",
+        ),
+    )
+
+
+def _source_trust_recovery_validation_action(status: str) -> str:
+    return {
+        "valid_future_source_page_candidate": "review_future_source_pack_draft_candidate",
+        "incomplete_missing_official_source_page_url": "fill_official_source_page_url",
+        "blocked_not_recovery_candidate": "review_task142_workspace_row",
+        "blocked_missing_company_identity": "repair_company_identity_before_source_validation",
+        "blocked_unknown_readiness": "rerun_task142_workspace_with_context",
+    }.get(status, "correct_source_page_candidate")
+
+
+def _source_trust_recovery_validation_blocker_code(status: str) -> str:
+    return {
+        "valid_future_source_page_candidate": "future_source_page_candidate_only",
+        "incomplete_missing_official_source_page_url": "missing_official_source_page_url",
+        "invalid_malformed_url": "malformed_url",
+        "invalid_non_http_url": "non_http_url",
+        "invalid_pdf_or_document_url": "pdf_or_document_url_not_allowed",
+        "invalid_historical_fallback_url": "historical_fallback_not_allowed",
+        "invalid_archive_or_history_url": "archive_or_history_url_not_allowed",
+        "invalid_search_or_news_url": "search_or_news_url_not_allowed",
+        "invalid_social_or_external_platform_url": "social_or_external_platform_not_allowed",
+        "invalid_generic_landing_page_url": "generic_landing_page_not_allowed",
+        "invalid_blocked_domain": "blocked_domain",
+        "invalid_wrong_company_context": "wrong_company_context",
+        "blocked_not_recovery_candidate": "not_recovery_candidate",
+        "blocked_missing_company_identity": "missing_company_identity",
+        "blocked_unknown_readiness": "unknown_readiness",
+    }.get(status, "unknown_readiness")
+
+
+def _source_trust_recovery_accepted_candidate_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        "validation_id": row.get("validation_id") or "",
+        "recovery_id": row.get("recovery_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "canonical_company_id": row.get("canonical_company_id") or "",
+        "canonical_company_name": row.get("canonical_company_name") or "",
+        "official_source_page_url": row.get("normalized_source_page_url") or "",
+        "source_page_title": row.get("operator_fill_source_page_title") or "",
+        "source_page_language": row.get("operator_fill_source_page_language") or "",
+        "source_page_notes": row.get("operator_fill_source_page_notes") or "",
+        "source_page_host": row.get("source_page_host") or "",
+        "source_page_registrable_domain": row.get("source_page_registrable_domain") or "",
+        "accepted_candidate_status": "future_source_pack_draft_candidate_only",
+        "accepted_candidate_reason_codes": row.get("validation_reason_codes") or [],
+        "accepted_for_future_source_pack_draft": True,
+        "future_strict_validation_required": True,
+        "future_source_pack_apply_draft_required": True,
+        **_source_trust_recovery_validation_candidate_safety_flags(),
+    }
+
+
+def _source_trust_recovery_validation_blocker_row(row: dict[str, Any]) -> dict[str, Any]:
+    blocker_code = _source_trust_recovery_validation_blocker_code(str(row.get("validation_status") or ""))
+    return {
+        "blocker_id": f"source_trust_recovery_validation_blocker:{row.get('validation_id')}:{blocker_code}",
+        "validation_id": row.get("validation_id") or "",
+        "recovery_id": row.get("recovery_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "validation_status": row.get("validation_status") or "",
+        "blocker_code": blocker_code,
+        "blocker_severity": row.get("validation_severity") or "warning",
+        "operator_action": row.get("validation_action") or "",
+        "safe_hint": "Task143 is preview-only. Correct the source page candidate and rerun validation.",
+    }
+
+
+def _build_source_trust_recovery_validation_report(
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    validation_rows: list[dict[str, Any]],
+    accepted_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    valid_count = len(accepted_rows)
+    incomplete_count = sum(1 for row in validation_rows if str(row.get("validation_status") or "").startswith("incomplete_"))
+    invalid_count = sum(1 for row in validation_rows if str(row.get("validation_status") or "").startswith("invalid_"))
+    blocked_count = sum(1 for row in validation_rows if str(row.get("validation_status") or "").startswith("blocked_"))
+    status = (
+        "failed"
+        if errors
+        else "passed"
+        if validation_rows and valid_count == len(validation_rows) and not warnings
+        else "warning"
+    )
+    return {
+        "status": status,
+        "mode": "source-trust-recovery-validate-v2",
+        "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        "row_count": len(validation_rows),
+        "valid_candidate_count": valid_count,
+        "accepted_candidate_count": len(accepted_rows),
+        "incomplete_count": incomplete_count,
+        "invalid_count": invalid_count,
+        "blocked_count": blocked_count,
+        "blocker_row_count": len(blocker_rows),
+        "validation_status_counts": _count_by_key(validation_rows, "validation_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "validation_rows": validation_rows,
+        "accepted_candidate_rows": accepted_rows,
+        "blocker_rows": blocker_rows,
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("source-trust-recovery-validate-v2", status),
+        **_source_trust_recovery_validation_safety_flags(),
+    }
+
+
+def _failed_source_trust_recovery_validation(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "source-trust-recovery-validate-v2",
+        "row_count": 0,
+        "valid_candidate_count": 0,
+        "accepted_candidate_count": 0,
+        "incomplete_count": 0,
+        "invalid_count": 0,
+        "blocked_count": 0,
+        "blocker_row_count": 0,
+        "validation_status_counts": {},
+        "blocker_code_counts": {},
+        "validation_rows": [],
+        "accepted_candidate_rows": [],
+        "blocker_rows": [],
+        "warnings": [],
+        "errors": errors,
+        **_source_trust_recovery_validation_safety_flags(),
+    }
+
+
+def _source_trust_recovery_validation_row_safety_flags() -> dict[str, bool]:
+    return {
+        "would_probe_url": False,
+        "would_fetch_url": False,
+        "would_trust_source_url": False,
+        "would_update_source_pack": False,
+        "would_update_document_intake": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _source_trust_recovery_validation_candidate_safety_flags() -> dict[str, bool]:
+    return {
+        "would_trust_source_url": False,
+        "would_update_source_pack": False,
+        "would_update_document_intake": False,
+        "would_probe_url": False,
+        "would_fetch_url": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _source_trust_recovery_validation_safety_flags() -> dict[str, Any]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_probe_urls": False,
+        "would_fetch_urls": False,
+        "would_trust_source_urls": False,
+        "would_update_source_pack": False,
+        "would_update_document_intake": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
 def _financial_document_fetch_url_is_http(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
@@ -19956,6 +20796,16 @@ def write_source_trust_recovery_rerun_markdown(report: dict[str, Any], path: Pat
     path.write_text(render_source_trust_recovery_rerun_markdown(report), encoding="utf-8")
 
 
+def write_source_trust_recovery_validation_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_validation_markdown(report), encoding="utf-8")
+
+
+def write_source_trust_recovery_validation_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_validation_rerun_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -20137,6 +20987,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_exact_document_draft_gate_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
+    if report.get("mode") == "source-trust-recovery-validate-v2":
+        return render_source_trust_recovery_validation_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -22834,6 +23686,168 @@ def _source_trust_recovery_future_validation_command_lines(report: dict[str, Any
     return [
         "python3 scripts/financial_official_source_evidence_assistant.py \\",
         "  --mode source-trust-recovery-validate-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+    ]
+
+
+def render_source_trust_recovery_validation_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Validation v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- valid candidates: {report.get('valid_candidate_count', 0)}",
+        f"- accepted candidates: {report.get('accepted_candidate_count', 0)}",
+        f"- incomplete rows: {report.get('incomplete_count', 0)}",
+        f"- invalid rows: {report.get('invalid_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        "",
+        "## Validation Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("validation_status_counts") or {}))
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("blocker_code_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Accepted Candidates",
+            "",
+            "| Company | Source page URL | Host | Status |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("accepted_candidate_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("official_source_page_url"),
+                    row.get("source_page_host"),
+                    row.get("accepted_candidate_status"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("accepted_candidate_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Blockers",
+            "",
+            "| Company | Validation status | Blocker | Operator action |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("blocker_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("validation_status"),
+                    row.get("blocker_code"),
+                    row.get("operator_action"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("blocker_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Operator Next Steps",
+            "",
+            "- Correct blocked rows in the Task142 source trust recovery template and rerun Task143.",
+            "- Accepted rows are only candidates for a future source-pack draft step.",
+            "- Task143 does not apply or trust manual URLs.",
+            "",
+            "## Future Apply-Draft Step",
+            "",
+            "Future step / not run by Task143:",
+            "",
+            "```bash",
+            *_source_trust_recovery_validation_future_apply_command_lines(report),
+            "```",
+            "",
+            "## Safety Notes",
+            "",
+            "- This task validates operator-filled source page candidates only.",
+            "- This task does not search the web.",
+            "- This task does not probe URLs.",
+            "- This task does not fetch source pages.",
+            "- This task does not download reports.",
+            "- This task does not parse reports.",
+            "- This task does not trust manual source URLs.",
+            "- This task does not update source packs.",
+            "- This task does not update document intake.",
+            "- This task does not mutate the database.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Historical fallback URLs are diagnostic-only and must not be copied as trusted source pages.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_source_trust_recovery_validation_rerun_markdown(report: dict[str, Any]) -> str:
+    template_path = (report.get("inputs") or {}).get("template") or "source_trust_recovery_template_task142.csv"
+    lines = [
+        "# Source Trust Recovery Validation Rerun Instructions",
+        "",
+        "## Fill And Rerun",
+        "",
+        f"- Fill or correct `{template_path}`.",
+        "- Use an official issuer/company reporting, investor-relations, disclosure, reports, shareholders, or financial statements page.",
+        "- Do not use PDF/document URLs, historical fallback URLs, search/news/social pages, or generic home pages.",
+        "",
+        "## Rerun Task143",
+        "",
+        "```bash",
+        *_source_trust_recovery_validation_rerun_command_lines(report),
+        "```",
+        "",
+        "## Future Apply-Draft Step",
+        "",
+        "Future step / not run by Task143:",
+        "",
+        "```bash",
+        *_source_trust_recovery_validation_future_apply_command_lines(report),
+        "```",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _source_trust_recovery_validation_output_dir(report: dict[str, Any]) -> str:
+    inputs = report.get("inputs") or {}
+    template_path = str(inputs.get("template") or "")
+    return str(Path(template_path).parent) if template_path else "logs/financial_reports/task124_chain_preview"
+
+
+def _source_trust_recovery_validation_rerun_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = _source_trust_recovery_validation_output_dir(report)
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-validate-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+    ]
+
+
+def _source_trust_recovery_validation_future_apply_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = _source_trust_recovery_validation_output_dir(report)
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-apply-draft-v2 \\",
         f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
     ]
 
@@ -32678,6 +33692,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Resolve Task137 blockers; rerun the Task132 disk guard immediately before any future controlled document write."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
+    if mode == "source-trust-recovery-validate-v2":
+        return ["Review Task143 accepted candidates and blockers; manual source URLs remain candidate-only until a future apply-draft task."]
     if mode == "backup-retention-preview":
         return ["Review Task138 rotation candidates manually; this preview never deletes or modifies backup files."]
     if mode == "backup-retention-apply-draft-preview":
@@ -32801,6 +33817,13 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_source_trust_recovery_inputs(args),
             artifacts=_source_trust_recovery_artifacts(args),
+        )
+    if args.mode == "source-trust-recovery-validate-v2":
+        template_path = _source_trust_recovery_validation_inputs(args)["template"] or Path(".")
+        return not _source_trust_recovery_validation_output_errors(
+            args,
+            inputs=_source_trust_recovery_validation_inputs(args),
+            artifacts=_source_trust_recovery_validation_artifacts(args, template_path),
         )
     if args.mode == "backup-retention-preview":
         all_outputs = [

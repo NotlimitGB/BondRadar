@@ -9019,6 +9019,218 @@ def test_source_trust_recovery_never_calls_network_or_delete_helpers(tmp_path: P
     assert report["would_delete_files"] is False
 
 
+def test_source_trust_recovery_validation_unfilled_rzd_is_incomplete(tmp_path: Path) -> None:
+    _write_source_trust_recovery_validation_inputs(tmp_path)
+
+    report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["row_count"] == 1
+    assert report["valid_candidate_count"] == 0
+    assert report["accepted_candidate_count"] == 0
+    assert report["incomplete_count"] == 1
+    assert report["blocker_row_count"] == 1
+    assert report["validation_rows"][0]["validation_status"] == "incomplete_missing_official_source_page_url"
+    assert report["blocker_rows"][0]["blocker_code"] == "missing_official_source_page_url"
+    for key in assistant.SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES:
+        assert Path(report["artifacts"][key]).is_file()
+    markdown = (tmp_path / "source_trust_recovery_validation_task143.md").read_text(encoding="utf-8")
+    assert "Source Trust Recovery Validation v2" in markdown
+    assert "does not probe URLs" in markdown
+    rerun = (tmp_path / "source_trust_recovery_validation_rerun_task143.md").read_text(encoding="utf-8")
+    assert "source-trust-recovery-apply-draft-v2" in rerun
+
+
+def test_source_trust_recovery_validation_accepts_rzd_source_page_candidate_only(tmp_path: Path) -> None:
+    _write_source_trust_recovery_validation_inputs(
+        tmp_path,
+        template_updates={"operator_fill_official_source_page_url": "https://company.rzd.ru/ru/ir/reports"},
+    )
+
+    report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "valid_future_source_page_candidate"
+    assert row["accepted_for_future_source_pack_draft"] is True
+    assert row["would_trust_source_url"] is False
+    assert row["would_update_source_pack"] is False
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_url"] is False
+    assert report["accepted_candidate_count"] == 1
+    accepted = report["accepted_candidate_rows"][0]
+    assert accepted["official_source_page_url"] == "https://company.rzd.ru/ru/ir/reports"
+    assert accepted["accepted_candidate_status"] == "future_source_pack_draft_candidate_only"
+    assert accepted["would_trust_source_url"] is False
+    assert accepted["would_update_source_pack"] is False
+
+
+def test_source_trust_recovery_validation_rejects_pdf_and_historical_urls(tmp_path: Path) -> None:
+    pdf_dir = tmp_path / "pdf"
+    _write_source_trust_recovery_validation_inputs(
+        pdf_dir,
+        template_updates={"operator_fill_official_source_page_url": "https://rzd.ru/reports/annual-ifrs-2025.pdf"},
+    )
+    pdf = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(pdf_dir)])
+    assert pdf["validation_rows"][0]["validation_status"] == "invalid_pdf_or_document_url"
+    assert pdf["blocker_rows"][0]["blocker_code"] == "pdf_or_document_url_not_allowed"
+
+    historical_url = "https://rzd.ru/reports/annual-ifrs-2024.pdf"
+    historical_dir = tmp_path / "historical"
+    _write_source_trust_recovery_validation_inputs(
+        historical_dir,
+        template_updates={"operator_fill_official_source_page_url": historical_url},
+        workspace_updates={"latest_historical_document_url": historical_url},
+    )
+    historical = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(historical_dir)])
+    assert historical["validation_rows"][0]["validation_status"] == "invalid_historical_fallback_url"
+    assert historical["blocker_rows"][0]["blocker_code"] == "historical_fallback_not_allowed"
+
+    current_document_dir = tmp_path / "current_doc"
+    _write_source_trust_recovery_validation_inputs(
+        current_document_dir,
+        template_updates={"operator_fill_official_source_page_url": historical_url},
+        workspace_updates={"latest_historical_document_url": "", "current_known_document_url": historical_url},
+    )
+    current_document = _run_source_trust_recovery_validation(
+        ["--operator-resolution-chain-output-dir", str(current_document_dir)]
+    )
+    assert current_document["validation_rows"][0]["validation_status"] == "invalid_historical_fallback_url"
+
+
+def test_source_trust_recovery_validation_rejects_malformed_and_non_http_urls(tmp_path: Path) -> None:
+    malformed_dir = tmp_path / "malformed"
+    _write_source_trust_recovery_validation_inputs(
+        malformed_dir,
+        template_updates={"operator_fill_official_source_page_url": "not a url"},
+    )
+    malformed = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(malformed_dir)])
+    assert malformed["validation_rows"][0]["validation_status"] == "invalid_malformed_url"
+
+    non_http_dir = tmp_path / "ftp"
+    _write_source_trust_recovery_validation_inputs(
+        non_http_dir,
+        template_updates={"operator_fill_official_source_page_url": "ftp://rzd.ru/ir/reports"},
+    )
+    non_http = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(non_http_dir)])
+    assert non_http["validation_rows"][0]["validation_status"] == "invalid_non_http_url"
+
+
+def test_source_trust_recovery_validation_rejects_landing_search_news_and_social_urls(tmp_path: Path) -> None:
+    cases = [
+        ("landing", "https://rzd.ru/", "invalid_generic_landing_page_url", "generic_landing_page_not_allowed"),
+        ("news", "https://rzd.ru/news/financial-results", "invalid_search_or_news_url", "search_or_news_url_not_allowed"),
+        ("social", "https://vk.com/rzd", "invalid_social_or_external_platform_url", "social_or_external_platform_not_allowed"),
+    ]
+    for name, url, expected_status, expected_blocker in cases:
+        case_dir = tmp_path / name
+        _write_source_trust_recovery_validation_inputs(
+            case_dir,
+            template_updates={"operator_fill_official_source_page_url": url},
+        )
+        report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(case_dir)])
+        assert report["validation_rows"][0]["validation_status"] == expected_status
+        assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+
+
+def test_source_trust_recovery_validation_blocks_non_recovery_and_missing_identity(tmp_path: Path) -> None:
+    non_recovery_dir = tmp_path / "non_recovery"
+    _write_source_trust_recovery_validation_inputs(
+        non_recovery_dir,
+        template_updates={"operator_fill_official_source_page_url": "https://rzd.ru/ir/reports"},
+        workspace_updates={"recovery_status": "skipped_exact_document_refill_needed"},
+    )
+    non_recovery = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(non_recovery_dir)])
+    assert non_recovery["validation_rows"][0]["validation_status"] == "blocked_not_recovery_candidate"
+
+    missing_identity_dir = tmp_path / "missing_identity"
+    _write_source_trust_recovery_validation_inputs(
+        missing_identity_dir,
+        template_updates={
+            "company_id": "",
+            "company_name": "",
+            "canonical_company_id": "",
+            "canonical_company_name": "",
+            "operator_fill_official_source_page_url": "https://rzd.ru/ir/reports",
+        },
+        workspace_updates={
+            "company_id": "",
+            "company_name": "",
+            "canonical_company_id": "",
+            "canonical_company_name": "",
+        },
+    )
+    missing_identity = _run_source_trust_recovery_validation(
+        ["--operator-resolution-chain-output-dir", str(missing_identity_dir)]
+    )
+    assert missing_identity["validation_rows"][0]["validation_status"] == "blocked_missing_company_identity"
+    assert missing_identity["blocker_rows"][0]["blocker_code"] == "missing_company_identity"
+
+
+def test_source_trust_recovery_validation_missing_input_and_collisions_fail_safely(tmp_path: Path) -> None:
+    missing = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert missing["status"] == "failed"
+    assert missing["errors"] == [{"message": "source_trust_recovery_template_input_required"}]
+
+    _write_source_trust_recovery_validation_inputs(tmp_path)
+    template = tmp_path / "source_trust_recovery_template_task142.csv"
+    original = template.read_bytes()
+    dedicated = _run_source_trust_recovery_validation(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--source-trust-recovery-validation-output",
+            str(template),
+        ]
+    )
+    assert dedicated["status"] == "failed"
+    assert dedicated["errors"] == [{"message": "source_trust_recovery_validation_output_must_not_equal_input"}]
+    assert template.read_bytes() == original
+
+    generic = _run_source_trust_recovery_validation(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--json-output",
+            str(template),
+        ]
+    )
+    assert generic["status"] == "failed"
+    assert generic["errors"] == [{"message": "source_trust_recovery_validation_output_must_not_equal_input"}]
+    assert template.read_bytes() == original
+
+
+def test_source_trust_recovery_validation_never_calls_network_or_delete_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task143 must not probe, fetch, download, parse, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _write_source_trust_recovery_validation_inputs(
+        tmp_path,
+        template_updates={"operator_fill_official_source_page_url": "https://company.rzd.ru/ru/ir/reports"},
+    )
+
+    report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_trust_source_urls"] is False
+    assert report["would_update_source_pack"] is False
+    assert report["would_update_document_intake"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -14327,6 +14539,19 @@ def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     return report
 
 
+def _run_source_trust_recovery_validation(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-trust-recovery-validate-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _source_trust_recovery_gate_row(**updates: object) -> dict[str, object]:
     row: dict[str, object] = {
         "gate_id": "exact_document_draft_gate:67:2025",
@@ -14391,6 +14616,94 @@ def _write_source_trust_recovery_gate(
                 "status": "warning",
                 "mode": "exact-document-draft-gate-blockers-v2",
                 "blocker_rows": blockers or [],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _source_trust_recovery_validation_template_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "recovery_id": "source_trust_recovery:18:2025",
+        "company_id": "18",
+        "company_name": "RZD",
+        "canonical_company_id": "18",
+        "canonical_company_name": "RZD",
+        "READONLY_target_reporting_period": "2025",
+        "READONLY_required_report_type": "annual",
+        "READONLY_required_standard": "IFRS",
+        "READONLY_required_consolidated": "true",
+        "READONLY_gate_status": "blocked_source_trust_required",
+        "READONLY_gate_blocker_codes": "source_trust_required",
+        "READONLY_current_known_source_page_url": "",
+        "READONLY_current_known_document_url": "",
+        "READONLY_latest_historical_document_url": "https://rzd.ru/reports/annual-ifrs-2024.pdf",
+        "READONLY_forbidden_url_hint": "Do not copy historical fallback URLs.",
+        "READONLY_operator_instruction": "Fill an official source page.",
+        "operator_fill_official_source_page_url": "",
+        "operator_fill_source_page_title": "",
+        "operator_fill_source_page_language": "",
+        "operator_fill_source_page_notes": "",
+    }
+    row.update(updates)
+    return row
+
+
+def _source_trust_recovery_validation_workspace_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "recovery_id": "source_trust_recovery:18:2025",
+        "company_id": "18",
+        "company_name": "RZD",
+        "canonical_company_id": "18",
+        "canonical_company_name": "RZD",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "required_consolidated": True,
+        "recovery_status": "needs_official_source_page_refill",
+        "gate_status": "blocked_source_trust_required",
+        "gate_blocker_codes": ["source_trust_required"],
+        "current_known_source_page_url": "",
+        "current_known_document_url": "",
+        "latest_historical_document_url": "https://rzd.ru/reports/annual-ifrs-2024.pdf",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_source_trust_recovery_validation_inputs(
+    path: Path,
+    *,
+    template_updates: dict[str, object] | None = None,
+    workspace_updates: dict[str, object] | None = None,
+) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    template_row = _source_trust_recovery_validation_template_row(**(template_updates or {}))
+    with (path / "source_trust_recovery_template_task142.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=assistant.SOURCE_TRUST_RECOVERY_TEMPLATE_FIELDS)
+        writer.writeheader()
+        writer.writerow(template_row)
+    workspace_row = _source_trust_recovery_validation_workspace_row(**(workspace_updates or {}))
+    (path / "source_trust_recovery_workspace_task142.json").write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "source-trust-recovery-workspace-v2",
+                "recovery_rows": [workspace_row],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (path / "source_trust_recovery_blockers_task142.json").write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "source-trust-recovery-blockers-v2",
+                "blocker_rows": [],
             },
             indent=2,
         )
