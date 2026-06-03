@@ -17502,6 +17502,8 @@ def _source_trust_recovery_validation_row(
         current_source_url=current_source_url,
         current_document_url=current_document_url,
         historical_url=historical_url,
+        operator_title=str(template_row.get("operator_fill_source_page_title") or ""),
+        operator_notes=str(template_row.get("operator_fill_source_page_notes") or ""),
         source_pack=source_pack,
     )
     accepted = status == "valid_future_source_page_candidate"
@@ -17589,6 +17591,8 @@ def _source_trust_recovery_validation_status(
     current_source_url: str,
     current_document_url: str,
     historical_url: str,
+    operator_title: str,
+    operator_notes: str,
     source_pack: dict[str, Any],
 ) -> tuple[str, dict[str, list[str] | str]]:
     reasons: list[str] = []
@@ -17649,6 +17653,20 @@ def _source_trust_recovery_validation_status(
         ):
             status = "invalid_wrong_company_context"
             host_status = "wrong_company_context"
+        elif _source_trust_recovery_is_official_numeric_cms_source_page_candidate(
+            normalized_url,
+            company_name=company_name,
+            canonical_company_name=canonical_company_name,
+            current_source_url=normalized_current_source,
+            source_pack=source_pack,
+            operator_title=operator_title,
+            operator_notes=operator_notes,
+        ):
+            url_shape_status = "official_numeric_cms_source_page_candidate"
+            host_status = "official_host_candidate"
+            source_page_type_status = "source_page_like"
+            _append_unique(reasons, "official_numeric_cms_source_page_candidate")
+            _append_unique(warnings, "static_officiality_review_required")
         elif not _source_trust_recovery_source_page_has_context_signal(normalized_url):
             status = "invalid_generic_landing_page_url"
             source_page_type_status = "generic_landing_page_not_allowed"
@@ -17684,9 +17702,17 @@ def _source_trust_recovery_url_is_document_file(url: str, extension: str) -> boo
     document_extensions = {".pdf", ".xls", ".xlsx", ".zip", ".doc", ".docx"}
     if extension.casefold() in document_extensions:
         return True
-    path = urllib.parse.urlparse(url).path.casefold()
+    parsed = urllib.parse.urlparse(url)
+    path = parsed.path.casefold()
     name = Path(path).name
-    return bool(name and "." in name and Path(name).suffix.casefold() in document_extensions)
+    if name and "." in name and Path(name).suffix.casefold() in document_extensions:
+        return True
+    query_values = [
+        value.casefold()
+        for values in urllib.parse.parse_qs(parsed.query, keep_blank_values=True).values()
+        for value in values
+    ]
+    return any(Path(value).suffix.casefold() in document_extensions for value in query_values if "." in value)
 
 
 def _source_trust_recovery_is_social_or_external_platform(url: str) -> bool:
@@ -17752,6 +17778,75 @@ def _source_trust_recovery_source_page_has_context_signal(url: str) -> bool:
             "finansovaya-otchetnost",
             "akcioneram",
             "aktsioneram",
+        ),
+    )
+
+
+def _source_trust_recovery_is_official_numeric_cms_source_page_candidate(
+    url: str,
+    *,
+    company_name: str,
+    canonical_company_name: str,
+    current_source_url: str,
+    source_pack: dict[str, Any],
+    operator_title: str,
+    operator_notes: str,
+) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme.casefold() not in {"http", "https"}:
+        return False
+    path = urllib.parse.unquote(parsed.path or "").casefold()
+    if not re.fullmatch(r"/[a-z]{2}/\d+/page/\d+/?", path):
+        return False
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    if not any(value.isdigit() for value in query.get("id", [])):
+        return False
+
+    host = _host(url)
+    candidate_domain = _source_trust_registrable_domain(host)
+    identity_text = f"{company_name} {canonical_company_name}".casefold()
+    is_rzd_identity = _contains_any(identity_text, ("rzd", "\u0440\u0436\u0434"))
+    is_rzd_official_host = host == "company.rzd.ru" or host.endswith(".rzd.ru") or host == "rzd.ru"
+    known_urls = [
+        current_source_url,
+        str(source_pack.get("current_known_source_page_url") or ""),
+        str(source_pack.get("official_source_url") or ""),
+        str(source_pack.get("source_url") or ""),
+    ]
+    known_domains = {
+        _source_trust_registrable_domain(_host(known_url))
+        for known_url in known_urls
+        if _financial_document_fetch_url_is_http(known_url)
+    } - {""}
+    official_host = bool(candidate_domain and candidate_domain in known_domains) or (
+        is_rzd_identity and is_rzd_official_host
+    )
+    if not official_host:
+        return False
+
+    context_text = f"{operator_title} {operator_notes}".casefold()
+    return _contains_any(
+        context_text,
+        (
+            "ifrs",
+            "report",
+            "reports",
+            "reporting",
+            "financial statements",
+            "financial reporting",
+            "consolidated financial statements",
+            "\u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
+            "\u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
+            "\u043c\u0444\u0441\u043e",
+            "\u043c\u0441\u0444\u043e",
+            "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f "
+            "\u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
+            "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f "
+            "\u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
+            "\u0433\u043e\u0434\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
+            "\u0433\u043e\u0434\u043e\u0432\u0430\u044f \u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
+            "\u0430\u0443\u0434\u0438\u0442\u043e\u0440\u0441\u043a\u043e\u0435 "
+            "\u0437\u0430\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435",
         ),
     )
 

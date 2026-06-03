@@ -9064,6 +9064,78 @@ def test_source_trust_recovery_validation_accepts_rzd_source_page_candidate_only
     assert accepted["would_update_source_pack"] is False
 
 
+def test_source_trust_recovery_validation_accepts_rzd_numeric_cms_source_page_candidate_only(tmp_path: Path) -> None:
+    _write_source_trust_recovery_validation_inputs(
+        tmp_path,
+        template_updates={
+            "operator_fill_official_source_page_url": "https://company.rzd.ru/ru/9397/page/104069?id=322745",
+            "operator_fill_source_page_title": "Отчетность РЖД по МСФО за 2025 год",
+            "operator_fill_source_page_language": "ru",
+            "operator_fill_source_page_notes": (
+                "Official RZD company page with IFRS 2025 reporting materials; "
+                "non-PDF source page, candidate only."
+            ),
+        },
+    )
+
+    report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["row_count"] == 1
+    assert report["valid_candidate_count"] == 1
+    assert report["accepted_candidate_count"] == 1
+    assert report["invalid_count"] == 0
+    assert report["blocker_row_count"] == 0
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "valid_future_source_page_candidate"
+    assert row["accepted_for_future_source_pack_draft"] is True
+    assert "official_numeric_cms_source_page_candidate" in row["validation_reason_codes"]
+    assert "static_officiality_review_required" in row["validation_warnings"]
+    assert row["url_shape_validation_status"] == "official_numeric_cms_source_page_candidate"
+    assert row["host_validation_status"] == "official_host_candidate"
+    assert row["source_page_type_validation_status"] == "source_page_like"
+    assert row["would_trust_source_url"] is False
+    assert row["would_update_source_pack"] is False
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_url"] is False
+    accepted = report["accepted_candidate_rows"][0]
+    assert accepted["official_source_page_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert "official_numeric_cms_source_page_candidate" in accepted["accepted_candidate_reason_codes"]
+    assert accepted["accepted_for_future_source_pack_draft"] is True
+    assert accepted["future_strict_validation_required"] is True
+    assert accepted["future_source_pack_apply_draft_required"] is True
+    assert accepted["would_trust_source_url"] is False
+    assert accepted["would_update_source_pack"] is False
+    assert accepted["would_probe_url"] is False
+    assert accepted["would_fetch_url"] is False
+
+
+def test_source_trust_recovery_validation_rejects_numeric_cms_without_static_evidence(tmp_path: Path) -> None:
+    blank_context_dir = tmp_path / "blank_context"
+    _write_source_trust_recovery_validation_inputs(
+        blank_context_dir,
+        template_updates={"operator_fill_official_source_page_url": "https://company.rzd.ru/ru/9397/page/104069?id=322745"},
+    )
+    blank_context = _run_source_trust_recovery_validation(
+        ["--operator-resolution-chain-output-dir", str(blank_context_dir)]
+    )
+    assert blank_context["validation_rows"][0]["validation_status"] == "invalid_generic_landing_page_url"
+    assert blank_context["blocker_rows"][0]["blocker_code"] == "generic_landing_page_not_allowed"
+
+    missing_id_dir = tmp_path / "missing_id"
+    _write_source_trust_recovery_validation_inputs(
+        missing_id_dir,
+        template_updates={
+            "operator_fill_official_source_page_url": "https://company.rzd.ru/ru/9397/page/104069",
+            "operator_fill_source_page_title": "Отчетность РЖД по МСФО за 2025 год",
+            "operator_fill_source_page_notes": "Official RZD company page with IFRS 2025 reporting materials.",
+        },
+    )
+    missing_id = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(missing_id_dir)])
+    assert missing_id["validation_rows"][0]["validation_status"] == "invalid_generic_landing_page_url"
+    assert missing_id["blocker_rows"][0]["blocker_code"] == "generic_landing_page_not_allowed"
+
+
 def test_source_trust_recovery_validation_rejects_pdf_and_historical_urls(tmp_path: Path) -> None:
     pdf_dir = tmp_path / "pdf"
     _write_source_trust_recovery_validation_inputs(
@@ -9126,6 +9198,48 @@ def test_source_trust_recovery_validation_rejects_landing_search_news_and_social
         _write_source_trust_recovery_validation_inputs(
             case_dir,
             template_updates={"operator_fill_official_source_page_url": url},
+        )
+        report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(case_dir)])
+        assert report["validation_rows"][0]["validation_status"] == expected_status
+        assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+
+
+def test_source_trust_recovery_validation_preserves_rejections_before_numeric_cms_acceptance(tmp_path: Path) -> None:
+    cases = [
+        (
+            "news",
+            "https://company.rzd.ru/ru/news/page/104069?id=322745",
+            "invalid_search_or_news_url",
+            "search_or_news_url_not_allowed",
+        ),
+        (
+            "archive",
+            "https://company.rzd.ru/ru/archive/page/104069?id=322745",
+            "invalid_archive_or_history_url",
+            "archive_or_history_url_not_allowed",
+        ),
+        (
+            "social",
+            "https://vk.com/rzd",
+            "invalid_social_or_external_platform_url",
+            "social_or_external_platform_not_allowed",
+        ),
+        (
+            "query_pdf",
+            "https://company.rzd.ru/ru/9397/page/104069?id=322745.pdf",
+            "invalid_pdf_or_document_url",
+            "pdf_or_document_url_not_allowed",
+        ),
+    ]
+    for name, url, expected_status, expected_blocker in cases:
+        case_dir = tmp_path / name
+        _write_source_trust_recovery_validation_inputs(
+            case_dir,
+            template_updates={
+                "operator_fill_official_source_page_url": url,
+                "operator_fill_source_page_title": "Отчетность РЖД по МСФО за 2025 год",
+                "operator_fill_source_page_notes": "Official RZD company page with IFRS 2025 reporting materials.",
+            },
         )
         report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(case_dir)])
         assert report["validation_rows"][0]["validation_status"] == expected_status
