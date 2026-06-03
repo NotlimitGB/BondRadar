@@ -9064,6 +9064,87 @@ def test_source_trust_recovery_validation_accepts_rzd_source_page_candidate_only
     assert accepted["would_update_source_pack"] is False
 
 
+def test_source_trust_recovery_validation_accepts_rzd_reporting_hub_candidate_only(tmp_path: Path) -> None:
+    _write_source_trust_recovery_validation_inputs(
+        tmp_path,
+        template_updates={
+            "operator_fill_official_source_page_url": "https://company.rzd.ru/ru/9471",
+            "operator_fill_source_page_title": "Отчетность РЖД",
+            "operator_fill_source_page_language": "ru",
+            "operator_fill_source_page_notes": (
+                "Official RZD reporting hub/source page with links to IFRS/RAS reporting materials; "
+                "source trust candidate only."
+            ),
+        },
+    )
+
+    report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["row_count"] == 1
+    assert report["valid_candidate_count"] == 1
+    assert report["accepted_candidate_count"] == 1
+    assert report["invalid_count"] == 0
+    assert report["blocker_row_count"] == 0
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "valid_future_source_page_candidate"
+    assert row["accepted_for_future_source_pack_draft"] is True
+    assert "official_reporting_hub_source_page_candidate" in row["validation_reason_codes"]
+    assert row["url_shape_validation_status"] == "official_reporting_hub_source_page_candidate"
+    assert row["host_validation_status"] == "official_host_candidate"
+    assert row["source_page_type_validation_status"] == "source_page_like"
+    assert row["source_page_host"] == "company.rzd.ru"
+    assert row["source_page_path"] == "/ru/9471"
+    assert row["source_page_registrable_domain"] == "rzd.ru"
+    assert row["would_trust_source_url"] is False
+    assert row["would_update_source_pack"] is False
+    assert row["would_update_document_intake"] is False
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_url"] is False
+    assert row["would_download_document"] is False
+    assert row["would_parse_document"] is False
+    accepted = report["accepted_candidate_rows"][0]
+    assert accepted["official_source_page_url"] == "https://company.rzd.ru/ru/9471"
+    assert "official_reporting_hub_source_page_candidate" in accepted["accepted_candidate_reason_codes"]
+    assert accepted["accepted_candidate_status"] == "future_source_pack_draft_candidate_only"
+    assert accepted["accepted_for_future_source_pack_draft"] is True
+    assert accepted["future_strict_validation_required"] is True
+    assert accepted["future_source_pack_apply_draft_required"] is True
+    assert accepted["would_trust_source_url"] is False
+    assert accepted["would_update_source_pack"] is False
+    assert accepted["would_update_document_intake"] is False
+    assert accepted["would_probe_url"] is False
+    assert accepted["would_fetch_url"] is False
+    assert accepted["would_download_document"] is False
+    assert accepted["would_parse_document"] is False
+
+
+def test_source_trust_recovery_validation_rejects_reporting_hub_without_static_evidence(tmp_path: Path) -> None:
+    blank_context_dir = tmp_path / "blank_context"
+    _write_source_trust_recovery_validation_inputs(
+        blank_context_dir,
+        template_updates={"operator_fill_official_source_page_url": "https://company.rzd.ru/ru/9471"},
+    )
+    blank_context = _run_source_trust_recovery_validation(
+        ["--operator-resolution-chain-output-dir", str(blank_context_dir)]
+    )
+    assert blank_context["validation_rows"][0]["validation_status"] == "invalid_generic_landing_page_url"
+    assert blank_context["blocker_rows"][0]["blocker_code"] == "generic_landing_page_not_allowed"
+
+    home_dir = tmp_path / "home"
+    _write_source_trust_recovery_validation_inputs(
+        home_dir,
+        template_updates={
+            "operator_fill_official_source_page_url": "https://company.rzd.ru/",
+            "operator_fill_source_page_title": "Отчетность РЖД",
+            "operator_fill_source_page_notes": "Official RZD reporting hub/source page.",
+        },
+    )
+    home = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(home_dir)])
+    assert home["validation_rows"][0]["validation_status"] == "invalid_generic_landing_page_url"
+    assert home["blocker_rows"][0]["blocker_code"] == "generic_landing_page_not_allowed"
+
+
 def test_source_trust_recovery_validation_accepts_rzd_numeric_cms_source_page_candidate_only(tmp_path: Path) -> None:
     _write_source_trust_recovery_validation_inputs(
         tmp_path,
@@ -9190,6 +9271,7 @@ def test_source_trust_recovery_validation_rejects_malformed_and_non_http_urls(tm
 def test_source_trust_recovery_validation_rejects_landing_search_news_and_social_urls(tmp_path: Path) -> None:
     cases = [
         ("landing", "https://rzd.ru/", "invalid_generic_landing_page_url", "generic_landing_page_not_allowed"),
+        ("company_home", "https://company.rzd.ru/", "invalid_generic_landing_page_url", "generic_landing_page_not_allowed"),
         ("news", "https://rzd.ru/news/financial-results", "invalid_search_or_news_url", "search_or_news_url_not_allowed"),
         ("social", "https://vk.com/rzd", "invalid_social_or_external_platform_url", "social_or_external_platform_not_allowed"),
     ]
@@ -9206,6 +9288,24 @@ def test_source_trust_recovery_validation_rejects_landing_search_news_and_social
 
 def test_source_trust_recovery_validation_preserves_rejections_before_numeric_cms_acceptance(tmp_path: Path) -> None:
     cases = [
+        (
+            "hub_pdf",
+            "https://company.rzd.ru/ru/9471.pdf",
+            "invalid_pdf_or_document_url",
+            "pdf_or_document_url_not_allowed",
+        ),
+        (
+            "hub_news",
+            "https://company.rzd.ru/ru/news",
+            "invalid_search_or_news_url",
+            "search_or_news_url_not_allowed",
+        ),
+        (
+            "hub_archive",
+            "https://company.rzd.ru/ru/archive",
+            "invalid_archive_or_history_url",
+            "archive_or_history_url_not_allowed",
+        ),
         (
             "news",
             "https://company.rzd.ru/ru/news/page/104069?id=322745",
@@ -9324,7 +9424,11 @@ def test_source_trust_recovery_validation_never_calls_network_or_delete_helpers(
     monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
     _write_source_trust_recovery_validation_inputs(
         tmp_path,
-        template_updates={"operator_fill_official_source_page_url": "https://company.rzd.ru/ru/ir/reports"},
+        template_updates={
+            "operator_fill_official_source_page_url": "https://company.rzd.ru/ru/9471",
+            "operator_fill_source_page_title": "Отчетность РЖД",
+            "operator_fill_source_page_notes": "Official RZD reporting hub/source page with IFRS reporting materials.",
+        },
     )
 
     report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])

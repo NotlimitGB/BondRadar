@@ -17653,8 +17653,26 @@ def _source_trust_recovery_validation_status(
         ):
             status = "invalid_wrong_company_context"
             host_status = "wrong_company_context"
+        elif _source_trust_recovery_is_official_reporting_hub_source_page_candidate(
+            normalized_url,
+            company_id=company_id,
+            canonical_company_id=canonical_company_id,
+            company_name=company_name,
+            canonical_company_name=canonical_company_name,
+            current_source_url=normalized_current_source,
+            source_pack=source_pack,
+            operator_title=operator_title,
+            operator_notes=operator_notes,
+        ):
+            url_shape_status = "official_reporting_hub_source_page_candidate"
+            host_status = "official_host_candidate"
+            source_page_type_status = "source_page_like"
+            _append_unique(reasons, "official_reporting_hub_source_page_candidate")
+            _append_unique(warnings, "static_officiality_review_required")
         elif _source_trust_recovery_is_official_numeric_cms_source_page_candidate(
             normalized_url,
+            company_id=company_id,
+            canonical_company_id=canonical_company_id,
             company_name=company_name,
             canonical_company_name=canonical_company_name,
             current_source_url=normalized_current_source,
@@ -17782,9 +17800,45 @@ def _source_trust_recovery_source_page_has_context_signal(url: str) -> bool:
     )
 
 
+def _source_trust_recovery_is_official_reporting_hub_source_page_candidate(
+    url: str,
+    *,
+    company_id: str,
+    canonical_company_id: str,
+    company_name: str,
+    canonical_company_name: str,
+    current_source_url: str,
+    source_pack: dict[str, Any],
+    operator_title: str,
+    operator_notes: str,
+) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme.casefold() not in {"http", "https"}:
+        return False
+    path = urllib.parse.unquote(parsed.path or "").casefold()
+    if not re.fullmatch(r"/[a-z]{2}/\d+/?", path):
+        return False
+    if not _source_trust_recovery_is_official_issuer_host_candidate(
+        url,
+        company_id=company_id,
+        canonical_company_id=canonical_company_id,
+        company_name=company_name,
+        canonical_company_name=canonical_company_name,
+        current_source_url=current_source_url,
+        source_pack=source_pack,
+    ):
+        return False
+    return _source_trust_recovery_operator_context_has_reporting_signal(
+        operator_title=operator_title,
+        operator_notes=operator_notes,
+    )
+
+
 def _source_trust_recovery_is_official_numeric_cms_source_page_candidate(
     url: str,
     *,
+    company_id: str,
+    canonical_company_id: str,
     company_name: str,
     canonical_company_name: str,
     current_source_url: str,
@@ -17802,10 +17856,38 @@ def _source_trust_recovery_is_official_numeric_cms_source_page_candidate(
     if not any(value.isdigit() for value in query.get("id", [])):
         return False
 
+    if not _source_trust_recovery_is_official_issuer_host_candidate(
+        url,
+        company_id=company_id,
+        canonical_company_id=canonical_company_id,
+        company_name=company_name,
+        canonical_company_name=canonical_company_name,
+        current_source_url=current_source_url,
+        source_pack=source_pack,
+    ):
+        return False
+
+    return _source_trust_recovery_operator_context_has_reporting_signal(
+        operator_title=operator_title,
+        operator_notes=operator_notes,
+    )
+
+
+def _source_trust_recovery_is_official_issuer_host_candidate(
+    url: str,
+    *,
+    company_id: str,
+    canonical_company_id: str,
+    company_name: str,
+    canonical_company_name: str,
+    current_source_url: str,
+    source_pack: dict[str, Any],
+) -> bool:
     host = _host(url)
     candidate_domain = _source_trust_registrable_domain(host)
     identity_text = f"{company_name} {canonical_company_name}".casefold()
-    is_rzd_identity = _contains_any(identity_text, ("rzd", "\u0440\u0436\u0434"))
+    identity_ids = {str(company_id or ""), str(canonical_company_id or "")} - {""}
+    is_rzd_identity = _contains_any(identity_text, ("rzd", "\u0440\u0436\u0434")) or bool(identity_ids & {"18"})
     is_rzd_official_host = host == "company.rzd.ru" or host.endswith(".rzd.ru") or host == "rzd.ru"
     known_urls = [
         current_source_url,
@@ -17821,9 +17903,14 @@ def _source_trust_recovery_is_official_numeric_cms_source_page_candidate(
     official_host = bool(candidate_domain and candidate_domain in known_domains) or (
         is_rzd_identity and is_rzd_official_host
     )
-    if not official_host:
-        return False
+    return official_host
 
+
+def _source_trust_recovery_operator_context_has_reporting_signal(
+    *,
+    operator_title: str,
+    operator_notes: str,
+) -> bool:
     context_text = f"{operator_title} {operator_notes}".casefold()
     return _contains_any(
         context_text,
@@ -17835,10 +17922,15 @@ def _source_trust_recovery_is_official_numeric_cms_source_page_candidate(
             "financial statements",
             "financial reporting",
             "consolidated financial statements",
+            "disclosure",
+            "investor",
+            "investors",
+            "ir",
             "\u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
             "\u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c",
             "\u043c\u0444\u0441\u043e",
             "\u043c\u0441\u0444\u043e",
+            "\u0440\u0430\u0441\u043a\u0440\u044b\u0442\u0438\u0435",
             "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f "
             "\u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u044c",
             "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u0430\u044f "
