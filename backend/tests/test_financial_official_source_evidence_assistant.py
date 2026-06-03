@@ -8826,6 +8826,199 @@ def test_exact_document_draft_gate_collisions_and_invalid_input_fail_safely(tmp_
     assert generic["errors"] == [{"message": "exact_document_draft_gate_output_must_not_equal_input"}]
 
 
+def test_source_trust_recovery_vds_like_split_writes_artifacts(tmp_path: Path) -> None:
+    _write_source_trust_recovery_gate(
+        tmp_path,
+        [
+            _source_trust_recovery_gate_row(
+                company_id="18",
+                company_name="RZD",
+                canonical_company_id="18",
+                canonical_company_name="RZD",
+                gate_id="exact_document_draft_gate:18:2025",
+            ),
+            _source_trust_recovery_gate_row(
+                gate_id="exact_document_draft_gate:67:2025",
+                gate_status="blocked_incomplete_operator_refill",
+                gate_reason_codes=["operator_refill_incomplete"],
+                apply_status="skipped_incomplete_missing_exact_document_url",
+                apply_blocker_codes=["missing_exact_document_url"],
+            ),
+        ],
+        [
+            _source_trust_recovery_blocker_row(
+                gate_id="exact_document_draft_gate:18:2025",
+                company_id="18",
+                company_name="RZD",
+                blocker_code="source_trust_required",
+            ),
+            _source_trust_recovery_blocker_row(
+                gate_id="exact_document_draft_gate:67:2025",
+                blocker_code="operator_refill_incomplete",
+            ),
+        ],
+    )
+
+    report = _run_source_trust_recovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["row_count"] == 2
+    assert report["recovery_candidate_count"] == 1
+    assert report["template_row_count"] == 1
+    assert report["skipped_count"] == 1
+    statuses = {row["company_id"]: row["recovery_status"] for row in report["recovery_rows"]}
+    assert statuses["18"] == "needs_official_source_page_refill"
+    assert statuses["67"] == "skipped_exact_document_refill_needed"
+    assert report["template_rows"][0]["company_id"] == "18"
+    assert report["template_rows"][0]["operator_fill_official_source_page_url"] == ""
+    for key in assistant.SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES:
+        assert Path(report["artifacts"][key]).is_file()
+    markdown = (tmp_path / "source_trust_recovery_workspace_task142.md").read_text(encoding="utf-8")
+    assert "Source Trust Recovery Workspace v2" in markdown
+    assert "does not probe URLs" in markdown
+    rerun = (tmp_path / "source_trust_recovery_rerun_task142.md").read_text(encoding="utf-8")
+    assert "source-trust-recovery-validate-v2" in rerun
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_update_source_pack"] is False
+    assert report["would_update_document_intake"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+
+
+def test_source_trust_recovery_skips_when_trusted_source_already_available(tmp_path: Path) -> None:
+    _write_source_trust_recovery_gate(
+        tmp_path,
+        [
+            _source_trust_recovery_gate_row(
+                gate_status="blocked_incomplete_operator_refill",
+                gate_reason_codes=["operator_refill_incomplete"],
+                apply_status="skipped_incomplete_missing_exact_document_url",
+                trusted_source_hosts=["mostotrest.ru"],
+            )
+        ],
+    )
+
+    report = _run_source_trust_recovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["recovery_rows"][0]["recovery_status"] == "skipped_source_trust_already_available"
+    assert report["blocker_rows"][0]["blocker_code"] == "source_trust_already_available"
+
+
+def test_source_trust_recovery_skips_non_source_trust_gate_status(tmp_path: Path) -> None:
+    _write_source_trust_recovery_gate(
+        tmp_path,
+        [
+            _source_trust_recovery_gate_row(
+                gate_status="blocked_wrong_period",
+                gate_reason_codes=["wrong_period"],
+                apply_status="applied_to_exact_document_intake_draft",
+            )
+        ],
+    )
+
+    report = _run_source_trust_recovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["recovery_rows"][0]["recovery_status"] == "skipped_not_blocked_by_source_trust"
+    assert report["blocker_rows"][0]["blocker_code"] == "not_blocked_by_source_trust"
+
+
+def test_source_trust_recovery_missing_company_identity_blocks(tmp_path: Path) -> None:
+    _write_source_trust_recovery_gate(
+        tmp_path,
+        [
+            _source_trust_recovery_gate_row(
+                company_id="",
+                company_name="",
+                canonical_company_id="",
+                canonical_company_name="",
+            )
+        ],
+    )
+
+    report = _run_source_trust_recovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["recovery_rows"][0]["recovery_status"] == "blocked_missing_company_identity"
+    assert report["blocker_rows"][0]["blocker_code"] == "missing_company_identity"
+    assert report["blocked_count"] == 1
+
+
+def test_source_trust_recovery_missing_or_malformed_gate_fails_safely(tmp_path: Path) -> None:
+    missing = _run_source_trust_recovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert missing["status"] == "failed"
+    assert missing["errors"] == [{"message": "source_trust_recovery_gate_input_required"}]
+
+    gate = tmp_path / "bad_gate.json"
+    gate.write_text("{broken", encoding="utf-8")
+    malformed = _run_source_trust_recovery(["--exact-document-draft-gate-input", str(gate)])
+    assert malformed["status"] == "failed"
+    assert malformed["errors"] == [{"message": "source_trust_recovery_gate_input_required", "path": str(gate)}]
+
+
+def test_source_trust_recovery_output_collisions_fail_safely(tmp_path: Path) -> None:
+    _write_source_trust_recovery_gate(tmp_path, [_source_trust_recovery_gate_row()])
+    gate = tmp_path / "exact_document_draft_gate_task137.json"
+    original = gate.read_bytes()
+
+    dedicated = _run_source_trust_recovery(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--source-trust-recovery-output",
+            str(gate),
+        ]
+    )
+    assert dedicated["status"] == "failed"
+    assert dedicated["errors"] == [{"message": "source_trust_recovery_output_must_not_equal_input"}]
+    assert gate.read_bytes() == original
+
+    generic = _run_source_trust_recovery(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--json-output",
+            str(gate),
+        ]
+    )
+    assert generic["status"] == "failed"
+    assert generic["errors"] == [{"message": "source_trust_recovery_output_must_not_equal_input"}]
+    assert gate.read_bytes() == original
+
+
+def test_source_trust_recovery_never_calls_network_or_delete_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task142 must not probe, fetch, download, parse, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _write_source_trust_recovery_gate(tmp_path, [_source_trust_recovery_gate_row()])
+
+    report = _run_source_trust_recovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_update_source_pack"] is False
+    assert report["would_update_document_intake"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -14119,6 +14312,91 @@ def _run_exact_document_draft_gate(extra_args: list[str] | None = None) -> dict:
     report, exit_code = assistant.run_assistant(args)
     assert exit_code == (1 if report["status"] == "failed" else 0)
     return report
+
+
+def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-trust-recovery-workspace-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _source_trust_recovery_gate_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "gate_id": "exact_document_draft_gate:67:2025",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "canonical_company_id": "67",
+        "canonical_company_name": "Mostotrest",
+        "target_reporting_period": "2025",
+        "required_report_type": "annual",
+        "required_standard": "IFRS",
+        "required_consolidated": True,
+        "gate_status": "blocked_source_trust_required",
+        "gate_reason_codes": ["source_trust_required"],
+        "apply_status": "skipped_blocked_source_trust_required",
+        "apply_blocker_codes": ["source_trust_required"],
+        "trusted_source_hosts": [],
+        "latest_historical_document_url": "https://example.com/historical-2024.pdf",
+    }
+    row.update(updates)
+    if "company_id" in updates and "canonical_company_id" not in updates:
+        row["canonical_company_id"] = updates["company_id"]
+    if "company_name" in updates and "canonical_company_name" not in updates:
+        row["canonical_company_name"] = updates["company_name"]
+    return row
+
+
+def _source_trust_recovery_blocker_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "blocker_id": "exact_document_draft_gate_blocker:exact_document_draft_gate:67:2025:source_trust_required",
+        "gate_id": "exact_document_draft_gate:67:2025",
+        "company_id": "67",
+        "company_name": "Mostotrest",
+        "gate_status": "blocked_source_trust_required",
+        "blocker_code": "source_trust_required",
+        "blocker_severity": "warning",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_source_trust_recovery_gate(
+    path: Path,
+    rows: list[dict[str, object]],
+    blockers: list[dict[str, object]] | None = None,
+) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "exact_document_draft_gate_task137.json").write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "exact-document-draft-gate-v2",
+                "gate_rows": rows,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (path / "exact_document_draft_gate_blockers_task137.json").write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "exact-document-draft-gate-blockers-v2",
+                "blocker_rows": blockers or [],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _exact_document_draft_gate_placeholder_document(**updates: object) -> dict[str, object]:

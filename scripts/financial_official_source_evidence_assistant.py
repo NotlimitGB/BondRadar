@@ -62,6 +62,7 @@ MODE_CHOICES = (
     "operator-exact-document-refill-validate-v2",
     "operator-exact-document-refill-apply-draft-v2",
     "exact-document-draft-gate-v2",
+    "source-trust-recovery-workspace-v2",
     "backup-retention-preview",
     "backup-retention-apply-draft-preview",
     "backup-retention-controlled-apply",
@@ -3261,6 +3262,98 @@ EXACT_DOCUMENT_DRAFT_GATE_BLOCKER_FIELDS = [
     "operator_action",
     "safe_hint",
 ]
+SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
+    "workspace_json": "source_trust_recovery_workspace_task142.json",
+    "workspace_csv": "source_trust_recovery_workspace_task142.csv",
+    "workspace_markdown": "source_trust_recovery_workspace_task142.md",
+    "template_json": "source_trust_recovery_template_task142.json",
+    "template_csv": "source_trust_recovery_template_task142.csv",
+    "blockers_json": "source_trust_recovery_blockers_task142.json",
+    "blockers_csv": "source_trust_recovery_blockers_task142.csv",
+    "rerun_markdown": "source_trust_recovery_rerun_task142.md",
+}
+SOURCE_TRUST_RECOVERY_FIELDS = [
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "target_reporting_period",
+    "required_report_type",
+    "required_standard",
+    "required_consolidated",
+    "gate_status",
+    "gate_blocker_codes",
+    "apply_status",
+    "apply_blocker_codes",
+    "source_trust_status",
+    "trusted_source_hosts",
+    "current_known_source_page_url",
+    "current_known_document_url",
+    "latest_historical_document_url",
+    "historical_fallback_allowed_as_trusted_source",
+    "historical_fallback_allowed_as_target_evidence",
+    "needs_source_trust_recovery",
+    "recovery_status",
+    "recovery_severity",
+    "recovery_action",
+    "recovery_reason_codes",
+    "recovery_errors",
+    "recovery_warnings",
+    "operator_instruction",
+    "safe_source_hint",
+    "safe_document_hint",
+    "forbidden_url_hint",
+    "operator_fill_official_source_page_url",
+    "operator_fill_source_page_title",
+    "operator_fill_source_page_language",
+    "operator_fill_source_page_notes",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_update_source_pack",
+    "would_update_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+SOURCE_TRUST_RECOVERY_TEMPLATE_FIELDS = [
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "READONLY_target_reporting_period",
+    "READONLY_required_report_type",
+    "READONLY_required_standard",
+    "READONLY_required_consolidated",
+    "READONLY_gate_status",
+    "READONLY_gate_blocker_codes",
+    "READONLY_current_known_source_page_url",
+    "READONLY_current_known_document_url",
+    "READONLY_latest_historical_document_url",
+    "READONLY_forbidden_url_hint",
+    "READONLY_operator_instruction",
+    "operator_fill_official_source_page_url",
+    "operator_fill_source_page_title",
+    "operator_fill_source_page_language",
+    "operator_fill_source_page_notes",
+]
+SOURCE_TRUST_RECOVERY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "recovery_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -3519,6 +3612,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--operator-resolution-pack-markdown-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-input", type=Path, default=None)
     parser.add_argument("--operator-resolution-source-pack-input", type=Path, default=None)
+    parser.add_argument("--financial-official-source-pack-input", type=Path, default=None)
     parser.add_argument("--operator-resolution-validation-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-validation-csv-output", type=Path, default=None)
     parser.add_argument("--operator-resolution-validation-markdown-output", type=Path, default=None)
@@ -3742,12 +3836,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exact-document-draft-gate-ready-csv-output", type=Path, default=None)
     parser.add_argument("--exact-document-draft-gate-blockers-output", type=Path, default=None)
     parser.add_argument("--exact-document-draft-gate-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--exact-document-draft-gate-blockers-input", type=Path, default=None)
     parser.add_argument("--operator-exact-document-refill-apply-input", type=Path, default=None)
     parser.add_argument("--operator-exact-document-refill-apply-blockers-input", type=Path, default=None)
     parser.add_argument("--exact-document-draft-gate-target-period", default="2025")
     parser.add_argument("--exact-document-draft-gate-required-report-type", default="annual")
     parser.add_argument("--exact-document-draft-gate-required-standard", default="IFRS")
     parser.add_argument("--exact-document-draft-gate-required-consolidated", type=_parse_bool, default=True)
+    parser.add_argument("--source-trust-recovery-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-template-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-template-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-blockers-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -3864,6 +3967,8 @@ def run_assistant(
         report = run_operator_exact_document_refill_apply_draft_v2(args)
     elif args.mode == "exact-document-draft-gate-v2":
         report = run_exact_document_draft_gate_v2(args)
+    elif args.mode == "source-trust-recovery-workspace-v2":
+        report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "backup-retention-preview":
         report = run_backup_retention_preview(args)
     elif args.mode == "backup-retention-apply-draft-preview":
@@ -16346,6 +16451,669 @@ def _exact_document_draft_gate_safety_flags() -> dict[str, Any]:
     }
 
 
+def run_source_trust_recovery_workspace_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _source_trust_recovery_inputs(args)
+    gate_path = inputs["gate"]
+    if gate_path is None or not gate_path.is_file():
+        return _failed_source_trust_recovery_workspace(
+            [{"message": "source_trust_recovery_gate_input_required"}]
+        )
+    try:
+        gate_report = _load_json_object(gate_path)
+        gate_rows = gate_report.get("gate_rows")
+        if gate_report.get("mode") != "exact-document-draft-gate-v2" or not isinstance(gate_rows, list):
+            raise ValueError("unexpected gate report")
+        gate_rows = [row for row in gate_rows if isinstance(row, dict)]
+    except (OSError, ValueError, json.JSONDecodeError):
+        return _failed_source_trust_recovery_workspace(
+            [{"message": "source_trust_recovery_gate_input_required", "path": str(gate_path)}]
+        )
+
+    warnings: list[dict[str, Any]] = []
+    optional_rows = {
+        "gate_blockers": _source_trust_recovery_optional_rows(
+            inputs["gate_blockers"],
+            role="gate_blockers",
+            row_keys=("blocker_rows",),
+            expected_mode="exact-document-draft-gate-blockers-v2",
+            warnings=warnings,
+        ),
+        "exact_refill_workspace": _source_trust_recovery_optional_rows(
+            inputs["exact_refill_workspace"],
+            role="exact_refill_workspace",
+            row_keys=("rows",),
+            expected_mode="operator-exact-document-refill-workspace-v2",
+            warnings=warnings,
+        ),
+        "exact_refill_apply": _source_trust_recovery_optional_rows(
+            inputs["exact_refill_apply"],
+            role="exact_refill_apply",
+            row_keys=("apply_rows",),
+            expected_mode="operator-exact-document-refill-apply-draft-v2",
+            warnings=warnings,
+        ),
+        "source_trust_workspace": _source_trust_recovery_optional_rows(
+            inputs["source_trust_workspace"],
+            role="source_trust_workspace",
+            row_keys=("rows",),
+            expected_mode="operator-resolution-source-trust-workspace",
+            warnings=warnings,
+        ),
+        "review_board": _source_trust_recovery_optional_rows(
+            inputs["review_board"],
+            role="review_board",
+            row_keys=("rows",),
+            expected_mode="operator-resolution-chain-review-board",
+            warnings=warnings,
+        ),
+        "source_pack": _source_trust_recovery_source_pack_rows(
+            inputs["source_pack"],
+            warnings=warnings,
+        ),
+    }
+    artifacts = _source_trust_recovery_artifacts(args)
+    errors = _source_trust_recovery_output_errors(args, inputs=inputs, artifacts=artifacts)
+    recovery_rows = [
+        _source_trust_recovery_row(gate_row, optional_rows=optional_rows)
+        for gate_row in gate_rows
+    ]
+    template_rows = [
+        _source_trust_recovery_template_row(row)
+        for row in recovery_rows
+        if row.get("recovery_status") == "needs_official_source_page_refill"
+    ]
+    blocker_rows = [
+        _source_trust_recovery_blocker_row(row)
+        for row in recovery_rows
+        if row.get("recovery_status") != "needs_official_source_page_refill"
+    ]
+    report = _build_source_trust_recovery_report(
+        inputs=inputs,
+        artifacts=artifacts,
+        recovery_rows=recovery_rows,
+        template_rows=template_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=errors,
+    )
+    if not errors:
+        try:
+            _write_optional_json_report(report, artifacts["workspace_json"])
+            _write_optional_flat_csv(recovery_rows, SOURCE_TRUST_RECOVERY_FIELDS, artifacts["workspace_csv"])
+            if artifacts["workspace_markdown"] is not None:
+                write_source_trust_recovery_markdown(report, artifacts["workspace_markdown"])
+            _write_optional_json_report(
+                {
+                    "status": report["status"],
+                    "mode": "source-trust-recovery-template-v2",
+                    "row_count": len(template_rows),
+                    "template_rows": template_rows,
+                    **_source_trust_recovery_safety_flags(),
+                },
+                artifacts["template_json"],
+            )
+            _write_optional_flat_csv(template_rows, SOURCE_TRUST_RECOVERY_TEMPLATE_FIELDS, artifacts["template_csv"])
+            _write_optional_json_report(
+                {
+                    "status": report["status"],
+                    "mode": "source-trust-recovery-blockers-v2",
+                    "row_count": len(blocker_rows),
+                    "blocker_rows": blocker_rows,
+                    **_source_trust_recovery_safety_flags(),
+                },
+                artifacts["blockers_json"],
+            )
+            _write_optional_flat_csv(blocker_rows, SOURCE_TRUST_RECOVERY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+            if artifacts["rerun_markdown"] is not None:
+                write_source_trust_recovery_rerun_markdown(report, artifacts["rerun_markdown"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _source_trust_recovery_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "gate": args.exact_document_draft_gate_input
+        or (output_dir / EXACT_DOCUMENT_DRAFT_GATE_ARTIFACT_NAMES["gate_json"] if output_dir else None),
+        "gate_blockers": args.exact_document_draft_gate_blockers_input
+        or (output_dir / EXACT_DOCUMENT_DRAFT_GATE_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+        "exact_refill_workspace": args.operator_exact_document_refill_workspace_input
+        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES["workspace_json"] if output_dir else None),
+        "exact_refill_apply": args.operator_exact_document_refill_apply_input
+        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES["apply_json"] if output_dir else None),
+        "source_trust_workspace": args.operator_resolution_source_trust_workspace_input
+        or _source_trust_recovery_source_trust_workspace_path(output_dir),
+        "review_board": args.operator_resolution_chain_review_board_input
+        or (output_dir / OPERATOR_RESOLUTION_CHAIN_REVIEW_BOARD_ARTIFACT_NAMES["board_json"] if output_dir else None),
+        "source_pack": _source_trust_recovery_source_pack_path(args),
+    }
+
+
+def _source_trust_recovery_source_trust_workspace_path(output_dir: Path | None) -> Path | None:
+    if output_dir is None:
+        return None
+    primary = output_dir / OPERATOR_RESOLUTION_SOURCE_TRUST_ARTIFACT_NAMES["workspace_json"]
+    alias = output_dir / "source_trust_workspace_task126.json"
+    return primary if primary.is_file() or not alias.is_file() else alias
+
+
+def _source_trust_recovery_source_pack_path(args: argparse.Namespace) -> Path | None:
+    explicit = args.financial_official_source_pack_input or args.operator_resolution_source_pack_input
+    if explicit is not None:
+        return explicit
+    output_dir = args.operator_resolution_chain_output_dir
+    if output_dir is None:
+        return None
+    default_pack = output_dir / "operator_resolution_pack_task118.json"
+    return default_pack if default_pack.is_file() else None
+
+
+def _source_trust_recovery_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "workspace_json": args.source_trust_recovery_output,
+        "workspace_csv": args.source_trust_recovery_csv_output,
+        "workspace_markdown": args.source_trust_recovery_markdown_output,
+        "template_json": args.source_trust_recovery_template_output,
+        "template_csv": args.source_trust_recovery_template_csv_output,
+        "blockers_json": args.source_trust_recovery_blockers_output,
+        "blockers_csv": args.source_trust_recovery_blockers_csv_output,
+        "rerun_markdown": args.source_trust_recovery_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES.items()
+    }
+
+
+def _source_trust_recovery_optional_rows(
+    path: Path | None,
+    *,
+    role: str,
+    row_keys: Sequence[str],
+    expected_mode: str,
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if path is None or not path.is_file():
+        return []
+    try:
+        payload = _load_json_object(path)
+        if payload.get("mode") != expected_mode:
+            raise ValueError("unexpected optional artifact mode")
+        for key in row_keys:
+            rows = payload.get(key)
+            if isinstance(rows, list):
+                return [row for row in rows if isinstance(row, dict)]
+        raise ValueError("optional artifact rows are malformed")
+    except (OSError, ValueError, json.JSONDecodeError):
+        warnings.append({"message": f"source_trust_recovery_optional_artifact_unreadable:{role}", "path": str(path)})
+        return []
+
+
+def _source_trust_recovery_source_pack_rows(
+    path: Path | None,
+    *,
+    warnings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if path is None or not path.is_file():
+        return []
+    try:
+        rows, _ = load_operator_resolution_input(path)
+        return rows
+    except (OSError, ValueError, json.JSONDecodeError, csv.Error):
+        warnings.append({"message": "source_trust_recovery_optional_artifact_unreadable:source_pack", "path": str(path)})
+        return []
+
+
+def _source_trust_recovery_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "source_trust_recovery_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "source_trust_recovery_output_must_not_equal_input"}]
+    return []
+
+
+def _source_trust_recovery_row(
+    gate_row: dict[str, Any],
+    *,
+    optional_rows: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    context = _source_trust_recovery_baseline_context(gate_row, optional_rows=optional_rows)
+    gate_blocker_codes = _source_trust_recovery_gate_blocker_codes(gate_row, optional_rows["gate_blockers"])
+    apply_blocker_codes = sorted(
+        set(_financial_document_fetch_list(gate_row.get("apply_blocker_codes")))
+        | set(_financial_document_fetch_list(context.get("apply_blocker_codes")))
+    )
+    trusted_hosts = sorted(
+        {
+            host
+            for host in [
+                *_financial_document_fetch_list(gate_row.get("trusted_source_hosts")),
+                *_financial_document_fetch_list(context.get("trusted_source_hosts")),
+            ]
+            if host
+        }
+    )
+    status = _source_trust_recovery_status(
+        gate_row,
+        gate_blocker_codes=gate_blocker_codes,
+        trusted_hosts=trusted_hosts,
+    )
+    guidance = _source_trust_recovery_guidance(status, trusted_hosts=trusted_hosts)
+    identity = (
+        gate_row.get("canonical_company_id")
+        or gate_row.get("company_id")
+        or context.get("canonical_company_id")
+        or context.get("company_id")
+        or "unknown"
+    )
+    target_period = gate_row.get("target_reporting_period") or context.get("target_reporting_period") or ""
+    recovery_id = f"source_trust_recovery:{identity}:{target_period or 'unknown'}"
+    return {
+        "recovery_id": recovery_id,
+        "company_id": gate_row.get("company_id") or context.get("company_id") or "",
+        "company_name": gate_row.get("company_name") or context.get("company_name") or "",
+        "canonical_company_id": gate_row.get("canonical_company_id") or context.get("canonical_company_id") or gate_row.get("company_id") or "",
+        "canonical_company_name": gate_row.get("canonical_company_name") or context.get("canonical_company_name") or gate_row.get("company_name") or "",
+        "target_reporting_period": target_period,
+        "required_report_type": gate_row.get("required_report_type") or context.get("required_report_type") or "",
+        "required_standard": gate_row.get("required_standard") or context.get("required_standard") or "",
+        "required_consolidated": gate_row.get("required_consolidated")
+        if gate_row.get("required_consolidated") is not None
+        else context.get("required_consolidated", ""),
+        "gate_status": gate_row.get("gate_status") or "",
+        "gate_blocker_codes": gate_blocker_codes,
+        "apply_status": gate_row.get("apply_status") or context.get("apply_status") or "",
+        "apply_blocker_codes": apply_blocker_codes,
+        "source_trust_status": _source_trust_recovery_source_trust_status(
+            gate_row,
+            context=context,
+            trusted_hosts=trusted_hosts,
+            status=status,
+        ),
+        "trusted_source_hosts": trusted_hosts,
+        "current_known_source_page_url": context.get("current_known_source_page_url") or "",
+        "current_known_document_url": context.get("current_known_document_url") or "",
+        "latest_historical_document_url": context.get("latest_historical_document_url") or "",
+        "historical_fallback_allowed_as_trusted_source": False,
+        "historical_fallback_allowed_as_target_evidence": False,
+        "needs_source_trust_recovery": status == "needs_official_source_page_refill",
+        "recovery_status": status,
+        "recovery_severity": _source_trust_recovery_severity(status),
+        "recovery_action": _source_trust_recovery_action(status),
+        "recovery_reason_codes": _source_trust_recovery_reason_codes(
+            status,
+            gate_blocker_codes=gate_blocker_codes,
+            has_historical_fallback=bool(context.get("latest_historical_document_url")),
+        ),
+        "recovery_errors": ["missing_company_identity"] if status == "blocked_missing_company_identity" else [],
+        "recovery_warnings": ["historical_fallback_diagnostic_only"] if context.get("latest_historical_document_url") else [],
+        **guidance,
+        "operator_fill_official_source_page_url": "",
+        "operator_fill_source_page_title": "",
+        "operator_fill_source_page_language": "",
+        "operator_fill_source_page_notes": "",
+        **_source_trust_recovery_row_safety_flags(),
+    }
+
+
+def _source_trust_recovery_baseline_context(
+    gate_row: dict[str, Any],
+    *,
+    optional_rows: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    matches = {
+        role: _source_trust_recovery_first_context(gate_row, rows)
+        for role, rows in optional_rows.items()
+        if role != "gate_blockers"
+    }
+    context: dict[str, Any] = {
+        "latest_historical_document_url": gate_row.get("latest_historical_document_url")
+        or gate_row.get("historical_fallback_url")
+        or "",
+    }
+    for role in ("source_trust_workspace", "exact_refill_workspace", "review_board", "exact_refill_apply", "source_pack"):
+        row = matches.get(role) or {}
+        for key in (
+            "company_id",
+            "company_name",
+            "canonical_company_id",
+            "canonical_company_name",
+            "target_reporting_period",
+            "required_report_type",
+            "required_standard",
+            "required_consolidated",
+            "apply_status",
+            "source_trust_status",
+            "current_known_source_page_url",
+            "current_known_document_url",
+            "latest_historical_document_url",
+        ):
+            if not context.get(key) and row.get(key):
+                context[key] = row.get(key)
+    hosts: set[str] = set()
+    for row in [gate_row, *matches.values()]:
+        hosts.update(_financial_document_fetch_list(row.get("trusted_source_hosts")))
+        for url_key in ("current_known_source_page_url", "current_known_document_url", "official_source_url", "source_url"):
+            url = str(row.get(url_key) or "")
+            if _financial_document_fetch_url_is_http(url):
+                hosts.add(_host(url))
+    context["trusted_source_hosts"] = sorted(host for host in hosts if host)
+    context["apply_blocker_codes"] = sorted(
+        {
+            code
+            for row in matches.values()
+            for code in _financial_document_fetch_list(row.get("apply_blocker_codes"))
+            if code
+        }
+    )
+    return context
+
+
+def _source_trust_recovery_first_context(
+    gate_row: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    matches = [row for row in rows if _source_trust_recovery_rows_match(gate_row, row)]
+    return matches[0] if matches else {}
+
+
+def _source_trust_recovery_rows_match(gate_row: dict[str, Any], context_row: dict[str, Any]) -> bool:
+    gate_ids = {
+        str(gate_row.get("company_id") or ""),
+        str(gate_row.get("canonical_company_id") or ""),
+    } - {""}
+    context_ids = {
+        str(context_row.get("company_id") or ""),
+        str(context_row.get("canonical_company_id") or ""),
+    } - {""}
+    if gate_ids and context_ids and not gate_ids.isdisjoint(context_ids):
+        return True
+    gate_names = {
+        str(gate_row.get("company_name") or "").casefold(),
+        str(gate_row.get("canonical_company_name") or "").casefold(),
+    } - {""}
+    context_names = {
+        str(context_row.get("company_name") or "").casefold(),
+        str(context_row.get("canonical_company_name") or "").casefold(),
+    } - {""}
+    return bool(gate_names and context_names and not gate_names.isdisjoint(context_names))
+
+
+def _source_trust_recovery_gate_blocker_codes(
+    gate_row: dict[str, Any],
+    blocker_rows: list[dict[str, Any]],
+) -> list[str]:
+    codes = set(_financial_document_fetch_list(gate_row.get("gate_reason_codes")))
+    gate_id = str(gate_row.get("gate_id") or "")
+    for blocker in blocker_rows:
+        if gate_id and str(blocker.get("gate_id") or "") == gate_id:
+            code = str(blocker.get("blocker_code") or "")
+            if code:
+                codes.add(code)
+        elif _source_trust_recovery_rows_match(gate_row, blocker):
+            code = str(blocker.get("blocker_code") or "")
+            if code:
+                codes.add(code)
+    return sorted(codes)
+
+
+def _source_trust_recovery_status(
+    gate_row: dict[str, Any],
+    *,
+    gate_blocker_codes: list[str],
+    trusted_hosts: list[str],
+) -> str:
+    company_id = str(gate_row.get("canonical_company_id") or gate_row.get("company_id") or "")
+    company_name = str(gate_row.get("canonical_company_name") or gate_row.get("company_name") or "")
+    if not company_id or not company_name:
+        return "blocked_missing_company_identity"
+    gate_status = str(gate_row.get("gate_status") or "")
+    if trusted_hosts and gate_status != "ready_for_future_controlled_download":
+        return "skipped_source_trust_already_available"
+    if gate_status == "blocked_source_trust_required" or "source_trust_required" in gate_blocker_codes:
+        return "needs_official_source_page_refill"
+    if gate_status in {"blocked_incomplete_operator_refill", "blocked_missing_exact_document_url"}:
+        return "skipped_exact_document_refill_needed"
+    if gate_status:
+        return "skipped_not_blocked_by_source_trust"
+    return "blocked_unknown_readiness"
+
+
+def _source_trust_recovery_source_trust_status(
+    gate_row: dict[str, Any],
+    *,
+    context: dict[str, Any],
+    trusted_hosts: list[str],
+    status: str,
+) -> str:
+    if trusted_hosts:
+        return str(context.get("source_trust_status") or "trusted_source_available")
+    if status == "needs_official_source_page_refill" or gate_row.get("gate_status") == "blocked_source_trust_required":
+        return "trusted_source_missing"
+    return str(context.get("source_trust_status") or "")
+
+
+def _source_trust_recovery_severity(status: str) -> str:
+    if status.startswith("blocked_"):
+        return "error"
+    if status == "needs_official_source_page_refill":
+        return "warning"
+    return "info"
+
+
+def _source_trust_recovery_action(status: str) -> str:
+    return {
+        "needs_official_source_page_refill": "fill_official_baseline_source_page",
+        "skipped_exact_document_refill_needed": "fill_exact_document_url_in_task134_template",
+        "skipped_source_trust_already_available": "continue_exact_document_refill_or_gate_review",
+        "skipped_not_blocked_by_source_trust": "review_task137_gate_blocker",
+        "blocked_missing_company_identity": "repair_company_identity_before_source_recovery",
+        "blocked_unknown_readiness": "review_task137_gate_context",
+    }.get(status, "review_task137_gate_context")
+
+
+def _source_trust_recovery_reason_codes(
+    status: str,
+    *,
+    gate_blocker_codes: list[str],
+    has_historical_fallback: bool,
+) -> list[str]:
+    reasons = {
+        "needs_official_source_page_refill": ["source_trust_required", "official_source_page_required"],
+        "skipped_exact_document_refill_needed": ["exact_document_refill_needed"],
+        "skipped_source_trust_already_available": ["source_trust_already_available"],
+        "skipped_not_blocked_by_source_trust": ["not_blocked_by_source_trust"],
+        "blocked_missing_company_identity": ["missing_company_identity"],
+        "blocked_unknown_readiness": ["unknown_readiness"],
+    }.get(status, ["unknown_readiness"])
+    result = [*reasons]
+    for code in gate_blocker_codes:
+        _append_unique(result, code)
+    if has_historical_fallback:
+        _append_unique(result, "historical_fallback_diagnostic_only")
+    return result
+
+
+def _source_trust_recovery_guidance(status: str, *, trusted_hosts: list[str]) -> dict[str, str]:
+    hosts = ", ".join(trusted_hosts) if trusted_hosts else "baseline trusted hosts unavailable"
+    if status == "needs_official_source_page_refill":
+        instruction = "Fill an official issuer reporting, investor-relations, or disclosure source page URL for future source-trust validation."
+    elif status == "skipped_exact_document_refill_needed":
+        instruction = "This issuer needs the exact target-period annual IFRS document URL, not source-trust recovery."
+    elif status == "skipped_source_trust_already_available":
+        instruction = "Baseline source trust is already available; continue the exact-document refill workflow."
+    elif status == "blocked_missing_company_identity":
+        instruction = "Repair issuer identity before creating a source-trust recovery row."
+    else:
+        instruction = "Review Task137 blockers before using this recovery workspace."
+    return {
+        "operator_instruction": instruction,
+        "safe_source_hint": "Use only an official issuer/company reporting, investor-relations, or disclosure page. Do not use PDFs here.",
+        "safe_document_hint": f"Exact document URLs remain separate Task134/135 candidates from baseline hosts: {hosts}.",
+        "forbidden_url_hint": "Do not copy historical fallback URLs, manual document URLs, PDFs, search pages, news pages, or generic landing pages as trusted source pages.",
+    }
+
+
+def _source_trust_recovery_template_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "recovery_id": row.get("recovery_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "canonical_company_id": row.get("canonical_company_id") or "",
+        "canonical_company_name": row.get("canonical_company_name") or "",
+        "READONLY_target_reporting_period": row.get("target_reporting_period") or "",
+        "READONLY_required_report_type": row.get("required_report_type") or "",
+        "READONLY_required_standard": row.get("required_standard") or "",
+        "READONLY_required_consolidated": row.get("required_consolidated"),
+        "READONLY_gate_status": row.get("gate_status") or "",
+        "READONLY_gate_blocker_codes": row.get("gate_blocker_codes") or [],
+        "READONLY_current_known_source_page_url": row.get("current_known_source_page_url") or "",
+        "READONLY_current_known_document_url": row.get("current_known_document_url") or "",
+        "READONLY_latest_historical_document_url": row.get("latest_historical_document_url") or "",
+        "READONLY_forbidden_url_hint": row.get("forbidden_url_hint") or "",
+        "READONLY_operator_instruction": row.get("operator_instruction") or "",
+        "operator_fill_official_source_page_url": "",
+        "operator_fill_source_page_title": "",
+        "operator_fill_source_page_language": "",
+        "operator_fill_source_page_notes": "",
+    }
+
+
+def _source_trust_recovery_blocker_row(row: dict[str, Any]) -> dict[str, Any]:
+    blocker_code = {
+        "skipped_exact_document_refill_needed": "exact_document_refill_needed",
+        "skipped_source_trust_already_available": "source_trust_already_available",
+        "skipped_not_blocked_by_source_trust": "not_blocked_by_source_trust",
+        "blocked_missing_company_identity": "missing_company_identity",
+        "blocked_unknown_readiness": "unknown_readiness",
+    }.get(str(row.get("recovery_status") or ""), "unknown_readiness")
+    return {
+        "blocker_id": f"source_trust_recovery_blocker:{row.get('recovery_id')}:{blocker_code}",
+        "recovery_id": row.get("recovery_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "recovery_status": row.get("recovery_status") or "",
+        "blocker_code": blocker_code,
+        "blocker_severity": row.get("recovery_severity") or "warning",
+        "operator_action": row.get("recovery_action") or "",
+        "safe_hint": "Task142 is preview-only. Resolve the indicated upstream blocker and rerun the workspace.",
+    }
+
+
+def _build_source_trust_recovery_report(
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    recovery_rows: list[dict[str, Any]],
+    template_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    recovery_candidate_count = len(template_rows)
+    skipped_count = sum(1 for row in recovery_rows if str(row.get("recovery_status") or "").startswith("skipped_"))
+    blocked_count = sum(1 for row in recovery_rows if str(row.get("recovery_status") or "").startswith("blocked_"))
+    status = (
+        "failed"
+        if errors
+        else "passed"
+        if recovery_rows and recovery_candidate_count == len(recovery_rows) and not warnings
+        else "warning"
+    )
+    return {
+        "status": status,
+        "mode": "source-trust-recovery-workspace-v2",
+        "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        "row_count": len(recovery_rows),
+        "recovery_candidate_count": recovery_candidate_count,
+        "template_row_count": len(template_rows),
+        "skipped_count": skipped_count,
+        "blocked_count": blocked_count,
+        "recovery_status_counts": _count_by_key(recovery_rows, "recovery_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "recovery_rows": recovery_rows,
+        "template_rows": template_rows,
+        "blocker_rows": blocker_rows,
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("source-trust-recovery-workspace-v2", status),
+        **_source_trust_recovery_safety_flags(),
+    }
+
+
+def _failed_source_trust_recovery_workspace(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "source-trust-recovery-workspace-v2",
+        "row_count": 0,
+        "recovery_candidate_count": 0,
+        "template_row_count": 0,
+        "skipped_count": 0,
+        "blocked_count": 0,
+        "recovery_status_counts": {},
+        "blocker_code_counts": {},
+        "recovery_rows": [],
+        "template_rows": [],
+        "blocker_rows": [],
+        "warnings": [],
+        "errors": errors,
+        **_source_trust_recovery_safety_flags(),
+    }
+
+
+def _source_trust_recovery_row_safety_flags() -> dict[str, bool]:
+    return {
+        "would_probe_url": False,
+        "would_fetch_url": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_update_source_pack": False,
+        "would_update_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _source_trust_recovery_safety_flags() -> dict[str, Any]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_probe_urls": False,
+        "would_fetch_urls": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_update_source_pack": False,
+        "would_update_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
 def _financial_document_fetch_url_is_http(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
@@ -19178,6 +19946,16 @@ def write_exact_document_draft_gate_markdown(report: dict[str, Any], path: Path)
     path.write_text(render_exact_document_draft_gate_markdown(report), encoding="utf-8")
 
 
+def write_source_trust_recovery_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_markdown(report), encoding="utf-8")
+
+
+def write_source_trust_recovery_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_rerun_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -19357,6 +20135,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_exact_document_refill_apply_markdown(report)
     if report.get("mode") == "exact-document-draft-gate-v2":
         return render_exact_document_draft_gate_markdown(report)
+    if report.get("mode") == "source-trust-recovery-workspace-v2":
+        return render_source_trust_recovery_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -21897,6 +22677,165 @@ def render_exact_document_draft_gate_markdown(report: dict[str, Any]) -> str:
         ]
     )
     return "\n".join(lines) + "\n"
+
+
+def render_source_trust_recovery_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Workspace v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- source trust recovery candidates: {report.get('recovery_candidate_count', 0)}",
+        f"- template rows: {report.get('template_row_count', 0)}",
+        f"- skipped rows: {report.get('skipped_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        "",
+        "## Recovery Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("recovery_status_counts") or {}))
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("blocker_code_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Recovery Candidates",
+            "",
+            "| Company | Gate status | Recovery status | Instruction | Historical fallback |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    candidates = [
+        row
+        for row in report.get("recovery_rows") or []
+        if row.get("recovery_status") == "needs_official_source_page_refill"
+    ]
+    for row in candidates:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("gate_status"),
+                    row.get("recovery_status"),
+                    row.get("operator_instruction"),
+                    row.get("latest_historical_document_url"),
+                )
+            )
+            + " |"
+        )
+    if not candidates:
+        lines.append("| none |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Skipped Or Blocked Rows",
+            "",
+            "| Company | Recovery status | Action | Reasons |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    skipped = [
+        row
+        for row in report.get("recovery_rows") or []
+        if row.get("recovery_status") != "needs_official_source_page_refill"
+    ]
+    for row in skipped:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("recovery_status"),
+                    row.get("recovery_action"),
+                    row.get("recovery_reason_codes"),
+                )
+            )
+            + " |"
+        )
+    if not skipped:
+        lines.append("| none |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Operator Template Instructions",
+            "",
+            "- Fill only `operator_fill_official_source_page_url` with an issuer/company reporting, investor-relations, or disclosure page.",
+            "- The official source page URL must not be a PDF.",
+            "- Historical fallback URLs are diagnostic-only and must not be copied as trusted source pages.",
+            "- Manual source URLs remain candidates for a future controlled validation step.",
+            "",
+            "## Future Validation Command",
+            "",
+            "Future step / not run by Task142:",
+            "",
+            "```bash",
+            *_source_trust_recovery_future_validation_command_lines(report),
+            "```",
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates a source trust recovery workspace only.",
+            "- This task does not search the web.",
+            "- This task does not probe URLs.",
+            "- This task does not download reports.",
+            "- This task does not parse reports.",
+            "- This task does not update source packs.",
+            "- This task does not update document intake.",
+            "- This task does not mutate the database.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- Historical fallback URLs are diagnostic-only and must not be copied as trusted source pages.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_source_trust_recovery_rerun_markdown(report: dict[str, Any]) -> str:
+    template_path = (report.get("artifacts") or {}).get("template_csv") or "source_trust_recovery_template_task142.csv"
+    lines = [
+        "# Source Trust Recovery Rerun Instructions",
+        "",
+        "## Fill The Template",
+        "",
+        f"- Edit `{template_path}`.",
+        "- Fill `operator_fill_official_source_page_url` with an official issuer/company disclosure, reports, or investor-relations page.",
+        "- Do not use a PDF URL as the official source page.",
+        "- Do not copy historical fallback URLs. They are diagnostic-only.",
+        "- Do not copy manual exact-document URLs into source-trust fields.",
+        "",
+        "## Future Validation Step",
+        "",
+        "Future step / not run by Task142:",
+        "",
+        "```bash",
+        *_source_trust_recovery_future_validation_command_lines(report),
+        "```",
+        "",
+        "Task142 does not validate or apply the refill template. It only prepares the operator workspace.",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _source_trust_recovery_future_validation_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = ""
+    inputs = report.get("inputs") or {}
+    gate_path = str(inputs.get("gate") or "")
+    if gate_path:
+        output_dir = str(Path(gate_path).parent)
+    output_dir = output_dir or "logs/financial_reports/task124_chain_preview"
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-validate-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+    ]
 
 
 def _markdown_count_lines(counts: dict[str, Any]) -> list[str]:
@@ -31737,6 +32676,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review the Task136 draft copy and run a later strict document gate before any download, extraction, or import task."]
     if mode == "exact-document-draft-gate-v2":
         return ["Resolve Task137 blockers; rerun the Task132 disk guard immediately before any future controlled document write."]
+    if mode == "source-trust-recovery-workspace-v2":
+        return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "backup-retention-preview":
         return ["Review Task138 rotation candidates manually; this preview never deletes or modifies backup files."]
     if mode == "backup-retention-apply-draft-preview":
@@ -31854,6 +32795,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
         return all(
             path is None or not _paths_equal(output_path, path)
             for path in _exact_document_draft_gate_inputs(args).values()
+        )
+    if args.mode == "source-trust-recovery-workspace-v2":
+        return not _source_trust_recovery_output_errors(
+            args,
+            inputs=_source_trust_recovery_inputs(args),
+            artifacts=_source_trust_recovery_artifacts(args),
         )
     if args.mode == "backup-retention-preview":
         all_outputs = [
