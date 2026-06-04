@@ -3804,6 +3804,7 @@ SOURCE_TRUST_RECOVERY_PROMOTED_SOURCE_PACK_DRAFT_SUMMARY_FIELDS = [
     "would_create_promoted_source_pack_draft",
 ]
 SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN = "APPLY_RZD_SOURCE_TRUST_TASK148"
+SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN_PLACEHOLDER = "<CONFIRMATION_TOKEN_REQUIRED_OUT_OF_BAND>"
 SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES = {
     "controlled_apply_json": "source_trust_recovery_controlled_apply_task148.json",
     "controlled_apply_csv": "source_trust_recovery_controlled_apply_task148.csv",
@@ -21654,7 +21655,7 @@ def _source_trust_recovery_controlled_apply_gate(
         "expected_promoted_draft_sha256_matches": promoted_matches,
         "expected_promote_apply_sha256_matches": apply_matches,
         "controlled_apply_execution_enabled": token_matches and promoted_matches and apply_matches,
-        "confirmation_token_expected": SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN,
+        "confirmation_token_expected": SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN_PLACEHOLDER,
         "expected_promoted_draft_sha256": expected_promoted,
         "expected_promote_apply_sha256": expected_apply,
         "actual_promoted_draft_sha256": promoted_draft_sha256,
@@ -22204,16 +22205,24 @@ def _write_source_trust_recovery_controlled_apply_safe_failure_outputs(
 
 
 def _source_trust_recovery_controlled_apply_ledger(report: dict[str, Any]) -> dict[str, Any]:
+    controlled_source_pack_created = bool(report.get("controlled_source_pack_created"))
+    controlled_source_pack_path = report.get("controlled_source_pack_path") if controlled_source_pack_created else None
+    controlled_source_pack_sha256 = report.get("controlled_source_pack_sha256") if controlled_source_pack_created else None
+    confirmation_token_matches = bool(report.get("confirmation_token_matches"))
     return {
         "status": report.get("status"),
         "mode": "source-trust-recovery-controlled-apply-ledger-v2",
         "created_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "confirmation_token_matches": report.get("confirmation_token_matches"),
+        "token_matched": confirmation_token_matches,
+        "confirmation_token_matches": confirmation_token_matches,
+        "expected_promoted_draft_sha256_matches": report.get("expected_promoted_draft_sha256_matches"),
+        "expected_promote_apply_sha256_matches": report.get("expected_promote_apply_sha256_matches"),
         "expected_promoted_draft_sha256": report.get("expected_promoted_draft_sha256", ""),
         "expected_promote_apply_sha256": report.get("expected_promote_apply_sha256", ""),
         "actual_promoted_draft_sha256": report.get("actual_promoted_draft_sha256", ""),
         "actual_promote_apply_sha256": report.get("actual_promote_apply_sha256", ""),
-        "controlled_source_pack_sha256": report.get("controlled_source_pack_sha256", ""),
+        "controlled_source_pack_path": controlled_source_pack_path,
+        "controlled_source_pack_sha256": controlled_source_pack_sha256,
         "controlled_apply_ids": [row.get("controlled_apply_id") for row in report.get("controlled_apply_rows") or []],
         "created_artifact_paths": report.get("artifacts") or {},
         "production_source_pack_modified": False,
@@ -28837,7 +28846,7 @@ def _source_trust_recovery_controlled_apply_rerun_command_lines(
     if include_token:
         lines.extend(
             [
-                f"  --source-trust-recovery-controlled-apply-token {_bash_quote(SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN)} \\",
+                f"  --source-trust-recovery-controlled-apply-token {_bash_quote(str(report.get('confirmation_token_expected') or SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN_PLACEHOLDER))} \\",
                 f"  --source-trust-recovery-controlled-apply-expected-promoted-draft-sha256 {_bash_quote(str(report.get('actual_promoted_draft_sha256') or '<PROMOTED_DRAFT_SHA256>'))} \\",
                 f"  --source-trust-recovery-controlled-apply-expected-promote-apply-sha256 {_bash_quote(str(report.get('actual_promote_apply_sha256') or '<PROMOTE_APPLY_SHA256>'))}",
             ]

@@ -10083,6 +10083,17 @@ def test_source_trust_recovery_controlled_apply_no_token_blocks_safely(tmp_path:
     assert Path(report["artifacts"]["ledger_json"]).is_file()
     assert Path(report["artifacts"]["rerun_markdown"]).is_file()
     assert not Path(report["artifacts"]["controlled_source_pack_json"]).exists()
+    ledger_text = Path(report["artifacts"]["ledger_json"]).read_text(encoding="utf-8")
+    ledger = json.loads(ledger_text)
+    assert ledger["token_matched"] is False
+    assert ledger["confirmation_token_matches"] is False
+    assert ledger["controlled_source_pack_path"] is None
+    assert ledger["controlled_source_pack_sha256"] is None
+    assert "APPLY_RZD_SOURCE_TRUST_TASK148" not in ledger_text
+    for artifact_path in report["artifacts"].values():
+        path = Path(artifact_path)
+        if path.is_file():
+            assert "APPLY_RZD_SOURCE_TRUST_TASK148" not in path.read_text(encoding="utf-8")
 
 
 def test_source_trust_recovery_controlled_apply_hash_gates_block(tmp_path: Path) -> None:
@@ -10159,7 +10170,17 @@ def test_source_trust_recovery_controlled_apply_creates_controlled_source_pack_o
     assert controlled_row["ready_for_document_download"] is False
     assert controlled_row["ready_for_extraction"] is False
     ledger_text = Path(report["artifacts"]["ledger_json"]).read_text(encoding="utf-8")
+    ledger = json.loads(ledger_text)
+    controlled_sha256 = hashlib.sha256(Path(report["artifacts"]["controlled_source_pack_json"]).read_bytes()).hexdigest()
+    assert ledger["token_matched"] is True
+    assert ledger["confirmation_token_matches"] is True
+    assert ledger["controlled_source_pack_path"] == report["artifacts"]["controlled_source_pack_json"]
+    assert ledger["controlled_source_pack_sha256"] == controlled_sha256
     assert "APPLY_RZD_SOURCE_TRUST_TASK148" not in ledger_text
+    for artifact_path in report["artifacts"].values():
+        path = Path(artifact_path)
+        if path.is_file():
+            assert "APPLY_RZD_SOURCE_TRUST_TASK148" not in path.read_text(encoding="utf-8")
 
 
 def test_source_trust_recovery_controlled_apply_blocks_invalid_inputs(tmp_path: Path) -> None:
