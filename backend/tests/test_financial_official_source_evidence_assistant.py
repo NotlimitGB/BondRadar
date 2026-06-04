@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -10062,6 +10063,220 @@ def test_source_trust_recovery_promote_apply_never_calls_network_or_delete_helpe
     assert report["would_delete_files"] is False
 
 
+def test_source_trust_recovery_controlled_apply_no_token_blocks_safely(tmp_path: Path) -> None:
+    _prepare_source_trust_recovery_controlled_apply_fixture(tmp_path)
+
+    report = _run_source_trust_recovery_controlled_apply(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "blocked"
+    assert report["controlled_apply_execution_enabled"] is False
+    assert report["controlled_apply_created_count"] == 0
+    assert report["blocked_count"] == 1
+    assert report["controlled_source_pack_created"] is False
+    assert report["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_confirmation_token_required"
+    assert report["blocker_rows"][0]["blocker_code"] == "confirmation_token_required"
+    assert Path(report["artifacts"]["controlled_apply_json"]).is_file()
+    assert Path(report["artifacts"]["controlled_apply_csv"]).is_file()
+    assert Path(report["artifacts"]["controlled_apply_markdown"]).is_file()
+    assert Path(report["artifacts"]["blockers_json"]).is_file()
+    assert Path(report["artifacts"]["blockers_csv"]).is_file()
+    assert Path(report["artifacts"]["ledger_json"]).is_file()
+    assert Path(report["artifacts"]["rerun_markdown"]).is_file()
+    assert not Path(report["artifacts"]["controlled_source_pack_json"]).exists()
+
+
+def test_source_trust_recovery_controlled_apply_hash_gates_block(tmp_path: Path) -> None:
+    promoted_dir = tmp_path / "wrong_promoted_sha"
+    _prepare_source_trust_recovery_controlled_apply_fixture(promoted_dir)
+    wrong_promoted = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(promoted_dir, promoted_sha="bad")
+    )
+    assert wrong_promoted["status"] == "blocked"
+    assert wrong_promoted["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_promoted_draft_sha256_mismatch"
+    assert wrong_promoted["blocker_rows"][0]["blocker_code"] == "promoted_draft_sha256_mismatch"
+    assert wrong_promoted["controlled_source_pack_created"] is False
+
+    apply_dir = tmp_path / "wrong_promote_apply_sha"
+    _prepare_source_trust_recovery_controlled_apply_fixture(apply_dir)
+    wrong_apply = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(apply_dir, promote_apply_sha="bad")
+    )
+    assert wrong_apply["status"] == "blocked"
+    assert wrong_apply["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_promote_apply_sha256_mismatch"
+    assert wrong_apply["blocker_rows"][0]["blocker_code"] == "promote_apply_sha256_mismatch"
+    assert wrong_apply["controlled_source_pack_created"] is False
+
+
+def test_source_trust_recovery_controlled_apply_creates_controlled_source_pack_only(tmp_path: Path) -> None:
+    _prepare_source_trust_recovery_controlled_apply_fixture(tmp_path)
+    baseline_path = tmp_path / "operator_resolution_pack_task118.json"
+    promoted_path = tmp_path / "source_trust_recovery_promoted_source_pack_draft_task147.json"
+    task145_path = tmp_path / "source_trust_recovery_source_pack_draft_task145.json"
+    baseline_before = baseline_path.read_bytes()
+    promoted_before = promoted_path.read_bytes()
+    task145_before = task145_path.read_bytes()
+
+    report = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(tmp_path)
+    )
+
+    assert report["status"] == "passed"
+    assert report["row_count"] == 1
+    assert report["controlled_apply_created_count"] == 1
+    assert report["blocked_count"] == 0
+    assert report["controlled_source_pack_created"] is True
+    assert report["baseline_source_pack_input_preserved"] is True
+    assert report["promoted_source_pack_draft_input_preserved"] is True
+    assert report["task145_source_pack_draft_input_preserved"] is True
+    assert report["production_source_pack_modified"] is False
+    assert report["promoted_source_pack_draft_modified"] is False
+    assert report["task145_source_pack_draft_modified"] is False
+    assert report["document_intake_modified"] is False
+    assert baseline_path.read_bytes() == baseline_before
+    assert promoted_path.read_bytes() == promoted_before
+    assert task145_path.read_bytes() == task145_before
+    row = report["controlled_apply_rows"][0]
+    assert row["controlled_apply_status"] == "controlled_apply_created"
+    assert row["candidate_source_page_url"] == "https://company.rzd.ru/ru/9471"
+    assert row["candidate_source_host"] == "company.rzd.ru"
+    assert row["would_trust_source_url_in_controlled_artifact"] is True
+    assert row["would_update_production_source_pack"] is False
+    assert row["would_update_document_intake"] is False
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_url"] is False
+    assert row["would_download_document"] is False
+    assert row["would_parse_document"] is False
+
+    controlled_payload = json.loads(Path(report["artifacts"]["controlled_source_pack_json"]).read_text(encoding="utf-8"))
+    controlled_row = controlled_payload["resolutions"][0]
+    assert controlled_row["current_known_source_page_url"] == "https://company.rzd.ru/ru/9471"
+    assert "company.rzd.ru" in controlled_row["trusted_source_hosts"]
+    assert "company.rzd.ru" in controlled_row["trusted_hosts"]
+    assert controlled_row["source_trust_status"] == "controlled_applied_source_trust"
+    assert controlled_row["candidate_source_status"] == "controlled_applied_in_task148"
+    assert controlled_row["trusted"] is True
+    assert controlled_row["trusted_host"] is True
+    assert controlled_row["ready_for_document_download"] is False
+    assert controlled_row["ready_for_extraction"] is False
+    ledger_text = Path(report["artifacts"]["ledger_json"]).read_text(encoding="utf-8")
+    assert "APPLY_RZD_SOURCE_TRUST_TASK148" not in ledger_text
+
+
+def test_source_trust_recovery_controlled_apply_blocks_invalid_inputs(tmp_path: Path) -> None:
+    apply_dir = tmp_path / "promote_apply_not_successful"
+    _prepare_source_trust_recovery_controlled_apply_fixture(apply_dir)
+    _mutate_json_file(
+        apply_dir / "source_trust_recovery_promote_apply_draft_task147.json",
+        lambda payload: payload["promote_apply_rows"][0].update({"promote_apply_status": "blocked_review_not_ready"}),
+    )
+    blocked_apply = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(apply_dir)
+    )
+    assert blocked_apply["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_promote_apply_not_successful"
+
+    mismatch_dir = tmp_path / "promoted_draft_mismatch"
+    _prepare_source_trust_recovery_controlled_apply_fixture(mismatch_dir)
+    _mutate_source_trust_recovery_promoted_draft_row(
+        mismatch_dir,
+        lambda row: row.update({"current_known_source_page_url": "https://company.rzd.ru/ru/9999"}),
+    )
+    mismatch = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(mismatch_dir)
+    )
+    assert mismatch["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_promoted_draft_mismatch"
+
+    ready_dir = tmp_path / "ready_too_early"
+    _prepare_source_trust_recovery_controlled_apply_fixture(ready_dir)
+    _mutate_source_trust_recovery_promoted_draft_row(
+        ready_dir,
+        lambda row: row.update({"ready_for_document_download": True}),
+    )
+    ready = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(ready_dir)
+    )
+    assert (
+        ready["controlled_apply_rows"][0]["controlled_apply_status"]
+        == "blocked_promoted_draft_ready_for_download_too_early"
+    )
+
+    baseline_dir = tmp_path / "baseline_already_trusted"
+    _prepare_source_trust_recovery_controlled_apply_fixture(baseline_dir)
+    _mutate_source_trust_recovery_source_pack_row(
+        baseline_dir,
+        lambda row: row.update({"trusted_source_hosts": ["company.rzd.ru"]}),
+    )
+    baseline = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(baseline_dir)
+    )
+    assert baseline["controlled_apply_rows"][0]["controlled_apply_status"] == "blocked_baseline_already_trusted"
+
+
+def test_source_trust_recovery_controlled_apply_output_collisions_fail_safely(tmp_path: Path) -> None:
+    _prepare_source_trust_recovery_controlled_apply_fixture(tmp_path)
+    promote_apply_input = tmp_path / "source_trust_recovery_promote_apply_draft_task147.json"
+
+    output_collision = _run_source_trust_recovery_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--source-trust-recovery-controlled-apply-output",
+            str(promote_apply_input),
+        ]
+    )
+    assert output_collision["status"] == "failed"
+    assert output_collision["errors"] == [
+        {"message": "source_trust_recovery_controlled_apply_output_must_not_equal_input"}
+    ]
+
+    baseline_input = tmp_path / "operator_resolution_pack_task118.json"
+    overwrite_collision = _run_source_trust_recovery_controlled_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--source-trust-recovery-controlled-source-pack-output",
+            str(baseline_input),
+        ]
+    )
+    assert overwrite_collision["status"] == "failed"
+    assert overwrite_collision["errors"] == [
+        {"message": "source_trust_recovery_controlled_apply_must_not_overwrite_input"}
+    ]
+
+
+def test_source_trust_recovery_controlled_apply_never_calls_network_or_delete_helpers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task148 must not probe, fetch, download, parse, delete, or trade")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _prepare_source_trust_recovery_controlled_apply_fixture(tmp_path)
+
+    report = _run_source_trust_recovery_controlled_apply(
+        _source_trust_recovery_controlled_apply_hash_args(tmp_path)
+    )
+
+    assert report["would_update_production_source_pack"] is False
+    assert report["would_update_promoted_source_pack_draft"] is False
+    assert report["would_update_task145_source_pack_draft"] is False
+    assert report["would_update_document_intake"] is False
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -15422,6 +15637,19 @@ def _run_source_trust_recovery_promote_apply(extra_args: list[str] | None = None
     return report
 
 
+def _run_source_trust_recovery_controlled_apply(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-trust-recovery-controlled-apply-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _source_trust_recovery_gate_row(**updates: object) -> dict[str, object]:
     row: dict[str, object] = {
         "gate_id": "exact_document_draft_gate:67:2025",
@@ -15666,6 +15894,32 @@ def _prepare_source_trust_recovery_promote_apply_fixture(path: Path) -> dict:
     return _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(path)])
 
 
+def _prepare_source_trust_recovery_controlled_apply_fixture(path: Path) -> dict:
+    _prepare_source_trust_recovery_promote_apply_fixture(path)
+    return _run_source_trust_recovery_promote_apply(["--operator-resolution-chain-output-dir", str(path)])
+
+
+def _source_trust_recovery_controlled_apply_hash_args(
+    path: Path,
+    *,
+    token: str = "APPLY_RZD_SOURCE_TRUST_TASK148",
+    promoted_sha: str | None = None,
+    promote_apply_sha: str | None = None,
+) -> list[str]:
+    promoted = path / "source_trust_recovery_promoted_source_pack_draft_task147.json"
+    promote_apply = path / "source_trust_recovery_promote_apply_draft_task147.json"
+    return [
+        "--operator-resolution-chain-output-dir",
+        str(path),
+        "--source-trust-recovery-controlled-apply-token",
+        token,
+        "--source-trust-recovery-controlled-apply-expected-promoted-draft-sha256",
+        promoted_sha or hashlib.sha256(promoted.read_bytes()).hexdigest(),
+        "--source-trust-recovery-controlled-apply-expected-promote-apply-sha256",
+        promote_apply_sha or hashlib.sha256(promote_apply.read_bytes()).hexdigest(),
+    ]
+
+
 def _mutate_json_file(path: Path, mutator) -> None:
     payload = json.loads(path.read_text(encoding="utf-8"))
     mutator(payload)
@@ -15694,6 +15948,14 @@ def _mutate_source_trust_recovery_source_pack_row(path: Path, mutator) -> None:
         mutator(rows[0])
 
     _mutate_json_file(path / "operator_resolution_pack_task118.json", mutate)
+
+
+def _mutate_source_trust_recovery_promoted_draft_row(path: Path, mutator) -> None:
+    def mutate(payload: dict) -> None:
+        rows = payload.get("resolutions") or payload.get("rows") or payload
+        mutator(rows[0])
+
+    _mutate_json_file(path / "source_trust_recovery_promoted_source_pack_draft_task147.json", mutate)
 
 
 def _exact_document_draft_gate_placeholder_document(**updates: object) -> dict[str, object]:

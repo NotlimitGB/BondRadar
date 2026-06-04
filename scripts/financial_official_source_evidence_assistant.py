@@ -67,6 +67,7 @@ MODE_CHOICES = (
     "source-trust-recovery-apply-draft-v2",
     "source-trust-recovery-draft-review-v2",
     "source-trust-recovery-promote-apply-draft-v2",
+    "source-trust-recovery-controlled-apply-v2",
     "backup-retention-preview",
     "backup-retention-apply-draft-preview",
     "backup-retention-controlled-apply",
@@ -3802,6 +3803,136 @@ SOURCE_TRUST_RECOVERY_PROMOTED_SOURCE_PACK_DRAFT_SUMMARY_FIELDS = [
     "would_update_task145_source_pack_draft",
     "would_create_promoted_source_pack_draft",
 ]
+SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN = "APPLY_RZD_SOURCE_TRUST_TASK148"
+SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES = {
+    "controlled_apply_json": "source_trust_recovery_controlled_apply_task148.json",
+    "controlled_apply_csv": "source_trust_recovery_controlled_apply_task148.csv",
+    "controlled_apply_markdown": "source_trust_recovery_controlled_apply_task148.md",
+    "blockers_json": "source_trust_recovery_controlled_apply_blockers_task148.json",
+    "blockers_csv": "source_trust_recovery_controlled_apply_blockers_task148.csv",
+    "controlled_source_pack_json": "source_trust_recovery_controlled_source_pack_task148.json",
+    "controlled_source_pack_summary_csv": "source_trust_recovery_controlled_source_pack_summary_task148.csv",
+    "ledger_json": "source_trust_recovery_controlled_apply_ledger_task148.json",
+    "rerun_markdown": "source_trust_recovery_controlled_apply_rerun_task148.md",
+}
+SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_FIELDS = [
+    "controlled_apply_id",
+    "promote_apply_id",
+    "review_id",
+    "promote_preview_id",
+    "apply_id",
+    "accepted_candidate_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "candidate_source_page_url",
+    "candidate_source_host",
+    "candidate_source_registrable_domain",
+    "candidate_source_status",
+    "future_trusted_host",
+    "future_trusted_source_page_url",
+    "source_trust_status_from_promoted_draft",
+    "promote_apply_status",
+    "review_status",
+    "promote_preview_status",
+    "apply_status",
+    "validation_status",
+    "accepted_candidate_status",
+    "baseline_row_found",
+    "baseline_already_trusts_candidate_host",
+    "baseline_current_known_source_page_url",
+    "baseline_current_known_document_url",
+    "baseline_trusted_source_hosts",
+    "baseline_trusted_hosts",
+    "promoted_draft_row_found",
+    "promoted_draft_matches_promote_apply",
+    "promoted_draft_source_page_url",
+    "promoted_draft_trusted_source_hosts",
+    "promoted_draft_trusted_hosts",
+    "promoted_draft_trusted_flag",
+    "promoted_draft_trusted_host_flag",
+    "promoted_draft_ready_for_document_download",
+    "promoted_draft_ready_for_extraction",
+    "controlled_source_pack_row_found",
+    "controlled_source_page_url",
+    "controlled_trusted_source_hosts",
+    "controlled_trusted_hosts",
+    "controlled_source_trust_status",
+    "controlled_ready_for_document_download",
+    "controlled_ready_for_extraction",
+    "controlled_apply_status",
+    "controlled_apply_severity",
+    "controlled_apply_action",
+    "controlled_apply_reason_codes",
+    "controlled_apply_errors",
+    "controlled_apply_warnings",
+    "controlled_apply_execution_enabled",
+    "confirmation_token_matches",
+    "expected_promoted_draft_sha256_matches",
+    "expected_promote_apply_sha256_matches",
+    "baseline_source_pack_input_sha256",
+    "promoted_source_pack_draft_input_sha256",
+    "controlled_source_pack_sha256",
+    "promote_apply_input_sha256",
+    "draft_review_input_sha256",
+    "promote_preview_input_sha256",
+    "apply_input_sha256",
+    "validation_input_sha256",
+    "accepted_candidates_input_sha256",
+    "would_trust_source_url_in_controlled_artifact",
+    "would_update_production_source_pack",
+    "would_update_task147_promoted_draft",
+    "would_update_task145_source_pack_draft",
+    "would_create_controlled_source_pack_artifact",
+    "would_update_document_intake",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "controlled_apply_id",
+    "promote_apply_id",
+    "review_id",
+    "promote_preview_id",
+    "apply_id",
+    "accepted_candidate_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "controlled_apply_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+SOURCE_TRUST_RECOVERY_CONTROLLED_SOURCE_PACK_SUMMARY_FIELDS = [
+    "controlled_apply_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "controlled_apply_status",
+    "controlled_source_page_url",
+    "controlled_trusted_source_hosts",
+    "controlled_trusted_hosts",
+    "controlled_source_trust_status",
+    "controlled_ready_for_document_download",
+    "controlled_ready_for_extraction",
+    "would_update_production_source_pack",
+    "would_create_controlled_source_pack_artifact",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -4343,6 +4474,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-trust-recovery-promoted-source-pack-draft-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-promoted-source-pack-draft-summary-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-promote-apply-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promoted-source-pack-draft-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-blockers-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-source-pack-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-source-pack-summary-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-ledger-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-token", default="")
+    parser.add_argument("--source-trust-recovery-controlled-apply-expected-promoted-draft-sha256", default="")
+    parser.add_argument("--source-trust-recovery-controlled-apply-expected-promote-apply-sha256", default="")
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -4469,6 +4615,8 @@ def run_assistant(
         report = run_source_trust_recovery_draft_review_v2(args)
     elif args.mode == "source-trust-recovery-promote-apply-draft-v2":
         report = run_source_trust_recovery_promote_apply_draft_v2(args)
+    elif args.mode == "source-trust-recovery-controlled-apply-v2":
+        report = run_source_trust_recovery_controlled_apply_v2(args)
     elif args.mode == "backup-retention-preview":
         report = run_backup_retention_preview(args)
     elif args.mode == "backup-retention-apply-draft-preview":
@@ -21102,6 +21250,997 @@ def _source_trust_recovery_promote_apply_drift_errors(
     return []
 
 
+def run_source_trust_recovery_controlled_apply_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _source_trust_recovery_controlled_apply_inputs(args, promote_apply_report=None, review_report=None, apply_report=None)
+    artifacts = _source_trust_recovery_controlled_apply_artifacts(args)
+    preflight_errors = _source_trust_recovery_controlled_apply_preflight_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if preflight_errors:
+        report = _failed_source_trust_recovery_controlled_apply(preflight_errors, inputs=inputs, artifacts=artifacts)
+        _write_source_trust_recovery_controlled_apply_safe_failure_outputs(report, artifacts)
+        return report
+    preliminary_errors = _source_trust_recovery_controlled_apply_required_errors(inputs, include_source_pack=False)
+    if preliminary_errors:
+        report = _failed_source_trust_recovery_controlled_apply(preliminary_errors, inputs=inputs, artifacts=artifacts)
+        _write_source_trust_recovery_controlled_apply_safe_failure_outputs(report, artifacts)
+        return report
+
+    warnings: list[dict[str, Any]] = []
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    try:
+        promote_apply_report, promote_apply_bytes = _source_trust_recovery_draft_review_load_json(
+            inputs["promote_apply"],
+            expected_mode="source-trust-recovery-promote-apply-draft-v2",
+            rows_key="promote_apply_rows",
+        )
+        promoted_draft_bytes = inputs["promoted_draft"].read_bytes()  # type: ignore[union-attr]
+        promoted_draft_payload, promoted_draft_rows = _load_operator_resolution_source_pack_payload(inputs["promoted_draft"])  # type: ignore[arg-type]
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        report = _failed_source_trust_recovery_controlled_apply(
+            [{"message": f"source_trust_recovery_controlled_apply_input_unreadable:{exc}"}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+        _write_source_trust_recovery_controlled_apply_safe_failure_outputs(report, artifacts)
+        return report
+
+    review_report = _source_trust_recovery_controlled_apply_load_optional_report(
+        inputs["review"],
+        expected_mode="source-trust-recovery-draft-review-v2",
+        rows_key="review_rows",
+        role="draft_review",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    apply_report = _source_trust_recovery_controlled_apply_load_optional_report(
+        inputs["apply"],
+        expected_mode="source-trust-recovery-apply-draft-v2",
+        rows_key="apply_rows",
+        role="apply",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    inputs = _source_trust_recovery_controlled_apply_inputs(
+        args,
+        promote_apply_report=promote_apply_report,
+        review_report=review_report,
+        apply_report=apply_report,
+    )
+    preflight_errors = _source_trust_recovery_controlled_apply_preflight_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if preflight_errors:
+        report = _failed_source_trust_recovery_controlled_apply(preflight_errors, inputs=inputs, artifacts=artifacts)
+        _write_source_trust_recovery_controlled_apply_safe_failure_outputs(report, artifacts)
+        return report
+    required_errors = _source_trust_recovery_controlled_apply_required_errors(inputs, include_source_pack=True)
+    if required_errors:
+        report = _failed_source_trust_recovery_controlled_apply(required_errors, inputs=inputs, artifacts=artifacts)
+        _write_source_trust_recovery_controlled_apply_safe_failure_outputs(report, artifacts)
+        return report
+
+    snapshots[inputs["promote_apply"]] = promote_apply_bytes  # type: ignore[index]
+    snapshots[inputs["promoted_draft"]] = promoted_draft_bytes  # type: ignore[index]
+    promote_apply_sha = hashlib.sha256(promote_apply_bytes).hexdigest()
+    promoted_draft_sha = hashlib.sha256(promoted_draft_bytes).hexdigest()
+    input_hashes["promote_apply_input_sha256"] = promote_apply_sha
+    input_hashes["promoted_source_pack_draft_input_sha256"] = promoted_draft_sha
+
+    try:
+        baseline_bytes = inputs["source_pack"].read_bytes()  # type: ignore[union-attr]
+        _, baseline_rows = _load_operator_resolution_source_pack_payload(inputs["source_pack"])  # type: ignore[arg-type]
+        snapshots[inputs["source_pack"]] = baseline_bytes  # type: ignore[index]
+        input_hashes["baseline_source_pack_input_sha256"] = hashlib.sha256(baseline_bytes).hexdigest()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        report = _failed_source_trust_recovery_controlled_apply(
+            [{"message": f"source_trust_recovery_controlled_apply_input_unreadable:{exc}"}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+        _write_source_trust_recovery_controlled_apply_safe_failure_outputs(report, artifacts)
+        return report
+
+    blockers_report = _source_trust_recovery_controlled_apply_load_optional_report(
+        inputs["promote_apply_blockers"],
+        expected_mode="source-trust-recovery-promote-apply-blockers-v2",
+        rows_key="blocker_rows",
+        role="promote_apply_blockers",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    promote_preview_report = _source_trust_recovery_controlled_apply_load_optional_report(
+        inputs["promote_preview"],
+        expected_mode="source-trust-recovery-promote-preview-v2",
+        rows_key="promote_preview_rows",
+        role="promote_preview",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    task145_draft_payload: Any | None = None
+    task145_draft_rows: list[dict[str, Any]] = []
+    if inputs["task145_draft"] is not None and inputs["task145_draft"].is_file():
+        try:
+            task145_draft_bytes = inputs["task145_draft"].read_bytes()
+            task145_draft_payload, task145_draft_rows = _load_operator_resolution_source_pack_payload(inputs["task145_draft"])
+            snapshots[inputs["task145_draft"]] = task145_draft_bytes
+            input_hashes["task145_source_pack_draft_input_sha256"] = hashlib.sha256(task145_draft_bytes).hexdigest()
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            warnings.append({"message": f"source_trust_recovery_controlled_apply_optional_input_unreadable:task145_draft:{exc}"})
+    validation_report = _source_trust_recovery_controlled_apply_load_optional_report(
+        inputs["validation"],
+        expected_mode="source-trust-recovery-validate-v2",
+        rows_key="validation_rows",
+        role="validation",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    accepted_report = _source_trust_recovery_controlled_apply_load_optional_report(
+        inputs["accepted_candidates"],
+        expected_mode="source-trust-recovery-accepted-candidates-v2",
+        rows_key="accepted_candidate_rows",
+        role="accepted_candidates",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+        fallback_rows_key="rows",
+    )
+
+    gate = _source_trust_recovery_controlled_apply_gate(args, promoted_draft_sha, promote_apply_sha)
+    controlled_apply_rows = [
+        _source_trust_recovery_controlled_apply_row(
+            promote_apply_row=row,
+            promoted_draft_rows=promoted_draft_rows,
+            baseline_rows=baseline_rows,
+            promote_apply_blocker_rows=blockers_report.get("blocker_rows") or [],
+            review_rows=review_report.get("review_rows") or [],
+            promote_preview_rows=promote_preview_report.get("promote_preview_rows") or [],
+            apply_rows=apply_report.get("apply_rows") or [],
+            task145_draft_rows=task145_draft_rows,
+            validation_rows=validation_report.get("validation_rows") or [],
+            accepted_rows=accepted_report.get("accepted_candidate_rows") or accepted_report.get("rows") or [],
+            input_hashes=input_hashes,
+            gate=gate,
+        )
+        for row in promote_apply_report.get("promote_apply_rows") or []
+    ]
+    blocker_rows = [
+        _source_trust_recovery_controlled_apply_blocker_row(row)
+        for row in controlled_apply_rows
+        if not str(row.get("controlled_apply_status") or "").startswith("controlled_apply_")
+    ]
+    controlled_source_pack_rows = copy.deepcopy(promoted_draft_rows)
+    create_controlled_source_pack = any(
+        row.get("controlled_apply_status") in {"controlled_apply_created", "controlled_apply_already_present"}
+        for row in controlled_apply_rows
+    )
+    if create_controlled_source_pack:
+        for row in controlled_apply_rows:
+            if row.get("controlled_apply_status") in {"controlled_apply_created", "controlled_apply_already_present"}:
+                draft_row = _source_trust_recovery_draft_review_match_row(row, controlled_source_pack_rows)
+                if draft_row:
+                    _source_trust_recovery_controlled_apply_update_controlled_row(draft_row, row)
+    summary_rows = _source_trust_recovery_controlled_apply_summary_rows(controlled_apply_rows)
+    report = _build_source_trust_recovery_controlled_apply_report(
+        inputs=inputs,
+        artifacts=artifacts,
+        controlled_apply_rows=controlled_apply_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=[],
+        input_hashes=input_hashes,
+        gate=gate,
+        controlled_source_pack_created=create_controlled_source_pack,
+    )
+    try:
+        _write_source_trust_recovery_controlled_apply_outputs(
+            report,
+            artifacts=artifacts,
+            controlled_source_pack_payload=promoted_draft_payload,
+            controlled_source_pack_rows=controlled_source_pack_rows,
+            summary_rows=summary_rows,
+            write_controlled_source_pack=create_controlled_source_pack,
+        )
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+
+    if create_controlled_source_pack and artifacts["controlled_source_pack_json"] is not None and artifacts["controlled_source_pack_json"].is_file():
+        controlled_bytes = artifacts["controlled_source_pack_json"].read_bytes()
+        controlled_sha = hashlib.sha256(controlled_bytes).hexdigest()
+        report["controlled_source_pack_sha256"] = controlled_sha
+        report["controlled_source_pack_created"] = True
+        report["controlled_source_pack_path"] = str(artifacts["controlled_source_pack_json"])
+        for row in controlled_apply_rows:
+            row["controlled_source_pack_sha256"] = controlled_sha
+        try:
+            _write_source_trust_recovery_controlled_apply_outputs(
+                report,
+                artifacts=artifacts,
+                controlled_source_pack_payload=promoted_draft_payload,
+                controlled_source_pack_rows=controlled_source_pack_rows,
+                summary_rows=_source_trust_recovery_controlled_apply_summary_rows(controlled_apply_rows),
+                write_controlled_source_pack=False,
+            )
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+
+    drift_errors = _source_trust_recovery_controlled_apply_drift_errors(inputs=inputs, snapshots=snapshots)
+    if drift_errors:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), *drift_errors]
+        report["baseline_source_pack_input_preserved"] = False
+        report["promoted_source_pack_draft_input_preserved"] = False
+        report["task145_source_pack_draft_input_preserved"] = False
+    return report
+
+
+def _source_trust_recovery_controlled_apply_inputs(
+    args: argparse.Namespace,
+    *,
+    promote_apply_report: dict[str, Any] | None,
+    review_report: dict[str, Any] | None,
+    apply_report: dict[str, Any] | None,
+) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    promote_apply_path = args.source_trust_recovery_promote_apply_input or (
+        output_dir / SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_ARTIFACT_NAMES["apply_json"] if output_dir else None
+    )
+    promoted_draft_path = args.source_trust_recovery_promoted_source_pack_draft_input or (
+        output_dir / SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_ARTIFACT_NAMES["promoted_source_pack_draft_json"]
+        if output_dir
+        else None
+    )
+    source_pack = args.financial_official_source_pack_input
+    if source_pack is None and promote_apply_report:
+        value = str(promote_apply_report.get("source_pack_input_path") or "")
+        source_pack = Path(value) if value else None
+    if source_pack is None and review_report:
+        value = str(review_report.get("source_pack_input_path") or "")
+        source_pack = Path(value) if value else None
+    if source_pack is None and apply_report:
+        value = str(apply_report.get("source_pack_input_path") or "")
+        source_pack = Path(value) if value else None
+    if source_pack is None:
+        source_pack = _source_trust_recovery_apply_source_pack_resolution(args).get("path")
+    return {
+        "promote_apply": promote_apply_path,
+        "promoted_draft": promoted_draft_path,
+        "promote_apply_blockers": args.source_trust_recovery_promote_apply_blockers_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+        "review": args.source_trust_recovery_draft_review_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_DRAFT_REVIEW_ARTIFACT_NAMES["review_json"] if output_dir else None),
+        "promote_preview": args.source_trust_recovery_promote_preview_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_DRAFT_REVIEW_ARTIFACT_NAMES["promote_preview_json"] if output_dir else None),
+        "apply": args.source_trust_recovery_apply_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES["apply_json"] if output_dir else None),
+        "task145_draft": args.source_trust_recovery_source_pack_draft_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES["source_pack_draft_json"] if output_dir else None),
+        "validation": args.source_trust_recovery_validation_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["validation_json"] if output_dir else None),
+        "accepted_candidates": args.source_trust_recovery_accepted_candidates_input
+        or (
+            output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["accepted_candidates_json"]
+            if output_dir
+            else None
+        ),
+        "source_pack": source_pack,
+    }
+
+
+def _source_trust_recovery_controlled_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "controlled_apply_json": args.source_trust_recovery_controlled_apply_output,
+        "controlled_apply_csv": args.source_trust_recovery_controlled_apply_csv_output,
+        "controlled_apply_markdown": args.source_trust_recovery_controlled_apply_markdown_output,
+        "blockers_json": args.source_trust_recovery_controlled_apply_blockers_output,
+        "blockers_csv": args.source_trust_recovery_controlled_apply_blockers_csv_output,
+        "controlled_source_pack_json": args.source_trust_recovery_controlled_source_pack_output,
+        "controlled_source_pack_summary_csv": args.source_trust_recovery_controlled_source_pack_summary_csv_output,
+        "ledger_json": args.source_trust_recovery_controlled_apply_ledger_output,
+        "rerun_markdown": args.source_trust_recovery_controlled_apply_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES.items()
+    }
+
+
+def _source_trust_recovery_controlled_apply_required_errors(
+    inputs: dict[str, Path | None],
+    *,
+    include_source_pack: bool,
+) -> list[dict[str, Any]]:
+    required = {
+        "promote_apply": "source_trust_recovery_controlled_apply_promote_apply_input_required",
+        "promoted_draft": "source_trust_recovery_controlled_apply_promoted_draft_input_required",
+    }
+    if include_source_pack:
+        required["source_pack"] = "source_trust_recovery_controlled_apply_source_pack_input_required"
+    errors: list[dict[str, Any]] = []
+    for role, code in required.items():
+        path = inputs.get(role)
+        if path is None or not path.is_file():
+            errors.append({"message": code})
+    return errors
+
+
+def _source_trust_recovery_controlled_apply_preflight_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    for index, output_path in enumerate(outputs):
+        for other in outputs[index + 1 :]:
+            if _paths_equal(output_path, other):
+                return [{"message": "source_trust_recovery_controlled_apply_output_must_not_equal_input"}]
+        for input_role, input_path in inputs.items():
+            if input_path is not None and _paths_equal(output_path, input_path):
+                controlled_output = artifacts.get("controlled_source_pack_json")
+                if (
+                    controlled_output is not None
+                    and _paths_equal(output_path, controlled_output)
+                    and input_role in {"source_pack", "task145_draft", "promoted_draft"}
+                ):
+                    return [{"message": "source_trust_recovery_controlled_apply_must_not_overwrite_input"}]
+                return [{"message": "source_trust_recovery_controlled_apply_output_must_not_equal_input"}]
+    return []
+
+
+def _source_trust_recovery_controlled_apply_load_optional_report(
+    path: Path | None,
+    *,
+    expected_mode: str,
+    rows_key: str,
+    role: str,
+    warnings: list[dict[str, Any]],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+    fallback_rows_key: str | None = None,
+) -> dict[str, Any]:
+    if path is None or not path.is_file():
+        warnings.append({"message": f"source_trust_recovery_controlled_apply_optional_input_missing:{role}"})
+        return {}
+    try:
+        data = path.read_bytes()
+        payload = json.loads(data.decode("utf-8"))
+        rows = payload.get(rows_key)
+        if rows is None and fallback_rows_key is not None:
+            rows = payload.get(fallback_rows_key)
+        if (
+            not isinstance(payload, dict)
+            or payload.get("mode") != expected_mode
+            or not isinstance(rows, list)
+            or not all(isinstance(row, dict) for row in rows)
+        ):
+            raise ValueError(f"{role} malformed")
+        snapshots[path] = data
+        input_hashes[f"{role}_input_sha256"] = hashlib.sha256(data).hexdigest()
+        if rows_key not in payload and fallback_rows_key is not None:
+            payload[rows_key] = rows
+        return payload
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        warnings.append({"message": f"source_trust_recovery_controlled_apply_optional_input_unreadable:{role}:{exc}"})
+        return {}
+
+
+def _source_trust_recovery_controlled_apply_gate(
+    args: argparse.Namespace,
+    promoted_draft_sha256: str,
+    promote_apply_sha256: str,
+) -> dict[str, Any]:
+    token = str(args.source_trust_recovery_controlled_apply_token or "")
+    expected_promoted = str(args.source_trust_recovery_controlled_apply_expected_promoted_draft_sha256 or "")
+    expected_apply = str(args.source_trust_recovery_controlled_apply_expected_promote_apply_sha256 or "")
+    token_matches = token == SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN
+    promoted_matches = bool(expected_promoted) and expected_promoted == promoted_draft_sha256
+    apply_matches = bool(expected_apply) and expected_apply == promote_apply_sha256
+    return {
+        "confirmation_token_matches": token_matches,
+        "expected_promoted_draft_sha256_matches": promoted_matches,
+        "expected_promote_apply_sha256_matches": apply_matches,
+        "controlled_apply_execution_enabled": token_matches and promoted_matches and apply_matches,
+        "confirmation_token_expected": SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN,
+        "expected_promoted_draft_sha256": expected_promoted,
+        "expected_promote_apply_sha256": expected_apply,
+        "actual_promoted_draft_sha256": promoted_draft_sha256,
+        "actual_promote_apply_sha256": promote_apply_sha256,
+    }
+
+
+def _source_trust_recovery_controlled_apply_row(
+    *,
+    promote_apply_row: dict[str, Any],
+    promoted_draft_rows: list[dict[str, Any]],
+    baseline_rows: list[dict[str, Any]],
+    promote_apply_blocker_rows: list[dict[str, Any]],
+    review_rows: list[dict[str, Any]],
+    promote_preview_rows: list[dict[str, Any]],
+    apply_rows: list[dict[str, Any]],
+    task145_draft_rows: list[dict[str, Any]],
+    validation_rows: list[dict[str, Any]],
+    accepted_rows: list[dict[str, Any]],
+    input_hashes: dict[str, str],
+    gate: dict[str, Any],
+) -> dict[str, Any]:
+    promoted_draft = _source_trust_recovery_draft_review_match_row(promote_apply_row, promoted_draft_rows)
+    baseline_row = _source_trust_recovery_draft_review_match_row(promote_apply_row, baseline_rows)
+    blocker = _source_trust_recovery_draft_review_match_row(promote_apply_row, promote_apply_blocker_rows)
+    review_row = _source_trust_recovery_draft_review_match_row(promote_apply_row, review_rows)
+    promote_preview = _source_trust_recovery_draft_review_match_row(promote_apply_row, promote_preview_rows)
+    apply_row = _source_trust_recovery_draft_review_match_row(promote_apply_row, apply_rows)
+    task145_draft = _source_trust_recovery_draft_review_match_row(promote_apply_row, task145_draft_rows)
+    validation_row = _source_trust_recovery_draft_review_match_row(promote_apply_row, validation_rows)
+    accepted_row = _source_trust_recovery_draft_review_match_row(promote_apply_row, accepted_rows)
+    candidate_url = _source_trust_recovery_draft_review_candidate_url(promote_apply_row)
+    candidate_host = str(promote_apply_row.get("candidate_source_host") or _host(candidate_url))
+    candidate_domain = str(promote_apply_row.get("candidate_source_registrable_domain") or _source_trust_registrable_domain(candidate_host))
+    promoted_url = str(promoted_draft.get("current_known_source_page_url") or "")
+    promoted_hosts = _source_trust_recovery_draft_review_trusted_hosts(promoted_draft, "trusted_source_hosts")
+    promoted_trusted_hosts = _source_trust_recovery_draft_review_trusted_hosts(promoted_draft, "trusted_hosts")
+    baseline_trusted_source_hosts = _source_trust_recovery_draft_review_trusted_hosts(baseline_row, "trusted_source_hosts")
+    baseline_trusted_hosts = _source_trust_recovery_draft_review_trusted_hosts(baseline_row, "trusted_hosts")
+    baseline_already_trusts = _source_trust_recovery_draft_review_host_trusted(
+        candidate_host,
+        [*baseline_trusted_source_hosts, *baseline_trusted_hosts],
+    )
+    promoted_matches = (
+        bool(promoted_draft)
+        and promoted_url == candidate_url
+        and _source_trust_recovery_draft_review_host_trusted(candidate_host, [*promoted_hosts, *promoted_trusted_hosts])
+    )
+    promoted_trusted = (
+        _as_bool(promoted_draft.get("trusted"))
+        and _as_bool(promoted_draft.get("trusted_host"))
+        and str(promoted_draft.get("source_trust_status") or "") == "future_controlled_promoted_source_trust_draft"
+    )
+    promoted_ready = _as_bool(promoted_draft.get("ready_for_document_download")) or _as_bool(
+        promoted_draft.get("ready_for_extraction")
+    )
+    diagnostics = [promote_apply_row, review_row, promote_preview, apply_row, task145_draft, validation_row, accepted_row]
+    unsafe_flags = any(_source_trust_recovery_draft_review_has_unsafe_flags(row) for row in diagnostics if row)
+    diagnostic_url_mismatch = any(
+        _source_trust_recovery_draft_review_candidate_url(row)
+        and _source_trust_recovery_draft_review_candidate_url(row) != candidate_url
+        for row in (review_row, promote_preview, apply_row, task145_draft, validation_row, accepted_row)
+        if row
+    )
+    status = "controlled_apply_created"
+    errors: list[str] = []
+    reasons: list[str] = []
+    warnings: list[str] = []
+    if not gate["confirmation_token_matches"]:
+        status = "blocked_confirmation_token_required"
+        errors.append("confirmation_token_required")
+    elif not gate["expected_promoted_draft_sha256_matches"]:
+        status = "blocked_promoted_draft_sha256_mismatch"
+        errors.append("promoted_draft_sha256_mismatch")
+    elif not gate["expected_promote_apply_sha256_matches"]:
+        status = "blocked_promote_apply_sha256_mismatch"
+        errors.append("promote_apply_sha256_mismatch")
+    elif not (promote_apply_row.get("company_id") or promote_apply_row.get("company_name") or promote_apply_row.get("canonical_company_id")):
+        status = "blocked_missing_company_identity"
+        errors.append("missing_company_identity")
+    elif blocker:
+        status = "blocked_promote_apply_not_successful"
+        errors.append("promote_apply_blocker_present")
+    elif promote_apply_row.get("promote_apply_status") not in {"promoted_draft_created", "promoted_draft_already_present"}:
+        status = "blocked_promote_apply_not_successful"
+        errors.append("promote_apply_not_successful")
+    elif not promoted_draft:
+        status = "blocked_promoted_draft_missing"
+        errors.append("promoted_draft_missing")
+    elif diagnostic_url_mismatch:
+        status = "blocked_promoted_draft_mismatch"
+        errors.append("promoted_draft_mismatch")
+    elif not promoted_matches:
+        status = "blocked_promoted_draft_mismatch"
+        errors.append("promoted_draft_mismatch")
+    elif not promoted_trusted:
+        status = "blocked_promoted_draft_not_trusted"
+        errors.append("promoted_draft_not_trusted")
+    elif promoted_ready:
+        status = "blocked_promoted_draft_ready_for_download_too_early"
+        errors.append("promoted_draft_ready_for_download_too_early")
+    elif baseline_already_trusts:
+        status = "blocked_baseline_already_trusted"
+        errors.append("baseline_already_trusted")
+    elif unsafe_flags:
+        status = "blocked_candidate_safety_flags"
+        errors.append("candidate_safety_flags")
+    elif str(promoted_draft.get("source_trust_status") or "") == "controlled_applied_source_trust":
+        status = "controlled_apply_already_present"
+        reasons.append("controlled_apply_already_present")
+    elif not candidate_url or not candidate_host:
+        status = "blocked_unknown_readiness"
+        errors.append("unknown_readiness")
+    _append_unique(reasons, _source_trust_recovery_controlled_apply_blocker_code(status))
+    if status == "controlled_apply_created":
+        _append_unique(reasons, "source_trust_recovery_task148")
+        _append_unique(reasons, "controlled_apply_created")
+        _append_unique(reasons, "operator_token_confirmed")
+        _append_unique(reasons, "expected_sha256_confirmed")
+    controlled = status in {"controlled_apply_created", "controlled_apply_already_present"}
+    return {
+        "controlled_apply_id": f"source_trust_recovery_controlled_apply:{promote_apply_row.get('promote_apply_id') or promote_apply_row.get('recovery_id') or _company_key(promote_apply_row) or 'unknown'}",
+        "promote_apply_id": promote_apply_row.get("promote_apply_id") or "",
+        "review_id": promote_apply_row.get("review_id") or "",
+        "promote_preview_id": promote_apply_row.get("promote_preview_id") or "",
+        "apply_id": promote_apply_row.get("apply_id") or "",
+        "accepted_candidate_id": promote_apply_row.get("accepted_candidate_id") or "",
+        "validation_id": promote_apply_row.get("validation_id") or "",
+        "recovery_id": promote_apply_row.get("recovery_id") or "",
+        "company_id": promote_apply_row.get("company_id") or "",
+        "company_name": promote_apply_row.get("company_name") or "",
+        "canonical_company_id": promote_apply_row.get("canonical_company_id") or "",
+        "canonical_company_name": promote_apply_row.get("canonical_company_name") or "",
+        "candidate_source_page_url": candidate_url,
+        "candidate_source_host": candidate_host,
+        "candidate_source_registrable_domain": candidate_domain,
+        "candidate_source_status": promote_apply_row.get("candidate_source_status") or "",
+        "future_trusted_host": promote_apply_row.get("future_trusted_host") or candidate_host,
+        "future_trusted_source_page_url": promote_apply_row.get("future_trusted_source_page_url") or candidate_url,
+        "source_trust_status_from_promoted_draft": promoted_draft.get("source_trust_status") or "",
+        "promote_apply_status": promote_apply_row.get("promote_apply_status") or "",
+        "review_status": promote_apply_row.get("review_status") or review_row.get("review_status") or "",
+        "promote_preview_status": promote_apply_row.get("promote_preview_status") or promote_preview.get("promote_preview_status") or "",
+        "apply_status": promote_apply_row.get("apply_status") or apply_row.get("apply_status") or "",
+        "validation_status": promote_apply_row.get("validation_status") or validation_row.get("validation_status") or "",
+        "accepted_candidate_status": promote_apply_row.get("accepted_candidate_status") or accepted_row.get("accepted_candidate_status") or "",
+        "baseline_row_found": bool(baseline_row),
+        "baseline_already_trusts_candidate_host": baseline_already_trusts,
+        "baseline_current_known_source_page_url": baseline_row.get("current_known_source_page_url") or "",
+        "baseline_current_known_document_url": baseline_row.get("current_known_document_url") or "",
+        "baseline_trusted_source_hosts": baseline_trusted_source_hosts,
+        "baseline_trusted_hosts": baseline_trusted_hosts,
+        "promoted_draft_row_found": bool(promoted_draft),
+        "promoted_draft_matches_promote_apply": promoted_matches,
+        "promoted_draft_source_page_url": promoted_url,
+        "promoted_draft_trusted_source_hosts": promoted_hosts,
+        "promoted_draft_trusted_hosts": promoted_trusted_hosts,
+        "promoted_draft_trusted_flag": _as_bool(promoted_draft.get("trusted")),
+        "promoted_draft_trusted_host_flag": _as_bool(promoted_draft.get("trusted_host")),
+        "promoted_draft_ready_for_document_download": _as_bool(promoted_draft.get("ready_for_document_download")),
+        "promoted_draft_ready_for_extraction": _as_bool(promoted_draft.get("ready_for_extraction")),
+        "controlled_source_pack_row_found": controlled,
+        "controlled_source_page_url": candidate_url if controlled else "",
+        "controlled_trusted_source_hosts": [candidate_host] if controlled else [],
+        "controlled_trusted_hosts": [candidate_host] if controlled else [],
+        "controlled_source_trust_status": "controlled_applied_source_trust" if controlled else "",
+        "controlled_ready_for_document_download": False,
+        "controlled_ready_for_extraction": False,
+        "controlled_apply_status": status,
+        "controlled_apply_severity": "info" if controlled else "warning",
+        "controlled_apply_action": _source_trust_recovery_controlled_apply_action(status),
+        "controlled_apply_reason_codes": reasons,
+        "controlled_apply_errors": errors,
+        "controlled_apply_warnings": warnings,
+        "controlled_apply_execution_enabled": gate["controlled_apply_execution_enabled"],
+        "confirmation_token_matches": gate["confirmation_token_matches"],
+        "expected_promoted_draft_sha256_matches": gate["expected_promoted_draft_sha256_matches"],
+        "expected_promote_apply_sha256_matches": gate["expected_promote_apply_sha256_matches"],
+        "baseline_source_pack_input_sha256": input_hashes.get("baseline_source_pack_input_sha256", ""),
+        "promoted_source_pack_draft_input_sha256": input_hashes.get("promoted_source_pack_draft_input_sha256", ""),
+        "controlled_source_pack_sha256": "",
+        "promote_apply_input_sha256": input_hashes.get("promote_apply_input_sha256", ""),
+        "draft_review_input_sha256": input_hashes.get("draft_review_input_sha256", ""),
+        "promote_preview_input_sha256": input_hashes.get("promote_preview_input_sha256", ""),
+        "apply_input_sha256": input_hashes.get("apply_input_sha256", ""),
+        "validation_input_sha256": input_hashes.get("validation_input_sha256", ""),
+        "accepted_candidates_input_sha256": input_hashes.get("accepted_candidates_input_sha256", ""),
+        **_source_trust_recovery_controlled_apply_row_safety_flags(
+            trust_in_artifact=controlled and bool(gate["controlled_apply_execution_enabled"])
+        ),
+    }
+
+
+def _source_trust_recovery_controlled_apply_update_controlled_row(
+    source_pack_row: dict[str, Any],
+    row: dict[str, Any],
+) -> None:
+    host = str(row.get("candidate_source_host") or row.get("future_trusted_host") or "")
+    trusted_source_hosts = set(_financial_document_fetch_list(source_pack_row.get("trusted_source_hosts")))
+    trusted_hosts = set(_financial_document_fetch_list(source_pack_row.get("trusted_hosts")))
+    if host:
+        trusted_source_hosts.add(host)
+        trusted_hosts.add(host)
+    reason_codes = list(source_pack_row.get("candidate_source_reason_codes") or [])
+    for code in [
+        "source_trust_recovery_task148",
+        "controlled_apply_created",
+        "operator_token_confirmed",
+        "expected_sha256_confirmed",
+        *list(row.get("controlled_apply_reason_codes") or []),
+    ]:
+        _append_unique(reason_codes, code)
+    source_pack_row.update(
+        {
+            "current_known_source_page_url": row.get("candidate_source_page_url") or "",
+            "trusted_source_hosts": sorted(trusted_source_hosts),
+            "trusted_hosts": sorted(trusted_hosts),
+            "source_trust_status": "controlled_applied_source_trust",
+            "candidate_official_source_page_url": row.get("candidate_source_page_url") or "",
+            "candidate_source_host": host,
+            "candidate_source_registrable_domain": row.get("candidate_source_registrable_domain") or "",
+            "candidate_source_status": "controlled_applied_in_task148",
+            "candidate_source_reason_codes": reason_codes,
+            "trusted": True,
+            "trusted_host": True,
+            "ready_for_document_download": False,
+            "ready_for_extraction": False,
+            "download_allowed": False,
+            "extraction_allowed": False,
+            "controlled_source_trust_applied_by_task": "Task148",
+            "controlled_source_trust_promote_apply_id": row.get("promote_apply_id") or "",
+            "controlled_source_trust_review_id": row.get("review_id") or "",
+            "controlled_source_trust_promote_preview_id": row.get("promote_preview_id") or "",
+            "controlled_source_trust_validation_id": row.get("validation_id") or "",
+            "controlled_source_trust_accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        }
+    )
+
+
+def _source_trust_recovery_controlled_apply_blocker_code(status: str) -> str:
+    return {
+        "controlled_apply_created": "controlled_apply_created",
+        "controlled_apply_already_present": "controlled_apply_already_present",
+        "blocked_confirmation_token_required": "confirmation_token_required",
+        "blocked_promoted_draft_sha256_mismatch": "promoted_draft_sha256_mismatch",
+        "blocked_promote_apply_sha256_mismatch": "promote_apply_sha256_mismatch",
+        "blocked_promote_apply_not_successful": "promote_apply_not_successful",
+        "blocked_promoted_draft_missing": "promoted_draft_missing",
+        "blocked_promoted_draft_mismatch": "promoted_draft_mismatch",
+        "blocked_promoted_draft_not_trusted": "promoted_draft_not_trusted",
+        "blocked_promoted_draft_ready_for_download_too_early": "promoted_draft_ready_for_download_too_early",
+        "blocked_baseline_already_trusted": "baseline_already_trusted",
+        "blocked_candidate_safety_flags": "candidate_safety_flags",
+        "blocked_missing_company_identity": "missing_company_identity",
+        "blocked_output_collision": "output_collision",
+        "blocked_unknown_readiness": "unknown_readiness",
+    }.get(status, "unknown_readiness")
+
+
+def _source_trust_recovery_controlled_apply_action(status: str) -> str:
+    return {
+        "controlled_apply_created": "review_controlled_source_pack_artifact",
+        "controlled_apply_already_present": "review_existing_controlled_source_pack_artifact",
+        "blocked_confirmation_token_required": "provide_exact_task148_confirmation_token",
+        "blocked_promoted_draft_sha256_mismatch": "provide_actual_task147_promoted_draft_sha256",
+        "blocked_promote_apply_sha256_mismatch": "provide_actual_task147_promote_apply_sha256",
+        "blocked_promote_apply_not_successful": "resolve_task147_promote_apply_blocker_first",
+        "blocked_promoted_draft_missing": "rerun_task147_promote_apply_draft",
+        "blocked_promoted_draft_mismatch": "rerun_task147_promote_apply_draft",
+        "blocked_promoted_draft_not_trusted": "review_task147_promoted_draft_state",
+        "blocked_promoted_draft_ready_for_download_too_early": "repair_promoted_draft_readiness_flags",
+        "blocked_baseline_already_trusted": "review_existing_baseline_trust",
+        "blocked_candidate_safety_flags": "repair_candidate_safety_flags",
+        "blocked_missing_company_identity": "repair_company_identity",
+        "blocked_output_collision": "choose_non_input_output_paths",
+        "blocked_unknown_readiness": "review_task148_inputs",
+    }.get(status, "review_task148_blocker")
+
+
+def _source_trust_recovery_controlled_apply_blocker_row(row: dict[str, Any]) -> dict[str, Any]:
+    code = _source_trust_recovery_controlled_apply_blocker_code(str(row.get("controlled_apply_status") or ""))
+    return {
+        "blocker_id": f"source_trust_recovery_controlled_apply_blocker:{row.get('controlled_apply_id')}:{code}",
+        "controlled_apply_id": row.get("controlled_apply_id") or "",
+        "promote_apply_id": row.get("promote_apply_id") or "",
+        "review_id": row.get("review_id") or "",
+        "promote_preview_id": row.get("promote_preview_id") or "",
+        "apply_id": row.get("apply_id") or "",
+        "accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        "validation_id": row.get("validation_id") or "",
+        "recovery_id": row.get("recovery_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "controlled_apply_status": row.get("controlled_apply_status") or "",
+        "blocker_code": code,
+        "blocker_severity": row.get("controlled_apply_severity") or "warning",
+        "operator_action": row.get("controlled_apply_action") or "",
+        "safe_hint": "Task148 creates only a controlled-applied source-pack artifact. Resolve the blocker and rerun.",
+    }
+
+
+def _source_trust_recovery_controlled_apply_summary_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {field: row.get(field) for field in SOURCE_TRUST_RECOVERY_CONTROLLED_SOURCE_PACK_SUMMARY_FIELDS}
+        for row in rows
+    ]
+
+
+def _source_trust_recovery_controlled_apply_row_safety_flags(*, trust_in_artifact: bool) -> dict[str, bool]:
+    return {
+        "would_trust_source_url_in_controlled_artifact": trust_in_artifact,
+        "would_update_production_source_pack": False,
+        "would_update_task147_promoted_draft": False,
+        "would_update_task145_source_pack_draft": False,
+        "would_create_controlled_source_pack_artifact": trust_in_artifact,
+        "would_update_document_intake": False,
+        "would_probe_url": False,
+        "would_fetch_url": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _source_trust_recovery_controlled_apply_safety_flags(*, trust_in_artifact: bool) -> dict[str, Any]:
+    return {
+        "read_only": False,
+        "dry_run_only": not trust_in_artifact,
+        "would_trust_source_urls_in_controlled_artifact": trust_in_artifact,
+        "would_update_production_source_pack": False,
+        "would_update_promoted_source_pack_draft": False,
+        "would_update_task145_source_pack_draft": False,
+        "would_create_controlled_source_pack_artifact": trust_in_artifact,
+        "would_update_document_intake": False,
+        "would_probe_urls": False,
+        "would_fetch_urls": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
+def _build_source_trust_recovery_controlled_apply_report(
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    controlled_apply_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    input_hashes: dict[str, str],
+    gate: dict[str, Any],
+    controlled_source_pack_created: bool,
+) -> dict[str, Any]:
+    blocked_count = len(blocker_rows)
+    gate_blocked = any(
+        row.get("controlled_apply_status")
+        in {
+            "blocked_confirmation_token_required",
+            "blocked_promoted_draft_sha256_mismatch",
+            "blocked_promote_apply_sha256_mismatch",
+        }
+        for row in controlled_apply_rows
+    )
+    status = (
+        "failed"
+        if errors
+        else "blocked"
+        if gate_blocked
+        else "passed"
+        if controlled_apply_rows and not blocked_count and not warnings
+        else "warning"
+    )
+    return {
+        "status": status,
+        "mode": "source-trust-recovery-controlled-apply-v2",
+        "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        "row_count": len(controlled_apply_rows),
+        "controlled_apply_created_count": sum(1 for row in controlled_apply_rows if row.get("controlled_apply_status") == "controlled_apply_created"),
+        "controlled_apply_already_present_count": sum(1 for row in controlled_apply_rows if row.get("controlled_apply_status") == "controlled_apply_already_present"),
+        "blocked_count": blocked_count,
+        "failed_count": sum(1 for row in controlled_apply_rows if str(row.get("controlled_apply_status") or "").startswith("failed_")),
+        "controlled_source_pack_created": False,
+        "controlled_source_pack_path": _path_value(artifacts.get("controlled_source_pack_json")) or "",
+        "ledger_created": artifacts.get("ledger_json") is not None,
+        "ledger_path": _path_value(artifacts.get("ledger_json")) or "",
+        "controlled_apply_execution_enabled": gate["controlled_apply_execution_enabled"],
+        "confirmation_token_matches": gate["confirmation_token_matches"],
+        "expected_promoted_draft_sha256_matches": gate["expected_promoted_draft_sha256_matches"],
+        "expected_promote_apply_sha256_matches": gate["expected_promote_apply_sha256_matches"],
+        "baseline_source_pack_input_preserved": True,
+        "promoted_source_pack_draft_input_preserved": True,
+        "task145_source_pack_draft_input_preserved": True,
+        "production_source_pack_modified": False,
+        "promoted_source_pack_draft_modified": False,
+        "task145_source_pack_draft_modified": False,
+        "document_intake_modified": False,
+        "controlled_apply_status_counts": _count_by_key(controlled_apply_rows, "controlled_apply_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "controlled_apply_rows": controlled_apply_rows,
+        "blocker_rows": blocker_rows,
+        "warnings": warnings,
+        "errors": errors,
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
+        "baseline_source_pack_input_sha256": input_hashes.get("baseline_source_pack_input_sha256", ""),
+        "promoted_source_pack_draft_input_sha256": input_hashes.get("promoted_source_pack_draft_input_sha256", ""),
+        "controlled_source_pack_sha256": "",
+        "promote_apply_input_sha256": input_hashes.get("promote_apply_input_sha256", ""),
+        "draft_review_input_sha256": input_hashes.get("draft_review_input_sha256", ""),
+        "promote_preview_input_sha256": input_hashes.get("promote_preview_input_sha256", ""),
+        "apply_input_sha256": input_hashes.get("apply_input_sha256", ""),
+        "validation_input_sha256": input_hashes.get("validation_input_sha256", ""),
+        "accepted_candidates_input_sha256": input_hashes.get("accepted_candidates_input_sha256", ""),
+        "source_pack_input_path": _path_value(inputs.get("source_pack")) or "",
+        "promoted_source_pack_draft_input_path": _path_value(inputs.get("promoted_draft")) or "",
+        "controlled_source_pack_output_path": _path_value(artifacts.get("controlled_source_pack_json")) or "",
+        "confirmation_token_expected": gate["confirmation_token_expected"],
+        "expected_promoted_draft_sha256": gate["expected_promoted_draft_sha256"],
+        "expected_promote_apply_sha256": gate["expected_promote_apply_sha256"],
+        "actual_promoted_draft_sha256": gate["actual_promoted_draft_sha256"],
+        "actual_promote_apply_sha256": gate["actual_promote_apply_sha256"],
+        "next_steps": _next_steps("source-trust-recovery-controlled-apply-v2", status),
+        **_source_trust_recovery_controlled_apply_safety_flags(trust_in_artifact=controlled_source_pack_created),
+    }
+
+
+def _failed_source_trust_recovery_controlled_apply(
+    errors: list[dict[str, Any]],
+    *,
+    inputs: dict[str, Path | None] | None = None,
+    artifacts: dict[str, Path | None] | None = None,
+) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "source-trust-recovery-controlled-apply-v2",
+        "inputs": {role: _path_value(path) for role, path in (inputs or {}).items()},
+        "row_count": 0,
+        "controlled_apply_created_count": 0,
+        "controlled_apply_already_present_count": 0,
+        "blocked_count": 0,
+        "failed_count": 0,
+        "controlled_source_pack_created": False,
+        "controlled_source_pack_path": "",
+        "ledger_created": False,
+        "ledger_path": _path_value((artifacts or {}).get("ledger_json")) if artifacts else "",
+        "controlled_apply_execution_enabled": False,
+        "confirmation_token_matches": False,
+        "expected_promoted_draft_sha256_matches": False,
+        "expected_promote_apply_sha256_matches": False,
+        "baseline_source_pack_input_preserved": False,
+        "promoted_source_pack_draft_input_preserved": False,
+        "task145_source_pack_draft_input_preserved": False,
+        "production_source_pack_modified": False,
+        "promoted_source_pack_draft_modified": False,
+        "task145_source_pack_draft_modified": False,
+        "document_intake_modified": False,
+        "controlled_apply_status_counts": {},
+        "blocker_code_counts": {},
+        "controlled_apply_rows": [],
+        "blocker_rows": [],
+        "warnings": [],
+        "errors": errors,
+        "artifacts": {role: _path_value(path) for role, path in (artifacts or {}).items()},
+        "baseline_source_pack_input_sha256": "",
+        "promoted_source_pack_draft_input_sha256": "",
+        "controlled_source_pack_sha256": "",
+        "promote_apply_input_sha256": "",
+        "draft_review_input_sha256": "",
+        "promote_preview_input_sha256": "",
+        "apply_input_sha256": "",
+        "validation_input_sha256": "",
+        "accepted_candidates_input_sha256": "",
+        "source_pack_input_path": _path_value((inputs or {}).get("source_pack")) if inputs else "",
+        "promoted_source_pack_draft_input_path": _path_value((inputs or {}).get("promoted_draft")) if inputs else "",
+        "controlled_source_pack_output_path": _path_value((artifacts or {}).get("controlled_source_pack_json")) if artifacts else "",
+        "next_steps": _next_steps("source-trust-recovery-controlled-apply-v2", "failed"),
+        **_source_trust_recovery_controlled_apply_safety_flags(trust_in_artifact=False),
+    }
+
+
+def _write_source_trust_recovery_controlled_apply_outputs(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+    controlled_source_pack_payload: Any,
+    controlled_source_pack_rows: list[dict[str, Any]],
+    summary_rows: list[dict[str, Any]],
+    write_controlled_source_pack: bool,
+) -> None:
+    _write_optional_json_report(report, artifacts["controlled_apply_json"])
+    _write_optional_flat_csv(report.get("controlled_apply_rows") or [], SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_FIELDS, artifacts["controlled_apply_csv"])
+    if artifacts["controlled_apply_markdown"] is not None:
+        write_source_trust_recovery_controlled_apply_markdown(report, artifacts["controlled_apply_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "source-trust-recovery-controlled-apply-blockers-v2",
+            "row_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            **_source_trust_recovery_controlled_apply_safety_flags(trust_in_artifact=False),
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    if write_controlled_source_pack and artifacts["controlled_source_pack_json"] is not None:
+        write_operator_resolution_source_pack_draft_json(
+            controlled_source_pack_payload,
+            controlled_source_pack_rows,
+            artifacts["controlled_source_pack_json"],
+        )
+    _write_optional_flat_csv(summary_rows, SOURCE_TRUST_RECOVERY_CONTROLLED_SOURCE_PACK_SUMMARY_FIELDS, artifacts["controlled_source_pack_summary_csv"])
+    _write_optional_json_report(_source_trust_recovery_controlled_apply_ledger(report), artifacts["ledger_json"])
+    if artifacts["rerun_markdown"] is not None:
+        write_source_trust_recovery_controlled_apply_rerun_markdown(report, artifacts["rerun_markdown"])
+
+
+def _write_source_trust_recovery_controlled_apply_safe_failure_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    try:
+        _write_source_trust_recovery_controlled_apply_outputs(
+            report,
+            artifacts=artifacts,
+            controlled_source_pack_payload={"resolutions": []},
+            controlled_source_pack_rows=[],
+            summary_rows=[],
+            write_controlled_source_pack=False,
+        )
+    except OSError as exc:
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+
+
+def _source_trust_recovery_controlled_apply_ledger(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report.get("status"),
+        "mode": "source-trust-recovery-controlled-apply-ledger-v2",
+        "created_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "confirmation_token_matches": report.get("confirmation_token_matches"),
+        "expected_promoted_draft_sha256": report.get("expected_promoted_draft_sha256", ""),
+        "expected_promote_apply_sha256": report.get("expected_promote_apply_sha256", ""),
+        "actual_promoted_draft_sha256": report.get("actual_promoted_draft_sha256", ""),
+        "actual_promote_apply_sha256": report.get("actual_promote_apply_sha256", ""),
+        "controlled_source_pack_sha256": report.get("controlled_source_pack_sha256", ""),
+        "controlled_apply_ids": [row.get("controlled_apply_id") for row in report.get("controlled_apply_rows") or []],
+        "created_artifact_paths": report.get("artifacts") or {},
+        "production_source_pack_modified": False,
+        "promoted_source_pack_draft_modified": False,
+        "task145_source_pack_draft_modified": False,
+        "document_intake_modified": False,
+        **_source_trust_recovery_controlled_apply_safety_flags(
+            trust_in_artifact=bool(report.get("controlled_source_pack_created"))
+        ),
+    }
+
+
+def _source_trust_recovery_controlled_apply_drift_errors(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+) -> list[dict[str, Any]]:
+    for path, data in snapshots.items():
+        if path.is_file() and path.read_bytes() != data:
+            if inputs.get("source_pack") is not None and _paths_equal(path, inputs["source_pack"]):  # type: ignore[arg-type]
+                return [{"message": "source_trust_recovery_controlled_apply_source_pack_drift_detected"}]
+            if inputs.get("promoted_draft") is not None and _paths_equal(path, inputs["promoted_draft"]):  # type: ignore[arg-type]
+                return [{"message": "source_trust_recovery_controlled_apply_promoted_draft_drift_detected"}]
+            return [{"message": "source_trust_recovery_controlled_apply_input_drift_detected"}]
+    return []
+
+
 def _financial_document_fetch_url_is_http(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
@@ -24163,6 +25302,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_source_trust_recovery_draft_review_markdown(report)
     if report.get("mode") == "source-trust-recovery-promote-apply-draft-v2":
         return render_source_trust_recovery_promote_apply_markdown(report)
+    if report.get("mode") == "source-trust-recovery-controlled-apply-v2":
+        return render_source_trust_recovery_controlled_apply_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -27484,6 +28625,174 @@ def render_source_trust_recovery_promote_apply_rerun_markdown(report: dict[str, 
     return "\n".join(lines) + "\n"
 
 
+def write_source_trust_recovery_controlled_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_controlled_apply_markdown(report), encoding="utf-8")
+
+
+def write_source_trust_recovery_controlled_apply_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_controlled_apply_rerun_markdown(report), encoding="utf-8")
+
+
+def render_source_trust_recovery_controlled_apply_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Controlled Apply v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- controlled applied: {report.get('controlled_apply_created_count', 0)}",
+        f"- already present: {report.get('controlled_apply_already_present_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        f"- controlled source-pack created: `{report.get('controlled_source_pack_created')}`",
+        f"- controlled source-pack: `{report.get('controlled_source_pack_path')}`",
+        f"- ledger: `{report.get('ledger_path')}`",
+        "",
+        "## Token And Hash Gate",
+        "",
+        f"- execution enabled: `{report.get('controlled_apply_execution_enabled')}`",
+        f"- token matches: `{report.get('confirmation_token_matches')}`",
+        f"- promoted draft SHA matches: `{report.get('expected_promoted_draft_sha256_matches')}`",
+        f"- promote apply SHA matches: `{report.get('expected_promote_apply_sha256_matches')}`",
+        "",
+        "## Controlled Apply Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("controlled_apply_status_counts") or {}))
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("blocker_code_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Controlled Rows",
+            "",
+            "| Company | Candidate URL | Host | Status |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("controlled_apply_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("candidate_source_page_url"),
+                    row.get("candidate_source_host"),
+                    row.get("controlled_apply_status"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("controlled_apply_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Blockers",
+            "",
+            "| Company | Controlled status | Blocker | Operator action |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("blocker_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("controlled_apply_status"),
+                    row.get("blocker_code"),
+                    row.get("operator_action"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("blocker_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Hashes",
+            "",
+            f"- baseline source pack: `{report.get('baseline_source_pack_input_sha256')}`",
+            f"- Task147 promoted draft: `{report.get('promoted_source_pack_draft_input_sha256')}`",
+            f"- Task147 promote apply: `{report.get('promote_apply_input_sha256')}`",
+            f"- controlled source pack: `{report.get('controlled_source_pack_sha256')}`",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    lines.extend(
+        [
+            "",
+            "Future step / not run by Task148:",
+            "",
+            "```bash",
+            *_source_trust_recovery_controlled_apply_future_gate_command_lines(report),
+            "```",
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates a controlled-applied source-pack artifact only.",
+            "- This task does not overwrite the production source pack.",
+            "- This task does not update the Task147 promoted source-pack draft input.",
+            "- This task does not update the Task145 source-pack draft input.",
+            "- This task does not update document intake.",
+            "- This task does not search the web.",
+            "- This task does not probe URLs.",
+            "- This task does not fetch source pages.",
+            "- This task does not download reports.",
+            "- This task does not parse reports.",
+            "- This task does not mutate the database.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- The controlled-applied artifact may contain trusted source fields, but only inside the new Task148 artifact.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_source_trust_recovery_controlled_apply_rerun_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Controlled Apply Rerun Instructions",
+        "",
+        "## Blocked Dry Run",
+        "",
+        "```bash",
+        *_source_trust_recovery_controlled_apply_rerun_command_lines(report, include_token=False),
+        "```",
+        "",
+        "## Controlled Apply Template",
+        "",
+        "```bash",
+        *_source_trust_recovery_controlled_apply_rerun_command_lines(report, include_token=True),
+        "```",
+        "",
+        "## Generated Controlled Source Pack",
+        "",
+        f"- controlled source-pack artifact: `{report.get('controlled_source_pack_path')}`",
+        "- The production source pack is unchanged.",
+        "",
+        "## Future Gate Step",
+        "",
+        "Future step / not run by Task148:",
+        "",
+        "```bash",
+        *_source_trust_recovery_controlled_apply_future_gate_command_lines(report),
+        "```",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _source_trust_recovery_draft_review_output_dir(report: dict[str, Any]) -> str:
     artifacts = report.get("artifacts") or {}
     review = str(artifacts.get("review_json") or "")
@@ -27502,6 +28811,52 @@ def _source_trust_recovery_promote_apply_output_dir(report: dict[str, Any]) -> s
     inputs = report.get("inputs") or {}
     review = str(inputs.get("review") or "")
     return str(Path(review).parent) if review else "logs/financial_reports/task124_chain_preview"
+
+
+def _source_trust_recovery_controlled_apply_output_dir(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    controlled_apply = str(artifacts.get("controlled_apply_json") or "")
+    if controlled_apply:
+        return str(Path(controlled_apply).parent)
+    inputs = report.get("inputs") or {}
+    promote_apply = str(inputs.get("promote_apply") or "")
+    return str(Path(promote_apply).parent) if promote_apply else "logs/financial_reports/task124_chain_preview"
+
+
+def _source_trust_recovery_controlled_apply_rerun_command_lines(
+    report: dict[str, Any],
+    *,
+    include_token: bool,
+) -> list[str]:
+    output_dir = _source_trust_recovery_controlled_apply_output_dir(report)
+    lines = [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-controlled-apply-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+    ]
+    if include_token:
+        lines.extend(
+            [
+                f"  --source-trust-recovery-controlled-apply-token {_bash_quote(SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_CONFIRMATION_TOKEN)} \\",
+                f"  --source-trust-recovery-controlled-apply-expected-promoted-draft-sha256 {_bash_quote(str(report.get('actual_promoted_draft_sha256') or '<PROMOTED_DRAFT_SHA256>'))} \\",
+                f"  --source-trust-recovery-controlled-apply-expected-promote-apply-sha256 {_bash_quote(str(report.get('actual_promote_apply_sha256') or '<PROMOTE_APPLY_SHA256>'))}",
+            ]
+        )
+    return lines
+
+
+def _source_trust_recovery_controlled_apply_future_gate_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = _source_trust_recovery_controlled_apply_output_dir(report)
+    source_pack = str(
+        report.get("controlled_source_pack_path")
+        or (Path(output_dir) / SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_source_pack_json"])
+    )
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode exact-document-draft-gate-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)} \\",
+        f"  --financial-official-source-pack-input {_bash_quote(source_pack)}",
+    ]
 
 
 def _source_trust_recovery_promote_apply_rerun_command_lines(report: dict[str, Any]) -> list[str]:
@@ -37417,6 +38772,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task146 promote-preview rows; source URLs remain untrusted until a future controlled promote/apply task."]
     if mode == "source-trust-recovery-promote-apply-draft-v2":
         return ["Review the Task147 promoted source-pack draft; production source trust still requires a future controlled apply step."]
+    if mode == "source-trust-recovery-controlled-apply-v2":
+        return ["Use the Task148 controlled source-pack artifact as a future source-pack input; document download and extraction still require later gates."]
     if mode == "backup-retention-preview":
         return ["Review Task138 rotation candidates manually; this preview never deletes or modifies backup files."]
     if mode == "backup-retention-apply-draft-preview":
@@ -37565,6 +38922,17 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_source_trust_recovery_promote_apply_inputs(args, review_report=None, apply_report=None),
             artifacts=_source_trust_recovery_promote_apply_artifacts(args),
+        )
+    if args.mode == "source-trust-recovery-controlled-apply-v2":
+        return not _source_trust_recovery_controlled_apply_preflight_errors(
+            args,
+            inputs=_source_trust_recovery_controlled_apply_inputs(
+                args,
+                promote_apply_report=None,
+                review_report=None,
+                apply_report=None,
+            ),
+            artifacts=_source_trust_recovery_controlled_apply_artifacts(args),
         )
     if args.mode == "backup-retention-preview":
         all_outputs = [
