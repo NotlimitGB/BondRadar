@@ -66,6 +66,7 @@ MODE_CHOICES = (
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
     "source-trust-recovery-draft-review-v2",
+    "source-trust-recovery-promote-apply-draft-v2",
     "backup-retention-preview",
     "backup-retention-apply-draft-preview",
     "backup-retention-controlled-apply",
@@ -3680,6 +3681,127 @@ SOURCE_TRUST_RECOVERY_DRAFT_REVIEW_BLOCKER_FIELDS = [
     "operator_action",
     "safe_hint",
 ]
+SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_ARTIFACT_NAMES = {
+    "apply_json": "source_trust_recovery_promote_apply_draft_task147.json",
+    "apply_csv": "source_trust_recovery_promote_apply_draft_task147.csv",
+    "apply_markdown": "source_trust_recovery_promote_apply_draft_task147.md",
+    "blockers_json": "source_trust_recovery_promote_apply_blockers_task147.json",
+    "blockers_csv": "source_trust_recovery_promote_apply_blockers_task147.csv",
+    "promoted_source_pack_draft_json": "source_trust_recovery_promoted_source_pack_draft_task147.json",
+    "promoted_source_pack_draft_summary_csv": "source_trust_recovery_promoted_source_pack_draft_summary_task147.csv",
+    "rerun_markdown": "source_trust_recovery_promote_apply_rerun_task147.md",
+}
+SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_FIELDS = [
+    "promote_apply_id",
+    "review_id",
+    "promote_preview_id",
+    "apply_id",
+    "accepted_candidate_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "candidate_source_page_url",
+    "candidate_source_host",
+    "candidate_source_registrable_domain",
+    "candidate_source_status",
+    "future_trusted_host",
+    "future_trusted_source_page_url",
+    "future_promote_target_status",
+    "review_status",
+    "promote_preview_status",
+    "apply_status",
+    "validation_status",
+    "accepted_candidate_status",
+    "baseline_row_found",
+    "baseline_already_trusts_candidate_host",
+    "baseline_current_known_source_page_url",
+    "baseline_current_known_document_url",
+    "baseline_trusted_source_hosts",
+    "baseline_trusted_hosts",
+    "task145_draft_row_found",
+    "task145_draft_candidate_present",
+    "task145_draft_candidate_matches_review",
+    "task145_draft_trusted_flag",
+    "task145_draft_trusted_host_flag",
+    "task145_draft_ready_for_document_download",
+    "task145_draft_ready_for_extraction",
+    "promoted_draft_row_found",
+    "promoted_draft_source_page_url",
+    "promoted_draft_trusted_source_hosts",
+    "promoted_draft_trusted_hosts",
+    "promoted_draft_source_trust_status",
+    "promoted_draft_candidate_source_status",
+    "promoted_draft_ready_for_document_download",
+    "promoted_draft_ready_for_extraction",
+    "promote_apply_status",
+    "promote_apply_severity",
+    "promote_apply_action",
+    "promote_apply_reason_codes",
+    "promote_apply_errors",
+    "promote_apply_warnings",
+    "draft_mutation_status",
+    "promoted_source_pack_draft_path",
+    "baseline_source_pack_input_sha256",
+    "task145_source_pack_draft_input_sha256",
+    "promoted_source_pack_draft_sha256",
+    "draft_review_input_sha256",
+    "promote_preview_input_sha256",
+    "apply_input_sha256",
+    "validation_input_sha256",
+    "accepted_candidates_input_sha256",
+    "would_trust_source_url_in_production",
+    "would_update_production_source_pack",
+    "would_update_task145_source_pack_draft",
+    "would_create_promoted_source_pack_draft",
+    "would_update_document_intake",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "promote_apply_id",
+    "review_id",
+    "promote_preview_id",
+    "apply_id",
+    "accepted_candidate_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "promote_apply_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+SOURCE_TRUST_RECOVERY_PROMOTED_SOURCE_PACK_DRAFT_SUMMARY_FIELDS = [
+    "promote_apply_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "promote_apply_status",
+    "candidate_source_page_url",
+    "future_trusted_host",
+    "promoted_draft_source_page_url",
+    "promoted_draft_source_trust_status",
+    "promoted_draft_candidate_source_status",
+    "would_trust_source_url_in_production",
+    "would_update_production_source_pack",
+    "would_update_task145_source_pack_draft",
+    "would_create_promoted_source_pack_draft",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -4210,6 +4332,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-trust-recovery-draft-review-blockers-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-draft-review-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-draft-review-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-draft-review-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-preview-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-draft-review-blockers-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promoted-source-pack-draft-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promoted-source-pack-draft-summary-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-promote-apply-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -4334,6 +4467,8 @@ def run_assistant(
         report = run_source_trust_recovery_apply_draft_v2(args)
     elif args.mode == "source-trust-recovery-draft-review-v2":
         report = run_source_trust_recovery_draft_review_v2(args)
+    elif args.mode == "source-trust-recovery-promote-apply-draft-v2":
+        report = run_source_trust_recovery_promote_apply_draft_v2(args)
     elif args.mode == "backup-retention-preview":
         report = run_backup_retention_preview(args)
     elif args.mode == "backup-retention-apply-draft-preview":
@@ -20132,6 +20267,841 @@ def _source_trust_recovery_draft_review_input_drift_errors(snapshots: dict[Path,
     return []
 
 
+def run_source_trust_recovery_promote_apply_draft_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _source_trust_recovery_promote_apply_inputs(args, review_report=None, apply_report=None)
+    artifacts = _source_trust_recovery_promote_apply_artifacts(args)
+    preflight_errors = _source_trust_recovery_promote_apply_preflight_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if preflight_errors:
+        return _failed_source_trust_recovery_promote_apply(preflight_errors, inputs=inputs, artifacts=artifacts)
+    required_errors = _source_trust_recovery_promote_apply_required_errors(inputs)
+    if required_errors:
+        return _failed_source_trust_recovery_promote_apply(required_errors, inputs=inputs, artifacts=artifacts)
+
+    warnings: list[dict[str, Any]] = []
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    try:
+        review_report, review_bytes = _source_trust_recovery_draft_review_load_json(
+            inputs["review"],
+            expected_mode="source-trust-recovery-draft-review-v2",
+            rows_key="review_rows",
+        )
+        promote_preview_report, promote_preview_bytes = _source_trust_recovery_draft_review_load_json(
+            inputs["promote_preview"],
+            expected_mode="source-trust-recovery-promote-preview-v2",
+            rows_key="promote_preview_rows",
+        )
+        task145_draft_bytes = inputs["source_pack_draft"].read_bytes()  # type: ignore[union-attr]
+        task145_draft_payload, task145_draft_rows = _load_operator_resolution_source_pack_payload(inputs["source_pack_draft"])  # type: ignore[arg-type]
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _failed_source_trust_recovery_promote_apply(
+            [{"message": f"source_trust_recovery_promote_apply_input_unreadable:{exc}"}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+
+    apply_report: dict[str, Any] | None = None
+    if inputs["apply"] is not None and inputs["apply"].is_file():
+        try:
+            apply_report, _ = _source_trust_recovery_draft_review_load_json(
+                inputs["apply"],
+                expected_mode="source-trust-recovery-apply-draft-v2",
+                rows_key="apply_rows",
+            )
+        except (OSError, ValueError, json.JSONDecodeError):
+            apply_report = None
+    inputs = _source_trust_recovery_promote_apply_inputs(args, review_report=review_report, apply_report=apply_report)
+    preflight_errors = _source_trust_recovery_promote_apply_preflight_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if preflight_errors:
+        return _failed_source_trust_recovery_promote_apply(preflight_errors, inputs=inputs, artifacts=artifacts)
+    required_errors = _source_trust_recovery_promote_apply_required_errors(inputs)
+    if required_errors:
+        return _failed_source_trust_recovery_promote_apply(required_errors, inputs=inputs, artifacts=artifacts)
+
+    for role, path, data in (
+        ("draft_review", inputs["review"], review_bytes),
+        ("promote_preview", inputs["promote_preview"], promote_preview_bytes),
+        ("task145_source_pack_draft", inputs["source_pack_draft"], task145_draft_bytes),
+    ):
+        if path is not None:
+            snapshots[path] = data
+            input_hashes[f"{role}_input_sha256"] = hashlib.sha256(data).hexdigest()
+
+    baseline_rows: list[dict[str, Any]] = []
+    try:
+        baseline_bytes = inputs["source_pack"].read_bytes()  # type: ignore[union-attr]
+        _, baseline_rows = _load_operator_resolution_source_pack_payload(inputs["source_pack"])  # type: ignore[arg-type]
+        snapshots[inputs["source_pack"]] = baseline_bytes  # type: ignore[index]
+        input_hashes["baseline_source_pack_input_sha256"] = hashlib.sha256(baseline_bytes).hexdigest()
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _failed_source_trust_recovery_promote_apply(
+            [{"message": f"source_trust_recovery_promote_apply_input_unreadable:{exc}"}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+
+    apply_report = _source_trust_recovery_promote_apply_load_optional_report(
+        inputs["apply"],
+        expected_mode="source-trust-recovery-apply-draft-v2",
+        rows_key="apply_rows",
+        role="apply",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    validation_report = _source_trust_recovery_promote_apply_load_optional_report(
+        inputs["validation"],
+        expected_mode="source-trust-recovery-validate-v2",
+        rows_key="validation_rows",
+        role="validation",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    accepted_report = _source_trust_recovery_promote_apply_load_optional_report(
+        inputs["accepted_candidates"],
+        expected_mode="source-trust-recovery-accepted-candidates-v2",
+        rows_key="accepted_candidate_rows",
+        role="accepted_candidates",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+        fallback_rows_key="rows",
+    )
+    draft_review_blockers_report = _source_trust_recovery_promote_apply_load_optional_report(
+        inputs["draft_review_blockers"],
+        expected_mode="source-trust-recovery-draft-review-blockers-v2",
+        rows_key="blocker_rows",
+        role="draft_review_blockers",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+
+    review_rows = review_report.get("review_rows") or []
+    promote_preview_rows = promote_preview_report.get("promote_preview_rows") or []
+    promote_apply_rows = [
+        _source_trust_recovery_promote_apply_row(
+            review_row=review_row,
+            promote_preview_rows=promote_preview_rows,
+            task145_draft_rows=task145_draft_rows,
+            baseline_rows=baseline_rows,
+            draft_review_blocker_rows=draft_review_blockers_report.get("blocker_rows") or [],
+            apply_rows=apply_report.get("apply_rows") or [],
+            validation_rows=validation_report.get("validation_rows") or [],
+            accepted_rows=accepted_report.get("accepted_candidate_rows") or accepted_report.get("rows") or [],
+            input_hashes=input_hashes,
+            promoted_draft_path=artifacts["promoted_source_pack_draft_json"],
+        )
+        for review_row in review_rows
+    ]
+    promoted_draft_rows = copy.deepcopy(task145_draft_rows)
+    for row in promote_apply_rows:
+        if row["promote_apply_status"] == "promoted_draft_created":
+            draft_row = _source_trust_recovery_draft_review_match_row(row, promoted_draft_rows)
+            if draft_row is not None:
+                _source_trust_recovery_promote_apply_update_promoted_draft_row(draft_row, row)
+        elif row["promote_apply_status"] == "promoted_draft_already_present":
+            draft_row = _source_trust_recovery_draft_review_match_row(row, promoted_draft_rows)
+            if draft_row is not None:
+                _source_trust_recovery_promote_apply_update_promoted_draft_row(draft_row, row)
+    blocker_rows = [
+        _source_trust_recovery_promote_apply_blocker_row(row)
+        for row in promote_apply_rows
+        if not str(row.get("promote_apply_status") or "").startswith("promoted_draft_")
+    ]
+    summary_rows = _source_trust_recovery_promote_apply_summary_rows(promote_apply_rows)
+    report = _build_source_trust_recovery_promote_apply_report(
+        inputs=inputs,
+        artifacts=artifacts,
+        promote_apply_rows=promote_apply_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=[],
+        input_hashes=input_hashes,
+    )
+    try:
+        _write_source_trust_recovery_promote_apply_outputs(
+            report,
+            artifacts=artifacts,
+            promoted_draft_payload=task145_draft_payload,
+            promoted_draft_rows=promoted_draft_rows,
+            summary_rows=summary_rows,
+        )
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+
+    if artifacts["promoted_source_pack_draft_json"] is not None and artifacts["promoted_source_pack_draft_json"].is_file():
+        draft_bytes = artifacts["promoted_source_pack_draft_json"].read_bytes()
+        report["promoted_source_pack_draft_sha256"] = hashlib.sha256(draft_bytes).hexdigest()
+        report["promoted_source_pack_draft_created"] = True
+        report["promoted_source_pack_draft_path"] = str(artifacts["promoted_source_pack_draft_json"])
+        for row in promote_apply_rows:
+            row["promoted_source_pack_draft_sha256"] = report["promoted_source_pack_draft_sha256"]
+        try:
+            _write_optional_json_report(report, artifacts["apply_json"])
+            _write_optional_flat_csv(promote_apply_rows, SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_FIELDS, artifacts["apply_csv"])
+            if artifacts["apply_markdown"] is not None:
+                write_source_trust_recovery_promote_apply_markdown(report, artifacts["apply_markdown"])
+        except OSError as exc:
+            report["status"] = "failed"
+            report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+
+    drift_errors = _source_trust_recovery_promote_apply_drift_errors(inputs=inputs, snapshots=snapshots)
+    if drift_errors:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), *drift_errors]
+        report["baseline_source_pack_input_preserved"] = False
+        report["task145_source_pack_draft_input_preserved"] = False
+    return report
+
+
+def _source_trust_recovery_promote_apply_inputs(
+    args: argparse.Namespace,
+    *,
+    review_report: dict[str, Any] | None,
+    apply_report: dict[str, Any] | None,
+) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    review_path = args.source_trust_recovery_draft_review_input or (
+        output_dir / SOURCE_TRUST_RECOVERY_DRAFT_REVIEW_ARTIFACT_NAMES["review_json"] if output_dir else None
+    )
+    promote_preview_path = args.source_trust_recovery_promote_preview_input or (
+        output_dir / SOURCE_TRUST_RECOVERY_DRAFT_REVIEW_ARTIFACT_NAMES["promote_preview_json"] if output_dir else None
+    )
+    source_pack_draft_path = args.source_trust_recovery_source_pack_draft_input or (
+        output_dir / SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES["source_pack_draft_json"] if output_dir else None
+    )
+    source_pack = args.financial_official_source_pack_input
+    if source_pack is None and review_report:
+        review_source_pack = str(review_report.get("source_pack_input_path") or "")
+        source_pack = Path(review_source_pack) if review_source_pack else None
+    if source_pack is None and apply_report:
+        apply_source_pack = str(apply_report.get("source_pack_input_path") or "")
+        source_pack = Path(apply_source_pack) if apply_source_pack else None
+    if source_pack is None:
+        source_pack = _source_trust_recovery_apply_source_pack_resolution(args).get("path")
+    return {
+        "review": review_path,
+        "promote_preview": promote_preview_path,
+        "draft_review_blockers": args.source_trust_recovery_draft_review_blockers_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_DRAFT_REVIEW_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+        "apply": args.source_trust_recovery_apply_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES["apply_json"] if output_dir else None),
+        "source_pack_draft": source_pack_draft_path,
+        "validation": args.source_trust_recovery_validation_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["validation_json"] if output_dir else None),
+        "accepted_candidates": args.source_trust_recovery_accepted_candidates_input
+        or (
+            output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["accepted_candidates_json"]
+            if output_dir
+            else None
+        ),
+        "source_pack": source_pack,
+    }
+
+
+def _source_trust_recovery_promote_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "apply_json": args.source_trust_recovery_promote_apply_output,
+        "apply_csv": args.source_trust_recovery_promote_apply_csv_output,
+        "apply_markdown": args.source_trust_recovery_promote_apply_markdown_output,
+        "blockers_json": args.source_trust_recovery_promote_apply_blockers_output,
+        "blockers_csv": args.source_trust_recovery_promote_apply_blockers_csv_output,
+        "promoted_source_pack_draft_json": args.source_trust_recovery_promoted_source_pack_draft_output,
+        "promoted_source_pack_draft_summary_csv": args.source_trust_recovery_promoted_source_pack_draft_summary_csv_output,
+        "rerun_markdown": args.source_trust_recovery_promote_apply_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_ARTIFACT_NAMES.items()
+    }
+
+
+def _source_trust_recovery_promote_apply_required_errors(inputs: dict[str, Path | None]) -> list[dict[str, Any]]:
+    required = {
+        "review": "source_trust_recovery_promote_apply_review_input_required",
+        "promote_preview": "source_trust_recovery_promote_apply_promote_preview_input_required",
+        "source_pack_draft": "source_trust_recovery_promote_apply_source_pack_draft_input_required",
+        "source_pack": "source_trust_recovery_promote_apply_source_pack_input_required",
+    }
+    errors: list[dict[str, Any]] = []
+    for role, code in required.items():
+        path = inputs.get(role)
+        if path is None or not path.is_file():
+            errors.append({"message": code})
+    return errors
+
+
+def _source_trust_recovery_promote_apply_preflight_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    for index, output_path in enumerate(outputs):
+        for other in outputs[index + 1 :]:
+            if _paths_equal(output_path, other):
+                return [{"message": "source_trust_recovery_promote_apply_output_must_not_equal_input"}]
+        for input_role, input_path in inputs.items():
+            if input_path is not None and _paths_equal(output_path, input_path):
+                promoted_draft_output = artifacts.get("promoted_source_pack_draft_json")
+                if (
+                    promoted_draft_output is not None
+                    and _paths_equal(output_path, promoted_draft_output)
+                    and input_role in {"source_pack", "source_pack_draft"}
+                ):
+                    return [{"message": "source_trust_recovery_promote_apply_draft_must_not_overwrite_input"}]
+                return [{"message": "source_trust_recovery_promote_apply_output_must_not_equal_input"}]
+    return []
+
+
+def _source_trust_recovery_promote_apply_load_optional_report(
+    path: Path | None,
+    *,
+    expected_mode: str,
+    rows_key: str,
+    role: str,
+    warnings: list[dict[str, Any]],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+    fallback_rows_key: str | None = None,
+) -> dict[str, Any]:
+    if path is None or not path.is_file():
+        warnings.append({"message": f"source_trust_recovery_promote_apply_optional_input_missing:{role}"})
+        return {}
+    try:
+        data = path.read_bytes()
+        payload = json.loads(data.decode("utf-8"))
+        rows = payload.get(rows_key)
+        if rows is None and fallback_rows_key is not None:
+            rows = payload.get(fallback_rows_key)
+        if (
+            not isinstance(payload, dict)
+            or payload.get("mode") != expected_mode
+            or not isinstance(rows, list)
+            or not all(isinstance(row, dict) for row in rows)
+        ):
+            raise ValueError(f"{role} malformed")
+        snapshots[path] = data
+        input_hashes[f"{role}_input_sha256"] = hashlib.sha256(data).hexdigest()
+        if rows_key not in payload and fallback_rows_key is not None:
+            payload[rows_key] = rows
+        return payload
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        warnings.append({"message": f"source_trust_recovery_promote_apply_optional_input_unreadable:{role}:{exc}"})
+        return {}
+
+
+def _source_trust_recovery_promote_apply_row(
+    *,
+    review_row: dict[str, Any],
+    promote_preview_rows: list[dict[str, Any]],
+    task145_draft_rows: list[dict[str, Any]],
+    baseline_rows: list[dict[str, Any]],
+    draft_review_blocker_rows: list[dict[str, Any]],
+    apply_rows: list[dict[str, Any]],
+    validation_rows: list[dict[str, Any]],
+    accepted_rows: list[dict[str, Any]],
+    input_hashes: dict[str, str],
+    promoted_draft_path: Path | None,
+) -> dict[str, Any]:
+    promote_preview = _source_trust_recovery_draft_review_match_row(review_row, promote_preview_rows)
+    task145_draft = _source_trust_recovery_draft_review_match_row(review_row, task145_draft_rows)
+    baseline_row = _source_trust_recovery_draft_review_match_row(review_row, baseline_rows)
+    blocker = _source_trust_recovery_draft_review_match_row(review_row, draft_review_blocker_rows)
+    apply_row = _source_trust_recovery_draft_review_match_row(review_row, apply_rows)
+    validation_row = _source_trust_recovery_draft_review_match_row(review_row, validation_rows)
+    accepted_row = _source_trust_recovery_draft_review_match_row(review_row, accepted_rows)
+    candidate_url = _source_trust_recovery_draft_review_candidate_url(review_row)
+    candidate_host = str(review_row.get("candidate_source_host") or _host(candidate_url))
+    candidate_domain = str(review_row.get("candidate_source_registrable_domain") or _source_trust_registrable_domain(candidate_host))
+    future_host = str(promote_preview.get("future_trusted_host") or candidate_host)
+    future_page = _normalize_candidate_url(str(promote_preview.get("future_trusted_source_page_url") or candidate_url))
+    baseline_trusted_source_hosts = _source_trust_recovery_draft_review_trusted_hosts(baseline_row, "trusted_source_hosts")
+    baseline_trusted_hosts = _source_trust_recovery_draft_review_trusted_hosts(baseline_row, "trusted_hosts")
+    baseline_already_trusts = _source_trust_recovery_draft_review_host_trusted(
+        candidate_host,
+        [*baseline_trusted_source_hosts, *baseline_trusted_hosts],
+    )
+    task145_draft_url = _source_trust_recovery_draft_review_candidate_url(task145_draft)
+    task145_draft_host = str(task145_draft.get("candidate_source_host") or _host(task145_draft_url))
+    task145_draft_present = bool(task145_draft_url)
+    task145_draft_status = str(task145_draft.get("candidate_source_status") or "")
+    task145_draft_matches = (
+        bool(task145_draft)
+        and task145_draft_url == candidate_url
+        and task145_draft_host == candidate_host
+        and task145_draft_status in {"pending_future_controlled_review", "promoted_in_task147_draft"}
+    )
+    task145_draft_already_promoted = (
+        task145_draft_matches
+        and str(task145_draft.get("source_trust_status") or "") == "future_controlled_promoted_source_trust_draft"
+        and str(task145_draft.get("candidate_source_status") or "") == "promoted_in_task147_draft"
+        and str(task145_draft.get("current_known_source_page_url") or "") == candidate_url
+    )
+    task145_draft_marked_trusted = (
+        _as_bool(task145_draft.get("trusted"))
+        or _as_bool(task145_draft.get("trusted_host"))
+        or _source_trust_recovery_draft_review_host_trusted(
+            candidate_host,
+            [
+                *_source_trust_recovery_draft_review_trusted_hosts(task145_draft, "trusted_source_hosts"),
+                *_source_trust_recovery_draft_review_trusted_hosts(task145_draft, "trusted_hosts"),
+            ],
+        )
+    )
+    task145_draft_ready = _as_bool(task145_draft.get("ready_for_document_download")) or _as_bool(
+        task145_draft.get("ready_for_extraction")
+    )
+    validation_status = str(validation_row.get("validation_status") or review_row.get("validation_status") or "")
+    accepted_status = str(accepted_row.get("accepted_candidate_status") or review_row.get("accepted_candidate_status") or "")
+    apply_status = str(apply_row.get("apply_status") or review_row.get("apply_status") or "")
+    diagnostic_url_mismatch = any(
+        _source_trust_recovery_draft_review_candidate_url(row)
+        and _source_trust_recovery_draft_review_candidate_url(row) != candidate_url
+        for row in (apply_row, validation_row, accepted_row)
+        if row
+    )
+    unsafe_flags = any(
+        _source_trust_recovery_draft_review_has_unsafe_flags(row)
+        for row in (review_row, promote_preview, apply_row, validation_row, accepted_row)
+        if row
+    )
+    status = "promoted_draft_created"
+    errors: list[str] = []
+    reasons: list[str] = []
+    warnings: list[str] = []
+    if not (review_row.get("company_id") or review_row.get("company_name") or review_row.get("canonical_company_id")):
+        status = "blocked_missing_company_identity"
+        errors.append("missing_company_identity")
+    elif review_row.get("review_status") != "ready_for_controlled_source_trust_promote_review":
+        status = "blocked_review_not_ready"
+        errors.append("review_not_ready")
+    elif blocker:
+        status = "blocked_task146_blocker_present"
+        errors.append("task146_blocker_present")
+    elif promote_preview.get("promote_preview_status") != "ready_for_future_controlled_promote":
+        status = "blocked_promote_preview_not_ready"
+        errors.append("promote_preview_not_ready")
+    elif apply_status and apply_status not in {"draft_candidate_added", "draft_candidate_already_present"}:
+        status = "blocked_apply_not_successful"
+        errors.append("apply_not_successful")
+    elif validation_status and validation_status != "valid_future_source_page_candidate":
+        status = "blocked_validation_mismatch"
+        errors.append("validation_mismatch")
+    elif accepted_status and accepted_status != "future_source_pack_draft_candidate_only":
+        status = "blocked_validation_mismatch"
+        errors.append("validation_mismatch")
+    elif diagnostic_url_mismatch:
+        status = "blocked_validation_mismatch"
+        errors.append("validation_mismatch")
+    elif unsafe_flags:
+        status = "blocked_candidate_safety_flags"
+        errors.append("candidate_safety_flags")
+    elif not task145_draft:
+        status = "blocked_task145_draft_missing"
+        errors.append("task145_draft_missing")
+    elif not task145_draft_matches or future_page != candidate_url or future_host != candidate_host:
+        status = "blocked_task145_draft_mismatch"
+        errors.append("task145_draft_mismatch")
+    elif task145_draft_already_promoted:
+        status = "promoted_draft_already_present"
+        reasons.append("promoted_draft_already_present")
+    elif task145_draft_marked_trusted:
+        status = "blocked_task145_draft_marked_trusted_too_early"
+        errors.append("task145_draft_marked_trusted_too_early")
+    elif task145_draft_ready:
+        status = "blocked_task145_draft_marked_ready_for_download_too_early"
+        errors.append("task145_draft_marked_ready_for_download_too_early")
+    elif baseline_already_trusts:
+        status = "blocked_baseline_already_trusted"
+        errors.append("baseline_already_trusted")
+    elif not candidate_url or not candidate_host:
+        status = "blocked_unknown_readiness"
+        errors.append("unknown_readiness")
+    _append_unique(reasons, _source_trust_recovery_promote_apply_blocker_code(status))
+    if status == "promoted_draft_created":
+        _append_unique(reasons, "source_trust_recovery_task147")
+        _append_unique(reasons, "future_controlled_promote_preview")
+    return {
+        "promote_apply_id": f"source_trust_recovery_promote_apply:{review_row.get('review_id') or review_row.get('recovery_id') or _company_key(review_row) or 'unknown'}",
+        "review_id": review_row.get("review_id") or "",
+        "promote_preview_id": promote_preview.get("promote_preview_id") or "",
+        "apply_id": review_row.get("apply_id") or "",
+        "accepted_candidate_id": review_row.get("accepted_candidate_id") or "",
+        "validation_id": review_row.get("validation_id") or "",
+        "recovery_id": review_row.get("recovery_id") or "",
+        "company_id": review_row.get("company_id") or "",
+        "company_name": review_row.get("company_name") or "",
+        "canonical_company_id": review_row.get("canonical_company_id") or "",
+        "canonical_company_name": review_row.get("canonical_company_name") or "",
+        "candidate_source_page_url": candidate_url,
+        "candidate_source_host": candidate_host,
+        "candidate_source_registrable_domain": candidate_domain,
+        "candidate_source_status": review_row.get("candidate_source_status") or "",
+        "future_trusted_host": future_host,
+        "future_trusted_source_page_url": future_page,
+        "future_promote_target_status": promote_preview.get("future_promote_target_status") or "",
+        "review_status": review_row.get("review_status") or "",
+        "promote_preview_status": promote_preview.get("promote_preview_status") or "",
+        "apply_status": apply_status,
+        "validation_status": validation_status,
+        "accepted_candidate_status": accepted_status,
+        "baseline_row_found": bool(baseline_row),
+        "baseline_already_trusts_candidate_host": baseline_already_trusts,
+        "baseline_current_known_source_page_url": baseline_row.get("current_known_source_page_url") or "",
+        "baseline_current_known_document_url": baseline_row.get("current_known_document_url") or "",
+        "baseline_trusted_source_hosts": baseline_trusted_source_hosts,
+        "baseline_trusted_hosts": baseline_trusted_hosts,
+        "task145_draft_row_found": bool(task145_draft),
+        "task145_draft_candidate_present": task145_draft_present,
+        "task145_draft_candidate_matches_review": task145_draft_matches,
+        "task145_draft_trusted_flag": _as_bool(task145_draft.get("trusted")),
+        "task145_draft_trusted_host_flag": _as_bool(task145_draft.get("trusted_host")),
+        "task145_draft_ready_for_document_download": _as_bool(task145_draft.get("ready_for_document_download")),
+        "task145_draft_ready_for_extraction": _as_bool(task145_draft.get("ready_for_extraction")),
+        "promoted_draft_row_found": status.startswith("promoted_draft_"),
+        "promoted_draft_source_page_url": candidate_url if status.startswith("promoted_draft_") else "",
+        "promoted_draft_trusted_source_hosts": [candidate_host] if status.startswith("promoted_draft_") else [],
+        "promoted_draft_trusted_hosts": [candidate_host] if status.startswith("promoted_draft_") else [],
+        "promoted_draft_source_trust_status": "future_controlled_promoted_source_trust_draft" if status.startswith("promoted_draft_") else "",
+        "promoted_draft_candidate_source_status": "promoted_in_task147_draft" if status.startswith("promoted_draft_") else "",
+        "promoted_draft_ready_for_document_download": False,
+        "promoted_draft_ready_for_extraction": False,
+        "promote_apply_status": status,
+        "promote_apply_severity": "info" if status.startswith("promoted_draft_") else "warning",
+        "promote_apply_action": _source_trust_recovery_promote_apply_action(status),
+        "promote_apply_reason_codes": reasons,
+        "promote_apply_errors": errors,
+        "promote_apply_warnings": warnings,
+        "draft_mutation_status": "would_create_promoted_draft_copy" if status == "promoted_draft_created" else "promoted_draft_copy_unchanged",
+        "promoted_source_pack_draft_path": str(promoted_draft_path) if promoted_draft_path is not None else "",
+        "baseline_source_pack_input_sha256": input_hashes.get("baseline_source_pack_input_sha256", ""),
+        "task145_source_pack_draft_input_sha256": input_hashes.get("task145_source_pack_draft_input_sha256", ""),
+        "promoted_source_pack_draft_sha256": "",
+        "draft_review_input_sha256": input_hashes.get("draft_review_input_sha256", ""),
+        "promote_preview_input_sha256": input_hashes.get("promote_preview_input_sha256", ""),
+        "apply_input_sha256": input_hashes.get("apply_input_sha256", ""),
+        "validation_input_sha256": input_hashes.get("validation_input_sha256", ""),
+        "accepted_candidates_input_sha256": input_hashes.get("accepted_candidates_input_sha256", ""),
+        **_source_trust_recovery_promote_apply_row_safety_flags(create_draft=status.startswith("promoted_draft_")),
+    }
+
+
+def _source_trust_recovery_promote_apply_update_promoted_draft_row(
+    draft_row: dict[str, Any],
+    row: dict[str, Any],
+) -> None:
+    host = str(row.get("future_trusted_host") or "")
+    trusted_source_hosts = set(_financial_document_fetch_list(draft_row.get("trusted_source_hosts")))
+    trusted_hosts = set(_financial_document_fetch_list(draft_row.get("trusted_hosts")))
+    if host:
+        trusted_source_hosts.add(host)
+        trusted_hosts.add(host)
+    reason_codes = list(draft_row.get("candidate_source_reason_codes") or [])
+    for code in [
+        "source_trust_recovery_task147",
+        "ready_for_promote_review",
+        "future_controlled_promote_preview",
+        *list(row.get("promote_apply_reason_codes") or []),
+    ]:
+        _append_unique(reason_codes, code)
+    draft_row.update(
+        {
+            "current_known_source_page_url": row.get("future_trusted_source_page_url") or "",
+            "trusted_source_hosts": sorted(trusted_source_hosts),
+            "trusted_hosts": sorted(trusted_hosts),
+            "source_trust_status": "future_controlled_promoted_source_trust_draft",
+            "candidate_official_source_page_url": row.get("candidate_source_page_url") or "",
+            "candidate_source_host": host,
+            "candidate_source_registrable_domain": row.get("candidate_source_registrable_domain") or "",
+            "candidate_source_status": "promoted_in_task147_draft",
+            "candidate_source_reason_codes": reason_codes,
+            "trusted": True,
+            "trusted_host": True,
+            "ready_for_document_download": False,
+            "ready_for_extraction": False,
+            "promoted_source_trust_draft_created_by_task": "Task147",
+            "promoted_source_trust_review_id": row.get("review_id") or "",
+            "promoted_source_trust_promote_preview_id": row.get("promote_preview_id") or "",
+            "promoted_source_trust_apply_id": row.get("apply_id") or "",
+            "promoted_source_trust_validation_id": row.get("validation_id") or "",
+            "promoted_source_trust_accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        }
+    )
+
+
+def _source_trust_recovery_promote_apply_blocker_code(status: str) -> str:
+    return {
+        "promoted_draft_created": "promoted_draft_created",
+        "promoted_draft_already_present": "promoted_draft_already_present",
+        "blocked_review_not_ready": "review_not_ready",
+        "blocked_promote_preview_not_ready": "promote_preview_not_ready",
+        "blocked_apply_not_successful": "apply_not_successful",
+        "blocked_validation_mismatch": "validation_mismatch",
+        "blocked_candidate_safety_flags": "candidate_safety_flags",
+        "blocked_task146_blocker_present": "task146_blocker_present",
+        "blocked_task145_draft_missing": "task145_draft_missing",
+        "blocked_task145_draft_mismatch": "task145_draft_mismatch",
+        "blocked_task145_draft_marked_trusted_too_early": "task145_draft_marked_trusted_too_early",
+        "blocked_task145_draft_marked_ready_for_download_too_early": "task145_draft_marked_ready_for_download_too_early",
+        "blocked_baseline_already_trusted": "baseline_already_trusted",
+        "blocked_duplicate_promoted_draft_conflict": "duplicate_promoted_draft_conflict",
+        "blocked_missing_company_identity": "missing_company_identity",
+        "blocked_unknown_readiness": "unknown_readiness",
+    }.get(status, "unknown_readiness")
+
+
+def _source_trust_recovery_promote_apply_action(status: str) -> str:
+    return {
+        "promoted_draft_created": "review_promoted_source_pack_draft",
+        "promoted_draft_already_present": "review_existing_promoted_source_pack_draft",
+        "blocked_review_not_ready": "rerun_task146_and_resolve_review_blocker",
+        "blocked_promote_preview_not_ready": "rerun_task146_promote_preview",
+        "blocked_apply_not_successful": "resolve_task145_apply_blocker_first",
+        "blocked_validation_mismatch": "rerun_task143_task145_task146_chain",
+        "blocked_candidate_safety_flags": "repair_candidate_safety_flags",
+        "blocked_task146_blocker_present": "resolve_task146_blocker_first",
+        "blocked_task145_draft_missing": "rerun_task145_apply_draft",
+        "blocked_task145_draft_mismatch": "rerun_task145_apply_draft",
+        "blocked_task145_draft_marked_trusted_too_early": "repair_task145_draft_candidate_only_state",
+        "blocked_task145_draft_marked_ready_for_download_too_early": "repair_task145_draft_readiness_flags",
+        "blocked_baseline_already_trusted": "review_existing_baseline_trust",
+        "blocked_duplicate_promoted_draft_conflict": "resolve_duplicate_promoted_draft_candidate",
+        "blocked_missing_company_identity": "repair_company_identity",
+        "blocked_unknown_readiness": "review_task147_inputs",
+    }.get(status, "review_task147_blocker")
+
+
+def _source_trust_recovery_promote_apply_blocker_row(row: dict[str, Any]) -> dict[str, Any]:
+    code = _source_trust_recovery_promote_apply_blocker_code(str(row.get("promote_apply_status") or ""))
+    return {
+        "blocker_id": f"source_trust_recovery_promote_apply_blocker:{row.get('promote_apply_id')}:{code}",
+        "promote_apply_id": row.get("promote_apply_id") or "",
+        "review_id": row.get("review_id") or "",
+        "promote_preview_id": row.get("promote_preview_id") or "",
+        "apply_id": row.get("apply_id") or "",
+        "accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        "validation_id": row.get("validation_id") or "",
+        "recovery_id": row.get("recovery_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "promote_apply_status": row.get("promote_apply_status") or "",
+        "blocker_code": code,
+        "blocker_severity": row.get("promote_apply_severity") or "warning",
+        "operator_action": row.get("promote_apply_action") or "",
+        "safe_hint": "Task147 creates only a promoted source-pack draft. Resolve the blocker and rerun.",
+    }
+
+
+def _source_trust_recovery_promote_apply_summary_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {field: row.get(field) for field in SOURCE_TRUST_RECOVERY_PROMOTED_SOURCE_PACK_DRAFT_SUMMARY_FIELDS}
+        for row in rows
+    ]
+
+
+def _source_trust_recovery_promote_apply_row_safety_flags(*, create_draft: bool) -> dict[str, bool]:
+    return {
+        "would_trust_source_url_in_production": False,
+        "would_update_production_source_pack": False,
+        "would_update_task145_source_pack_draft": False,
+        "would_create_promoted_source_pack_draft": create_draft,
+        "would_update_document_intake": False,
+        "would_probe_url": False,
+        "would_fetch_url": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _source_trust_recovery_promote_apply_safety_flags(*, create_draft: bool) -> dict[str, Any]:
+    return {
+        "read_only": False,
+        "dry_run_only": True,
+        "would_trust_source_urls_in_production": False,
+        "would_update_production_source_pack": False,
+        "would_update_task145_source_pack_draft": False,
+        "would_create_promoted_source_pack_draft": create_draft,
+        "would_update_document_intake": False,
+        "would_probe_urls": False,
+        "would_fetch_urls": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
+def _build_source_trust_recovery_promote_apply_report(
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    promote_apply_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    blocked_count = len(blocker_rows)
+    create_draft = any(row.get("promote_apply_status") == "promoted_draft_created" for row in promote_apply_rows)
+    status = "failed" if errors else "passed" if promote_apply_rows and not blocked_count and not warnings else "warning"
+    return {
+        "status": status,
+        "mode": "source-trust-recovery-promote-apply-draft-v2",
+        "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        "row_count": len(promote_apply_rows),
+        "promoted_draft_created_count": sum(1 for row in promote_apply_rows if row.get("promote_apply_status") == "promoted_draft_created"),
+        "promoted_draft_already_present_count": sum(1 for row in promote_apply_rows if row.get("promote_apply_status") == "promoted_draft_already_present"),
+        "blocked_count": blocked_count,
+        "failed_count": sum(1 for row in promote_apply_rows if str(row.get("promote_apply_status") or "").startswith("failed_")),
+        "promoted_source_pack_draft_created": False,
+        "promoted_source_pack_draft_path": _path_value(artifacts.get("promoted_source_pack_draft_json")) or "",
+        "baseline_source_pack_input_preserved": True,
+        "task145_source_pack_draft_input_preserved": True,
+        "production_source_pack_modified": False,
+        "task145_source_pack_draft_modified": False,
+        "document_intake_modified": False,
+        "promote_apply_status_counts": _count_by_key(promote_apply_rows, "promote_apply_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "promote_apply_rows": promote_apply_rows,
+        "blocker_rows": blocker_rows,
+        "warnings": warnings,
+        "errors": errors,
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
+        "baseline_source_pack_input_sha256": input_hashes.get("baseline_source_pack_input_sha256", ""),
+        "task145_source_pack_draft_input_sha256": input_hashes.get("task145_source_pack_draft_input_sha256", ""),
+        "promoted_source_pack_draft_sha256": "",
+        "draft_review_input_sha256": input_hashes.get("draft_review_input_sha256", ""),
+        "promote_preview_input_sha256": input_hashes.get("promote_preview_input_sha256", ""),
+        "apply_input_sha256": input_hashes.get("apply_input_sha256", ""),
+        "validation_input_sha256": input_hashes.get("validation_input_sha256", ""),
+        "accepted_candidates_input_sha256": input_hashes.get("accepted_candidates_input_sha256", ""),
+        "source_pack_input_path": _path_value(inputs.get("source_pack")) or "",
+        "task145_source_pack_draft_input_path": _path_value(inputs.get("source_pack_draft")) or "",
+        "promoted_source_pack_draft_output_path": _path_value(artifacts.get("promoted_source_pack_draft_json")) or "",
+        "next_steps": _next_steps("source-trust-recovery-promote-apply-draft-v2", status),
+        **_source_trust_recovery_promote_apply_safety_flags(create_draft=create_draft),
+    }
+
+
+def _failed_source_trust_recovery_promote_apply(
+    errors: list[dict[str, Any]],
+    *,
+    inputs: dict[str, Path | None] | None = None,
+    artifacts: dict[str, Path | None] | None = None,
+) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "source-trust-recovery-promote-apply-draft-v2",
+        "inputs": {role: _path_value(path) for role, path in (inputs or {}).items()},
+        "row_count": 0,
+        "promoted_draft_created_count": 0,
+        "promoted_draft_already_present_count": 0,
+        "blocked_count": 0,
+        "failed_count": 0,
+        "promoted_source_pack_draft_created": False,
+        "promoted_source_pack_draft_path": "",
+        "baseline_source_pack_input_preserved": False,
+        "task145_source_pack_draft_input_preserved": False,
+        "production_source_pack_modified": False,
+        "task145_source_pack_draft_modified": False,
+        "document_intake_modified": False,
+        "promote_apply_status_counts": {},
+        "blocker_code_counts": {},
+        "promote_apply_rows": [],
+        "blocker_rows": [],
+        "warnings": [],
+        "errors": errors,
+        "artifacts": {role: _path_value(path) for role, path in (artifacts or {}).items()},
+        "baseline_source_pack_input_sha256": "",
+        "task145_source_pack_draft_input_sha256": "",
+        "promoted_source_pack_draft_sha256": "",
+        "draft_review_input_sha256": "",
+        "promote_preview_input_sha256": "",
+        "apply_input_sha256": "",
+        "validation_input_sha256": "",
+        "accepted_candidates_input_sha256": "",
+        "source_pack_input_path": _path_value((inputs or {}).get("source_pack")) if inputs else "",
+        "task145_source_pack_draft_input_path": _path_value((inputs or {}).get("source_pack_draft")) if inputs else "",
+        "promoted_source_pack_draft_output_path": _path_value((artifacts or {}).get("promoted_source_pack_draft_json")) if artifacts else "",
+        "next_steps": _next_steps("source-trust-recovery-promote-apply-draft-v2", "failed"),
+        **_source_trust_recovery_promote_apply_safety_flags(create_draft=False),
+    }
+
+
+def _write_source_trust_recovery_promote_apply_outputs(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+    promoted_draft_payload: Any,
+    promoted_draft_rows: list[dict[str, Any]],
+    summary_rows: list[dict[str, Any]],
+) -> None:
+    _write_optional_json_report(report, artifacts["apply_json"])
+    _write_optional_flat_csv(report.get("promote_apply_rows") or [], SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_FIELDS, artifacts["apply_csv"])
+    if artifacts["apply_markdown"] is not None:
+        write_source_trust_recovery_promote_apply_markdown(report, artifacts["apply_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "source-trust-recovery-promote-apply-blockers-v2",
+            "row_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            **_source_trust_recovery_promote_apply_safety_flags(create_draft=False),
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], SOURCE_TRUST_RECOVERY_PROMOTE_APPLY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    if artifacts["promoted_source_pack_draft_json"] is not None:
+        write_operator_resolution_source_pack_draft_json(promoted_draft_payload, promoted_draft_rows, artifacts["promoted_source_pack_draft_json"])
+    _write_optional_flat_csv(summary_rows, SOURCE_TRUST_RECOVERY_PROMOTED_SOURCE_PACK_DRAFT_SUMMARY_FIELDS, artifacts["promoted_source_pack_draft_summary_csv"])
+    if artifacts["rerun_markdown"] is not None:
+        write_source_trust_recovery_promote_apply_rerun_markdown(report, artifacts["rerun_markdown"])
+
+
+def _source_trust_recovery_promote_apply_drift_errors(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+) -> list[dict[str, Any]]:
+    for path, data in snapshots.items():
+        if path.is_file() and path.read_bytes() != data:
+            if inputs.get("source_pack") is not None and _paths_equal(path, inputs["source_pack"]):  # type: ignore[arg-type]
+                return [{"message": "source_trust_recovery_promote_apply_source_pack_drift_detected"}]
+            if inputs.get("source_pack_draft") is not None and _paths_equal(path, inputs["source_pack_draft"]):  # type: ignore[arg-type]
+                return [{"message": "source_trust_recovery_promote_apply_task145_draft_drift_detected"}]
+            return [{"message": "source_trust_recovery_promote_apply_input_drift_detected"}]
+    return []
+
+
 def _financial_document_fetch_url_is_http(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
@@ -23191,6 +24161,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_source_trust_recovery_apply_markdown(report)
     if report.get("mode") == "source-trust-recovery-draft-review-v2":
         return render_source_trust_recovery_draft_review_markdown(report)
+    if report.get("mode") == "source-trust-recovery-promote-apply-draft-v2":
+        return render_source_trust_recovery_promote_apply_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -26357,6 +27329,161 @@ def render_source_trust_recovery_draft_review_rerun_markdown(report: dict[str, A
     return "\n".join(lines) + "\n"
 
 
+def write_source_trust_recovery_promote_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_promote_apply_markdown(report), encoding="utf-8")
+
+
+def write_source_trust_recovery_promote_apply_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_promote_apply_rerun_markdown(report), encoding="utf-8")
+
+
+def render_source_trust_recovery_promote_apply_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Promote Apply Draft v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- promoted draft created: {report.get('promoted_draft_created_count', 0)}",
+        f"- already present: {report.get('promoted_draft_already_present_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        f"- production source pack modified: `{report.get('production_source_pack_modified')}`",
+        f"- Task145 source-pack draft modified: `{report.get('task145_source_pack_draft_modified')}`",
+        f"- promoted draft: `{report.get('promoted_source_pack_draft_path')}`",
+        "",
+        "## Promote Apply Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("promote_apply_status_counts") or {}))
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("blocker_code_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Promoted Candidates",
+            "",
+            "| Company | Candidate URL | Trusted host in draft | Status |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    promoted_rows = [
+        row
+        for row in report.get("promote_apply_rows") or []
+        if str(row.get("promote_apply_status") or "").startswith("promoted_draft_")
+    ]
+    for row in promoted_rows:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("future_trusted_source_page_url") or row.get("candidate_source_page_url"),
+                    row.get("future_trusted_host"),
+                    row.get("promote_apply_status"),
+                )
+            )
+            + " |"
+        )
+    if not promoted_rows:
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Blockers",
+            "",
+            "| Company | Apply status | Blocker | Operator action |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("blocker_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("promote_apply_status"),
+                    row.get("blocker_code"),
+                    row.get("operator_action"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("blocker_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Hashes",
+            "",
+            f"- baseline source pack: `{report.get('baseline_source_pack_input_sha256')}`",
+            f"- Task145 draft input: `{report.get('task145_source_pack_draft_input_sha256')}`",
+            f"- promoted draft: `{report.get('promoted_source_pack_draft_sha256')}`",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    lines.extend(
+        [
+            "",
+            "Future step / not run by Task147:",
+            "",
+            "```bash",
+            *_source_trust_recovery_promote_apply_future_controlled_command_lines(report),
+            "```",
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates only a promoted source-pack draft copy.",
+            "- This task does not update the production source pack.",
+            "- This task does not update the Task145 source-pack draft input.",
+            "- This task does not update document intake.",
+            "- This task does not probe or fetch source pages.",
+            "- This task does not download or parse documents.",
+            "- This task does not mutate the database.",
+            "- This task does not extract or import financial values.",
+            "- This task does not score issuers or trigger paper trading.",
+            "- This task does not delete files.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_source_trust_recovery_promote_apply_rerun_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Promote Apply Draft Rerun Instructions",
+        "",
+        "## Rerun Task147",
+        "",
+        "```bash",
+        *_source_trust_recovery_promote_apply_rerun_command_lines(report),
+        "```",
+        "",
+        "## Generated Draft",
+        "",
+        f"- promoted source-pack draft: `{report.get('promoted_source_pack_draft_path')}`",
+        "- The production source pack is unchanged.",
+        "- The Task145 source-pack draft input is unchanged.",
+        "",
+        "## Future Controlled Apply",
+        "",
+        "Future step / not run by Task147:",
+        "",
+        "```bash",
+        *_source_trust_recovery_promote_apply_future_controlled_command_lines(report),
+        "```",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _source_trust_recovery_draft_review_output_dir(report: dict[str, Any]) -> str:
     artifacts = report.get("artifacts") or {}
     review = str(artifacts.get("review_json") or "")
@@ -26365,6 +27492,35 @@ def _source_trust_recovery_draft_review_output_dir(report: dict[str, Any]) -> st
     inputs = report.get("inputs") or {}
     apply_path = str(inputs.get("apply") or "")
     return str(Path(apply_path).parent) if apply_path else "logs/financial_reports/task124_chain_preview"
+
+
+def _source_trust_recovery_promote_apply_output_dir(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    apply_json = str(artifacts.get("apply_json") or "")
+    if apply_json:
+        return str(Path(apply_json).parent)
+    inputs = report.get("inputs") or {}
+    review = str(inputs.get("review") or "")
+    return str(Path(review).parent) if review else "logs/financial_reports/task124_chain_preview"
+
+
+def _source_trust_recovery_promote_apply_rerun_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = _source_trust_recovery_promote_apply_output_dir(report)
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-promote-apply-draft-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+    ]
+
+
+def _source_trust_recovery_promote_apply_future_controlled_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = _source_trust_recovery_promote_apply_output_dir(report)
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-controlled-apply-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+        "  # placeholder only; Task147 does not run this future mode",
+    ]
 
 
 def _source_trust_recovery_draft_review_rerun_command_lines(report: dict[str, Any]) -> list[str]:
@@ -36259,6 +37415,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review the Task145 source-pack draft; manual source URLs remain untrusted until a future controlled review/promote step."]
     if mode == "source-trust-recovery-draft-review-v2":
         return ["Review Task146 promote-preview rows; source URLs remain untrusted until a future controlled promote/apply task."]
+    if mode == "source-trust-recovery-promote-apply-draft-v2":
+        return ["Review the Task147 promoted source-pack draft; production source trust still requires a future controlled apply step."]
     if mode == "backup-retention-preview":
         return ["Review Task138 rotation candidates manually; this preview never deletes or modifies backup files."]
     if mode == "backup-retention-apply-draft-preview":
@@ -36401,6 +37559,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_source_trust_recovery_draft_review_inputs(args, apply_report=None),
             artifacts=_source_trust_recovery_draft_review_artifacts(args),
+        )
+    if args.mode == "source-trust-recovery-promote-apply-draft-v2":
+        return not _source_trust_recovery_promote_apply_preflight_errors(
+            args,
+            inputs=_source_trust_recovery_promote_apply_inputs(args, review_report=None, apply_report=None),
+            artifacts=_source_trust_recovery_promote_apply_artifacts(args),
         )
     if args.mode == "backup-retention-preview":
         all_outputs = [
