@@ -8662,6 +8662,167 @@ def test_exact_document_draft_gate_valid_row_is_download_preview_only_and_writes
     assert "does not download reports" in markdown
 
 
+def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task149 must not fetch, probe, download, parse, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _write_exact_document_draft_gate_inputs(
+        tmp_path,
+        documents=[_exact_document_draft_gate_rzd_applied_document()],
+        apply_rows=[_exact_document_draft_gate_rzd_source_trust_apply_row()],
+        blocker_rows=[_exact_document_draft_gate_rzd_source_trust_blocker_row()],
+    )
+    source_pack = _write_exact_document_draft_gate_source_pack(tmp_path)
+    source_pack_before = source_pack.read_bytes()
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["source_pack_input_path"] == str(source_pack)
+    assert report["source_pack_input_resolution_strategy"] == "chain_task148_controlled_source_pack"
+    assert report["source_pack_trust_context_type"] == "controlled_applied_source_trust"
+    assert report["controlled_source_pack_used"] is True
+    assert report["controlled_source_pack_sha256"] == hashlib.sha256(source_pack_before).hexdigest()
+    assert report["ready_count"] == 1
+    assert report["blocked_count"] == 0
+    row = report["gate_rows"][0]
+    assert row["gate_status"] == "ready_for_future_controlled_download"
+    assert row["trusted_source_context_found"] is True
+    assert row["trusted_source_context_source"] == "controlled_source_pack_task148"
+    assert row["trusted_source_context_status"] == "controlled_applied_source_trust"
+    assert row["trusted_source_hosts"] == ["company.rzd.ru"]
+    assert row["trusted_hosts"] == ["company.rzd.ru"]
+    assert row["trusted_source_page_url"] == "https://company.rzd.ru/ru/9471"
+    assert row["candidate_document_host"] == "company.rzd.ru"
+    assert row["candidate_document_host_trusted_by_source_pack"] is True
+    assert "controlled_source_pack_trust_context_used" in row["gate_reason_codes"]
+    assert "controlled_source_host_matched" in row["gate_reason_codes"]
+    assert "source_trust_recovery_task148" in row["gate_reason_codes"]
+    assert "source_trust_required" not in row["apply_blocker_codes"]
+    assert source_pack.read_bytes() == source_pack_before
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+
+
+def test_exact_document_draft_gate_explicit_source_pack_input_wins(tmp_path: Path) -> None:
+    _write_exact_document_draft_gate_inputs(
+        tmp_path,
+        documents=[_exact_document_draft_gate_rzd_applied_document()],
+        apply_rows=[_exact_document_draft_gate_rzd_source_trust_apply_row()],
+        blocker_rows=[_exact_document_draft_gate_rzd_source_trust_blocker_row()],
+    )
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+    explicit = _write_exact_document_draft_gate_source_pack(
+        tmp_path,
+        filename="explicit_source_pack.json",
+        source_trust_status="baseline_source_trust",
+    )
+
+    report = _run_exact_document_draft_gate(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--financial-official-source-pack-input",
+            str(explicit),
+        ]
+    )
+
+    assert report["source_pack_input_path"] == str(explicit)
+    assert report["source_pack_input_resolution_strategy"] == "explicit_cli_input"
+    assert report["source_pack_trust_context_type"] == "baseline_source_trust"
+
+
+def test_exact_document_draft_gate_controlled_source_pack_preserves_non_source_trust_blockers(tmp_path: Path) -> None:
+    _write_exact_document_draft_gate_inputs(
+        tmp_path,
+        documents=[
+            _exact_document_draft_gate_placeholder_document(
+                company_id="18",
+                company_name="RZD",
+                document_context_status="exact_document_url_apply_draft_for_future_gate",
+                document_context_origin="operator_exact_document_refill_apply_draft_task136",
+                manual_candidate_status="future_gate_validation_required",
+            )
+        ],
+        apply_rows=[_exact_document_draft_gate_rzd_source_trust_apply_row()],
+        blocker_rows=[_exact_document_draft_gate_rzd_source_trust_blocker_row()],
+    )
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    row = report["gate_rows"][0]
+    assert row["trusted_source_context_found"] is True
+    assert row["gate_status"] == "blocked_missing_exact_document_url"
+    assert report["blocker_rows"][0]["blocker_code"] == "missing_exact_document_url"
+
+
+def test_exact_document_draft_gate_keeps_source_trust_blockers_without_matching_trusted_host(tmp_path: Path) -> None:
+    no_context_dir = tmp_path / "no_context"
+    no_context_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        no_context_dir,
+        documents=[_exact_document_draft_gate_rzd_applied_document()],
+        apply_rows=[_exact_document_draft_gate_rzd_source_trust_apply_row()],
+        blocker_rows=[_exact_document_draft_gate_rzd_source_trust_blocker_row()],
+    )
+    explicit = _write_exact_document_draft_gate_source_pack(
+        no_context_dir,
+        filename="baseline_without_rzd_trust.json",
+        company_id="18",
+        company_name="RZD",
+        trusted_host="issuer.example",
+        source_page_url="https://issuer.example/reports",
+        source_trust_status="baseline_source_trust",
+    )
+    no_context = _run_exact_document_draft_gate(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(no_context_dir),
+            "--financial-official-source-pack-input",
+            str(explicit),
+        ]
+    )
+    assert no_context["gate_rows"][0]["gate_status"] == "blocked_source_trust_required"
+    assert no_context["gate_rows"][0]["candidate_document_host_trusted_by_source_pack"] is False
+    assert no_context["blocker_rows"][0]["blocker_code"] == "candidate_document_host_not_trusted"
+
+    untrusted_dir = tmp_path / "untrusted"
+    untrusted_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        untrusted_dir,
+        documents=[
+            _exact_document_draft_gate_rzd_applied_document(
+                document_url="https://example.com/reports/annual-ifrs-consolidated-2025.pdf"
+            )
+        ],
+        apply_rows=[_exact_document_draft_gate_rzd_source_trust_apply_row()],
+        blocker_rows=[_exact_document_draft_gate_rzd_source_trust_blocker_row()],
+    )
+    _write_exact_document_draft_gate_source_pack(untrusted_dir)
+    untrusted = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(untrusted_dir)])
+    assert untrusted["gate_rows"][0]["gate_status"] == "blocked_source_trust_required"
+    assert untrusted["gate_rows"][0]["candidate_document_host"] == "example.com"
+    assert untrusted["gate_rows"][0]["candidate_document_host_trusted_by_source_pack"] is False
+    assert untrusted["blocker_rows"][0]["blocker_code"] == "candidate_document_host_not_trusted"
+
+
 def test_exact_document_draft_gate_blocks_leak_and_disk_guard(tmp_path: Path) -> None:
     leak_dir = tmp_path / "leak"
     leak_dir.mkdir()
@@ -16029,6 +16190,19 @@ def _exact_document_draft_gate_applied_document(**updates: object) -> dict[str, 
     return row
 
 
+def _exact_document_draft_gate_rzd_applied_document(**updates: object) -> dict[str, object]:
+    row = _exact_document_draft_gate_applied_document(
+        company_id="18",
+        company_name="RZD",
+        canonical_company_id="18",
+        canonical_company_name="RZD",
+        document_url="https://company.rzd.ru/reports/annual-ifrs-consolidated-2025.pdf",
+        document_title="RZD annual consolidated IFRS financial statements 2025",
+    )
+    row.update(updates)
+    return row
+
+
 def _exact_document_draft_gate_apply_row(**updates: object) -> dict[str, object]:
     row: dict[str, object] = {
         "apply_id": "operator_exact_document_refill_apply:mostotrest",
@@ -16052,6 +16226,20 @@ def _exact_document_draft_gate_apply_row(**updates: object) -> dict[str, object]
     return row
 
 
+def _exact_document_draft_gate_rzd_source_trust_apply_row(**updates: object) -> dict[str, object]:
+    row = _exact_document_draft_gate_apply_row(
+        apply_id="operator_exact_document_refill_apply:rzd",
+        company_id="18",
+        company_name="RZD",
+        canonical_company_id="18",
+        canonical_company_name="RZD",
+        apply_status="skipped_blocked_source_trust_required",
+        trusted_source_hosts=[],
+    )
+    row.update(updates)
+    return row
+
+
 def _exact_document_draft_gate_apply_blocker_row(**updates: object) -> dict[str, object]:
     row: dict[str, object] = {
         "apply_id": "operator_exact_document_refill_apply:mostotrest",
@@ -16061,6 +16249,60 @@ def _exact_document_draft_gate_apply_blocker_row(**updates: object) -> dict[str,
     }
     row.update(updates)
     return row
+
+
+def _exact_document_draft_gate_rzd_source_trust_blocker_row(**updates: object) -> dict[str, object]:
+    row = _exact_document_draft_gate_apply_blocker_row(
+        apply_id="operator_exact_document_refill_apply:rzd",
+        company_id="18",
+        company_name="RZD",
+        blocker_code="source_trust_required",
+    )
+    row.update(updates)
+    return row
+
+
+def _write_exact_document_draft_gate_source_pack(
+    path: Path,
+    *,
+    filename: str = "source_trust_recovery_controlled_source_pack_task148.json",
+    company_id: str = "18",
+    company_name: str = "RZD",
+    trusted_host: str = "company.rzd.ru",
+    source_page_url: str = "https://company.rzd.ru/ru/9471",
+    source_trust_status: str = "controlled_applied_source_trust",
+) -> Path:
+    source_pack = path / filename
+    source_pack.write_text(
+        json.dumps(
+            {
+                "mode": "operator-resolution-pack",
+                "resolutions": [
+                    {
+                        "resolution_id": f"resolution:{company_id}",
+                        "company_id": company_id,
+                        "company_name": company_name,
+                        "canonical_company_id": company_id,
+                        "canonical_company_name": company_name,
+                        "current_known_source_page_url": source_page_url,
+                        "trusted_source_hosts": [trusted_host],
+                        "trusted_hosts": [trusted_host],
+                        "source_trust_status": source_trust_status,
+                        "candidate_source_status": "controlled_applied_in_task148",
+                        "trusted": True,
+                        "trusted_host": True,
+                        "ready_for_document_download": False,
+                        "ready_for_extraction": False,
+                    }
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return source_pack
 
 
 def _write_exact_document_draft_gate_inputs(
