@@ -9733,6 +9733,170 @@ def test_source_trust_recovery_apply_never_calls_network_or_delete_helpers(tmp_p
     assert report["would_delete_files"] is False
 
 
+def test_source_trust_recovery_draft_review_rzd_candidate_ready_for_promote_preview(tmp_path: Path) -> None:
+    _prepare_source_trust_recovery_draft_review_fixture(tmp_path)
+
+    report = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["row_count"] == 1
+    assert report["ready_for_promote_review_count"] == 1
+    assert report["promote_preview_row_count"] == 1
+    assert report["blocked_count"] == 0
+    row = report["review_rows"][0]
+    assert row["review_status"] == "ready_for_controlled_source_trust_promote_review"
+    assert row["candidate_source_page_url"] == "https://company.rzd.ru/ru/9471"
+    assert row["candidate_source_host"] == "company.rzd.ru"
+    assert row["would_trust_source_url"] is False
+    assert row["would_update_production_source_pack"] is False
+    promote = report["promote_preview_rows"][0]
+    assert promote["promote_preview_status"] == "ready_for_future_controlled_promote"
+    assert promote["operator_approval_required"] is True
+    assert promote["future_controlled_apply_required"] is True
+    assert promote["future_trusted_host"] == "company.rzd.ru"
+    for key in assistant.SOURCE_TRUST_RECOVERY_DRAFT_REVIEW_ARTIFACT_NAMES:
+        assert Path(report["artifacts"][key]).is_file()
+
+
+def test_source_trust_recovery_draft_review_blocks_apply_and_draft_problems(tmp_path: Path) -> None:
+    apply_dir = tmp_path / "apply_blocked"
+    _prepare_source_trust_recovery_draft_review_fixture(apply_dir)
+    _mutate_source_trust_recovery_apply_report(
+        apply_dir,
+        lambda payload: payload["apply_rows"][0].update({"apply_status": "blocked_validation_not_accepted"}),
+    )
+    apply_blocked = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(apply_dir)])
+    assert apply_blocked["review_rows"][0]["review_status"] == "blocked_apply_not_successful"
+    assert apply_blocked["blocker_rows"][0]["blocker_code"] == "apply_not_successful"
+
+    missing_dir = tmp_path / "missing_draft_candidate"
+    _prepare_source_trust_recovery_draft_review_fixture(missing_dir)
+    _mutate_source_trust_recovery_draft_row(
+        missing_dir,
+        lambda row: [
+            row.pop("candidate_official_source_page_url", None),
+            row.pop("candidate_current_known_source_page_url", None),
+        ],
+    )
+    missing = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(missing_dir)])
+    assert missing["review_rows"][0]["review_status"] == "blocked_draft_candidate_missing"
+
+    mismatch_dir = tmp_path / "draft_mismatch"
+    _prepare_source_trust_recovery_draft_review_fixture(mismatch_dir)
+    _mutate_source_trust_recovery_draft_row(
+        mismatch_dir,
+        lambda row: row.update({"candidate_official_source_page_url": "https://company.rzd.ru/ru/9999"}),
+    )
+    mismatch = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(mismatch_dir)])
+    assert mismatch["review_rows"][0]["review_status"] == "blocked_draft_candidate_mismatch"
+
+
+def test_source_trust_recovery_draft_review_blocks_validation_and_safety_mismatches(tmp_path: Path) -> None:
+    validation_dir = tmp_path / "validation_mismatch"
+    _prepare_source_trust_recovery_draft_review_fixture(validation_dir)
+    _mutate_source_trust_recovery_accepted_candidates(
+        validation_dir,
+        lambda payload: payload["accepted_candidate_rows"][0].update(
+            {"official_source_page_url": "https://company.rzd.ru/ru/9999"}
+        ),
+    )
+    validation = _run_source_trust_recovery_draft_review(
+        ["--operator-resolution-chain-output-dir", str(validation_dir)]
+    )
+    assert validation["review_rows"][0]["review_status"] == "blocked_validation_mismatch"
+
+    unsafe_dir = tmp_path / "unsafe_flags"
+    _prepare_source_trust_recovery_draft_review_fixture(unsafe_dir)
+    _mutate_source_trust_recovery_accepted_candidates(
+        unsafe_dir,
+        lambda payload: payload["accepted_candidate_rows"][0].update({"would_fetch_url": True}),
+    )
+    unsafe = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(unsafe_dir)])
+    assert unsafe["review_rows"][0]["review_status"] == "blocked_candidate_safety_flags"
+
+
+def test_source_trust_recovery_draft_review_blocks_premature_trust_and_readiness(tmp_path: Path) -> None:
+    trusted_dir = tmp_path / "trusted_too_early"
+    _prepare_source_trust_recovery_draft_review_fixture(trusted_dir)
+    _mutate_source_trust_recovery_draft_row(trusted_dir, lambda row: row.update({"trusted": True}))
+    trusted = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(trusted_dir)])
+    assert trusted["review_rows"][0]["review_status"] == "blocked_draft_marked_trusted_too_early"
+
+    host_dir = tmp_path / "trusted_host_too_early"
+    _prepare_source_trust_recovery_draft_review_fixture(host_dir)
+    _mutate_source_trust_recovery_draft_row(
+        host_dir,
+        lambda row: row.update({"trusted_source_hosts": ["company.rzd.ru"]}),
+    )
+    host = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(host_dir)])
+    assert host["review_rows"][0]["review_status"] == "blocked_draft_marked_trusted_too_early"
+
+    ready_dir = tmp_path / "ready_too_early"
+    _prepare_source_trust_recovery_draft_review_fixture(ready_dir)
+    _mutate_source_trust_recovery_draft_row(ready_dir, lambda row: row.update({"ready_for_document_download": True}))
+    ready = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(ready_dir)])
+    assert ready["review_rows"][0]["review_status"] == "blocked_draft_marked_ready_for_download_too_early"
+
+
+def test_source_trust_recovery_draft_review_blocks_baseline_already_trusting_candidate(tmp_path: Path) -> None:
+    _prepare_source_trust_recovery_draft_review_fixture(tmp_path)
+    _mutate_source_trust_recovery_source_pack_row(
+        tmp_path,
+        lambda row: row.update({"trusted_source_hosts": ["company.rzd.ru"]}),
+    )
+
+    report = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["review_rows"][0]["review_status"] == "blocked_candidate_already_trusted_in_baseline"
+    assert report["blocker_rows"][0]["blocker_code"] == "candidate_already_trusted_in_baseline"
+
+
+def test_source_trust_recovery_draft_review_output_collision_fails_safely(tmp_path: Path) -> None:
+    _prepare_source_trust_recovery_draft_review_fixture(tmp_path)
+    apply_input = tmp_path / "source_trust_recovery_apply_draft_task145.json"
+
+    report = _run_source_trust_recovery_draft_review(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--source-trust-recovery-draft-review-output",
+            str(apply_input),
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "source_trust_recovery_draft_review_output_must_not_equal_input"}]
+
+
+def test_source_trust_recovery_draft_review_never_calls_network_or_delete_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task146 must not probe, fetch, download, parse, delete, or trade")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _prepare_source_trust_recovery_draft_review_fixture(tmp_path)
+
+    report = _run_source_trust_recovery_draft_review(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["would_trust_source_urls"] is False
+    assert report["would_update_production_source_pack"] is False
+    assert report["would_update_source_pack_draft"] is False
+    assert report["would_update_document_intake"] is False
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -15067,6 +15231,19 @@ def _run_source_trust_recovery_apply(extra_args: list[str] | None = None) -> dic
     return report
 
 
+def _run_source_trust_recovery_draft_review(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-trust-recovery-draft-review-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _source_trust_recovery_gate_row(**updates: object) -> dict[str, object]:
     row: dict[str, object] = {
         "gate_id": "exact_document_draft_gate:67:2025",
@@ -15299,6 +15476,41 @@ def _assert_source_trust_recovery_apply_failure_artifacts(report: dict) -> None:
     persisted = json.loads(Path(artifacts["apply_json"]).read_text(encoding="utf-8"))
     assert persisted["status"] == "failed"
     assert persisted["errors"] == report["errors"]
+
+
+def _prepare_source_trust_recovery_draft_review_fixture(path: Path) -> dict:
+    _write_source_trust_recovery_apply_accepted_fixture(path)
+    return _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(path)])
+
+
+def _mutate_json_file(path: Path, mutator) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    mutator(payload)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _mutate_source_trust_recovery_apply_report(path: Path, mutator) -> None:
+    _mutate_json_file(path / "source_trust_recovery_apply_draft_task145.json", mutator)
+
+
+def _mutate_source_trust_recovery_accepted_candidates(path: Path, mutator) -> None:
+    _mutate_json_file(path / "source_trust_recovery_accepted_candidates_task143.json", mutator)
+
+
+def _mutate_source_trust_recovery_draft_row(path: Path, mutator) -> None:
+    def mutate(payload: dict) -> None:
+        rows = payload.get("resolutions") or payload.get("rows") or payload
+        mutator(rows[0])
+
+    _mutate_json_file(path / "source_trust_recovery_source_pack_draft_task145.json", mutate)
+
+
+def _mutate_source_trust_recovery_source_pack_row(path: Path, mutator) -> None:
+    def mutate(payload: dict) -> None:
+        rows = payload.get("resolutions") or payload.get("rows") or payload
+        mutator(rows[0])
+
+    _mutate_json_file(path / "operator_resolution_pack_task118.json", mutate)
 
 
 def _exact_document_draft_gate_placeholder_document(**updates: object) -> dict[str, object]:
