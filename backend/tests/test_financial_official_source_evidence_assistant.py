@@ -9466,6 +9466,9 @@ def test_source_trust_recovery_apply_adds_rzd_candidate_to_source_pack_draft_onl
     assert report["would_trust_source_urls"] is False
     assert report["would_update_production_source_pack"] is False
     assert report["would_update_source_pack_draft"] is True
+    assert report["source_pack_input_path"] == str(source_pack)
+    assert report["source_pack_input_resolution_strategy"] == "chain_task118"
+    assert str(source_pack) in report["source_pack_input_resolution_candidates"]
     assert source_pack.read_bytes() == original
     row = report["apply_rows"][0]
     assert row["apply_status"] == "draft_candidate_added"
@@ -9483,6 +9486,96 @@ def test_source_trust_recovery_apply_adds_rzd_candidate_to_source_pack_draft_onl
     assert draft_row["current_known_source_page_url"] == ""
     for key in assistant.SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES:
         assert Path(report["artifacts"][key]).is_file()
+
+
+def test_source_trust_recovery_apply_fallback_resolves_parent_task118_source_pack(tmp_path: Path) -> None:
+    chain_dir = tmp_path / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_source_trust_recovery_apply_accepted_inputs_without_source_pack(chain_dir)
+    source_pack = _write_source_trust_recovery_apply_source_pack(
+        chain_dir.parent,
+        [_source_trust_recovery_apply_source_pack_row()],
+    )
+
+    report = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(chain_dir)])
+
+    assert report["status"] == "passed"
+    assert report["draft_candidate_added_count"] == 1
+    assert report["source_pack_input_path"] == str(source_pack)
+    assert report["source_pack_input_resolution_strategy"] == "chain_parent_task118"
+    assert (
+        str(chain_dir / "operator_resolution_pack_task118.json")
+        in report["source_pack_input_resolution_candidates"]
+    )
+    assert any(
+        warning["strategy"] == "chain_task118"
+        for warning in report["source_pack_input_resolution_warnings"]
+    )
+
+
+def test_source_trust_recovery_apply_explicit_source_pack_input_wins(tmp_path: Path) -> None:
+    chain_dir = tmp_path / "task124_chain_preview"
+    _write_source_trust_recovery_apply_accepted_inputs_without_source_pack(chain_dir)
+    _write_source_trust_recovery_apply_source_pack(chain_dir, [_source_trust_recovery_apply_source_pack_row()])
+    explicit_dir = tmp_path / "explicit"
+    explicit_dir.mkdir()
+    explicit_pack = _write_source_trust_recovery_apply_source_pack(
+        explicit_dir,
+        [_source_trust_recovery_apply_source_pack_row()],
+    )
+
+    report = _run_source_trust_recovery_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain_dir),
+            "--financial-official-source-pack-input",
+            str(explicit_pack),
+        ]
+    )
+
+    assert report["status"] == "passed"
+    assert report["source_pack_input_path"] == str(explicit_pack)
+    assert report["source_pack_input_resolution_strategy"] == "explicit_financial_official_source_pack_input"
+    assert report["source_pack_input_resolution_candidates"] == [str(explicit_pack)]
+
+
+def test_source_trust_recovery_apply_missing_required_inputs_write_failure_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    missing_pack_dir = tmp_path / "missing_pack"
+    _write_source_trust_recovery_apply_accepted_inputs_without_source_pack(missing_pack_dir)
+    missing_pack = _run_source_trust_recovery_apply(
+        ["--operator-resolution-chain-output-dir", str(missing_pack_dir)]
+    )
+    assert missing_pack["status"] == "failed"
+    assert missing_pack["errors"] == [{"message": "source_trust_recovery_apply_source_pack_input_required"}]
+    assert missing_pack["source_pack_input_resolution_strategy"] == "unresolved"
+    _assert_source_trust_recovery_apply_failure_artifacts(missing_pack)
+
+    missing_validation_dir = tmp_path / "missing_validation"
+    _write_source_trust_recovery_apply_accepted_fixture(missing_validation_dir)
+    (missing_validation_dir / "source_trust_recovery_validation_task143.json").unlink()
+    missing_validation = _run_source_trust_recovery_apply(
+        ["--operator-resolution-chain-output-dir", str(missing_validation_dir)]
+    )
+    assert missing_validation["status"] == "failed"
+    assert missing_validation["errors"] == [
+        {"message": "source_trust_recovery_apply_validation_input_required"}
+    ]
+    _assert_source_trust_recovery_apply_failure_artifacts(missing_validation)
+
+    missing_accepted_dir = tmp_path / "missing_accepted"
+    _write_source_trust_recovery_apply_accepted_fixture(missing_accepted_dir)
+    (missing_accepted_dir / "source_trust_recovery_accepted_candidates_task143.json").unlink()
+    missing_accepted = _run_source_trust_recovery_apply(
+        ["--operator-resolution-chain-output-dir", str(missing_accepted_dir)]
+    )
+    assert missing_accepted["status"] == "failed"
+    assert missing_accepted["errors"] == [
+        {"message": "source_trust_recovery_apply_accepted_candidates_input_required"}
+    ]
+    _assert_source_trust_recovery_apply_failure_artifacts(missing_accepted)
 
 
 def test_source_trust_recovery_apply_accepted_count_none_still_uses_rows(tmp_path: Path) -> None:
@@ -15168,7 +15261,7 @@ def _write_source_trust_recovery_apply_source_pack(path: Path, rows: list[dict[s
     return output
 
 
-def _write_source_trust_recovery_apply_accepted_fixture(path: Path) -> dict:
+def _write_source_trust_recovery_apply_accepted_inputs_without_source_pack(path: Path) -> dict:
     _write_source_trust_recovery_validation_inputs(
         path,
         template_updates={
@@ -15181,9 +15274,31 @@ def _write_source_trust_recovery_apply_accepted_fixture(path: Path) -> dict:
             ),
         },
     )
-    validation_report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(path)])
+    return _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(path)])
+
+
+def _write_source_trust_recovery_apply_accepted_fixture(path: Path) -> dict:
+    validation_report = _write_source_trust_recovery_apply_accepted_inputs_without_source_pack(path)
     _write_source_trust_recovery_apply_source_pack(path, [_source_trust_recovery_apply_source_pack_row()])
     return validation_report
+
+
+def _assert_source_trust_recovery_apply_failure_artifacts(report: dict) -> None:
+    artifacts = report["artifacts"]
+    for key in (
+        "apply_json",
+        "apply_csv",
+        "apply_markdown",
+        "blockers_json",
+        "blockers_csv",
+        "source_pack_draft_summary_csv",
+        "rerun_markdown",
+    ):
+        assert Path(artifacts[key]).is_file()
+    assert not Path(artifacts["source_pack_draft_json"]).exists()
+    persisted = json.loads(Path(artifacts["apply_json"]).read_text(encoding="utf-8"))
+    assert persisted["status"] == "failed"
+    assert persisted["errors"] == report["errors"]
 
 
 def _exact_document_draft_gate_placeholder_document(**updates: object) -> dict[str, object]:

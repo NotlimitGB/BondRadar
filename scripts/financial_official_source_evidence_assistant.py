@@ -18243,15 +18243,28 @@ def _source_trust_recovery_validation_safety_flags() -> dict[str, Any]:
 
 
 def run_source_trust_recovery_apply_draft_v2(args: argparse.Namespace) -> dict[str, Any]:
-    inputs = _source_trust_recovery_apply_inputs(args)
+    source_pack_resolution = _source_trust_recovery_apply_source_pack_resolution(args)
+    inputs = _source_trust_recovery_apply_inputs(args, source_pack_resolution=source_pack_resolution)
     artifacts = _source_trust_recovery_apply_artifacts(args)
     preflight_errors = _source_trust_recovery_apply_preflight_errors(args, inputs=inputs, artifacts=artifacts)
     if preflight_errors:
-        return _failed_source_trust_recovery_apply(preflight_errors)
+        return _failed_source_trust_recovery_apply(
+            preflight_errors,
+            inputs=inputs,
+            artifacts=artifacts,
+            source_pack_resolution=source_pack_resolution,
+        )
 
     required_errors = _source_trust_recovery_apply_required_input_errors(inputs)
     if required_errors:
-        return _failed_source_trust_recovery_apply(required_errors)
+        report = _failed_source_trust_recovery_apply(
+            required_errors,
+            inputs=inputs,
+            artifacts=artifacts,
+            source_pack_resolution=source_pack_resolution,
+        )
+        _write_source_trust_recovery_apply_failure_artifacts(report, artifacts)
+        return report
 
     warnings: list[dict[str, Any]] = []
     snapshots: dict[Path, bytes] = {}
@@ -18268,9 +18281,14 @@ def run_source_trust_recovery_apply_draft_v2(args: argparse.Namespace) -> dict[s
         source_pack_bytes = inputs["source_pack"].read_bytes()  # type: ignore[union-attr]
         source_pack_payload, source_rows = _load_operator_resolution_source_pack_payload(inputs["source_pack"])  # type: ignore[arg-type]
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        return _failed_source_trust_recovery_apply(
-            [{"message": f"source_trust_recovery_apply_input_unreadable:{exc}"}]
+        report = _failed_source_trust_recovery_apply(
+            [{"message": f"source_trust_recovery_apply_input_unreadable:{exc}"}],
+            inputs=inputs,
+            artifacts=artifacts,
+            source_pack_resolution=source_pack_resolution,
         )
+        _write_source_trust_recovery_apply_failure_artifacts(report, artifacts)
+        return report
 
     for role, path, data in (
         ("validation", inputs["validation"], validation_bytes),
@@ -18283,16 +18301,26 @@ def run_source_trust_recovery_apply_draft_v2(args: argparse.Namespace) -> dict[s
 
     validation_rows = validation_report.get("validation_rows")
     if not isinstance(validation_rows, list) or not all(isinstance(row, dict) for row in validation_rows):
-        return _failed_source_trust_recovery_apply(
-            [{"message": "source_trust_recovery_apply_validation_input_required"}]
+        report = _failed_source_trust_recovery_apply(
+            [{"message": "source_trust_recovery_apply_validation_input_required"}],
+            inputs=inputs,
+            artifacts=artifacts,
+            source_pack_resolution=source_pack_resolution,
         )
+        _write_source_trust_recovery_apply_failure_artifacts(report, artifacts)
+        return report
     accepted_rows = accepted_report.get("accepted_candidate_rows")
     if accepted_rows is None:
         accepted_rows = accepted_report.get("rows")
     if not isinstance(accepted_rows, list) or not all(isinstance(row, dict) for row in accepted_rows):
-        return _failed_source_trust_recovery_apply(
-            [{"message": "source_trust_recovery_apply_accepted_candidates_input_required"}]
+        report = _failed_source_trust_recovery_apply(
+            [{"message": "source_trust_recovery_apply_accepted_candidates_input_required"}],
+            inputs=inputs,
+            artifacts=artifacts,
+            source_pack_resolution=source_pack_resolution,
         )
+        _write_source_trust_recovery_apply_failure_artifacts(report, artifacts)
+        return report
 
     validation_blocker_rows = _source_trust_recovery_apply_optional_rows(
         inputs["validation_blockers"],
@@ -18357,6 +18385,7 @@ def run_source_trust_recovery_apply_draft_v2(args: argparse.Namespace) -> dict[s
         warnings=warnings,
         errors=[],
         input_hashes=input_hashes,
+        source_pack_resolution=source_pack_resolution,
     )
 
     try:
@@ -18416,8 +18445,14 @@ def run_source_trust_recovery_apply_draft_v2(args: argparse.Namespace) -> dict[s
     return report
 
 
-def _source_trust_recovery_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+def _source_trust_recovery_apply_inputs(
+    args: argparse.Namespace,
+    *,
+    source_pack_resolution: dict[str, Any] | None = None,
+) -> dict[str, Path | None]:
     output_dir = args.operator_resolution_chain_output_dir
+    if source_pack_resolution is None:
+        source_pack_resolution = _source_trust_recovery_apply_source_pack_resolution(args)
     return {
         "validation": args.source_trust_recovery_validation_input
         or (output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["validation_json"] if output_dir else None),
@@ -18433,7 +18468,94 @@ def _source_trust_recovery_apply_inputs(args: argparse.Namespace) -> dict[str, P
         or (output_dir / SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES["template_csv"] if output_dir else None),
         "workspace": args.source_trust_recovery_workspace_input
         or (output_dir / SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES["workspace_json"] if output_dir else None),
-        "source_pack": _source_trust_recovery_source_pack_path(args),
+        "source_pack": source_pack_resolution.get("path"),
+    }
+
+
+def _source_trust_recovery_apply_source_pack_resolution(args: argparse.Namespace) -> dict[str, Any]:
+    explicit_financial = args.financial_official_source_pack_input
+    explicit_operator = args.operator_resolution_source_pack_input
+    if explicit_financial is not None:
+        return {
+            "path": explicit_financial,
+            "strategy": "explicit_financial_official_source_pack_input",
+            "candidates": [explicit_financial],
+            "warnings": [],
+        }
+    if explicit_operator is not None:
+        return {
+            "path": explicit_operator,
+            "strategy": "explicit_operator_resolution_source_pack_input",
+            "candidates": [explicit_operator],
+            "warnings": [],
+        }
+
+    output_dir = args.operator_resolution_chain_output_dir
+    candidates: list[tuple[str, Path]] = []
+    if output_dir is not None:
+        candidates.extend(
+            [
+                ("chain_task118", output_dir / "operator_resolution_pack_task118.json"),
+                (
+                    "chain_task129_promoted_apply_draft",
+                    output_dir / "operator_resolution_source_pack_promoted_apply_draft_task129.json",
+                ),
+                (
+                    "chain_task128_promote_draft",
+                    output_dir / "operator_resolution_source_pack_promote_draft_task128.json",
+                ),
+                (
+                    "chain_task127_draft",
+                    output_dir / "operator_resolution_source_pack_draft_task127.json",
+                ),
+                ("chain_parent_task118", output_dir.parent / "operator_resolution_pack_task118.json"),
+            ]
+        )
+    candidates.append(
+        (
+            "logs_financial_reports_task118",
+            Path("logs/financial_reports/operator_resolution_pack_task118.json"),
+        )
+    )
+
+    warnings: list[dict[str, str]] = []
+    for strategy, path in candidates:
+        if path.is_file():
+            return {
+                "path": path,
+                "strategy": strategy,
+                "candidates": [candidate for _, candidate in candidates],
+                "warnings": warnings,
+            }
+        warnings.append(
+            {
+                "message": "source_pack_input_resolution_candidate_missing",
+                "strategy": strategy,
+                "path": str(path),
+            }
+        )
+    return {
+        "path": None,
+        "strategy": "unresolved",
+        "candidates": [candidate for _, candidate in candidates],
+        "warnings": warnings,
+    }
+
+
+def _source_trust_recovery_apply_source_pack_resolution_fields(
+    source_pack_resolution: dict[str, Any] | None,
+) -> dict[str, Any]:
+    resolution = source_pack_resolution or {}
+    path = resolution.get("path")
+    candidates = resolution.get("candidates") or []
+    return {
+        "source_pack_input_path": _path_value(path) if isinstance(path, Path) else "",
+        "source_pack_input_resolution_strategy": str(resolution.get("strategy") or ""),
+        "source_pack_input_resolution_candidates": [
+            _path_value(candidate) if isinstance(candidate, Path) else str(candidate)
+            for candidate in candidates
+        ],
+        "source_pack_input_resolution_warnings": resolution.get("warnings") or [],
     }
 
 
@@ -18946,6 +19068,7 @@ def _build_source_trust_recovery_apply_report(
     warnings: list[dict[str, Any]],
     errors: list[dict[str, Any]],
     input_hashes: dict[str, str],
+    source_pack_resolution: dict[str, Any] | None,
 ) -> dict[str, Any]:
     blocked_count = len(blocker_rows)
     failed_count = sum(1 for row in apply_rows if str(row.get("apply_status") or "").startswith("failed_"))
@@ -18980,14 +19103,22 @@ def _build_source_trust_recovery_apply_report(
         "errors": errors,
         "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
         "next_steps": _next_steps("source-trust-recovery-apply-draft-v2", status),
+        **_source_trust_recovery_apply_source_pack_resolution_fields(source_pack_resolution),
         **_source_trust_recovery_apply_safety_flags(source_pack_draft_created=draft_created),
     }
 
 
-def _failed_source_trust_recovery_apply(errors: list[dict[str, Any]]) -> dict[str, Any]:
+def _failed_source_trust_recovery_apply(
+    errors: list[dict[str, Any]],
+    *,
+    inputs: dict[str, Path | None] | None = None,
+    artifacts: dict[str, Path | None] | None = None,
+    source_pack_resolution: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "status": "failed",
         "mode": "source-trust-recovery-apply-draft-v2",
+        "inputs": {role: _path_value(path) for role, path in (inputs or {}).items()},
         "row_count": 0,
         "draft_candidate_added_count": 0,
         "draft_candidate_already_present_count": 0,
@@ -19009,9 +19140,44 @@ def _failed_source_trust_recovery_apply(errors: list[dict[str, Any]]) -> dict[st
         "blocker_rows": [],
         "warnings": [],
         "errors": errors,
-        "artifacts": {},
+        "artifacts": {role: _path_value(path) for role, path in (artifacts or {}).items()},
+        "next_steps": _next_steps("source-trust-recovery-apply-draft-v2", "failed"),
+        **_source_trust_recovery_apply_source_pack_resolution_fields(source_pack_resolution),
         **_source_trust_recovery_apply_safety_flags(source_pack_draft_created=False),
     }
+
+
+def _write_source_trust_recovery_apply_failure_artifacts(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    try:
+        _write_optional_json_report(report, artifacts["apply_json"])
+        _write_optional_flat_csv([], SOURCE_TRUST_RECOVERY_APPLY_FIELDS, artifacts["apply_csv"])
+        if artifacts["apply_markdown"] is not None:
+            write_source_trust_recovery_apply_markdown(report, artifacts["apply_markdown"])
+        _write_optional_json_report(
+            {
+                "status": report["status"],
+                "mode": "source-trust-recovery-apply-blockers-v2",
+                "row_count": 0,
+                "blocker_rows": [],
+                **_source_trust_recovery_apply_safety_flags(source_pack_draft_created=False),
+            },
+            artifacts["blockers_json"],
+        )
+        _write_optional_flat_csv([], SOURCE_TRUST_RECOVERY_APPLY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+        _write_optional_flat_csv(
+            [],
+            SOURCE_TRUST_RECOVERY_SOURCE_PACK_DRAFT_SUMMARY_FIELDS,
+            artifacts["source_pack_draft_summary_csv"],
+        )
+        if artifacts["rerun_markdown"] is not None:
+            write_source_trust_recovery_apply_rerun_markdown(report, artifacts["rerun_markdown"])
+        if artifacts["apply_markdown"] is not None:
+            write_source_trust_recovery_apply_markdown(report, artifacts["apply_markdown"])
+    except OSError as exc:
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
 
 
 def _source_trust_recovery_apply_input_drift_errors(snapshots: dict[Path, bytes]) -> list[dict[str, Any]]:
