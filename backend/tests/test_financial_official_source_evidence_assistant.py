@@ -8770,7 +8770,38 @@ def test_exact_document_draft_gate_controlled_source_pack_preserves_non_source_t
     row = report["gate_rows"][0]
     assert row["trusted_source_context_found"] is True
     assert row["gate_status"] == "blocked_missing_exact_document_url"
+    assert row["apply_blocker_codes"] == []
+    assert row["suppressed_apply_blocker_codes"] == ["source_trust_required"]
+    assert "stale_source_trust_apply_blocker_suppressed" in row["gate_reason_codes"]
+    assert [blocker["blocker_code"] for blocker in report["blocker_rows"]] == ["missing_exact_document_url"]
     assert report["blocker_rows"][0]["blocker_code"] == "missing_exact_document_url"
+
+    with_non_source_dir = tmp_path / "non_source_blocker"
+    with_non_source_dir.mkdir()
+    _write_exact_document_draft_gate_inputs(
+        with_non_source_dir,
+        documents=[
+            _exact_document_draft_gate_placeholder_document(
+                company_id="18",
+                company_name="RZD",
+                document_context_status="exact_document_url_apply_draft_for_future_gate",
+                document_context_origin="operator_exact_document_refill_apply_draft_task136",
+                manual_candidate_status="future_gate_validation_required",
+            )
+        ],
+        apply_rows=[_exact_document_draft_gate_rzd_source_trust_apply_row()],
+        blocker_rows=[
+            _exact_document_draft_gate_rzd_source_trust_blocker_row(),
+            _exact_document_draft_gate_rzd_source_trust_blocker_row(blocker_code="missing_exact_document_url"),
+        ],
+    )
+    _write_exact_document_draft_gate_source_pack(with_non_source_dir)
+
+    preserved = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(with_non_source_dir)])
+
+    preserved_row = preserved["gate_rows"][0]
+    assert preserved_row["apply_blocker_codes"] == ["missing_exact_document_url"]
+    assert preserved_row["suppressed_apply_blocker_codes"] == ["source_trust_required"]
 
 
 def test_exact_document_draft_gate_keeps_source_trust_blockers_without_matching_trusted_host(tmp_path: Path) -> None:
@@ -8801,6 +8832,8 @@ def test_exact_document_draft_gate_keeps_source_trust_blockers_without_matching_
     )
     assert no_context["gate_rows"][0]["gate_status"] == "blocked_source_trust_required"
     assert no_context["gate_rows"][0]["candidate_document_host_trusted_by_source_pack"] is False
+    assert "source_trust_required" in no_context["gate_rows"][0]["apply_blocker_codes"]
+    assert no_context["gate_rows"][0]["suppressed_apply_blocker_codes"] == []
     assert no_context["blocker_rows"][0]["blocker_code"] == "candidate_document_host_not_trusted"
 
     untrusted_dir = tmp_path / "untrusted"
@@ -8820,6 +8853,8 @@ def test_exact_document_draft_gate_keeps_source_trust_blockers_without_matching_
     assert untrusted["gate_rows"][0]["gate_status"] == "blocked_source_trust_required"
     assert untrusted["gate_rows"][0]["candidate_document_host"] == "example.com"
     assert untrusted["gate_rows"][0]["candidate_document_host_trusted_by_source_pack"] is False
+    assert "source_trust_required" in untrusted["gate_rows"][0]["apply_blocker_codes"]
+    assert untrusted["gate_rows"][0]["suppressed_apply_blocker_codes"] == []
     assert untrusted["blocker_rows"][0]["blocker_code"] == "candidate_document_host_not_trusted"
 
 

@@ -3206,6 +3206,7 @@ EXACT_DOCUMENT_DRAFT_GATE_FIELDS = [
     "draft_ready_for_paper_trading",
     "apply_status",
     "apply_blocker_codes",
+    "suppressed_apply_blocker_codes",
     "apply_warnings",
     "disk_guard_status",
     "download_allowed_by_disk_guard",
@@ -16963,6 +16964,44 @@ def _exact_document_draft_gate_source_pack_row(
     return name_matches[0] if len(name_matches) == 1 else {}
 
 
+EXACT_DOCUMENT_DRAFT_GATE_STALE_SOURCE_TRUST_BLOCKERS = {
+    "source_trust_required",
+    "source_trust_context_missing",
+    "candidate_document_host_not_trusted",
+    "controlled_source_pack_missing",
+}
+
+
+def _exact_document_draft_gate_clean_apply_blocker_codes(
+    apply_blocker_codes: list[str],
+    *,
+    source_pack_context: dict[str, Any],
+) -> tuple[list[str], list[str]]:
+    controlled_context_found = bool(
+        source_pack_context.get("trusted_source_context_found")
+        and source_pack_context.get("trusted_source_context_status") == "controlled_applied_source_trust"
+        and source_pack_context.get("controlled_source_pack_used")
+    )
+    if not controlled_context_found:
+        return apply_blocker_codes, []
+    candidate_host = str(source_pack_context.get("candidate_document_host") or "")
+    if candidate_host and not _as_bool(source_pack_context.get("candidate_document_host_trusted_by_source_pack")):
+        return apply_blocker_codes, []
+    suppressed = [
+        code
+        for code in apply_blocker_codes
+        if code in EXACT_DOCUMENT_DRAFT_GATE_STALE_SOURCE_TRUST_BLOCKERS
+    ]
+    if not suppressed:
+        return apply_blocker_codes, []
+    cleaned = [
+        code
+        for code in apply_blocker_codes
+        if code not in EXACT_DOCUMENT_DRAFT_GATE_STALE_SOURCE_TRUST_BLOCKERS
+    ]
+    return cleaned, suppressed
+
+
 def _build_exact_document_draft_gate_row(
     args: argparse.Namespace,
     document: dict[str, Any],
@@ -17006,18 +17045,17 @@ def _build_exact_document_draft_gate_row(
         source_pack_trust_context_type=source_pack_trust_context_type,
         document_url=document_url,
     )
+    effective_apply_blocker_codes, suppressed_apply_blocker_codes = _exact_document_draft_gate_clean_apply_blocker_codes(
+        apply_blocker_codes,
+        source_pack_context=source_pack_context,
+    )
     source_trust_unblocked_by_source_pack = bool(
-        source_pack_context.get("candidate_document_host_trusted_by_source_pack")
+        suppressed_apply_blocker_codes
         and (
             str(apply.get("apply_status") or "") == "skipped_blocked_source_trust_required"
             or "source_trust_required" in apply_blocker_codes
         )
     )
-    effective_apply_blocker_codes = [
-        code
-        for code in apply_blocker_codes
-        if not (source_trust_unblocked_by_source_pack and code == "source_trust_required")
-    ]
     classification = _document_intake_draft_gate_classification(document, args=args)
     disk_guard_status = str(retention_report.get("disk_guard_status") or "blocked")
     downstream_leak = any(
@@ -17049,6 +17087,8 @@ def _build_exact_document_draft_gate_row(
     if source_trust_unblocked_by_source_pack:
         for reason in source_pack_context.get("trusted_source_context_reason_codes") or []:
             _append_unique(reasons, str(reason))
+    if suppressed_apply_blocker_codes:
+        _append_unique(reasons, "stale_source_trust_apply_blocker_suppressed")
     ready = status == "ready_for_future_controlled_download"
     fetch_matches = [row for row in fetch_plan_rows if _exact_document_draft_gate_matches(document, row)]
     fetch_warnings = [
@@ -17107,6 +17147,7 @@ def _build_exact_document_draft_gate_row(
         "draft_ready_for_paper_trading": _as_bool(document.get("ready_for_paper_trading")),
         "apply_status": apply.get("apply_status") or "",
         "apply_blocker_codes": effective_apply_blocker_codes,
+        "suppressed_apply_blocker_codes": suppressed_apply_blocker_codes,
         "apply_warnings": [*_financial_document_fetch_list(apply.get("apply_warnings")), *fetch_warnings],
         "disk_guard_status": disk_guard_status,
         "download_allowed_by_disk_guard": _as_bool(retention_report.get("download_allowed")),
