@@ -8858,6 +8858,158 @@ def test_exact_document_draft_gate_keeps_source_trust_blockers_without_matching_
     assert untrusted["blocker_rows"][0]["blocker_code"] == "candidate_document_host_not_trusted"
 
 
+def test_rzd_exact_document_url_refill_accepts_controlled_source_pack_candidate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task150 must not probe, fetch, download, parse, mutate, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    gate = _write_rzd_exact_document_refill_gate(tmp_path, [_rzd_exact_document_refill_gate_row()])
+    source_pack = _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    report = _run_rzd_exact_document_refill(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["row_count"] == 1
+    assert report["accepted_candidate_count"] == 1
+    assert report["blocked_count"] == 0
+    assert report["gate_input_sha256"] == hashlib.sha256(gate.read_bytes()).hexdigest()
+    assert report["source_pack_input_sha256"] == hashlib.sha256(source_pack.read_bytes()).hexdigest()
+    row = report["refill_rows"][0]
+    assert row["refill_status"] == "accepted_future_exact_document_candidate"
+    assert row["candidate_exact_document_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert row["candidate_exact_document_host"] == "company.rzd.ru"
+    assert row["accepted_for_future_exact_document_validate"] is True
+    assert row["future_validate_required"] is True
+    assert row["future_apply_draft_required"] is True
+    assert row["future_gate_required"] is True
+    assert "rzd_exact_document_candidate_static_url_valid" in row["refill_reason_codes"]
+    assert "candidate_host_matches_controlled_source_pack" in row["refill_reason_codes"]
+    assert row["operator_fill_exact_document_url"] == row["candidate_exact_document_url"]
+    assert row["operator_fill_document_report_type"] == "annual"
+    assert row["operator_fill_document_accounting_standard"] == "IFRS"
+    assert row["operator_fill_document_consolidated"] is True
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_url"] is False
+    assert row["would_download_document"] is False
+    assert row["would_parse_document"] is False
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_document_intake"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+    for filename in assistant.RZD_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES.values():
+        assert (tmp_path / filename).is_file()
+    with (tmp_path / "rzd_exact_document_refill_task150.csv").open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        assert set(assistant.OPERATOR_EXACT_DOCUMENT_REFILL_TEMPLATE_FIELDS).issubset(set(reader.fieldnames or []))
+        csv_row = next(reader)
+    assert csv_row["operator_fill_exact_document_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    markdown = (tmp_path / "rzd_exact_document_refill_task150.md").read_text(encoding="utf-8")
+    assert "RZD Exact Document URL Refill v2" in markdown
+    assert "does not probe the URL" in markdown
+    rerun = (tmp_path / "rzd_exact_document_refill_rerun_task150.md").read_text(encoding="utf-8")
+    assert "operator-exact-document-refill-validate-v2" in rerun
+    assert "--operator-exact-document-refill-input" in rerun
+
+
+def test_rzd_exact_document_url_refill_blocks_missing_controlled_source_trust(tmp_path: Path) -> None:
+    _write_rzd_exact_document_refill_gate(
+        tmp_path,
+        [
+            _rzd_exact_document_refill_gate_row(
+                trusted_source_context_found=False,
+                trusted_source_context_status="",
+                trusted_source_hosts=[],
+                trusted_hosts=[],
+                trusted_source_page_url="",
+            )
+        ],
+    )
+    _write_exact_document_draft_gate_source_pack(tmp_path, trusted_host="issuer.example")
+
+    report = _run_rzd_exact_document_refill(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    row = report["refill_rows"][0]
+    assert row["refill_status"] == "blocked_rzd_controlled_source_trust_context_missing"
+    assert report["blocker_rows"][0]["blocker_code"] == "rzd_controlled_source_trust_context_missing"
+
+
+def test_rzd_exact_document_url_refill_blocks_untrusted_host_and_direct_pdf(tmp_path: Path) -> None:
+    _write_rzd_exact_document_refill_gate(tmp_path, [_rzd_exact_document_refill_gate_row()])
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    untrusted = _run_rzd_exact_document_refill(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-exact-document-url",
+            "https://example.com/rzd-report-2025",
+        ]
+    )
+    assert untrusted["refill_rows"][0]["refill_status"] == "blocked_candidate_host_not_trusted"
+    assert untrusted["blocker_rows"][0]["blocker_code"] == "candidate_host_not_trusted"
+
+    direct_pdf = _run_rzd_exact_document_refill(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-exact-document-url",
+            "https://company.rzd.ru/report.pdf",
+        ]
+    )
+    assert direct_pdf["refill_rows"][0]["refill_status"] == "blocked_candidate_url_direct_pdf_not_allowed_in_refill"
+    assert direct_pdf["blocker_rows"][0]["blocker_code"] == "candidate_url_direct_pdf_not_allowed_in_refill"
+
+    query_pdf = _run_rzd_exact_document_refill(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-exact-document-url",
+            "https://company.rzd.ru/ru/9397/page/104069?id=322745.pdf",
+        ]
+    )
+    assert query_pdf["blocker_rows"][0]["blocker_code"] == "candidate_url_direct_pdf_not_allowed_in_refill"
+
+
+def test_rzd_exact_document_url_refill_blocks_unrelated_gate_status_and_output_collision(tmp_path: Path) -> None:
+    gate = _write_rzd_exact_document_refill_gate(
+        tmp_path,
+        [_rzd_exact_document_refill_gate_row(gate_status="blocked_wrong_period", gate_reason_codes=["wrong_period"])],
+    )
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    report = _run_rzd_exact_document_refill(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["refill_rows"][0]["refill_status"] == "blocked_rzd_gate_not_waiting_for_exact_document_url"
+    assert report["blocker_rows"][0]["blocker_code"] == "rzd_gate_not_waiting_for_exact_document_url"
+
+    collision = _run_rzd_exact_document_refill(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-exact-document-refill-output",
+            str(gate),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"][0]["message"] == "rzd_exact_document_refill_output_must_not_equal_input"
+
+
 def test_exact_document_draft_gate_blocks_leak_and_disk_guard(tmp_path: Path) -> None:
     leak_dir = tmp_path / "leak"
     leak_dir.mkdir()
@@ -15789,6 +15941,19 @@ def _run_exact_document_draft_gate(extra_args: list[str] | None = None) -> dict:
     return report
 
 
+def _run_rzd_exact_document_refill(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-exact-document-url-refill-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -16338,6 +16503,52 @@ def _write_exact_document_draft_gate_source_pack(
         encoding="utf-8",
     )
     return source_pack
+
+
+def _rzd_exact_document_refill_gate_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "gate_id": "exact_document_draft_gate:18:2025",
+        "workspace_id": "operator_exact_document_refill:rzd",
+        "company_id": "18",
+        "company_name": "RZD",
+        "canonical_company_id": "18",
+        "canonical_company_name": "RZD",
+        "gate_status": "blocked_missing_exact_document_url",
+        "gate_reason_codes": [
+            "missing_exact_document_url",
+            "controlled_source_pack_trust_context_used",
+            "source_trust_recovery_task148",
+            "stale_source_trust_apply_blocker_suppressed",
+        ],
+        "apply_blocker_codes": [],
+        "suppressed_apply_blocker_codes": ["source_trust_required"],
+        "trusted_source_context_found": True,
+        "trusted_source_context_status": "controlled_applied_source_trust",
+        "trusted_source_hosts": ["company.rzd.ru"],
+        "trusted_hosts": ["company.rzd.ru"],
+        "trusted_source_page_url": "https://company.rzd.ru/ru/9471",
+        "latest_historical_document_url": "",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_rzd_exact_document_refill_gate(path: Path, rows: list[dict[str, object]]) -> Path:
+    gate = path / "exact_document_draft_gate_task137.json"
+    gate.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "exact-document-draft-gate-v2",
+                "gate_rows": rows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return gate
 
 
 def _write_exact_document_draft_gate_inputs(

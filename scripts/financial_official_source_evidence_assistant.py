@@ -62,6 +62,7 @@ MODE_CHOICES = (
     "operator-exact-document-refill-validate-v2",
     "operator-exact-document-refill-apply-draft-v2",
     "exact-document-draft-gate-v2",
+    "rzd-exact-document-url-refill-v2",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -3289,6 +3290,98 @@ EXACT_DOCUMENT_DRAFT_GATE_BLOCKER_FIELDS = [
     "operator_action",
     "safe_hint",
 ]
+RZD_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES = {
+    "refill_json": "rzd_exact_document_refill_task150.json",
+    "refill_csv": "rzd_exact_document_refill_task150.csv",
+    "refill_markdown": "rzd_exact_document_refill_task150.md",
+    "blockers_json": "rzd_exact_document_refill_blockers_task150.json",
+    "blockers_csv": "rzd_exact_document_refill_blockers_task150.csv",
+    "rerun_markdown": "rzd_exact_document_refill_rerun_task150.md",
+}
+RZD_EXACT_DOCUMENT_DEFAULT_URL = "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+RZD_EXACT_DOCUMENT_DEFAULT_TITLE = "Годовая консолидированная отчетность РЖД по МСФО за 2025 год"
+RZD_EXACT_DOCUMENT_DEFAULT_NOTES = (
+    "Official RZD reporting material page under controlled trusted host company.rzd.ru; "
+    "exact document/page candidate only; no fetch/download performed."
+)
+RZD_EXACT_DOCUMENT_REFILL_FIELDS = [
+    "refill_id",
+    "workspace_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "candidate_exact_document_url",
+    "candidate_exact_document_host",
+    "candidate_exact_document_title",
+    "candidate_exact_document_year",
+    "candidate_exact_document_standard",
+    "candidate_exact_document_consolidated",
+    "candidate_exact_document_language",
+    "candidate_exact_document_notes",
+    "source_pack_input_path",
+    "source_pack_input_sha256",
+    "trusted_source_hosts",
+    "trusted_source_context_status",
+    "trusted_source_page_url",
+    "gate_input_path",
+    "gate_input_sha256",
+    "gate_status_before_refill",
+    "gate_reason_codes_before_refill",
+    "apply_blocker_codes_before_refill",
+    "suppressed_apply_blocker_codes_before_refill",
+    "refill_status",
+    "refill_severity",
+    "refill_action",
+    "refill_reason_codes",
+    "refill_errors",
+    "refill_warnings",
+    "accepted_for_future_exact_document_validate",
+    "future_validate_required",
+    "future_apply_draft_required",
+    "future_gate_required",
+    "workspace_status",
+    "workspace_action",
+    "operator_instruction",
+    "READONLY_target_reporting_period",
+    "READONLY_required_report_type",
+    "READONLY_required_standard",
+    "READONLY_required_consolidated",
+    "READONLY_trusted_source_hosts",
+    "READONLY_current_known_source_page_url",
+    "READONLY_latest_historical_document_url",
+    "READONLY_forbidden_url_hint",
+    "operator_fill_exact_document_url",
+    "operator_fill_document_title",
+    "operator_fill_document_publication_date",
+    "operator_fill_document_report_type",
+    "operator_fill_document_accounting_standard",
+    "operator_fill_document_consolidated",
+    "operator_fill_document_language",
+    "operator_fill_notes",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+RZD_EXACT_DOCUMENT_REFILL_BLOCKER_FIELDS = [
+    "blocker_id",
+    "refill_id",
+    "company_id",
+    "company_name",
+    "refill_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
 SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
     "workspace_json": "source_trust_recovery_workspace_task142.json",
     "workspace_csv": "source_trust_recovery_workspace_task142.csv",
@@ -4445,6 +4538,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--exact-document-draft-gate-required-report-type", default="annual")
     parser.add_argument("--exact-document-draft-gate-required-standard", default="IFRS")
     parser.add_argument("--exact-document-draft-gate-required-consolidated", type=_parse_bool, default=True)
+    parser.add_argument("--exact-document-gate-input", type=Path, default=None)
+    parser.add_argument("--source-trust-controlled-source-pack-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-controlled-apply-input", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-url", default=RZD_EXACT_DOCUMENT_DEFAULT_URL)
+    parser.add_argument("--rzd-exact-document-title", default=RZD_EXACT_DOCUMENT_DEFAULT_TITLE)
+    parser.add_argument("--rzd-exact-document-year", default="2025")
+    parser.add_argument("--rzd-exact-document-standard", default="IFRS")
+    parser.add_argument("--rzd-exact-document-consolidated", type=_parse_bool, default=True)
+    parser.add_argument("--rzd-exact-document-language", default="ru")
+    parser.add_argument("--rzd-exact-document-notes", default=RZD_EXACT_DOCUMENT_DEFAULT_NOTES)
+    parser.add_argument("--rzd-exact-document-refill-output", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-refill-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-refill-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-refill-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-refill-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-refill-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-markdown-output", type=Path, default=None)
@@ -4628,6 +4737,8 @@ def run_assistant(
         report = run_operator_exact_document_refill_apply_draft_v2(args)
     elif args.mode == "exact-document-draft-gate-v2":
         report = run_exact_document_draft_gate_v2(args)
+    elif args.mode == "rzd-exact-document-url-refill-v2":
+        report = run_rzd_exact_document_url_refill_v2(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -17463,6 +17574,575 @@ def _failed_exact_document_draft_gate(errors: list[dict[str, Any]]) -> dict[str,
     }
 
 
+def run_rzd_exact_document_url_refill_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_exact_document_refill_inputs(args)
+    artifacts = _rzd_exact_document_refill_artifacts(args)
+    preflight_errors = _rzd_exact_document_refill_output_errors(args, inputs=inputs, artifacts=artifacts)
+    if preflight_errors:
+        return _rzd_exact_document_refill_failed_report(args, inputs=inputs, artifacts=artifacts, errors=preflight_errors)
+
+    warnings: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    gate_rows: list[dict[str, Any]] = []
+    gate_path = inputs["gate"]
+    if gate_path is None or not gate_path.is_file():
+        errors.append({"message": "rzd_exact_document_gate_input_required"})
+    else:
+        try:
+            gate_payload = _load_json_object(gate_path)
+            rows = gate_payload.get("gate_rows")
+            if gate_payload.get("mode") != "exact-document-draft-gate-v2" or not isinstance(rows, list):
+                raise ValueError("gate artifact malformed")
+            if not all(isinstance(row, dict) for row in rows):
+                raise ValueError("gate rows malformed")
+            gate_rows = rows
+        except (OSError, ValueError, json.JSONDecodeError):
+            errors.append({"message": "rzd_exact_document_gate_input_invalid", "path": str(gate_path)})
+
+    source_pack_path = inputs["source_pack"]
+    source_pack_rows: list[dict[str, Any]] = []
+    if source_pack_path is None or not source_pack_path.is_file():
+        warnings.append({"message": "rzd_controlled_source_pack_missing"})
+    else:
+        try:
+            source_pack_rows = _rzd_exact_document_source_pack_rows(_load_json_object(source_pack_path))
+        except (OSError, ValueError, json.JSONDecodeError):
+            warnings.append({"message": "rzd_controlled_source_pack_unreadable", "path": str(source_pack_path)})
+
+    gate_sha256 = _rzd_exact_document_path_sha256(gate_path)
+    source_pack_sha256 = _rzd_exact_document_path_sha256(source_pack_path)
+    row = _build_rzd_exact_document_refill_row(
+        args,
+        gate_rows=gate_rows,
+        gate_path=gate_path,
+        gate_sha256=gate_sha256,
+        source_pack_rows=source_pack_rows,
+        source_pack_path=source_pack_path,
+        source_pack_sha256=source_pack_sha256,
+        required_input_failed=bool(errors),
+    )
+    blocker_rows = [
+        _rzd_exact_document_refill_blocker_row(row)
+        for _ in [row]
+        if row.get("refill_status") != "accepted_future_exact_document_candidate"
+    ]
+    status = "failed" if errors else "warning" if blocker_rows or warnings else "passed"
+    report = _build_rzd_exact_document_refill_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        row=row,
+        blocker_rows=blocker_rows,
+        status=status,
+        warnings=warnings,
+        errors=errors,
+        gate_sha256=gate_sha256,
+        source_pack_sha256=source_pack_sha256,
+    )
+    try:
+        _write_optional_json_report(report, artifacts["refill_json"])
+        _write_optional_flat_csv([row], RZD_EXACT_DOCUMENT_REFILL_FIELDS, artifacts["refill_csv"])
+        if artifacts["refill_markdown"] is not None:
+            write_rzd_exact_document_refill_markdown(report, artifacts["refill_markdown"])
+        _write_optional_json_report(
+            {
+                "status": report["status"],
+                "mode": "rzd-exact-document-url-refill-blockers-v2",
+                "row_count": len(blocker_rows),
+                "blocker_rows": blocker_rows,
+                **_rzd_exact_document_refill_safety_flags(),
+            },
+            artifacts["blockers_json"],
+        )
+        _write_optional_flat_csv(blocker_rows, RZD_EXACT_DOCUMENT_REFILL_BLOCKER_FIELDS, artifacts["blockers_csv"])
+        if artifacts["rerun_markdown"] is not None:
+            write_rzd_exact_document_refill_rerun_markdown(report, artifacts["rerun_markdown"])
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report["errors"], {"message": str(exc)}]
+    return report
+
+
+def _rzd_exact_document_refill_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "gate": args.exact_document_gate_input
+        or args.exact_document_draft_gate_input
+        or (output_dir / EXACT_DOCUMENT_DRAFT_GATE_ARTIFACT_NAMES["gate_json"] if output_dir else None),
+        "source_pack": args.source_trust_controlled_source_pack_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_source_pack_json"] if output_dir else None),
+        "controlled_apply": args.source_trust_recovery_controlled_apply_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_apply_json"] if output_dir else None),
+        "workspace": args.operator_exact_document_refill_workspace_input
+        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES["workspace_json"] if output_dir else None),
+        "template": args.operator_exact_document_refill_input
+        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES["template_csv"] if output_dir else None),
+    }
+
+
+def _rzd_exact_document_refill_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "refill_json": args.rzd_exact_document_refill_output,
+        "refill_csv": args.rzd_exact_document_refill_csv_output,
+        "refill_markdown": args.rzd_exact_document_refill_markdown_output,
+        "blockers_json": args.rzd_exact_document_refill_blockers_output,
+        "blockers_csv": args.rzd_exact_document_refill_blockers_csv_output,
+        "rerun_markdown": args.rzd_exact_document_refill_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in RZD_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES.items()
+    }
+
+
+def _rzd_exact_document_refill_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_exact_document_refill_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "rzd_exact_document_refill_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_exact_document_path_sha256(path: Path | None) -> str:
+    if path is None or not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _rzd_exact_document_source_pack_rows(payload: Any) -> list[dict[str, Any]]:
+    rows = payload
+    if isinstance(payload, dict):
+        rows = payload.get("resolutions")
+        if rows is None:
+            rows = payload.get("rows")
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise ValueError("controlled source pack rows malformed")
+    return rows
+
+
+def _rzd_exact_document_is_rzd_row(row: dict[str, Any]) -> bool:
+    company_id = str(row.get("company_id") or row.get("canonical_company_id") or "")
+    if company_id == "18":
+        return True
+    text = " ".join(
+        str(row.get(field) or "")
+        for field in ("company_name", "canonical_company_name", "issuer_name", "name")
+    ).casefold()
+    return "rzd" in text or "ржд" in text
+
+
+def _rzd_exact_document_select_gate_row(gate_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    rzd_rows = [row for row in gate_rows if _rzd_exact_document_is_rzd_row(row)]
+    if not rzd_rows:
+        return {}
+    for row in rzd_rows:
+        if str(row.get("company_id") or "") == "18":
+            return row
+    return rzd_rows[0]
+
+
+def _rzd_exact_document_select_source_pack_row(source_pack_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    rzd_rows = [row for row in source_pack_rows if _rzd_exact_document_is_rzd_row(row)]
+    if not rzd_rows:
+        return {}
+    for row in rzd_rows:
+        if str(row.get("company_id") or "") == "18":
+            return row
+    return rzd_rows[0]
+
+
+def _rzd_exact_document_trusted_hosts(gate_row: dict[str, Any], source_pack_row: dict[str, Any]) -> list[str]:
+    hosts = [
+        *_financial_document_fetch_list(gate_row.get("trusted_source_hosts")),
+        *_financial_document_fetch_list(gate_row.get("trusted_hosts")),
+        *_financial_document_fetch_list(source_pack_row.get("trusted_source_hosts")),
+        *_financial_document_fetch_list(source_pack_row.get("trusted_hosts")),
+    ]
+    page_host = _host(
+        str(gate_row.get("trusted_source_page_url") or source_pack_row.get("current_known_source_page_url") or "")
+    )
+    if page_host:
+        hosts.append(page_host)
+    return sorted({host for host in hosts if host})
+
+
+def _rzd_exact_document_has_report_context(args: argparse.Namespace) -> bool:
+    text = f"{args.rzd_exact_document_title} {args.rzd_exact_document_notes} {args.rzd_exact_document_standard}".casefold()
+    return _contains_any(
+        text,
+        (
+            "ifrs",
+            "msfo",
+            "annual",
+            "report",
+            "financial",
+            "statements",
+            "consolidated",
+            "мсфо",
+            "годовая",
+            "годовой",
+            "отчетность",
+            "отчётность",
+            "консолидирован",
+            "финансов",
+        ),
+    )
+
+
+def _rzd_exact_document_is_query_document_url(url: str) -> bool:
+    parsed = urllib.parse.urlparse(url)
+    values = [
+        value
+        for raw_values in urllib.parse.parse_qs(parsed.query, keep_blank_values=True).values()
+        for value in raw_values
+    ]
+    return any(Path(str(value)).suffix.casefold() in {".pdf", ".xlsx", ".xls", ".zip"} for value in values)
+
+
+def _rzd_exact_document_static_status(
+    args: argparse.Namespace,
+    *,
+    gate_row: dict[str, Any],
+    source_pack_row: dict[str, Any],
+    trusted_hosts: list[str],
+    required_input_failed: bool,
+) -> tuple[str, list[str], list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    if required_input_failed:
+        return "blocked_unknown_readiness", ["unknown_readiness"], errors, warnings
+    if not gate_row:
+        return "blocked_rzd_gate_row_missing", ["rzd_gate_row_missing"], errors, warnings
+    if str(gate_row.get("gate_status") or "") != "blocked_missing_exact_document_url":
+        return "blocked_rzd_gate_not_waiting_for_exact_document_url", ["rzd_gate_not_waiting_for_exact_document_url"], errors, warnings
+    context_found = _as_bool(gate_row.get("trusted_source_context_found"))
+    context_status = str(gate_row.get("trusted_source_context_status") or "")
+    source_pack_hosts = [
+        *_financial_document_fetch_list(source_pack_row.get("trusted_source_hosts")),
+        *_financial_document_fetch_list(source_pack_row.get("trusted_hosts")),
+    ]
+    source_pack_status = str(source_pack_row.get("source_trust_status") or "")
+    source_pack_confirms = (
+        bool(source_pack_row)
+        and source_pack_status == "controlled_applied_source_trust"
+        and "company.rzd.ru" in source_pack_hosts
+    )
+    if (
+        not context_found
+        or context_status != "controlled_applied_source_trust"
+        or "company.rzd.ru" not in trusted_hosts
+        or not source_pack_confirms
+    ):
+        return (
+            "blocked_rzd_controlled_source_trust_context_missing",
+            ["rzd_controlled_source_trust_context_missing"],
+            errors,
+            warnings,
+        )
+    raw_url = str(args.rzd_exact_document_url or "").strip()
+    if not raw_url:
+        return "blocked_candidate_url_missing", ["candidate_url_missing"], errors, warnings
+    parsed = urllib.parse.urlparse(raw_url)
+    normalized_url = _normalize_candidate_url(raw_url)
+    if not normalized_url:
+        return "blocked_candidate_url_malformed", ["candidate_url_malformed"], errors, warnings
+    if parsed.scheme.casefold() != "https":
+        return "blocked_candidate_url_not_https", ["candidate_url_not_https"], errors, warnings
+    candidate_host = _host(normalized_url)
+    trusted_domains = {_source_trust_registrable_domain(host) for host in trusted_hosts if host}
+    if candidate_host != "company.rzd.ru" or _source_trust_registrable_domain(candidate_host) not in trusted_domains:
+        return "blocked_candidate_host_not_trusted", ["candidate_host_not_trusted"], errors, warnings
+    if Path(parsed.path).suffix.casefold() in {".pdf", ".xlsx", ".xls", ".zip"} or _rzd_exact_document_is_query_document_url(raw_url):
+        return (
+            "blocked_candidate_url_direct_pdf_not_allowed_in_refill",
+            ["candidate_url_direct_pdf_not_allowed_in_refill"],
+            errors,
+            warnings,
+        )
+    if _source_trust_has_archive_or_history_url([normalized_url]):
+        return (
+            "blocked_candidate_url_search_news_archive_social",
+            ["candidate_url_search_news_archive_social"],
+            errors,
+            warnings,
+        )
+    path_query_text = urllib.parse.unquote(f"{parsed.path}?{parsed.query}").casefold()
+    if _contains_any(path_query_text, ("search", "news", "press", "archive", "history", "facebook", "vk.com", "telegram")):
+        return (
+            "blocked_candidate_url_search_news_archive_social",
+            ["candidate_url_search_news_archive_social"],
+            errors,
+            warnings,
+        )
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    if not parsed.path.startswith("/ru/") or not any(str(value).isdigit() for value in query.get("id", [])):
+        return "blocked_candidate_url_malformed", ["candidate_url_malformed"], errors, warnings
+    if str(args.rzd_exact_document_year) != "2025":
+        return "blocked_candidate_year_mismatch", ["candidate_year_mismatch"], errors, warnings
+    if not _rzd_exact_document_has_report_context(args):
+        return "blocked_candidate_report_context_missing", ["candidate_report_context_missing"], errors, warnings
+    return (
+        "accepted_future_exact_document_candidate",
+        [
+            "rzd_exact_document_candidate_static_url_valid",
+            "candidate_host_matches_controlled_source_pack",
+            "candidate_target_year_2025",
+            "candidate_ifrs_context",
+            "candidate_consolidated_context",
+            "candidate_future_gate_only",
+        ],
+        errors,
+        warnings,
+    )
+
+
+def _build_rzd_exact_document_refill_row(
+    args: argparse.Namespace,
+    *,
+    gate_rows: list[dict[str, Any]],
+    gate_path: Path | None,
+    gate_sha256: str,
+    source_pack_rows: list[dict[str, Any]],
+    source_pack_path: Path | None,
+    source_pack_sha256: str,
+    required_input_failed: bool,
+) -> dict[str, Any]:
+    gate_row = _rzd_exact_document_select_gate_row(gate_rows)
+    source_pack_row = _rzd_exact_document_select_source_pack_row(source_pack_rows)
+    trusted_hosts = _rzd_exact_document_trusted_hosts(gate_row, source_pack_row)
+    status, reasons, errors, warnings = _rzd_exact_document_static_status(
+        args,
+        gate_row=gate_row,
+        source_pack_row=source_pack_row,
+        trusted_hosts=trusted_hosts,
+        required_input_failed=required_input_failed,
+    )
+    accepted = status == "accepted_future_exact_document_candidate"
+    normalized_url = _normalize_candidate_url(str(args.rzd_exact_document_url or ""))
+    company_id = str(gate_row.get("company_id") or source_pack_row.get("company_id") or "18")
+    company_name = str(gate_row.get("company_name") or source_pack_row.get("company_name") or "РЖД")
+    canonical_company_id = str(gate_row.get("canonical_company_id") or source_pack_row.get("canonical_company_id") or company_id)
+    canonical_company_name = str(
+        gate_row.get("canonical_company_name") or source_pack_row.get("canonical_company_name") or company_name
+    )
+    workspace_id = str(gate_row.get("workspace_id") or f"operator_exact_document_refill:{company_id}")
+    trusted_source_page_url = str(gate_row.get("trusted_source_page_url") or source_pack_row.get("current_known_source_page_url") or "")
+    return {
+        "refill_id": f"rzd_exact_document_refill:{workspace_id or company_id}:2025",
+        "workspace_id": workspace_id,
+        "company_id": company_id,
+        "company_name": company_name,
+        "canonical_company_id": canonical_company_id,
+        "canonical_company_name": canonical_company_name,
+        "candidate_exact_document_url": normalized_url,
+        "candidate_exact_document_host": _host(normalized_url),
+        "candidate_exact_document_title": str(args.rzd_exact_document_title or ""),
+        "candidate_exact_document_year": str(args.rzd_exact_document_year or ""),
+        "candidate_exact_document_standard": str(args.rzd_exact_document_standard or ""),
+        "candidate_exact_document_consolidated": bool(args.rzd_exact_document_consolidated),
+        "candidate_exact_document_language": str(args.rzd_exact_document_language or ""),
+        "candidate_exact_document_notes": str(args.rzd_exact_document_notes or ""),
+        "source_pack_input_path": _path_value(source_pack_path) or "",
+        "source_pack_input_sha256": source_pack_sha256,
+        "trusted_source_hosts": trusted_hosts,
+        "trusted_source_context_status": str(gate_row.get("trusted_source_context_status") or ""),
+        "trusted_source_page_url": trusted_source_page_url,
+        "gate_input_path": _path_value(gate_path) or "",
+        "gate_input_sha256": gate_sha256,
+        "gate_status_before_refill": str(gate_row.get("gate_status") or ""),
+        "gate_reason_codes_before_refill": _financial_document_fetch_list(gate_row.get("gate_reason_codes")),
+        "apply_blocker_codes_before_refill": _financial_document_fetch_list(gate_row.get("apply_blocker_codes")),
+        "suppressed_apply_blocker_codes_before_refill": _financial_document_fetch_list(
+            gate_row.get("suppressed_apply_blocker_codes")
+        ),
+        "refill_status": status,
+        "refill_severity": "info" if accepted else "warning",
+        "refill_action": "review_future_exact_document_validation_candidate" if accepted else "review_refill_blocker_first",
+        "refill_reason_codes": reasons,
+        "refill_errors": errors,
+        "refill_warnings": warnings,
+        "accepted_for_future_exact_document_validate": accepted,
+        "future_validate_required": accepted,
+        "future_apply_draft_required": accepted,
+        "future_gate_required": accepted,
+        "workspace_status": "ready_for_exact_document_url_refill" if accepted else "blocked_unknown_readiness",
+        "workspace_action": "fill_exact_target_annual_ifrs_document_url" if accepted else "review_fetch_plan_blocker_first",
+        "operator_instruction": "Review this RZD exact document/page URL candidate before Task135 validation.",
+        "READONLY_target_reporting_period": "2025",
+        "READONLY_required_report_type": "annual",
+        "READONLY_required_standard": "IFRS",
+        "READONLY_required_consolidated": True,
+        "READONLY_trusted_source_hosts": trusted_hosts,
+        "READONLY_current_known_source_page_url": trusted_source_page_url,
+        "READONLY_latest_historical_document_url": str(gate_row.get("latest_historical_document_url") or ""),
+        "READONLY_forbidden_url_hint": "Do not use historical fallback, social/search/news/archive URLs, or direct PDFs in this refill step.",
+        "operator_fill_exact_document_url": normalized_url,
+        "operator_fill_document_title": str(args.rzd_exact_document_title or ""),
+        "operator_fill_document_publication_date": "",
+        "operator_fill_document_report_type": "annual",
+        "operator_fill_document_accounting_standard": str(args.rzd_exact_document_standard or "IFRS"),
+        "operator_fill_document_consolidated": bool(args.rzd_exact_document_consolidated),
+        "operator_fill_document_language": str(args.rzd_exact_document_language or ""),
+        "operator_fill_notes": str(args.rzd_exact_document_notes or ""),
+        **_rzd_exact_document_refill_row_safety_flags(),
+    }
+
+
+def _rzd_exact_document_refill_blocker_code(status: str) -> str:
+    return {
+        "blocked_rzd_gate_row_missing": "rzd_gate_row_missing",
+        "blocked_rzd_controlled_source_trust_context_missing": "rzd_controlled_source_trust_context_missing",
+        "blocked_rzd_gate_not_waiting_for_exact_document_url": "rzd_gate_not_waiting_for_exact_document_url",
+        "blocked_candidate_url_missing": "candidate_url_missing",
+        "blocked_candidate_url_malformed": "candidate_url_malformed",
+        "blocked_candidate_host_not_trusted": "candidate_host_not_trusted",
+        "blocked_candidate_url_not_https": "candidate_url_not_https",
+        "blocked_candidate_url_direct_pdf_not_allowed_in_refill": "candidate_url_direct_pdf_not_allowed_in_refill",
+        "blocked_candidate_url_search_news_archive_social": "candidate_url_search_news_archive_social",
+        "blocked_candidate_year_mismatch": "candidate_year_mismatch",
+        "blocked_candidate_report_context_missing": "candidate_report_context_missing",
+        "blocked_unknown_readiness": "unknown_readiness",
+    }.get(status, "unknown_readiness")
+
+
+def _rzd_exact_document_refill_blocker_row(row: dict[str, Any]) -> dict[str, Any]:
+    code = _rzd_exact_document_refill_blocker_code(str(row.get("refill_status") or ""))
+    return {
+        "blocker_id": f"rzd_exact_document_refill_blocker:{row.get('refill_id')}:{code}",
+        "refill_id": row.get("refill_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "refill_status": row.get("refill_status") or "",
+        "blocker_code": code,
+        "blocker_severity": "warning",
+        "operator_action": "review_refill_blocker_first",
+        "safe_hint": "Resolve this blocker locally; Task150 does not probe, fetch, download, or mutate intake.",
+    }
+
+
+def _build_rzd_exact_document_refill_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    row: dict[str, Any],
+    blocker_rows: list[dict[str, Any]],
+    status: str,
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    gate_sha256: str,
+    source_pack_sha256: str,
+) -> dict[str, Any]:
+    accepted = row.get("refill_status") == "accepted_future_exact_document_candidate"
+    return {
+        "status": status,
+        "mode": "rzd-exact-document-url-refill-v2",
+        "row_count": 1,
+        "accepted_candidate_count": 1 if accepted else 0,
+        "blocked_count": len(blocker_rows),
+        "failed_count": 1 if status == "failed" else 0,
+        "candidate_exact_document_url": row.get("candidate_exact_document_url") or "",
+        "candidate_exact_document_title": row.get("candidate_exact_document_title") or "",
+        "candidate_exact_document_year": row.get("candidate_exact_document_year") or "",
+        "candidate_exact_document_standard": row.get("candidate_exact_document_standard") or "",
+        "candidate_exact_document_consolidated": row.get("candidate_exact_document_consolidated"),
+        "source_pack_input_path": row.get("source_pack_input_path") or "",
+        "source_pack_input_sha256": source_pack_sha256,
+        "gate_input_path": row.get("gate_input_path") or "",
+        "gate_input_sha256": gate_sha256,
+        "inputs": {key: _path_value(path) for key, path in inputs.items()},
+        "artifacts": {key: _path_value(path) for key, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "refill_rows": [row],
+        "blocker_rows": blocker_rows,
+        "next_steps": _next_steps("rzd-exact-document-url-refill-v2", status),
+        **_rzd_exact_document_refill_safety_flags(),
+    }
+
+
+def _rzd_exact_document_refill_failed_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    row = _build_rzd_exact_document_refill_row(
+        args,
+        gate_rows=[],
+        gate_path=inputs.get("gate"),
+        gate_sha256="",
+        source_pack_rows=[],
+        source_pack_path=inputs.get("source_pack"),
+        source_pack_sha256="",
+        required_input_failed=True,
+    )
+    return _build_rzd_exact_document_refill_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        row=row,
+        blocker_rows=[_rzd_exact_document_refill_blocker_row(row)],
+        status="failed",
+        warnings=[],
+        errors=errors,
+        gate_sha256="",
+        source_pack_sha256="",
+    )
+
+
+def _rzd_exact_document_refill_row_safety_flags() -> dict[str, Any]:
+    return {
+        "would_probe_url": False,
+        "would_fetch_url": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _rzd_exact_document_refill_safety_flags() -> dict[str, Any]:
+    return {
+        "read_only": False,
+        "dry_run_only": True,
+        "production_source_pack_modified": False,
+        "controlled_source_pack_modified": False,
+        "document_intake_modified": False,
+        "would_probe_urls": False,
+        "would_fetch_urls": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -25491,6 +26171,16 @@ def write_exact_document_draft_gate_markdown(report: dict[str, Any], path: Path)
     path.write_text(render_exact_document_draft_gate_markdown(report), encoding="utf-8")
 
 
+def write_rzd_exact_document_refill_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_exact_document_refill_markdown(report), encoding="utf-8")
+
+
+def write_rzd_exact_document_refill_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_exact_document_refill_rerun_markdown(report), encoding="utf-8")
+
+
 def write_source_trust_recovery_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_source_trust_recovery_markdown(report), encoding="utf-8")
@@ -25710,6 +26400,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_operator_exact_document_refill_apply_markdown(report)
     if report.get("mode") == "exact-document-draft-gate-v2":
         return render_exact_document_draft_gate_markdown(report)
+    if report.get("mode") == "rzd-exact-document-url-refill-v2":
+        return render_rzd_exact_document_refill_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -28265,6 +28957,105 @@ def render_exact_document_draft_gate_markdown(report: dict[str, Any]) -> str:
             "",
         ]
     )
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_exact_document_refill_markdown(report: dict[str, Any]) -> str:
+    rows = report.get("refill_rows") or []
+    blockers = report.get("blocker_rows") or []
+    row = rows[0] if rows else {}
+    lines = [
+        "# RZD Exact Document URL Refill v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- accepted candidates: {report.get('accepted_candidate_count', 0)}",
+        f"- blockers: {report.get('blocked_count', 0)}",
+        f"- candidate URL: `{report.get('candidate_exact_document_url', '')}`",
+        "",
+        "## Source Trust Context",
+        "",
+        f"- controlled source-pack: `{report.get('source_pack_input_path', '')}`",
+        f"- source-pack SHA-256: `{report.get('source_pack_input_sha256', '')}`",
+        f"- trusted hosts: `{_csv_value(row.get('trusted_source_hosts'))}`",
+        f"- trusted source page: `{row.get('trusted_source_page_url') or ''}`",
+        f"- gate before refill: `{row.get('gate_status_before_refill') or ''}`",
+        f"- gate reasons before refill: `{_csv_value(row.get('gate_reason_codes_before_refill'))}`",
+        "",
+        "## Refill Candidate",
+        "",
+        f"- refill status: `{row.get('refill_status') or ''}`",
+        f"- host: `{row.get('candidate_exact_document_host') or ''}`",
+        f"- title: `{row.get('candidate_exact_document_title') or ''}`",
+        f"- year: `{row.get('candidate_exact_document_year') or ''}`",
+        f"- standard: `{row.get('candidate_exact_document_standard') or ''}`",
+        f"- consolidated: `{row.get('candidate_exact_document_consolidated')}`",
+        f"- reason codes: `{_csv_value(row.get('refill_reason_codes'))}`",
+        "",
+        "## Blockers",
+        "",
+    ]
+    if blockers:
+        lines.extend(
+            f"- `{blocker.get('blocker_code')}` for `{blocker.get('company_name')}`: {blocker.get('safe_hint')}"
+            for blocker in blockers
+        )
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates an exact document/page URL refill candidate only.",
+            "- This task does not probe the URL.",
+            "- This task does not fetch the page.",
+            "- This task does not download reports.",
+            "- This task does not parse reports.",
+            "- This task does not mutate production document intake.",
+            "- This task does not mutate the database.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_exact_document_refill_rerun_markdown(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    inputs = report.get("inputs") or {}
+    refill_csv = str(artifacts.get("refill_csv") or "rzd_exact_document_refill_task150.csv")
+    gate_path = str(inputs.get("gate") or "")
+    output_dir = str(Path(gate_path).parent) if gate_path else "logs/financial_reports/task124_chain_preview"
+    lines = [
+        "# RZD Exact Document URL Refill v2 Rerun",
+        "",
+        "## Rerun Task150",
+        "",
+        "```bash",
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode rzd-exact-document-url-refill-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+        "```",
+        "",
+        "## Future Validation Step",
+        "",
+        "Not run by Task150.",
+        "",
+        "```bash",
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode operator-exact-document-refill-validate-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)} \\",
+        f"  --operator-exact-document-refill-input {_bash_quote(refill_csv)}",
+        "```",
+    ]
     return "\n".join(lines) + "\n"
 
 
@@ -39184,6 +39975,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review the Task136 draft copy and run a later strict document gate before any download, extraction, or import task."]
     if mode == "exact-document-draft-gate-v2":
         return ["Resolve Task137 blockers; rerun the Task132 disk guard immediately before any future controlled document write."]
+    if mode == "rzd-exact-document-url-refill-v2":
+        return ["Review the Task150 RZD refill candidate, then run Task135 validation with the generated Task150 CSV as explicit input."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -39313,6 +40106,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
         return all(
             path is None or not _paths_equal(output_path, path)
             for path in _exact_document_draft_gate_inputs(args).values()
+        )
+    if args.mode == "rzd-exact-document-url-refill-v2":
+        return not _rzd_exact_document_refill_output_errors(
+            args,
+            inputs=_rzd_exact_document_refill_inputs(args),
+            artifacts=_rzd_exact_document_refill_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
