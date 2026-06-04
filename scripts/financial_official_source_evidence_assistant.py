@@ -64,6 +64,7 @@ MODE_CHOICES = (
     "exact-document-draft-gate-v2",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
+    "source-trust-recovery-apply-draft-v2",
     "backup-retention-preview",
     "backup-retention-apply-draft-preview",
     "backup-retention-controlled-apply",
@@ -3467,6 +3468,93 @@ SOURCE_TRUST_RECOVERY_VALIDATION_BLOCKER_FIELDS = [
     "operator_action",
     "safe_hint",
 ]
+SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES = {
+    "apply_json": "source_trust_recovery_apply_draft_task145.json",
+    "apply_csv": "source_trust_recovery_apply_draft_task145.csv",
+    "apply_markdown": "source_trust_recovery_apply_draft_task145.md",
+    "blockers_json": "source_trust_recovery_apply_blockers_task145.json",
+    "blockers_csv": "source_trust_recovery_apply_blockers_task145.csv",
+    "source_pack_draft_json": "source_trust_recovery_source_pack_draft_task145.json",
+    "source_pack_draft_summary_csv": "source_trust_recovery_source_pack_draft_summary_task145.csv",
+    "rerun_markdown": "source_trust_recovery_apply_rerun_task145.md",
+}
+SOURCE_TRUST_RECOVERY_APPLY_FIELDS = [
+    "apply_id",
+    "accepted_candidate_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "official_source_page_url",
+    "source_page_title",
+    "source_page_language",
+    "source_page_notes",
+    "source_page_host",
+    "source_page_registrable_domain",
+    "baseline_source_pack_company_found",
+    "baseline_existing_trusted_hosts",
+    "baseline_existing_current_known_source_page_url",
+    "baseline_existing_current_known_document_url",
+    "candidate_source_page_url",
+    "candidate_source_host",
+    "candidate_source_registrable_domain",
+    "candidate_source_status",
+    "candidate_source_reason_codes",
+    "apply_status",
+    "apply_severity",
+    "apply_action",
+    "apply_reason_codes",
+    "apply_errors",
+    "apply_warnings",
+    "draft_mutation_status",
+    "draft_path",
+    "source_pack_input_sha256",
+    "source_pack_draft_sha256",
+    "would_trust_source_url",
+    "would_update_production_source_pack",
+    "would_update_source_pack_draft",
+    "would_update_document_intake",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+SOURCE_TRUST_RECOVERY_APPLY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "apply_id",
+    "accepted_candidate_id",
+    "validation_id",
+    "recovery_id",
+    "company_id",
+    "company_name",
+    "apply_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+SOURCE_TRUST_RECOVERY_SOURCE_PACK_DRAFT_SUMMARY_FIELDS = [
+    "apply_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "apply_status",
+    "candidate_source_page_url",
+    "candidate_source_host",
+    "candidate_source_status",
+    "would_trust_source_url",
+    "would_update_production_source_pack",
+    "would_update_source_pack_draft",
+]
 SOURCE_TRUST_TWO_PART_PUBLIC_SUFFIXES = {
     "co.uk",
     "com.au",
@@ -3975,6 +4063,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-trust-recovery-validation-blockers-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-validation-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-validation-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-accepted-candidates-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-validation-blockers-input", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-apply-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-apply-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-apply-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-source-pack-draft-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-source-pack-draft-summary-csv-output", type=Path, default=None)
+    parser.add_argument("--source-trust-recovery-apply-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--run-document-intake-fill", type=_parse_bool, default=False)
     parser.add_argument("--run-document-intake-validate", type=_parse_bool, default=False)
     parser.add_argument("--document-intake-validation-json-output", type=Path, default=None)
@@ -4095,6 +4194,8 @@ def run_assistant(
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
         report = run_source_trust_recovery_validate_v2(args)
+    elif args.mode == "source-trust-recovery-apply-draft-v2":
+        report = run_source_trust_recovery_apply_draft_v2(args)
     elif args.mode == "backup-retention-preview":
         report = run_backup_retention_preview(args)
     elif args.mode == "backup-retention-apply-draft-preview":
@@ -18141,6 +18242,790 @@ def _source_trust_recovery_validation_safety_flags() -> dict[str, Any]:
     }
 
 
+def run_source_trust_recovery_apply_draft_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _source_trust_recovery_apply_inputs(args)
+    artifacts = _source_trust_recovery_apply_artifacts(args)
+    preflight_errors = _source_trust_recovery_apply_preflight_errors(args, inputs=inputs, artifacts=artifacts)
+    if preflight_errors:
+        return _failed_source_trust_recovery_apply(preflight_errors)
+
+    required_errors = _source_trust_recovery_apply_required_input_errors(inputs)
+    if required_errors:
+        return _failed_source_trust_recovery_apply(required_errors)
+
+    warnings: list[dict[str, Any]] = []
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    try:
+        validation_report, validation_bytes = _source_trust_recovery_apply_load_json_input(
+            inputs["validation"],
+            expected_mode="source-trust-recovery-validate-v2",
+        )
+        accepted_report, accepted_bytes = _source_trust_recovery_apply_load_json_input(
+            inputs["accepted_candidates"],
+            expected_mode="source-trust-recovery-accepted-candidates-v2",
+        )
+        source_pack_bytes = inputs["source_pack"].read_bytes()  # type: ignore[union-attr]
+        source_pack_payload, source_rows = _load_operator_resolution_source_pack_payload(inputs["source_pack"])  # type: ignore[arg-type]
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _failed_source_trust_recovery_apply(
+            [{"message": f"source_trust_recovery_apply_input_unreadable:{exc}"}]
+        )
+
+    for role, path, data in (
+        ("validation", inputs["validation"], validation_bytes),
+        ("accepted_candidates", inputs["accepted_candidates"], accepted_bytes),
+        ("source_pack", inputs["source_pack"], source_pack_bytes),
+    ):
+        if path is not None:
+            snapshots[path] = data
+            input_hashes[f"{role}_input_sha256"] = hashlib.sha256(data).hexdigest()
+
+    validation_rows = validation_report.get("validation_rows")
+    if not isinstance(validation_rows, list) or not all(isinstance(row, dict) for row in validation_rows):
+        return _failed_source_trust_recovery_apply(
+            [{"message": "source_trust_recovery_apply_validation_input_required"}]
+        )
+    accepted_rows = accepted_report.get("accepted_candidate_rows")
+    if accepted_rows is None:
+        accepted_rows = accepted_report.get("rows")
+    if not isinstance(accepted_rows, list) or not all(isinstance(row, dict) for row in accepted_rows):
+        return _failed_source_trust_recovery_apply(
+            [{"message": "source_trust_recovery_apply_accepted_candidates_input_required"}]
+        )
+
+    validation_blocker_rows = _source_trust_recovery_apply_optional_rows(
+        inputs["validation_blockers"],
+        role="validation_blockers",
+        rows_key="blocker_rows",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    _source_trust_recovery_apply_optional_rows(
+        inputs["template"],
+        role="template",
+        rows_key="rows",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+        allow_csv=True,
+    )
+    _source_trust_recovery_apply_optional_rows(
+        inputs["workspace"],
+        role="workspace",
+        rows_key="recovery_rows",
+        warnings=warnings,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+
+    row_sources = accepted_rows or validation_rows
+    duplicate_conflicts = _source_trust_recovery_apply_duplicate_conflicts(row_sources)
+    apply_rows: list[dict[str, Any]] = []
+    draft_rows = copy.deepcopy(source_rows)
+    for candidate in row_sources:
+        validation = _source_trust_recovery_apply_match_validation(candidate, validation_rows)
+        source_row = _source_trust_recovery_apply_match_source_row(candidate, source_rows)
+        blocker = _source_trust_recovery_apply_match_blocker(candidate, validation_blocker_rows)
+        apply_row = _source_trust_recovery_apply_row(
+            candidate=candidate,
+            validation=validation,
+            source_row=source_row,
+            blocker=blocker,
+            duplicate_conflicts=duplicate_conflicts,
+            source_pack_input_sha256=input_hashes.get("source_pack_input_sha256", ""),
+            draft_path=artifacts["source_pack_draft_json"],
+        )
+        if apply_row["apply_status"] == "draft_candidate_added":
+            draft_row = _source_trust_recovery_apply_match_source_row(candidate, draft_rows)
+            if draft_row is not None:
+                _source_trust_recovery_apply_update_draft_row(draft_row, apply_row)
+        apply_rows.append(apply_row)
+
+    blocker_rows = [
+        _source_trust_recovery_apply_blocker_row(row)
+        for row in apply_rows
+        if not str(row.get("apply_status") or "").startswith("draft_candidate_")
+    ]
+    draft_summary_rows = _source_trust_recovery_apply_draft_summary_rows(apply_rows)
+    report = _build_source_trust_recovery_apply_report(
+        inputs=inputs,
+        artifacts=artifacts,
+        apply_rows=apply_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=[],
+        input_hashes=input_hashes,
+    )
+
+    try:
+        _write_optional_json_report(report, artifacts["apply_json"])
+        _write_optional_flat_csv(apply_rows, SOURCE_TRUST_RECOVERY_APPLY_FIELDS, artifacts["apply_csv"])
+        if artifacts["apply_markdown"] is not None:
+            write_source_trust_recovery_apply_markdown(report, artifacts["apply_markdown"])
+        _write_optional_json_report(
+            {
+                "status": report["status"],
+                "mode": "source-trust-recovery-apply-blockers-v2",
+                "row_count": len(blocker_rows),
+                "blocker_rows": blocker_rows,
+                **_source_trust_recovery_apply_safety_flags(
+                    source_pack_draft_created=False,
+                ),
+            },
+            artifacts["blockers_json"],
+        )
+        _write_optional_flat_csv(
+            blocker_rows,
+            SOURCE_TRUST_RECOVERY_APPLY_BLOCKER_FIELDS,
+            artifacts["blockers_csv"],
+        )
+        if artifacts["source_pack_draft_json"] is not None:
+            write_operator_resolution_source_pack_draft_json(
+                source_pack_payload,
+                draft_rows,
+                artifacts["source_pack_draft_json"],
+            )
+            draft_bytes = artifacts["source_pack_draft_json"].read_bytes()
+            report["source_pack_draft_sha256"] = hashlib.sha256(draft_bytes).hexdigest()
+            report["source_pack_draft_created"] = True
+            report["source_pack_draft_path"] = str(artifacts["source_pack_draft_json"])
+            for row in apply_rows:
+                row["source_pack_draft_sha256"] = report["source_pack_draft_sha256"]
+            _write_optional_json_report(report, artifacts["apply_json"])
+            _write_optional_flat_csv(apply_rows, SOURCE_TRUST_RECOVERY_APPLY_FIELDS, artifacts["apply_csv"])
+        _write_optional_flat_csv(
+            draft_summary_rows,
+            SOURCE_TRUST_RECOVERY_SOURCE_PACK_DRAFT_SUMMARY_FIELDS,
+            artifacts["source_pack_draft_summary_csv"],
+        )
+        if artifacts["rerun_markdown"] is not None:
+            write_source_trust_recovery_apply_rerun_markdown(report, artifacts["rerun_markdown"])
+        if artifacts["apply_markdown"] is not None:
+            write_source_trust_recovery_apply_markdown(report, artifacts["apply_markdown"])
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": str(exc)}]
+
+    drift_errors = _source_trust_recovery_apply_input_drift_errors(snapshots)
+    if drift_errors:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), *drift_errors]
+        report["source_pack_input_preserved"] = False
+    return report
+
+
+def _source_trust_recovery_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "validation": args.source_trust_recovery_validation_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["validation_json"] if output_dir else None),
+        "accepted_candidates": args.source_trust_recovery_accepted_candidates_input
+        or (
+            output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["accepted_candidates_json"]
+            if output_dir
+            else None
+        ),
+        "validation_blockers": args.source_trust_recovery_validation_blockers_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_VALIDATION_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+        "template": args.source_trust_recovery_template_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES["template_csv"] if output_dir else None),
+        "workspace": args.source_trust_recovery_workspace_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES["workspace_json"] if output_dir else None),
+        "source_pack": _source_trust_recovery_source_pack_path(args),
+    }
+
+
+def _source_trust_recovery_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "apply_json": args.source_trust_recovery_apply_output,
+        "apply_csv": args.source_trust_recovery_apply_csv_output,
+        "apply_markdown": args.source_trust_recovery_apply_markdown_output,
+        "blockers_json": args.source_trust_recovery_apply_blockers_output,
+        "blockers_csv": args.source_trust_recovery_apply_blockers_csv_output,
+        "source_pack_draft_json": args.source_trust_recovery_source_pack_draft_output,
+        "source_pack_draft_summary_csv": args.source_trust_recovery_source_pack_draft_summary_csv_output,
+        "rerun_markdown": args.source_trust_recovery_apply_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES.items()
+    }
+
+
+def _source_trust_recovery_apply_required_input_errors(inputs: dict[str, Path | None]) -> list[dict[str, Any]]:
+    required = {
+        "validation": "source_trust_recovery_apply_validation_input_required",
+        "accepted_candidates": "source_trust_recovery_apply_accepted_candidates_input_required",
+        "source_pack": "source_trust_recovery_apply_source_pack_input_required",
+    }
+    errors: list[dict[str, Any]] = []
+    for role, code in required.items():
+        path = inputs.get(role)
+        if path is None or not path.is_file():
+            errors.append({"message": code})
+    return errors
+
+
+def _source_trust_recovery_apply_preflight_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    errors: list[dict[str, Any]] = []
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    for index, output_path in enumerate(outputs):
+        for other in outputs[index + 1 :]:
+            if _paths_equal(output_path, other):
+                errors.append({"message": "source_trust_recovery_apply_output_must_not_equal_input"})
+                return errors
+        for input_path in inputs.values():
+            if input_path is not None and _paths_equal(output_path, input_path):
+                code = (
+                    "source_trust_recovery_apply_draft_must_not_overwrite_source_pack"
+                    if output_path == artifacts.get("source_pack_draft_json")
+                    and inputs.get("source_pack") is not None
+                    and _paths_equal(output_path, inputs["source_pack"])  # type: ignore[arg-type]
+                    else "source_trust_recovery_apply_output_must_not_equal_input"
+                )
+                errors.append({"message": code})
+                return errors
+    return errors
+
+
+def _source_trust_recovery_apply_load_json_input(
+    path: Path | None,
+    *,
+    expected_mode: str,
+) -> tuple[dict[str, Any], bytes]:
+    if path is None:
+        raise ValueError("missing input")
+    data = path.read_bytes()
+    payload = json.loads(data.decode("utf-8"))
+    if not isinstance(payload, dict) or payload.get("mode") != expected_mode:
+        raise ValueError(f"{expected_mode} JSON is malformed")
+    return payload, data
+
+
+def _source_trust_recovery_apply_optional_rows(
+    path: Path | None,
+    *,
+    role: str,
+    rows_key: str,
+    warnings: list[dict[str, Any]],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+    allow_csv: bool = False,
+) -> list[dict[str, Any]]:
+    if path is None or not path.is_file():
+        return []
+    try:
+        data = path.read_bytes()
+        snapshots[path] = data
+        input_hashes[f"{role}_input_sha256"] = hashlib.sha256(data).hexdigest()
+        if allow_csv and path.suffix.casefold() == ".csv":
+            rows, _ = load_operator_resolution_input(path)
+            return rows
+        payload = json.loads(data.decode("utf-8"))
+        rows = payload.get(rows_key) if isinstance(payload, dict) else payload
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError(f"{role} rows missing")
+        return rows
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        warnings.append({"message": f"source_trust_recovery_apply_optional_artifact_unreadable:{role}:{exc}"})
+        return []
+
+
+SOURCE_TRUST_RECOVERY_APPLY_FALSE_FLAGS = (
+    "would_trust_source_url",
+    "would_update_source_pack",
+    "would_update_document_intake",
+    "would_probe_url",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+)
+
+
+def _source_trust_recovery_apply_duplicate_conflicts(rows: list[dict[str, Any]]) -> set[str]:
+    url_to_company: dict[str, str] = {}
+    recovery_to_url: dict[str, str] = {}
+    conflicts: set[str] = set()
+    for row in rows:
+        url = _normalize_candidate_url(
+            str(row.get("official_source_page_url") or row.get("normalized_source_page_url") or "")
+        )
+        company = _company_key(row)
+        recovery_id = str(row.get("recovery_id") or "")
+        if url and company:
+            previous_company = url_to_company.setdefault(url, company)
+            if previous_company != company:
+                conflicts.update({url, company, previous_company})
+        if recovery_id and url:
+            previous_url = recovery_to_url.setdefault(recovery_id, url)
+            if previous_url != url:
+                conflicts.update({recovery_id, url, previous_url})
+    return conflicts
+
+
+def _source_trust_recovery_apply_match_validation(
+    candidate: dict[str, Any],
+    validation_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    keys = (
+        "accepted_candidate_id",
+        "validation_id",
+        "recovery_id",
+    )
+    for key in keys:
+        value = str(candidate.get(key) or "")
+        if value:
+            matches = [row for row in validation_rows if str(row.get(key) or "") == value]
+            if len(matches) == 1:
+                return matches[0]
+    candidate_url = _source_trust_recovery_apply_candidate_url(candidate)
+    for row in validation_rows:
+        if _company_key(row) == _company_key(candidate) and _source_trust_recovery_apply_candidate_url(row) == candidate_url:
+            return row
+    return {}
+
+
+def _source_trust_recovery_apply_match_source_row(
+    candidate: dict[str, Any],
+    rows: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    recovery_id = str(candidate.get("recovery_id") or "")
+    company_key = _company_key(candidate)
+    names = {
+        str(candidate.get("company_name") or "").casefold(),
+        str(candidate.get("canonical_company_name") or "").casefold(),
+    } - {""}
+    matches: list[dict[str, Any]] = []
+    if recovery_id:
+        matches = [row for row in rows if str(row.get("resolution_id") or row.get("recovery_id") or "") == recovery_id]
+        if len(matches) == 1:
+            return matches[0]
+    if company_key:
+        matches = [row for row in rows if _company_key(row) == company_key]
+        if len(matches) == 1:
+            return matches[0]
+    if names:
+        matches = [
+            row
+            for row in rows
+            if {
+                str(row.get("company_name") or "").casefold(),
+                str(row.get("canonical_company_name") or "").casefold(),
+            }
+            - {""}
+            & names
+        ]
+        if len(matches) == 1:
+            return matches[0]
+    return None
+
+
+def _source_trust_recovery_apply_match_blocker(
+    candidate: dict[str, Any],
+    blockers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    for blocker in blockers:
+        if str(candidate.get("validation_id") or "") and str(candidate.get("validation_id") or "") == str(
+            blocker.get("validation_id") or ""
+        ):
+            return blocker
+        if str(candidate.get("recovery_id") or "") and str(candidate.get("recovery_id") or "") == str(
+            blocker.get("recovery_id") or ""
+        ):
+            return blocker
+        if _company_key(candidate) and _company_key(candidate) == _company_key(blocker):
+            return blocker
+    return {}
+
+
+def _source_trust_recovery_apply_candidate_url(row: dict[str, Any]) -> str:
+    return _normalize_candidate_url(
+        str(row.get("official_source_page_url") or row.get("normalized_source_page_url") or "")
+    )
+
+
+def _source_trust_recovery_apply_row(
+    *,
+    candidate: dict[str, Any],
+    validation: dict[str, Any],
+    source_row: dict[str, Any] | None,
+    blocker: dict[str, Any],
+    duplicate_conflicts: set[str],
+    source_pack_input_sha256: str,
+    draft_path: Path | None,
+) -> dict[str, Any]:
+    candidate_url = _source_trust_recovery_apply_candidate_url(candidate)
+    validation_url = _source_trust_recovery_apply_candidate_url(validation)
+    host = _host(candidate_url)
+    domain = _source_trust_registrable_domain(host)
+    source_row = source_row or {}
+    baseline_hosts = _source_trust_recovery_apply_baseline_trusted_hosts(source_row)
+    status = "draft_candidate_added"
+    errors: list[str] = []
+    warnings: list[str] = []
+    reasons: list[str] = []
+    if not validation:
+        status = "blocked_candidate_mismatch"
+        errors.append("candidate_mismatch")
+    elif validation.get("validation_status") != "valid_future_source_page_candidate" or candidate.get(
+        "accepted_candidate_status"
+    ) != "future_source_pack_draft_candidate_only":
+        status = "blocked_validation_not_accepted"
+        errors.append("validation_not_accepted")
+    elif not (
+        _as_bool(candidate.get("accepted_for_future_source_pack_draft"))
+        and _as_bool(candidate.get("future_strict_validation_required"))
+        and _as_bool(candidate.get("future_source_pack_apply_draft_required"))
+        and _as_bool(validation.get("accepted_for_future_source_pack_draft"))
+        and _as_bool(validation.get("future_strict_validation_required"))
+        and _as_bool(validation.get("future_source_pack_apply_draft_required"))
+    ):
+        status = "blocked_validation_not_accepted"
+        errors.append("validation_not_accepted")
+    elif _source_trust_recovery_apply_has_unsafe_flags(candidate) or _source_trust_recovery_apply_has_unsafe_flags(
+        validation
+    ):
+        status = "blocked_candidate_safety_flags"
+        errors.append("candidate_safety_flags")
+    elif not candidate_url or validation_url != candidate_url or _company_key(validation) != _company_key(candidate):
+        status = "blocked_candidate_mismatch"
+        errors.append("candidate_mismatch")
+    elif blocker:
+        status = "blocked_task143_blocker_present"
+        errors.append("task143_blocker_present")
+    elif candidate_url in duplicate_conflicts or str(candidate.get("recovery_id") or "") in duplicate_conflicts:
+        status = "blocked_duplicate_candidate_conflict"
+        errors.append("duplicate_candidate_conflict")
+    elif not source_row:
+        status = "blocked_source_pack_company_missing"
+        errors.append("source_pack_company_missing")
+    else:
+        existing_candidate_url = _normalize_candidate_url(
+            str(
+                source_row.get("candidate_official_source_page_url")
+                or source_row.get("candidate_current_known_source_page_url")
+                or ""
+            )
+        )
+        if existing_candidate_url and existing_candidate_url != candidate_url:
+            status = "blocked_duplicate_candidate_conflict"
+            errors.append("duplicate_candidate_conflict")
+        elif _source_trust_recovery_apply_existing_trusted_host_conflict(source_row, domain):
+            status = "blocked_existing_trusted_host_conflict"
+            errors.append("existing_trusted_host_conflict")
+        elif existing_candidate_url == candidate_url:
+            status = "draft_candidate_already_present"
+            reasons.append("candidate_already_present")
+
+    blocker_code = _source_trust_recovery_apply_blocker_code(status)
+    _append_unique(reasons, blocker_code)
+    if status == "draft_candidate_added":
+        _append_unique(reasons, "source_trust_recovery_task145")
+    for code in _financial_document_fetch_list(candidate.get("accepted_candidate_reason_codes")):
+        _append_unique(reasons, code)
+    changed = status == "draft_candidate_added"
+    return {
+        "apply_id": f"source_trust_recovery_apply:{candidate.get('accepted_candidate_id') or candidate.get('validation_id') or candidate.get('recovery_id') or _company_key(candidate) or 'unknown'}",
+        "accepted_candidate_id": candidate.get("accepted_candidate_id") or "",
+        "validation_id": candidate.get("validation_id") or validation.get("validation_id") or "",
+        "recovery_id": candidate.get("recovery_id") or validation.get("recovery_id") or "",
+        "company_id": candidate.get("company_id") or validation.get("company_id") or "",
+        "company_name": candidate.get("company_name") or validation.get("company_name") or "",
+        "canonical_company_id": candidate.get("canonical_company_id") or validation.get("canonical_company_id") or "",
+        "canonical_company_name": candidate.get("canonical_company_name")
+        or validation.get("canonical_company_name")
+        or "",
+        "official_source_page_url": candidate_url,
+        "source_page_title": candidate.get("source_page_title") or validation.get("operator_fill_source_page_title") or "",
+        "source_page_language": candidate.get("source_page_language")
+        or validation.get("operator_fill_source_page_language")
+        or "",
+        "source_page_notes": candidate.get("source_page_notes") or validation.get("operator_fill_source_page_notes") or "",
+        "source_page_host": host,
+        "source_page_registrable_domain": domain,
+        "baseline_source_pack_company_found": bool(source_row),
+        "baseline_existing_trusted_hosts": baseline_hosts,
+        "baseline_existing_current_known_source_page_url": source_row.get("current_known_source_page_url") or "",
+        "baseline_existing_current_known_document_url": source_row.get("current_known_document_url") or "",
+        "candidate_source_page_url": candidate_url,
+        "candidate_source_host": host,
+        "candidate_source_registrable_domain": domain,
+        "candidate_source_status": "pending_future_controlled_review" if changed or status == "draft_candidate_already_present" else "",
+        "candidate_source_reason_codes": reasons,
+        "apply_status": status,
+        "apply_severity": "info" if status.startswith("draft_candidate_") else "warning",
+        "apply_action": _source_trust_recovery_apply_action(status),
+        "apply_reason_codes": reasons,
+        "apply_errors": errors,
+        "apply_warnings": warnings,
+        "draft_mutation_status": "would_update_draft_copy" if changed else "draft_copy_unchanged",
+        "draft_path": str(draft_path) if draft_path is not None else "",
+        "source_pack_input_sha256": source_pack_input_sha256,
+        "source_pack_draft_sha256": "",
+        **_source_trust_recovery_apply_row_safety_flags(would_update_source_pack_draft=changed),
+    }
+
+
+def _source_trust_recovery_apply_has_unsafe_flags(row: dict[str, Any]) -> bool:
+    return any(_as_bool(row.get(flag)) for flag in SOURCE_TRUST_RECOVERY_APPLY_FALSE_FLAGS)
+
+
+def _source_trust_recovery_apply_baseline_trusted_hosts(source_row: dict[str, Any]) -> list[str]:
+    hosts: set[str] = set()
+    for field in ("trusted_source_hosts", "trusted_hosts"):
+        for value in _financial_document_fetch_list(source_row.get(field)):
+            host = _host(value) if _financial_document_fetch_url_is_http(value) else str(value).casefold()
+            if host:
+                hosts.add(host)
+    current_source = str(source_row.get("current_known_source_page_url") or "")
+    if _financial_document_fetch_url_is_http(current_source):
+        hosts.add(_host(current_source))
+    return sorted(hosts)
+
+
+def _source_trust_recovery_apply_existing_trusted_host_conflict(source_row: dict[str, Any], candidate_domain: str) -> bool:
+    trusted_domains = {
+        _source_trust_registrable_domain(host)
+        for host in _source_trust_recovery_apply_baseline_trusted_hosts(source_row)
+        if host
+    } - {""}
+    return bool(candidate_domain and trusted_domains and candidate_domain not in trusted_domains)
+
+
+def _source_trust_recovery_apply_update_draft_row(draft_row: dict[str, Any], apply_row: dict[str, Any]) -> None:
+    draft_row.update(
+        {
+            "candidate_official_source_page_url": apply_row.get("candidate_source_page_url") or "",
+            "candidate_source_host": apply_row.get("candidate_source_host") or "",
+            "candidate_source_registrable_domain": apply_row.get("candidate_source_registrable_domain") or "",
+            "candidate_source_status": "pending_future_controlled_review",
+            "candidate_source_reason_codes": apply_row.get("candidate_source_reason_codes") or [],
+            "candidate_source_title": apply_row.get("source_page_title") or "",
+            "candidate_source_language": apply_row.get("source_page_language") or "",
+            "candidate_source_notes": apply_row.get("source_page_notes") or "",
+            "candidate_source_recovery_id": apply_row.get("recovery_id") or "",
+            "candidate_source_validation_id": apply_row.get("validation_id") or "",
+            "candidate_source_accepted_candidate_id": apply_row.get("accepted_candidate_id") or "",
+            "candidate_source_created_by_task": "Task145",
+            "candidate_current_known_source_page_url": apply_row.get("candidate_source_page_url") or "",
+            "source_context_status": "source_trust_recovery_candidate_for_future_controlled_review",
+            "operator_source_review_status": "pending_future_controlled_review",
+            "source_context_origin": "source_trust_recovery_apply_draft_task145",
+            "trusted_host_status": "not_trusted_until_future_review",
+            "trusted": False,
+            "trusted_host": False,
+            "ready_for_document_download": False,
+            "ready_for_extraction": False,
+        }
+    )
+
+
+def _source_trust_recovery_apply_blocker_code(status: str) -> str:
+    return {
+        "draft_candidate_added": "draft_candidate_added",
+        "draft_candidate_already_present": "draft_candidate_already_present",
+        "blocked_validation_not_accepted": "validation_not_accepted",
+        "blocked_candidate_safety_flags": "candidate_safety_flags",
+        "blocked_candidate_mismatch": "candidate_mismatch",
+        "blocked_task143_blocker_present": "task143_blocker_present",
+        "blocked_source_pack_company_missing": "source_pack_company_missing",
+        "blocked_duplicate_candidate_conflict": "duplicate_candidate_conflict",
+        "blocked_existing_trusted_host_conflict": "existing_trusted_host_conflict",
+        "blocked_output_collision": "output_collision",
+        "blocked_unknown_readiness": "unknown_readiness",
+    }.get(status, "unknown_readiness")
+
+
+def _source_trust_recovery_apply_action(status: str) -> str:
+    return {
+        "draft_candidate_added": "review_source_pack_draft_candidate",
+        "draft_candidate_already_present": "review_existing_source_pack_draft_candidate",
+        "blocked_validation_not_accepted": "rerun_source_trust_recovery_validation",
+        "blocked_candidate_safety_flags": "repair_task143_safety_flags_before_apply",
+        "blocked_candidate_mismatch": "rerun_task143_validation_and_accepted_candidates",
+        "blocked_task143_blocker_present": "resolve_task143_blocker_first",
+        "blocked_source_pack_company_missing": "repair_baseline_source_pack_company_identity",
+        "blocked_duplicate_candidate_conflict": "resolve_duplicate_source_candidate",
+        "blocked_existing_trusted_host_conflict": "review_existing_trusted_host_before_recovery_apply",
+    }.get(status, "review_apply_blocker")
+
+
+def _source_trust_recovery_apply_blocker_row(row: dict[str, Any]) -> dict[str, Any]:
+    blocker_code = _source_trust_recovery_apply_blocker_code(str(row.get("apply_status") or ""))
+    return {
+        "blocker_id": f"source_trust_recovery_apply_blocker:{row.get('apply_id')}:{blocker_code}",
+        "apply_id": row.get("apply_id") or "",
+        "accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        "validation_id": row.get("validation_id") or "",
+        "recovery_id": row.get("recovery_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "apply_status": row.get("apply_status") or "",
+        "blocker_code": blocker_code,
+        "blocker_severity": row.get("apply_severity") or "warning",
+        "operator_action": row.get("apply_action") or "",
+        "safe_hint": "Task145 writes only a source-pack draft. Resolve the blocker and rerun apply-draft.",
+    }
+
+
+def _source_trust_recovery_apply_draft_summary_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            field: row.get(field)
+            for field in SOURCE_TRUST_RECOVERY_SOURCE_PACK_DRAFT_SUMMARY_FIELDS
+        }
+        for row in rows
+    ]
+
+
+def _source_trust_recovery_apply_row_safety_flags(*, would_update_source_pack_draft: bool) -> dict[str, bool]:
+    return {
+        "would_trust_source_url": False,
+        "would_update_production_source_pack": False,
+        "would_update_source_pack_draft": would_update_source_pack_draft,
+        "would_update_document_intake": False,
+        "would_probe_url": False,
+        "would_fetch_url": False,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _source_trust_recovery_apply_safety_flags(*, source_pack_draft_created: bool) -> dict[str, Any]:
+    return {
+        "read_only": False,
+        "dry_run_only": True,
+        "would_trust_source_urls": False,
+        "would_update_production_source_pack": False,
+        "would_update_source_pack_draft": source_pack_draft_created,
+        "would_update_document_intake": False,
+        "would_probe_urls": False,
+        "would_fetch_urls": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
+def _build_source_trust_recovery_apply_report(
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    apply_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    blocked_count = len(blocker_rows)
+    failed_count = sum(1 for row in apply_rows if str(row.get("apply_status") or "").startswith("failed_"))
+    draft_created = artifacts.get("source_pack_draft_json") is not None and not errors
+    status = "failed" if errors else "passed" if apply_rows and not blocked_count and not warnings else "warning"
+    return {
+        "status": status,
+        "mode": "source-trust-recovery-apply-draft-v2",
+        "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        "row_count": len(apply_rows),
+        "draft_candidate_added_count": sum(1 for row in apply_rows if row.get("apply_status") == "draft_candidate_added"),
+        "draft_candidate_already_present_count": sum(
+            1 for row in apply_rows if row.get("apply_status") == "draft_candidate_already_present"
+        ),
+        "blocked_count": blocked_count,
+        "failed_count": failed_count,
+        "source_pack_draft_created": draft_created,
+        "source_pack_input_preserved": True,
+        "production_source_pack_modified": False,
+        "source_pack_draft_path": _path_value(artifacts.get("source_pack_draft_json")) or "",
+        "source_pack_input_sha256": input_hashes.get("source_pack_input_sha256", ""),
+        "source_pack_draft_sha256": "",
+        "validation_input_sha256": input_hashes.get("validation_input_sha256", ""),
+        "accepted_candidates_input_sha256": input_hashes.get("accepted_candidates_input_sha256", ""),
+        "template_input_sha256": input_hashes.get("template_input_sha256", ""),
+        "workspace_input_sha256": input_hashes.get("workspace_input_sha256", ""),
+        "apply_status_counts": _count_by_key(apply_rows, "apply_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "apply_rows": apply_rows,
+        "blocker_rows": blocker_rows,
+        "warnings": warnings,
+        "errors": errors,
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
+        "next_steps": _next_steps("source-trust-recovery-apply-draft-v2", status),
+        **_source_trust_recovery_apply_safety_flags(source_pack_draft_created=draft_created),
+    }
+
+
+def _failed_source_trust_recovery_apply(errors: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "status": "failed",
+        "mode": "source-trust-recovery-apply-draft-v2",
+        "row_count": 0,
+        "draft_candidate_added_count": 0,
+        "draft_candidate_already_present_count": 0,
+        "blocked_count": 0,
+        "failed_count": 0,
+        "source_pack_draft_created": False,
+        "source_pack_input_preserved": False,
+        "production_source_pack_modified": False,
+        "source_pack_draft_path": "",
+        "source_pack_input_sha256": "",
+        "source_pack_draft_sha256": "",
+        "validation_input_sha256": "",
+        "accepted_candidates_input_sha256": "",
+        "template_input_sha256": "",
+        "workspace_input_sha256": "",
+        "apply_status_counts": {},
+        "blocker_code_counts": {},
+        "apply_rows": [],
+        "blocker_rows": [],
+        "warnings": [],
+        "errors": errors,
+        "artifacts": {},
+        **_source_trust_recovery_apply_safety_flags(source_pack_draft_created=False),
+    }
+
+
+def _source_trust_recovery_apply_input_drift_errors(snapshots: dict[Path, bytes]) -> list[dict[str, Any]]:
+    for path, data in snapshots.items():
+        if path.is_file() and path.read_bytes() != data:
+            code = (
+                "source_trust_recovery_apply_source_pack_drift_detected"
+                if "source_pack" in path.name
+                else "source_trust_recovery_apply_input_drift_detected"
+            )
+            return [{"message": code}]
+    return []
+
+
 def _financial_document_fetch_url_is_http(url: str) -> bool:
     parsed = urllib.parse.urlparse(url)
     return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.netloc)
@@ -20993,6 +21878,16 @@ def write_source_trust_recovery_validation_rerun_markdown(report: dict[str, Any]
     path.write_text(render_source_trust_recovery_validation_rerun_markdown(report), encoding="utf-8")
 
 
+def write_source_trust_recovery_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_apply_markdown(report), encoding="utf-8")
+
+
+def write_source_trust_recovery_apply_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_source_trust_recovery_apply_rerun_markdown(report), encoding="utf-8")
+
+
 def write_seed_csv(issuers: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
@@ -21176,6 +22071,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
         return render_source_trust_recovery_validation_markdown(report)
+    if report.get("mode") == "source-trust-recovery-apply-draft-v2":
+        return render_source_trust_recovery_apply_markdown(report)
     title = (
         "Official-Source Discovery"
         if report.get("mode") == "source-discover"
@@ -24035,6 +24932,179 @@ def _source_trust_recovery_validation_future_apply_command_lines(report: dict[st
     return [
         "python3 scripts/financial_official_source_evidence_assistant.py \\",
         "  --mode source-trust-recovery-apply-draft-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+    ]
+
+
+def render_source_trust_recovery_apply_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Apply Draft v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- rows: {report.get('row_count', 0)}",
+        f"- draft candidates added: {report.get('draft_candidate_added_count', 0)}",
+        f"- draft candidates already present: {report.get('draft_candidate_already_present_count', 0)}",
+        f"- blocked rows: {report.get('blocked_count', 0)}",
+        f"- source-pack draft created: `{report.get('source_pack_draft_created')}`",
+        f"- source-pack draft path: `{report.get('source_pack_draft_path')}`",
+        f"- production source pack modified: `{report.get('production_source_pack_modified')}`",
+        "",
+        "## Input And Draft Hashes",
+        "",
+        f"- source-pack input SHA-256: `{report.get('source_pack_input_sha256')}`",
+        f"- source-pack draft SHA-256: `{report.get('source_pack_draft_sha256')}`",
+        f"- validation input SHA-256: `{report.get('validation_input_sha256')}`",
+        f"- accepted candidates input SHA-256: `{report.get('accepted_candidates_input_sha256')}`",
+        "",
+        "## Apply Status Counts",
+        "",
+    ]
+    lines.extend(_markdown_count_lines(report.get("apply_status_counts") or {}))
+    lines.extend(["", "## Blocker Counts", ""])
+    lines.extend(_markdown_count_lines(report.get("blocker_code_counts") or {}))
+    lines.extend(
+        [
+            "",
+            "## Draft Candidate Rows",
+            "",
+            "| Company | Candidate URL | Host | Status | Action |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("apply_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("candidate_source_page_url"),
+                    row.get("candidate_source_host"),
+                    row.get("apply_status"),
+                    row.get("apply_action"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("apply_rows"):
+        lines.append("| none |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Blockers",
+            "",
+            "| Company | Apply status | Blocker | Operator action |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("blocker_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("company_name") or row.get("company_id"),
+                    row.get("apply_status"),
+                    row.get("blocker_code"),
+                    row.get("operator_action"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("blocker_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    lines.extend(
+        [
+            "",
+            "Future step / not run by Task145:",
+            "",
+            "```bash",
+            *_source_trust_recovery_apply_future_review_command_lines(report),
+            "```",
+            "",
+            "## Safety Notes",
+            "",
+            "- This task creates a source-pack draft only.",
+            "- This task does not make source URLs trusted.",
+            "- This task does not update the production source pack.",
+            "- This task does not update document intake.",
+            "- This task does not search the web.",
+            "- This task does not probe URLs.",
+            "- This task does not fetch source pages.",
+            "- This task does not download reports.",
+            "- This task does not parse reports.",
+            "- This task does not mutate the database.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not score issuers or trigger paper trading.",
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_source_trust_recovery_apply_rerun_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# Source Trust Recovery Apply Draft Rerun Instructions",
+        "",
+        "## Rerun Task145",
+        "",
+        "```bash",
+        *_source_trust_recovery_apply_rerun_command_lines(report),
+        "```",
+        "",
+        "## Generated Draft",
+        "",
+        f"- source-pack draft: `{report.get('source_pack_draft_path')}`",
+        "- The production source pack is unchanged.",
+        "- Manual URLs remain pending candidates only.",
+        "",
+        "## Future Review Step",
+        "",
+        "Future step / not run by Task145:",
+        "",
+        "```bash",
+        *_source_trust_recovery_apply_future_review_command_lines(report),
+        "```",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _source_trust_recovery_apply_output_dir(report: dict[str, Any]) -> str:
+    artifacts = report.get("artifacts") or {}
+    draft = str(artifacts.get("source_pack_draft_json") or report.get("source_pack_draft_path") or "")
+    if draft:
+        return str(Path(draft).parent)
+    inputs = report.get("inputs") or {}
+    validation = str(inputs.get("validation") or "")
+    return str(Path(validation).parent) if validation else "logs/financial_reports/task124_chain_preview"
+
+
+def _source_trust_recovery_apply_rerun_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = _source_trust_recovery_apply_output_dir(report)
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-apply-draft-v2 \\",
+        f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+    ]
+
+
+def _source_trust_recovery_apply_future_review_command_lines(report: dict[str, Any]) -> list[str]:
+    output_dir = _source_trust_recovery_apply_output_dir(report)
+    return [
+        "python3 scripts/financial_official_source_evidence_assistant.py \\",
+        "  --mode source-trust-recovery-draft-review-v2 \\",
         f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
     ]
 
@@ -33881,6 +34951,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
         return ["Review Task143 accepted candidates and blockers; manual source URLs remain candidate-only until a future apply-draft task."]
+    if mode == "source-trust-recovery-apply-draft-v2":
+        return ["Review the Task145 source-pack draft; manual source URLs remain untrusted until a future controlled review/promote step."]
     if mode == "backup-retention-preview":
         return ["Review Task138 rotation candidates manually; this preview never deletes or modifies backup files."]
     if mode == "backup-retention-apply-draft-preview":
@@ -34011,6 +35083,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_source_trust_recovery_validation_inputs(args),
             artifacts=_source_trust_recovery_validation_artifacts(args, template_path),
+        )
+    if args.mode == "source-trust-recovery-apply-draft-v2":
+        return not _source_trust_recovery_apply_preflight_errors(
+            args,
+            inputs=_source_trust_recovery_apply_inputs(args),
+            artifacts=_source_trust_recovery_apply_artifacts(args),
         )
     if args.mode == "backup-retention-preview":
         all_outputs = [

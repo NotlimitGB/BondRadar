@@ -9449,6 +9449,197 @@ def test_source_trust_recovery_validation_never_calls_network_or_delete_helpers(
     assert report["would_delete_files"] is False
 
 
+def test_source_trust_recovery_apply_adds_rzd_candidate_to_source_pack_draft_only(tmp_path: Path) -> None:
+    _write_source_trust_recovery_apply_accepted_fixture(tmp_path)
+    source_pack = tmp_path / "operator_resolution_pack_task118.json"
+    original = source_pack.read_bytes()
+
+    report = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["row_count"] == 1
+    assert report["draft_candidate_added_count"] == 1
+    assert report["blocked_count"] == 0
+    assert report["source_pack_draft_created"] is True
+    assert report["source_pack_input_preserved"] is True
+    assert report["production_source_pack_modified"] is False
+    assert report["would_trust_source_urls"] is False
+    assert report["would_update_production_source_pack"] is False
+    assert report["would_update_source_pack_draft"] is True
+    assert source_pack.read_bytes() == original
+    row = report["apply_rows"][0]
+    assert row["apply_status"] == "draft_candidate_added"
+    assert row["candidate_source_page_url"] == "https://company.rzd.ru/ru/9471"
+    assert row["candidate_source_host"] == "company.rzd.ru"
+    assert row["candidate_source_status"] == "pending_future_controlled_review"
+    assert row["would_trust_source_url"] is False
+    draft = json.loads(Path(report["artifacts"]["source_pack_draft_json"]).read_text(encoding="utf-8"))
+    draft_row = draft["resolutions"][0]
+    assert draft_row["candidate_official_source_page_url"] == "https://company.rzd.ru/ru/9471"
+    assert draft_row["candidate_source_status"] == "pending_future_controlled_review"
+    assert draft_row["trusted"] is False
+    assert draft_row["trusted_host"] is False
+    assert "company.rzd.ru" not in draft_row.get("trusted_source_hosts", [])
+    assert draft_row["current_known_source_page_url"] == ""
+    for key in assistant.SOURCE_TRUST_RECOVERY_APPLY_ARTIFACT_NAMES:
+        assert Path(report["artifacts"][key]).is_file()
+
+
+def test_source_trust_recovery_apply_accepted_count_none_still_uses_rows(tmp_path: Path) -> None:
+    _write_source_trust_recovery_apply_accepted_fixture(tmp_path)
+    accepted_path = tmp_path / "source_trust_recovery_accepted_candidates_task143.json"
+    accepted_payload = json.loads(accepted_path.read_text(encoding="utf-8"))
+    accepted_payload["accepted_candidate_count"] = None
+    accepted_path.write_text(json.dumps(accepted_payload, indent=2) + "\n", encoding="utf-8")
+
+    report = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["row_count"] == 1
+    assert report["draft_candidate_added_count"] == 1
+
+
+def test_source_trust_recovery_apply_blocks_validation_not_accepted(tmp_path: Path) -> None:
+    _write_source_trust_recovery_validation_inputs(tmp_path)
+    _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    _write_source_trust_recovery_apply_source_pack(tmp_path, [_source_trust_recovery_apply_source_pack_row()])
+
+    report = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["apply_rows"][0]["apply_status"] == "blocked_validation_not_accepted"
+    assert report["blocker_rows"][0]["blocker_code"] == "validation_not_accepted"
+
+
+def test_source_trust_recovery_apply_blocks_unsafe_flags_and_mismatch(tmp_path: Path) -> None:
+    unsafe_dir = tmp_path / "unsafe"
+    _write_source_trust_recovery_apply_accepted_fixture(unsafe_dir)
+    accepted_path = unsafe_dir / "source_trust_recovery_accepted_candidates_task143.json"
+    accepted_payload = json.loads(accepted_path.read_text(encoding="utf-8"))
+    accepted_payload["accepted_candidate_rows"][0]["would_fetch_url"] = True
+    accepted_path.write_text(json.dumps(accepted_payload, indent=2) + "\n", encoding="utf-8")
+    unsafe = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(unsafe_dir)])
+    assert unsafe["apply_rows"][0]["apply_status"] == "blocked_candidate_safety_flags"
+
+    mismatch_dir = tmp_path / "mismatch"
+    _write_source_trust_recovery_apply_accepted_fixture(mismatch_dir)
+    accepted_path = mismatch_dir / "source_trust_recovery_accepted_candidates_task143.json"
+    accepted_payload = json.loads(accepted_path.read_text(encoding="utf-8"))
+    accepted_payload["accepted_candidate_rows"][0]["official_source_page_url"] = "https://company.rzd.ru/ru/9999"
+    accepted_path.write_text(json.dumps(accepted_payload, indent=2) + "\n", encoding="utf-8")
+    mismatch = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(mismatch_dir)])
+    assert mismatch["apply_rows"][0]["apply_status"] == "blocked_candidate_mismatch"
+
+
+def test_source_trust_recovery_apply_blocks_source_pack_and_candidate_conflicts(tmp_path: Path) -> None:
+    missing_dir = tmp_path / "missing_company"
+    _write_source_trust_recovery_apply_accepted_fixture(missing_dir)
+    _write_source_trust_recovery_apply_source_pack(missing_dir, [])
+    missing = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(missing_dir)])
+    assert missing["apply_rows"][0]["apply_status"] == "blocked_source_pack_company_missing"
+
+    conflict_dir = tmp_path / "candidate_conflict"
+    _write_source_trust_recovery_apply_accepted_fixture(conflict_dir)
+    _write_source_trust_recovery_apply_source_pack(
+        conflict_dir,
+        [
+            _source_trust_recovery_apply_source_pack_row(
+                candidate_official_source_page_url="https://company.rzd.ru/ru/1234",
+                candidate_source_status="pending_future_controlled_review",
+            )
+        ],
+    )
+    conflict = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(conflict_dir)])
+    assert conflict["apply_rows"][0]["apply_status"] == "blocked_duplicate_candidate_conflict"
+
+    trusted_conflict_dir = tmp_path / "trusted_conflict"
+    _write_source_trust_recovery_apply_accepted_fixture(trusted_conflict_dir)
+    _write_source_trust_recovery_apply_source_pack(
+        trusted_conflict_dir,
+        [_source_trust_recovery_apply_source_pack_row(trusted_source_hosts=["different.example"])],
+    )
+    trusted_conflict = _run_source_trust_recovery_apply(
+        ["--operator-resolution-chain-output-dir", str(trusted_conflict_dir)]
+    )
+    assert trusted_conflict["apply_rows"][0]["apply_status"] == "blocked_existing_trusted_host_conflict"
+
+
+def test_source_trust_recovery_apply_is_idempotent_for_existing_candidate(tmp_path: Path) -> None:
+    _write_source_trust_recovery_apply_accepted_fixture(tmp_path)
+    _write_source_trust_recovery_apply_source_pack(
+        tmp_path,
+        [
+            _source_trust_recovery_apply_source_pack_row(
+                candidate_official_source_page_url="https://company.rzd.ru/ru/9471",
+                candidate_source_status="pending_future_controlled_review",
+            )
+        ],
+    )
+
+    report = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["apply_rows"][0]["apply_status"] == "draft_candidate_already_present"
+    assert report["draft_candidate_added_count"] == 0
+    assert report["draft_candidate_already_present_count"] == 1
+
+
+def test_source_trust_recovery_apply_output_collisions_fail_safely(tmp_path: Path) -> None:
+    _write_source_trust_recovery_apply_accepted_fixture(tmp_path)
+    source_pack = tmp_path / "operator_resolution_pack_task118.json"
+    original = source_pack.read_bytes()
+
+    output_collision = _run_source_trust_recovery_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--source-trust-recovery-apply-output",
+            str(tmp_path / "source_trust_recovery_validation_task143.json"),
+        ]
+    )
+    assert output_collision["status"] == "failed"
+    assert output_collision["errors"] == [{"message": "source_trust_recovery_apply_output_must_not_equal_input"}]
+
+    draft_collision = _run_source_trust_recovery_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--source-trust-recovery-source-pack-draft-output",
+            str(source_pack),
+        ]
+    )
+    assert draft_collision["status"] == "failed"
+    assert draft_collision["errors"] == [
+        {"message": "source_trust_recovery_apply_draft_must_not_overwrite_source_pack"}
+    ]
+    assert source_pack.read_bytes() == original
+
+
+def test_source_trust_recovery_apply_never_calls_network_or_delete_helpers(tmp_path: Path, monkeypatch) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task145 must not probe, fetch, download, parse, delete, or trade")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _write_source_trust_recovery_apply_accepted_fixture(tmp_path)
+
+    report = _run_source_trust_recovery_apply(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["would_trust_source_urls"] is False
+    assert report["would_update_production_source_pack"] is False
+    assert report["would_update_document_intake"] is False
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+
+
 def test_exact_document_source_coverage_weak_no_reviewed_seed(
     tmp_path: Path,
     monkeypatch,
@@ -14770,6 +14961,19 @@ def _run_source_trust_recovery_validation(extra_args: list[str] | None = None) -
     return report
 
 
+def _run_source_trust_recovery_apply(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "source-trust-recovery-apply-draft-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _source_trust_recovery_gate_row(**updates: object) -> dict[str, object]:
     row: dict[str, object] = {
         "gate_id": "exact_document_draft_gate:67:2025",
@@ -14928,6 +15132,58 @@ def _write_source_trust_recovery_validation_inputs(
         + "\n",
         encoding="utf-8",
     )
+
+
+def _source_trust_recovery_apply_source_pack_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "resolution_id": "source_trust_recovery:18:2025",
+        "company_id": "18",
+        "company_name": "RZD",
+        "canonical_company_id": "18",
+        "canonical_company_name": "RZD",
+        "current_known_source_page_url": "",
+        "current_known_document_url": "",
+        "trusted_source_hosts": [],
+        "trusted_hosts": [],
+    }
+    row.update(updates)
+    return row
+
+
+def _write_source_trust_recovery_apply_source_pack(path: Path, rows: list[dict[str, object]]) -> Path:
+    output = path / "operator_resolution_pack_task118.json"
+    output.write_text(
+        json.dumps(
+            {
+                "status": "warning",
+                "mode": "operator-resolution-pack",
+                "resolutions": rows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return output
+
+
+def _write_source_trust_recovery_apply_accepted_fixture(path: Path) -> dict:
+    _write_source_trust_recovery_validation_inputs(
+        path,
+        template_updates={
+            "operator_fill_official_source_page_url": "https://company.rzd.ru/ru/9471",
+            "operator_fill_source_page_title": "Отчетность РЖД",
+            "operator_fill_source_page_language": "ru",
+            "operator_fill_source_page_notes": (
+                "Official RZD reporting hub/source page with links to IFRS/RAS reporting materials; "
+                "source trust candidate only."
+            ),
+        },
+    )
+    validation_report = _run_source_trust_recovery_validation(["--operator-resolution-chain-output-dir", str(path)])
+    _write_source_trust_recovery_apply_source_pack(path, [_source_trust_recovery_apply_source_pack_row()])
+    return validation_report
 
 
 def _exact_document_draft_gate_placeholder_document(**updates: object) -> dict[str, object]:
