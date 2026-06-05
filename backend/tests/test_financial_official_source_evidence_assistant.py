@@ -9206,6 +9206,350 @@ def test_rzd_exact_document_fetch_plan_detects_per_input_drift_after_artifact_wr
     assert persisted["input_bytes_unchanged"] is False
 
 
+def test_rzd_controlled_page_fetch_missing_token_blocks_without_fetch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+
+    def unexpected_fetch(*args, **kwargs):
+        raise AssertionError("Task155 must not fetch without exact token")
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", unexpected_fetch)
+    report = _run_rzd_controlled_page_fetch(
+        _rzd_controlled_page_fetch_gate_args(paths, token="")
+    )
+
+    assert report["status"] == "blocked"
+    assert report["token_provided"] is False
+    assert report["token_matched"] is False
+    assert report["controlled_page_fetch_execution_enabled"] is False
+    assert report["pages_fetched"] is False
+    assert report["would_fetch_pages"] is False
+    assert report["raw_html_path"] == ""
+    assert report["blocker_rows"][0]["blocker_code"] == "token_required"
+    assert not (tmp_path / "rzd_controlled_page_fetch_raw_task155.html").exists()
+    assert not (tmp_path / "rzd_controlled_page_fetch_hash_manifest_task155.json").exists()
+    for field in _rzd_controlled_page_fetch_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+
+
+def test_rzd_controlled_page_fetch_wrong_token_does_not_leak(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+    wrong_token = "WRONG_TOKEN_DO_NOT_LEAK"
+
+    def unexpected_fetch(*args, **kwargs):
+        raise AssertionError("Task155 must not fetch with wrong token")
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", unexpected_fetch)
+    report = _run_rzd_controlled_page_fetch(
+        _rzd_controlled_page_fetch_gate_args(paths, token=wrong_token)
+    )
+
+    assert report["status"] == "blocked"
+    assert report["token_provided"] is True
+    assert report["token_matched"] is False
+    assert report["blocker_rows"][0]["blocker_code"] == "token_mismatch"
+    for path in tmp_path.iterdir():
+        if path.is_file() and path.suffix in {".json", ".csv", ".md"}:
+            assert wrong_token not in path.read_text(encoding="utf-8")
+
+
+def test_rzd_controlled_page_fetch_valid_fetch_writes_html_and_discovers_links(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+    snapshots = {path: path.read_bytes() for path in paths.values()}
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task155 must not use document/network/delete helpers outside its controlled GET")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    html = """
+    <html><body>
+      <a href="/files/rzd-2025-ifrs-consolidated-report.pdf" title="IFRS">Annual 2025 consolidated report</a>
+      <a href="/ru/investors/reports">Reports</a>
+      <a href="https://example.com/external">External</a>
+      <a href="#top">Top</a>
+    </body></html>
+    """.encode("utf-8")
+
+    def controlled_fetch(url, *, timeout_seconds, max_bytes, user_agent):
+        assert url == assistant.RZD_EXACT_DOCUMENT_DEFAULT_URL
+        return {
+            "status": "ok",
+            "final_url": url,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "safe_response_headers": {"content-type": "text/html; charset=utf-8"},
+            "raw_bytes": html,
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", controlled_fetch)
+    report = _run_rzd_controlled_page_fetch(_rzd_controlled_page_fetch_gate_args(paths))
+
+    assert report["status"] == "passed"
+    assert report["controlled_page_fetch_execution_enabled"] is True
+    assert report["token_matched"] is True
+    assert report["expected_plan_sha256_matches"] is True
+    assert report["expected_gate_sha256_matches"] is True
+    assert report["page_fetched_count"] == 1
+    assert report["html_snapshot_written_count"] == 1
+    assert report["raw_html_sha256"] == hashlib.sha256(html).hexdigest()
+    assert report["link_row_count"] == 4
+    assert report["document_candidate_count"] >= 1
+    assert report["would_fetch_pages"] is True
+    assert report["pages_fetched"] is True
+    assert report["would_download_documents"] is False
+    assert report["documents_downloaded"] is False
+    assert report["would_parse_documents"] is False
+    assert report["documents_parsed"] is False
+    candidate = report["document_candidate_rows"][0]
+    assert candidate["candidate_url"].endswith(".pdf")
+    assert candidate["would_download_candidate"] is False
+    assert candidate["would_parse_candidate"] is False
+    assert (tmp_path / "rzd_controlled_page_fetch_raw_task155.html").read_bytes() == html
+    manifest = json.loads((tmp_path / "rzd_controlled_page_fetch_hash_manifest_task155.json").read_text(encoding="utf-8"))
+    assert manifest["raw_html_sha256"] == hashlib.sha256(html).hexdigest()
+    assert "FETCH_RZD_PAGE_TASK155" not in json.dumps(manifest)
+    for path, content in snapshots.items():
+        assert path.read_bytes() == content
+    for field in _rzd_controlled_page_fetch_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+    for filename in assistant.RZD_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES.values():
+        assert (tmp_path / filename).is_file()
+
+
+@pytest.mark.parametrize(
+    ("response", "expected_blocker"),
+    [
+        (
+            {
+                "status": "ok",
+                "final_url": "https://example.com/",
+                "http_status_code": 200,
+                "content_type": "text/html",
+                "redirect_chain": ["https://example.com/"],
+                "raw_bytes": b"<html></html>",
+            },
+            "page_fetch_redirect_host_not_allowed",
+        ),
+        (
+            {
+                "status": "ok",
+                "final_url": assistant.RZD_EXACT_DOCUMENT_DEFAULT_URL,
+                "http_status_code": 200,
+                "content_type": "application/pdf",
+                "redirect_chain": [],
+                "raw_bytes": b"%PDF",
+            },
+            "page_fetch_non_html_content_type",
+        ),
+        (
+            {"status": "error", "error_code": "page_fetch_size_limit_exceeded"},
+            "page_fetch_size_limit_exceeded",
+        ),
+    ],
+)
+def test_rzd_controlled_page_fetch_response_blockers_do_not_write_raw_html(
+    tmp_path: Path,
+    monkeypatch,
+    response: dict,
+    expected_blocker: str,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", lambda *args, **kwargs: response)
+
+    report = _run_rzd_controlled_page_fetch(_rzd_controlled_page_fetch_gate_args(paths))
+
+    assert report["status"] == "failed"
+    assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+    assert report["pages_fetched"] is False
+    assert report["documents_downloaded"] is False
+    assert not (tmp_path / "rzd_controlled_page_fetch_raw_task155.html").exists()
+    assert not (tmp_path / "rzd_controlled_page_fetch_hash_manifest_task155.json").exists()
+
+
+def test_rzd_controlled_page_fetch_no_candidates_is_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_page_fetch_http_get",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "final_url": assistant.RZD_EXACT_DOCUMENT_DEFAULT_URL,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "raw_bytes": b"<html><body>No candidate links</body></html>",
+        },
+    )
+
+    report = _run_rzd_controlled_page_fetch(_rzd_controlled_page_fetch_gate_args(paths))
+
+    assert report["status"] == "warning"
+    assert report["rzd_page_fetched"] is True
+    assert report["document_candidate_count"] == 0
+    assert report["warnings"] == [{"message": "no_candidate_document_links_discovered"}]
+
+
+@pytest.mark.parametrize(
+    ("content_type", "raw_output_is_directory", "expected_blocker"),
+    [
+        ("text/html; charset=not-a-real-codec", False, "page_fetch_decode_failed"),
+        ("text/html; charset=utf-8", True, "page_fetch_write_failed"),
+    ],
+)
+def test_rzd_controlled_page_fetch_decode_and_write_failures_stop_discovery(
+    tmp_path: Path,
+    monkeypatch,
+    content_type: str,
+    raw_output_is_directory: bool,
+    expected_blocker: str,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_page_fetch_http_get",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "final_url": assistant.RZD_EXACT_DOCUMENT_DEFAULT_URL,
+            "http_status_code": 200,
+            "content_type": content_type,
+            "redirect_chain": [],
+            "raw_bytes": b"<html><body><a href='/report.pdf'>Report</a></body></html>",
+        },
+    )
+    extra = _rzd_controlled_page_fetch_gate_args(paths)
+    if raw_output_is_directory:
+        raw_dir = tmp_path / "raw-output-directory"
+        raw_dir.mkdir()
+        extra.extend(["--rzd-controlled-page-fetch-html-output", str(raw_dir)])
+
+    report = _run_rzd_controlled_page_fetch(extra)
+
+    assert report["status"] == "failed"
+    assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+    assert report["rzd_page_fetched"] is True
+    assert report["rzd_html_snapshot_written"] is False
+    assert report["link_row_count"] == 0
+    assert report["document_candidate_count"] == 0
+
+
+def test_rzd_controlled_page_fetch_sha_mismatch_and_unsafe_plan_block_before_fetch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+
+    def unexpected_fetch(*args, **kwargs):
+        raise AssertionError("Task155 must not fetch with failed preflight")
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", unexpected_fetch)
+    mismatch_args = _rzd_controlled_page_fetch_gate_args(paths)
+    mismatch_args[mismatch_args.index("--rzd-controlled-page-fetch-expected-plan-sha256") + 1] = "0" * 64
+    mismatch = _run_rzd_controlled_page_fetch(mismatch_args)
+    assert mismatch["status"] == "blocked"
+    assert mismatch["blocker_rows"][0]["blocker_code"] == "expected_plan_sha256_mismatch"
+
+    plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
+    plan["fetch_plan_rows"][0]["fetch_plan_status"] = "blocked_gate_row_not_ready_for_future_fetch_plan"
+    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    not_ready = _run_rzd_controlled_page_fetch(_rzd_controlled_page_fetch_gate_args(paths))
+    assert not_ready["status"] == "blocked"
+    assert not_ready["blocker_rows"][0]["blocker_code"] == "task154_row_not_ready_for_page_fetch"
+
+    plan["fetch_plan_rows"][0]["fetch_plan_status"] = "ready_for_future_controlled_page_fetch_preview"
+    plan["fetch_plan_rows"][0]["would_download_document"] = True
+    paths["plan"].write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    unsafe = _run_rzd_controlled_page_fetch(_rzd_controlled_page_fetch_gate_args(paths))
+    assert unsafe["status"] == "blocked"
+    assert unsafe["blocker_rows"][0]["blocker_code"] == "upstream_safety_flags"
+
+
+def test_rzd_controlled_page_fetch_required_failure_and_collision_are_safe(
+    tmp_path: Path,
+) -> None:
+    missing = _run_rzd_controlled_page_fetch(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert missing["status"] == "failed"
+    assert {item["message"] for item in missing["errors"]} == {
+        "task154_plan_input_required",
+        "task153_gate_input_required",
+        "task152_intake_draft_input_required",
+        "task148_source_pack_input_required",
+    }
+    assert not (tmp_path / "rzd_controlled_page_fetch_raw_task155.html").exists()
+    assert not (tmp_path / "rzd_controlled_page_fetch_hash_manifest_task155.json").exists()
+
+    collision_dir = tmp_path / "collision"
+    collision_dir.mkdir()
+    paths = _write_rzd_controlled_page_fetch_inputs(collision_dir)
+    original = paths["plan"].read_bytes()
+    collision = _run_rzd_controlled_page_fetch(
+        [
+            *_rzd_controlled_page_fetch_gate_args(paths),
+            "--rzd-controlled-page-fetch-output",
+            str(paths["plan"]),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "output_collision"}]
+    assert paths["plan"].read_bytes() == original
+    assert not (collision_dir / "rzd_controlled_page_fetch_preview_task155.json").exists()
+
+
+def test_rzd_controlled_page_fetch_detects_input_drift_after_write(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_page_fetch_inputs(tmp_path)
+    html = b"<html><body><a href='/ru/reports'>Reports</a></body></html>"
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_page_fetch_http_get",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "final_url": assistant.RZD_EXACT_DOCUMENT_DEFAULT_URL,
+            "http_status_code": 200,
+            "content_type": "text/html",
+            "redirect_chain": [],
+            "raw_bytes": html,
+        },
+    )
+    original_writer = assistant._rzd_controlled_page_fetch_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            paths["plan"].write_bytes(paths["plan"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_write_safe_outputs", mutate_after_first_write)
+    report = _run_rzd_controlled_page_fetch(_rzd_controlled_page_fetch_gate_args(paths))
+
+    assert report["status"] == "failed"
+    assert {"message": "input_drift_detected"} in report["errors"]
+    assert report["plan_input_preserved"] is False
+    assert report["gate_input_preserved"] is True
+    assert report["input_bytes_unchanged"] is False
+    assert report["page_fetched_count"] == 1
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -17000,6 +17344,19 @@ def _run_rzd_exact_document_fetch_plan(extra_args: list[str] | None = None) -> d
     return report
 
 
+def _run_rzd_controlled_page_fetch(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-controlled-page-fetch-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -17777,6 +18134,76 @@ def _write_rzd_exact_document_fetch_plan_inputs(
         "intake_draft": task152_draft,
         "source_pack": path / "source_trust_recovery_controlled_source_pack_task148.json",
     }
+
+
+def _write_rzd_controlled_page_fetch_inputs(path: Path) -> dict[str, Path]:
+    paths = _write_rzd_exact_document_fetch_plan_inputs(path)
+    report = _run_rzd_exact_document_fetch_plan(["--operator-resolution-chain-output-dir", str(path)])
+    assert report["ready_count"] == 1
+    return {
+        "plan": path / "rzd_exact_document_fetch_plan_task154.json",
+        **paths,
+    }
+
+
+def _rzd_controlled_page_fetch_gate_args(
+    paths: dict[str, Path],
+    *,
+    token: str = assistant.RZD_CONTROLLED_PAGE_FETCH_CONFIRMATION_TOKEN,
+) -> list[str]:
+    return [
+        "--operator-resolution-chain-output-dir",
+        str(paths["plan"].parent),
+        "--rzd-controlled-page-fetch-token",
+        token,
+        "--rzd-controlled-page-fetch-expected-plan-sha256",
+        hashlib.sha256(paths["plan"].read_bytes()).hexdigest(),
+        "--rzd-controlled-page-fetch-expected-gate-sha256",
+        hashlib.sha256(paths["gate"].read_bytes()).hexdigest(),
+    ]
+
+
+def _rzd_controlled_page_fetch_required_bool_fields() -> tuple[str, ...]:
+    return (
+        "token_provided",
+        "token_matched",
+        "expected_plan_sha256_matches",
+        "expected_gate_sha256_matches",
+        "controlled_page_fetch_execution_enabled",
+        "plan_input_preserved",
+        "gate_input_preserved",
+        "intake_draft_input_preserved",
+        "source_pack_input_preserved",
+        "input_bytes_unchanged",
+        "rzd_page_fetch_ready",
+        "rzd_page_fetched",
+        "rzd_html_snapshot_written",
+        "rzd_document_downloaded",
+        "rzd_document_parsed",
+        "production_source_pack_modified",
+        "controlled_source_pack_modified",
+        "production_document_intake_modified",
+        "document_intake_draft_modified",
+        "would_probe_urls",
+        "would_fetch_pages",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_write_raw_files",
+        "would_write_hash_manifests",
+        "would_mutate_document_intake",
+        "would_mutate_database",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+        "would_delete_files",
+        "pages_fetched",
+        "documents_downloaded",
+        "documents_parsed",
+        "files_deleted",
+        "import_executed",
+        "paper_trading_called",
+    )
 
 
 def _run_availability_discovery(
