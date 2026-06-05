@@ -9010,6 +9010,184 @@ def test_rzd_exact_document_url_refill_blocks_unrelated_gate_status_and_output_c
     assert collision["errors"][0]["message"] == "rzd_exact_document_refill_output_must_not_equal_input"
 
 
+def test_rzd_exact_document_refill_validate_accepts_task150_candidate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task151 must not probe, fetch, download, parse, mutate, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    paths = _write_rzd_exact_document_refill_validation_inputs(tmp_path)
+
+    report = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["row_count"] == 1
+    assert report["valid_candidate_count"] == 1
+    assert report["accepted_candidate_count"] == 1
+    assert report["blocked_count"] == 0
+    assert report["refill_input_sha256"] == hashlib.sha256(paths["refill"].read_bytes()).hexdigest()
+    assert report["gate_input_sha256"] == hashlib.sha256(paths["gate"].read_bytes()).hexdigest()
+    assert report["source_pack_input_sha256"] == hashlib.sha256(paths["source_pack"].read_bytes()).hexdigest()
+    row = report["validation_rows"][0]
+    assert row["validation_status"] == "valid_future_exact_document_candidate"
+    assert row["candidate_exact_document_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert row["candidate_exact_document_host"] == "company.rzd.ru"
+    assert row["accepted_for_future_exact_document_apply_draft"] is True
+    assert row["future_apply_draft_required"] is True
+    assert row["future_gate_required"] is True
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_url"] is False
+    assert row["would_download_document"] is False
+    assert row["would_parse_document"] is False
+    accepted = report["accepted_candidate_rows"][0]
+    assert accepted["accepted_candidate_status"] == "future_exact_document_apply_draft_candidate_only"
+    assert accepted["official_document_page_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert accepted["official_document_page_host"] == "company.rzd.ru"
+    assert accepted["would_download_document"] is False
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_document_intake"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_extract_values"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_scores"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["would_delete_files"] is False
+    for filename in assistant.RZD_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES.values():
+        assert (tmp_path / filename).is_file()
+    markdown = (tmp_path / "rzd_exact_document_refill_validation_task151.md").read_text(encoding="utf-8")
+    assert "RZD Exact Document Refill Validate v2" in markdown
+    assert "does not probe the URL" in markdown
+    rerun = (tmp_path / "rzd_exact_document_refill_validation_rerun_task151.md").read_text(encoding="utf-8")
+    assert "rzd-exact-document-refill-apply-draft-v2" in rerun
+
+
+def test_rzd_exact_document_refill_validate_blocks_task150_not_accepted(tmp_path: Path) -> None:
+    _write_rzd_exact_document_refill_validation_inputs(tmp_path)
+    _update_rzd_exact_document_refill_report(
+        tmp_path,
+        refill_status="blocked_candidate_host_not_trusted",
+        accepted_for_future_exact_document_validate=False,
+        future_validate_required=False,
+        future_apply_draft_required=False,
+        future_gate_required=False,
+    )
+
+    report = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["validation_rows"][0]["validation_status"] == "blocked_task150_candidate_not_accepted"
+    assert report["blocker_rows"][0]["blocker_code"] == "task150_candidate_not_accepted"
+    assert report["accepted_candidate_rows"] == []
+
+
+def test_rzd_exact_document_refill_validate_blocks_untrusted_host_and_direct_pdf(tmp_path: Path) -> None:
+    _write_rzd_exact_document_refill_validation_inputs(tmp_path)
+    _update_rzd_exact_document_refill_report(
+        tmp_path,
+        candidate_exact_document_url="https://example.com/rzd-report-2025",
+        candidate_exact_document_host="example.com",
+        operator_fill_exact_document_url="https://example.com/rzd-report-2025",
+    )
+
+    untrusted = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert untrusted["validation_rows"][0]["validation_status"] == "blocked_candidate_host_not_trusted"
+    assert untrusted["blocker_rows"][0]["blocker_code"] == "candidate_host_not_trusted"
+
+    _update_rzd_exact_document_refill_report(
+        tmp_path,
+        candidate_exact_document_url="https://company.rzd.ru/report.pdf",
+        candidate_exact_document_host="company.rzd.ru",
+        operator_fill_exact_document_url="https://company.rzd.ru/report.pdf",
+    )
+    direct_pdf = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert direct_pdf["validation_rows"][0]["validation_status"] == "blocked_candidate_url_direct_pdf_not_allowed"
+    assert direct_pdf["blocker_rows"][0]["blocker_code"] == "candidate_url_direct_pdf_not_allowed"
+
+    _update_rzd_exact_document_refill_report(
+        tmp_path,
+        candidate_exact_document_url="https://company.rzd.ru/ru/9397/page/104069?id=322745.pdf",
+        operator_fill_exact_document_url="https://company.rzd.ru/ru/9397/page/104069?id=322745.pdf",
+    )
+    query_pdf = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert query_pdf["blocker_rows"][0]["blocker_code"] == "candidate_url_direct_pdf_not_allowed"
+
+
+def test_rzd_exact_document_refill_validate_blocks_metadata_mismatches(tmp_path: Path) -> None:
+    _write_rzd_exact_document_refill_validation_inputs(tmp_path)
+    _update_rzd_exact_document_refill_report(tmp_path, candidate_exact_document_year="2024")
+    wrong_year = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert wrong_year["blocker_rows"][0]["blocker_code"] == "candidate_year_mismatch"
+
+    _update_rzd_exact_document_refill_report(
+        tmp_path,
+        candidate_exact_document_year="2025",
+        candidate_exact_document_standard="RAS",
+        operator_fill_document_accounting_standard="RAS",
+    )
+    wrong_standard = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert wrong_standard["blocker_rows"][0]["blocker_code"] == "candidate_standard_mismatch"
+
+    _update_rzd_exact_document_refill_report(
+        tmp_path,
+        candidate_exact_document_standard="IFRS",
+        operator_fill_document_accounting_standard="IFRS",
+        candidate_exact_document_consolidated=False,
+        operator_fill_document_consolidated=False,
+    )
+    non_consolidated = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert non_consolidated["blocker_rows"][0]["blocker_code"] == "candidate_consolidated_mismatch"
+
+
+def test_rzd_exact_document_refill_validate_blocks_gate_mismatch_and_unsafe_flags(tmp_path: Path) -> None:
+    _write_rzd_exact_document_refill_validation_inputs(tmp_path)
+    _update_rzd_exact_document_refill_report(tmp_path, gate_status_before_refill="blocked_wrong_period")
+
+    wrong_gate = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert wrong_gate["validation_rows"][0]["validation_status"] == "blocked_gate_not_waiting_for_exact_document_url"
+    assert wrong_gate["blocker_rows"][0]["blocker_code"] == "gate_not_waiting_for_exact_document_url"
+
+    _update_rzd_exact_document_refill_report(tmp_path, gate_status_before_refill="blocked_missing_exact_document_url", would_fetch_url=True)
+    unsafe = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert unsafe["validation_rows"][0]["validation_status"] == "blocked_candidate_safety_flags"
+    assert unsafe["blocker_rows"][0]["blocker_code"] == "candidate_safety_flags"
+
+
+def test_rzd_exact_document_refill_validate_missing_inputs_and_output_collision(tmp_path: Path) -> None:
+    missing = _run_rzd_exact_document_refill_validation(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert missing["status"] == "failed"
+    messages = {error["message"] for error in missing["errors"]}
+    assert "rzd_exact_document_refill_validation_input_required" in messages
+    assert "rzd_exact_document_refill_validation_gate_input_required" in messages
+    assert "rzd_exact_document_refill_validation_source_pack_input_required" in messages
+    assert (tmp_path / "rzd_exact_document_refill_validation_task151.json").is_file()
+    assert not (tmp_path / "rzd_exact_document_refill_accepted_candidates_task151.json").read_text(encoding="utf-8").count(
+        "future_exact_document_apply_draft_candidate_only"
+    )
+
+    paths = _write_rzd_exact_document_refill_validation_inputs(tmp_path)
+    collision = _run_rzd_exact_document_refill_validation(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-exact-document-refill-validation-output",
+            str(paths["refill"]),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert collision["errors"][0]["message"] == "rzd_exact_document_refill_validation_output_must_not_equal_input"
+
+
 def test_exact_document_draft_gate_blocks_leak_and_disk_guard(tmp_path: Path) -> None:
     leak_dir = tmp_path / "leak"
     leak_dir.mkdir()
@@ -15954,6 +16132,19 @@ def _run_rzd_exact_document_refill(extra_args: list[str] | None = None) -> dict:
     return report
 
 
+def _run_rzd_exact_document_refill_validation(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-exact-document-refill-validate-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -16549,6 +16740,25 @@ def _write_rzd_exact_document_refill_gate(path: Path, rows: list[dict[str, objec
         encoding="utf-8",
     )
     return gate
+
+
+def _write_rzd_exact_document_refill_validation_inputs(path: Path) -> dict:
+    gate = _write_rzd_exact_document_refill_gate(path, [_rzd_exact_document_refill_gate_row()])
+    source_pack = _write_exact_document_draft_gate_source_pack(path)
+    report = _run_rzd_exact_document_refill(["--operator-resolution-chain-output-dir", str(path)])
+    assert report["status"] == "passed"
+    return {"gate": gate, "source_pack": source_pack, "refill": path / "rzd_exact_document_refill_task150.json"}
+
+
+def _update_rzd_exact_document_refill_report(path: Path, **updates: object) -> dict:
+    refill_path = path / "rzd_exact_document_refill_task150.json"
+    payload = json.loads(refill_path.read_text(encoding="utf-8"))
+    row = payload["refill_rows"][0]
+    row.update(updates)
+    if "refill_status" in updates:
+        payload["accepted_candidate_count"] = 1 if updates["refill_status"] == "accepted_future_exact_document_candidate" else 0
+    refill_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return payload
 
 
 def _write_exact_document_draft_gate_inputs(
