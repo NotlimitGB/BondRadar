@@ -8702,6 +8702,19 @@ def test_exact_document_draft_gate_prefers_task152_and_marks_rzd_page_ready_for_
     assert row["gate_status"] == "ready_for_future_document_fetch_plan"
     assert row["task152_candidate_context"] is True
     assert row["candidate_document_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert row["candidate_document_url_source"] == "task152_intake_draft"
+    assert row["candidate_document_context_status"] == "exact_document_url_apply_draft_for_future_gate"
+    assert row["candidate_document_context_origin"] == "rzd_exact_document_refill_apply_draft_task152"
+    assert row["document_url_from_task152_draft"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert row["task152_document_context_status"] == "exact_document_url_apply_draft_for_future_gate"
+    assert row["task152_ready_for_document_download"] is False
+    assert row["task152_ready_for_extraction"] is False
+    assert row["task152_ready_for_import"] is False
+    assert row["task152_ready_for_scoring"] is False
+    assert row["task152_ready_for_paper_trading"] is False
+    assert row["task152_download_allowed"] is False
+    assert row["task152_parse_allowed"] is False
+    assert row["task152_import_allowed"] is False
     assert row["candidate_document_host_trusted_by_source_pack"] is True
     assert row["ready_for_future_fetch_plan"] is True
     assert row["ready_for_future_controlled_download"] is False
@@ -8726,6 +8739,77 @@ def test_exact_document_draft_gate_prefers_task152_and_marks_rzd_page_ready_for_
     assert report["blocker_rows"] == []
     for path, content in snapshots.items():
         assert path.read_bytes() == content
+
+
+def test_exact_document_draft_gate_task152_top_level_fetch_plan_summary_is_existential(tmp_path: Path) -> None:
+    _write_exact_document_draft_gate_inputs(
+        tmp_path,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[
+            _exact_document_draft_gate_apply_row(
+                apply_status="skipped_incomplete_missing_exact_document_url",
+            )
+        ],
+        blocker_rows=[_exact_document_draft_gate_apply_blocker_row(blocker_code="missing_exact_document_url")],
+    )
+    task152_draft = tmp_path / "rzd_exact_document_intake_draft_task152.json"
+    task152_draft.write_text(
+        json.dumps(
+            {
+                "documents": [
+                    _exact_document_draft_gate_task152_document(),
+                    _exact_document_draft_gate_placeholder_document(),
+                ]
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["row_count"] == 2
+    assert report["ready_for_future_fetch_plan_count"] == 1
+    assert report["ready_for_future_fetch_plan"] is True
+    assert report["ready_for_future_controlled_download_count"] == 0
+    assert report["ready_for_future_controlled_download"] is False
+    assert report["blocked_count"] == 1
+
+
+def test_exact_document_draft_gate_task152_missing_safety_fields_default_false(tmp_path: Path) -> None:
+    document = _exact_document_draft_gate_task152_document()
+    for field in (
+        "ready_for_document_download",
+        "ready_for_extraction",
+        "ready_for_import",
+        "ready_for_scoring",
+        "ready_for_paper_trading",
+        "download_allowed",
+        "parse_allowed",
+        "import_allowed",
+    ):
+        document.pop(field)
+    _write_exact_document_draft_gate_task152_inputs(tmp_path, document=document)
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    row = report["gate_rows"][0]
+    assert row["gate_status"] == "ready_for_future_document_fetch_plan"
+    for field in (
+        "task152_ready_for_document_download",
+        "task152_ready_for_extraction",
+        "task152_ready_for_import",
+        "task152_ready_for_scoring",
+        "task152_ready_for_paper_trading",
+        "task152_download_allowed",
+        "task152_parse_allowed",
+        "task152_import_allowed",
+    ):
+        assert row[field] is False
 
 
 def test_exact_document_draft_gate_explicit_draft_input_overrides_task152(tmp_path: Path) -> None:

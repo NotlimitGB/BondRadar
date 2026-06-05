@@ -3169,6 +3169,19 @@ EXACT_DOCUMENT_DRAFT_GATE_FIELDS = [
     "draft_input_sha256",
     "task152_intake_draft_used",
     "task152_candidate_context",
+    "candidate_document_url_source",
+    "candidate_document_context_status",
+    "candidate_document_context_origin",
+    "document_url_from_task152_draft",
+    "task152_document_context_status",
+    "task152_ready_for_document_download",
+    "task152_ready_for_extraction",
+    "task152_ready_for_import",
+    "task152_ready_for_scoring",
+    "task152_ready_for_paper_trading",
+    "task152_download_allowed",
+    "task152_parse_allowed",
+    "task152_import_allowed",
     "target_reporting_period",
     "required_report_type",
     "required_standard",
@@ -17727,6 +17740,9 @@ def _build_exact_document_draft_gate_row(
     ready_for_controlled_download = status == "ready_for_future_controlled_download"
     ready_for_fetch_plan = status == "ready_for_future_document_fetch_plan"
     ready = ready_for_controlled_download or ready_for_fetch_plan
+    task152_document_url = document_url if task152_candidate_context else ""
+    task152_context_status = str(document.get("document_context_status") or "") if task152_candidate_context else ""
+    task152_context_origin = str(document.get("document_context_origin") or "") if task152_candidate_context else ""
     fetch_matches = [row for row in fetch_plan_rows if _exact_document_draft_gate_matches(document, row)]
     fetch_warnings = [
         str(warning)
@@ -17744,6 +17760,29 @@ def _build_exact_document_draft_gate_row(
         "draft_input_sha256": draft_sha256,
         "task152_intake_draft_used": task152_candidate_context,
         "task152_candidate_context": task152_candidate_context,
+        "candidate_document_url_source": "task152_intake_draft" if task152_candidate_context else "",
+        "candidate_document_context_status": task152_context_status,
+        "candidate_document_context_origin": task152_context_origin,
+        "document_url_from_task152_draft": task152_document_url,
+        "task152_document_context_status": task152_context_status,
+        "task152_ready_for_document_download": _as_bool(document.get("ready_for_document_download"))
+        if task152_candidate_context
+        else False,
+        "task152_ready_for_extraction": _as_bool(document.get("ready_for_extraction"))
+        if task152_candidate_context
+        else False,
+        "task152_ready_for_import": _as_bool(document.get("ready_for_import"))
+        if task152_candidate_context
+        else False,
+        "task152_ready_for_scoring": _as_bool(document.get("ready_for_scoring"))
+        if task152_candidate_context
+        else False,
+        "task152_ready_for_paper_trading": _as_bool(document.get("ready_for_paper_trading"))
+        if task152_candidate_context
+        else False,
+        "task152_download_allowed": _as_bool(document.get("download_allowed")) if task152_candidate_context else False,
+        "task152_parse_allowed": _as_bool(document.get("parse_allowed")) if task152_candidate_context else False,
+        "task152_import_allowed": _as_bool(document.get("import_allowed")) if task152_candidate_context else False,
         "target_reporting_period": target_period,
         "required_report_type": required_type,
         "required_standard": required_standard,
@@ -18100,10 +18139,8 @@ def _build_exact_document_draft_gate_report(
         "failed_count": 0,
         "ready_for_future_controlled_download_count": ready_for_controlled_download_count,
         "ready_for_future_fetch_plan_count": ready_for_fetch_plan_count,
-        "ready_for_future_controlled_download": bool(
-            gate_rows and ready_for_controlled_download_count == len(gate_rows)
-        ),
-        "ready_for_future_fetch_plan": bool(gate_rows and ready_for_fetch_plan_count == len(gate_rows)),
+        "ready_for_future_controlled_download": ready_for_controlled_download_count > 0,
+        "ready_for_future_fetch_plan": ready_for_fetch_plan_count > 0,
         "ready_for_future_parse": False,
         "ready_for_future_extraction": False,
         "ready_for_future_import": False,
