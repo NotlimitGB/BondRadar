@@ -3164,6 +3164,11 @@ EXACT_DOCUMENT_DRAFT_GATE_FIELDS = [
     "company_name",
     "canonical_company_id",
     "canonical_company_name",
+    "draft_input_path",
+    "draft_input_resolution_strategy",
+    "draft_input_sha256",
+    "task152_intake_draft_used",
+    "task152_candidate_context",
     "target_reporting_period",
     "required_report_type",
     "required_standard",
@@ -3207,6 +3212,10 @@ EXACT_DOCUMENT_DRAFT_GATE_FIELDS = [
     "draft_ready_for_import",
     "draft_ready_for_scoring",
     "draft_ready_for_paper_trading",
+    "draft_ready_for_extraction",
+    "draft_download_allowed",
+    "draft_parse_allowed",
+    "draft_import_allowed",
     "apply_status",
     "apply_blocker_codes",
     "suppressed_apply_blocker_codes",
@@ -3225,6 +3234,7 @@ EXACT_DOCUMENT_DRAFT_GATE_FIELDS = [
     "gate_errors",
     "gate_warnings",
     "ready_for_future_controlled_download",
+    "ready_for_future_fetch_plan",
     "ready_for_future_download_plan",
     "ready_for_future_parse",
     "ready_for_future_extraction",
@@ -3232,14 +3242,20 @@ EXACT_DOCUMENT_DRAFT_GATE_FIELDS = [
     "ready_for_future_scoring",
     "ready_for_future_paper_trading",
     "would_probe_url",
+    "would_probe_urls",
     "would_fetch_url",
     "would_fetch_document",
+    "would_fetch_documents",
     "would_download_document",
+    "would_download_documents",
     "would_parse_document",
+    "would_parse_documents",
     "would_extract_values",
     "would_import_report",
     "would_update_source_pack",
+    "would_mutate_source_pack",
     "would_update_document_intake",
+    "would_mutate_document_intake",
     "would_mutate_database",
     "would_mutate_scores",
     "would_trigger_paper_trading",
@@ -3267,6 +3283,9 @@ EXACT_DOCUMENT_DRAFT_GATE_READY_FIELDS = [
     "document_context_origin",
     "manual_candidate_status",
     "ready_status",
+    "ready_for_future_controlled_download",
+    "ready_for_future_fetch_plan",
+    "future_fetch_plan_required",
     "future_download_plan_required",
     "future_disk_guard_required",
     "future_hash_manifest_required",
@@ -16901,15 +16920,25 @@ def _operator_exact_document_refill_apply_safety_flags() -> dict[str, Any]:
 def run_exact_document_draft_gate_v2(args: argparse.Namespace) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     source_pack_resolution = _exact_document_draft_gate_source_pack_resolution(args)
-    inputs = _exact_document_draft_gate_inputs(args)
+    draft_resolution = _exact_document_draft_gate_draft_resolution(args)
+    inputs = _exact_document_draft_gate_inputs(
+        args,
+        draft_resolution=draft_resolution,
+        source_pack_resolution=source_pack_resolution,
+    )
     draft_path = inputs["draft"]
     if draft_path is None or not draft_path.is_file():
-        return _failed_exact_document_draft_gate([{"message": "exact_document_draft_gate_input_required"}])
+        return _failed_exact_document_draft_gate(
+            [{"message": "exact_document_draft_gate_input_required"}],
+            draft_resolution=draft_resolution,
+        )
     try:
-        _, draft_documents = load_document_intake_payload(draft_path)
+        _, draft_documents = _load_exact_document_draft_gate_payload(draft_path)
+        draft_sha256 = hashlib.sha256(draft_path.read_bytes()).hexdigest()
     except (OSError, ValueError, json.JSONDecodeError):
         return _failed_exact_document_draft_gate(
-            [{"message": "exact_document_draft_gate_input_invalid", "path": str(draft_path)}]
+            [{"message": "exact_document_draft_gate_input_invalid", "path": str(draft_path)}],
+            draft_resolution=draft_resolution,
         )
     apply_report = _exact_document_draft_gate_optional_report(
         inputs["apply"],
@@ -16984,18 +17013,22 @@ def run_exact_document_draft_gate_v2(args: argparse.Namespace) -> dict[str, Any]
             source_pack_resolution=source_pack_resolution,
             source_pack_sha256=source_pack_sha256,
             source_pack_trust_context_type=source_pack_trust_context_type,
+            draft_resolution=draft_resolution,
+            draft_sha256=draft_sha256,
         )
         for document in draft_documents
     ]
     ready_rows = [
         _exact_document_draft_gate_ready_row(row)
         for row in gate_rows
-        if row.get("gate_status") == "ready_for_future_controlled_download"
+        if row.get("gate_status")
+        in {"ready_for_future_controlled_download", "ready_for_future_document_fetch_plan"}
     ]
     blocker_rows = [
         _exact_document_draft_gate_blocker_row(row)
         for row in gate_rows
-        if row.get("gate_status") != "ready_for_future_controlled_download"
+        if row.get("gate_status")
+        not in {"ready_for_future_controlled_download", "ready_for_future_document_fetch_plan"}
     ]
     report = _build_exact_document_draft_gate_report(
         args,
@@ -17010,6 +17043,8 @@ def run_exact_document_draft_gate_v2(args: argparse.Namespace) -> dict[str, Any]
         source_pack_resolution=source_pack_resolution,
         source_pack_sha256=source_pack_sha256,
         source_pack_trust_context_type=source_pack_trust_context_type,
+        draft_resolution=draft_resolution,
+        draft_sha256=draft_sha256,
     )
     if not errors:
         try:
@@ -17044,16 +17079,22 @@ def run_exact_document_draft_gate_v2(args: argparse.Namespace) -> dict[str, Any]
             report["errors"] = [*report["errors"], {"message": str(exc)}]
     if not _operator_exact_document_refill_apply_snapshots_unchanged(snapshots):
         report["status"] = "failed"
+        report["input_bytes_unchanged"] = False
         report["errors"] = [*report["errors"], {"message": "exact_document_draft_gate_input_was_modified"}]
     return report
 
 
-def _exact_document_draft_gate_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+def _exact_document_draft_gate_inputs(
+    args: argparse.Namespace,
+    *,
+    draft_resolution: dict[str, Any] | None = None,
+    source_pack_resolution: dict[str, Any] | None = None,
+) -> dict[str, Path | None]:
     output_dir = args.operator_resolution_chain_output_dir
-    source_pack_resolution = _exact_document_draft_gate_source_pack_resolution(args)
+    draft_resolution = draft_resolution or _exact_document_draft_gate_draft_resolution(args)
+    source_pack_resolution = source_pack_resolution or _exact_document_draft_gate_source_pack_resolution(args)
     return {
-        "draft": args.exact_document_draft_gate_input
-        or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES["intake_draft_json"] if output_dir else None),
+        "draft": draft_resolution.get("path"),
         "apply": args.operator_exact_document_refill_apply_input
         or (output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES["apply_json"] if output_dir else None),
         "apply_blockers": args.operator_exact_document_refill_apply_blockers_input
@@ -17064,6 +17105,97 @@ def _exact_document_draft_gate_inputs(args: argparse.Namespace) -> dict[str, Pat
         or (output_dir / FINANCIAL_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["fetch_plan_json"] if output_dir else None),
         "source_pack": source_pack_resolution.get("path"),
     }
+
+
+def _exact_document_draft_gate_draft_resolution(args: argparse.Namespace) -> dict[str, Any]:
+    explicit = args.exact_document_draft_gate_input
+    if explicit is not None:
+        return {
+            "path": explicit,
+            "strategy": "explicit_cli_input",
+            "candidates": [explicit],
+            "warnings": [],
+        }
+
+    output_dir = args.operator_resolution_chain_output_dir
+    candidates: list[tuple[str, Path]] = []
+    if output_dir is not None:
+        candidates.extend(
+            [
+                (
+                    "chain_task152_rzd_intake_draft",
+                    output_dir / RZD_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES["intake_draft_json"],
+                ),
+                (
+                    "chain_task136_canonical_intake_draft",
+                    output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_APPLY_ARTIFACT_NAMES["intake_draft_json"],
+                ),
+                (
+                    "chain_task136_compatibility_intake_draft",
+                    output_dir / "operator_exact_document_refill_apply_draft_task136.json",
+                ),
+                (
+                    "chain_task134_workspace",
+                    output_dir / OPERATOR_EXACT_DOCUMENT_REFILL_ARTIFACT_NAMES["workspace_json"],
+                ),
+            ]
+        )
+    warnings: list[dict[str, str]] = []
+    for strategy, path in candidates:
+        if path.is_file():
+            return {
+                "path": path,
+                "strategy": strategy,
+                "candidates": [candidate for _, candidate in candidates],
+                "warnings": warnings,
+            }
+        warnings.append(
+            {
+                "message": "exact_document_draft_gate_draft_candidate_missing",
+                "strategy": strategy,
+                "path": str(path),
+            }
+        )
+    return {
+        "path": None,
+        "strategy": "unresolved",
+        "candidates": [candidate for _, candidate in candidates],
+        "warnings": warnings,
+    }
+
+
+def _exact_document_draft_gate_draft_resolution_fields(
+    draft_resolution: dict[str, Any],
+) -> dict[str, Any]:
+    path = draft_resolution.get("path")
+    candidates = draft_resolution.get("candidates") or []
+    return {
+        "draft_input_path": _path_value(path) if isinstance(path, Path) else "",
+        "draft_input_resolution_strategy": str(draft_resolution.get("strategy") or ""),
+        "draft_input_resolution_candidates": [
+            _path_value(candidate) if isinstance(candidate, Path) else str(candidate)
+            for candidate in candidates
+        ],
+        "draft_input_resolution_warnings": draft_resolution.get("warnings") or [],
+    }
+
+
+def _load_exact_document_draft_gate_payload(path: Path) -> tuple[Any, list[dict[str, Any]]]:
+    if path.suffix.casefold() == ".csv":
+        documents = load_document_intake_csv(path)
+        return copy.deepcopy(documents), documents
+    if not path.is_file():
+        raise ValueError(f"exact document draft gate input does not exist: {path}")
+    with path.open("r", encoding="utf-8-sig") as handle:
+        payload = json.load(handle)
+    if isinstance(payload, list) and all(isinstance(row, dict) for row in payload):
+        return payload, payload
+    if isinstance(payload, dict):
+        for key in ("documents", "rows", "workspace_rows"):
+            rows = payload.get(key)
+            if isinstance(rows, list) and all(isinstance(row, dict) for row in rows):
+                return payload, rows
+    raise ValueError("exact document draft gate input must contain documents, rows, or workspace_rows")
 
 
 def _exact_document_draft_gate_source_pack_resolution(args: argparse.Namespace) -> dict[str, Any]:
@@ -17373,6 +17505,109 @@ def _exact_document_draft_gate_clean_apply_blocker_codes(
     return cleaned, suppressed
 
 
+def _exact_document_draft_gate_document_url(document: dict[str, Any]) -> str:
+    if str(document.get("document_context_origin") or "") == "rzd_exact_document_refill_apply_draft_task152":
+        return str(
+            document.get("official_document_page_url")
+            or document.get("candidate_exact_document_url")
+            or document.get("document_url")
+            or document.get("exact_document_url")
+            or ""
+        )
+    return str(document.get("document_url") or document.get("exact_document_url") or "")
+
+
+def _exact_document_draft_gate_task152_candidate_context(
+    document: dict[str, Any],
+    *,
+    draft_resolution: dict[str, Any],
+) -> bool:
+    return bool(
+        _rzd_exact_document_is_rzd_row(document)
+        and (
+            str(document.get("document_context_origin") or "") == "rzd_exact_document_refill_apply_draft_task152"
+            or str(draft_resolution.get("strategy") or "") == "chain_task152_rzd_intake_draft"
+        )
+    )
+
+
+def _exact_document_draft_gate_task152_status(
+    document: dict[str, Any],
+    *,
+    document_url: str,
+    source_pack_context: dict[str, Any],
+    downstream_leak: bool,
+    disk_guard_status: str,
+    target_period: str,
+    required_type: str,
+    required_standard: str,
+    required_consolidated: bool,
+) -> tuple[str, list[str]]:
+    if downstream_leak:
+        return "blocked_downstream_ready_flag_leak", ["downstream_ready_leak"]
+    if disk_guard_status == "blocked":
+        return "blocked_disk_guard", ["disk_guard_blocked"]
+    if (
+        str(document.get("document_context_origin") or "") != "rzd_exact_document_refill_apply_draft_task152"
+        or str(document.get("document_context_status") or "") != "exact_document_url_apply_draft_for_future_gate"
+        or str(document.get("manual_candidate_status") or "") != "future_gate_validation_required"
+    ):
+        return "blocked_unknown_readiness", ["task152_candidate_provenance_required"]
+    if not document_url:
+        return "blocked_candidate_url_missing", ["candidate_url_missing"]
+    normalized_url = _normalize_candidate_url(document_url)
+    parsed = urllib.parse.urlparse(document_url)
+    if not normalized_url or not parsed.netloc:
+        return "blocked_candidate_url_malformed", ["candidate_url_malformed"]
+    if parsed.scheme.casefold() != "https":
+        return "blocked_candidate_url_not_https", ["candidate_url_not_https"]
+    candidate_host = _host(normalized_url)
+    if candidate_host != "company.rzd.ru":
+        return "blocked_candidate_host_not_trusted", ["candidate_host_not_trusted"]
+    if (
+        not _as_bool(source_pack_context.get("trusted_source_context_found"))
+        or str(source_pack_context.get("trusted_source_context_status") or "") != "controlled_applied_source_trust"
+        or not _as_bool(source_pack_context.get("controlled_source_pack_used"))
+        or not _as_bool(source_pack_context.get("candidate_document_host_trusted_by_source_pack"))
+    ):
+        return "blocked_candidate_host_not_trusted", ["candidate_host_not_trusted"]
+    if Path(parsed.path).suffix.casefold() in {".pdf", ".xlsx", ".xls", ".zip"} or _rzd_exact_document_is_query_document_url(
+        document_url
+    ):
+        return "blocked_candidate_url_direct_document", ["candidate_url_direct_document_not_allowed"]
+    path_query_text = urllib.parse.unquote(f"{parsed.path}?{parsed.query}").casefold()
+    if _source_trust_has_archive_or_history_url([normalized_url]) or _contains_any(
+        path_query_text,
+        ("search", "news", "press", "archive", "history", "facebook", "vk.com", "telegram"),
+    ):
+        return "blocked_candidate_url_disallowed_context", ["candidate_url_disallowed_context"]
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    if not parsed.path.startswith("/ru/") or not any(str(value).isdigit() for value in query.get("id", [])):
+        return "blocked_candidate_url_malformed", ["candidate_url_malformed"]
+    document_period = str(document.get("target_reporting_period") or document.get("report_period") or "")
+    if document_period != target_period:
+        return "blocked_candidate_year_mismatch", ["candidate_year_mismatch"]
+    document_type = str(document.get("document_report_type") or document.get("report_type") or "")
+    if document_type.casefold() != required_type.casefold():
+        return "blocked_candidate_report_type_mismatch", ["candidate_report_type_mismatch"]
+    document_standard = str(
+        document.get("document_accounting_standard") or document.get("accounting_standard") or ""
+    )
+    accepted_standards = {required_standard.casefold(), "ifrs", "msfo", "мсфо"}
+    if document_standard.casefold() not in accepted_standards:
+        return "blocked_candidate_standard_mismatch", ["candidate_standard_mismatch"]
+    if required_consolidated and not _as_bool(document.get("document_consolidated")):
+        return "blocked_candidate_consolidated_mismatch", ["candidate_consolidated_mismatch"]
+    return (
+        "ready_for_future_document_fetch_plan",
+        [
+            "future_document_fetch_plan_gate_passed",
+            "task152_rzd_page_candidate_recognized",
+            "candidate_host_matches_controlled_source_pack",
+        ],
+    )
+
+
 def _build_exact_document_draft_gate_row(
     args: argparse.Namespace,
     document: dict[str, Any],
@@ -17385,13 +17620,15 @@ def _build_exact_document_draft_gate_row(
     source_pack_resolution: dict[str, Any],
     source_pack_sha256: str,
     source_pack_trust_context_type: str,
+    draft_resolution: dict[str, Any],
+    draft_sha256: str,
 ) -> dict[str, Any]:
     identity = str(document.get("canonical_company_id") or document.get("company_id") or "")
     target_period = str(args.exact_document_draft_gate_target_period)
     required_type = str(args.exact_document_draft_gate_required_report_type)
     required_standard = str(args.exact_document_draft_gate_required_standard)
     required_consolidated = bool(args.exact_document_draft_gate_required_consolidated)
-    document_url = str(document.get("document_url") or document.get("exact_document_url") or "")
+    document_url = _exact_document_draft_gate_document_url(document)
     title = str(document.get("document_title") or "")
     matching_apply = [
         row for row in apply_rows if _exact_document_draft_gate_matches(document, row)
@@ -17427,40 +17664,69 @@ def _build_exact_document_draft_gate_row(
             or "source_trust_required" in apply_blocker_codes
         )
     )
-    classification = _document_intake_draft_gate_classification(document, args=args)
+    classification = _document_intake_draft_gate_classification(
+        {**document, "document_url": document_url},
+        args=args,
+    )
     disk_guard_status = str(retention_report.get("disk_guard_status") or "blocked")
     downstream_leak = any(
         _as_bool(document.get(flag))
         for flag in (
             "ready_for_document_download",
             "ready_for_value_extraction",
+            "ready_for_extraction",
             "ready_for_import",
             "ready_for_scoring",
             "ready_for_paper_trading",
+            "download_allowed",
+            "parse_allowed",
+            "import_allowed",
         )
     )
-    status, reasons = _exact_document_draft_gate_status(
+    task152_candidate_context = _exact_document_draft_gate_task152_candidate_context(
         document,
-        classification=classification,
-        apply=apply,
-        matching_apply_count=len(matching_apply),
-        apply_blocker_codes=effective_apply_blocker_codes,
-        downstream_leak=downstream_leak,
-        disk_guard_status=disk_guard_status,
-        target_period=target_period,
-        required_type=required_type,
-        required_standard=required_standard,
-        required_consolidated=required_consolidated,
-        source_trust_context_found=bool(source_pack_context.get("trusted_source_context_found")),
-        candidate_document_host_trusted_by_source_pack=bool(source_pack_context.get("candidate_document_host_trusted_by_source_pack")),
-        source_trust_unblocked_by_source_pack=source_trust_unblocked_by_source_pack,
+        draft_resolution=draft_resolution,
     )
+    if task152_candidate_context:
+        status, reasons = _exact_document_draft_gate_task152_status(
+            document,
+            document_url=document_url,
+            source_pack_context=source_pack_context,
+            downstream_leak=downstream_leak,
+            disk_guard_status=disk_guard_status,
+            target_period=target_period,
+            required_type=required_type,
+            required_standard=required_standard,
+            required_consolidated=required_consolidated,
+        )
+    else:
+        status, reasons = _exact_document_draft_gate_status(
+            document,
+            classification=classification,
+            apply=apply,
+            matching_apply_count=len(matching_apply),
+            apply_blocker_codes=effective_apply_blocker_codes,
+            downstream_leak=downstream_leak,
+            disk_guard_status=disk_guard_status,
+            target_period=target_period,
+            required_type=required_type,
+            required_standard=required_standard,
+            required_consolidated=required_consolidated,
+            source_trust_context_found=bool(source_pack_context.get("trusted_source_context_found")),
+            candidate_document_host_trusted_by_source_pack=bool(source_pack_context.get("candidate_document_host_trusted_by_source_pack")),
+            source_trust_unblocked_by_source_pack=source_trust_unblocked_by_source_pack,
+        )
     if source_trust_unblocked_by_source_pack:
+        for reason in source_pack_context.get("trusted_source_context_reason_codes") or []:
+            _append_unique(reasons, str(reason))
+    if task152_candidate_context and _as_bool(source_pack_context.get("candidate_document_host_trusted_by_source_pack")):
         for reason in source_pack_context.get("trusted_source_context_reason_codes") or []:
             _append_unique(reasons, str(reason))
     if suppressed_apply_blocker_codes:
         _append_unique(reasons, "stale_source_trust_apply_blocker_suppressed")
-    ready = status == "ready_for_future_controlled_download"
+    ready_for_controlled_download = status == "ready_for_future_controlled_download"
+    ready_for_fetch_plan = status == "ready_for_future_document_fetch_plan"
+    ready = ready_for_controlled_download or ready_for_fetch_plan
     fetch_matches = [row for row in fetch_plan_rows if _exact_document_draft_gate_matches(document, row)]
     fetch_warnings = [
         str(warning)
@@ -17473,6 +17739,11 @@ def _build_exact_document_draft_gate_row(
         "company_name": document.get("company_name") or "",
         "canonical_company_id": document.get("canonical_company_id") or document.get("company_id") or "",
         "canonical_company_name": document.get("canonical_company_name") or document.get("company_name") or "",
+        "draft_input_path": _path_value(draft_resolution.get("path")) if isinstance(draft_resolution.get("path"), Path) else "",
+        "draft_input_resolution_strategy": draft_resolution.get("strategy") or "",
+        "draft_input_sha256": draft_sha256,
+        "task152_intake_draft_used": task152_candidate_context,
+        "task152_candidate_context": task152_candidate_context,
         "target_reporting_period": target_period,
         "required_report_type": required_type,
         "required_standard": required_standard,
@@ -17516,6 +17787,10 @@ def _build_exact_document_draft_gate_row(
         "draft_ready_for_import": _as_bool(document.get("ready_for_import")),
         "draft_ready_for_scoring": _as_bool(document.get("ready_for_scoring")),
         "draft_ready_for_paper_trading": _as_bool(document.get("ready_for_paper_trading")),
+        "draft_ready_for_extraction": _as_bool(document.get("ready_for_extraction")),
+        "draft_download_allowed": _as_bool(document.get("download_allowed")),
+        "draft_parse_allowed": _as_bool(document.get("parse_allowed")),
+        "draft_import_allowed": _as_bool(document.get("import_allowed")),
         "apply_status": apply.get("apply_status") or "",
         "apply_blocker_codes": effective_apply_blocker_codes,
         "suppressed_apply_blocker_codes": suppressed_apply_blocker_codes,
@@ -17533,8 +17808,9 @@ def _build_exact_document_draft_gate_row(
         "gate_reason_codes": reasons,
         "gate_errors": ["downstream_ready_flag_leak"] if downstream_leak else [],
         "gate_warnings": fetch_warnings,
-        "ready_for_future_controlled_download": ready,
-        "ready_for_future_download_plan": ready,
+        "ready_for_future_controlled_download": ready_for_controlled_download,
+        "ready_for_future_fetch_plan": ready_for_fetch_plan,
+        "ready_for_future_download_plan": ready_for_controlled_download,
         "ready_for_future_parse": False,
         "ready_for_future_extraction": False,
         "ready_for_future_import": False,
@@ -17649,20 +17925,37 @@ def _exact_document_draft_gate_status(
 def _exact_document_draft_gate_action(status: str) -> str:
     return {
         "ready_for_future_controlled_download": "rerun_disk_guard_then_build_future_controlled_download_plan",
+        "ready_for_future_document_fetch_plan": "build_future_document_fetch_plan_preview",
         "blocked_source_trust_required": "complete_source_trust_workflow_first",
         "blocked_incomplete_operator_refill": "fill_exact_target_annual_ifrs_document_url",
         "blocked_missing_exact_document_url": "fill_exact_target_annual_ifrs_document_url",
+        "blocked_candidate_url_missing": "review_task152_candidate_url",
+        "blocked_candidate_url_malformed": "review_task152_candidate_url",
+        "blocked_candidate_url_not_https": "review_task152_candidate_url",
+        "blocked_candidate_host_not_trusted": "review_task148_controlled_source_trust",
+        "blocked_candidate_url_direct_document": "review_task152_page_candidate",
+        "blocked_candidate_url_disallowed_context": "review_task152_page_candidate",
+        "blocked_candidate_year_mismatch": "review_task152_candidate_metadata",
+        "blocked_candidate_report_type_mismatch": "review_task152_candidate_metadata",
+        "blocked_candidate_standard_mismatch": "review_task152_candidate_metadata",
+        "blocked_candidate_consolidated_mismatch": "review_task152_candidate_metadata",
         "blocked_disk_guard": "review_task132_disk_guard_before_download",
         "blocked_downstream_ready_flag_leak": "remove_unsafe_downstream_ready_flags_and_review_draft",
     }.get(status, "review_task136_draft_and_gate_blockers")
 
 
 def _exact_document_draft_gate_ready_row(row: dict[str, Any]) -> dict[str, Any]:
+    ready_status = str(row.get("gate_status") or "")
+    future_fetch_plan = ready_status == "ready_for_future_document_fetch_plan"
+    future_download_plan = ready_status == "ready_for_future_controlled_download"
     return {
         "ready_id": f"exact_document_draft_gate_ready:{row.get('gate_id')}",
         **{field: row.get(field) or "" for field in EXACT_DOCUMENT_DRAFT_GATE_READY_FIELDS if field not in {
             "ready_id",
             "ready_status",
+            "ready_for_future_controlled_download",
+            "ready_for_future_fetch_plan",
+            "future_fetch_plan_required",
             "future_download_plan_required",
             "future_disk_guard_required",
             "future_hash_manifest_required",
@@ -17677,11 +17970,14 @@ def _exact_document_draft_gate_ready_row(row: dict[str, Any]) -> dict[str, Any]:
             "would_mutate_scores",
             "would_trigger_paper_trading",
         }},
-        "ready_status": "ready_for_future_controlled_download",
-        "future_download_plan_required": True,
+        "ready_status": ready_status,
+        "ready_for_future_controlled_download": future_download_plan,
+        "ready_for_future_fetch_plan": future_fetch_plan,
+        "future_fetch_plan_required": future_fetch_plan,
+        "future_download_plan_required": future_download_plan,
         "future_disk_guard_required": True,
-        "future_hash_manifest_required": True,
-        "future_pre_write_size_check_required": True,
+        "future_hash_manifest_required": future_download_plan,
+        "future_pre_write_size_check_required": future_download_plan,
         "would_download_document": False,
         "would_write_raw_file": False,
         "would_write_hash_manifest": False,
@@ -17730,6 +18026,16 @@ def _exact_document_draft_gate_blocker_code(status: str) -> str:
         "blocked_non_consolidated": "non_consolidated",
         "blocked_disk_guard": "disk_guard_blocked",
         "blocked_downstream_ready_flag_leak": "downstream_ready_flag_leak",
+        "blocked_candidate_url_missing": "candidate_url_missing",
+        "blocked_candidate_url_malformed": "candidate_url_malformed",
+        "blocked_candidate_url_not_https": "candidate_url_not_https",
+        "blocked_candidate_host_not_trusted": "candidate_host_not_trusted",
+        "blocked_candidate_url_direct_document": "candidate_url_direct_document_not_allowed",
+        "blocked_candidate_url_disallowed_context": "candidate_url_disallowed_context",
+        "blocked_candidate_year_mismatch": "candidate_year_mismatch",
+        "blocked_candidate_report_type_mismatch": "candidate_report_type_mismatch",
+        "blocked_candidate_standard_mismatch": "candidate_standard_mismatch",
+        "blocked_candidate_consolidated_mismatch": "candidate_consolidated_mismatch",
         "blocked_unknown_readiness": "unknown_readiness",
     }.get(status, "unknown_readiness")
 
@@ -17748,12 +18054,22 @@ def _build_exact_document_draft_gate_report(
     source_pack_resolution: dict[str, Any],
     source_pack_sha256: str,
     source_pack_trust_context_type: str,
+    draft_resolution: dict[str, Any],
+    draft_sha256: str,
 ) -> dict[str, Any]:
     disk_guard_status = str(retention_report.get("disk_guard_status") or "blocked")
     source_pack_path = source_pack_resolution.get("path")
     controlled_source_pack_used = any(_as_bool(row.get("controlled_source_pack_used")) for row in gate_rows)
     controlled_source_pack_path = _path_value(source_pack_path) if controlled_source_pack_used and isinstance(source_pack_path, Path) else ""
     source_pack_resolution_fields = _exact_document_draft_gate_source_pack_resolution_fields(source_pack_resolution)
+    draft_resolution_fields = _exact_document_draft_gate_draft_resolution_fields(draft_resolution)
+    ready_for_controlled_download_count = sum(
+        1 for row in gate_rows if row.get("gate_status") == "ready_for_future_controlled_download"
+    )
+    ready_for_fetch_plan_count = sum(
+        1 for row in gate_rows if row.get("gate_status") == "ready_for_future_document_fetch_plan"
+    )
+    task152_intake_draft_used = any(_as_bool(row.get("task152_intake_draft_used")) for row in gate_rows)
     status = (
         "failed"
         if errors
@@ -17765,6 +18081,12 @@ def _build_exact_document_draft_gate_report(
         "status": status,
         "mode": "exact-document-draft-gate-v2",
         "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        **draft_resolution_fields,
+        "draft_input_sha256": draft_sha256,
+        "task152_intake_draft_used": task152_intake_draft_used,
+        "task152_intake_draft_path": draft_resolution_fields["draft_input_path"] if task152_intake_draft_used else "",
+        "task152_intake_draft_sha256": draft_sha256 if task152_intake_draft_used else "",
+        "input_bytes_unchanged": True,
         **source_pack_resolution_fields,
         "source_pack_trust_context_type": source_pack_trust_context_type,
         "source_pack_input_sha256": source_pack_sha256,
@@ -17775,7 +18097,13 @@ def _build_exact_document_draft_gate_report(
         "ready_count": len(ready_rows),
         "blocked_count": len(blocker_rows),
         "blocker_row_count": len(blocker_rows),
-        "ready_for_future_controlled_download": bool(gate_rows and len(ready_rows) == len(gate_rows)),
+        "failed_count": 0,
+        "ready_for_future_controlled_download_count": ready_for_controlled_download_count,
+        "ready_for_future_fetch_plan_count": ready_for_fetch_plan_count,
+        "ready_for_future_controlled_download": bool(
+            gate_rows and ready_for_controlled_download_count == len(gate_rows)
+        ),
+        "ready_for_future_fetch_plan": bool(gate_rows and ready_for_fetch_plan_count == len(gate_rows)),
         "ready_for_future_parse": False,
         "ready_for_future_extraction": False,
         "ready_for_future_import": False,
@@ -17800,10 +18128,21 @@ def _build_exact_document_draft_gate_report(
     }
 
 
-def _failed_exact_document_draft_gate(errors: list[dict[str, Any]]) -> dict[str, Any]:
+def _failed_exact_document_draft_gate(
+    errors: list[dict[str, Any]],
+    *,
+    draft_resolution: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    draft_resolution_fields = _exact_document_draft_gate_draft_resolution_fields(draft_resolution or {})
     return {
         "status": "failed",
         "mode": "exact-document-draft-gate-v2",
+        **draft_resolution_fields,
+        "draft_input_sha256": "",
+        "task152_intake_draft_used": False,
+        "task152_intake_draft_path": "",
+        "task152_intake_draft_sha256": "",
+        "input_bytes_unchanged": True,
         "source_pack_input_path": "",
         "source_pack_input_resolution_strategy": "",
         "source_pack_input_resolution_candidates": [],
@@ -17817,7 +18156,11 @@ def _failed_exact_document_draft_gate(errors: list[dict[str, Any]]) -> dict[str,
         "ready_count": 0,
         "blocked_count": 0,
         "blocker_row_count": 0,
+        "failed_count": 1,
+        "ready_for_future_controlled_download_count": 0,
+        "ready_for_future_fetch_plan_count": 0,
         "ready_for_future_controlled_download": False,
+        "ready_for_future_fetch_plan": False,
         "ready_for_future_parse": False,
         "ready_for_future_extraction": False,
         "ready_for_future_import": False,
@@ -19923,14 +20266,20 @@ def _rzd_exact_document_refill_apply_write_safe_outputs(
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
+        "would_probe_urls": False,
         "would_fetch_url": False,
         "would_fetch_document": False,
+        "would_fetch_documents": False,
         "would_download_document": False,
+        "would_download_documents": False,
         "would_parse_document": False,
+        "would_parse_documents": False,
         "would_extract_values": False,
         "would_import_report": False,
         "would_update_source_pack": False,
+        "would_mutate_source_pack": False,
         "would_update_document_intake": False,
+        "would_mutate_document_intake": False,
         "would_mutate_database": False,
         "would_mutate_scores": False,
         "would_trigger_paper_trading": False,
@@ -19950,13 +20299,22 @@ def _exact_document_draft_gate_safety_flags() -> dict[str, Any]:
         "production_source_pack_modified": False,
         "controlled_source_pack_modified": False,
         "document_intake_modified": False,
+        "production_document_intake_modified": False,
+        "document_intake_draft_modified": False,
         "would_probe_urls": False,
+        "would_probe_url": False,
         "would_fetch_urls": False,
+        "would_fetch_url": False,
         "would_fetch_documents": False,
+        "would_fetch_document": False,
         "would_download_documents": False,
+        "would_download_document": False,
         "would_parse_documents": False,
+        "would_parse_document": False,
         "would_update_source_pack": False,
+        "would_mutate_source_pack": False,
         "would_update_document_intake": False,
+        "would_mutate_document_intake": False,
         "would_extract_values": False,
         "would_import_report": False,
         "would_mutate_database": False,
@@ -30668,11 +31026,17 @@ def render_exact_document_draft_gate_markdown(report: dict[str, Any]) -> str:
         "",
         f"- status: `{report.get('status')}`",
         f"- rows: {report.get('row_count', 0)}",
-        f"- ready for future controlled download: {report.get('ready_count', 0)}",
+        f"- ready rows: {report.get('ready_count', 0)}",
+        f"- ready for future controlled download: {report.get('ready_for_future_controlled_download_count', 0)}",
+        f"- ready for future document fetch plan: {report.get('ready_for_future_fetch_plan_count', 0)}",
         f"- blocked rows: {report.get('blocked_count', 0)}",
         f"- disk guard: `{report.get('disk_guard_status', 'blocked')}`",
         f"- download allowed by disk guard: {report.get('download_allowed_by_disk_guard', False)}",
         f"- future extraction allowed by disk guard: {report.get('future_extraction_allowed_by_disk_guard', False)}",
+        f"- intake draft input: `{report.get('draft_input_path', '')}`",
+        f"- intake draft resolution: `{report.get('draft_input_resolution_strategy', '')}`",
+        f"- intake draft SHA-256: `{report.get('draft_input_sha256', '')}`",
+        f"- Task152 intake draft used: `{report.get('task152_intake_draft_used', False)}`",
         f"- source-pack input: `{report.get('source_pack_input_path', '')}`",
         f"- source-pack resolution: `{report.get('source_pack_input_resolution_strategy', '')}`",
         f"- source-pack trust context: `{report.get('source_pack_trust_context_type', '')}`",
@@ -30717,8 +31081,8 @@ def render_exact_document_draft_gate_markdown(report: dict[str, Any]) -> str:
             "",
             "## Ready Rows",
             "",
-            "| Company | Exact document URL | Future disk guard required | Future pre-write size check |",
-            "| --- | --- | --- | --- |",
+            "| Company | Ready status | Candidate URL | Future fetch plan | Future download plan |",
+            "| --- | --- | --- | --- | --- |",
         ]
     )
     for row in report.get("ready_rows") or []:
@@ -30728,15 +31092,16 @@ def render_exact_document_draft_gate_markdown(report: dict[str, Any]) -> str:
                 _markdown_table_cell(value)
                 for value in (
                     row.get("company_name") or row.get("company_id"),
+                    row.get("ready_status"),
                     row.get("exact_document_url"),
-                    row.get("future_disk_guard_required"),
-                    row.get("future_pre_write_size_check_required"),
+                    row.get("future_fetch_plan_required"),
+                    row.get("future_download_plan_required"),
                 )
             )
             + " |"
         )
     if not report.get("ready_rows"):
-        lines.append("| none |  |  |  |")
+        lines.append("| none |  |  |  |  |")
     lines.extend(
         [
             "",
@@ -30754,6 +31119,7 @@ def render_exact_document_draft_gate_markdown(report: dict[str, Any]) -> str:
             "- This task does not extract financial values.",
             "- This task does not import reports.",
             "- This task does not score issuers or trigger paper trading.",
+            "- Task152 page candidates may become ready only for a future fetch-plan preview, never for download or parsing.",
             "- Rows ready for future controlled download are still not ready for extraction, import, scoring, or trading.",
             "",
         ]
@@ -42020,7 +42386,7 @@ def _next_steps(mode: str, status: str) -> list[str]:
     if mode == "operator-exact-document-refill-apply-draft-v2":
         return ["Review the Task136 draft copy and run a later strict document gate before any download, extraction, or import task."]
     if mode == "exact-document-draft-gate-v2":
-        return ["Resolve Task137 blockers; rerun the Task132 disk guard immediately before any future controlled document write."]
+        return ["Resolve Task137 blockers; Task152 page candidates may proceed only to a future fetch-plan preview, and Task132 must be rerun before any controlled document write."]
     if mode == "rzd-exact-document-url-refill-v2":
         return ["Review the Task150 RZD refill candidate, then run Task135 validation with the generated Task150 CSV as explicit input."]
     if mode == "rzd-exact-document-refill-validate-v2":

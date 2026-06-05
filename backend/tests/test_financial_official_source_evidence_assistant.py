@@ -9,6 +9,8 @@ from pathlib import Path
 import sys
 import time
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "scripts"
@@ -8662,6 +8664,169 @@ def test_exact_document_draft_gate_valid_row_is_download_preview_only_and_writes
     assert "does not download reports" in markdown
 
 
+def test_exact_document_draft_gate_prefers_task152_and_marks_rzd_page_ready_for_fetch_plan(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task153 must not probe, fetch, download, parse, mutate, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    task152_draft = _write_exact_document_draft_gate_task152_inputs(tmp_path)
+    source_pack = tmp_path / "source_trust_recovery_controlled_source_pack_task148.json"
+    snapshots = {
+        task152_draft: task152_draft.read_bytes(),
+        source_pack: source_pack.read_bytes(),
+    }
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["draft_input_path"] == str(task152_draft)
+    assert report["draft_input_resolution_strategy"] == "chain_task152_rzd_intake_draft"
+    assert report["draft_input_sha256"] == hashlib.sha256(snapshots[task152_draft]).hexdigest()
+    assert report["task152_intake_draft_used"] is True
+    assert report["task152_intake_draft_path"] == str(task152_draft)
+    assert report["task152_intake_draft_sha256"] == report["draft_input_sha256"]
+    assert report["input_bytes_unchanged"] is True
+    assert report["ready_count"] == 1
+    assert report["ready_for_future_fetch_plan_count"] == 1
+    assert report["ready_for_future_controlled_download_count"] == 0
+    assert report["ready_for_future_fetch_plan"] is True
+    assert report["ready_for_future_controlled_download"] is False
+    row = report["gate_rows"][0]
+    assert row["gate_status"] == "ready_for_future_document_fetch_plan"
+    assert row["task152_candidate_context"] is True
+    assert row["candidate_document_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert row["candidate_document_host_trusted_by_source_pack"] is True
+    assert row["ready_for_future_fetch_plan"] is True
+    assert row["ready_for_future_controlled_download"] is False
+    assert row["ready_for_future_download_plan"] is False
+    assert row["ready_for_future_parse"] is False
+    assert row["ready_for_future_extraction"] is False
+    assert row["ready_for_future_import"] is False
+    assert row["ready_for_future_scoring"] is False
+    assert row["ready_for_future_paper_trading"] is False
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_document"] is False
+    assert row["would_download_document"] is False
+    assert row["would_parse_document"] is False
+    assert row["would_mutate_document_intake"] is False
+    assert row["would_mutate_source_pack"] is False
+    ready = report["ready_rows"][0]
+    assert ready["ready_status"] == "ready_for_future_document_fetch_plan"
+    assert ready["future_fetch_plan_required"] is True
+    assert ready["future_download_plan_required"] is False
+    assert ready["future_hash_manifest_required"] is False
+    assert ready["future_pre_write_size_check_required"] is False
+    assert report["blocker_rows"] == []
+    for path, content in snapshots.items():
+        assert path.read_bytes() == content
+
+
+def test_exact_document_draft_gate_explicit_draft_input_overrides_task152(tmp_path: Path) -> None:
+    task152_draft = _write_exact_document_draft_gate_task152_inputs(tmp_path)
+    explicit = tmp_path / "explicit_intake.json"
+    _write_document_intake(explicit, [_exact_document_draft_gate_placeholder_document()])
+
+    report = _run_exact_document_draft_gate(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--exact-document-draft-gate-input",
+            str(explicit),
+        ]
+    )
+
+    assert task152_draft.is_file()
+    assert report["draft_input_path"] == str(explicit)
+    assert report["draft_input_resolution_strategy"] == "explicit_cli_input"
+    assert report["task152_intake_draft_used"] is False
+    assert report["gate_rows"][0]["gate_status"] == "blocked_missing_exact_document_url"
+
+
+@pytest.mark.parametrize("container_key", ["documents", "rows", None])
+def test_exact_document_draft_gate_task152_supports_container_shapes(
+    tmp_path: Path,
+    container_key: str | None,
+) -> None:
+    _write_exact_document_draft_gate_task152_inputs(tmp_path, container_key=container_key)
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["gate_rows"][0]["gate_status"] == "ready_for_future_document_fetch_plan"
+
+
+@pytest.mark.parametrize(
+    ("updates", "expected_status", "expected_blocker"),
+    [
+        (
+            {
+                "official_document_page_url": "",
+                "candidate_exact_document_url": "",
+                "document_url": "",
+                "exact_document_url": "",
+            },
+            "blocked_candidate_url_missing",
+            "candidate_url_missing",
+        ),
+        (
+            {
+                "official_document_page_url": "not a url",
+                "candidate_exact_document_url": "not a url",
+                "document_url": "not a url",
+                "exact_document_url": "not a url",
+            },
+            "blocked_candidate_url_malformed",
+            "candidate_url_malformed",
+        ),
+        (
+            {
+                "official_document_page_url": "http://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "candidate_exact_document_url": "http://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "document_url": "http://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "exact_document_url": "http://company.rzd.ru/ru/9397/page/104069?id=322745",
+            },
+            "blocked_candidate_url_not_https",
+            "candidate_url_not_https",
+        ),
+        (
+            {
+                "official_document_page_url": "https://example.com/ru/9397/page/104069?id=322745",
+                "candidate_exact_document_url": "https://example.com/ru/9397/page/104069?id=322745",
+                "document_url": "https://example.com/ru/9397/page/104069?id=322745",
+                "exact_document_url": "https://example.com/ru/9397/page/104069?id=322745",
+            },
+            "blocked_candidate_host_not_trusted",
+            "candidate_host_not_trusted",
+        ),
+        ({"target_reporting_period": "2024", "report_period": "2024"}, "blocked_candidate_year_mismatch", "candidate_year_mismatch"),
+        ({"document_report_type": "interim", "report_type": "interim"}, "blocked_candidate_report_type_mismatch", "candidate_report_type_mismatch"),
+        ({"document_accounting_standard": "RAS", "accounting_standard": "RAS"}, "blocked_candidate_standard_mismatch", "candidate_standard_mismatch"),
+        ({"document_consolidated": False}, "blocked_candidate_consolidated_mismatch", "candidate_consolidated_mismatch"),
+        ({"ready_for_extraction": True}, "blocked_downstream_ready_flag_leak", "downstream_ready_flag_leak"),
+    ],
+)
+def test_exact_document_draft_gate_task152_blocks_unsafe_page_candidates(
+    tmp_path: Path,
+    updates: dict[str, object],
+    expected_status: str,
+    expected_blocker: str,
+) -> None:
+    document = _exact_document_draft_gate_task152_document(**updates)
+    _write_exact_document_draft_gate_task152_inputs(tmp_path, document=document)
+
+    report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["gate_rows"][0]["gate_status"] == expected_status
+    assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+    assert report["ready_count"] == 0
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -16892,6 +17057,44 @@ def _exact_document_draft_gate_rzd_applied_document(**updates: object) -> dict[s
     return row
 
 
+def _exact_document_draft_gate_task152_document(**updates: object) -> dict[str, object]:
+    url = "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    row: dict[str, object] = {
+        "company_id": "18",
+        "company_name": "RZD",
+        "canonical_company_id": "18",
+        "canonical_company_name": "RZD",
+        "target_reporting_period": "2025",
+        "document_report_type": "annual",
+        "document_accounting_standard": "IFRS",
+        "document_consolidated": True,
+        "document_language": "ru",
+        "report_period": "2025",
+        "report_type": "annual",
+        "accounting_standard": "IFRS",
+        "official_document_page_url": url,
+        "candidate_exact_document_url": url,
+        "document_url": url,
+        "exact_document_url": url,
+        "document_title": "RZD annual consolidated IFRS reporting page 2025",
+        "document_context_status": "exact_document_url_apply_draft_for_future_gate",
+        "document_context_origin": "rzd_exact_document_refill_apply_draft_task152",
+        "manual_candidate_status": "future_gate_validation_required",
+        "document_status": "draft_candidate_pending_future_gate_validation",
+        "ready_for_document_download": False,
+        "ready_for_value_extraction": False,
+        "ready_for_extraction": False,
+        "ready_for_import": False,
+        "ready_for_scoring": False,
+        "ready_for_paper_trading": False,
+        "download_allowed": False,
+        "parse_allowed": False,
+        "import_allowed": False,
+    }
+    row.update(updates)
+    return row
+
+
 def _exact_document_draft_gate_apply_row(**updates: object) -> dict[str, object]:
     row: dict[str, object] = {
         "apply_id": "operator_exact_document_refill_apply:mostotrest",
@@ -17143,6 +17346,26 @@ def _write_exact_document_draft_gate_inputs(
         + "\n",
         encoding="utf-8",
     )
+
+
+def _write_exact_document_draft_gate_task152_inputs(
+    path: Path,
+    *,
+    document: dict[str, object] | None = None,
+    container_key: str | None = "documents",
+) -> Path:
+    _write_exact_document_draft_gate_inputs(
+        path,
+        documents=[_exact_document_draft_gate_applied_document()],
+        apply_rows=[],
+        blocker_rows=[],
+    )
+    task152_draft = path / "rzd_exact_document_intake_draft_task152.json"
+    rows = [document or _exact_document_draft_gate_task152_document()]
+    payload: object = rows if container_key is None else {container_key: rows}
+    task152_draft.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _write_exact_document_draft_gate_source_pack(path)
+    return task152_draft
 
 
 def _run_availability_discovery(
