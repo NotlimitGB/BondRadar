@@ -20564,27 +20564,66 @@ def run_rzd_exact_document_fetch_plan_preview_v2(args: argparse.Namespace) -> di
         blocker_rows=blocker_rows,
         warnings=warnings,
         errors=[],
+        input_preservation=_rzd_exact_document_fetch_plan_preservation_fields(
+            inputs=inputs,
+            snapshots=snapshots,
+            input_hashes=input_hashes,
+        ),
     )
     try:
         _rzd_exact_document_fetch_plan_write_safe_outputs(report, artifacts)
     except OSError as exc:
         report["status"] = "failed"
         report["errors"] = [*report["errors"], {"message": str(exc)}]
-    if not _operator_exact_document_refill_apply_snapshots_unchanged(snapshots):
+
+    preservation = _rzd_exact_document_fetch_plan_preservation_fields(
+        inputs=inputs,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    report.update(preservation)
+    if not preservation["input_bytes_unchanged"]:
         report["status"] = "failed"
-        report["input_bytes_unchanged"] = False
-        report["gate_input_bytes_unchanged"] = False
-        report["intake_draft_input_bytes_unchanged"] = False
-        report["source_pack_input_bytes_unchanged"] = False
         report["errors"] = [
             *report["errors"],
             {"message": "rzd_exact_document_fetch_plan_input_drift_detected"},
         ]
-        try:
-            _rzd_exact_document_fetch_plan_write_safe_outputs(report, artifacts)
-        except OSError:
-            pass
+    try:
+        _rzd_exact_document_fetch_plan_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report["errors"], {"message": str(exc)}]
     return report
+
+
+def _rzd_exact_document_fetch_plan_preservation_fields(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, bool]:
+    preserved: dict[str, bool] = {}
+    for role in ("gate", "intake_draft", "source_pack"):
+        path = inputs.get(role)
+        role_preserved = False
+        if path is not None and path in snapshots:
+            try:
+                current_bytes = path.read_bytes()
+                role_preserved = bool(
+                    path.is_file()
+                    and current_bytes == snapshots[path]
+                    and hashlib.sha256(current_bytes).hexdigest() == str(input_hashes.get(role) or "")
+                )
+            except OSError:
+                role_preserved = False
+        preserved[f"{role}_input_preserved"] = role_preserved
+        preserved[f"{role}_input_bytes_unchanged"] = role_preserved
+    preserved["input_bytes_unchanged"] = all(preserved[f"{role}_input_preserved"] for role in (
+        "gate",
+        "intake_draft",
+        "source_pack",
+    ))
+    return preserved
 
 
 def _rzd_exact_document_fetch_plan_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
@@ -21051,6 +21090,10 @@ def _rzd_exact_document_fetch_plan_safety_flags() -> dict[str, Any]:
         "paper_trading_called": False,
         "document_intake_modified": False,
         "source_pack_modified": False,
+        "production_source_pack_modified": False,
+        "controlled_source_pack_modified": False,
+        "production_document_intake_modified": False,
+        "document_intake_draft_modified": False,
         "database_mutated": False,
         "would_probe_urls": False,
         "would_fetch_urls": False,
@@ -21091,8 +21134,14 @@ def _build_rzd_exact_document_fetch_plan_report(
     blocker_rows: list[dict[str, Any]],
     warnings: list[dict[str, Any]],
     errors: list[dict[str, Any]],
+    input_preservation: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
     status = "failed" if errors else "passed" if ready_rows and not blocker_rows and not warnings else "warning"
+    preservation = input_preservation or _rzd_exact_document_fetch_plan_preservation_fields(
+        inputs=inputs,
+        snapshots={},
+        input_hashes=input_hashes,
+    )
     return {
         "status": status,
         "mode": "rzd-exact-document-fetch-plan-preview-v2",
@@ -21105,16 +21154,16 @@ def _build_rzd_exact_document_fetch_plan_report(
         "document_download_plan_ready_count": 0,
         "ready_for_future_controlled_page_fetch_preview": bool(ready_rows),
         "ready_for_document_download_plan": False,
+        "rzd_ready_for_future_controlled_page_fetch_preview": bool(ready_rows),
+        "rzd_ready_for_future_document_download": False,
+        "rzd_ready_for_future_parse": False,
         "gate_input_path": _path_value(inputs.get("gate")) or "",
         "gate_input_sha256": input_hashes.get("gate") or "",
         "intake_draft_input_path": _path_value(inputs.get("intake_draft")) or "",
         "intake_draft_input_sha256": input_hashes.get("intake_draft") or "",
         "source_pack_input_path": _path_value(inputs.get("source_pack")) or "",
         "source_pack_input_sha256": input_hashes.get("source_pack") or "",
-        "input_bytes_unchanged": True,
-        "gate_input_bytes_unchanged": True,
-        "intake_draft_input_bytes_unchanged": True,
-        "source_pack_input_bytes_unchanged": True,
+        **preservation,
         "inputs": {role: _path_value(path) for role, path in inputs.items()},
         "fetch_plan_status_counts": _count_by_key(plan_rows, "fetch_plan_status"),
         "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),

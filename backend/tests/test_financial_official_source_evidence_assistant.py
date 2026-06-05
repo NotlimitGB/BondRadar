@@ -8935,6 +8935,20 @@ def test_rzd_exact_document_fetch_plan_valid_page_candidate_is_preview_only(
     assert report["blocked_count"] == 0
     assert report["page_fetch_plan_ready_count"] == 1
     assert report["document_download_plan_ready_count"] == 0
+    assert report["rzd_ready_for_future_controlled_page_fetch_preview"] is True
+    assert report["rzd_ready_for_future_document_download"] is False
+    assert report["rzd_ready_for_future_parse"] is False
+    assert report["gate_input_preserved"] is True
+    assert report["intake_draft_input_preserved"] is True
+    assert report["source_pack_input_preserved"] is True
+    assert report["input_bytes_unchanged"] is True
+    assert report["gate_input_bytes_unchanged"] is True
+    assert report["intake_draft_input_bytes_unchanged"] is True
+    assert report["source_pack_input_bytes_unchanged"] is True
+    assert report["production_source_pack_modified"] is False
+    assert report["controlled_source_pack_modified"] is False
+    assert report["production_document_intake_modified"] is False
+    assert report["document_intake_draft_modified"] is False
     row = report["fetch_plan_rows"][0]
     assert row["candidate_document_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
     assert row["candidate_document_host"] == "company.rzd.ru"
@@ -8960,7 +8974,45 @@ def test_rzd_exact_document_fetch_plan_valid_page_candidate_is_preview_only(
     assert report["would_mutate_source_pack"] is False
     assert report["would_mutate_database"] is False
     assert report["would_delete_files"] is False
-    assert report["input_bytes_unchanged"] is True
+    for field in (
+        "read_only",
+        "dry_run_only",
+        "rzd_ready_for_future_controlled_page_fetch_preview",
+        "rzd_ready_for_future_document_download",
+        "rzd_ready_for_future_parse",
+        "gate_input_preserved",
+        "intake_draft_input_preserved",
+        "source_pack_input_preserved",
+        "input_bytes_unchanged",
+        "gate_input_bytes_unchanged",
+        "intake_draft_input_bytes_unchanged",
+        "source_pack_input_bytes_unchanged",
+        "production_source_pack_modified",
+        "controlled_source_pack_modified",
+        "production_document_intake_modified",
+        "document_intake_draft_modified",
+        "would_probe_urls",
+        "would_fetch_urls",
+        "would_fetch_pages",
+        "would_download_documents",
+        "would_parse_documents",
+        "would_write_raw_files",
+        "would_write_hash_manifests",
+        "would_mutate_document_intake",
+        "would_mutate_database",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+        "would_delete_files",
+        "documents_downloaded",
+        "documents_parsed",
+        "files_deleted",
+        "import_executed",
+        "paper_trading_called",
+    ):
+        assert field in report
+        assert isinstance(report[field], bool)
     for path, content in snapshots.items():
         assert path.read_bytes() == content
     for filename in assistant.RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES.values():
@@ -8984,6 +9036,9 @@ def test_rzd_exact_document_fetch_plan_keeps_unrelated_gate_blocker_visible(tmp_
     assert report["row_count"] == 1
     assert report["ready_count"] == 1
     assert report["blocked_count"] == 1
+    assert report["rzd_ready_for_future_controlled_page_fetch_preview"] is True
+    assert report["rzd_ready_for_future_document_download"] is False
+    assert report["rzd_ready_for_future_parse"] is False
     assert report["blocker_rows"][0]["company_id"] == "67"
     assert report["blocker_rows"][0]["blocker_code"] == "gate_row_not_ready_for_future_fetch_plan"
 
@@ -9054,6 +9109,20 @@ def test_rzd_exact_document_fetch_plan_required_failures_write_safe_artifacts(tm
     assert report["fetch_plan_rows"] == []
     assert report["ready_rows"] == []
     assert report["blocker_rows"] == []
+    assert report["rzd_ready_for_future_controlled_page_fetch_preview"] is False
+    assert report["rzd_ready_for_future_document_download"] is False
+    assert report["rzd_ready_for_future_parse"] is False
+    assert report["gate_input_preserved"] is False
+    assert report["intake_draft_input_preserved"] is False
+    assert report["source_pack_input_preserved"] is False
+    assert report["input_bytes_unchanged"] is False
+    assert report["gate_input_bytes_unchanged"] is False
+    assert report["intake_draft_input_bytes_unchanged"] is False
+    assert report["source_pack_input_bytes_unchanged"] is False
+    assert report["production_source_pack_modified"] is False
+    assert report["controlled_source_pack_modified"] is False
+    assert report["production_document_intake_modified"] is False
+    assert report["document_intake_draft_modified"] is False
     for filename in assistant.RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES.values():
         assert (tmp_path / filename).is_file()
 
@@ -9096,6 +9165,45 @@ def test_rzd_exact_document_fetch_plan_output_collision_fails_before_write(tmp_p
     )
     assert generic["status"] == "failed"
     assert generic["errors"] == [{"message": "rzd_exact_document_fetch_plan_output_must_not_equal_input"}]
+
+
+def test_rzd_exact_document_fetch_plan_detects_per_input_drift_after_artifact_write(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_exact_document_fetch_plan_inputs(tmp_path)
+    original_writer = assistant._rzd_exact_document_fetch_plan_write_safe_outputs
+    write_count = 0
+
+    def mutate_source_pack_after_first_write(report, artifacts):
+        nonlocal write_count
+        write_count += 1
+        original_writer(report, artifacts)
+        if write_count == 1:
+            paths["source_pack"].write_bytes(paths["source_pack"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_exact_document_fetch_plan_write_safe_outputs",
+        mutate_source_pack_after_first_write,
+    )
+
+    report = _run_rzd_exact_document_fetch_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "rzd_exact_document_fetch_plan_input_drift_detected"} in report["errors"]
+    assert report["gate_input_preserved"] is True
+    assert report["intake_draft_input_preserved"] is True
+    assert report["source_pack_input_preserved"] is False
+    assert report["gate_input_bytes_unchanged"] is True
+    assert report["intake_draft_input_bytes_unchanged"] is True
+    assert report["source_pack_input_bytes_unchanged"] is False
+    assert report["input_bytes_unchanged"] is False
+    assert report["fetch_plan_rows"][0]["fetch_plan_status"] == "ready_for_future_controlled_page_fetch_preview"
+    persisted = json.loads((tmp_path / "rzd_exact_document_fetch_plan_task154.json").read_text(encoding="utf-8"))
+    assert persisted["status"] == "failed"
+    assert persisted["source_pack_input_preserved"] is False
+    assert persisted["input_bytes_unchanged"] is False
 
 
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
