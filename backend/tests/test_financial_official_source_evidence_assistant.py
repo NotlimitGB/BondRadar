@@ -8911,6 +8911,193 @@ def test_exact_document_draft_gate_task152_blocks_unsafe_page_candidates(
     assert report["ready_count"] == 0
 
 
+def test_rzd_exact_document_fetch_plan_valid_page_candidate_is_preview_only(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task154 must not probe, fetch, download, parse, mutate, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    paths = _write_rzd_exact_document_fetch_plan_inputs(tmp_path)
+    snapshots = {path: path.read_bytes() for path in paths.values()}
+
+    report = _run_rzd_exact_document_fetch_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["gate_row_count"] == 1
+    assert report["row_count"] == 1
+    assert report["ready_count"] == 1
+    assert report["blocked_count"] == 0
+    assert report["page_fetch_plan_ready_count"] == 1
+    assert report["document_download_plan_ready_count"] == 0
+    row = report["fetch_plan_rows"][0]
+    assert row["candidate_document_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert row["candidate_document_host"] == "company.rzd.ru"
+    assert row["candidate_url_type"] == "official_source_page"
+    assert row["fetch_plan_kind"] == "official_page_candidate_discovery_preview"
+    assert row["fetch_plan_status"] == "ready_for_future_controlled_page_fetch_preview"
+    assert row["future_controlled_page_fetch_required"] is True
+    assert row["future_page_fetch_token_required"] is True
+    assert row["future_page_fetch_expected_sha_required"] is True
+    assert row["future_page_link_discovery_required"] is True
+    assert row["future_document_download_plan_required"] is True
+    assert row["future_document_download_required"] is False
+    assert row["future_document_parse_required"] is False
+    assert row["would_probe_url"] is False
+    assert row["would_fetch_page"] is False
+    assert row["would_download_document"] is False
+    assert row["would_parse_document"] is False
+    assert report["would_probe_urls"] is False
+    assert report["would_fetch_pages"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_document_intake"] is False
+    assert report["would_mutate_source_pack"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_delete_files"] is False
+    assert report["input_bytes_unchanged"] is True
+    for path, content in snapshots.items():
+        assert path.read_bytes() == content
+    for filename in assistant.RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES.values():
+        assert (tmp_path / filename).is_file()
+    markdown = (tmp_path / "rzd_exact_document_fetch_plan_task154.md").read_text(encoding="utf-8")
+    assert "RZD Exact Document Fetch Plan Preview v2" in markdown
+    assert "Page-fetch preview readiness is not document-download readiness" in markdown
+    rerun = (tmp_path / "rzd_exact_document_fetch_plan_rerun_task154.md").read_text(encoding="utf-8")
+    assert "rzd-controlled-page-fetch-preview-v2" in rerun
+    assert "<TASK154_PAGE_FETCH_CONFIRMATION_TOKEN>" in rerun
+    assert "<EXPECTED_TASK153_GATE_SHA256>" in rerun
+
+
+def test_rzd_exact_document_fetch_plan_keeps_unrelated_gate_blocker_visible(tmp_path: Path) -> None:
+    _write_rzd_exact_document_fetch_plan_inputs(tmp_path, include_non_rzd_blocker=True)
+
+    report = _run_rzd_exact_document_fetch_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["gate_row_count"] == 2
+    assert report["row_count"] == 1
+    assert report["ready_count"] == 1
+    assert report["blocked_count"] == 1
+    assert report["blocker_rows"][0]["company_id"] == "67"
+    assert report["blocker_rows"][0]["blocker_code"] == "gate_row_not_ready_for_future_fetch_plan"
+
+
+@pytest.mark.parametrize(
+    ("case_name", "expected_status"),
+    [
+        ("untrusted_host", "blocked_controlled_source_trust_missing_or_untrusted"),
+        ("query_pdf", "blocked_candidate_url_direct_document"),
+        ("downstream_leak", "blocked_downstream_ready_leak"),
+        ("unsafe_flag", "blocked_unsafe_action_flags"),
+        ("metadata_mismatch", "blocked_candidate_year_mismatch"),
+        ("ambiguous_intake", "blocked_ambiguous_or_inconsistent_cross_check"),
+    ],
+)
+def test_rzd_exact_document_fetch_plan_blocks_unsafe_or_inconsistent_context(
+    tmp_path: Path,
+    case_name: str,
+    expected_status: str,
+) -> None:
+    case_dir = tmp_path / case_name
+    case_dir.mkdir()
+    paths = _write_rzd_exact_document_fetch_plan_inputs(case_dir)
+    gate = json.loads(paths["gate"].read_text(encoding="utf-8"))
+    intake = json.loads(paths["intake_draft"].read_text(encoding="utf-8"))
+    gate_row = gate["gate_rows"][0]
+    intake_row = intake["documents"][0]
+    if case_name in {"untrusted_host", "query_pdf"}:
+        url = (
+            "https://example.com/ru/9397/page/104069?id=322745"
+            if case_name == "untrusted_host"
+            else "https://company.rzd.ru/ru/9397/page/104069?id=322745.pdf"
+        )
+        for field in ("candidate_document_url", "document_url_from_task152_draft", "document_url", "exact_document_url"):
+            gate_row[field] = url
+        for field in ("official_document_page_url", "candidate_exact_document_url", "document_url", "exact_document_url"):
+            intake_row[field] = url
+    elif case_name == "downstream_leak":
+        gate_row["ready_for_future_controlled_download"] = True
+    elif case_name == "unsafe_flag":
+        gate_row["would_fetch_url"] = True
+    elif case_name == "metadata_mismatch":
+        intake_row["target_reporting_period"] = "2024"
+        intake_row["report_period"] = "2024"
+    elif case_name == "ambiguous_intake":
+        intake["documents"].append(dict(intake_row))
+    paths["gate"].write_text(json.dumps(gate, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    paths["intake_draft"].write_text(json.dumps(intake, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    report = _run_rzd_exact_document_fetch_plan(["--operator-resolution-chain-output-dir", str(case_dir)])
+
+    assert report["status"] == "warning"
+    assert report["ready_count"] == 0
+    assert report["blocked_count"] == 1
+    assert report["fetch_plan_rows"][0]["fetch_plan_status"] == expected_status
+    assert report["blocker_rows"][0]["blocker_code"] == expected_status.removeprefix("blocked_")
+
+
+def test_rzd_exact_document_fetch_plan_required_failures_write_safe_artifacts(tmp_path: Path) -> None:
+    report = _run_rzd_exact_document_fetch_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {error["message"] for error in report["errors"]} == {
+        "rzd_exact_document_fetch_plan_gate_input_required",
+        "rzd_exact_document_fetch_plan_intake_draft_input_required",
+        "rzd_exact_document_fetch_plan_source_pack_input_required",
+    }
+    assert report["fetch_plan_rows"] == []
+    assert report["ready_rows"] == []
+    assert report["blocker_rows"] == []
+    for filename in assistant.RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES.values():
+        assert (tmp_path / filename).is_file()
+
+    malformed_dir = tmp_path / "malformed"
+    malformed_dir.mkdir()
+    paths = _write_rzd_exact_document_fetch_plan_inputs(malformed_dir)
+    paths["gate"].write_text("{broken", encoding="utf-8")
+    malformed = _run_rzd_exact_document_fetch_plan(
+        ["--operator-resolution-chain-output-dir", str(malformed_dir)]
+    )
+    assert malformed["status"] == "failed"
+    assert malformed["errors"][0]["message"] == "rzd_exact_document_fetch_plan_gate_input_required"
+
+
+def test_rzd_exact_document_fetch_plan_output_collision_fails_before_write(tmp_path: Path) -> None:
+    paths = _write_rzd_exact_document_fetch_plan_inputs(tmp_path)
+    original = paths["gate"].read_bytes()
+
+    report = _run_rzd_exact_document_fetch_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-exact-document-fetch-plan-output",
+            str(paths["gate"]),
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "rzd_exact_document_fetch_plan_output_must_not_equal_input"}]
+    assert paths["gate"].read_bytes() == original
+    assert not (tmp_path / "rzd_exact_document_fetch_plan_task154.json").is_file()
+
+    generic = _run_rzd_exact_document_fetch_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--json-output",
+            str(paths["intake_draft"]),
+        ]
+    )
+    assert generic["status"] == "failed"
+    assert generic["errors"] == [{"message": "rzd_exact_document_fetch_plan_output_must_not_equal_input"}]
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -16692,6 +16879,19 @@ def _run_rzd_exact_document_refill_apply(extra_args: list[str] | None = None) ->
     return report
 
 
+def _run_rzd_exact_document_fetch_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-exact-document-fetch-plan-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -17450,6 +17650,25 @@ def _write_exact_document_draft_gate_task152_inputs(
     task152_draft.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     _write_exact_document_draft_gate_source_pack(path)
     return task152_draft
+
+
+def _write_rzd_exact_document_fetch_plan_inputs(
+    path: Path,
+    *,
+    include_non_rzd_blocker: bool = False,
+) -> dict[str, Path]:
+    task152_draft = _write_exact_document_draft_gate_task152_inputs(path)
+    if include_non_rzd_blocker:
+        payload = json.loads(task152_draft.read_text(encoding="utf-8"))
+        payload["documents"].append(_exact_document_draft_gate_placeholder_document())
+        task152_draft.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    gate_report = _run_exact_document_draft_gate(["--operator-resolution-chain-output-dir", str(path)])
+    assert gate_report["ready_for_future_fetch_plan_count"] == 1
+    return {
+        "gate": path / "exact_document_draft_gate_task137.json",
+        "intake_draft": task152_draft,
+        "source_pack": path / "source_trust_recovery_controlled_source_pack_task148.json",
+    }
 
 
 def _run_availability_discovery(
