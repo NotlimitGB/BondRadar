@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import sys
 import time
+import urllib.parse
 
 import pytest
 
@@ -9550,6 +9551,187 @@ def test_rzd_controlled_page_fetch_detects_input_drift_after_write(
     assert report["page_fetched_count"] == 1
 
 
+def test_rzd_page_link_discovery_dedupes_and_accepts_reporting_hub(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_page_link_discovery_inputs(tmp_path, monkeypatch)
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task156 must not probe, fetch, download, parse, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["input_candidate_count"] == 2
+    assert report["unique_candidate_count"] == 1
+    assert report["duplicate_candidate_count"] == 1
+    assert report["validation_row_count"] == 1
+    assert report["accepted_candidate_count"] == 1
+    assert report["blocked_count"] == 0
+    assert report["rzd_reporting_hub_candidate_found"] is True
+    assert report["rzd_reporting_hub_candidate_accepted"] is True
+    assert report["rzd_ready_for_future_controlled_reporting_hub_fetch"] is True
+    assert report["rzd_document_download_ready"] is False
+    assert report["rzd_document_parse_ready"] is False
+    assert report["raw_html_hash_verified"] is True
+    row = report["validation_rows"][0]
+    assert row["normalized_candidate_url"] == "https://company.rzd.ru/ru/9471"
+    assert row["validated_candidate_type"] == "official_reporting_hub_page"
+    assert row["validation_status"] == "accepted_future_controlled_reporting_hub_fetch_candidate"
+    assert row["accepted_for_future_controlled_reporting_hub_fetch"] is True
+    assert row["future_controlled_reporting_hub_fetch_required"] is True
+    assert row["future_document_link_discovery_required"] is True
+    assert row["future_document_download_plan_required"] is True
+    assert row["future_document_download_required"] is False
+    assert row["future_document_parse_required"] is False
+    assert row["duplicate_count"] == 1
+    assert row["raw_html_hash_verified"] is True
+    accepted = report["accepted_candidate_rows"][0]
+    assert accepted["accepted_candidate_url"] == "https://company.rzd.ru/ru/9471"
+    assert accepted["accepted_candidate_type"] == "official_reporting_hub_page"
+    assert accepted["accepted_candidate_status"] == "future_controlled_reporting_hub_fetch_candidate_only"
+    assert accepted["would_download_candidate"] is False
+    assert accepted["would_parse_candidate"] is False
+    for field in _rzd_page_link_discovery_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+    for output_name in assistant.RZD_PAGE_LINK_DISCOVERY_VALIDATION_ARTIFACT_NAMES.values():
+        assert (tmp_path / output_name).is_file()
+
+
+def test_rzd_page_link_discovery_missing_candidates_blocks(tmp_path: Path, monkeypatch) -> None:
+    _write_rzd_page_link_discovery_inputs(tmp_path, monkeypatch)
+    candidates_path = tmp_path / "rzd_controlled_page_fetch_document_candidates_task155.json"
+    payload = json.loads(candidates_path.read_text(encoding="utf-8"))
+    payload["document_candidate_rows"] = []
+    candidates_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    report = _run_rzd_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "blocked"
+    assert report["accepted_candidate_count"] == 0
+    assert report["blocker_rows"][0]["blocker_code"] == "candidate_missing"
+    for field in _rzd_page_link_discovery_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+
+
+@pytest.mark.parametrize(
+    ("candidate_url", "expected_blocker"),
+    [
+        ("https://company.rzd.ru/report.pdf", "candidate_url_direct_document_not_allowed_for_hub_validation"),
+        ("https://company.rzd.ru/ru/9471?id=report.pdf", "candidate_url_direct_document_not_allowed_for_hub_validation"),
+        ("https://example.com/ru/9471", "candidate_host_not_rzd_official_host"),
+    ],
+)
+def test_rzd_page_link_discovery_candidate_blockers(
+    tmp_path: Path,
+    monkeypatch,
+    candidate_url: str,
+    expected_blocker: str,
+) -> None:
+    _write_rzd_page_link_discovery_inputs(tmp_path, monkeypatch)
+    candidates_path = tmp_path / "rzd_controlled_page_fetch_document_candidates_task155.json"
+    payload = json.loads(candidates_path.read_text(encoding="utf-8"))
+    row = payload["document_candidate_rows"][0]
+    row["candidate_url"] = candidate_url
+    row["candidate_host"] = assistant._host(candidate_url)
+    row["candidate_extension"] = Path(urllib.parse.urlparse(candidate_url).path).suffix
+    payload["document_candidate_rows"] = [row]
+    candidates_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    report = _run_rzd_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "blocked"
+    assert report["accepted_candidate_count"] == 0
+    assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+
+
+def test_rzd_page_link_discovery_raw_html_hash_mismatch_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_page_link_discovery_inputs(tmp_path, monkeypatch)
+    paths["raw_html"].write_bytes(paths["raw_html"].read_bytes() + b"\nchanged")
+
+    report = _run_rzd_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "blocked"
+    assert report["raw_html_hash_verified"] is False
+    assert report["blocker_rows"][0]["blocker_code"] == "task155_raw_html_hash_mismatch"
+
+
+def test_rzd_page_link_discovery_task155_download_flags_block(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_page_link_discovery_inputs(tmp_path, monkeypatch)
+    page_fetch_path = tmp_path / "rzd_controlled_page_fetch_preview_task155.json"
+    payload = json.loads(page_fetch_path.read_text(encoding="utf-8"))
+    payload["documents_downloaded"] = True
+    page_fetch_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    report = _run_rzd_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "blocked"
+    assert report["blocker_rows"][0]["blocker_code"] == "task155_unexpected_download_or_parse_flags"
+
+
+def test_rzd_page_link_discovery_output_collision_fails_safely(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_page_link_discovery_inputs(tmp_path, monkeypatch)
+    original = paths["candidates"].read_bytes()
+
+    report = _run_rzd_page_link_discovery(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-page-link-discovery-validation-output",
+            str(paths["candidates"]),
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["errors"] == [{"message": "rzd_page_link_discovery_validation_output_must_not_equal_input"}]
+    assert paths["candidates"].read_bytes() == original
+
+
+def test_rzd_page_link_discovery_detects_input_drift_after_write(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_page_link_discovery_inputs(tmp_path, monkeypatch)
+    original_writer = assistant._rzd_page_link_discovery_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            paths["candidates"].write_bytes(paths["candidates"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_page_link_discovery_write_safe_outputs", mutate_after_first_write)
+
+    report = _run_rzd_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "rzd_page_link_discovery_validation_input_drift_detected"} in report["errors"]
+    assert report["task155_document_candidates_input_preserved"] is False
+    assert report["task155_page_fetch_input_preserved"] is True
+    assert report["input_bytes_unchanged"] is False
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -17357,6 +17539,19 @@ def _run_rzd_controlled_page_fetch(extra_args: list[str] | None = None) -> dict:
     return report
 
 
+def _run_rzd_page_link_discovery(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-page-link-discovery-validate-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -18204,6 +18399,51 @@ def _rzd_controlled_page_fetch_required_bool_fields() -> tuple[str, ...]:
         "import_executed",
         "paper_trading_called",
     )
+
+
+def _rzd_page_link_discovery_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_PAGE_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS
+
+
+def _write_rzd_page_link_discovery_inputs(
+    path: Path,
+    monkeypatch,
+    *,
+    html: bytes | None = None,
+) -> dict[str, Path]:
+    paths = _write_rzd_controlled_page_fetch_inputs(path)
+    body = html or """
+    <html><body>
+      <a href="/ru/9471">Отчетность компании</a>
+      <a href="https://company.rzd.ru/ru/9471" title="Отчетность">Отчетность компании</a>
+    </body></html>
+    """.encode("utf-8")
+
+    def controlled_fetch(url, *, timeout_seconds, max_bytes, user_agent):
+        assert url == assistant.RZD_EXACT_DOCUMENT_DEFAULT_URL
+        return {
+            "status": "ok",
+            "final_url": url,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "safe_response_headers": {"content-type": "text/html; charset=utf-8"},
+            "raw_bytes": body,
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", controlled_fetch)
+    report = _run_rzd_controlled_page_fetch(_rzd_controlled_page_fetch_gate_args(paths))
+    assert report["status"] in {"passed", "warning"}
+    return {
+        "page_fetch": path / "rzd_controlled_page_fetch_preview_task155.json",
+        "links": path / "rzd_controlled_page_fetch_links_task155.json",
+        "candidates": path / "rzd_controlled_page_fetch_document_candidates_task155.json",
+        "manifest": path / "rzd_controlled_page_fetch_hash_manifest_task155.json",
+        "plan": path / "rzd_exact_document_fetch_plan_task154.json",
+        "gate": path / "exact_document_draft_gate_task137.json",
+        "source_pack": path / "source_trust_recovery_controlled_source_pack_task148.json",
+        "raw_html": path / "rzd_controlled_page_fetch_raw_task155.html",
+    }
 
 
 def _run_availability_discovery(

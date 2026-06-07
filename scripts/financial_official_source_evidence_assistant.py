@@ -67,6 +67,7 @@ MODE_CHOICES = (
     "rzd-exact-document-refill-apply-draft-v2",
     "rzd-exact-document-fetch-plan-preview-v2",
     "rzd-controlled-page-fetch-preview-v2",
+    "rzd-page-link-discovery-validate-v2",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -3927,6 +3928,193 @@ RZD_CONTROLLED_PAGE_FETCH_BLOCKER_FIELDS = [
     "operator_action",
     "safe_hint",
 ]
+RZD_PAGE_LINK_DISCOVERY_VALIDATION_ARTIFACT_NAMES = {
+    "validation_json": "rzd_page_link_discovery_validation_task156.json",
+    "validation_csv": "rzd_page_link_discovery_validation_task156.csv",
+    "validation_markdown": "rzd_page_link_discovery_validation_task156.md",
+    "accepted_json": "rzd_page_link_discovery_accepted_candidates_task156.json",
+    "accepted_csv": "rzd_page_link_discovery_accepted_candidates_task156.csv",
+    "blockers_json": "rzd_page_link_discovery_blockers_task156.json",
+    "blockers_csv": "rzd_page_link_discovery_blockers_task156.csv",
+    "rerun_markdown": "rzd_page_link_discovery_rerun_task156.md",
+}
+RZD_PAGE_LINK_DISCOVERY_VALIDATION_FIELDS = [
+    "validation_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "normalized_candidate_url",
+    "candidate_url",
+    "candidate_host",
+    "candidate_path",
+    "candidate_query",
+    "candidate_url_type",
+    "candidate_extension",
+    "candidate_link_text",
+    "candidate_title",
+    "source_candidate_ids",
+    "source_link_ids",
+    "duplicate_candidate_ids",
+    "duplicate_link_ids",
+    "duplicate_count",
+    "same_host",
+    "trusted_host",
+    "is_official_rzd_link",
+    "is_direct_document_link",
+    "is_pdf_link",
+    "is_excel_link",
+    "is_zip_link",
+    "candidate_target_year_hint",
+    "candidate_ifrs_hint",
+    "candidate_consolidated_hint",
+    "candidate_report_hint",
+    "task155_page_fetch_input_path",
+    "task155_page_fetch_input_sha256",
+    "task155_links_input_path",
+    "task155_links_input_sha256",
+    "task155_document_candidates_input_path",
+    "task155_document_candidates_input_sha256",
+    "task155_hash_manifest_input_path",
+    "task155_hash_manifest_input_sha256",
+    "task154_fetch_plan_input_path",
+    "task154_fetch_plan_input_sha256",
+    "task153_gate_input_path",
+    "task153_gate_input_sha256",
+    "task148_source_pack_input_path",
+    "task148_source_pack_input_sha256",
+    "raw_html_path",
+    "raw_html_sha256",
+    "raw_html_size_bytes",
+    "raw_html_hash_verified",
+    "validated_candidate_type",
+    "validation_status",
+    "validation_severity",
+    "validation_action",
+    "validation_reason_codes",
+    "validation_warnings",
+    "validation_errors",
+    "accepted_candidate_id",
+    "accepted_for_future_controlled_reporting_hub_fetch",
+    "future_controlled_reporting_hub_fetch_required",
+    "future_document_link_discovery_required",
+    "future_document_download_plan_required",
+    "future_document_download_required",
+    "future_document_parse_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_candidate",
+    "would_fetch_page",
+    "would_download_candidate",
+    "would_parse_candidate",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+RZD_PAGE_LINK_DISCOVERY_ACCEPTED_FIELDS = [
+    "accepted_candidate_id",
+    "validation_id",
+    "company_id",
+    "company_name",
+    "canonical_company_id",
+    "canonical_company_name",
+    "accepted_candidate_url",
+    "accepted_candidate_host",
+    "accepted_candidate_type",
+    "accepted_candidate_source",
+    "accepted_candidate_status",
+    "source_page_url",
+    "source_page_sha256",
+    "source_page_html_path",
+    "candidate_link_text",
+    "candidate_report_hint",
+    "candidate_target_year_hint",
+    "candidate_ifrs_hint",
+    "candidate_consolidated_hint",
+    "duplicate_count",
+    "source_link_ids",
+    "source_candidate_ids",
+    "future_controlled_reporting_hub_fetch_required",
+    "future_reporting_hub_fetch_token_required",
+    "future_reporting_hub_fetch_expected_sha_required",
+    "future_document_link_discovery_required",
+    "future_document_download_plan_required",
+    "future_document_download_required",
+    "future_document_parse_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_candidate",
+    "would_download_candidate",
+    "would_parse_candidate",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "operator_action",
+    "safe_hint",
+]
+RZD_PAGE_LINK_DISCOVERY_BLOCKER_FIELDS = [
+    "blocker_id",
+    "validation_id",
+    "company_id",
+    "company_name",
+    "candidate_url",
+    "validation_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+RZD_PAGE_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS = (
+    "rzd_reporting_hub_candidate_found",
+    "rzd_reporting_hub_candidate_accepted",
+    "rzd_ready_for_future_controlled_reporting_hub_fetch",
+    "rzd_document_download_ready",
+    "rzd_document_parse_ready",
+    "task155_page_fetch_input_preserved",
+    "task155_links_input_preserved",
+    "task155_document_candidates_input_preserved",
+    "task155_hash_manifest_input_preserved",
+    "task154_fetch_plan_input_preserved",
+    "task153_gate_input_preserved",
+    "task148_source_pack_input_preserved",
+    "input_bytes_unchanged",
+    "raw_html_hash_verified",
+    "production_source_pack_modified",
+    "controlled_source_pack_modified",
+    "production_document_intake_modified",
+    "document_intake_draft_modified",
+    "read_only",
+    "dry_run_only",
+    "would_probe_urls",
+    "would_fetch_pages",
+    "would_download_documents",
+    "would_parse_documents",
+    "would_write_raw_files",
+    "would_write_hash_manifests",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "pages_fetched",
+    "documents_downloaded",
+    "documents_parsed",
+    "files_deleted",
+    "import_executed",
+    "paper_trading_called",
+)
 SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
     "workspace_json": "source_trust_recovery_workspace_task142.json",
     "workspace_csv": "source_trust_recovery_workspace_task142.csv",
@@ -5158,6 +5346,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-controlled-page-fetch-blockers-output", type=Path, default=None)
     parser.add_argument("--rzd-controlled-page-fetch-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-controlled-page-fetch-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-controlled-page-fetch-input", type=Path, default=None)
+    parser.add_argument("--rzd-controlled-page-fetch-links-input", type=Path, default=None)
+    parser.add_argument("--rzd-controlled-page-fetch-document-candidates-input", type=Path, default=None)
+    parser.add_argument("--rzd-controlled-page-fetch-hash-manifest-input", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-validation-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-validation-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-accepted-output", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-accepted-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-page-link-discovery-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-markdown-output", type=Path, default=None)
@@ -5351,6 +5551,8 @@ def run_assistant(
         report = run_rzd_exact_document_fetch_plan_preview_v2(args)
     elif args.mode == "rzd-controlled-page-fetch-preview-v2":
         report = run_rzd_controlled_page_fetch_preview_v2(args)
+    elif args.mode == "rzd-page-link-discovery-validate-v2":
+        report = run_rzd_page_link_discovery_validate_v2(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -22724,6 +22926,883 @@ def _rzd_controlled_page_fetch_finalize_report(
     return report
 
 
+def run_rzd_page_link_discovery_validate_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_page_link_discovery_inputs(args)
+    artifacts = _rzd_page_link_discovery_artifacts(args)
+    preflight_errors = _rzd_page_link_discovery_output_errors(args, inputs=inputs, artifacts=artifacts)
+    if preflight_errors:
+        return _rzd_page_link_discovery_failed_report(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            input_hashes={},
+            errors=preflight_errors,
+            write_outputs=False,
+        )
+
+    loaded, snapshots, input_hashes, load_errors = _rzd_page_link_discovery_load_inputs(inputs)
+    if load_errors:
+        report = _rzd_page_link_discovery_failed_report(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            input_hashes=input_hashes,
+            errors=load_errors,
+            write_outputs=True,
+        )
+        return report
+
+    validation_rows, accepted_rows, blocker_rows, warnings = _rzd_page_link_discovery_rows(
+        loaded=loaded,
+        inputs=inputs,
+        input_hashes=input_hashes,
+    )
+    accepted_count = len(accepted_rows)
+    errors: list[dict[str, Any]] = []
+    if errors:
+        status = "failed"
+    elif accepted_count == 0:
+        status = "blocked"
+    elif blocker_rows or warnings:
+        status = "warning"
+    else:
+        status = "passed"
+    report = _build_rzd_page_link_discovery_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        input_hashes=input_hashes,
+        preservation=_rzd_page_link_discovery_missing_preservation(),
+        loaded=loaded,
+        validation_rows=validation_rows,
+        accepted_rows=accepted_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=errors,
+        forced_status=status,
+    )
+    return _rzd_page_link_discovery_finalize_report(
+        report,
+        artifacts=artifacts,
+        inputs=inputs,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+
+
+def _rzd_page_link_discovery_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "task155_page_fetch": args.rzd_controlled_page_fetch_input
+        or (output_dir / RZD_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES["page_fetch_json"] if output_dir else None),
+        "task155_links": args.rzd_controlled_page_fetch_links_input
+        or (output_dir / RZD_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES["links_json"] if output_dir else None),
+        "task155_document_candidates": args.rzd_controlled_page_fetch_document_candidates_input
+        or (output_dir / RZD_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES["document_candidates_json"] if output_dir else None),
+        "task155_hash_manifest": args.rzd_controlled_page_fetch_hash_manifest_input
+        or (output_dir / RZD_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES["hash_manifest_json"] if output_dir else None),
+        "task154_fetch_plan": args.rzd_exact_document_fetch_plan_input
+        or (output_dir / RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["fetch_plan_json"] if output_dir else None),
+        "task153_gate": args.exact_document_gate_input
+        or (output_dir / EXACT_DOCUMENT_DRAFT_GATE_ARTIFACT_NAMES["gate_json"] if output_dir else None),
+        "task148_source_pack": args.source_trust_controlled_source_pack_input
+        or (
+            output_dir / SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_source_pack_json"]
+            if output_dir
+            else None
+        ),
+    }
+
+
+def _rzd_page_link_discovery_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "validation_json": args.rzd_page_link_discovery_validation_output,
+        "validation_csv": args.rzd_page_link_discovery_validation_csv_output,
+        "validation_markdown": args.rzd_page_link_discovery_validation_markdown_output,
+        "accepted_json": args.rzd_page_link_discovery_accepted_output,
+        "accepted_csv": args.rzd_page_link_discovery_accepted_csv_output,
+        "blockers_json": args.rzd_page_link_discovery_blockers_output,
+        "blockers_csv": args.rzd_page_link_discovery_blockers_csv_output,
+        "rerun_markdown": args.rzd_page_link_discovery_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in RZD_PAGE_LINK_DISCOVERY_VALIDATION_ARTIFACT_NAMES.items()
+    }
+
+
+def _rzd_page_link_discovery_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_page_link_discovery_validation_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "rzd_page_link_discovery_validation_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_page_link_discovery_load_inputs(
+    inputs: dict[str, Path | None],
+) -> tuple[dict[str, Any], dict[Path, bytes], dict[str, str], list[dict[str, Any]]]:
+    loaded: dict[str, Any] = {
+        "task155_page_fetch": {},
+        "task155_links": {},
+        "task155_link_rows": [],
+        "task155_document_candidates": {},
+        "task155_document_candidate_rows": [],
+        "task155_hash_manifest": {},
+        "task154_fetch_plan": {},
+        "task153_gate": {},
+        "task148_source_pack": {},
+        "task148_source_pack_rows": [],
+    }
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    errors: list[dict[str, Any]] = []
+    required = {
+        "task155_page_fetch": (
+            "task155_page_fetch_input_required",
+            "rzd-controlled-page-fetch-preview-v2",
+            None,
+        ),
+        "task155_links": (
+            "task155_links_input_required",
+            "rzd-controlled-page-fetch-links-v2",
+            "link_rows",
+        ),
+        "task155_document_candidates": (
+            "task155_document_candidates_input_required",
+            "rzd-controlled-page-fetch-document-candidates-v2",
+            "document_candidate_rows",
+        ),
+        "task155_hash_manifest": (
+            "task155_hash_manifest_input_required",
+            "rzd-controlled-page-fetch-hash-manifest-v2",
+            None,
+        ),
+        "task154_fetch_plan": (
+            "task154_fetch_plan_input_required",
+            "rzd-exact-document-fetch-plan-preview-v2",
+            "fetch_plan_rows",
+        ),
+        "task153_gate": (
+            "task153_gate_input_required",
+            "exact-document-draft-gate-v2",
+            "gate_rows",
+        ),
+    }
+    for role, (error_code, expected_mode, rows_key) in required.items():
+        path = inputs.get(role)
+        if path is None or not path.is_file():
+            errors.append({"message": error_code})
+            continue
+        try:
+            data = path.read_bytes()
+            payload = json.loads(data.decode("utf-8"))
+            if not isinstance(payload, dict) or payload.get("mode") != expected_mode:
+                raise ValueError(error_code)
+            if rows_key is not None:
+                rows = payload.get(rows_key)
+                if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+                    raise ValueError(error_code)
+                loaded[f"{role[:-1] if role.endswith('s') else role}_rows"] = rows
+                if role == "task155_links":
+                    loaded["task155_link_rows"] = rows
+                if role == "task155_document_candidates":
+                    loaded["task155_document_candidate_rows"] = rows
+            loaded[role] = payload
+            snapshots[path] = data
+            input_hashes[role] = hashlib.sha256(data).hexdigest()
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            errors.append({"message": error_code, "path": str(path)})
+
+    source_path = inputs.get("task148_source_pack")
+    if source_path is None or not source_path.is_file():
+        errors.append({"message": "task148_source_pack_input_required"})
+    else:
+        try:
+            data = source_path.read_bytes()
+            payload = json.loads(data.decode("utf-8"))
+            rows = _rzd_exact_document_source_pack_rows(payload)
+            loaded["task148_source_pack"] = payload if isinstance(payload, dict) else {"rows": rows}
+            loaded["task148_source_pack_rows"] = rows
+            snapshots[source_path] = data
+            input_hashes["task148_source_pack"] = hashlib.sha256(data).hexdigest()
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            errors.append({"message": "task148_source_pack_input_required", "path": str(source_path)})
+    return loaded, snapshots, input_hashes, errors
+
+
+def _rzd_page_link_discovery_rows(
+    *,
+    loaded: dict[str, Any],
+    inputs: dict[str, Path | None],
+    input_hashes: dict[str, str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    page_fetch = loaded.get("task155_page_fetch") or {}
+    manifest = loaded.get("task155_hash_manifest") or {}
+    candidate_rows = loaded.get("task155_document_candidate_rows") or []
+    source_pack_row = _rzd_exact_document_select_source_pack_row(loaded.get("task148_source_pack_rows") or [])
+    trusted_hosts = _rzd_exact_document_trusted_hosts({}, source_pack_row)
+    raw_verified, raw_path, raw_sha, raw_size, raw_blocker = _rzd_page_link_discovery_raw_html_check(page_fetch, manifest)
+    upstream_blockers = _rzd_page_link_discovery_upstream_blockers(
+        page_fetch,
+        manifest,
+        raw_verified,
+        raw_blocker,
+        input_hashes,
+    )
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for row in candidate_rows:
+        url = _normalize_candidate_url(str(row.get("candidate_url") or ""))
+        if not url:
+            url = str(row.get("candidate_url") or "").strip()
+        groups.setdefault(url, []).append(row)
+
+    warnings: list[dict[str, Any]] = []
+    validation_rows: list[dict[str, Any]] = []
+    accepted_rows: list[dict[str, Any]] = []
+    blocker_rows: list[dict[str, Any]] = []
+    if not candidate_rows:
+        blocker = _rzd_page_link_discovery_blocker_row({}, "candidate_missing", validation_id="rzd_page_link_discovery_validation:none")
+        return [], [], [blocker], warnings
+
+    for normalized_url in sorted(groups):
+        candidates = groups[normalized_url]
+        row = _rzd_page_link_discovery_validation_row(
+            candidates,
+            normalized_url=normalized_url,
+            inputs=inputs,
+            input_hashes=input_hashes,
+            page_fetch=page_fetch,
+            manifest=manifest,
+            trusted_hosts=trusted_hosts,
+            raw_html_path=raw_path,
+            raw_html_sha256=raw_sha,
+            raw_html_size_bytes=raw_size,
+            raw_html_hash_verified=raw_verified,
+            upstream_blockers=upstream_blockers,
+        )
+        validation_rows.append(row)
+        row_warnings = [
+            {"message": warning, "validation_id": row["validation_id"]}
+            for warning in row.get("validation_warnings") or []
+        ]
+        warnings.extend(row_warnings)
+        if row.get("validation_status") == "accepted_future_controlled_reporting_hub_fetch_candidate":
+            accepted_rows.append(_rzd_page_link_discovery_accepted_row(row, page_fetch=page_fetch))
+        else:
+            code = str((row.get("validation_errors") or ["unknown_readiness"])[0])
+            blocker_rows.append(_rzd_page_link_discovery_blocker_row(row, code))
+    return validation_rows, accepted_rows, blocker_rows, warnings
+
+
+def _rzd_page_link_discovery_raw_html_check(
+    page_fetch: dict[str, Any],
+    manifest: dict[str, Any],
+) -> tuple[bool, str, str, int, str]:
+    raw_path = str(manifest.get("raw_html_path") or page_fetch.get("raw_html_path") or "")
+    raw_sha = str(manifest.get("raw_html_sha256") or page_fetch.get("raw_html_sha256") or "")
+    raw_size = int(manifest.get("raw_html_size_bytes") or page_fetch.get("raw_html_size_bytes") or 0)
+    if (
+        raw_path != str(page_fetch.get("raw_html_path") or raw_path)
+        or raw_sha != str(page_fetch.get("raw_html_sha256") or raw_sha)
+        or raw_size != int(page_fetch.get("raw_html_size_bytes") or raw_size or 0)
+    ):
+        return False, raw_path, raw_sha, raw_size, "task155_hash_manifest_mismatch"
+    expected_url = _normalize_candidate_url(RZD_EXACT_DOCUMENT_DEFAULT_URL)
+    if (
+        _normalize_candidate_url(str(manifest.get("fetched_url") or "")) != expected_url
+        or _normalize_candidate_url(str(manifest.get("final_url") or "")) != expected_url
+        or int(manifest.get("http_status_code") or 0) != 200
+        or not _rzd_controlled_page_fetch_content_type_html(str(manifest.get("content_type") or ""))
+    ):
+        return False, raw_path, raw_sha, raw_size, "task155_hash_manifest_mismatch"
+    if not raw_path:
+        return False, raw_path, raw_sha, raw_size, "task155_html_snapshot_missing"
+    try:
+        path = Path(raw_path)
+        current = path.read_bytes()
+    except OSError:
+        return False, raw_path, raw_sha, raw_size, "task155_html_snapshot_missing"
+    if hashlib.sha256(current).hexdigest() != raw_sha or len(current) != raw_size:
+        return False, raw_path, raw_sha, raw_size, "task155_raw_html_hash_mismatch"
+    return True, raw_path, raw_sha, raw_size, ""
+
+
+def _rzd_page_link_discovery_upstream_blockers(
+    page_fetch: dict[str, Any],
+    manifest: dict[str, Any],
+    raw_verified: bool,
+    raw_blocker: str,
+    input_hashes: dict[str, str],
+) -> list[str]:
+    blockers: list[str] = []
+    if page_fetch.get("status") not in {"passed", "warning"}:
+        blockers.append("task155_page_fetch_not_completed")
+    if not _as_bool(page_fetch.get("token_matched")) or not _as_bool(page_fetch.get("expected_plan_sha256_matches")):
+        blockers.append("task155_page_fetch_not_completed")
+    if not _as_bool(page_fetch.get("expected_gate_sha256_matches")) or not _as_bool(page_fetch.get("controlled_page_fetch_execution_enabled")):
+        blockers.append("task155_page_fetch_not_completed")
+    if not _as_bool(page_fetch.get("rzd_page_fetched")) or not _as_bool(page_fetch.get("rzd_html_snapshot_written")):
+        blockers.append("task155_html_snapshot_missing")
+    if any(
+        _as_bool(page_fetch.get(field))
+        for field in (
+            "rzd_document_downloaded",
+            "rzd_document_parsed",
+            "documents_downloaded",
+            "documents_parsed",
+            "would_download_documents",
+            "would_parse_documents",
+            "would_mutate_database",
+            "would_trigger_paper_trading",
+        )
+    ):
+        blockers.append("task155_unexpected_download_or_parse_flags")
+    if not raw_verified:
+        blockers.append(raw_blocker or "task155_hash_manifest_mismatch")
+    if manifest.get("mode") != "rzd-controlled-page-fetch-hash-manifest-v2":
+        blockers.append("task155_hash_manifest_mismatch")
+    if str(page_fetch.get("plan_input_sha256") or "") != str(input_hashes.get("task154_fetch_plan") or ""):
+        blockers.append("task155_page_fetch_not_completed")
+    if str(page_fetch.get("gate_input_sha256") or "") != str(input_hashes.get("task153_gate") or ""):
+        blockers.append("task155_page_fetch_not_completed")
+    if str(page_fetch.get("source_pack_input_sha256") or "") != str(input_hashes.get("task148_source_pack") or ""):
+        blockers.append("task155_page_fetch_not_completed")
+    return list(dict.fromkeys(blockers))
+
+
+def _rzd_page_link_discovery_validation_row(
+    candidates: list[dict[str, Any]],
+    *,
+    normalized_url: str,
+    inputs: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    page_fetch: dict[str, Any],
+    manifest: dict[str, Any],
+    trusted_hosts: list[str],
+    raw_html_path: str,
+    raw_html_sha256: str,
+    raw_html_size_bytes: int,
+    raw_html_hash_verified: bool,
+    upstream_blockers: list[str],
+) -> dict[str, Any]:
+    first = candidates[0] if candidates else {}
+    parsed = urllib.parse.urlparse(normalized_url)
+    candidate_host = _host(normalized_url)
+    extension = Path(parsed.path).suffix.casefold()
+    direct_document = extension in {".pdf", ".xls", ".xlsx", ".zip", ".doc", ".docx", ".rtf"} or _rzd_exact_document_is_query_document_url(normalized_url)
+    pdf = extension == ".pdf" or _rzd_exact_document_is_query_document_url(normalized_url)
+    excel = extension in {".xls", ".xlsx"}
+    zip_link = extension == ".zip"
+    trusted = _source_trust_recovery_draft_review_host_trusted(candidate_host, trusted_hosts)
+    same_host = candidate_host == "company.rzd.ru"
+    official = same_host and trusted
+    source_candidate_ids = [str(row.get("document_candidate_id") or "") for row in candidates if row.get("document_candidate_id")]
+    source_link_ids = [str(row.get("link_id") or "") for row in candidates if row.get("link_id")]
+    duplicate_candidates = source_candidate_ids[1:]
+    duplicate_links = source_link_ids[1:]
+    candidate_text = str(first.get("candidate_link_text") or "")
+    candidate_title = str(first.get("candidate_title") or "")
+    text_context = f"{candidate_text} {candidate_title}".casefold()
+    report_hint = any(_as_bool(row.get("candidate_report_hint")) for row in candidates)
+    target_year_hint = any(_as_bool(row.get("candidate_target_year_hint")) for row in candidates)
+    ifrs_hint = any(_as_bool(row.get("candidate_ifrs_hint")) for row in candidates)
+    consolidated_hint = any(_as_bool(row.get("candidate_consolidated_hint")) for row in candidates)
+    errors = [*upstream_blockers]
+    reason_codes: list[str] = []
+    warnings: list[str] = []
+    if not _rzd_exact_document_is_rzd_row(first):
+        errors.append("candidate_missing")
+    if not normalized_url:
+        errors.append("candidate_url_missing")
+    elif not parsed.netloc:
+        errors.append("candidate_url_malformed")
+    elif parsed.scheme.casefold() != "https":
+        errors.append("candidate_url_not_https")
+    elif candidate_host != "company.rzd.ru":
+        errors.append("candidate_host_not_rzd_official_host" if candidate_host else "candidate_url_malformed")
+    elif not trusted:
+        errors.append("candidate_host_not_trusted")
+    elif direct_document:
+        errors.append("candidate_url_direct_document_not_allowed_for_hub_validation")
+    elif _rzd_exact_document_fetch_plan_blocked_context(normalized_url):
+        errors.append("candidate_url_search_news_archive_social")
+    elif str(first.get("candidate_url_type") or "") != "official_same_host_page_link" or not same_host:
+        errors.append("candidate_not_official_same_host")
+    elif parsed.path != "/ru/9471" and not parsed.path.startswith("/ru/9471/"):
+        errors.append("candidate_not_official_same_host")
+    elif not report_hint:
+        errors.append("candidate_report_hint_missing")
+    elif not _contains_any(text_context, ("report", "reports", "отчет", "отчёт", "отчетность", "отчётность", "РѕС‚С‡")):
+        errors.append("candidate_link_text_report_context_missing")
+    if any(
+        _as_bool(first.get(field))
+        for field in (
+            "would_fetch_candidate",
+            "would_download_candidate",
+            "would_parse_candidate",
+            "would_mutate_database",
+            "would_extract_values",
+            "would_import_report",
+            "would_mutate_scores",
+            "would_trigger_paper_trading",
+        )
+    ):
+        errors.append("candidate_safety_flags")
+    if (
+        str(first.get("candidate_discovery_status") or "") != "future_document_candidate_validation_required"
+        or not _as_bool(first.get("future_document_candidate_validation_required"))
+        or _as_bool(first.get("future_document_download_required"))
+        or _as_bool(first.get("future_document_parse_required"))
+    ):
+        errors.append("candidate_safety_flags")
+    if not target_year_hint:
+        warnings.append("candidate_target_year_hint_missing_for_hub")
+    if not ifrs_hint:
+        warnings.append("candidate_ifrs_hint_missing_for_hub")
+    if not consolidated_hint:
+        warnings.append("candidate_consolidated_hint_missing_for_hub")
+    accepted = not errors
+    if accepted:
+        reason_codes.append("official_reporting_hub_page_candidate")
+    validation_id = f"rzd_page_link_discovery_validation:{hashlib.sha256(normalized_url.encode('utf-8')).hexdigest()[:16] if normalized_url else 'missing'}"
+    accepted_candidate_id = f"rzd_page_link_discovery_accepted:{hashlib.sha256(normalized_url.encode('utf-8')).hexdigest()[:16]}" if accepted else ""
+    return {
+        "validation_id": validation_id,
+        "company_id": str(first.get("company_id") or "18"),
+        "company_name": str(first.get("company_name") or "RZD"),
+        "canonical_company_id": str(first.get("canonical_company_id") or first.get("company_id") or "18"),
+        "canonical_company_name": str(first.get("canonical_company_name") or first.get("company_name") or "RZD"),
+        "normalized_candidate_url": normalized_url,
+        "candidate_url": str(first.get("candidate_url") or normalized_url),
+        "candidate_host": candidate_host,
+        "candidate_path": parsed.path,
+        "candidate_query": parsed.query,
+        "candidate_url_type": str(first.get("candidate_url_type") or ""),
+        "candidate_extension": str(first.get("candidate_extension") or extension),
+        "candidate_link_text": candidate_text,
+        "candidate_title": candidate_title,
+        "source_candidate_ids": source_candidate_ids,
+        "source_link_ids": source_link_ids,
+        "duplicate_candidate_ids": duplicate_candidates,
+        "duplicate_link_ids": duplicate_links,
+        "duplicate_count": max(len(candidates) - 1, 0),
+        "same_host": bool(same_host),
+        "trusted_host": bool(trusted),
+        "is_official_rzd_link": bool(official),
+        "is_direct_document_link": bool(direct_document),
+        "is_pdf_link": bool(pdf),
+        "is_excel_link": bool(excel),
+        "is_zip_link": bool(zip_link),
+        "candidate_target_year_hint": bool(target_year_hint),
+        "candidate_ifrs_hint": bool(ifrs_hint),
+        "candidate_consolidated_hint": bool(consolidated_hint),
+        "candidate_report_hint": bool(report_hint),
+        "task155_page_fetch_input_path": _path_value(inputs.get("task155_page_fetch")) or "",
+        "task155_page_fetch_input_sha256": input_hashes.get("task155_page_fetch") or "",
+        "task155_links_input_path": _path_value(inputs.get("task155_links")) or "",
+        "task155_links_input_sha256": input_hashes.get("task155_links") or "",
+        "task155_document_candidates_input_path": _path_value(inputs.get("task155_document_candidates")) or "",
+        "task155_document_candidates_input_sha256": input_hashes.get("task155_document_candidates") or "",
+        "task155_hash_manifest_input_path": _path_value(inputs.get("task155_hash_manifest")) or "",
+        "task155_hash_manifest_input_sha256": input_hashes.get("task155_hash_manifest") or "",
+        "task154_fetch_plan_input_path": _path_value(inputs.get("task154_fetch_plan")) or "",
+        "task154_fetch_plan_input_sha256": input_hashes.get("task154_fetch_plan") or "",
+        "task153_gate_input_path": _path_value(inputs.get("task153_gate")) or "",
+        "task153_gate_input_sha256": input_hashes.get("task153_gate") or "",
+        "task148_source_pack_input_path": _path_value(inputs.get("task148_source_pack")) or "",
+        "task148_source_pack_input_sha256": input_hashes.get("task148_source_pack") or "",
+        "raw_html_path": raw_html_path,
+        "raw_html_sha256": raw_html_sha256,
+        "raw_html_size_bytes": raw_html_size_bytes,
+        "raw_html_hash_verified": bool(raw_html_hash_verified),
+        "validated_candidate_type": "official_reporting_hub_page" if accepted else "",
+        "validation_status": "accepted_future_controlled_reporting_hub_fetch_candidate" if accepted else "blocked_candidate_validation",
+        "validation_severity": "info" if accepted else "warning",
+        "validation_action": "future_controlled_reporting_hub_fetch_review" if accepted else "resolve_link_discovery_validation_blocker",
+        "validation_reason_codes": reason_codes,
+        "validation_warnings": warnings,
+        "validation_errors": list(dict.fromkeys(errors)),
+        "accepted_candidate_id": accepted_candidate_id,
+        "accepted_for_future_controlled_reporting_hub_fetch": bool(accepted),
+        "future_controlled_reporting_hub_fetch_required": bool(accepted),
+        "future_document_link_discovery_required": bool(accepted),
+        "future_document_download_plan_required": bool(accepted),
+        "future_document_download_required": False,
+        "future_document_parse_required": False,
+        "future_import_required": False,
+        "future_scoring_required": False,
+        "future_paper_trading_required": False,
+        "would_fetch_candidate": False,
+        "would_fetch_page": False,
+        "would_download_candidate": False,
+        "would_parse_candidate": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+
+
+def _rzd_page_link_discovery_accepted_row(
+    row: dict[str, Any],
+    *,
+    page_fetch: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "accepted_candidate_id": row["accepted_candidate_id"],
+        "validation_id": row["validation_id"],
+        "company_id": row["company_id"],
+        "company_name": row["company_name"],
+        "canonical_company_id": row["canonical_company_id"],
+        "canonical_company_name": row["canonical_company_name"],
+        "accepted_candidate_url": row["normalized_candidate_url"],
+        "accepted_candidate_host": row["candidate_host"],
+        "accepted_candidate_type": "official_reporting_hub_page",
+        "accepted_candidate_source": "task155_link_discovery",
+        "accepted_candidate_status": "future_controlled_reporting_hub_fetch_candidate_only",
+        "source_page_url": page_fetch.get("final_url") or RZD_EXACT_DOCUMENT_DEFAULT_URL,
+        "source_page_sha256": row.get("raw_html_sha256") or "",
+        "source_page_html_path": row.get("raw_html_path") or "",
+        "candidate_link_text": row.get("candidate_link_text") or "",
+        "candidate_report_hint": bool(row.get("candidate_report_hint")),
+        "candidate_target_year_hint": bool(row.get("candidate_target_year_hint")),
+        "candidate_ifrs_hint": bool(row.get("candidate_ifrs_hint")),
+        "candidate_consolidated_hint": bool(row.get("candidate_consolidated_hint")),
+        "duplicate_count": int(row.get("duplicate_count") or 0),
+        "source_link_ids": row.get("source_link_ids") or [],
+        "source_candidate_ids": row.get("source_candidate_ids") or [],
+        "future_controlled_reporting_hub_fetch_required": True,
+        "future_reporting_hub_fetch_token_required": True,
+        "future_reporting_hub_fetch_expected_sha_required": True,
+        "future_document_link_discovery_required": True,
+        "future_document_download_plan_required": True,
+        "future_document_download_required": False,
+        "future_document_parse_required": False,
+        "future_import_required": False,
+        "future_scoring_required": False,
+        "future_paper_trading_required": False,
+        "would_fetch_candidate": False,
+        "would_download_candidate": False,
+        "would_parse_candidate": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "operator_action": "review_future_controlled_reporting_hub_fetch",
+        "safe_hint": "Task156 accepted this hub for future controlled page fetch only; no document download is allowed here.",
+    }
+
+
+def _rzd_page_link_discovery_blocker_row(
+    row: dict[str, Any],
+    code: str,
+    *,
+    validation_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_page_link_discovery_blocker:{validation_id or row.get('validation_id') or 'unknown'}:{code}",
+        "validation_id": validation_id or row.get("validation_id") or "",
+        "company_id": row.get("company_id") or "18",
+        "company_name": row.get("company_name") or "RZD",
+        "candidate_url": row.get("candidate_url") or row.get("normalized_candidate_url") or "",
+        "validation_status": row.get("validation_status") or "blocked_candidate_validation",
+        "blocker_code": code,
+        "blocker_severity": "error" if code in {"input_drift_detected", "output_collision"} else "warning",
+        "operator_action": "review_task156_blocker_before_future_hub_fetch",
+        "safe_hint": "Task156 is static only; resolve this blocker before any future controlled hub-page fetch.",
+    }
+
+
+def _rzd_page_link_discovery_safety_flags() -> dict[str, bool]:
+    return {
+        "production_source_pack_modified": False,
+        "controlled_source_pack_modified": False,
+        "production_document_intake_modified": False,
+        "document_intake_draft_modified": False,
+        "read_only": True,
+        "dry_run_only": True,
+        "would_probe_urls": False,
+        "would_fetch_pages": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_write_raw_files": False,
+        "would_write_hash_manifests": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "pages_fetched": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
+def _rzd_page_link_discovery_missing_preservation() -> dict[str, bool]:
+    fields = {
+        f"{role}_input_preserved": False
+        for role in (
+            "task155_page_fetch",
+            "task155_links",
+            "task155_document_candidates",
+            "task155_hash_manifest",
+            "task154_fetch_plan",
+            "task153_gate",
+            "task148_source_pack",
+        )
+    }
+    fields["input_bytes_unchanged"] = False
+    return fields
+
+
+def _rzd_page_link_discovery_preservation_fields(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, bool]:
+    fields: dict[str, bool] = {}
+    for role in (
+        "task155_page_fetch",
+        "task155_links",
+        "task155_document_candidates",
+        "task155_hash_manifest",
+        "task154_fetch_plan",
+        "task153_gate",
+        "task148_source_pack",
+    ):
+        path = inputs.get(role)
+        preserved = False
+        if path is not None and path in snapshots:
+            try:
+                current = path.read_bytes()
+                preserved = (
+                    path.is_file()
+                    and current == snapshots[path]
+                    and hashlib.sha256(current).hexdigest() == input_hashes.get(role)
+                )
+            except OSError:
+                preserved = False
+        fields[f"{role}_input_preserved"] = bool(preserved)
+    fields["input_bytes_unchanged"] = all(fields[f"{role}_input_preserved"] for role in (
+        "task155_page_fetch",
+        "task155_links",
+        "task155_document_candidates",
+        "task155_hash_manifest",
+        "task154_fetch_plan",
+        "task153_gate",
+        "task148_source_pack",
+    ))
+    return fields
+
+
+def _build_rzd_page_link_discovery_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    preservation: dict[str, bool],
+    loaded: dict[str, Any],
+    validation_rows: list[dict[str, Any]],
+    accepted_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    forced_status: str,
+) -> dict[str, Any]:
+    candidate_rows = loaded.get("task155_document_candidate_rows") or []
+    unique_urls = {
+        _normalize_candidate_url(str(row.get("candidate_url") or "")) or str(row.get("candidate_url") or "")
+        for row in candidate_rows
+    }
+    raw_verified = any(_as_bool(row.get("raw_html_hash_verified")) for row in validation_rows)
+    report = {
+        "status": forced_status,
+        "mode": "rzd-page-link-discovery-validate-v2",
+        "input_candidate_count": len(candidate_rows),
+        "unique_candidate_count": len([url for url in unique_urls if url]),
+        "duplicate_candidate_count": max(len(candidate_rows) - len([url for url in unique_urls if url]), 0),
+        "validation_row_count": len(validation_rows),
+        "accepted_candidate_count": len(accepted_rows),
+        "blocked_count": len(blocker_rows),
+        "failed_count": 1 if forced_status == "failed" else 0,
+        "rzd_reporting_hub_candidate_found": any(
+            row.get("normalized_candidate_url") == "https://company.rzd.ru/ru/9471"
+            for row in validation_rows
+        ),
+        "rzd_reporting_hub_candidate_accepted": any(
+            row.get("accepted_candidate_url") == "https://company.rzd.ru/ru/9471"
+            for row in accepted_rows
+        ),
+        "rzd_ready_for_future_controlled_reporting_hub_fetch": bool(accepted_rows),
+        "rzd_document_download_ready": False,
+        "rzd_document_parse_ready": False,
+        "task155_page_fetch_input_path": _path_value(inputs.get("task155_page_fetch")) or "",
+        "task155_page_fetch_input_sha256": input_hashes.get("task155_page_fetch") or "",
+        "task155_links_input_path": _path_value(inputs.get("task155_links")) or "",
+        "task155_links_input_sha256": input_hashes.get("task155_links") or "",
+        "task155_document_candidates_input_path": _path_value(inputs.get("task155_document_candidates")) or "",
+        "task155_document_candidates_input_sha256": input_hashes.get("task155_document_candidates") or "",
+        "task155_hash_manifest_input_path": _path_value(inputs.get("task155_hash_manifest")) or "",
+        "task155_hash_manifest_input_sha256": input_hashes.get("task155_hash_manifest") or "",
+        "task154_fetch_plan_input_path": _path_value(inputs.get("task154_fetch_plan")) or "",
+        "task154_fetch_plan_input_sha256": input_hashes.get("task154_fetch_plan") or "",
+        "task153_gate_input_path": _path_value(inputs.get("task153_gate")) or "",
+        "task153_gate_input_sha256": input_hashes.get("task153_gate") or "",
+        "task148_source_pack_input_path": _path_value(inputs.get("task148_source_pack")) or "",
+        "task148_source_pack_input_sha256": input_hashes.get("task148_source_pack") or "",
+        **preservation,
+        "raw_html_hash_verified": bool(raw_verified),
+        "validation_status_counts": _count_by_key(validation_rows, "validation_status"),
+        "accepted_candidate_status_counts": _count_by_key(accepted_rows, "accepted_candidate_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "validation_rows": validation_rows,
+        "accepted_candidate_rows": accepted_rows,
+        "blocker_rows": blocker_rows,
+        "inputs": {role: _path_value(path) for role, path in inputs.items()},
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
+        "warnings": warnings,
+        "errors": errors,
+        "next_steps": _next_steps("rzd-page-link-discovery-validate-v2", forced_status),
+        **_rzd_page_link_discovery_safety_flags(),
+    }
+    for field in RZD_PAGE_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    return report
+
+
+def _rzd_page_link_discovery_failed_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    errors: list[dict[str, Any]],
+    write_outputs: bool,
+) -> dict[str, Any]:
+    blockers = [
+        _rzd_page_link_discovery_blocker_row({}, str(error.get("message") or "unknown_readiness"), validation_id="preflight")
+        for error in errors
+    ]
+    report = _build_rzd_page_link_discovery_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        input_hashes=input_hashes,
+        preservation=_rzd_page_link_discovery_missing_preservation(),
+        loaded={"task155_document_candidate_rows": []},
+        validation_rows=[],
+        accepted_rows=[],
+        blocker_rows=blockers,
+        warnings=[],
+        errors=errors,
+        forced_status="failed",
+    )
+    if write_outputs:
+        try:
+            _rzd_page_link_discovery_write_safe_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_page_link_discovery_validation_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_page_link_discovery_write_safe_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    _write_optional_json_report(report, artifacts["validation_json"])
+    _write_optional_flat_csv(report.get("validation_rows") or [], RZD_PAGE_LINK_DISCOVERY_VALIDATION_FIELDS, artifacts["validation_csv"])
+    if artifacts["validation_markdown"] is not None:
+        write_rzd_page_link_discovery_markdown(report, artifacts["validation_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-page-link-discovery-accepted-candidates-v2",
+            "row_count": len(report.get("accepted_candidate_rows") or []),
+            "accepted_candidate_rows": report.get("accepted_candidate_rows") or [],
+            **_rzd_page_link_discovery_safety_flags(),
+        },
+        artifacts["accepted_json"],
+    )
+    _write_optional_flat_csv(report.get("accepted_candidate_rows") or [], RZD_PAGE_LINK_DISCOVERY_ACCEPTED_FIELDS, artifacts["accepted_csv"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-page-link-discovery-blockers-v2",
+            "row_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            **_rzd_page_link_discovery_safety_flags(),
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_PAGE_LINK_DISCOVERY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    if artifacts["rerun_markdown"] is not None:
+        write_rzd_page_link_discovery_rerun_markdown(report, artifacts["rerun_markdown"])
+
+
+def _rzd_page_link_discovery_finalize_report(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    try:
+        _rzd_page_link_discovery_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_page_link_discovery_validation_write_failed", "error": str(exc)}]
+        return report
+    preservation = _rzd_page_link_discovery_preservation_fields(
+        inputs=inputs,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    report.update(preservation)
+    if not preservation["input_bytes_unchanged"]:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_page_link_discovery_validation_input_drift_detected"}]
+        if not any(row.get("blocker_code") == "input_drift_detected" for row in report.get("blocker_rows") or []):
+            report["blocker_rows"] = [
+                *report.get("blocker_rows", []),
+                _rzd_page_link_discovery_blocker_row({}, "input_drift_detected", validation_id="input_drift"),
+            ]
+        report["blocked_count"] = len(report["blocker_rows"])
+        report["failed_count"] = 1
+        report["blocker_code_counts"] = _count_by_key(report["blocker_rows"], "blocker_code")
+    for field in RZD_PAGE_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    try:
+        _rzd_page_link_discovery_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_page_link_discovery_validation_write_failed", "error": str(exc)}]
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -30807,6 +31886,16 @@ def write_rzd_exact_document_fetch_plan_rerun_markdown(report: dict[str, Any], p
     path.write_text(render_rzd_exact_document_fetch_plan_rerun_markdown(report), encoding="utf-8")
 
 
+def write_rzd_page_link_discovery_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_page_link_discovery_markdown(report), encoding="utf-8")
+
+
+def write_rzd_page_link_discovery_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_page_link_discovery_rerun_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -31046,6 +32135,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_exact_document_fetch_plan_markdown(report)
     if report.get("mode") == "rzd-controlled-page-fetch-preview-v2":
         return render_rzd_controlled_page_fetch_markdown(report)
+    if report.get("mode") == "rzd-page-link-discovery-validate-v2":
+        return render_rzd_page_link_discovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -34198,6 +35289,135 @@ def render_rzd_controlled_page_fetch_rerun_markdown(report: dict[str, Any]) -> s
             "```bash",
             "python3 scripts/financial_official_source_evidence_assistant.py \\",
             "  --mode rzd-page-link-discovery-validate-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+        ]
+    ) + "\n"
+
+
+def render_rzd_page_link_discovery_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# RZD Page Link Discovery Validate v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- input candidates: {report.get('input_candidate_count', 0)}",
+        f"- unique candidates: {report.get('unique_candidate_count', 0)}",
+        f"- duplicate candidates: {report.get('duplicate_candidate_count', 0)}",
+        f"- accepted candidates: {report.get('accepted_candidate_count', 0)}",
+        f"- blockers: {report.get('blocked_count', 0)}",
+        f"- raw HTML hash verified: `{report.get('raw_html_hash_verified')}`",
+        "",
+        "## Task155 Page Fetch",
+        "",
+        f"- Task155 report: `{report.get('task155_page_fetch_input_path')}`",
+        f"- links input: `{report.get('task155_links_input_path')}`",
+        f"- candidates input: `{report.get('task155_document_candidates_input_path')}`",
+        f"- hash manifest: `{report.get('task155_hash_manifest_input_path')}`",
+        "",
+        "## Accepted Reporting Hub Candidate",
+        "",
+        "| URL | Type | Status | Duplicate count |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in report.get("accepted_candidate_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("accepted_candidate_url"),
+                    row.get("accepted_candidate_type"),
+                    row.get("accepted_candidate_status"),
+                    row.get("duplicate_count"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("accepted_candidate_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "The `/ru/9471` candidate is treated as an official reporting hub page, not a direct document download candidate.",
+            "",
+            "## Warnings",
+            "",
+        ]
+    )
+    if report.get("warnings"):
+        lines.extend(f"- `{_message_text(item)}`" for item in report.get("warnings") or [])
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Blockers",
+            "",
+            "| Code | Candidate | Hint |",
+            "| --- | --- | --- |",
+        ]
+    )
+    for row in report.get("blocker_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("blocker_code"),
+                    row.get("candidate_url"),
+                    row.get("safe_hint"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("blocker_rows"):
+        lines.append("| none |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task validates Task155 link discovery artifacts only.",
+            "- This task does not fetch pages.",
+            "- This task does not download documents.",
+            "- This task does not parse reports.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not mutate production document intake.",
+            "- This task does not mutate the database.",
+            "- This task does not score issuers or trigger paper trading.",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_page_link_discovery_rerun_markdown(report: dict[str, Any]) -> str:
+    inputs = report.get("inputs") or {}
+    page_fetch_path = str(inputs.get("task155_page_fetch") or report.get("task155_page_fetch_input_path") or "")
+    output_dir = str(Path(page_fetch_path).parent) if page_fetch_path else "logs/financial_reports/task124_chain_preview"
+    return "\n".join(
+        [
+            "# RZD Page Link Discovery Validate v2 Rerun",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-page-link-discovery-validate-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+            "",
+            "## Future Reporting Hub Fetch Plan",
+            "",
+            "Not implemented or run by Task156.",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-reporting-hub-fetch-plan-preview-v2 \\",
             f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
             "```",
         ]
@@ -45130,6 +46350,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review the Task154 page-fetch preview; any future RZD page fetch must be separately token/SHA-gated and still cannot download documents automatically."]
     if mode == "rzd-controlled-page-fetch-preview-v2":
         return ["Review Task155 HTML/link artifacts; validate discovered document candidates in a separate future step before any document download."]
+    if mode == "rzd-page-link-discovery-validate-v2":
+        return ["Review Task156 accepted reporting-hub candidates; a future token/SHA-gated hub fetch may discover direct document links, but Task156 downloads nothing."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -45289,6 +46511,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_controlled_page_fetch_inputs(args),
             artifacts=_rzd_controlled_page_fetch_artifacts(args),
+        )
+    if args.mode == "rzd-page-link-discovery-validate-v2":
+        return not _rzd_page_link_discovery_output_errors(
+            args,
+            inputs=_rzd_page_link_discovery_inputs(args),
+            artifacts=_rzd_page_link_discovery_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
