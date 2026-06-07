@@ -9914,6 +9914,276 @@ def test_rzd_reporting_hub_fetch_plan_detects_input_drift_after_write(
     assert report["input_bytes_unchanged"] is False
 
 
+def test_rzd_controlled_reporting_hub_fetch_missing_and_wrong_token_block_without_fetch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(tmp_path, monkeypatch)
+
+    def unexpected_fetch(*args, **kwargs):
+        raise AssertionError("Task158 must not fetch without exact token/SHA gates")
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", unexpected_fetch)
+    missing = _run_rzd_controlled_reporting_hub_fetch(
+        _rzd_controlled_reporting_hub_fetch_gate_args(paths, token="")
+    )
+
+    assert missing["status"] == "blocked"
+    assert missing["token_provided"] is False
+    assert missing["token_matched"] is False
+    assert missing["blocker_rows"][0]["blocker_code"] == "token_required"
+    assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_raw_task158.html").exists()
+    assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_hash_manifest_task158.json").exists()
+
+    wrong_token = "WRONG_REPORTING_HUB_TOKEN_DO_NOT_LEAK"
+    wrong = _run_rzd_controlled_reporting_hub_fetch(
+        _rzd_controlled_reporting_hub_fetch_gate_args(paths, token=wrong_token)
+    )
+
+    assert wrong["status"] == "blocked"
+    assert wrong["token_provided"] is True
+    assert wrong["token_matched"] is False
+    assert wrong["blocker_rows"][0]["blocker_code"] == "token_mismatch"
+    for path in tmp_path.glob("rzd_controlled_reporting_hub_fetch_*task158.*"):
+        assert wrong_token not in path.read_text(encoding="utf-8", errors="ignore")
+    for field in _rzd_controlled_reporting_hub_fetch_required_bool_fields():
+        assert field in wrong
+        assert isinstance(wrong[field], bool)
+
+
+def test_rzd_controlled_reporting_hub_fetch_sha_mismatch_blocks_without_fetch(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(tmp_path, monkeypatch)
+
+    def unexpected_fetch(*args, **kwargs):
+        raise AssertionError("Task158 must not fetch with SHA mismatch")
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", unexpected_fetch)
+
+    plan_mismatch = _run_rzd_controlled_reporting_hub_fetch(
+        _rzd_controlled_reporting_hub_fetch_gate_args(paths, plan_sha="0" * 64)
+    )
+    assert plan_mismatch["status"] == "blocked"
+    assert plan_mismatch["blocker_rows"][0]["blocker_code"] == "expected_plan_sha256_mismatch"
+
+    accepted_mismatch = _run_rzd_controlled_reporting_hub_fetch(
+        _rzd_controlled_reporting_hub_fetch_gate_args(paths, accepted_sha="1" * 64)
+    )
+    assert accepted_mismatch["status"] == "blocked"
+    assert accepted_mismatch["blocker_rows"][0]["blocker_code"] == "expected_accepted_sha256_mismatch"
+
+
+def test_rzd_controlled_reporting_hub_fetch_success_writes_html_manifest_and_candidates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(tmp_path, monkeypatch)
+    html = """
+    <html><body>
+      <a href="/files/rzd-ifrs-consolidated-annual-report-2025.pdf">Annual IFRS consolidated report 2025</a>
+      <a href="/ru/9471/reports">Reporting page IFRS 2025</a>
+      <a href="/ru/company/about">About company</a>
+      <a href="https://example.com/report.pdf">External report</a>
+    </body></html>
+    """.encode("utf-8")
+
+    def controlled_fetch(url, *, timeout_seconds, max_bytes, user_agent):
+        assert url == assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL
+        assert "ControlledReportingHubFetchPreview" in user_agent
+        return {
+            "status": "ok",
+            "fetched_url": url,
+            "final_url": url,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "safe_response_headers": {"content-type": "text/html; charset=utf-8"},
+            "raw_bytes": html,
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", controlled_fetch)
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task158 must not download, parse, mutate DB, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_controlled_reporting_hub_fetch(_rzd_controlled_reporting_hub_fetch_gate_args(paths))
+
+    assert report["status"] == "passed"
+    assert report["token_matched"] is True
+    assert report["expected_plan_sha256_matches"] is True
+    assert report["expected_accepted_sha256_matches"] is True
+    assert report["controlled_reporting_hub_fetch_execution_enabled"] is True
+    assert report["rzd_reporting_hub_page_fetched"] is True
+    assert report["rzd_reporting_hub_html_snapshot_written"] is True
+    assert report["raw_html_sha256"] == hashlib.sha256(html).hexdigest()
+    assert report["raw_html_size_bytes"] == len(html)
+    assert report["link_row_count"] == 4
+    assert report["document_candidate_count"] >= 2
+    raw_path = tmp_path / "rzd_controlled_reporting_hub_fetch_raw_task158.html"
+    manifest_path = tmp_path / "rzd_controlled_reporting_hub_fetch_hash_manifest_task158.json"
+    assert raw_path.read_bytes() == html
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["raw_html_sha256"] == hashlib.sha256(html).hexdigest()
+    assert manifest["mode"] == "rzd-controlled-reporting-hub-fetch-hash-manifest-v2"
+    assert "FETCH_RZD_REPORTING_HUB_TASK158" not in manifest_path.read_text(encoding="utf-8")
+    candidate = report["document_candidate_rows"][0]
+    assert candidate["future_document_candidate_validation_required"] is True
+    assert candidate["future_document_download_required"] is False
+    assert candidate["future_document_parse_required"] is False
+    assert candidate["would_download_candidate"] is False
+    assert candidate["would_parse_candidate"] is False
+    for field in _rzd_controlled_reporting_hub_fetch_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+    for output_name in assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_ARTIFACT_NAMES.values():
+        assert (tmp_path / output_name).is_file()
+
+
+@pytest.mark.parametrize(
+    ("response", "expected_blocker"),
+    [
+        (
+            {"status": "error", "error_code": "page_fetch_redirect_host_not_allowed"},
+            "reporting_hub_fetch_redirect_host_not_allowed",
+        ),
+        (
+            {
+                "status": "ok",
+                "final_url": assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL,
+                "http_status_code": 200,
+                "content_type": "application/pdf",
+                "redirect_chain": [],
+                "raw_bytes": b"%PDF",
+            },
+            "reporting_hub_fetch_non_html_content_type",
+        ),
+        (
+            {"status": "error", "error_code": "page_fetch_size_limit_exceeded"},
+            "reporting_hub_fetch_size_limit_exceeded",
+        ),
+    ],
+)
+def test_rzd_controlled_reporting_hub_fetch_response_blockers_do_not_write_raw_html(
+    tmp_path: Path,
+    monkeypatch,
+    response: dict,
+    expected_blocker: str,
+) -> None:
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(tmp_path, monkeypatch)
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", lambda *args, **kwargs: response)
+
+    report = _run_rzd_controlled_reporting_hub_fetch(_rzd_controlled_reporting_hub_fetch_gate_args(paths))
+
+    assert report["status"] == "failed"
+    assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+    assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_raw_task158.html").exists()
+    assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_hash_manifest_task158.json").exists()
+
+
+def test_rzd_controlled_reporting_hub_fetch_no_candidates_is_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(tmp_path, monkeypatch)
+    html = b"<html><body><a href=\"/ru/company/about\">About</a></body></html>"
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_reporting_hub_fetch_http_get",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "final_url": assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "safe_response_headers": {"content-type": "text/html; charset=utf-8"},
+            "raw_bytes": html,
+        },
+    )
+
+    report = _run_rzd_controlled_reporting_hub_fetch(_rzd_controlled_reporting_hub_fetch_gate_args(paths))
+
+    assert report["status"] == "warning"
+    assert report["document_candidate_count"] == 0
+    assert report["warnings"] == [{"message": "no_reporting_hub_document_candidates_discovered"}]
+
+
+def test_rzd_controlled_reporting_hub_fetch_required_failure_and_collision_are_safe(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = _run_rzd_controlled_reporting_hub_fetch(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert missing["status"] == "failed"
+    assert {"message": "task157_plan_input_required"} in missing["errors"]
+    assert (tmp_path / "rzd_controlled_reporting_hub_fetch_preview_task158.json").is_file()
+    assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_raw_task158.html").exists()
+    assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_hash_manifest_task158.json").exists()
+
+    collision_dir = tmp_path / "collision"
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(collision_dir, monkeypatch)
+    original = paths["accepted"].read_bytes()
+    collision = _run_rzd_controlled_reporting_hub_fetch(
+        [
+            *_rzd_controlled_reporting_hub_fetch_gate_args(paths),
+            "--rzd-controlled-reporting-hub-fetch-output",
+            str(paths["accepted"]),
+        ]
+    )
+
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [{"message": "rzd_controlled_reporting_hub_fetch_output_must_not_equal_input"}]
+    assert paths["accepted"].read_bytes() == original
+
+
+def test_rzd_controlled_reporting_hub_fetch_detects_input_drift_after_write(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(tmp_path, monkeypatch)
+    html = b"<html><body><a href=\"/reports/ifrs-2025.pdf\">IFRS report 2025</a></body></html>"
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_reporting_hub_fetch_http_get",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "final_url": assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "safe_response_headers": {"content-type": "text/html; charset=utf-8"},
+            "raw_bytes": html,
+        },
+    )
+    original_writer = assistant._rzd_controlled_reporting_hub_fetch_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            paths["hub_plan"].write_bytes(paths["hub_plan"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_write_safe_outputs", mutate_after_first_write)
+
+    report = _run_rzd_controlled_reporting_hub_fetch(_rzd_controlled_reporting_hub_fetch_gate_args(paths))
+
+    assert report["status"] == "failed"
+    assert {"message": "rzd_controlled_reporting_hub_fetch_input_drift_detected"} in report["errors"]
+    assert report["task157_plan_input_preserved"] is False
+    assert report["task156_accepted_candidates_input_preserved"] is True
+    assert report["input_bytes_unchanged"] is False
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -17747,6 +18017,19 @@ def _run_rzd_reporting_hub_fetch_plan(extra_args: list[str] | None = None) -> di
     return report
 
 
+def _run_rzd_controlled_reporting_hub_fetch(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-controlled-reporting-hub-fetch-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -18602,6 +18885,41 @@ def _rzd_page_link_discovery_required_bool_fields() -> tuple[str, ...]:
 
 def _rzd_reporting_hub_fetch_plan_required_bool_fields() -> tuple[str, ...]:
     return assistant.RZD_REPORTING_HUB_FETCH_PLAN_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_controlled_reporting_hub_fetch_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_REQUIRED_BOOL_FIELDS
+
+
+def _write_rzd_controlled_reporting_hub_fetch_inputs(path: Path, monkeypatch) -> dict[str, Path]:
+    path.mkdir(parents=True, exist_ok=True)
+    paths = _write_rzd_reporting_hub_fetch_plan_inputs(path, monkeypatch)
+    report = _run_rzd_reporting_hub_fetch_plan(["--operator-resolution-chain-output-dir", str(path)])
+    assert report["ready_count"] == 1
+    return {
+        **paths,
+        "hub_plan": path / "rzd_reporting_hub_fetch_plan_preview_task157.json",
+        "hub_ready": path / "rzd_reporting_hub_fetch_plan_ready_task157.json",
+    }
+
+
+def _rzd_controlled_reporting_hub_fetch_gate_args(
+    paths: dict[str, Path],
+    *,
+    token: str = assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_CONFIRMATION_TOKEN,
+    plan_sha: str | None = None,
+    accepted_sha: str | None = None,
+) -> list[str]:
+    return [
+        "--operator-resolution-chain-output-dir",
+        str(paths["hub_plan"].parent),
+        "--rzd-controlled-reporting-hub-fetch-token",
+        token,
+        "--rzd-controlled-reporting-hub-fetch-expected-plan-sha256",
+        plan_sha or hashlib.sha256(paths["hub_plan"].read_bytes()).hexdigest(),
+        "--rzd-controlled-reporting-hub-fetch-expected-accepted-sha256",
+        accepted_sha or hashlib.sha256(paths["accepted"].read_bytes()).hexdigest(),
+    ]
 
 
 def _write_rzd_page_link_discovery_inputs(
