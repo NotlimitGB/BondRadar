@@ -9931,9 +9931,25 @@ def test_rzd_controlled_reporting_hub_fetch_missing_and_wrong_token_block_withou
     assert missing["status"] == "blocked"
     assert missing["token_provided"] is False
     assert missing["token_matched"] is False
+    assert missing["controlled_reporting_hub_fetch_execution_enabled"] is False
+    assert missing["rzd_hub_fetch_ready"] is False
+    assert missing["rzd_hub_page_fetched"] is False
+    assert missing["rzd_hub_html_snapshot_written"] is False
+    assert missing["raw_hub_html_path"] == ""
+    assert missing["raw_hub_html_sha256"] == ""
+    assert missing["raw_hub_html_size_bytes"] == 0
+    assert missing["hub_html_snapshot_written_count"] == 0
+    assert missing["hub_pages_fetched"] is False
+    assert missing["pages_fetched"] is False
+    assert missing["would_fetch_hub_pages"] is False
+    assert missing["would_fetch_pages"] is False
     assert missing["blocker_rows"][0]["blocker_code"] == "token_required"
     assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_raw_task158.html").exists()
     assert not (tmp_path / "rzd_controlled_reporting_hub_fetch_hash_manifest_task158.json").exists()
+    for field in _rzd_controlled_reporting_hub_fetch_required_bool_fields():
+        assert field in missing
+        assert isinstance(missing[field], bool)
+        assert missing[field] is not None
 
     wrong_token = "WRONG_REPORTING_HUB_TOKEN_DO_NOT_LEAK"
     wrong = _run_rzd_controlled_reporting_hub_fetch(
@@ -9949,6 +9965,7 @@ def test_rzd_controlled_reporting_hub_fetch_missing_and_wrong_token_block_withou
     for field in _rzd_controlled_reporting_hub_fetch_required_bool_fields():
         assert field in wrong
         assert isinstance(wrong[field], bool)
+        assert wrong[field] is not None
 
 
 def test_rzd_controlled_reporting_hub_fetch_sha_mismatch_blocks_without_fetch(
@@ -10021,8 +10038,31 @@ def test_rzd_controlled_reporting_hub_fetch_success_writes_html_manifest_and_can
     assert report["expected_plan_sha256_matches"] is True
     assert report["expected_accepted_sha256_matches"] is True
     assert report["controlled_reporting_hub_fetch_execution_enabled"] is True
+    assert report["plan_input_path"] == str(paths["hub_plan"])
+    assert report["plan_input_sha256"] == hashlib.sha256(paths["hub_plan"].read_bytes()).hexdigest()
+    assert report["ready_input_path"] == str(paths["hub_ready"])
+    assert report["ready_input_sha256"] == hashlib.sha256(paths["hub_ready"].read_bytes()).hexdigest()
+    assert report["accepted_candidates_input_path"] == str(paths["accepted"])
+    assert report["accepted_candidates_input_sha256"] == hashlib.sha256(paths["accepted"].read_bytes()).hexdigest()
+    assert report["source_pack_input_path"] == str(paths["source_pack"])
+    assert report["source_pack_input_sha256"] == hashlib.sha256(paths["source_pack"].read_bytes()).hexdigest()
+    assert report["plan_input_preserved"] is True
+    assert report["ready_input_preserved"] is True
+    assert report["accepted_candidates_input_preserved"] is True
+    assert report["task156_validation_input_preserved"] is True
+    assert report["task155_page_fetch_input_preserved"] is True
+    assert report["task155_hash_manifest_input_preserved"] is True
+    assert report["source_pack_input_preserved"] is True
+    assert report["input_bytes_unchanged"] is True
+    assert report["hub_html_snapshot_written_count"] == 1
+    assert report["rzd_hub_fetch_ready"] is True
+    assert report["rzd_hub_page_fetched"] is True
+    assert report["rzd_hub_html_snapshot_written"] is True
     assert report["rzd_reporting_hub_page_fetched"] is True
     assert report["rzd_reporting_hub_html_snapshot_written"] is True
+    assert report["raw_hub_html_path"] == str(tmp_path / "rzd_controlled_reporting_hub_fetch_raw_task158.html")
+    assert report["raw_hub_html_sha256"] == hashlib.sha256(html).hexdigest()
+    assert report["raw_hub_html_size_bytes"] == len(html)
     assert report["raw_html_sha256"] == hashlib.sha256(html).hexdigest()
     assert report["raw_html_size_bytes"] == len(html)
     assert report["link_row_count"] == 4
@@ -10043,6 +10083,7 @@ def test_rzd_controlled_reporting_hub_fetch_success_writes_html_manifest_and_can
     for field in _rzd_controlled_reporting_hub_fetch_required_bool_fields():
         assert field in report
         assert isinstance(report[field], bool)
+        assert report[field] is not None
     for output_name in assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_ARTIFACT_NAMES.values():
         assert (tmp_path / output_name).is_file()
 
@@ -10180,8 +10221,11 @@ def test_rzd_controlled_reporting_hub_fetch_detects_input_drift_after_write(
     assert report["status"] == "failed"
     assert {"message": "rzd_controlled_reporting_hub_fetch_input_drift_detected"} in report["errors"]
     assert report["task157_plan_input_preserved"] is False
+    assert report["plan_input_preserved"] is False
     assert report["task156_accepted_candidates_input_preserved"] is True
+    assert report["accepted_candidates_input_preserved"] is True
     assert report["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in report["blocker_rows"]}
 
 
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(

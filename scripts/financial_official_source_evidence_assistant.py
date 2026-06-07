@@ -4450,6 +4450,10 @@ RZD_CONTROLLED_REPORTING_HUB_FETCH_REQUIRED_BOOL_FIELDS = (
     "expected_plan_sha256_matches",
     "expected_accepted_sha256_matches",
     "controlled_reporting_hub_fetch_execution_enabled",
+    "plan_input_preserved",
+    "ready_input_preserved",
+    "accepted_candidates_input_preserved",
+    "source_pack_input_preserved",
     "task157_plan_input_preserved",
     "task157_ready_input_preserved",
     "task156_validation_input_preserved",
@@ -4458,6 +4462,9 @@ RZD_CONTROLLED_REPORTING_HUB_FETCH_REQUIRED_BOOL_FIELDS = (
     "task155_hash_manifest_input_preserved",
     "task148_source_pack_input_preserved",
     "input_bytes_unchanged",
+    "rzd_hub_fetch_ready",
+    "rzd_hub_page_fetched",
+    "rzd_hub_html_snapshot_written",
     "rzd_reporting_hub_fetch_ready",
     "rzd_reporting_hub_page_fetched",
     "rzd_reporting_hub_html_snapshot_written",
@@ -25748,6 +25755,14 @@ def _rzd_controlled_reporting_hub_fetch_preservation_fields(
             "task148_source_pack",
         )
     )
+    fields["plan_input_preserved"] = fields["task157_plan_input_preserved"]
+    fields["plan_input_bytes_unchanged"] = fields["task157_plan_input_bytes_unchanged"]
+    fields["ready_input_preserved"] = fields["task157_ready_input_preserved"]
+    fields["ready_input_bytes_unchanged"] = fields["task157_ready_input_bytes_unchanged"]
+    fields["accepted_candidates_input_preserved"] = fields["task156_accepted_candidates_input_preserved"]
+    fields["accepted_candidates_input_bytes_unchanged"] = fields["task156_accepted_candidates_input_bytes_unchanged"]
+    fields["source_pack_input_preserved"] = fields["task148_source_pack_input_preserved"]
+    fields["source_pack_input_bytes_unchanged"] = fields["task148_source_pack_input_bytes_unchanged"]
     return fields
 
 
@@ -26133,6 +26148,18 @@ def _rzd_controlled_reporting_hub_fetch_missing_preservation() -> dict[str, bool
         "task155_hash_manifest",
         "task148_source_pack",
     )})
+    fields.update(
+        {
+            "plan_input_preserved": False,
+            "plan_input_bytes_unchanged": False,
+            "ready_input_preserved": False,
+            "ready_input_bytes_unchanged": False,
+            "accepted_candidates_input_preserved": False,
+            "accepted_candidates_input_bytes_unchanged": False,
+            "source_pack_input_preserved": False,
+            "source_pack_input_bytes_unchanged": False,
+        }
+    )
     fields["input_bytes_unchanged"] = False
     return fields
 
@@ -26164,6 +26191,14 @@ def _build_rzd_controlled_reporting_hub_fetch_report(
         "expected_plan_sha256_matches": bool(row.get("expected_plan_sha256_matches")),
         "expected_accepted_sha256_matches": bool(row.get("expected_accepted_sha256_matches")),
         "controlled_reporting_hub_fetch_execution_enabled": execution_enabled,
+        "plan_input_path": _path_value(inputs.get("task157_plan")) or "",
+        "plan_input_sha256": input_hashes.get("task157_plan") or "",
+        "ready_input_path": _path_value(inputs.get("task157_ready")) or "",
+        "ready_input_sha256": input_hashes.get("task157_ready") or "",
+        "accepted_candidates_input_path": _path_value(inputs.get("task156_accepted_candidates")) or "",
+        "accepted_candidates_input_sha256": input_hashes.get("task156_accepted_candidates") or "",
+        "source_pack_input_path": _path_value(inputs.get("task148_source_pack")) or "",
+        "source_pack_input_sha256": input_hashes.get("task148_source_pack") or "",
         "task157_plan_input_path": _path_value(inputs.get("task157_plan")) or "",
         "task157_plan_input_sha256": input_hashes.get("task157_plan") or "",
         "task157_ready_input_path": _path_value(inputs.get("task157_ready")) or "",
@@ -26182,16 +26217,23 @@ def _build_rzd_controlled_reporting_hub_fetch_report(
         "row_count": len(hub_fetch_rows),
         "hub_fetch_row_count": len(hub_fetch_rows),
         "hub_page_fetched_count": sum(_as_bool(item.get("hub_page_fetched")) for item in hub_fetch_rows),
+        "hub_html_snapshot_written_count": sum(_as_bool(item.get("html_snapshot_written")) for item in hub_fetch_rows),
         "html_snapshot_written_count": sum(_as_bool(item.get("html_snapshot_written")) for item in hub_fetch_rows),
         "link_row_count": len(link_rows),
         "document_candidate_count": len(document_candidate_rows),
         "blocked_count": len(blocker_rows),
         "failed_count": 1 if forced_status == "failed" else 0,
+        "rzd_hub_fetch_ready": execution_enabled or hub_page_fetched,
+        "rzd_hub_page_fetched": hub_page_fetched,
+        "rzd_hub_html_snapshot_written": html_written,
         "rzd_reporting_hub_fetch_ready": execution_enabled or hub_page_fetched,
         "rzd_reporting_hub_page_fetched": hub_page_fetched,
         "rzd_reporting_hub_html_snapshot_written": html_written,
         "rzd_document_downloaded": False,
         "rzd_document_parsed": False,
+        "raw_hub_html_path": row.get("raw_html_path") or "",
+        "raw_hub_html_sha256": row.get("raw_html_sha256") or "",
+        "raw_hub_html_size_bytes": int(row.get("raw_html_size_bytes") or 0),
         "raw_html_path": row.get("raw_html_path") or "",
         "raw_html_sha256": row.get("raw_html_sha256") or "",
         "raw_html_size_bytes": int(row.get("raw_html_size_bytes") or 0),
