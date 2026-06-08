@@ -72,6 +72,7 @@ MODE_CHOICES = (
     "rzd-controlled-reporting-hub-fetch-preview-v2",
     "rzd-reporting-hub-link-discovery-validate-v2",
     "rzd-reporting-hub-embedded-report-link-inspect-v2",
+    "rzd-embedded-candidate-ranking-preview-v2",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -4879,6 +4880,218 @@ RZD_REPORTING_HUB_EMBEDDED_REQUIRED_BOOL_FIELDS = (
     "import_executed",
     "paper_trading_called",
 )
+RZD_EMBEDDED_CANDIDATE_RANKING_ARTIFACT_NAMES = {
+    "ranking_json": "rzd_embedded_candidate_ranking_task161.json",
+    "ranking_csv": "rzd_embedded_candidate_ranking_task161.csv",
+    "ranking_markdown": "rzd_embedded_candidate_ranking_task161.md",
+    "selected_json": "rzd_embedded_candidate_ranking_selected_task161.json",
+    "selected_csv": "rzd_embedded_candidate_ranking_selected_task161.csv",
+    "blockers_json": "rzd_embedded_candidate_ranking_blockers_task161.json",
+    "blockers_csv": "rzd_embedded_candidate_ranking_blockers_task161.csv",
+    "rerun_markdown": "rzd_embedded_candidate_ranking_rerun_task161.md",
+}
+RZD_EMBEDDED_CANDIDATE_RANKING_FIELDS = [
+    "ranked_candidate_id",
+    "accepted_candidate_id",
+    "embedded_candidate_id",
+    "company_id",
+    "company_name",
+    "candidate_url",
+    "candidate_host",
+    "candidate_type",
+    "candidate_source",
+    "candidate_status",
+    "source_hub_url",
+    "source_hub_sha256",
+    "source_hub_html_path",
+    "source_kind",
+    "source_selector",
+    "source_attribute",
+    "candidate_target_year_hint",
+    "candidate_ifrs_hint",
+    "candidate_consolidated_hint",
+    "candidate_report_hint",
+    "candidate_annual_hint",
+    "candidate_accounting_standard_hint",
+    "candidate_financial_hint",
+    "candidate_document_file_hint",
+    "ranking_score_total",
+    "ranking_score_url_pattern",
+    "ranking_score_context",
+    "ranking_score_document_signal",
+    "ranking_score_accounting_signal",
+    "ranking_score_year_signal",
+    "ranking_score_penalty",
+    "ranking_reason_codes",
+    "ranking_penalty_codes",
+    "ranking_class",
+    "confidence_tier",
+    "selection_rank",
+    "selection_status",
+    "future_controlled_candidate_validation_required",
+    "future_candidate_fetch_plan_required",
+    "future_document_download_required",
+    "future_document_parse_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_candidate",
+    "would_fetch_page",
+    "would_download_candidate",
+    "would_parse_candidate",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+]
+RZD_EMBEDDED_CANDIDATE_RANKING_SELECTED_FIELDS = [
+    "selected_candidate_id",
+    "ranked_candidate_id",
+    "accepted_candidate_id",
+    "embedded_candidate_id",
+    "selection_rank",
+    "selection_status",
+    "confidence_tier",
+    "ranking_class",
+    "ranking_score_total",
+    "ranking_reason_codes",
+    "ranking_penalty_codes",
+    "company_id",
+    "company_name",
+    "selected_candidate_url",
+    "selected_candidate_host",
+    "selected_candidate_type",
+    "selected_candidate_source",
+    "selected_candidate_status",
+    "source_hub_url",
+    "source_hub_sha256",
+    "source_hub_html_path",
+    "source_kind",
+    "source_selector",
+    "source_attribute",
+    "candidate_target_year_hint",
+    "candidate_ifrs_hint",
+    "candidate_consolidated_hint",
+    "candidate_report_hint",
+    "candidate_annual_hint",
+    "candidate_accounting_standard_hint",
+    "candidate_financial_hint",
+    "candidate_document_file_hint",
+    "future_controlled_candidate_validation_required",
+    "future_candidate_fetch_plan_required",
+    "future_document_download_required",
+    "future_document_parse_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_candidate",
+    "would_fetch_page",
+    "would_download_candidate",
+    "would_parse_candidate",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "operator_action",
+    "safe_hint",
+]
+RZD_EMBEDDED_CANDIDATE_RANKING_BLOCKER_FIELDS = [
+    "blocker_id",
+    "ranked_candidate_id",
+    "accepted_candidate_id",
+    "embedded_candidate_id",
+    "company_id",
+    "company_name",
+    "candidate_url",
+    "candidate_host",
+    "confidence_tier",
+    "ranking_class",
+    "selection_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+RZD_EMBEDDED_CANDIDATE_RANKING_REQUIRED_BOOL_FIELDS = (
+    "rzd_ranked_candidates_found",
+    "rzd_selected_candidate_found",
+    "rzd_ready_for_future_controlled_candidate_validation",
+    "rzd_document_download_ready",
+    "rzd_document_parse_ready",
+    "no_ranked_candidate_selected",
+    "task160_inspect_input_preserved",
+    "task160_candidates_input_preserved",
+    "task160_blockers_input_preserved",
+    "task158_hub_fetch_input_preserved",
+    "task158_hash_manifest_input_preserved",
+    "task159_validation_input_preserved",
+    "task157_plan_input_preserved",
+    "task157_ready_input_preserved",
+    "task156_accepted_candidates_input_preserved",
+    "task148_source_pack_input_preserved",
+    "input_bytes_unchanged",
+    "production_source_pack_modified",
+    "controlled_source_pack_modified",
+    "production_document_intake_modified",
+    "document_intake_draft_modified",
+    "read_only",
+    "dry_run_only",
+    "would_probe_urls",
+    "would_fetch_pages",
+    "would_fetch_hub_pages",
+    "would_download_documents",
+    "would_parse_documents",
+    "would_write_raw_files",
+    "would_write_hash_manifests",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "pages_fetched",
+    "hub_pages_fetched",
+    "documents_downloaded",
+    "documents_parsed",
+    "files_deleted",
+    "import_executed",
+    "paper_trading_called",
+)
+RZD_EMBEDDED_CANDIDATE_RANKING_ROW_BOOL_FIELDS = (
+    "candidate_target_year_hint",
+    "candidate_ifrs_hint",
+    "candidate_consolidated_hint",
+    "candidate_report_hint",
+    "candidate_annual_hint",
+    "candidate_accounting_standard_hint",
+    "candidate_financial_hint",
+    "candidate_document_file_hint",
+    "future_controlled_candidate_validation_required",
+    "future_candidate_fetch_plan_required",
+    "future_document_download_required",
+    "future_document_parse_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_candidate",
+    "would_fetch_page",
+    "would_download_candidate",
+    "would_parse_candidate",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+)
 SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
     "workspace_json": "source_trust_recovery_workspace_task142.json",
     "workspace_csv": "source_trust_recovery_workspace_task142.csv",
@@ -6185,6 +6398,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-reporting-hub-embedded-blockers-output", type=Path, default=None)
     parser.add_argument("--rzd-reporting-hub-embedded-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-reporting-hub-embedded-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-reporting-hub-embedded-inspect-input", type=Path, default=None)
+    parser.add_argument("--rzd-reporting-hub-embedded-candidates-input", type=Path, default=None)
+    parser.add_argument("--rzd-reporting-hub-embedded-blockers-input", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-output", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-selected-output", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-selected-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-embedded-candidate-ranking-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-markdown-output", type=Path, default=None)
@@ -6388,6 +6612,8 @@ def run_assistant(
         report = run_rzd_reporting_hub_link_discovery_validate_v2(args)
     elif args.mode == "rzd-reporting-hub-embedded-report-link-inspect-v2":
         report = run_rzd_reporting_hub_embedded_inspect_v2(args)
+    elif args.mode == "rzd-embedded-candidate-ranking-preview-v2":
+        report = run_rzd_embedded_candidate_ranking_preview_v2(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -29091,6 +29317,1010 @@ def _rzd_reporting_hub_embedded_finalize_report(
     return report
 
 
+def run_rzd_embedded_candidate_ranking_preview_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_embedded_candidate_ranking_inputs(args)
+    artifacts = _rzd_embedded_candidate_ranking_artifacts(args)
+    preflight_errors = _rzd_embedded_candidate_ranking_output_errors(args, inputs=inputs, artifacts=artifacts)
+    if preflight_errors:
+        return _rzd_embedded_candidate_ranking_failed_report(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            input_hashes={},
+            errors=preflight_errors,
+            write_outputs=False,
+        )
+
+    loaded, snapshots, input_hashes, load_errors = _rzd_embedded_candidate_ranking_load_inputs(inputs)
+    if load_errors:
+        return _rzd_embedded_candidate_ranking_failed_report(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            input_hashes=input_hashes,
+            errors=load_errors,
+            write_outputs=True,
+        )
+
+    ranked_rows, selected_rows, blocker_rows, warnings, forced_status = _rzd_embedded_candidate_ranking_rows(
+        loaded=loaded,
+        input_hashes=input_hashes,
+    )
+    report = _build_rzd_embedded_candidate_ranking_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        input_hashes=input_hashes,
+        preservation=_rzd_embedded_candidate_ranking_missing_preservation(),
+        loaded=loaded,
+        ranked_rows=ranked_rows,
+        selected_rows=selected_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=[],
+        forced_status=forced_status,
+    )
+    return _rzd_embedded_candidate_ranking_finalize_report(
+        report,
+        artifacts=artifacts,
+        inputs=inputs,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+
+
+def _rzd_embedded_candidate_ranking_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "task160_inspect": args.rzd_reporting_hub_embedded_inspect_input
+        or (output_dir / RZD_REPORTING_HUB_EMBEDDED_INSPECT_ARTIFACT_NAMES["inspect_json"] if output_dir else None),
+        "task160_candidates": args.rzd_reporting_hub_embedded_candidates_input
+        or (output_dir / RZD_REPORTING_HUB_EMBEDDED_INSPECT_ARTIFACT_NAMES["candidates_json"] if output_dir else None),
+        "task160_blockers": args.rzd_reporting_hub_embedded_blockers_input
+        or (output_dir / RZD_REPORTING_HUB_EMBEDDED_INSPECT_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+        "task158_hub_fetch": args.rzd_controlled_reporting_hub_fetch_input
+        or (output_dir / RZD_CONTROLLED_REPORTING_HUB_FETCH_ARTIFACT_NAMES["hub_fetch_json"] if output_dir else None),
+        "task158_hash_manifest": args.rzd_controlled_reporting_hub_fetch_hash_manifest_input
+        or (output_dir / RZD_CONTROLLED_REPORTING_HUB_FETCH_ARTIFACT_NAMES["hash_manifest_json"] if output_dir else None),
+        "task159_validation": args.rzd_reporting_hub_link_discovery_validation_input
+        or (output_dir / RZD_REPORTING_HUB_LINK_DISCOVERY_VALIDATION_ARTIFACT_NAMES["validation_json"] if output_dir else None),
+        "task157_plan": args.rzd_reporting_hub_fetch_plan_input
+        or (output_dir / RZD_REPORTING_HUB_FETCH_PLAN_ARTIFACT_NAMES["plan_json"] if output_dir else None),
+        "task157_ready": args.rzd_reporting_hub_fetch_plan_ready_input
+        or (output_dir / RZD_REPORTING_HUB_FETCH_PLAN_ARTIFACT_NAMES["ready_json"] if output_dir else None),
+        "task156_accepted_candidates": args.rzd_page_link_discovery_accepted_input
+        or (output_dir / RZD_PAGE_LINK_DISCOVERY_VALIDATION_ARTIFACT_NAMES["accepted_json"] if output_dir else None),
+        "task148_source_pack": args.source_trust_controlled_source_pack_input
+        or (
+            output_dir / SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_source_pack_json"]
+            if output_dir
+            else None
+        ),
+    }
+
+
+def _rzd_embedded_candidate_ranking_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "ranking_json": args.rzd_embedded_candidate_ranking_output,
+        "ranking_csv": args.rzd_embedded_candidate_ranking_csv_output,
+        "ranking_markdown": args.rzd_embedded_candidate_ranking_markdown_output,
+        "selected_json": args.rzd_embedded_candidate_ranking_selected_output,
+        "selected_csv": args.rzd_embedded_candidate_ranking_selected_csv_output,
+        "blockers_json": args.rzd_embedded_candidate_ranking_blockers_output,
+        "blockers_csv": args.rzd_embedded_candidate_ranking_blockers_csv_output,
+        "rerun_markdown": args.rzd_embedded_candidate_ranking_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in RZD_EMBEDDED_CANDIDATE_RANKING_ARTIFACT_NAMES.items()
+    }
+
+
+def _rzd_embedded_candidate_ranking_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_embedded_candidate_ranking_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "rzd_embedded_candidate_ranking_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_embedded_candidate_ranking_load_inputs(
+    inputs: dict[str, Path | None],
+) -> tuple[dict[str, Any], dict[Path, bytes], dict[str, str], list[dict[str, Any]]]:
+    loaded: dict[str, Any] = {
+        "task160_inspect": {},
+        "task160_embedded_rows": [],
+        "task160_candidates": {},
+        "task160_accepted_rows": [],
+        "task160_blockers": {},
+        "task160_blocker_rows": [],
+        "task158_hub_fetch": {},
+        "task158_hash_manifest": {},
+        "task159_validation": {},
+        "task159_validation_rows": [],
+        "task157_plan": {},
+        "task157_plan_rows": [],
+        "task157_ready": {},
+        "task157_ready_rows": [],
+        "task156_accepted_candidates": {},
+        "task156_accepted_candidate_rows": [],
+        "task148_source_pack": {},
+        "task148_source_pack_rows": [],
+    }
+    required = {
+        "task160_inspect": ("task160_inspect_input_required", "rzd-reporting-hub-embedded-report-link-inspect-v2", "embedded_rows"),
+        "task160_candidates": ("task160_candidates_input_required", "rzd-reporting-hub-embedded-candidates-v2", "accepted_candidate_rows"),
+        "task160_blockers": ("task160_blockers_input_required", "rzd-reporting-hub-embedded-blockers-v2", "blocker_rows"),
+        "task158_hub_fetch": ("task158_hub_fetch_input_required", "rzd-controlled-reporting-hub-fetch-preview-v2", None),
+        "task158_hash_manifest": ("task158_hash_manifest_input_required", "rzd-controlled-reporting-hub-fetch-hash-manifest-v2", None),
+        "task159_validation": ("task159_validation_input_required", "rzd-reporting-hub-link-discovery-validate-v2", "validation_rows"),
+        "task157_plan": ("task157_plan_input_required", "rzd-reporting-hub-fetch-plan-preview-v2", "hub_fetch_plan_rows"),
+        "task157_ready": ("task157_ready_input_required", "rzd-reporting-hub-fetch-plan-ready-v2", "ready_rows"),
+        "task156_accepted_candidates": (
+            "task156_accepted_candidates_input_required",
+            "rzd-page-link-discovery-accepted-candidates-v2",
+            "accepted_candidate_rows",
+        ),
+        "task148_source_pack": ("task148_source_pack_input_required", None, None),
+    }
+    row_targets = {
+        "task160_inspect": "task160_embedded_rows",
+        "task160_candidates": "task160_accepted_rows",
+        "task160_blockers": "task160_blocker_rows",
+        "task159_validation": "task159_validation_rows",
+        "task157_plan": "task157_plan_rows",
+        "task157_ready": "task157_ready_rows",
+        "task156_accepted_candidates": "task156_accepted_candidate_rows",
+    }
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    errors: list[dict[str, Any]] = []
+    for role, (error_code, expected_mode, rows_key) in required.items():
+        path = inputs.get(role)
+        if path is None or not path.is_file():
+            errors.append({"message": error_code})
+            continue
+        try:
+            data = path.read_bytes()
+            payload = json.loads(data.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            errors.append({"message": error_code, "error": str(exc)})
+            continue
+        if not isinstance(payload, dict):
+            errors.append({"message": error_code})
+            continue
+        if expected_mode is not None and payload.get("mode") != expected_mode:
+            errors.append({"message": error_code, "mode": payload.get("mode")})
+            continue
+        snapshots[path] = data
+        input_hashes[role] = hashlib.sha256(data).hexdigest()
+        loaded[role] = payload
+        if role == "task148_source_pack":
+            loaded["task148_source_pack_rows"] = _rzd_reporting_hub_embedded_source_pack_rows(payload)
+        elif rows_key is not None:
+            rows = payload.get(rows_key)
+            if not isinstance(rows, list):
+                errors.append({"message": error_code})
+            else:
+                loaded[row_targets[role]] = [row for row in rows if isinstance(row, dict)]
+    return loaded, snapshots, input_hashes, errors
+
+
+def _rzd_embedded_candidate_ranking_rows(
+    *,
+    loaded: dict[str, Any],
+    input_hashes: dict[str, str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]:
+    warnings: list[dict[str, Any]] = []
+    upstream_blockers = _rzd_embedded_candidate_ranking_upstream_blockers(loaded)
+    if upstream_blockers:
+        blocker_rows = [
+            _rzd_embedded_candidate_ranking_blocker_row({}, code, ranked_candidate_id=f"task161_upstream:{index}")
+            for index, code in enumerate(dict.fromkeys(upstream_blockers), start=1)
+        ]
+        return [], [], blocker_rows, warnings, "blocked"
+
+    ranked_rows: list[dict[str, Any]] = []
+    blocker_rows: list[dict[str, Any]] = []
+    for index, accepted in enumerate(loaded["task160_accepted_rows"], start=1):
+        invalid_code = _rzd_embedded_candidate_ranking_accepted_invalid_code(accepted)
+        if invalid_code:
+            blocker_rows.append(
+                _rzd_embedded_candidate_ranking_blocker_row(
+                    accepted,
+                    invalid_code,
+                    ranked_candidate_id=f"task161_invalid:{index}",
+                )
+            )
+            continue
+        ranked_rows.append(
+            _rzd_embedded_candidate_ranking_row(
+                accepted,
+                index=index,
+                input_hashes=input_hashes,
+            )
+        )
+
+    ranked_rows.sort(key=lambda row: (-int(row.get("ranking_score_total") or 0), str(row.get("candidate_url") or ""), str(row.get("ranked_candidate_id") or "")))
+    selected_candidates = [
+        row
+        for row in ranked_rows
+        if row.get("confidence_tier") in {"high", "medium"}
+        and row.get("ranking_class") != "unselectable_candidate"
+        and not _rzd_embedded_candidate_ranking_has_survived_hard_penalty(row)
+    ][:3]
+    selected_ids = {row["ranked_candidate_id"] for row in selected_candidates}
+    for selection_rank, row in enumerate(selected_candidates, start=1):
+        row["selection_rank"] = selection_rank
+        row["selection_status"] = "selected_for_future_controlled_candidate_validation"
+    for row in ranked_rows:
+        if row["ranked_candidate_id"] not in selected_ids:
+            row["selection_rank"] = 0
+            row["selection_status"] = "not_selected_by_ranking_threshold"
+
+    selected_rows = [_rzd_embedded_candidate_ranking_selected_row(row) for row in selected_candidates]
+    for row in ranked_rows:
+        if row["ranked_candidate_id"] in selected_ids:
+            continue
+        blocker_code = _rzd_embedded_candidate_ranking_blocker_code_for_ranked(row)
+        if blocker_code:
+            blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row(row, blocker_code))
+
+    if not loaded["task160_accepted_rows"]:
+        blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row({}, "task160_no_accepted_candidates", ranked_candidate_id="task160_no_accepted_candidates"))
+    if ranked_rows and not selected_rows:
+        if not any(row.get("blocker_code") == "only_low_confidence_candidates" for row in blocker_rows):
+            blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row({}, "only_low_confidence_candidates", ranked_candidate_id="only_low_confidence_candidates"))
+        blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row({}, "no_ranked_candidate_selected", ranked_candidate_id="no_ranked_candidate_selected"))
+
+    if selected_rows and not blocker_rows and not warnings:
+        status = "passed"
+    elif upstream_blockers:
+        status = "blocked"
+    else:
+        status = "warning"
+    return ranked_rows, selected_rows, blocker_rows, warnings, status
+
+
+def _rzd_embedded_candidate_ranking_upstream_blockers(loaded: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    inspect = loaded["task160_inspect"]
+    if (
+        inspect.get("status") not in {"passed", "warning"}
+        or not _as_bool(inspect.get("raw_hub_html_hash_verified"))
+        or not _as_bool(inspect.get("input_bytes_unchanged"))
+    ):
+        blockers.append("unknown_readiness")
+    if any(
+        _as_bool(inspect.get(field))
+        for field in (
+            "would_fetch_pages",
+            "would_fetch_hub_pages",
+            "would_download_documents",
+            "would_parse_documents",
+            "would_mutate_database",
+            "would_trigger_paper_trading",
+            "pages_fetched",
+            "hub_pages_fetched",
+            "documents_downloaded",
+            "documents_parsed",
+        )
+    ):
+        blockers.append("task160_upstream_safety_flags")
+
+    candidates_payload = loaded["task160_candidates"]
+    if any(
+        _as_bool(candidates_payload.get(field))
+        for field in ("would_fetch_pages", "would_fetch_hub_pages", "would_download_documents", "would_parse_documents", "would_mutate_database")
+    ):
+        blockers.append("task160_upstream_safety_flags")
+
+    hub_fetch = loaded["task158_hub_fetch"]
+    manifest = loaded["task158_hash_manifest"]
+    hub_raw_sha = str(hub_fetch.get("raw_hub_html_sha256") or hub_fetch.get("raw_html_sha256") or "")
+    hub_raw_path = str(hub_fetch.get("raw_hub_html_path") or hub_fetch.get("raw_html_path") or "")
+    if (
+        not hub_raw_path
+        or not hub_raw_sha
+        or hub_raw_sha != str(manifest.get("raw_html_sha256") or "")
+        or int(hub_fetch.get("raw_hub_html_size_bytes") or hub_fetch.get("raw_html_size_bytes") or 0) != int(manifest.get("raw_html_size_bytes") or -1)
+        or _normalize_candidate_url(str(manifest.get("final_url") or "")) != RZD_CONTROLLED_REPORTING_HUB_FETCH_URL
+    ):
+        blockers.append("unknown_readiness")
+    if any(_as_bool(hub_fetch.get(field)) for field in ("documents_downloaded", "documents_parsed", "would_download_documents", "would_parse_documents", "would_mutate_database")):
+        blockers.append("task160_upstream_safety_flags")
+
+    task159 = loaded["task159_validation"]
+    if (
+        int(task159.get("self_loop_candidate_count") or 0) < 1
+        or int(task159.get("accepted_candidate_count") or 0) != 0
+        or not _as_bool(task159.get("no_new_document_candidate_discovered"))
+    ):
+        blockers.append("unknown_readiness")
+
+    task157 = loaded["task157_plan"]
+    if not (
+        _as_bool(task157.get("rzd_reporting_hub_fetch_plan_ready"))
+        or _as_bool(task157.get("rzd_ready_for_future_controlled_reporting_hub_fetch"))
+    ):
+        blockers.append("unknown_readiness")
+    if _as_bool(task157.get("rzd_document_download_ready")) or _as_bool(task157.get("rzd_document_parse_ready")):
+        blockers.append("task160_upstream_safety_flags")
+
+    accepted_urls = {
+        _normalize_candidate_url(str(row.get("accepted_candidate_url") or ""))
+        for row in loaded["task156_accepted_candidate_rows"]
+    }
+    if RZD_CONTROLLED_REPORTING_HUB_FETCH_URL not in accepted_urls:
+        blockers.append("unknown_readiness")
+
+    trusted_hosts = _rzd_reporting_hub_embedded_trusted_hosts(loaded["task148_source_pack_rows"])
+    if not _source_trust_recovery_draft_review_host_trusted("company.rzd.ru", trusted_hosts):
+        blockers.append("unknown_readiness")
+    return blockers
+
+
+def _rzd_embedded_candidate_ranking_accepted_invalid_code(row: dict[str, Any]) -> str:
+    candidate_url = row.get("accepted_candidate_url")
+    candidate_host = row.get("accepted_candidate_host")
+    if isinstance(candidate_url, bool) or isinstance(candidate_host, bool):
+        return "task160_accepted_candidate_invalid"
+    candidate_url_text = str(candidate_url or "").strip()
+    candidate_host_text = str(candidate_host or "").strip().casefold()
+    if not candidate_url_text or candidate_host_text != "company.rzd.ru":
+        return "task160_accepted_candidate_invalid"
+    if row.get("accepted_candidate_status") != "future_embedded_document_candidate_validation_candidate_only":
+        return "task160_accepted_candidate_invalid"
+    if not _as_bool(row.get("future_document_candidate_validation_required")):
+        return "task160_accepted_candidate_invalid"
+    if any(
+        _as_bool(row.get(field))
+        for field in (
+            "future_document_download_required",
+            "future_document_parse_required",
+            "would_fetch_candidate",
+            "would_download_candidate",
+            "would_parse_candidate",
+            "would_mutate_document_intake",
+            "would_mutate_database",
+            "would_extract_values",
+            "would_import_report",
+            "would_mutate_scores",
+            "would_trigger_paper_trading",
+            "would_delete_files",
+        )
+    ):
+        return "task160_accepted_candidate_invalid"
+    parsed = urllib.parse.urlparse(candidate_url_text)
+    signal = urllib.parse.unquote(candidate_url_text).casefold()
+    if parsed.scheme not in {"http", "https"} or _host(candidate_url_text) != "company.rzd.ru":
+        return "task160_accepted_candidate_invalid"
+    return ""
+
+
+def _rzd_embedded_candidate_ranking_row(
+    accepted: dict[str, Any],
+    *,
+    index: int,
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    candidate_url = _normalize_candidate_url(str(accepted.get("accepted_candidate_url") or ""))
+    candidate_host = _host(candidate_url)
+    parsed = urllib.parse.urlparse(candidate_url)
+    extension = Path(parsed.path).suffix.casefold()
+    source_kind = str(accepted.get("source_kind") or "")
+    hints = {
+        "candidate_target_year_hint": _as_bool(accepted.get("candidate_target_year_hint")),
+        "candidate_ifrs_hint": _as_bool(accepted.get("candidate_ifrs_hint")),
+        "candidate_consolidated_hint": _as_bool(accepted.get("candidate_consolidated_hint")),
+        "candidate_report_hint": _as_bool(accepted.get("candidate_report_hint")),
+        "candidate_annual_hint": _as_bool(accepted.get("candidate_annual_hint")),
+        "candidate_accounting_standard_hint": _as_bool(accepted.get("candidate_accounting_standard_hint")),
+        "candidate_financial_hint": _as_bool(accepted.get("candidate_financial_hint")),
+        "candidate_document_file_hint": _as_bool(accepted.get("candidate_document_file_hint")),
+    }
+    scores, reason_codes, penalty_codes = _rzd_embedded_candidate_ranking_score(
+        candidate_url=candidate_url,
+        extension=extension,
+        source_kind=source_kind,
+        hints=hints,
+    )
+    total = sum(scores.values())
+    confidence = _rzd_embedded_candidate_ranking_confidence(total)
+    ranking_class = _rzd_embedded_candidate_ranking_class(
+        candidate_url=candidate_url,
+        extension=extension,
+        confidence=confidence,
+        hints=hints,
+        penalty_codes=penalty_codes,
+    )
+    ranked_id = f"rzd_embedded_candidate_ranking:{hashlib.sha256(candidate_url.encode('utf-8')).hexdigest()[:16]}"
+    row = {
+        "ranked_candidate_id": ranked_id,
+        "accepted_candidate_id": str(accepted.get("accepted_candidate_id") or f"task160_accepted:{index}"),
+        "embedded_candidate_id": str(accepted.get("embedded_candidate_id") or ""),
+        "company_id": str(accepted.get("company_id") or "18"),
+        "company_name": str(accepted.get("company_name") or "RZD"),
+        "candidate_url": candidate_url,
+        "candidate_host": candidate_host,
+        "candidate_type": str(accepted.get("accepted_candidate_type") or ""),
+        "candidate_source": str(accepted.get("accepted_candidate_source") or "task160_embedded_report_link_inspect"),
+        "candidate_status": str(accepted.get("accepted_candidate_status") or ""),
+        "source_hub_url": str(accepted.get("source_hub_url") or RZD_CONTROLLED_REPORTING_HUB_FETCH_URL),
+        "source_hub_sha256": str(accepted.get("source_hub_sha256") or input_hashes.get("task158_hash_manifest") or ""),
+        "source_hub_html_path": str(accepted.get("source_hub_html_path") or ""),
+        "source_kind": source_kind,
+        "source_selector": str(accepted.get("source_selector") or ""),
+        "source_attribute": str(accepted.get("source_attribute") or ""),
+        **hints,
+        "ranking_score_total": total,
+        "ranking_score_url_pattern": scores["ranking_score_url_pattern"],
+        "ranking_score_context": scores["ranking_score_context"],
+        "ranking_score_document_signal": scores["ranking_score_document_signal"],
+        "ranking_score_accounting_signal": scores["ranking_score_accounting_signal"],
+        "ranking_score_year_signal": scores["ranking_score_year_signal"],
+        "ranking_score_penalty": scores["ranking_score_penalty"],
+        "ranking_reason_codes": reason_codes,
+        "ranking_penalty_codes": penalty_codes,
+        "ranking_class": ranking_class,
+        "confidence_tier": confidence,
+        "selection_rank": 0,
+        "selection_status": "not_selected_by_ranking_threshold",
+        "future_controlled_candidate_validation_required": confidence in {"high", "medium"},
+        "future_candidate_fetch_plan_required": confidence in {"high", "medium"},
+        "future_document_download_required": False,
+        "future_document_parse_required": False,
+        "future_import_required": False,
+        "future_scoring_required": False,
+        "future_paper_trading_required": False,
+        "would_fetch_candidate": False,
+        "would_fetch_page": False,
+        "would_download_candidate": False,
+        "would_parse_candidate": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+    }
+    for field in RZD_EMBEDDED_CANDIDATE_RANKING_ROW_BOOL_FIELDS:
+        row[field] = bool(row.get(field))
+    return row
+
+
+def _rzd_embedded_candidate_ranking_score(
+    *,
+    candidate_url: str,
+    extension: str,
+    source_kind: str,
+    hints: dict[str, bool],
+) -> tuple[dict[str, int], list[str], list[str]]:
+    scores = {
+        "ranking_score_url_pattern": 0,
+        "ranking_score_context": 0,
+        "ranking_score_document_signal": 0,
+        "ranking_score_accounting_signal": 0,
+        "ranking_score_year_signal": 0,
+        "ranking_score_penalty": 0,
+    }
+    reason_codes: list[str] = []
+    penalty_codes: list[str] = []
+    parsed = urllib.parse.urlparse(candidate_url)
+    path = parsed.path.casefold()
+    query = parsed.query.casefold()
+    if extension == ".pdf":
+        scores["ranking_score_document_signal"] += 50
+        reason_codes.append("direct_pdf_document_candidate")
+    elif extension in {".xls", ".xlsx"}:
+        scores["ranking_score_document_signal"] += 40
+        reason_codes.append("direct_spreadsheet_candidate")
+    elif extension in {".zip", ".doc", ".docx"}:
+        scores["ranking_score_document_signal"] += 30
+        reason_codes.append("direct_document_archive_candidate")
+    if hints["candidate_ifrs_hint"]:
+        scores["ranking_score_accounting_signal"] += 20
+        reason_codes.append("ifrs_context")
+    if hints["candidate_consolidated_hint"]:
+        scores["ranking_score_accounting_signal"] += 15
+        reason_codes.append("consolidated_context")
+    if hints["candidate_target_year_hint"]:
+        scores["ranking_score_year_signal"] += 15
+        reason_codes.append("target_year_context")
+    if hints["candidate_report_hint"]:
+        scores["ranking_score_context"] += 15
+        reason_codes.append("report_context")
+    if hints["candidate_annual_hint"]:
+        scores["ranking_score_context"] += 10
+        reason_codes.append("annual_context")
+    if hints["candidate_financial_hint"]:
+        scores["ranking_score_context"] += 10
+        reason_codes.append("financial_context")
+    if hints["candidate_accounting_standard_hint"]:
+        scores["ranking_score_accounting_signal"] += 10
+        reason_codes.append("accounting_standard_context")
+    if re.fullmatch(r"/ru/\d+/page/\d+", path) and re.search(r"(?:^|&)id=\d+(?:&|$)", query):
+        scores["ranking_score_url_pattern"] += 25
+        reason_codes.append("rzd_cms_report_page_shape")
+    if source_kind in {"script", "data_attribute", "value", "attribute", "event_attribute", "hidden_value"}:
+        scores["ranking_score_context"] += 15
+        reason_codes.append("structured_embedded_source")
+    if any(hints[field] for field in ("candidate_report_hint", "candidate_ifrs_hint", "candidate_target_year_hint", "candidate_accounting_standard_hint", "candidate_annual_hint")):
+        scores["ranking_score_context"] += 10
+        reason_codes.append("local_report_accounting_year_context")
+    if _normalize_candidate_url(candidate_url) == RZD_EXACT_DOCUMENT_DEFAULT_URL or (
+        "/ru/9397/page/104069" in path and "id=322745" in query
+    ):
+        scores["ranking_score_url_pattern"] += 15
+        reason_codes.append("known_rzd_2025_candidate_shape")
+
+    if source_kind == "raw_text" and not any(hints[field] for field in ("candidate_report_hint", "candidate_ifrs_hint", "candidate_target_year_hint", "candidate_accounting_standard_hint")):
+        scores["ranking_score_penalty"] -= 40
+        penalty_codes.append("raw_text_without_strong_local_context")
+    if _rzd_embedded_candidate_ranking_short_section(parsed):
+        scores["ranking_score_penalty"] -= 30
+        penalty_codes.append("short_section_only")
+    if hints["candidate_financial_hint"] and not any(
+        hints[field]
+        for field in (
+            "candidate_report_hint",
+            "candidate_ifrs_hint",
+            "candidate_consolidated_hint",
+            "candidate_target_year_hint",
+            "candidate_annual_hint",
+        )
+    ):
+        scores["ranking_score_penalty"] -= 30
+        penalty_codes.append("financial_hint_only")
+    if _rzd_reporting_hub_embedded_is_generic_navigation(parsed, ""):
+        scores["ranking_score_penalty"] -= 50
+        penalty_codes.append("generic_navigation_survived")
+    if _rzd_reporting_hub_embedded_is_media_placeholder(parsed):
+        scores["ranking_score_penalty"] -= 50
+        penalty_codes.append("media_placeholder_survived")
+    query_keys = set(urllib.parse.parse_qs(parsed.query, keep_blank_values=True))
+    if "editor" in query_keys:
+        scores["ranking_score_penalty"] -= 25
+        penalty_codes.append("editor_like_query")
+    if query_keys & {"textsearch", "search_expanded", "tender_type", "status_type", "type_id"}:
+        scores["ranking_score_penalty"] -= 25
+        penalty_codes.append("search_or_filter_survived")
+    if _contains_any(path, ("/media/", "/static/", "/common/", "/local/", "/assets/")):
+        scores["ranking_score_penalty"] -= 25
+        penalty_codes.append("static_or_media_asset")
+    return scores, reason_codes, penalty_codes
+
+
+def _rzd_embedded_candidate_ranking_short_section(parsed: urllib.parse.ParseResult) -> bool:
+    segments = [segment for segment in parsed.path.strip("/").split("/") if segment]
+    return len(segments) == 2 and segments[0] == "ru" and segments[1].isdigit()
+
+
+def _rzd_embedded_candidate_ranking_confidence(score: int) -> str:
+    if score >= 70:
+        return "high"
+    if score >= 45:
+        return "medium"
+    if score >= 20:
+        return "low"
+    return "reject"
+
+
+def _rzd_embedded_candidate_ranking_class(
+    *,
+    candidate_url: str,
+    extension: str,
+    confidence: str,
+    hints: dict[str, bool],
+    penalty_codes: list[str],
+) -> str:
+    parsed = urllib.parse.urlparse(candidate_url)
+    if extension in {".pdf", ".xls", ".xlsx", ".zip", ".doc", ".docx"} and confidence == "high":
+        return "direct_document_high_confidence"
+    if re.fullmatch(r"/ru/\d+/page/\d+", parsed.path.casefold()) and re.search(r"(?:^|&)id=\d+(?:&|$)", parsed.query.casefold()):
+        if confidence == "high":
+            return "report_page_high_confidence"
+        if confidence == "medium":
+            return "report_page_medium_confidence"
+    if "financial_hint_only" in penalty_codes or (hints["candidate_financial_hint"] and confidence == "low"):
+        return "financial_section_low_confidence"
+    if hints["candidate_financial_hint"] and confidence == "reject":
+        return "ambiguous_finance_only"
+    if confidence in {"high", "medium"} and hints["candidate_report_hint"]:
+        return "report_page_high_confidence" if confidence == "high" else "report_page_medium_confidence"
+    return "unselectable_candidate"
+
+
+def _rzd_embedded_candidate_ranking_has_survived_hard_penalty(row: dict[str, Any]) -> bool:
+    penalties = set(row.get("ranking_penalty_codes") or [])
+    return bool(penalties & {"generic_navigation_survived", "search_or_filter_survived", "media_placeholder_survived", "financial_hint_only"})
+
+
+def _rzd_embedded_candidate_ranking_selected_row(row: dict[str, Any]) -> dict[str, Any]:
+    selected = {
+        "selected_candidate_id": f"rzd_embedded_candidate_ranking_selected:{row.get('ranked_candidate_id')}",
+        "ranked_candidate_id": row.get("ranked_candidate_id") or "",
+        "accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        "embedded_candidate_id": row.get("embedded_candidate_id") or "",
+        "selection_rank": row.get("selection_rank") or 0,
+        "selection_status": "selected_for_future_controlled_candidate_validation",
+        "confidence_tier": row.get("confidence_tier") or "",
+        "ranking_class": row.get("ranking_class") or "",
+        "ranking_score_total": row.get("ranking_score_total") or 0,
+        "ranking_reason_codes": row.get("ranking_reason_codes") or [],
+        "ranking_penalty_codes": row.get("ranking_penalty_codes") or [],
+        "company_id": row.get("company_id") or "18",
+        "company_name": row.get("company_name") or "RZD",
+        "selected_candidate_url": str(row.get("candidate_url") or ""),
+        "selected_candidate_host": str(row.get("candidate_host") or ""),
+        "selected_candidate_type": row.get("candidate_type") or "",
+        "selected_candidate_source": "task161_embedded_candidate_ranking_preview",
+        "selected_candidate_status": "future_controlled_candidate_validation_candidate_only",
+        "source_hub_url": row.get("source_hub_url") or "",
+        "source_hub_sha256": row.get("source_hub_sha256") or "",
+        "source_hub_html_path": row.get("source_hub_html_path") or "",
+        "source_kind": row.get("source_kind") or "",
+        "source_selector": row.get("source_selector") or "",
+        "source_attribute": row.get("source_attribute") or "",
+        "candidate_target_year_hint": row.get("candidate_target_year_hint") is True,
+        "candidate_ifrs_hint": row.get("candidate_ifrs_hint") is True,
+        "candidate_consolidated_hint": row.get("candidate_consolidated_hint") is True,
+        "candidate_report_hint": row.get("candidate_report_hint") is True,
+        "candidate_annual_hint": row.get("candidate_annual_hint") is True,
+        "candidate_accounting_standard_hint": row.get("candidate_accounting_standard_hint") is True,
+        "candidate_financial_hint": row.get("candidate_financial_hint") is True,
+        "candidate_document_file_hint": row.get("candidate_document_file_hint") is True,
+        "future_controlled_candidate_validation_required": True,
+        "future_candidate_fetch_plan_required": True,
+        "future_document_download_required": False,
+        "future_document_parse_required": False,
+        "future_import_required": False,
+        "future_scoring_required": False,
+        "future_paper_trading_required": False,
+        "would_fetch_candidate": False,
+        "would_fetch_page": False,
+        "would_download_candidate": False,
+        "would_parse_candidate": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "operator_action": "review_selected_candidate_before_future_controlled_validation",
+        "safe_hint": "Task161 only ranks candidates; future validation remains separate and controlled.",
+    }
+    for field in RZD_EMBEDDED_CANDIDATE_RANKING_ROW_BOOL_FIELDS:
+        if field in selected:
+            selected[field] = bool(selected[field])
+    return selected
+
+
+def _rzd_embedded_candidate_ranking_blocker_code_for_ranked(row: dict[str, Any]) -> str:
+    penalties = set(row.get("ranking_penalty_codes") or [])
+    if "financial_hint_only" in penalties:
+        return "candidate_financial_hint_only"
+    if "generic_navigation_survived" in penalties:
+        return "candidate_generic_navigation_survived"
+    if "search_or_filter_survived" in penalties:
+        return "candidate_search_or_filter_survived"
+    if "media_placeholder_survived" in penalties:
+        return "candidate_media_placeholder_survived"
+    if row.get("confidence_tier") in {"low", "reject"}:
+        return "only_low_confidence_candidates"
+    return ""
+
+
+def _rzd_embedded_candidate_ranking_blocker_row(
+    row: dict[str, Any],
+    code: str,
+    *,
+    ranked_candidate_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_embedded_candidate_ranking_blocker:{ranked_candidate_id or row.get('ranked_candidate_id') or row.get('accepted_candidate_id') or 'unknown'}:{code}",
+        "ranked_candidate_id": ranked_candidate_id or row.get("ranked_candidate_id") or "",
+        "accepted_candidate_id": row.get("accepted_candidate_id") or "",
+        "embedded_candidate_id": row.get("embedded_candidate_id") or "",
+        "company_id": row.get("company_id") or "18",
+        "company_name": row.get("company_name") or "RZD",
+        "candidate_url": str(row.get("candidate_url") or row.get("accepted_candidate_url") or ""),
+        "candidate_host": str(row.get("candidate_host") or row.get("accepted_candidate_host") or ""),
+        "confidence_tier": row.get("confidence_tier") or "",
+        "ranking_class": row.get("ranking_class") or "",
+        "selection_status": row.get("selection_status") or "",
+        "blocker_code": code,
+        "blocker_severity": "error" if code in {"output_collision", "input_drift_detected"} else "warning",
+        "operator_action": "review_task161_blocker_before_future_candidate_validation",
+        "safe_hint": "Task161 is preview-only; resolve ranking blockers before any future controlled candidate validation.",
+    }
+
+
+def _rzd_embedded_candidate_ranking_safety_flags() -> dict[str, bool]:
+    return {
+        "production_source_pack_modified": False,
+        "controlled_source_pack_modified": False,
+        "production_document_intake_modified": False,
+        "document_intake_draft_modified": False,
+        "read_only": True,
+        "dry_run_only": True,
+        "would_probe_urls": False,
+        "would_fetch_pages": False,
+        "would_fetch_hub_pages": False,
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_write_raw_files": False,
+        "would_write_hash_manifests": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "pages_fetched": False,
+        "hub_pages_fetched": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
+def _rzd_embedded_candidate_ranking_missing_preservation() -> dict[str, bool]:
+    return {
+        "task160_inspect_input_preserved": False,
+        "task160_candidates_input_preserved": False,
+        "task160_blockers_input_preserved": False,
+        "task158_hub_fetch_input_preserved": False,
+        "task158_hash_manifest_input_preserved": False,
+        "task159_validation_input_preserved": False,
+        "task157_plan_input_preserved": False,
+        "task157_ready_input_preserved": False,
+        "task156_accepted_candidates_input_preserved": False,
+        "task148_source_pack_input_preserved": False,
+        "input_bytes_unchanged": False,
+    }
+
+
+def _rzd_embedded_candidate_ranking_preservation_fields(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, bool]:
+    fields: dict[str, bool] = {}
+    all_preserved = True
+    for role in inputs:
+        path = inputs.get(role)
+        preserved = False
+        if path is not None and path in snapshots:
+            try:
+                current = path.read_bytes()
+                preserved = current == snapshots[path] and hashlib.sha256(current).hexdigest() == input_hashes.get(role)
+            except OSError:
+                preserved = False
+        fields[f"{role}_input_preserved"] = preserved
+        all_preserved = all_preserved and preserved
+    fields["input_bytes_unchanged"] = all_preserved
+    return fields
+
+
+def _build_rzd_embedded_candidate_ranking_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    preservation: dict[str, bool],
+    loaded: dict[str, Any],
+    ranked_rows: list[dict[str, Any]],
+    selected_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    forced_status: str,
+) -> dict[str, Any]:
+    confidence_counts = _count_by_key(ranked_rows, "confidence_tier")
+    ranking_class_counts = _count_by_key(ranked_rows, "ranking_class")
+    selection_counts = _count_by_key(ranked_rows, "selection_status")
+    blocker_counts = _count_by_key(blocker_rows, "blocker_code")
+    direct_count = sum(1 for row in ranked_rows if row.get("ranking_class") == "direct_document_high_confidence")
+    report_page_count = sum(1 for row in ranked_rows if str(row.get("ranking_class") or "").startswith("report_page_"))
+    financial_count = sum(1 for row in ranked_rows if row.get("ranking_class") == "financial_section_low_confidence")
+    ambiguous_count = sum(1 for row in ranked_rows if row.get("ranking_class") == "ambiguous_finance_only")
+    status = forced_status
+    if errors:
+        status = "failed"
+    elif forced_status not in {"blocked", "failed"}:
+        status = "passed" if selected_rows and not blocker_rows and not warnings else "warning"
+    report = {
+        "status": status,
+        "mode": "rzd-embedded-candidate-ranking-preview-v2",
+        "input_accepted_candidate_count": len(loaded.get("task160_accepted_rows") or []),
+        "ranked_candidate_count": len(ranked_rows),
+        "selected_candidate_count": len(selected_rows),
+        "blocked_count": len(blocker_rows),
+        "failed_count": 1 if status == "failed" else 0,
+        "high_confidence_candidate_count": confidence_counts.get("high", 0),
+        "medium_confidence_candidate_count": confidence_counts.get("medium", 0),
+        "low_confidence_candidate_count": confidence_counts.get("low", 0),
+        "reject_candidate_count": confidence_counts.get("reject", 0),
+        "direct_document_candidate_count": direct_count,
+        "report_page_candidate_count": report_page_count,
+        "financial_section_candidate_count": financial_count,
+        "ambiguous_finance_only_candidate_count": ambiguous_count,
+        "rzd_ranked_candidates_found": bool(ranked_rows),
+        "rzd_selected_candidate_found": bool(selected_rows),
+        "rzd_ready_for_future_controlled_candidate_validation": bool(selected_rows),
+        "rzd_document_download_ready": False,
+        "rzd_document_parse_ready": False,
+        "no_ranked_candidate_selected": not bool(selected_rows),
+        "task160_inspect_input_path": _path_value(inputs.get("task160_inspect")) or "",
+        "task160_inspect_input_sha256": input_hashes.get("task160_inspect") or "",
+        "task160_candidates_input_path": _path_value(inputs.get("task160_candidates")) or "",
+        "task160_candidates_input_sha256": input_hashes.get("task160_candidates") or "",
+        "task160_blockers_input_path": _path_value(inputs.get("task160_blockers")) or "",
+        "task160_blockers_input_sha256": input_hashes.get("task160_blockers") or "",
+        "task158_hub_fetch_input_path": _path_value(inputs.get("task158_hub_fetch")) or "",
+        "task158_hub_fetch_input_sha256": input_hashes.get("task158_hub_fetch") or "",
+        "task158_hash_manifest_input_path": _path_value(inputs.get("task158_hash_manifest")) or "",
+        "task158_hash_manifest_input_sha256": input_hashes.get("task158_hash_manifest") or "",
+        "task159_validation_input_path": _path_value(inputs.get("task159_validation")) or "",
+        "task159_validation_input_sha256": input_hashes.get("task159_validation") or "",
+        "task157_plan_input_path": _path_value(inputs.get("task157_plan")) or "",
+        "task157_plan_input_sha256": input_hashes.get("task157_plan") or "",
+        "task157_ready_input_path": _path_value(inputs.get("task157_ready")) or "",
+        "task157_ready_input_sha256": input_hashes.get("task157_ready") or "",
+        "task156_accepted_candidates_input_path": _path_value(inputs.get("task156_accepted_candidates")) or "",
+        "task156_accepted_candidates_input_sha256": input_hashes.get("task156_accepted_candidates") or "",
+        "task148_source_pack_input_path": _path_value(inputs.get("task148_source_pack")) or "",
+        "task148_source_pack_input_sha256": input_hashes.get("task148_source_pack") or "",
+        **preservation,
+        **_rzd_embedded_candidate_ranking_safety_flags(),
+        "confidence_tier_counts": confidence_counts,
+        "ranking_class_counts": ranking_class_counts,
+        "selection_status_counts": selection_counts,
+        "blocker_code_counts": blocker_counts,
+        "warnings": warnings,
+        "errors": errors,
+        "ranked_candidate_rows": ranked_rows,
+        "selected_candidate_rows": selected_rows,
+        "blocker_rows": blocker_rows,
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items()},
+        "next_steps": _next_steps("rzd-embedded-candidate-ranking-preview-v2", status),
+    }
+    for field in RZD_EMBEDDED_CANDIDATE_RANKING_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    return report
+
+
+def _rzd_embedded_candidate_ranking_failed_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    errors: list[dict[str, Any]],
+    write_outputs: bool,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_embedded_candidate_ranking_blocker_row({}, str(item.get("message") or "unknown_readiness"), ranked_candidate_id=f"preflight:{index}")
+        for index, item in enumerate(errors, start=1)
+    ]
+    report = _build_rzd_embedded_candidate_ranking_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        input_hashes=input_hashes,
+        preservation=_rzd_embedded_candidate_ranking_missing_preservation(),
+        loaded={"task160_accepted_rows": []},
+        ranked_rows=[],
+        selected_rows=[],
+        blocker_rows=blocker_rows,
+        warnings=[],
+        errors=errors,
+        forced_status="failed",
+    )
+    if write_outputs:
+        try:
+            _rzd_embedded_candidate_ranking_write_safe_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_embedded_candidate_ranking_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_embedded_candidate_ranking_write_safe_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    _write_optional_json_report(report, artifacts["ranking_json"])
+    _write_optional_flat_csv(report.get("ranked_candidate_rows") or [], RZD_EMBEDDED_CANDIDATE_RANKING_FIELDS, artifacts["ranking_csv"])
+    if artifacts["ranking_markdown"] is not None:
+        write_rzd_embedded_candidate_ranking_markdown(report, artifacts["ranking_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-embedded-candidate-ranking-selected-v2",
+            "row_count": len(report.get("selected_candidate_rows") or []),
+            "selected_candidate_rows": report.get("selected_candidate_rows") or [],
+            **_rzd_embedded_candidate_ranking_safety_flags(),
+        },
+        artifacts["selected_json"],
+    )
+    _write_optional_flat_csv(report.get("selected_candidate_rows") or [], RZD_EMBEDDED_CANDIDATE_RANKING_SELECTED_FIELDS, artifacts["selected_csv"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-embedded-candidate-ranking-blockers-v2",
+            "row_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            **_rzd_embedded_candidate_ranking_safety_flags(),
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_EMBEDDED_CANDIDATE_RANKING_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    if artifacts["rerun_markdown"] is not None:
+        write_rzd_embedded_candidate_ranking_rerun_markdown(report, artifacts["rerun_markdown"])
+
+
+def _rzd_embedded_candidate_ranking_finalize_report(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    try:
+        _rzd_embedded_candidate_ranking_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_embedded_candidate_ranking_write_failed", "error": str(exc)}]
+        return report
+    complete_snapshot = all(path is not None and path in snapshots for path in inputs.values())
+    if not complete_snapshot:
+        return report
+    preservation = _rzd_embedded_candidate_ranking_preservation_fields(
+        inputs=inputs,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+    report.update(preservation)
+    if not preservation["input_bytes_unchanged"]:
+        report["status"] = "failed"
+        if not any(item.get("message") == "rzd_embedded_candidate_ranking_input_drift_detected" for item in report.get("errors") or []):
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_embedded_candidate_ranking_input_drift_detected"}]
+        if not any(row.get("blocker_code") == "input_drift_detected" for row in report.get("blocker_rows") or []):
+            report["blocker_rows"] = [
+                *report.get("blocker_rows", []),
+                _rzd_embedded_candidate_ranking_blocker_row({}, "input_drift_detected", ranked_candidate_id="input_drift"),
+            ]
+    report["blocked_count"] = len(report.get("blocker_rows") or [])
+    report["failed_count"] = 1 if report["status"] == "failed" else 0
+    report["blocker_code_counts"] = _count_by_key(report.get("blocker_rows") or [], "blocker_code")
+    for field in RZD_EMBEDDED_CANDIDATE_RANKING_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    try:
+        _rzd_embedded_candidate_ranking_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_embedded_candidate_ranking_write_failed", "error": str(exc)}]
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -37224,6 +38454,16 @@ def write_rzd_reporting_hub_embedded_rerun_markdown(report: dict[str, Any], path
     path.write_text(render_rzd_reporting_hub_embedded_rerun_markdown(report), encoding="utf-8")
 
 
+def write_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_embedded_candidate_ranking_markdown(report), encoding="utf-8")
+
+
+def write_rzd_embedded_candidate_ranking_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_embedded_candidate_ranking_rerun_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -37473,6 +38713,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_reporting_hub_link_discovery_markdown(report)
     if report.get("mode") == "rzd-reporting-hub-embedded-report-link-inspect-v2":
         return render_rzd_reporting_hub_embedded_markdown(report)
+    if report.get("mode") == "rzd-embedded-candidate-ranking-preview-v2":
+        return render_rzd_embedded_candidate_ranking_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -41273,6 +42515,178 @@ def render_rzd_reporting_hub_embedded_rerun_markdown(report: dict[str, Any]) -> 
             "```bash",
             "python3 scripts/financial_official_source_evidence_assistant.py \\",
             "  --mode rzd-embedded-report-link-validation-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+        ]
+    ) + "\n"
+
+
+def render_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# RZD Embedded Candidate Ranking / Exact Report Page Validation Preview v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- input accepted candidates: {report.get('input_accepted_candidate_count', 0)}",
+        f"- ranked candidates: {report.get('ranked_candidate_count', 0)}",
+        f"- selected candidates: {report.get('selected_candidate_count', 0)}",
+        f"- blockers: {report.get('blocked_count', 0)}",
+        f"- ready for future controlled candidate validation: `{report.get('rzd_ready_for_future_controlled_candidate_validation')}`",
+        "",
+        "## Source Artifacts",
+        "",
+        f"- Task160 inspect: `{report.get('task160_inspect_input_path')}`",
+        f"- Task160 accepted candidates: `{report.get('task160_candidates_input_path')}`",
+        f"- Task158 hub fetch: `{report.get('task158_hub_fetch_input_path')}`",
+        f"- Task158 hash manifest: `{report.get('task158_hash_manifest_input_path')}`",
+        f"- Task148 source pack: `{report.get('task148_source_pack_input_path')}`",
+        "",
+        "## Ranking Thresholds",
+        "",
+        "- high: score >= 70",
+        "- medium: score >= 45",
+        "- low: score >= 20",
+        "- reject: score < 20",
+        "",
+        "## Top Ranked Candidates",
+        "",
+        "| Rank | URL | Score | Confidence | Class | Selection |",
+        "| --- | --- | ---: | --- | --- | --- |",
+    ]
+    for row in (report.get("ranked_candidate_rows") or [])[:10]:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("selection_rank") or "",
+                    row.get("candidate_url"),
+                    row.get("ranking_score_total"),
+                    row.get("confidence_tier"),
+                    row.get("ranking_class"),
+                    row.get("selection_status"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("ranked_candidate_rows"):
+        lines.append("| none |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Selected Candidates",
+            "",
+            "| Rank | URL | Score | Confidence | Class |",
+            "| --- | --- | ---: | --- | --- |",
+        ]
+    )
+    for row in report.get("selected_candidate_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("selection_rank"),
+                    row.get("selected_candidate_url"),
+                    row.get("ranking_score_total"),
+                    row.get("confidence_tier"),
+                    row.get("ranking_class"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("selected_candidate_rows"):
+        lines.append("| none |  |  |  |  |")
+    low_examples = [
+        row
+        for row in report.get("ranked_candidate_rows") or []
+        if row.get("confidence_tier") in {"low", "reject"}
+    ][:10]
+    lines.extend(
+        [
+            "",
+            "## Low Or Reject Examples",
+            "",
+            "| URL | Score | Confidence | Penalties |",
+            "| --- | ---: | --- | --- |",
+        ]
+    )
+    for row in low_examples:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("candidate_url"),
+                    row.get("ranking_score_total"),
+                    row.get("confidence_tier"),
+                    row.get("ranking_penalty_codes"),
+                )
+            )
+            + " |"
+        )
+    if not low_examples:
+        lines.append("| none |  |  |  |")
+    lines.extend(["", "## Blockers", "", "| Code | Candidate | Hint |", "| --- | --- | --- |"])
+    for row in report.get("blocker_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("blocker_code"),
+                    row.get("candidate_url"),
+                    row.get("safe_hint"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("blocker_rows"):
+        lines.append("| none |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task ranks existing Task160 embedded candidates only.",
+            "- This task does not fetch pages.",
+            "- This task does not download documents.",
+            "- This task does not parse reports.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not mutate production document intake.",
+            "- This task does not mutate the database.",
+            "- This task does not score issuers or trigger paper trading.",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_embedded_candidate_ranking_rerun_markdown(report: dict[str, Any]) -> str:
+    input_path = str(report.get("task160_inspect_input_path") or "")
+    output_dir = str(Path(input_path).parent) if input_path else "logs/financial_reports/task124_chain_preview"
+    return "\n".join(
+        [
+            "# RZD Embedded Candidate Ranking Preview v2 Rerun",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-embedded-candidate-ranking-preview-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+            "",
+            "## Future Controlled Candidate Validation Plan",
+            "",
+            "Future only; not implemented or run by Task161.",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-ranked-candidate-controlled-validation-plan-v2 \\",
             f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
             "```",
         ]
@@ -52215,6 +53629,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task159 deduped hub-link candidates; self-loops need a future embedded report-link inspection strategy and no downloads are performed here."]
     if mode == "rzd-reporting-hub-embedded-report-link-inspect-v2":
         return ["Review Task160 embedded candidates; accepted rows remain future-validation candidates and no page fetch, document download, or report parsing is performed here."]
+    if mode == "rzd-embedded-candidate-ranking-preview-v2":
+        return ["Review Task161 selected candidates; they remain future controlled-validation candidates and no fetch, download, parsing, import, scoring, or trading is performed here."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -52404,6 +53820,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_reporting_hub_embedded_inputs(args),
             artifacts=_rzd_reporting_hub_embedded_artifacts(args),
+        )
+    if args.mode == "rzd-embedded-candidate-ranking-preview-v2":
+        return not _rzd_embedded_candidate_ranking_output_errors(
+            args,
+            inputs=_rzd_embedded_candidate_ranking_inputs(args),
+            artifacts=_rzd_embedded_candidate_ranking_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
