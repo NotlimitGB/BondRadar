@@ -10228,6 +10228,224 @@ def test_rzd_controlled_reporting_hub_fetch_detects_input_drift_after_write(
     assert "input_drift_detected" in {row["blocker_code"] for row in report["blocker_rows"]}
 
 
+def test_rzd_reporting_hub_link_discovery_dedupes_self_loop_candidates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task159 must not probe, fetch, download, parse, mutate DB, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["input_candidate_count"] == 3
+    assert report["unique_candidate_count"] == 1
+    assert report["duplicate_candidate_count"] == 2
+    assert report["validation_row_count"] == 1
+    assert report["accepted_candidate_count"] == 0
+    assert report["self_loop_candidate_count"] == 1
+    assert report["blocked_count"] == 1
+    assert report["no_new_document_candidate_discovered"] is True
+    assert report["rzd_self_loop_only"] is True
+    assert report["rzd_new_document_candidate_accepted"] is False
+    assert report["raw_hub_html_hash_verified"] is True
+    row = report["validation_rows"][0]
+    assert row["normalized_candidate_url"] == assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL
+    assert row["validated_candidate_type"] == "self_reporting_hub_loop"
+    assert row["validation_status"] == "blocked_self_reporting_hub_loop"
+    assert row["duplicate_count"] == 2
+    assert row["is_self_reporting_hub_loop"] is True
+    assert "self_reporting_hub_loop_detected" in row["validation_reason_codes"]
+    assert report["blocker_rows"][0]["blocker_code"] == "candidate_self_reporting_hub_loop"
+    for field in _rzd_reporting_hub_link_discovery_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for output_name in assistant.RZD_REPORTING_HUB_LINK_DISCOVERY_VALIDATION_ARTIFACT_NAMES.values():
+        assert (tmp_path / output_name).is_file()
+
+
+@pytest.mark.parametrize(
+    ("candidate_url", "expected_type"),
+    [
+        ("https://company.rzd.ru/files/rzd-ifrs-consolidated-annual-report-2025.pdf", "direct_document_link_candidate"),
+        ("https://company.rzd.ru/ru/9471/reports/ifrs-2025", "same_host_report_page_candidate"),
+    ],
+)
+def test_rzd_reporting_hub_link_discovery_accepts_non_self_loop_candidates(
+    tmp_path: Path,
+    monkeypatch,
+    candidate_url: str,
+    expected_type: str,
+) -> None:
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
+    payload = json.loads(paths["hub_candidates"].read_text(encoding="utf-8"))
+    row = payload["document_candidate_rows"][0]
+    row.update(
+        {
+            "document_candidate_id": "candidate:accepted",
+            "link_id": "link:accepted",
+            "candidate_url": candidate_url,
+            "candidate_host": assistant._host(candidate_url),
+            "candidate_url_type": "official_same_host_report_page_link",
+            "candidate_extension": Path(urllib.parse.urlparse(candidate_url).path).suffix,
+            "candidate_link_text": "Annual IFRS consolidated financial report 2025",
+            "candidate_title": "RZD annual IFRS consolidated report 2025",
+            "candidate_target_year_hint": True,
+            "candidate_ifrs_hint": True,
+            "candidate_consolidated_hint": True,
+            "candidate_report_hint": True,
+        }
+    )
+    payload["document_candidate_rows"] = [row]
+    payload["row_count"] = 1
+    paths["hub_candidates"].write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    report = _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["accepted_candidate_count"] == 1
+    assert report["blocked_count"] == 0
+    assert report["rzd_new_document_candidate_found"] is True
+    assert report["rzd_ready_for_future_document_candidate_validation"] is True
+    validation = report["validation_rows"][0]
+    assert validation["validated_candidate_type"] == expected_type
+    assert validation["validation_status"] == "accepted_future_exact_document_candidate_validation_candidate"
+    accepted = report["accepted_candidate_rows"][0]
+    assert accepted["accepted_candidate_url"] == candidate_url
+    assert accepted["accepted_candidate_status"] == "future_exact_document_candidate_validation_candidate_only"
+    assert accepted["future_document_download_required"] is False
+    assert accepted["would_download_candidate"] is False
+    assert accepted["would_parse_candidate"] is False
+
+
+@pytest.mark.parametrize(
+    ("candidate_url", "expected_blocker"),
+    [
+        ("https://example.com/reports/rzd-ifrs-2025.pdf", "candidate_host_not_trusted"),
+        ("https://company.rzd.ru/ru/news/reporting-2025", "candidate_url_search_news_archive_social"),
+    ],
+)
+def test_rzd_reporting_hub_link_discovery_candidate_blockers(
+    tmp_path: Path,
+    monkeypatch,
+    candidate_url: str,
+    expected_blocker: str,
+) -> None:
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
+    payload = json.loads(paths["hub_candidates"].read_text(encoding="utf-8"))
+    row = payload["document_candidate_rows"][0]
+    row.update(
+        {
+            "candidate_url": candidate_url,
+            "candidate_host": assistant._host(candidate_url),
+            "candidate_extension": Path(urllib.parse.urlparse(candidate_url).path).suffix,
+            "candidate_link_text": "Annual IFRS consolidated report 2025",
+            "candidate_title": "Annual report 2025",
+        }
+    )
+    payload["document_candidate_rows"] = [row]
+    payload["row_count"] = 1
+    paths["hub_candidates"].write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    report = _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "blocked"
+    assert report["accepted_candidate_count"] == 0
+    assert report["blocker_rows"][0]["blocker_code"] == expected_blocker
+
+
+def test_rzd_reporting_hub_link_discovery_raw_hash_and_safety_leak_block(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
+    paths["hub_raw_html"].write_bytes(paths["hub_raw_html"].read_bytes() + b"\nchanged")
+
+    hash_report = _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert hash_report["status"] == "blocked"
+    assert hash_report["raw_hub_html_hash_verified"] is False
+    assert hash_report["blocker_rows"][0]["blocker_code"] == "task158_raw_html_hash_mismatch"
+
+    leak_dir = tmp_path / "leak"
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(leak_dir, monkeypatch)
+    payload = json.loads(paths["hub_fetch"].read_text(encoding="utf-8"))
+    payload["documents_downloaded"] = True
+    paths["hub_fetch"].write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    leak_report = _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(leak_dir)])
+
+    assert leak_report["status"] == "blocked"
+    assert leak_report["blocker_rows"][0]["blocker_code"] == "task158_unexpected_download_or_parse_flags"
+
+
+def test_rzd_reporting_hub_link_discovery_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
+    original = paths["hub_candidates"].read_bytes()
+
+    collision = _run_rzd_reporting_hub_link_discovery(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-reporting-hub-link-discovery-validation-output",
+            str(paths["hub_candidates"]),
+        ]
+    )
+
+    assert collision["status"] == "failed"
+    assert collision["errors"] == [
+        {"message": "rzd_reporting_hub_link_discovery_validation_output_must_not_equal_input"}
+    ]
+    assert paths["hub_candidates"].read_bytes() == original
+
+    drift_dir = tmp_path / "drift"
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(drift_dir, monkeypatch)
+    original_writer = assistant._rzd_reporting_hub_link_discovery_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            paths["hub_candidates"].write_bytes(paths["hub_candidates"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_reporting_hub_link_discovery_write_safe_outputs", mutate_after_first_write)
+
+    drift = _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(drift_dir)])
+
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_reporting_hub_link_discovery_validation_input_drift_detected"} in drift["errors"]
+    assert drift["task158_document_candidates_input_preserved"] is False
+    assert drift["task158_hub_fetch_input_preserved"] is True
+    assert drift["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
+
+
+def test_rzd_reporting_hub_link_discovery_required_failure_bool_fields(tmp_path: Path) -> None:
+    report = _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "task158_hub_fetch_input_required"} in report["errors"]
+    for field in _rzd_reporting_hub_link_discovery_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -18074,6 +18292,19 @@ def _run_rzd_controlled_reporting_hub_fetch(extra_args: list[str] | None = None)
     return report
 
 
+def _run_rzd_reporting_hub_link_discovery(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-reporting-hub-link-discovery-validate-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -18935,6 +19166,10 @@ def _rzd_controlled_reporting_hub_fetch_required_bool_fields() -> tuple[str, ...
     return assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_REQUIRED_BOOL_FIELDS
 
 
+def _rzd_reporting_hub_link_discovery_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_REPORTING_HUB_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS
+
+
 def _write_rzd_controlled_reporting_hub_fetch_inputs(path: Path, monkeypatch) -> dict[str, Path]:
     path.mkdir(parents=True, exist_ok=True)
     paths = _write_rzd_reporting_hub_fetch_plan_inputs(path, monkeypatch)
@@ -18964,6 +19199,104 @@ def _rzd_controlled_reporting_hub_fetch_gate_args(
         "--rzd-controlled-reporting-hub-fetch-expected-accepted-sha256",
         accepted_sha or hashlib.sha256(paths["accepted"].read_bytes()).hexdigest(),
     ]
+
+
+def _write_rzd_reporting_hub_link_discovery_inputs(
+    path: Path,
+    monkeypatch,
+    *,
+    html: bytes | None = None,
+) -> dict[str, Path]:
+    paths = _write_rzd_controlled_reporting_hub_fetch_inputs(path, monkeypatch)
+    body = html or """
+    <html><body>
+      <a href="/ru/9471">Reporting hub annual IFRS consolidated reports 2025</a>
+      <a href="https://company.rzd.ru/ru/9471" title="IFRS reporting hub">Annual reporting hub IFRS 2025</a>
+      <a href="/ru/9471">Consolidated financial statements reporting hub 2025 IFRS</a>
+    </body></html>
+    """.encode("utf-8")
+
+    def controlled_fetch(url, *, timeout_seconds, max_bytes, user_agent):
+        assert url == assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL
+        return {
+            "status": "ok",
+            "fetched_url": url,
+            "final_url": url,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "safe_response_headers": {"content-type": "text/html; charset=utf-8"},
+            "raw_bytes": body,
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", controlled_fetch)
+    report = _run_rzd_controlled_reporting_hub_fetch(_rzd_controlled_reporting_hub_fetch_gate_args(paths))
+    assert report["status"] in {"passed", "warning"}
+    candidates_path = path / "rzd_controlled_reporting_hub_fetch_document_candidates_task158.json"
+    payload = json.loads(candidates_path.read_text(encoding="utf-8"))
+    base = (payload.get("document_candidate_rows") or [{}])[0]
+    if not base:
+        base = {
+            "document_candidate_id": "rzd_controlled_reporting_hub_fetch_candidate:seed",
+            "link_id": "rzd_controlled_reporting_hub_fetch_link:seed",
+            "company_id": "18",
+            "company_name": "RZD",
+            "candidate_url": assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL,
+            "candidate_host": "company.rzd.ru",
+            "candidate_url_type": "official_same_host_page_link",
+            "candidate_extension": "",
+            "candidate_link_text": "Reporting hub annual IFRS consolidated reports 2025",
+            "candidate_title": "IFRS reporting hub",
+            "candidate_target_year_hint": True,
+            "candidate_ifrs_hint": True,
+            "candidate_consolidated_hint": True,
+            "candidate_report_hint": True,
+            "candidate_discovery_status": "future_document_candidate_validation_required",
+            "future_document_candidate_validation_required": True,
+            "future_document_download_required": False,
+            "future_document_parse_required": False,
+            "would_fetch_candidate": False,
+            "would_download_candidate": False,
+            "would_parse_candidate": False,
+            "would_mutate_database": False,
+        }
+    rows = []
+    for index in range(3):
+        row = {
+            **base,
+            "document_candidate_id": f"rzd_controlled_reporting_hub_fetch_candidate:self_loop:{index}",
+            "link_id": f"rzd_controlled_reporting_hub_fetch_link:self_loop:{index}",
+            "candidate_url": assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL,
+            "candidate_host": "company.rzd.ru",
+            "candidate_url_type": "official_same_host_page_link",
+            "candidate_extension": "",
+            "candidate_link_text": "Reporting hub annual IFRS consolidated reports 2025",
+            "candidate_title": "IFRS reporting hub",
+            "candidate_target_year_hint": True,
+            "candidate_ifrs_hint": True,
+            "candidate_consolidated_hint": True,
+            "candidate_report_hint": True,
+            "candidate_discovery_status": "future_document_candidate_validation_required",
+            "future_document_candidate_validation_required": True,
+            "future_document_download_required": False,
+            "future_document_parse_required": False,
+            "would_fetch_candidate": False,
+            "would_download_candidate": False,
+            "would_parse_candidate": False,
+            "would_mutate_database": False,
+        }
+        rows.append(row)
+    payload["document_candidate_rows"] = rows
+    payload["row_count"] = len(rows)
+    candidates_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {
+        **paths,
+        "hub_fetch": path / "rzd_controlled_reporting_hub_fetch_preview_task158.json",
+        "hub_links": path / "rzd_controlled_reporting_hub_fetch_links_task158.json",
+        "hub_candidates": path / "rzd_controlled_reporting_hub_fetch_document_candidates_task158.json",
+        "hub_manifest": path / "rzd_controlled_reporting_hub_fetch_hash_manifest_task158.json",
+        "hub_raw_html": path / "rzd_controlled_reporting_hub_fetch_raw_task158.html",
+    }
 
 
 def _write_rzd_page_link_discovery_inputs(
