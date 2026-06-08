@@ -28107,6 +28107,7 @@ def _rzd_reporting_hub_embedded_rows(
         _rzd_reporting_hub_embedded_accepted_row(row)
         for row in embedded_rows
         if row.get("embedded_candidate_status") == "accepted_future_embedded_document_candidate_validation_candidate"
+        and _rzd_reporting_hub_embedded_url_fields_valid(row)
     ]
     blocker_rows = [
         _rzd_reporting_hub_embedded_blocker_row(row, _rzd_reporting_hub_embedded_blocker_code(row))
@@ -28479,16 +28480,32 @@ def _rzd_reporting_hub_embedded_row(
     source_hub_html_path: str,
     trusted_hosts: list[str],
 ) -> dict[str, Any]:
-    normalized = str(item.get("normalized_candidate_url") or "")
+    normalized = _rzd_reporting_hub_embedded_string(item.get("normalized_candidate_url"))
     classification = _rzd_reporting_hub_classify_embedded_candidate(
         normalized,
         str(item.get("merged_context") or item.get("text_context") or ""),
         str(item.get("source_kind") or ""),
     )
-    trusted = bool(classification["candidate_host"] and _source_trust_recovery_draft_review_host_trusted(classification["candidate_host"], trusted_hosts))
-    accepted = classification["embedded_candidate_status"] == "accepted_future_embedded_document_candidate_validation_candidate" and trusted
+    classification = _rzd_reporting_hub_embedded_sanitize_url_fields(classification)
+    trusted = bool(
+        classification["candidate_host"]
+        and _source_trust_recovery_draft_review_host_trusted(classification["candidate_host"], trusted_hosts)
+    )
+    url_valid = _rzd_reporting_hub_embedded_url_fields_valid(
+        {
+            "candidate_url": normalized,
+            "candidate_host": classification["candidate_host"],
+        }
+    )
+    accepted = (
+        classification["embedded_candidate_status"] == "accepted_future_embedded_document_candidate_validation_candidate"
+        and trusted
+        and url_valid
+    )
     status = classification["embedded_candidate_status"]
-    if status == "accepted_future_embedded_document_candidate_validation_candidate" and not trusted:
+    if status == "accepted_future_embedded_document_candidate_validation_candidate" and not url_valid:
+        status = "blocked_embedded_candidate_url_invalid"
+    elif status == "accepted_future_embedded_document_candidate_validation_candidate" and not trusted:
         status = "blocked_no_report_context"
     hash_part = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16] if normalized else "missing"
     reason_codes = [classification["embedded_candidate_type"]]
@@ -28496,6 +28513,8 @@ def _rzd_reporting_hub_embedded_row(
         reason_codes.append("future_embedded_document_candidate_validation_candidate_only")
     elif not trusted and classification["same_host"] and not classification["is_static_asset"] and not classification["is_self_reporting_hub_loop"]:
         reason_codes.append("candidate_host_not_trusted")
+    elif not url_valid:
+        reason_codes.append("embedded_candidate_url_invalid")
     row = {
         "embedded_candidate_id": f"rzd_reporting_hub_embedded_candidate:{hash_part}",
         "company_id": company_id,
@@ -28505,13 +28524,14 @@ def _rzd_reporting_hub_embedded_row(
         "source_hub_url": source_hub_url,
         "source_hub_sha256": source_hub_sha256,
         "source_hub_html_path": source_hub_html_path,
-        "source_kind": item.get("source_kind") or "",
-        "source_selector": item.get("source_selector") or "",
-        "source_attribute": item.get("source_attribute") or "",
-        "raw_value": item.get("raw_value") or "",
-        "decoded_value": item.get("decoded_value") or "",
+        "source_kind": _rzd_reporting_hub_embedded_string(item.get("source_kind")),
+        "source_selector": _rzd_reporting_hub_embedded_string(item.get("source_selector")),
+        "source_attribute": _rzd_reporting_hub_embedded_string(item.get("source_attribute")),
+        "raw_value": _rzd_reporting_hub_embedded_string(item.get("raw_value")),
+        "decoded_value": _rzd_reporting_hub_embedded_string(item.get("decoded_value")),
         "normalized_candidate_url": normalized,
         "candidate_url": normalized,
+        **classification,
         "trusted_host": trusted,
         "embedded_candidate_status": status,
         "embedded_candidate_severity": "info" if accepted else "warning",
@@ -28536,31 +28556,114 @@ def _rzd_reporting_hub_embedded_row(
         "would_mutate_scores": False,
         "would_trigger_paper_trading": False,
         "would_delete_files": False,
-        **classification,
     }
-    for field in RZD_REPORTING_HUB_EMBEDDED_INSPECT_FIELDS:
-        if field.startswith(("is_", "candidate_", "future_", "would_", "same_host", "trusted_host")) and field in row:
+    return _rzd_reporting_hub_embedded_normalize_row_types(row)
+
+
+def _rzd_reporting_hub_embedded_string(value: Any) -> str:
+    if isinstance(value, bool) or value is None:
+        return ""
+    return str(value)
+
+
+def _rzd_reporting_hub_embedded_sanitize_url_fields(row: dict[str, Any]) -> dict[str, Any]:
+    sanitized = dict(row)
+    for field in (
+        "raw_value",
+        "decoded_value",
+        "normalized_candidate_url",
+        "candidate_url",
+        "candidate_host",
+        "candidate_path",
+        "candidate_query",
+        "candidate_extension",
+        "accepted_candidate_url",
+        "accepted_candidate_host",
+        "source_hub_url",
+        "source_hub_sha256",
+        "source_hub_html_path",
+    ):
+        if field in sanitized:
+            sanitized[field] = _rzd_reporting_hub_embedded_string(sanitized.get(field))
+    return sanitized
+
+
+def _rzd_reporting_hub_embedded_url_fields_valid(row: dict[str, Any]) -> bool:
+    candidate_url = _rzd_reporting_hub_embedded_string(row.get("candidate_url") or row.get("accepted_candidate_url"))
+    candidate_host = _rzd_reporting_hub_embedded_string(row.get("candidate_host") or row.get("accepted_candidate_host"))
+    return (
+        bool(candidate_url)
+        and candidate_url.startswith("https://")
+        and candidate_host == "company.rzd.ru"
+        and _host(candidate_url) == "company.rzd.ru"
+    )
+
+
+def _rzd_reporting_hub_embedded_normalize_row_types(row: dict[str, Any]) -> dict[str, Any]:
+    row = _rzd_reporting_hub_embedded_sanitize_url_fields(row)
+    bool_fields = {
+        "same_host",
+        "trusted_host",
+        "is_official_rzd_link",
+        "is_self_reporting_hub_loop",
+        "is_external_link",
+        "is_static_asset",
+        "is_direct_document_link",
+        "is_pdf_link",
+        "is_excel_link",
+        "is_zip_link",
+        "is_archive_link",
+        "candidate_target_year_hint",
+        "candidate_ifrs_hint",
+        "candidate_consolidated_hint",
+        "candidate_report_hint",
+        "candidate_annual_hint",
+        "candidate_accounting_standard_hint",
+        "candidate_financial_hint",
+        "candidate_document_file_hint",
+        "future_document_candidate_validation_required",
+        "future_document_download_plan_required",
+        "future_document_download_required",
+        "future_document_parse_required",
+        "future_import_required",
+        "future_scoring_required",
+        "future_paper_trading_required",
+        "would_fetch_candidate",
+        "would_fetch_page",
+        "would_download_candidate",
+        "would_parse_candidate",
+        "would_mutate_document_intake",
+        "would_mutate_database",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+        "would_delete_files",
+    }
+    for field in bool_fields:
+        if field in row:
             row[field] = bool(row.get(field))
     return row
 
 
 def _rzd_reporting_hub_embedded_accepted_row(row: dict[str, Any]) -> dict[str, Any]:
+    row = _rzd_reporting_hub_embedded_sanitize_url_fields(row)
     return {
         "accepted_candidate_id": f"rzd_reporting_hub_embedded_accepted:{row.get('embedded_candidate_id')}",
         "embedded_candidate_id": row.get("embedded_candidate_id"),
         "company_id": row.get("company_id"),
         "company_name": row.get("company_name"),
-        "accepted_candidate_url": row.get("candidate_url"),
-        "accepted_candidate_host": row.get("candidate_host"),
-        "accepted_candidate_type": row.get("embedded_candidate_type"),
+        "accepted_candidate_url": _rzd_reporting_hub_embedded_string(row.get("candidate_url")),
+        "accepted_candidate_host": _rzd_reporting_hub_embedded_string(row.get("candidate_host")),
+        "accepted_candidate_type": _rzd_reporting_hub_embedded_string(row.get("embedded_candidate_type")),
         "accepted_candidate_source": "task160_embedded_reporting_hub_inspect",
         "accepted_candidate_status": "future_embedded_document_candidate_validation_candidate_only",
-        "source_hub_url": row.get("source_hub_url"),
-        "source_hub_sha256": row.get("source_hub_sha256"),
-        "source_hub_html_path": row.get("source_hub_html_path"),
-        "source_kind": row.get("source_kind"),
-        "source_selector": row.get("source_selector"),
-        "source_attribute": row.get("source_attribute"),
+        "source_hub_url": _rzd_reporting_hub_embedded_string(row.get("source_hub_url")),
+        "source_hub_sha256": _rzd_reporting_hub_embedded_string(row.get("source_hub_sha256")),
+        "source_hub_html_path": _rzd_reporting_hub_embedded_string(row.get("source_hub_html_path")),
+        "source_kind": _rzd_reporting_hub_embedded_string(row.get("source_kind")),
+        "source_selector": _rzd_reporting_hub_embedded_string(row.get("source_selector")),
+        "source_attribute": _rzd_reporting_hub_embedded_string(row.get("source_attribute")),
         "candidate_target_year_hint": row.get("candidate_target_year_hint"),
         "candidate_ifrs_hint": row.get("candidate_ifrs_hint"),
         "candidate_consolidated_hint": row.get("candidate_consolidated_hint"),
@@ -28593,6 +28696,8 @@ def _rzd_reporting_hub_embedded_accepted_row(row: dict[str, Any]) -> dict[str, A
 
 def _rzd_reporting_hub_embedded_blocker_code(row: dict[str, Any]) -> str:
     status = str(row.get("embedded_candidate_status") or "")
+    if status == "blocked_embedded_candidate_url_invalid":
+        return "embedded_candidate_url_invalid"
     if status == "blocked_self_reporting_hub_loop":
         return "embedded_candidate_self_loop_only"
     if status == "ignored_external_link":
@@ -28610,12 +28715,13 @@ def _rzd_reporting_hub_embedded_blocker_row(
     *,
     embedded_candidate_id: str | None = None,
 ) -> dict[str, Any]:
+    row = _rzd_reporting_hub_embedded_sanitize_url_fields(row)
     return {
         "blocker_id": f"rzd_reporting_hub_embedded_blocker:{embedded_candidate_id or row.get('embedded_candidate_id') or 'unknown'}:{code}",
         "embedded_candidate_id": embedded_candidate_id or row.get("embedded_candidate_id") or "",
         "company_id": row.get("company_id") or "18",
         "company_name": row.get("company_name") or "RZD",
-        "candidate_url": row.get("candidate_url") or "",
+        "candidate_url": _rzd_reporting_hub_embedded_string(row.get("candidate_url")),
         "embedded_candidate_status": row.get("embedded_candidate_status") or "blocked",
         "blocker_code": code,
         "blocker_severity": "error" if code.endswith("_required") or code in {"input_drift_detected", "output_collision"} else "warning",

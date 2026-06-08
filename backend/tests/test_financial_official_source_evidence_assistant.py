@@ -10519,12 +10519,22 @@ def test_rzd_reporting_hub_embedded_extracts_script_document_candidate(
     row = report["accepted_candidate_rows"][0]
     assert row["accepted_candidate_type"] == "official_embedded_direct_document_candidate"
     assert row["accepted_candidate_status"] == "future_embedded_document_candidate_validation_candidate_only"
+    assert isinstance(row["accepted_candidate_url"], str)
+    assert row["accepted_candidate_url"].startswith("https://company.rzd.ru/")
+    assert isinstance(row["accepted_candidate_host"], str)
+    assert row["accepted_candidate_host"] == "company.rzd.ru"
+    assert row["accepted_candidate_url"] is not True
+    assert row["accepted_candidate_host"] is not True
     assert row["future_document_candidate_validation_required"] is True
     assert row["future_document_download_required"] is False
     assert row["would_download_candidate"] is False
     assert row["would_parse_candidate"] is False
     embedded = report["embedded_rows"][0]
     assert embedded["embedded_candidate_status"] == "accepted_future_embedded_document_candidate_validation_candidate"
+    _assert_rzd_reporting_hub_embedded_url_fields_are_strings(embedded)
+    assert report["embedded_candidate_count"] == len(report["embedded_rows"])
+    assert report["accepted_candidate_count"] == len(report["accepted_candidate_rows"])
+    assert report["blocked_count"] == len(report["blocker_rows"])
     for field in _rzd_reporting_hub_embedded_required_row_bool_fields():
         assert field in embedded
         assert isinstance(embedded[field], bool)
@@ -10556,6 +10566,7 @@ def test_rzd_reporting_hub_embedded_extracts_data_attribute_report_page(
     assert report["accepted_candidate_count"] == 1
     row = report["embedded_rows"][0]
     assert row["embedded_candidate_type"] == "official_embedded_report_page_candidate"
+    _assert_rzd_reporting_hub_embedded_url_fields_are_strings(row)
     assert row["candidate_target_year_hint"] is True
     assert row["candidate_ifrs_hint"] is True
     assert row["candidate_report_hint"] is True
@@ -10596,7 +10607,43 @@ def test_rzd_reporting_hub_embedded_self_loop_and_external_cases(
     assert external["accepted_candidate_count"] == 0
     row = external["embedded_rows"][0]
     assert row["embedded_candidate_status"] == "ignored_external_link"
+    _assert_rzd_reporting_hub_embedded_url_fields_are_strings(row)
     assert row["would_fetch_candidate"] is False
+    external_blockers = [
+        row for row in external["blocker_rows"]
+        if row["blocker_code"] == "embedded_candidate_external_host"
+    ]
+    assert external_blockers
+    assert external_blockers[0]["candidate_url"] == "https://example.com/report-2025.pdf"
+    assert isinstance(external_blockers[0]["candidate_url"], str)
+    assert external_blockers[0]["candidate_url"] is not True
+
+
+def test_rzd_reporting_hub_embedded_blocks_corrupt_boolean_candidate_url(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = b"<html><body><script>window.x='/files/report-2025-ifrs.pdf'</script></body></html>"
+    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    original_classifier = assistant._rzd_reporting_hub_classify_embedded_candidate
+
+    def corrupt_classifier(candidate_url, text_context, source_kind):
+        result = original_classifier(candidate_url, text_context, source_kind)
+        result["candidate_host"] = True
+        result["candidate_path"] = True
+        return result
+
+    monkeypatch.setattr(assistant, "_rzd_reporting_hub_classify_embedded_candidate", corrupt_classifier)
+
+    report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["accepted_candidate_count"] == 0
+    assert "embedded_candidate_url_invalid" in {row["blocker_code"] for row in report["blocker_rows"]}
+    row = report["embedded_rows"][0]
+    _assert_rzd_reporting_hub_embedded_url_fields_are_strings(row)
+    assert row["candidate_host"] == ""
+    assert row["candidate_path"] == ""
 
 
 def test_rzd_reporting_hub_embedded_blocks_hash_mismatch_and_safety_leak(
@@ -19463,6 +19510,23 @@ def _rzd_reporting_hub_embedded_required_row_bool_fields() -> tuple[str, ...]:
         "would_trigger_paper_trading",
         "would_delete_files",
     )
+
+
+def _assert_rzd_reporting_hub_embedded_url_fields_are_strings(row: dict) -> None:
+    for field in (
+        "raw_value",
+        "decoded_value",
+        "normalized_candidate_url",
+        "candidate_url",
+        "candidate_host",
+        "candidate_path",
+        "candidate_query",
+        "candidate_extension",
+    ):
+        assert field in row
+        assert isinstance(row[field], str)
+        assert row[field] is not True
+        assert row[field] is not False
 
 
 def _write_rzd_controlled_reporting_hub_fetch_inputs(path: Path, monkeypatch) -> dict[str, Path]:
