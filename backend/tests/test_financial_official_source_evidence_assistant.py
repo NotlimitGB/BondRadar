@@ -10574,6 +10574,115 @@ def test_rzd_reporting_hub_embedded_extracts_data_attribute_report_page(
     assert row["would_fetch_candidate"] is False
 
 
+def test_rzd_reporting_hub_embedded_rejects_generic_navigation_links(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = b"""
+    <html><body>
+      <script>
+      window.urls = [
+        "https://company.rzd.ru/",
+        "/ru/9349",
+        "/ru/9350",
+        "/ru/9972"
+      ];
+      </script>
+    </body></html>
+    """
+    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["accepted_candidate_count"] == 0
+    assert report["embedded_candidate_status_counts"]["ignored_generic_navigation_link"] >= 1
+    assert "embedded_candidate_generic_navigation_link" in report["blocker_code_counts"]
+    assert report["generic_navigation_candidate_count"] >= 1
+
+
+def test_rzd_reporting_hub_embedded_rejects_search_filter_and_media_placeholder_links(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    search_dir = tmp_path / "search"
+    search_html = b"""
+    <html><body>
+      /ru/9349/page/105553?textsearch=&textsearchparam=1&type_id=5
+      /ru/9352/page/1686902?status_type=4&tender_type=44&search_expanded=1
+    </body></html>
+    """
+    _write_rzd_reporting_hub_link_discovery_inputs(search_dir, monkeypatch, html=search_html)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(search_dir)])
+
+    search = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(search_dir)])
+
+    assert search["accepted_candidate_count"] == 0
+    assert search["embedded_candidate_status_counts"]["ignored_search_or_filter_link"] >= 1
+    assert search["search_or_filter_candidate_count"] >= 1
+
+    media_dir = tmp_path / "media"
+    _write_rzd_reporting_hub_link_discovery_inputs(
+        media_dir,
+        monkeypatch,
+        html=b"<html><body>/media/|/restricted-media/</body></html>",
+    )
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(media_dir)])
+
+    media = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(media_dir)])
+
+    assert media["accepted_candidate_count"] == 0
+    assert media["embedded_candidate_status_counts"]["ignored_media_or_placeholder_link"] == 1
+    assert media["media_or_placeholder_candidate_count"] == 1
+
+
+def test_rzd_reporting_hub_embedded_requires_local_report_context(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = """
+    <html><body>
+      <div>Отчетность компании</div>
+      <script>
+      window.url = "https://company.rzd.ru/ru/9350";
+      </script>
+    </body></html>
+    """.encode("utf-8")
+    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["accepted_candidate_count"] == 0
+    row = report["embedded_rows"][0]
+    assert row["embedded_candidate_status"] in {"ignored_generic_navigation_link", "blocked_no_local_report_context"}
+    assert row["candidate_report_hint"] is False
+
+
+def test_rzd_reporting_hub_embedded_accepts_local_script_report_page_context(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = """
+    <html><body>
+      <script>
+      window.reportPage = "/ru/9397/page/104069?id=322745"; // Отчетность РЖД по МСФО за 2025 год
+      </script>
+    </body></html>
+    """.encode("utf-8")
+    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["accepted_candidate_count"] == 1
+    accepted = report["accepted_candidate_rows"][0]
+    assert accepted["accepted_candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert accepted["accepted_candidate_type"] == "official_embedded_report_page_candidate"
+    assert accepted["future_document_download_required"] is False
+    assert accepted["would_download_candidate"] is False
+
+
 def test_rzd_reporting_hub_embedded_self_loop_and_external_cases(
     tmp_path: Path,
     monkeypatch,

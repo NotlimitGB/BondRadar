@@ -28088,8 +28088,18 @@ def _rzd_reporting_hub_embedded_rows(
         if normalized not in merged:
             merged[normalized] = {**item, "occurrence_count": 1, "merged_context": context}
         else:
-            merged[normalized]["occurrence_count"] = int(merged[normalized].get("occurrence_count") or 1) + 1
-            merged[normalized]["merged_context"] = f"{merged[normalized].get('merged_context') or ''} {context}"
+            existing = merged[normalized]
+            existing["occurrence_count"] = int(existing.get("occurrence_count") or 1) + 1
+            existing_kind = str(existing.get("source_kind") or "")
+            item_kind = str(item.get("source_kind") or "")
+            if existing_kind == "raw_text" and item_kind != "raw_text":
+                merged[normalized] = {
+                    **item,
+                    "occurrence_count": existing["occurrence_count"],
+                    "merged_context": context,
+                }
+            elif item_kind != "raw_text" or existing_kind == "raw_text":
+                existing["merged_context"] = f"{existing.get('merged_context') or ''} {context}"
 
     embedded_rows = [
         _rzd_reporting_hub_embedded_row(
@@ -28311,7 +28321,7 @@ def _rzd_reporting_hub_extract_embedded_url_candidates(html_text: str, base_url:
         source_selector="raw_html",
         source_attribute="text",
         source_kind="raw_text",
-        text_context=html_text[:1000],
+        text_context="",
     ):
         candidates.append(item)
     return candidates
@@ -28330,11 +28340,12 @@ def _rzd_reporting_hub_embedded_candidates_from_value(
     candidates: list[dict[str, Any]] = []
     seen: set[str] = set()
     for decoded in values:
-        for token in _rzd_reporting_hub_embedded_url_tokens(decoded):
+        for token, local_context in _rzd_reporting_hub_embedded_url_tokens(decoded):
             normalized = _rzd_reporting_hub_embedded_normalize_candidate(token, base_url)
             if not normalized or normalized in seen:
                 continue
             seen.add(normalized)
+            context = f"{text_context} {local_context}".strip()
             candidates.append(
                 {
                     "source_kind": source_kind,
@@ -28343,7 +28354,7 @@ def _rzd_reporting_hub_embedded_candidates_from_value(
                     "raw_value": raw_value.strip()[:1000],
                     "decoded_value": token,
                     "normalized_candidate_url": normalized,
-                    "text_context": text_context,
+                    "text_context": context[:1000],
                 }
             )
     return candidates
@@ -28371,15 +28382,18 @@ def _rzd_reporting_hub_decode_embedded_candidate(raw_value: str) -> list[str]:
     return values
 
 
-def _rzd_reporting_hub_embedded_url_tokens(value: str) -> list[str]:
+def _rzd_reporting_hub_embedded_url_tokens(value: str) -> list[tuple[str, str]]:
     patterns = (
         r"https?://[^\s\"'<>\\)]+",
         r"(?<![A-Za-z0-9_])/(?:ru|files|upload|media|documents|download|local|common)/[^\s\"'<>\\)]+",
         r"(?<![A-Za-z0-9_])/[^\s\"'<>\\)]*\.(?:pdf|xls|xlsx|zip|doc|docx)(?:\?[^\s\"'<>\\)]*)?",
     )
-    tokens: list[str] = []
+    tokens: list[tuple[str, str]] = []
     for pattern in patterns:
-        tokens.extend(match.group(0) for match in re.finditer(pattern, value, flags=re.IGNORECASE))
+        for match in re.finditer(pattern, value, flags=re.IGNORECASE):
+            start = max(0, match.start() - 240)
+            end = min(len(value), match.end() + 240)
+            tokens.append((match.group(0), value[start:end]))
     return tokens
 
 
@@ -28397,6 +28411,70 @@ def _rzd_reporting_hub_embedded_normalize_candidate(raw_url: str, base_url: str)
         return ""
     path = re.sub(r"/{2,}", "/", parsed.path or "/")
     return urllib.parse.urlunparse((parsed.scheme.casefold(), parsed.netloc.casefold(), path, "", parsed.query, ""))
+
+
+def _rzd_reporting_hub_embedded_has_strong_report_context(signal: str) -> bool:
+    return _contains_any(
+        signal,
+        (
+            "2025",
+            "ifrs",
+            "msfo",
+            "\u043c\u0441\u0444\u043e",
+            "consolidated",
+            "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434",
+            "annual",
+            "\u0433\u043e\u0434\u043e\u0432",
+            "report",
+            "statement",
+            "\u043e\u0442\u0447\u0435\u0442",
+            "\u043e\u0442\u0447\u0451\u0442",
+            "\u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442",
+            "\u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442",
+            "financial",
+            "\u0444\u0438\u043d\u0430\u043d\u0441",
+        ),
+    )
+
+
+def _rzd_reporting_hub_embedded_is_generic_navigation(parsed: urllib.parse.ParseResult, signal: str) -> bool:
+    path = (parsed.path or "/").rstrip("/") or "/"
+    if path in {"/", "/ru", "/ru/9349", "/ru/9350", "/ru/9351", "/ru/9352", "/ru/9972"}:
+        return not _rzd_reporting_hub_embedded_has_strong_report_context(signal)
+    segments = [segment for segment in path.split("/") if segment]
+    return len(segments) <= 2 and segments[:1] == ["ru"] and not _rzd_reporting_hub_embedded_has_strong_report_context(signal)
+
+
+def _rzd_reporting_hub_embedded_is_search_or_filter(parsed: urllib.parse.ParseResult, signal: str) -> bool:
+    query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+    search_keys = {
+        "textsearch",
+        "textsearchparam",
+        "search_expanded",
+        "tender_type",
+        "status_type",
+        "type_id",
+        "activity_type_id",
+        "country_id",
+        "region_id",
+        "lastname",
+        "firstname",
+        "middlename",
+    }
+    return bool(search_keys & set(query)) and not _rzd_reporting_hub_embedded_has_strong_report_context(signal)
+
+
+def _rzd_reporting_hub_embedded_is_media_placeholder(parsed: urllib.parse.ParseResult) -> bool:
+    path = urllib.parse.unquote(parsed.path or "")
+    return "|/" in path or "/media/|/restricted-media/" in path
+
+
+def _rzd_reporting_hub_embedded_is_rzd_report_cms_page(parsed: urllib.parse.ParseResult, signal: str) -> bool:
+    return (
+        re.fullmatch(r"/ru/\d+/page/\d+", parsed.path or "") is not None
+        and bool(re.search(r"(?:^|&)id=\d+(?:&|$)", parsed.query or ""))
+        and _rzd_reporting_hub_embedded_has_strong_report_context(signal)
+    )
 
 
 def _rzd_reporting_hub_classify_embedded_candidate(candidate_url: str, text_context: str, source_kind: str) -> dict[str, Any]:
@@ -28421,6 +28499,10 @@ def _rzd_reporting_hub_classify_embedded_candidate(candidate_url: str, text_cont
     document_file_hint = direct_document or excel or archive
     same_host = host == "company.rzd.ru"
     is_self_loop = _normalize_candidate_url(candidate_url) == RZD_CONTROLLED_REPORTING_HUB_FETCH_URL
+    strong_context = _rzd_reporting_hub_embedded_has_strong_report_context(signal)
+    generic_navigation = same_host and _rzd_reporting_hub_embedded_is_generic_navigation(parsed, signal)
+    search_or_filter = same_host and _rzd_reporting_hub_embedded_is_search_or_filter(parsed, signal)
+    media_placeholder = same_host and _rzd_reporting_hub_embedded_is_media_placeholder(parsed)
     if is_self_loop:
         candidate_type = "self_reporting_hub_loop"
         status = "blocked_self_reporting_hub_loop"
@@ -28430,18 +28512,27 @@ def _rzd_reporting_hub_classify_embedded_candidate(candidate_url: str, text_cont
     elif extension in static_extensions:
         candidate_type = "static_asset_ignored"
         status = "ignored_static_asset"
+    elif media_placeholder:
+        candidate_type = "unsupported_embedded_candidate"
+        status = "ignored_media_or_placeholder_link"
+    elif generic_navigation:
+        candidate_type = "unsupported_embedded_candidate"
+        status = "ignored_generic_navigation_link"
+    elif search_or_filter:
+        candidate_type = "unsupported_embedded_candidate"
+        status = "ignored_search_or_filter_link"
     elif direct_document:
         candidate_type = "official_embedded_direct_document_candidate"
-        status = "accepted_future_embedded_document_candidate_validation_candidate" if (report_hint or financial_hint or year_hint or ifrs_hint or annual_hint) else "blocked_no_report_context"
+        status = "accepted_future_embedded_document_candidate_validation_candidate" if strong_context else "blocked_no_local_report_context"
     elif excel or archive:
         candidate_type = "official_embedded_spreadsheet_or_archive_candidate"
-        status = "accepted_future_embedded_document_candidate_validation_candidate" if (report_hint or financial_hint or year_hint or ifrs_hint or annual_hint) else "blocked_no_report_context"
-    elif report_hint or financial_hint or year_hint or ifrs_hint or annual_hint:
+        status = "accepted_future_embedded_document_candidate_validation_candidate" if strong_context else "blocked_no_local_report_context"
+    elif _rzd_reporting_hub_embedded_is_rzd_report_cms_page(parsed, signal) or strong_context:
         candidate_type = "official_embedded_report_page_candidate"
         status = "accepted_future_embedded_document_candidate_validation_candidate"
     else:
         candidate_type = "unsupported_embedded_candidate"
-        status = "blocked_no_report_context"
+        status = "blocked_no_local_report_context"
     return {
         "candidate_host": host,
         "candidate_path": parsed.path,
@@ -28704,6 +28795,14 @@ def _rzd_reporting_hub_embedded_blocker_code(row: dict[str, Any]) -> str:
         return "embedded_candidate_external_host"
     if status == "ignored_static_asset":
         return "embedded_candidate_static_asset"
+    if status == "ignored_generic_navigation_link":
+        return "embedded_candidate_generic_navigation_link"
+    if status == "ignored_search_or_filter_link":
+        return "embedded_candidate_search_or_filter_link"
+    if status == "ignored_media_or_placeholder_link":
+        return "embedded_candidate_media_or_placeholder_link"
+    if status == "blocked_no_local_report_context":
+        return "embedded_candidate_no_local_report_context"
     if status == "blocked_no_report_context":
         return "embedded_candidate_no_report_context"
     return "unknown_readiness"
@@ -28846,6 +28945,10 @@ def _build_rzd_reporting_hub_embedded_report(
         "self_loop_embedded_candidate_count": sum(row.get("embedded_candidate_status") == "blocked_self_reporting_hub_loop" for row in embedded_rows),
         "external_embedded_candidate_count": sum(row.get("embedded_candidate_status") == "ignored_external_link" for row in embedded_rows),
         "static_asset_candidate_count": sum(row.get("embedded_candidate_status") == "ignored_static_asset" for row in embedded_rows),
+        "generic_navigation_candidate_count": sum(row.get("embedded_candidate_status") == "ignored_generic_navigation_link" for row in embedded_rows),
+        "search_or_filter_candidate_count": sum(row.get("embedded_candidate_status") == "ignored_search_or_filter_link" for row in embedded_rows),
+        "media_or_placeholder_candidate_count": sum(row.get("embedded_candidate_status") == "ignored_media_or_placeholder_link" for row in embedded_rows),
+        "no_local_report_context_candidate_count": sum(row.get("embedded_candidate_status") == "blocked_no_local_report_context" for row in embedded_rows),
         "report_context_candidate_count": sum(_as_bool(row.get("candidate_report_hint")) or _as_bool(row.get("candidate_financial_hint")) for row in embedded_rows),
         "direct_document_candidate_count": sum(_as_bool(row.get("is_direct_document_link")) for row in embedded_rows),
         "rzd_embedded_candidates_found": bool(embedded_rows),
