@@ -4524,6 +4524,7 @@ RZD_REPORTING_HUB_LINK_DISCOVERY_VALIDATION_FIELDS = [
     "candidate_title",
     "source_hub_url",
     "source_hub_sha256",
+    "source_hub_html_path",
     "source_candidate_ids",
     "source_link_ids",
     "duplicate_candidate_ids",
@@ -4537,10 +4538,13 @@ RZD_REPORTING_HUB_LINK_DISCOVERY_VALIDATION_FIELDS = [
     "is_pdf_link",
     "is_excel_link",
     "is_zip_link",
+    "is_archive_link",
     "candidate_target_year_hint",
     "candidate_ifrs_hint",
     "candidate_consolidated_hint",
     "candidate_report_hint",
+    "candidate_annual_hint",
+    "candidate_accounting_standard_hint",
     "task158_hub_fetch_input_path",
     "task158_hub_fetch_input_sha256",
     "task158_links_input_path",
@@ -4573,6 +4577,7 @@ RZD_REPORTING_HUB_LINK_DISCOVERY_VALIDATION_FIELDS = [
     "accepted_candidate_id",
     "accepted_for_future_document_validation",
     "future_exact_document_validation_required",
+    "future_document_candidate_validation_required",
     "future_document_download_plan_required",
     "future_document_download_required",
     "future_document_parse_required",
@@ -27067,6 +27072,7 @@ def _rzd_reporting_hub_link_discovery_validation_row(
     pdf = extension == ".pdf" or _rzd_exact_document_is_query_document_url(normalized_url)
     excel = extension in {".xls", ".xlsx"}
     zip_link = extension == ".zip"
+    archive_link = extension in {".zip", ".rar", ".7z", ".tar", ".gz", ".tgz"}
     trusted = _source_trust_recovery_draft_review_host_trusted(candidate_host, trusted_hosts)
     same_host = candidate_host == "company.rzd.ru"
     official = same_host and trusted
@@ -27081,6 +27087,8 @@ def _rzd_reporting_hub_link_discovery_validation_row(
     target_year_hint = any(_as_bool(row.get("candidate_target_year_hint")) for row in candidates) or "2025" in text_context
     ifrs_hint = any(_as_bool(row.get("candidate_ifrs_hint")) for row in candidates) or _contains_any(text_context, ("ifrs", "msfo", "\u043c\u0441\u0444\u043e"))
     consolidated_hint = any(_as_bool(row.get("candidate_consolidated_hint")) for row in candidates) or _contains_any(text_context, ("consolidated", "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434"))
+    annual_hint = any(_as_bool(row.get("candidate_annual_hint")) for row in candidates)
+    accounting_standard_hint = any(_as_bool(row.get("candidate_accounting_standard_hint")) for row in candidates)
     source_hub_url = _normalize_candidate_url(str(manifest.get("final_url") or hub_fetch.get("final_url") or RZD_CONTROLLED_REPORTING_HUB_FETCH_URL))
     is_self_loop = _normalize_candidate_url(normalized_url) == source_hub_url
     errors = [*upstream_blockers]
@@ -27168,6 +27176,7 @@ def _rzd_reporting_hub_link_discovery_validation_row(
         "candidate_title": candidate_title,
         "source_hub_url": source_hub_url,
         "source_hub_sha256": raw_hub_html_sha256,
+        "source_hub_html_path": raw_hub_html_path,
         "source_candidate_ids": source_candidate_ids,
         "source_link_ids": source_link_ids,
         "duplicate_candidate_ids": duplicate_candidates,
@@ -27181,10 +27190,13 @@ def _rzd_reporting_hub_link_discovery_validation_row(
         "is_pdf_link": bool(pdf),
         "is_excel_link": bool(excel),
         "is_zip_link": bool(zip_link),
+        "is_archive_link": bool(archive_link),
         "candidate_target_year_hint": bool(target_year_hint),
         "candidate_ifrs_hint": bool(ifrs_hint),
         "candidate_consolidated_hint": bool(consolidated_hint),
         "candidate_report_hint": bool(report_hint),
+        "candidate_annual_hint": bool(annual_hint),
+        "candidate_accounting_standard_hint": bool(accounting_standard_hint),
         "task158_hub_fetch_input_path": _path_value(inputs.get("task158_hub_fetch")) or "",
         "task158_hub_fetch_input_sha256": input_hashes.get("task158_hub_fetch") or "",
         "task158_links_input_path": _path_value(inputs.get("task158_links")) or "",
@@ -27221,6 +27233,7 @@ def _rzd_reporting_hub_link_discovery_validation_row(
         "accepted_candidate_id": accepted_candidate_id,
         "accepted_for_future_document_validation": bool(accepted),
         "future_exact_document_validation_required": bool(accepted),
+        "future_document_candidate_validation_required": bool(accepted),
         "future_document_download_plan_required": bool(accepted),
         "future_document_download_required": False,
         "future_document_parse_required": False,

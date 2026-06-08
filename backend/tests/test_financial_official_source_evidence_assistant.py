@@ -10232,7 +10232,7 @@ def test_rzd_reporting_hub_link_discovery_dedupes_self_loop_candidates(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
 
     def unexpected_call(*args, **kwargs):
         raise AssertionError("Task159 must not probe, fetch, download, parse, mutate DB, or delete")
@@ -10264,7 +10264,45 @@ def test_rzd_reporting_hub_link_discovery_dedupes_self_loop_candidates(
     assert row["validation_status"] == "blocked_self_reporting_hub_loop"
     assert row["duplicate_count"] == 2
     assert row["is_self_reporting_hub_loop"] is True
+    assert row["source_hub_html_path"] == str(paths["hub_raw_html"])
     assert "self_reporting_hub_loop_detected" in row["validation_reason_codes"]
+    required_row_bools = (
+        "is_archive_link",
+        "candidate_annual_hint",
+        "candidate_accounting_standard_hint",
+        "accepted_for_future_document_validation",
+        "future_document_candidate_validation_required",
+        "future_document_download_plan_required",
+        "future_document_download_required",
+        "future_document_parse_required",
+        "future_import_required",
+        "future_scoring_required",
+        "future_paper_trading_required",
+        "would_fetch_candidate",
+        "would_fetch_page",
+        "would_download_candidate",
+        "would_parse_candidate",
+        "would_mutate_document_intake",
+        "would_mutate_database",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+        "would_delete_files",
+    )
+    for field in required_row_bools:
+        assert field in row
+        assert isinstance(row[field], bool)
+        assert row[field] is not None
+    assert row["is_archive_link"] is False
+    assert row["candidate_annual_hint"] is False
+    assert row["candidate_accounting_standard_hint"] is False
+    assert row["future_document_candidate_validation_required"] is False
+    assert row["future_document_download_required"] is False
+    assert row["future_document_parse_required"] is False
+    assert row["would_fetch_candidate"] is False
+    assert row["would_download_candidate"] is False
+    assert row["would_parse_candidate"] is False
     assert report["blocker_rows"][0]["blocker_code"] == "candidate_self_reporting_hub_loop"
     for field in _rzd_reporting_hub_link_discovery_required_bool_fields():
         assert field in report
@@ -10320,6 +10358,7 @@ def test_rzd_reporting_hub_link_discovery_accepts_non_self_loop_candidates(
     validation = report["validation_rows"][0]
     assert validation["validated_candidate_type"] == expected_type
     assert validation["validation_status"] == "accepted_future_exact_document_candidate_validation_candidate"
+    assert validation["future_document_candidate_validation_required"] is True
     accepted = report["accepted_candidate_rows"][0]
     assert accepted["accepted_candidate_url"] == candidate_url
     assert accepted["accepted_candidate_status"] == "future_exact_document_candidate_validation_candidate_only"
