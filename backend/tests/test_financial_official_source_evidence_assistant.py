@@ -10485,6 +10485,203 @@ def test_rzd_reporting_hub_link_discovery_required_failure_bool_fields(tmp_path:
         assert report[field] is not None
 
 
+def test_rzd_reporting_hub_embedded_extracts_script_document_candidate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = b"""
+    <html><body>
+      <script>
+      window.__DATA__ = {
+        "reportUrl": "/files/rzd-ifrs-consolidated-annual-report-2025.pdf"
+      };
+      </script>
+    </body></html>
+    """
+    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task160 must not fetch, download, parse, mutate DB/intake, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", unexpected_call)
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["accepted_candidate_count"] == 1
+    row = report["accepted_candidate_rows"][0]
+    assert row["accepted_candidate_type"] == "official_embedded_direct_document_candidate"
+    assert row["accepted_candidate_status"] == "future_embedded_document_candidate_validation_candidate_only"
+    assert row["future_document_candidate_validation_required"] is True
+    assert row["future_document_download_required"] is False
+    assert row["would_download_candidate"] is False
+    assert row["would_parse_candidate"] is False
+    embedded = report["embedded_rows"][0]
+    assert embedded["embedded_candidate_status"] == "accepted_future_embedded_document_candidate_validation_candidate"
+    for field in _rzd_reporting_hub_embedded_required_row_bool_fields():
+        assert field in embedded
+        assert isinstance(embedded[field], bool)
+        assert embedded[field] is not None
+    for field in _rzd_reporting_hub_embedded_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for output_name in assistant.RZD_REPORTING_HUB_EMBEDDED_INSPECT_ARTIFACT_NAMES.values():
+        assert (tmp_path / output_name).is_file()
+
+
+def test_rzd_reporting_hub_embedded_extracts_data_attribute_report_page(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = """
+    <html><body>
+      <div data-report-url="/ru/9397/page/104069?id=322745"
+           data-title="Отчетность РЖД по МСФО за 2025 год"></div>
+    </body></html>
+    """.encode("utf-8")
+    _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["accepted_candidate_count"] == 1
+    row = report["embedded_rows"][0]
+    assert row["embedded_candidate_type"] == "official_embedded_report_page_candidate"
+    assert row["candidate_target_year_hint"] is True
+    assert row["candidate_ifrs_hint"] is True
+    assert row["candidate_report_hint"] is True
+    assert row["future_document_download_required"] is False
+    assert row["would_fetch_candidate"] is False
+
+
+def test_rzd_reporting_hub_embedded_self_loop_and_external_cases(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    self_loop_dir = tmp_path / "self_loop"
+    _write_rzd_reporting_hub_link_discovery_inputs(
+        self_loop_dir,
+        monkeypatch,
+        html=b"<html><body>/ru/9471 /assets/app.js /images/logo.png</body></html>",
+    )
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(self_loop_dir)])
+    self_loop = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(self_loop_dir)])
+
+    assert self_loop["status"] == "warning"
+    assert self_loop["accepted_candidate_count"] == 0
+    assert self_loop["no_embedded_report_document_candidates_found"] is True
+    assert {"embedded_candidate_self_loop_only", "no_embedded_report_document_candidates_found"} & {
+        row["blocker_code"] for row in self_loop["blocker_rows"]
+    }
+
+    external_dir = tmp_path / "external"
+    _write_rzd_reporting_hub_link_discovery_inputs(
+        external_dir,
+        monkeypatch,
+        html=b"<html><body>https://example.com/report-2025.pdf</body></html>",
+    )
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(external_dir)])
+    external = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(external_dir)])
+
+    assert external["status"] == "warning"
+    assert external["accepted_candidate_count"] == 0
+    row = external["embedded_rows"][0]
+    assert row["embedded_candidate_status"] == "ignored_external_link"
+    assert row["would_fetch_candidate"] is False
+
+
+def test_rzd_reporting_hub_embedded_blocks_hash_mismatch_and_safety_leak(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    hash_dir = tmp_path / "hash"
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(hash_dir, monkeypatch)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(hash_dir)])
+    paths["hub_raw_html"].write_bytes(paths["hub_raw_html"].read_bytes() + b"\nchanged")
+
+    hash_report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(hash_dir)])
+
+    assert hash_report["status"] == "blocked"
+    assert hash_report["raw_hub_html_hash_verified"] is False
+    assert "task158_raw_hub_html_hash_mismatch" in {row["blocker_code"] for row in hash_report["blocker_rows"]}
+
+    leak_dir = tmp_path / "leak"
+    leak_paths = _write_rzd_reporting_hub_link_discovery_inputs(leak_dir, monkeypatch)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(leak_dir)])
+    hub_fetch = json.loads(leak_paths["hub_fetch"].read_text(encoding="utf-8"))
+    hub_fetch["documents_downloaded"] = True
+    leak_paths["hub_fetch"].write_text(json.dumps(hub_fetch, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    leak_report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(leak_dir)])
+
+    assert leak_report["status"] == "blocked"
+    assert "upstream_safety_flags" in {row["blocker_code"] for row in leak_report["blocker_rows"]}
+
+
+def test_rzd_reporting_hub_embedded_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_reporting_hub_link_discovery_inputs(tmp_path, monkeypatch)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    collision = _run_rzd_reporting_hub_embedded(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-reporting-hub-embedded-inspect-output",
+            str(paths["hub_fetch"]),
+        ]
+    )
+
+    assert collision["status"] == "failed"
+    assert {"message": "rzd_reporting_hub_embedded_inspect_output_must_not_equal_input"} in collision["errors"]
+
+    drift_dir = tmp_path / "drift"
+    drift_paths = _write_rzd_reporting_hub_link_discovery_inputs(drift_dir, monkeypatch)
+    _run_rzd_reporting_hub_link_discovery(["--operator-resolution-chain-output-dir", str(drift_dir)])
+    original_writer = assistant._rzd_reporting_hub_embedded_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            drift_paths["hub_candidates"].write_bytes(drift_paths["hub_candidates"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_reporting_hub_embedded_write_safe_outputs", mutate_after_first_write)
+
+    drift = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(drift_dir)])
+
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_reporting_hub_embedded_inspect_input_drift_detected"} in drift["errors"]
+    assert drift["task158_document_candidates_input_preserved"] is False
+    assert drift["task158_hub_fetch_input_preserved"] is True
+    assert drift["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
+
+
+def test_rzd_reporting_hub_embedded_required_failure_bool_fields(tmp_path: Path) -> None:
+    report = _run_rzd_reporting_hub_embedded(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "task158_hub_fetch_input_required"} in report["errors"]
+    for field in _rzd_reporting_hub_embedded_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -18344,6 +18541,19 @@ def _run_rzd_reporting_hub_link_discovery(extra_args: list[str] | None = None) -
     return report
 
 
+def _run_rzd_reporting_hub_embedded(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-reporting-hub-embedded-report-link-inspect-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -19207,6 +19417,52 @@ def _rzd_controlled_reporting_hub_fetch_required_bool_fields() -> tuple[str, ...
 
 def _rzd_reporting_hub_link_discovery_required_bool_fields() -> tuple[str, ...]:
     return assistant.RZD_REPORTING_HUB_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_reporting_hub_embedded_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_REPORTING_HUB_EMBEDDED_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_reporting_hub_embedded_required_row_bool_fields() -> tuple[str, ...]:
+    return (
+        "same_host",
+        "trusted_host",
+        "is_official_rzd_link",
+        "is_self_reporting_hub_loop",
+        "is_external_link",
+        "is_static_asset",
+        "is_direct_document_link",
+        "is_pdf_link",
+        "is_excel_link",
+        "is_zip_link",
+        "is_archive_link",
+        "candidate_target_year_hint",
+        "candidate_ifrs_hint",
+        "candidate_consolidated_hint",
+        "candidate_report_hint",
+        "candidate_annual_hint",
+        "candidate_accounting_standard_hint",
+        "candidate_financial_hint",
+        "candidate_document_file_hint",
+        "future_document_candidate_validation_required",
+        "future_document_download_plan_required",
+        "future_document_download_required",
+        "future_document_parse_required",
+        "future_import_required",
+        "future_scoring_required",
+        "future_paper_trading_required",
+        "would_fetch_candidate",
+        "would_fetch_page",
+        "would_download_candidate",
+        "would_parse_candidate",
+        "would_mutate_document_intake",
+        "would_mutate_database",
+        "would_extract_values",
+        "would_import_report",
+        "would_mutate_scores",
+        "would_trigger_paper_trading",
+        "would_delete_files",
+    )
 
 
 def _write_rzd_controlled_reporting_hub_fetch_inputs(path: Path, monkeypatch) -> dict[str, Path]:
