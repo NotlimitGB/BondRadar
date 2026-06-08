@@ -11108,6 +11108,204 @@ def test_rzd_embedded_candidate_ranking_required_failure_bool_fields(tmp_path: P
         assert report[field] is not None
 
 
+def test_rzd_ranked_candidate_controlled_validation_plan_two_selected_ready_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_ranked_candidate_controlled_validation_plan_inputs(tmp_path, monkeypatch)
+
+    report = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["input_selected_candidate_count"] == 2
+    assert report["plan_candidate_count"] == 2
+    assert report["ready_candidate_count"] == 2
+    assert report["rzd_ready_for_future_controlled_candidate_page_fetch_plan"] is True
+    assert report["rzd_candidate_page_fetch_ready"] is False
+    assert report["rzd_document_download_ready"] is False
+    assert report["rzd_document_parse_ready"] is False
+    assert [row["validation_plan_rank"] for row in report["plan_candidate_rows"]] == [1, 2]
+    assert [row["candidate_url"] for row in report["plan_candidate_rows"]] == [
+        "https://company.rzd.ru/ru/9397/page/104069?id=292429",
+        "https://company.rzd.ru/ru/9397/page/104069?id=324563",
+    ]
+    for row in report["ready_candidate_rows"]:
+        assert row["ready_candidate_status"] == "future_controlled_candidate_page_fetch_plan_ready_only"
+        assert row["operator_gate_status"] == "operator_review_required_before_fetch"
+        assert row["future_controlled_candidate_validation_required"] is True
+        assert row["future_candidate_page_fetch_plan_required"] is True
+        assert row["future_candidate_page_fetch_required"] is False
+        assert row["future_document_download_required"] is False
+        assert row["future_document_parse_required"] is False
+        assert row["would_fetch_page"] is False
+        assert row["would_download_candidate"] is False
+        assert row["would_parse_candidate"] is False
+        assert row["expected_request_method"] == "GET"
+        assert row["expected_allowed_host"] == "company.rzd.ru"
+    for field in _rzd_ranked_candidate_controlled_validation_plan_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for row in [*report["plan_candidate_rows"], *report["ready_candidate_rows"]]:
+        for field in _rzd_ranked_candidate_controlled_validation_plan_required_row_bool_fields():
+            assert field in row
+            assert isinstance(row[field], bool)
+            assert row[field] is not None
+    for output_name in assistant.RZD_RANKED_CANDIDATE_CONTROLLED_VALIDATION_PLAN_ARTIFACT_NAMES.values():
+        assert (tmp_path / output_name).is_file()
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_no_selected_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_ranked_candidate_controlled_validation_plan_inputs(tmp_path, monkeypatch, selected_rows=[])
+
+    report = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["input_selected_candidate_count"] == 0
+    assert report["plan_candidate_count"] == 0
+    assert report["ready_candidate_count"] == 0
+    assert report["no_ready_validation_plan_candidates"] is True
+    assert "task161_no_selected_candidates" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_blocks_invalid_url_and_host(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    invalid_dir = tmp_path / "invalid"
+    _write_rzd_ranked_candidate_controlled_validation_plan_inputs(
+        invalid_dir,
+        monkeypatch,
+        selected_rows=[_rzd_ranked_candidate_controlled_validation_plan_selected_row(selected_candidate_url=True)],
+    )
+    invalid = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(invalid_dir)])
+
+    assert invalid["ready_candidate_count"] == 0
+    assert "selected_candidate_invalid_url" in {row["blocker_code"] for row in invalid["blocker_rows"]}
+
+    wrong_host_dir = tmp_path / "wrong_host"
+    _write_rzd_ranked_candidate_controlled_validation_plan_inputs(
+        wrong_host_dir,
+        monkeypatch,
+        selected_rows=[
+            _rzd_ranked_candidate_controlled_validation_plan_selected_row(
+                selected_candidate_url="https://example.com/report",
+                selected_candidate_host="example.com",
+            )
+        ],
+    )
+    wrong_host = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(wrong_host_dir)])
+
+    assert wrong_host["ready_candidate_count"] == 0
+    assert "selected_candidate_untrusted_host" in {row["blocker_code"] for row in wrong_host["blocker_rows"]}
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_blocks_download_or_parse_requested(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_ranked_candidate_controlled_validation_plan_inputs(
+        tmp_path,
+        monkeypatch,
+        selected_rows=[
+            _rzd_ranked_candidate_controlled_validation_plan_selected_row(
+                future_document_download_required=True,
+            )
+        ],
+    )
+
+    report = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["ready_candidate_count"] == 0
+    assert "selected_candidate_download_or_parse_requested" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_no_side_effects(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_ranked_candidate_controlled_validation_plan_inputs(tmp_path, monkeypatch)
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task162 must not probe, fetch, download, parse, mutate DB/intake, score, trade, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_rzd_controlled_page_fetch_http_get", unexpected_call)
+    monkeypatch.setattr(assistant, "_rzd_controlled_reporting_hub_fetch_http_get", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["would_fetch_pages"] is False
+    assert report["would_fetch_candidate_pages"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["candidate_pages_fetched"] is False
+    assert report["documents_downloaded"] is False
+    assert report["documents_parsed"] is False
+    assert report["paper_trading_called"] is False
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_ranked_candidate_controlled_validation_plan_inputs(tmp_path, monkeypatch)
+
+    collision = _run_rzd_ranked_candidate_controlled_validation_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-ranked-candidate-controlled-validation-plan-output",
+            str(paths["ranking_selected"]),
+        ]
+    )
+
+    assert collision["status"] == "failed"
+    assert {"message": "rzd_ranked_candidate_controlled_validation_plan_output_must_not_equal_input"} in collision["errors"]
+    assert not (tmp_path / "rzd_ranked_candidate_controlled_validation_plan_task162.json").exists()
+
+    drift_dir = tmp_path / "drift"
+    drift_paths = _write_rzd_ranked_candidate_controlled_validation_plan_inputs(drift_dir, monkeypatch)
+    original_writer = assistant._rzd_ranked_candidate_controlled_validation_plan_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            drift_paths["ranking_selected"].write_bytes(drift_paths["ranking_selected"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_ranked_candidate_controlled_validation_plan_write_safe_outputs", mutate_after_first_write)
+
+    drift = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(drift_dir)])
+
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_ranked_candidate_controlled_validation_plan_input_drift_detected"} in drift["errors"]
+    assert drift["task161_selected_input_preserved"] is False
+    assert drift["task161_ranking_input_preserved"] is True
+    assert drift["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_required_failure_bool_fields(tmp_path: Path) -> None:
+    report = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "task161_ranking_input_required"} in report["errors"]
+    for field in _rzd_ranked_candidate_controlled_validation_plan_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -18993,6 +19191,19 @@ def _run_rzd_embedded_candidate_ranking(extra_args: list[str] | None = None) -> 
     return report
 
 
+def _run_rzd_ranked_candidate_controlled_validation_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-ranked-candidate-controlled-validation-plan-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -19870,6 +20081,14 @@ def _rzd_embedded_candidate_ranking_required_row_bool_fields() -> tuple[str, ...
     return assistant.RZD_EMBEDDED_CANDIDATE_RANKING_ROW_BOOL_FIELDS
 
 
+def _rzd_ranked_candidate_controlled_validation_plan_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_RANKED_CANDIDATE_CONTROLLED_VALIDATION_PLAN_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_ranked_candidate_controlled_validation_plan_required_row_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_RANKED_CANDIDATE_CONTROLLED_VALIDATION_PLAN_ROW_BOOL_FIELDS
+
+
 def _rzd_reporting_hub_embedded_required_row_bool_fields() -> tuple[str, ...]:
     return (
         "same_host",
@@ -20126,6 +20345,121 @@ def _write_rzd_embedded_candidate_ranking_inputs(
         "embedded_inspect": path / "rzd_reporting_hub_embedded_inspect_task160.json",
         "embedded_candidates": path / "rzd_reporting_hub_embedded_candidates_task160.json",
         "embedded_blockers": path / "rzd_reporting_hub_embedded_blockers_task160.json",
+    }
+
+
+def _rzd_ranked_candidate_controlled_validation_plan_selected_row(**updates: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "selected_candidate_id": "rzd_embedded_candidate_ranking_selected:test",
+        "ranked_candidate_id": "rzd_embedded_candidate_ranking:test",
+        "accepted_candidate_id": "rzd_reporting_hub_embedded_accepted:test",
+        "embedded_candidate_id": "rzd_reporting_hub_embedded_candidate:test",
+        "selection_rank": 1,
+        "selection_status": "selected_for_future_controlled_candidate_validation",
+        "confidence_tier": "medium",
+        "ranking_class": "report_page_medium_confidence",
+        "ranking_score_total": 60,
+        "ranking_reason_codes": ["rzd_cms_report_page_shape"],
+        "ranking_penalty_codes": [],
+        "company_id": "18",
+        "company_name": "RZD",
+        "selected_candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=292429",
+        "selected_candidate_host": "company.rzd.ru",
+        "selected_candidate_type": "official_embedded_report_page_candidate",
+        "selected_candidate_source": "task161_embedded_candidate_ranking_preview",
+        "selected_candidate_status": "future_controlled_candidate_validation_candidate_only",
+        "source_hub_url": assistant.RZD_CONTROLLED_REPORTING_HUB_FETCH_URL,
+        "source_hub_sha256": "hub-sha",
+        "source_hub_html_path": "hub.html",
+        "source_kind": "script",
+        "source_selector": "script[1]",
+        "source_attribute": "text",
+        "candidate_target_year_hint": True,
+        "candidate_ifrs_hint": True,
+        "candidate_consolidated_hint": False,
+        "candidate_report_hint": True,
+        "candidate_annual_hint": False,
+        "candidate_accounting_standard_hint": True,
+        "candidate_financial_hint": True,
+        "candidate_document_file_hint": False,
+        "future_controlled_candidate_validation_required": True,
+        "future_candidate_fetch_plan_required": True,
+        "future_document_download_required": False,
+        "future_document_parse_required": False,
+        "future_import_required": False,
+        "future_scoring_required": False,
+        "future_paper_trading_required": False,
+        "would_fetch_candidate": False,
+        "would_fetch_page": False,
+        "would_download_candidate": False,
+        "would_parse_candidate": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "operator_action": "review_selected_candidate_before_future_controlled_validation",
+        "safe_hint": "Task161 only ranks candidates; future validation remains separate and controlled.",
+    }
+    row.update(updates)
+    return row
+
+
+def _write_rzd_ranked_candidate_controlled_validation_plan_inputs(
+    path: Path,
+    monkeypatch,
+    *,
+    selected_rows: list[dict[str, object]] | None = None,
+) -> dict[str, Path]:
+    accepted_rows = [
+        _rzd_embedded_candidate_ranking_accepted_row(
+            accepted_candidate_id="rzd_reporting_hub_embedded_accepted:292429",
+            embedded_candidate_id="rzd_reporting_hub_embedded_candidate:292429",
+            accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=292429",
+            accepted_candidate_type="official_embedded_report_page_candidate",
+            source_kind="script",
+            candidate_consolidated_hint=False,
+            candidate_annual_hint=False,
+            candidate_financial_hint=True,
+            candidate_document_file_hint=False,
+        ),
+        _rzd_embedded_candidate_ranking_accepted_row(
+            accepted_candidate_id="rzd_reporting_hub_embedded_accepted:324563",
+            embedded_candidate_id="rzd_reporting_hub_embedded_candidate:324563",
+            accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=324563",
+            accepted_candidate_type="official_embedded_report_page_candidate",
+            source_kind="script",
+            candidate_consolidated_hint=False,
+            candidate_annual_hint=False,
+            candidate_financial_hint=False,
+            candidate_accounting_standard_hint=False,
+            candidate_document_file_hint=False,
+        ),
+    ]
+    paths = _write_rzd_embedded_candidate_ranking_inputs(path, monkeypatch, accepted_rows=accepted_rows)
+    ranking = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(path)])
+    if selected_rows is not None:
+        selected_path = path / "rzd_embedded_candidate_ranking_selected_task161.json"
+        payload = json.loads(selected_path.read_text(encoding="utf-8"))
+        payload["selected_candidate_rows"] = selected_rows
+        payload["row_count"] = len(selected_rows)
+        selected_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        ranking_path = path / "rzd_embedded_candidate_ranking_task161.json"
+        ranking_payload = json.loads(ranking_path.read_text(encoding="utf-8"))
+        ranking_payload["selected_candidate_rows"] = selected_rows
+        ranking_payload["selected_candidate_count"] = len(selected_rows)
+        ranking_payload["rzd_selected_candidate_found"] = bool(selected_rows)
+        ranking_payload["rzd_ready_for_future_controlled_candidate_validation"] = bool(selected_rows)
+        ranking_path.write_text(json.dumps(ranking_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    else:
+        assert ranking["selected_candidate_count"] == 2
+    return {
+        **paths,
+        "ranking": path / "rzd_embedded_candidate_ranking_task161.json",
+        "ranking_selected": path / "rzd_embedded_candidate_ranking_selected_task161.json",
+        "ranking_blockers": path / "rzd_embedded_candidate_ranking_blockers_task161.json",
     }
 
 
