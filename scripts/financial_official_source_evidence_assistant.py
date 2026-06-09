@@ -4922,7 +4922,17 @@ RZD_EMBEDDED_CANDIDATE_RANKING_FIELDS = [
     "ranking_score_document_signal",
     "ranking_score_accounting_signal",
     "ranking_score_year_signal",
+    "ranking_score_year_alignment",
     "ranking_score_penalty",
+    "target_report_year",
+    "detected_report_years",
+    "primary_detected_report_year",
+    "target_year_aligned",
+    "prior_year_candidate",
+    "stale_year_mismatch",
+    "unknown_year_candidate",
+    "year_alignment_status",
+    "year_alignment_reason_codes",
     "ranking_reason_codes",
     "ranking_penalty_codes",
     "ranking_class",
@@ -4958,6 +4968,16 @@ RZD_EMBEDDED_CANDIDATE_RANKING_SELECTED_FIELDS = [
     "confidence_tier",
     "ranking_class",
     "ranking_score_total",
+    "ranking_score_year_alignment",
+    "target_report_year",
+    "detected_report_years",
+    "primary_detected_report_year",
+    "target_year_aligned",
+    "prior_year_candidate",
+    "stale_year_mismatch",
+    "unknown_year_candidate",
+    "year_alignment_status",
+    "year_alignment_reason_codes",
     "ranking_reason_codes",
     "ranking_penalty_codes",
     "company_id",
@@ -5026,6 +5046,7 @@ RZD_EMBEDDED_CANDIDATE_RANKING_REQUIRED_BOOL_FIELDS = (
     "rzd_document_download_ready",
     "rzd_document_parse_ready",
     "no_ranked_candidate_selected",
+    "no_target_year_aligned_candidates",
     "task160_inspect_input_preserved",
     "task160_candidates_input_preserved",
     "task160_blockers_input_preserved",
@@ -5074,6 +5095,10 @@ RZD_EMBEDDED_CANDIDATE_RANKING_ROW_BOOL_FIELDS = (
     "candidate_accounting_standard_hint",
     "candidate_financial_hint",
     "candidate_document_file_hint",
+    "target_year_aligned",
+    "prior_year_candidate",
+    "stale_year_mismatch",
+    "unknown_year_candidate",
     "future_controlled_candidate_validation_required",
     "future_candidate_fetch_plan_required",
     "future_document_download_required",
@@ -6647,6 +6672,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-embedded-candidate-ranking-input", type=Path, default=None)
     parser.add_argument("--rzd-embedded-candidate-ranking-selected-input", type=Path, default=None)
     parser.add_argument("--rzd-embedded-candidate-ranking-blockers-input", type=Path, default=None)
+    parser.add_argument("--target-report-year", type=int, default=2025)
+    parser.add_argument("--allowed-prior-report-years", default="")
     parser.add_argument("--rzd-ranked-candidate-controlled-validation-plan-output", type=Path, default=None)
     parser.add_argument("--rzd-ranked-candidate-controlled-validation-plan-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-ranked-candidate-controlled-validation-plan-markdown-output", type=Path, default=None)
@@ -29590,9 +29617,13 @@ def run_rzd_embedded_candidate_ranking_preview_v2(args: argparse.Namespace) -> d
             write_outputs=True,
         )
 
+    target_report_year = _rzd_embedded_candidate_ranking_target_report_year(args)
+    allowed_prior_report_years = _rzd_embedded_candidate_ranking_allowed_prior_years(args)
     ranked_rows, selected_rows, blocker_rows, warnings, forced_status = _rzd_embedded_candidate_ranking_rows(
         loaded=loaded,
         input_hashes=input_hashes,
+        target_report_year=target_report_year,
+        allowed_prior_report_years=allowed_prior_report_years,
     )
     report = _build_rzd_embedded_candidate_ranking_report(
         args,
@@ -29763,10 +29794,27 @@ def _rzd_embedded_candidate_ranking_load_inputs(
     return loaded, snapshots, input_hashes, errors
 
 
+def _rzd_embedded_candidate_ranking_target_report_year(args: argparse.Namespace) -> int:
+    year = _as_int(getattr(args, "target_report_year", 2025))
+    return year if year and year > 0 else 2025
+
+
+def _rzd_embedded_candidate_ranking_allowed_prior_years(args: argparse.Namespace) -> set[int]:
+    raw = str(getattr(args, "allowed_prior_report_years", "") or "")
+    years: set[int] = set()
+    for part in raw.split(","):
+        year = _as_int(part.strip())
+        if year and year > 0:
+            years.add(year)
+    return years
+
+
 def _rzd_embedded_candidate_ranking_rows(
     *,
     loaded: dict[str, Any],
     input_hashes: dict[str, str],
+    target_report_year: int,
+    allowed_prior_report_years: set[int],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]:
     warnings: list[dict[str, Any]] = []
     upstream_blockers = _rzd_embedded_candidate_ranking_upstream_blockers(loaded)
@@ -29795,6 +29843,8 @@ def _rzd_embedded_candidate_ranking_rows(
                 accepted,
                 index=index,
                 input_hashes=input_hashes,
+                target_report_year=target_report_year,
+                allowed_prior_report_years=allowed_prior_report_years,
             )
         )
 
@@ -29804,6 +29854,7 @@ def _rzd_embedded_candidate_ranking_rows(
         for row in ranked_rows
         if row.get("confidence_tier") in {"high", "medium"}
         and row.get("ranking_class") != "unselectable_candidate"
+        and row.get("year_alignment_status") in {"target_year_aligned", "prior_year_allowed"}
         and not _rzd_embedded_candidate_ranking_has_survived_hard_penalty(row)
     ][:3]
     selected_ids = {row["ranked_candidate_id"] for row in selected_candidates}
@@ -29813,7 +29864,12 @@ def _rzd_embedded_candidate_ranking_rows(
     for row in ranked_rows:
         if row["ranked_candidate_id"] not in selected_ids:
             row["selection_rank"] = 0
-            row["selection_status"] = "not_selected_by_ranking_threshold"
+            if row.get("year_alignment_status") == "stale_year_mismatch":
+                row["selection_status"] = "not_selected_stale_report_year_mismatch"
+            elif row.get("year_alignment_status") == "unknown_year":
+                row["selection_status"] = "not_selected_unknown_report_year"
+            else:
+                row["selection_status"] = "not_selected_by_ranking_threshold"
 
     selected_rows = [_rzd_embedded_candidate_ranking_selected_row(row) for row in selected_candidates]
     for row in ranked_rows:
@@ -29826,6 +29882,14 @@ def _rzd_embedded_candidate_ranking_rows(
     if not loaded["task160_accepted_rows"]:
         blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row({}, "task160_no_accepted_candidates", ranked_candidate_id="task160_no_accepted_candidates"))
     if ranked_rows and not selected_rows:
+        if not any(row.get("year_alignment_status") in {"target_year_aligned", "prior_year_allowed"} for row in ranked_rows):
+            blocker_rows.append(
+                _rzd_embedded_candidate_ranking_blocker_row(
+                    {},
+                    "no_target_year_aligned_candidates",
+                    ranked_candidate_id="no_target_year_aligned_candidates",
+                )
+            )
         if not any(row.get("blocker_code") == "only_low_confidence_candidates" for row in blocker_rows):
             blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row({}, "only_low_confidence_candidates", ranked_candidate_id="only_low_confidence_candidates"))
         blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row({}, "no_ranked_candidate_selected", ranked_candidate_id="no_ranked_candidate_selected"))
@@ -29955,11 +30019,128 @@ def _rzd_embedded_candidate_ranking_accepted_invalid_code(row: dict[str, Any]) -
     return ""
 
 
+def _rzd_embedded_candidate_ranking_year_alignment(
+    accepted: dict[str, Any],
+    *,
+    candidate_url: str,
+    target_report_year: int,
+    allowed_prior_report_years: set[int],
+) -> dict[str, Any]:
+    detected_years = _rzd_embedded_candidate_ranking_detect_years(accepted, candidate_url=candidate_url)
+    primary_year = 0
+    status = "unknown_year"
+    reason_codes: list[str] = []
+    target_aligned = target_report_year in detected_years
+    allowed_prior = sorted(year for year in detected_years if year in allowed_prior_report_years)
+    prior_candidate = any(year < target_report_year for year in detected_years)
+    stale = False
+    unknown = False
+    if target_aligned:
+        primary_year = target_report_year
+        status = "target_year_aligned"
+        reason_codes.append("target_report_year_aligned")
+    elif allowed_prior:
+        primary_year = allowed_prior[-1]
+        status = "prior_year_allowed"
+        prior_candidate = True
+        reason_codes.append("prior_report_year_allowed")
+    elif detected_years:
+        primary_year = max(detected_years)
+        status = "stale_year_mismatch"
+        stale = True
+        reason_codes.append("stale_report_year_mismatch")
+    else:
+        unknown = True
+        reason_codes.append("unknown_report_year")
+    return {
+        "target_report_year": target_report_year,
+        "detected_report_years": detected_years,
+        "primary_detected_report_year": primary_year,
+        "target_year_aligned": target_aligned,
+        "prior_year_candidate": prior_candidate,
+        "stale_year_mismatch": stale,
+        "unknown_year_candidate": unknown,
+        "year_alignment_status": status,
+        "year_alignment_reason_codes": reason_codes,
+    }
+
+
+def _rzd_embedded_candidate_ranking_detect_years(
+    accepted: dict[str, Any],
+    *,
+    candidate_url: str,
+) -> list[int]:
+    texts = _rzd_embedded_candidate_ranking_year_evidence_texts(accepted, candidate_url=candidate_url)
+    years: set[int] = set()
+    for text in texts:
+        for match in re.finditer(r"(?<!\d)(20\d{2})(?!\d)", text):
+            year = _as_int(match.group(1))
+            if year and 2000 <= year <= 2100:
+                years.add(year)
+        for match in re.finditer(r"(?<!\d)(2[0-9])\s*(?:год(?:а|у|ом)?|г\.?|year|fy)\b", text, flags=re.IGNORECASE):
+            year = 2000 + int(match.group(1))
+            if 2000 <= year <= 2100:
+                years.add(year)
+    normalized_url = _normalize_candidate_url(candidate_url)
+    parsed = urllib.parse.urlparse(normalized_url)
+    if normalized_url == RZD_EXACT_DOCUMENT_DEFAULT_URL or (
+        parsed.path.casefold() == "/ru/9397/page/104069" and re.search(r"(?:^|&)id=322745(?:&|$)", parsed.query)
+    ):
+        years.add(2025)
+    return sorted(years)
+
+
+def _rzd_embedded_candidate_ranking_year_evidence_texts(
+    accepted: dict[str, Any],
+    *,
+    candidate_url: str,
+) -> list[str]:
+    texts: list[str] = [candidate_url, str(accepted.get("accepted_candidate_url") or "")]
+    preferred_fields = (
+        "source_kind",
+        "source_selector",
+        "source_attribute",
+        "raw_value",
+        "decoded_value",
+        "text_context",
+        "local_context",
+        "merged_context",
+        "candidate_link_text",
+        "candidate_title",
+        "accepted_candidate_type",
+        "accepted_candidate_source",
+        "ranking_reason_codes",
+    )
+    for field in preferred_fields:
+        value = accepted.get(field)
+        if isinstance(value, bool) or value is None:
+            continue
+        if isinstance(value, (list, tuple, set)):
+            texts.extend(str(item) for item in value if not isinstance(item, bool))
+        elif isinstance(value, dict):
+            texts.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
+        else:
+            texts.append(str(value))
+    for field, value in accepted.items():
+        if field in preferred_fields or isinstance(value, bool) or value is None:
+            continue
+        if any(token in field for token in ("context", "reason", "title", "text", "raw", "decoded", "source", "selector", "attribute", "url")):
+            if isinstance(value, (list, tuple, set)):
+                texts.extend(str(item) for item in value if not isinstance(item, bool))
+            elif isinstance(value, dict):
+                texts.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
+            else:
+                texts.append(str(value))
+    return [urllib.parse.unquote(text).casefold() for text in texts if text]
+
+
 def _rzd_embedded_candidate_ranking_row(
     accepted: dict[str, Any],
     *,
     index: int,
     input_hashes: dict[str, str],
+    target_report_year: int,
+    allowed_prior_report_years: set[int],
 ) -> dict[str, Any]:
     candidate_url = _normalize_candidate_url(str(accepted.get("accepted_candidate_url") or ""))
     candidate_host = _host(candidate_url)
@@ -29976,11 +30157,18 @@ def _rzd_embedded_candidate_ranking_row(
         "candidate_financial_hint": _as_bool(accepted.get("candidate_financial_hint")),
         "candidate_document_file_hint": _as_bool(accepted.get("candidate_document_file_hint")),
     }
+    year_alignment = _rzd_embedded_candidate_ranking_year_alignment(
+        accepted,
+        candidate_url=candidate_url,
+        target_report_year=target_report_year,
+        allowed_prior_report_years=allowed_prior_report_years,
+    )
     scores, reason_codes, penalty_codes = _rzd_embedded_candidate_ranking_score(
         candidate_url=candidate_url,
         extension=extension,
         source_kind=source_kind,
         hints=hints,
+        year_alignment=year_alignment,
     )
     total = sum(scores.values())
     confidence = _rzd_embedded_candidate_ranking_confidence(total)
@@ -29991,6 +30179,7 @@ def _rzd_embedded_candidate_ranking_row(
         hints=hints,
         penalty_codes=penalty_codes,
     )
+    year_selectable = year_alignment.get("year_alignment_status") in {"target_year_aligned", "prior_year_allowed"}
     ranked_id = f"rzd_embedded_candidate_ranking:{hashlib.sha256(candidate_url.encode('utf-8')).hexdigest()[:16]}"
     row = {
         "ranked_candidate_id": ranked_id,
@@ -30016,15 +30205,17 @@ def _rzd_embedded_candidate_ranking_row(
         "ranking_score_document_signal": scores["ranking_score_document_signal"],
         "ranking_score_accounting_signal": scores["ranking_score_accounting_signal"],
         "ranking_score_year_signal": scores["ranking_score_year_signal"],
+        "ranking_score_year_alignment": scores["ranking_score_year_alignment"],
         "ranking_score_penalty": scores["ranking_score_penalty"],
+        **year_alignment,
         "ranking_reason_codes": reason_codes,
         "ranking_penalty_codes": penalty_codes,
         "ranking_class": ranking_class,
         "confidence_tier": confidence,
         "selection_rank": 0,
         "selection_status": "not_selected_by_ranking_threshold",
-        "future_controlled_candidate_validation_required": confidence in {"high", "medium"},
-        "future_candidate_fetch_plan_required": confidence in {"high", "medium"},
+        "future_controlled_candidate_validation_required": confidence in {"high", "medium"} and year_selectable,
+        "future_candidate_fetch_plan_required": confidence in {"high", "medium"} and year_selectable,
         "future_document_download_required": False,
         "future_document_parse_required": False,
         "future_import_required": False,
@@ -30053,6 +30244,7 @@ def _rzd_embedded_candidate_ranking_score(
     extension: str,
     source_kind: str,
     hints: dict[str, bool],
+    year_alignment: dict[str, Any],
 ) -> tuple[dict[str, int], list[str], list[str]]:
     scores = {
         "ranking_score_url_pattern": 0,
@@ -30060,6 +30252,7 @@ def _rzd_embedded_candidate_ranking_score(
         "ranking_score_document_signal": 0,
         "ranking_score_accounting_signal": 0,
         "ranking_score_year_signal": 0,
+        "ranking_score_year_alignment": 0,
         "ranking_score_penalty": 0,
     }
     reason_codes: list[str] = []
@@ -30111,6 +30304,22 @@ def _rzd_embedded_candidate_ranking_score(
     ):
         scores["ranking_score_url_pattern"] += 15
         reason_codes.append("known_rzd_2025_candidate_shape")
+
+    year_reason_codes = [str(code) for code in year_alignment.get("year_alignment_reason_codes") or []]
+    if year_alignment.get("target_year_aligned"):
+        scores["ranking_score_year_alignment"] += 25
+        reason_codes.append("target_report_year_aligned")
+    elif year_alignment.get("year_alignment_status") == "prior_year_allowed":
+        reason_codes.append("prior_report_year_allowed")
+    elif year_alignment.get("stale_year_mismatch"):
+        scores["ranking_score_year_alignment"] -= 80
+        penalty_codes.append("stale_report_year_mismatch")
+    elif year_alignment.get("unknown_year_candidate"):
+        scores["ranking_score_year_alignment"] -= 30
+        penalty_codes.append("unknown_report_year")
+    for code in year_reason_codes:
+        if code not in reason_codes and code not in {"stale_report_year_mismatch", "unknown_report_year"}:
+            reason_codes.append(code)
 
     if source_kind == "raw_text" and not any(hints[field] for field in ("candidate_report_hint", "candidate_ifrs_hint", "candidate_target_year_hint", "candidate_accounting_standard_hint")):
         scores["ranking_score_penalty"] -= 40
@@ -30205,6 +30414,16 @@ def _rzd_embedded_candidate_ranking_selected_row(row: dict[str, Any]) -> dict[st
         "confidence_tier": row.get("confidence_tier") or "",
         "ranking_class": row.get("ranking_class") or "",
         "ranking_score_total": row.get("ranking_score_total") or 0,
+        "ranking_score_year_alignment": row.get("ranking_score_year_alignment") or 0,
+        "target_report_year": row.get("target_report_year") or 0,
+        "detected_report_years": row.get("detected_report_years") or [],
+        "primary_detected_report_year": row.get("primary_detected_report_year") or 0,
+        "target_year_aligned": row.get("target_year_aligned") is True,
+        "prior_year_candidate": row.get("prior_year_candidate") is True,
+        "stale_year_mismatch": row.get("stale_year_mismatch") is True,
+        "unknown_year_candidate": row.get("unknown_year_candidate") is True,
+        "year_alignment_status": row.get("year_alignment_status") or "",
+        "year_alignment_reason_codes": row.get("year_alignment_reason_codes") or [],
         "ranking_reason_codes": row.get("ranking_reason_codes") or [],
         "ranking_penalty_codes": row.get("ranking_penalty_codes") or [],
         "company_id": row.get("company_id") or "18",
@@ -30265,6 +30484,10 @@ def _rzd_embedded_candidate_ranking_blocker_code_for_ranked(row: dict[str, Any])
         return "candidate_search_or_filter_survived"
     if "media_placeholder_survived" in penalties:
         return "candidate_media_placeholder_survived"
+    if row.get("year_alignment_status") == "stale_year_mismatch" or row.get("stale_year_mismatch") is True:
+        return "candidate_stale_report_year_mismatch"
+    if row.get("year_alignment_status") == "unknown_year" or row.get("unknown_year_candidate") is True:
+        return "candidate_unknown_report_year"
     if row.get("confidence_tier") in {"low", "reject"}:
         return "only_low_confidence_candidates"
     return ""
@@ -30389,6 +30612,16 @@ def _build_rzd_embedded_candidate_ranking_report(
     report_page_count = sum(1 for row in ranked_rows if str(row.get("ranking_class") or "").startswith("report_page_"))
     financial_count = sum(1 for row in ranked_rows if row.get("ranking_class") == "financial_section_low_confidence")
     ambiguous_count = sum(1 for row in ranked_rows if row.get("ranking_class") == "ambiguous_finance_only")
+    target_report_year = _rzd_embedded_candidate_ranking_target_report_year(args)
+    allowed_prior_report_years = sorted(_rzd_embedded_candidate_ranking_allowed_prior_years(args))
+    target_year_aligned_count = sum(1 for row in ranked_rows if row.get("target_year_aligned") is True)
+    prior_year_count = sum(1 for row in ranked_rows if row.get("prior_year_candidate") is True)
+    stale_year_count = sum(1 for row in ranked_rows if row.get("stale_year_mismatch") is True)
+    unknown_year_count = sum(1 for row in ranked_rows if row.get("unknown_year_candidate") is True)
+    selected_target_year_aligned_count = sum(1 for row in selected_rows if row.get("target_year_aligned") is True)
+    no_target_year_aligned = bool(ranked_rows) and not any(
+        row.get("year_alignment_status") in {"target_year_aligned", "prior_year_allowed"} for row in ranked_rows
+    )
     status = forced_status
     if errors:
         status = "failed"
@@ -30398,6 +30631,8 @@ def _build_rzd_embedded_candidate_ranking_report(
         "status": status,
         "mode": "rzd-embedded-candidate-ranking-preview-v2",
         "input_accepted_candidate_count": len(loaded.get("task160_accepted_rows") or []),
+        "target_report_year": target_report_year,
+        "allowed_prior_report_years": allowed_prior_report_years,
         "ranked_candidate_count": len(ranked_rows),
         "selected_candidate_count": len(selected_rows),
         "blocked_count": len(blocker_rows),
@@ -30410,6 +30645,12 @@ def _build_rzd_embedded_candidate_ranking_report(
         "report_page_candidate_count": report_page_count,
         "financial_section_candidate_count": financial_count,
         "ambiguous_finance_only_candidate_count": ambiguous_count,
+        "target_year_aligned_candidate_count": target_year_aligned_count,
+        "prior_year_candidate_count": prior_year_count,
+        "stale_year_mismatch_candidate_count": stale_year_count,
+        "unknown_year_candidate_count": unknown_year_count,
+        "selected_target_year_aligned_candidate_count": selected_target_year_aligned_count,
+        "no_target_year_aligned_candidates": no_target_year_aligned,
         "rzd_ranked_candidates_found": bool(ranked_rows),
         "rzd_selected_candidate_found": bool(selected_rows),
         "rzd_ready_for_future_controlled_candidate_validation": bool(selected_rows),
@@ -43583,8 +43824,12 @@ def render_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any]) -> st
         "",
         f"- status: `{report.get('status')}`",
         f"- input accepted candidates: {report.get('input_accepted_candidate_count', 0)}",
+        f"- target report year: {report.get('target_report_year', 2025)}",
         f"- ranked candidates: {report.get('ranked_candidate_count', 0)}",
         f"- selected candidates: {report.get('selected_candidate_count', 0)}",
+        f"- target-year aligned candidates: {report.get('target_year_aligned_candidate_count', 0)}",
+        f"- stale-year mismatch candidates: {report.get('stale_year_mismatch_candidate_count', 0)}",
+        f"- unknown-year candidates: {report.get('unknown_year_candidate_count', 0)}",
         f"- blockers: {report.get('blocked_count', 0)}",
         f"- ready for future controlled candidate validation: `{report.get('rzd_ready_for_future_controlled_candidate_validation')}`",
         "",
@@ -43605,8 +43850,8 @@ def render_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any]) -> st
         "",
         "## Top Ranked Candidates",
         "",
-        "| Rank | URL | Score | Confidence | Class | Selection |",
-        "| --- | --- | ---: | --- | --- | --- |",
+        "| Rank | URL | Score | Year | Confidence | Class | Selection |",
+        "| --- | --- | ---: | --- | --- | --- | --- |",
     ]
     for row in (report.get("ranked_candidate_rows") or [])[:10]:
         lines.append(
@@ -43617,6 +43862,7 @@ def render_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any]) -> st
                     row.get("selection_rank") or "",
                     row.get("candidate_url"),
                     row.get("ranking_score_total"),
+                    row.get("year_alignment_status"),
                     row.get("confidence_tier"),
                     row.get("ranking_class"),
                     row.get("selection_status"),
@@ -43625,14 +43871,14 @@ def render_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any]) -> st
             + " |"
         )
     if not report.get("ranked_candidate_rows"):
-        lines.append("| none |  |  |  |  |  |")
+        lines.append("| none |  |  |  |  |  |  |")
     lines.extend(
         [
             "",
             "## Selected Candidates",
             "",
-            "| Rank | URL | Score | Confidence | Class |",
-            "| --- | --- | ---: | --- | --- |",
+        "| Rank | URL | Score | Year | Confidence | Class |",
+        "| --- | --- | ---: | --- | --- | --- |",
         ]
     )
     for row in report.get("selected_candidate_rows") or []:
@@ -43644,6 +43890,7 @@ def render_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any]) -> st
                     row.get("selection_rank"),
                     row.get("selected_candidate_url"),
                     row.get("ranking_score_total"),
+                    row.get("year_alignment_status"),
                     row.get("confidence_tier"),
                     row.get("ranking_class"),
                 )
@@ -43651,7 +43898,7 @@ def render_rzd_embedded_candidate_ranking_markdown(report: dict[str, Any]) -> st
             + " |"
         )
     if not report.get("selected_candidate_rows"):
-        lines.append("| none |  |  |  |  |")
+        lines.append("| none |  |  |  |  |  |")
     low_examples = [
         row
         for row in report.get("ranked_candidate_rows") or []
@@ -43731,7 +43978,8 @@ def render_rzd_embedded_candidate_ranking_rerun_markdown(report: dict[str, Any])
             "```bash",
             "python3 scripts/financial_official_source_evidence_assistant.py \\",
             "  --mode rzd-embedded-candidate-ranking-preview-v2 \\",
-            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)} \\",
+            f"  --target-report-year {int(report.get('target_report_year') or 2025)}",
             "```",
             "",
             "## Future Controlled Candidate Validation Plan",

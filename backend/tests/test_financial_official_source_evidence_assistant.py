@@ -10860,8 +10860,19 @@ def test_rzd_embedded_candidate_ranking_selects_direct_pdf_high_confidence(
     assert ranked["confidence_tier"] == "high"
     assert ranked["ranking_class"] == "direct_document_high_confidence"
     assert ranked["selection_status"] == "selected_for_future_controlled_candidate_validation"
+    assert ranked["target_report_year"] == 2025
+    assert ranked["detected_report_years"] == [2025]
+    assert ranked["primary_detected_report_year"] == 2025
+    assert ranked["target_year_aligned"] is True
+    assert ranked["year_alignment_status"] == "target_year_aligned"
+    assert ranked["ranking_score_year_alignment"] == 25
+    assert report["target_year_aligned_candidate_count"] == 1
+    assert report["selected_target_year_aligned_candidate_count"] == 1
+    assert report["no_target_year_aligned_candidates"] is False
     assert selected["selected_candidate_url"] == "https://company.rzd.ru/files/rzd-ifrs-consolidated-annual-report-2025.pdf"
     assert selected["selected_candidate_host"] == "company.rzd.ru"
+    assert selected["target_year_aligned"] is True
+    assert selected["year_alignment_status"] == "target_year_aligned"
     assert selected["future_document_download_required"] is False
     assert selected["would_download_candidate"] is False
     assert selected["would_parse_candidate"] is False
@@ -10903,7 +10914,98 @@ def test_rzd_embedded_candidate_ranking_selects_cms_report_page(
     assert ranked["candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
     assert ranked["confidence_tier"] in {"high", "medium"}
     assert ranked["ranking_class"] in {"report_page_high_confidence", "report_page_medium_confidence"}
+    assert ranked["target_year_aligned"] is True
+    assert ranked["primary_detected_report_year"] == 2025
     assert ranked["selection_status"] == "selected_for_future_controlled_candidate_validation"
+
+
+def test_rzd_embedded_candidate_ranking_blocks_stale_vds_2023_candidate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    accepted = [
+        _rzd_embedded_candidate_ranking_accepted_row(
+            accepted_candidate_id="rzd_reporting_hub_embedded_accepted:292429",
+            accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=292429",
+            accepted_candidate_type="official_embedded_report_page_candidate",
+            source_kind="script",
+            text_context="RZD IFRS annual consolidated financial statements за 2023 год",
+            candidate_document_file_hint=False,
+        )
+    ]
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=accepted)
+
+    report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["selected_candidate_count"] == 0
+    assert report["stale_year_mismatch_candidate_count"] == 1
+    assert report["no_target_year_aligned_candidates"] is True
+    ranked = report["ranked_candidate_rows"][0]
+    assert ranked["candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=292429"
+    assert ranked["primary_detected_report_year"] == 2023
+    assert ranked["stale_year_mismatch"] is True
+    assert ranked["year_alignment_status"] == "stale_year_mismatch"
+    assert ranked["selection_status"] == "not_selected_stale_report_year_mismatch"
+    assert "candidate_stale_report_year_mismatch" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_embedded_candidate_ranking_unknown_year_not_selected_by_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    accepted = [
+        _rzd_embedded_candidate_ranking_accepted_row(
+            accepted_candidate_url="https://company.rzd.ru/files/rzd-ifrs-consolidated-annual-report.pdf",
+            accepted_candidate_type="official_embedded_direct_document_candidate",
+        )
+    ]
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=accepted)
+
+    report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["selected_candidate_count"] == 0
+    assert report["unknown_year_candidate_count"] == 1
+    ranked = report["ranked_candidate_rows"][0]
+    assert ranked["detected_report_years"] == []
+    assert ranked["primary_detected_report_year"] == 0
+    assert ranked["unknown_year_candidate"] is True
+    assert ranked["year_alignment_status"] == "unknown_year"
+    assert ranked["future_controlled_candidate_validation_required"] is False
+    assert "candidate_unknown_report_year" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_embedded_candidate_ranking_allowed_prior_year_requires_explicit_override(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    accepted = [
+        _rzd_embedded_candidate_ranking_accepted_row(
+            accepted_candidate_url="https://company.rzd.ru/files/rzd-ifrs-consolidated-annual-report-2024.pdf",
+            accepted_candidate_type="official_embedded_direct_document_candidate",
+        )
+    ]
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=accepted)
+
+    blocked = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    allowed = _run_rzd_embedded_candidate_ranking(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--allowed-prior-report-years",
+            "2024",
+        ]
+    )
+
+    assert blocked["selected_candidate_count"] == 0
+    assert blocked["ranked_candidate_rows"][0]["year_alignment_status"] == "stale_year_mismatch"
+    assert allowed["selected_candidate_count"] == 1
+    ranked = allowed["ranked_candidate_rows"][0]
+    assert ranked["year_alignment_status"] == "prior_year_allowed"
+    assert ranked["prior_year_candidate"] is True
+    assert ranked["stale_year_mismatch"] is False
+    assert allowed["selected_candidate_rows"][0]["year_alignment_status"] == "prior_year_allowed"
 
 
 def test_rzd_embedded_candidate_ranking_does_not_select_financial_hint_only(
@@ -11126,7 +11228,7 @@ def test_rzd_ranked_candidate_controlled_validation_plan_two_selected_ready_rows
     assert report["rzd_document_parse_ready"] is False
     assert [row["validation_plan_rank"] for row in report["plan_candidate_rows"]] == [1, 2]
     assert [row["candidate_url"] for row in report["plan_candidate_rows"]] == [
-        "https://company.rzd.ru/ru/9397/page/104069?id=292429",
+        "https://company.rzd.ru/ru/9397/page/104069?id=322745",
         "https://company.rzd.ru/ru/9397/page/104069?id=324563",
     ]
     for row in report["ready_candidate_rows"]:
@@ -11168,6 +11270,31 @@ def test_rzd_ranked_candidate_controlled_validation_plan_no_selected_warning(
     assert report["plan_candidate_count"] == 0
     assert report["ready_candidate_count"] == 0
     assert report["no_ready_validation_plan_candidates"] is True
+    assert "task161_no_selected_candidates" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_stale_task161_selection_empty(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    stale_row = _rzd_embedded_candidate_ranking_accepted_row(
+        accepted_candidate_id="rzd_reporting_hub_embedded_accepted:292429",
+        accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=292429",
+        accepted_candidate_type="official_embedded_report_page_candidate",
+        source_kind="script",
+        text_context="RZD IFRS annual consolidated financial statements за 2023 год",
+        candidate_document_file_hint=False,
+    )
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=[stale_row])
+    ranking = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert ranking["selected_candidate_count"] == 0
+
+    report = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["input_selected_candidate_count"] == 0
+    assert report["ready_candidate_count"] == 0
+    assert report["rzd_ready_for_future_controlled_candidate_page_fetch_plan"] is False
     assert "task161_no_selected_candidates" in {row["blocker_code"] for row in report["blocker_rows"]}
 
 
@@ -20415,11 +20542,12 @@ def _write_rzd_ranked_candidate_controlled_validation_plan_inputs(
 ) -> dict[str, Path]:
     accepted_rows = [
         _rzd_embedded_candidate_ranking_accepted_row(
-            accepted_candidate_id="rzd_reporting_hub_embedded_accepted:292429",
-            embedded_candidate_id="rzd_reporting_hub_embedded_candidate:292429",
-            accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=292429",
+            accepted_candidate_id="rzd_reporting_hub_embedded_accepted:322745",
+            embedded_candidate_id="rzd_reporting_hub_embedded_candidate:322745",
+            accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=322745",
             accepted_candidate_type="official_embedded_report_page_candidate",
             source_kind="script",
+            text_context="RZD IFRS annual consolidated financial statements 2025",
             candidate_consolidated_hint=False,
             candidate_annual_hint=False,
             candidate_financial_hint=True,
@@ -20431,6 +20559,7 @@ def _write_rzd_ranked_candidate_controlled_validation_plan_inputs(
             accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=324563",
             accepted_candidate_type="official_embedded_report_page_candidate",
             source_kind="script",
+            text_context="RZD IFRS annual reporting page 2025",
             candidate_consolidated_hint=False,
             candidate_annual_hint=False,
             candidate_financial_hint=False,
