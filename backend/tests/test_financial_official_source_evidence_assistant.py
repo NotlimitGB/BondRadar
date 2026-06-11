@@ -11008,6 +11008,150 @@ def test_rzd_embedded_candidate_ranking_allowed_prior_year_requires_explicit_ove
     assert allowed["selected_candidate_rows"][0]["year_alignment_status"] == "prior_year_allowed"
 
 
+def test_rzd_embedded_candidate_ranking_recovers_2025_exact_candidate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=[])
+    _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+        tmp_path,
+        [
+            {
+                "candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "candidate_title": "Annual consolidated RZD IFRS financial statements for 2025",
+                "report_year": 2025,
+                "standard": "IFRS",
+                "consolidated": True,
+            }
+        ],
+    )
+
+    report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["exact_recovery_input_available"] is True
+    assert report["exact_recovery_candidate_count"] == 1
+    assert report["exact_recovery_ranked_candidate_count"] == 1
+    assert report["exact_recovery_selected_candidate_count"] == 1
+    assert report["exact_recovery_target_year_aligned_candidate_count"] == 1
+    assert report["exact_recovery_candidate_found"] is True
+    assert report["exact_recovery_selected_candidate_found"] is True
+    assert report["selected_candidate_count"] == 1
+    selected = report["selected_candidate_rows"][0]
+    assert selected["selected_candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert selected["candidate_origin"] == "task161_exact_recovery_candidate"
+    assert selected["target_year_aligned"] is True
+    assert selected["primary_detected_report_year"] == 2025
+    assert selected["year_alignment_status"] == "target_year_aligned"
+    assert selected["future_document_download_required"] is False
+    assert selected["future_document_parse_required"] is False
+    assert selected["would_fetch_candidate"] is False
+    assert selected["would_download_candidate"] is False
+    assert selected["would_parse_candidate"] is False
+    ranked = report["ranked_candidate_rows"][0]
+    assert "exact_candidate_recovered_from_prior_chain" in ranked["ranking_reason_codes"]
+
+
+def test_rzd_embedded_candidate_ranking_recovered_2023_exact_candidate_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=[])
+    _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+        tmp_path,
+        [
+            {
+                "candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=292429",
+                "candidate_title": "RZD IFRS reporting for 2023",
+                "report_year": 2023,
+                "standard": "IFRS",
+            }
+        ],
+    )
+
+    report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["exact_recovery_candidate_count"] == 1
+    assert report["exact_recovery_stale_year_mismatch_candidate_count"] == 1
+    assert report["selected_candidate_count"] == 0
+    assert report["ranked_candidate_rows"][0]["candidate_origin"] == "task161_exact_recovery_candidate"
+    assert report["ranked_candidate_rows"][0]["primary_detected_report_year"] == 2023
+    assert "exact_recovery_candidate_stale_year_mismatch" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_embedded_candidate_ranking_missing_exact_recovery_artifacts_preserves_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=[])
+
+    report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["exact_recovery_input_available"] is False
+    assert report["exact_recovery_candidate_count"] == 0
+    assert report["exact_recovery_candidate_found"] is False
+    assert report["rzd_exact_document_refill_validation_input_preserved"] is True
+    assert "exact_recovery_artifacts_not_available" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_embedded_candidate_ranking_dedupes_exact_recovery_duplicate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    accepted = [
+        _rzd_embedded_candidate_ranking_accepted_row(
+            accepted_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=322745",
+            accepted_candidate_type="official_embedded_report_page_candidate",
+            source_kind="script",
+        )
+    ]
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=accepted)
+    _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+        tmp_path,
+        [
+            {
+                "candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "candidate_title": "Annual consolidated RZD IFRS financial statements for 2025",
+                "report_year": 2025,
+                "standard": "IFRS",
+                "consolidated": True,
+            }
+        ],
+    )
+
+    report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    matching = [
+        row
+        for row in report["ranked_candidate_rows"]
+        if row["candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    ]
+    assert len(matching) == 1
+    assert matching[0]["candidate_origin"] == "task161_exact_recovery_candidate"
+    assert "exact_recovery_candidate_duplicate_of_task160" in matching[0]["ranking_reason_codes"]
+    assert "exact_recovery_candidate_duplicate_of_task160" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_embedded_candidate_ranking_recovered_unknown_year_not_selected(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=[])
+    _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+        tmp_path,
+        [{"candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=400000"}],
+    )
+
+    report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["selected_candidate_count"] == 0
+    assert report["exact_recovery_unknown_year_candidate_count"] == 1
+    assert report["ranked_candidate_rows"][0]["unknown_year_candidate"] is True
+    assert "exact_recovery_candidate_unknown_year" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
 def test_rzd_embedded_candidate_ranking_does_not_select_financial_hint_only(
     tmp_path: Path,
     monkeypatch,
@@ -11199,6 +11343,67 @@ def test_rzd_embedded_candidate_ranking_collision_and_input_drift(
     assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
 
 
+def test_rzd_embedded_candidate_ranking_exact_recovery_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=[])
+    exact_input = _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+        tmp_path,
+        [
+            {
+                "candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "candidate_title": "Annual consolidated RZD IFRS financial statements for 2025",
+                "report_year": 2025,
+            }
+        ],
+    )
+
+    collision = _run_rzd_embedded_candidate_ranking(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-embedded-candidate-ranking-output",
+            str(exact_input),
+        ]
+    )
+
+    assert collision["status"] == "failed"
+    assert {"message": "rzd_embedded_candidate_ranking_output_must_not_equal_input"} in collision["errors"]
+
+    drift_dir = tmp_path / "exact_drift"
+    _write_rzd_embedded_candidate_ranking_inputs(drift_dir, monkeypatch, accepted_rows=[])
+    exact_drift = _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+        drift_dir,
+        [
+            {
+                "candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "candidate_title": "Annual consolidated RZD IFRS financial statements for 2025",
+                "report_year": 2025,
+            }
+        ],
+    )
+    original_writer = assistant._rzd_embedded_candidate_ranking_write_safe_outputs
+    writes = 0
+
+    def mutate_exact_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            exact_drift.write_bytes(exact_drift.read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_embedded_candidate_ranking_write_safe_outputs", mutate_exact_after_first_write)
+
+    drift = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(drift_dir)])
+
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_embedded_candidate_ranking_input_drift_detected"} in drift["errors"]
+    assert drift["rzd_exact_document_refill_validation_input_preserved"] is False
+    assert drift["task160_candidates_input_preserved"] is True
+    assert drift["input_bytes_unchanged"] is False
+
+
 def test_rzd_embedded_candidate_ranking_required_failure_bool_fields(tmp_path: Path) -> None:
     report = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
 
@@ -11296,6 +11501,42 @@ def test_rzd_ranked_candidate_controlled_validation_plan_stale_task161_selection
     assert report["ready_candidate_count"] == 0
     assert report["rzd_ready_for_future_controlled_candidate_page_fetch_plan"] is False
     assert "task161_no_selected_candidates" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_ranked_candidate_controlled_validation_plan_uses_recovered_exact_candidate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_embedded_candidate_ranking_inputs(tmp_path, monkeypatch, accepted_rows=[])
+    _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+        tmp_path,
+        [
+            {
+                "candidate_url": "https://company.rzd.ru/ru/9397/page/104069?id=322745",
+                "candidate_title": "Annual consolidated RZD IFRS financial statements for 2025",
+                "report_year": 2025,
+                "standard": "IFRS",
+                "consolidated": True,
+            }
+        ],
+    )
+    ranking = _run_rzd_embedded_candidate_ranking(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert ranking["selected_candidate_count"] == 1
+    assert ranking["selected_candidate_rows"][0]["candidate_origin"] == "task161_exact_recovery_candidate"
+
+    report = _run_rzd_ranked_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["input_selected_candidate_count"] == 1
+    assert report["ready_candidate_count"] == 1
+    ready = report["ready_candidate_rows"][0]
+    assert ready["candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert ready["future_candidate_page_fetch_required"] is False
+    assert ready["future_document_download_required"] is False
+    assert ready["future_document_parse_required"] is False
+    assert ready["would_fetch_page"] is False
+    assert ready["would_download_candidate"] is False
+    assert ready["would_parse_candidate"] is False
 
 
 def test_rzd_ranked_candidate_controlled_validation_plan_blocks_invalid_url_and_host(
@@ -20449,6 +20690,23 @@ def _rzd_embedded_candidate_ranking_accepted_row(**updates: object) -> dict[str,
     }
     row.update(updates)
     return row
+
+
+def _write_rzd_embedded_candidate_ranking_exact_recovery_artifact(
+    path: Path,
+    rows: list[dict[str, object]],
+    *,
+    filename: str = "rzd_exact_document_refill_validation_task151.json",
+) -> Path:
+    artifact = path / filename
+    payload = {
+        "status": "passed" if rows else "warning",
+        "mode": "rzd-exact-document-refill-validate-v2",
+        "accepted_candidate_rows": rows,
+        "row_count": len(rows),
+    }
+    artifact.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return artifact
 
 
 def _write_rzd_embedded_candidate_ranking_inputs(

@@ -4891,6 +4891,17 @@ RZD_EMBEDDED_CANDIDATE_RANKING_ARTIFACT_NAMES = {
     "blockers_csv": "rzd_embedded_candidate_ranking_blockers_task161.csv",
     "rerun_markdown": "rzd_embedded_candidate_ranking_rerun_task161.md",
 }
+RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_FILENAMES = {
+    "rzd_exact_document_refill_validation": RZD_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES["validation_json"],
+    "rzd_exact_document_refill_accepted": RZD_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES["accepted_candidates_json"],
+    "rzd_exact_document_fetch_plan": RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["fetch_plan_json"],
+    "rzd_exact_document_fetch_plan_ready": RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["ready_json"],
+    "rzd_controlled_page_fetch_plan": "rzd_controlled_page_fetch_plan_preview_task155.json",
+    "rzd_controlled_page_fetch_plan_ready": "rzd_controlled_page_fetch_plan_ready_task155.json",
+}
+RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_ROLES = tuple(
+    RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_FILENAMES
+)
 RZD_EMBEDDED_CANDIDATE_RANKING_FIELDS = [
     "ranked_candidate_id",
     "accepted_candidate_id",
@@ -4901,6 +4912,7 @@ RZD_EMBEDDED_CANDIDATE_RANKING_FIELDS = [
     "candidate_host",
     "candidate_type",
     "candidate_source",
+    "candidate_origin",
     "candidate_status",
     "source_hub_url",
     "source_hub_sha256",
@@ -4986,6 +4998,7 @@ RZD_EMBEDDED_CANDIDATE_RANKING_SELECTED_FIELDS = [
     "selected_candidate_host",
     "selected_candidate_type",
     "selected_candidate_source",
+    "candidate_origin",
     "selected_candidate_status",
     "source_hub_url",
     "source_hub_sha256",
@@ -5047,6 +5060,9 @@ RZD_EMBEDDED_CANDIDATE_RANKING_REQUIRED_BOOL_FIELDS = (
     "rzd_document_parse_ready",
     "no_ranked_candidate_selected",
     "no_target_year_aligned_candidates",
+    "exact_recovery_input_available",
+    "exact_recovery_candidate_found",
+    "exact_recovery_selected_candidate_found",
     "task160_inspect_input_preserved",
     "task160_candidates_input_preserved",
     "task160_blockers_input_preserved",
@@ -5057,6 +5073,12 @@ RZD_EMBEDDED_CANDIDATE_RANKING_REQUIRED_BOOL_FIELDS = (
     "task157_ready_input_preserved",
     "task156_accepted_candidates_input_preserved",
     "task148_source_pack_input_preserved",
+    "rzd_exact_document_refill_validation_input_preserved",
+    "rzd_exact_document_refill_accepted_input_preserved",
+    "rzd_exact_document_fetch_plan_input_preserved",
+    "rzd_exact_document_fetch_plan_ready_input_preserved",
+    "rzd_controlled_page_fetch_plan_input_preserved",
+    "rzd_controlled_page_fetch_plan_ready_input_preserved",
     "input_bytes_unchanged",
     "production_source_pack_modified",
     "controlled_source_pack_modified",
@@ -6535,6 +6557,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-exact-document-refill-validation-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--rzd-exact-document-refill-validation-input", type=Path, default=None)
     parser.add_argument("--rzd-exact-document-refill-accepted-candidates-input", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-refill-accepted-input", type=Path, default=None)
     parser.add_argument("--operator-exact-document-apply-draft-base-input", type=Path, default=None)
     parser.add_argument("--rzd-exact-document-refill-apply-output", type=Path, default=None)
     parser.add_argument("--rzd-exact-document-refill-apply-csv-output", type=Path, default=None)
@@ -6554,6 +6577,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-exact-document-fetch-plan-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-exact-document-fetch-plan-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--rzd-exact-document-fetch-plan-input", type=Path, default=None)
+    parser.add_argument("--rzd-exact-document-fetch-plan-ready-input", type=Path, default=None)
+    parser.add_argument("--rzd-controlled-page-fetch-plan-input", type=Path, default=None)
+    parser.add_argument("--rzd-controlled-page-fetch-plan-ready-input", type=Path, default=None)
     parser.add_argument("--rzd-controlled-page-fetch-token", default="")
     parser.add_argument("--rzd-controlled-page-fetch-expected-plan-sha256", default="")
     parser.add_argument("--rzd-controlled-page-fetch-expected-gate-sha256", default="")
@@ -29675,6 +29701,50 @@ def _rzd_embedded_candidate_ranking_inputs(args: argparse.Namespace) -> dict[str
             if output_dir
             else None
         ),
+        "rzd_exact_document_refill_validation": args.rzd_exact_document_refill_validation_input
+        or (
+            output_dir / RZD_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES["validation_json"]
+            if output_dir
+            else None
+        ),
+        "rzd_exact_document_refill_accepted": (
+            getattr(args, "rzd_exact_document_refill_accepted_input", None)
+            or getattr(args, "rzd_exact_document_refill_accepted_candidates_input", None)
+        )
+        or (
+            output_dir
+            / RZD_EXACT_DOCUMENT_REFILL_VALIDATION_ARTIFACT_NAMES["accepted_candidates_json"]
+            if output_dir
+            else None
+        ),
+        "rzd_exact_document_fetch_plan": args.rzd_exact_document_fetch_plan_input
+        or (
+            output_dir / RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["fetch_plan_json"]
+            if output_dir
+            else None
+        ),
+        "rzd_exact_document_fetch_plan_ready": args.rzd_exact_document_fetch_plan_ready_input
+        or (
+            output_dir / RZD_EXACT_DOCUMENT_FETCH_PLAN_ARTIFACT_NAMES["ready_json"]
+            if output_dir
+            else None
+        ),
+        "rzd_controlled_page_fetch_plan": args.rzd_controlled_page_fetch_plan_input
+        or (
+            output_dir
+            / RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_FILENAMES["rzd_controlled_page_fetch_plan"]
+            if output_dir
+            else None
+        ),
+        "rzd_controlled_page_fetch_plan_ready": args.rzd_controlled_page_fetch_plan_ready_input
+        or (
+            output_dir
+            / RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_FILENAMES[
+                "rzd_controlled_page_fetch_plan_ready"
+            ]
+            if output_dir
+            else None
+        ),
     }
 
 
@@ -29734,6 +29804,12 @@ def _rzd_embedded_candidate_ranking_load_inputs(
         "task156_accepted_candidate_rows": [],
         "task148_source_pack": {},
         "task148_source_pack_rows": [],
+        "exact_recovery_payloads": {},
+        "exact_recovery_input_roles_present": [],
+        "exact_recovery_optional_warnings": [],
+        "exact_recovery_candidate_rows": [],
+        "exact_recovery_invalid_rows": [],
+        "exact_recovery_raw_candidate_count": 0,
     }
     required = {
         "task160_inspect": ("task160_inspect_input_required", "rzd-reporting-hub-embedded-report-link-inspect-v2", "embedded_rows"),
@@ -29791,7 +29867,294 @@ def _rzd_embedded_candidate_ranking_load_inputs(
                 errors.append({"message": error_code})
             else:
                 loaded[row_targets[role]] = [row for row in rows if isinstance(row, dict)]
+    for role in RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_ROLES:
+        path = inputs.get(role)
+        if path is None or not path.is_file():
+            continue
+        try:
+            data = path.read_bytes()
+            payload = json.loads(data.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            loaded["exact_recovery_optional_warnings"].append(
+                {"message": "exact_recovery_input_invalid", "role": role, "error": str(exc)}
+            )
+            continue
+        if not isinstance(payload, (dict, list)):
+            loaded["exact_recovery_optional_warnings"].append(
+                {"message": "exact_recovery_input_invalid", "role": role}
+            )
+            continue
+        snapshots[path] = data
+        input_hashes[role] = hashlib.sha256(data).hexdigest()
+        loaded["exact_recovery_payloads"][role] = payload
+        loaded["exact_recovery_input_roles_present"].append(role)
+    exact_rows, invalid_rows, raw_count, exact_warnings = _rzd_embedded_candidate_ranking_extract_exact_recovery_candidates(
+        loaded.get("exact_recovery_payloads") or {}
+    )
+    loaded["exact_recovery_candidate_rows"] = exact_rows
+    loaded["exact_recovery_invalid_rows"] = invalid_rows
+    loaded["exact_recovery_raw_candidate_count"] = raw_count
+    loaded["exact_recovery_optional_warnings"].extend(exact_warnings)
     return loaded, snapshots, input_hashes, errors
+
+
+RZD_EMBEDDED_CANDIDATE_RANKING_EXACT_RECOVERY_URL_FIELDS = (
+    "candidate_url",
+    "accepted_candidate_url",
+    "selected_candidate_url",
+    "ready_candidate_url",
+    "plan_candidate_url",
+    "source_url",
+    "exact_document_candidate_url",
+    "exact_candidate_url",
+    "official_document_page_url",
+    "candidate_exact_document_url",
+    "url",
+    "page_url",
+    "document_page_url",
+)
+RZD_EMBEDDED_CANDIDATE_RANKING_EXACT_RECOVERY_CONTEXT_FIELDS = (
+    "candidate_title",
+    "title",
+    "document_title",
+    "report_title",
+    "source_title",
+    "candidate_text",
+    "link_text",
+    "text_context",
+    "local_context",
+    "description",
+    "reason",
+    "operator_note",
+    "operator_fill_notes",
+    "document_accounting_standard",
+    "candidate_exact_document_standard",
+    "candidate_exact_document_notes",
+    "target_reporting_period",
+    "report_year",
+    "target_year",
+    "detected_report_year",
+    "year",
+    "standard",
+    "accounting_standard",
+)
+
+
+def _rzd_embedded_candidate_ranking_extract_exact_recovery_candidates(
+    payloads: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, list[dict[str, Any]]]:
+    accepted_rows: list[dict[str, Any]] = []
+    invalid_rows: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    raw_count = 0
+    for role, payload in payloads.items():
+        for index, candidate in enumerate(_rzd_embedded_candidate_ranking_exact_recovery_candidate_dicts(payload), start=1):
+            url_field, raw_url = _rzd_embedded_candidate_ranking_exact_recovery_first_value(
+                candidate,
+                RZD_EMBEDDED_CANDIDATE_RANKING_EXACT_RECOVERY_URL_FIELDS,
+            )
+            if url_field == "":
+                continue
+            raw_count += 1
+            normalized_url, invalid_code = _rzd_embedded_candidate_ranking_exact_recovery_normalize_url(raw_url, candidate)
+            row_id = hashlib.sha256(f"{role}:{index}:{raw_url}".encode("utf-8", errors="ignore")).hexdigest()[:16]
+            context = _rzd_embedded_candidate_ranking_exact_recovery_context(candidate)
+            if invalid_code:
+                invalid_rows.append(
+                    {
+                        "accepted_candidate_id": f"task161_exact_recovery_invalid:{row_id}",
+                        "company_id": str(candidate.get("company_id") or "18"),
+                        "company_name": str(candidate.get("company_name") or "RZD"),
+                        "accepted_candidate_url": "" if isinstance(raw_url, bool) else str(raw_url or ""),
+                        "accepted_candidate_host": _host(str(raw_url or "")) if not isinstance(raw_url, bool) else "",
+                        "candidate_origin": "task161_exact_recovery_candidate",
+                        "exact_recovery_source_role": role,
+                        "exact_recovery_blocker_code": invalid_code,
+                    }
+                )
+                continue
+            if normalized_url in seen:
+                invalid_rows.append(
+                    {
+                        "accepted_candidate_id": f"task161_exact_recovery_duplicate:{row_id}",
+                        "company_id": str(candidate.get("company_id") or "18"),
+                        "company_name": str(candidate.get("company_name") or "RZD"),
+                        "accepted_candidate_url": normalized_url,
+                        "accepted_candidate_host": "company.rzd.ru",
+                        "candidate_origin": "task161_exact_recovery_candidate",
+                        "exact_recovery_source_role": role,
+                        "exact_recovery_blocker_code": "exact_recovery_candidate_duplicate_of_task160",
+                    }
+                )
+                continue
+            seen.add(normalized_url)
+            accepted_rows.append(
+                _rzd_embedded_candidate_ranking_exact_recovery_accepted_row(
+                    candidate,
+                    normalized_url=normalized_url,
+                    row_id=row_id,
+                    role=role,
+                    url_field=url_field,
+                    context=context,
+                )
+            )
+    if payloads and raw_count == 0:
+        warnings.append({"message": "exact_recovery_no_candidate_urls_found"})
+    return accepted_rows, invalid_rows, raw_count, warnings
+
+
+def _rzd_embedded_candidate_ranking_exact_recovery_candidate_dicts(payload: Any) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen_ids: set[int] = set()
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            marker = id(value)
+            if marker in seen_ids:
+                return
+            seen_ids.add(marker)
+            if any(field in value for field in RZD_EMBEDDED_CANDIDATE_RANKING_EXACT_RECOVERY_URL_FIELDS):
+                rows.append(value)
+            for key, child in value.items():
+                if key in {"warnings", "errors", "artifacts", "next_steps"}:
+                    continue
+                if isinstance(child, (dict, list)):
+                    walk(child)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(payload)
+    return rows
+
+
+def _rzd_embedded_candidate_ranking_exact_recovery_first_value(
+    row: dict[str, Any],
+    fields: tuple[str, ...],
+) -> tuple[str, Any]:
+    for field in fields:
+        if field in row and row.get(field) not in (None, ""):
+            return field, row.get(field)
+    return "", ""
+
+
+def _rzd_embedded_candidate_ranking_exact_recovery_normalize_url(
+    value: Any,
+    row: dict[str, Any],
+) -> tuple[str, str]:
+    if isinstance(value, bool) or value is None:
+        return "", "exact_recovery_candidate_invalid_url"
+    raw = str(value).strip()
+    if not raw:
+        return "", "exact_recovery_candidate_invalid_url"
+    if raw.startswith("//"):
+        raw = "https:" + raw
+    elif raw.startswith("/"):
+        raw = urllib.parse.urljoin("https://company.rzd.ru", raw)
+    elif raw.casefold().startswith("company.rzd.ru/"):
+        raw = "https://" + raw
+    parsed = urllib.parse.urlparse(raw)
+    if parsed.scheme != "https":
+        return "", "exact_recovery_candidate_invalid_url"
+    if (parsed.hostname or "").casefold() != "company.rzd.ru":
+        return "", "exact_recovery_candidate_untrusted_host"
+    normalized = urllib.parse.urlunparse(parsed._replace(scheme="https", netloc="company.rzd.ru", fragment=""))
+    context = _rzd_embedded_candidate_ranking_exact_recovery_context(row)
+    parsed = urllib.parse.urlparse(normalized)
+    if _rzd_embedded_candidate_ranking_exact_recovery_is_generic_or_search(parsed, context):
+        return "", "exact_recovery_candidate_generic_or_search_url"
+    return normalized, ""
+
+
+def _rzd_embedded_candidate_ranking_exact_recovery_is_generic_or_search(
+    parsed: urllib.parse.ParseResult,
+    context: str,
+) -> bool:
+    path = parsed.path.casefold()
+    if path in {"", "/", "/ru"}:
+        return True
+    query_keys = set(urllib.parse.parse_qs(parsed.query, keep_blank_values=True))
+    if query_keys & {"textsearch", "search_expanded", "tender_type", "status_type", "type_id", "activity_type_id"}:
+        return True
+    if _rzd_reporting_hub_embedded_is_media_placeholder(parsed) or _contains_any(path, ("/media/", "/static/", "/common/", "/local/", "/assets/")):
+        return True
+    if _rzd_embedded_candidate_ranking_short_section(parsed) and not re.search(r"20\d{2}", context):
+        return True
+    return False
+
+
+def _rzd_embedded_candidate_ranking_exact_recovery_context(row: dict[str, Any]) -> str:
+    values: list[str] = []
+    for field in RZD_EMBEDDED_CANDIDATE_RANKING_EXACT_RECOVERY_CONTEXT_FIELDS:
+        value = row.get(field)
+        if isinstance(value, bool) or value is None:
+            continue
+        if isinstance(value, (list, tuple, set)):
+            values.extend(str(item) for item in value if not isinstance(item, bool))
+        elif isinstance(value, dict):
+            values.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
+        else:
+            values.append(str(value))
+    for field, value in row.items():
+        if isinstance(value, bool) or value is None:
+            continue
+        if any(token in field for token in ("reason", "context", "title", "note", "standard", "year", "report", "document")):
+            if isinstance(value, (list, tuple, set)):
+                values.extend(str(item) for item in value if not isinstance(item, bool))
+            elif isinstance(value, dict):
+                values.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
+            else:
+                values.append(str(value))
+    return " ".join(values).strip()
+
+
+def _rzd_embedded_candidate_ranking_exact_recovery_accepted_row(
+    source: dict[str, Any],
+    *,
+    normalized_url: str,
+    row_id: str,
+    role: str,
+    url_field: str,
+    context: str,
+) -> dict[str, Any]:
+    signal = urllib.parse.unquote(f"{normalized_url} {context}").casefold()
+    extension = Path(urllib.parse.urlparse(normalized_url).path).suffix.casefold()
+    return {
+        "accepted_candidate_id": str(source.get("accepted_candidate_id") or f"task161_exact_recovery:{row_id}"),
+        "embedded_candidate_id": str(source.get("embedded_candidate_id") or f"task161_exact_recovery:{row_id}"),
+        "company_id": str(source.get("company_id") or "18"),
+        "company_name": str(source.get("company_name") or "RZD"),
+        "accepted_candidate_url": normalized_url,
+        "accepted_candidate_host": "company.rzd.ru",
+        "accepted_candidate_type": str(source.get("accepted_candidate_type") or "official_exact_recovery_page_candidate"),
+        "accepted_candidate_source": "task161_exact_candidate_recovery_bridge",
+        "accepted_candidate_status": "future_exact_candidate_validation_candidate_only",
+        "candidate_origin": "task161_exact_recovery_candidate",
+        "source_hub_url": str(source.get("source_hub_url") or RZD_CONTROLLED_REPORTING_HUB_FETCH_URL),
+        "source_hub_sha256": str(source.get("source_hub_sha256") or ""),
+        "source_hub_html_path": str(source.get("source_hub_html_path") or ""),
+        "source_kind": "prior_exact_chain_artifact",
+        "source_selector": role,
+        "source_attribute": url_field,
+        "text_context": context,
+        "candidate_target_year_hint": bool(re.search(r"20\d{2}", signal)),
+        "candidate_ifrs_hint": _contains_any(signal, ("ifrs", "msfo", "\u043c\u0441\u0444\u043e", "РњРЎР¤Рћ")),
+        "candidate_consolidated_hint": _contains_any(signal, ("consolidated", "\u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434", "РєРѕРЅСЃРѕР»")),
+        "candidate_report_hint": _contains_any(signal, ("report", "reporting", "statement", "\u043e\u0442\u0447\u0435\u0442", "\u043e\u0442\u0447\u0451\u0442", "РѕС‚С‡")),
+        "candidate_annual_hint": _contains_any(signal, ("annual", "\u0433\u043e\u0434", "РіРѕРґ")),
+        "candidate_accounting_standard_hint": _contains_any(signal, ("ifrs", "msfo", "\u043c\u0441\u0444\u043e", "РњРЎР¤Рћ")),
+        "candidate_financial_hint": _contains_any(signal, ("financial", "finance", "\u0444\u0438\u043d\u0430\u043d\u0441", "РѕС‚С‡", "РњРЎР¤Рћ")),
+        "candidate_document_file_hint": extension in {".pdf", ".xls", ".xlsx", ".zip", ".doc", ".docx"},
+        "future_document_candidate_validation_required": True,
+        "future_document_download_required": False,
+        "future_document_parse_required": False,
+        "would_fetch_candidate": False,
+        "would_download_candidate": False,
+        "would_parse_candidate": False,
+        "would_mutate_database": False,
+        "would_trigger_paper_trading": False,
+    }
 
 
 def _rzd_embedded_candidate_ranking_target_report_year(args: argparse.Namespace) -> int:
@@ -29845,9 +30208,42 @@ def _rzd_embedded_candidate_ranking_rows(
                 input_hashes=input_hashes,
                 target_report_year=target_report_year,
                 allowed_prior_report_years=allowed_prior_report_years,
+                candidate_origin="task160_embedded_candidate",
+            )
+        )
+    for index, invalid in enumerate(loaded.get("exact_recovery_invalid_rows") or [], start=1):
+        blocker_rows.append(
+            _rzd_embedded_candidate_ranking_blocker_row(
+                invalid,
+                str(invalid.get("exact_recovery_blocker_code") or "exact_recovery_candidate_invalid_url"),
+                ranked_candidate_id=f"task161_exact_recovery_invalid:{index}",
+            )
+        )
+    for index, accepted in enumerate(loaded.get("exact_recovery_candidate_rows") or [], start=1):
+        invalid_code = _rzd_embedded_candidate_ranking_accepted_invalid_code(accepted)
+        if invalid_code:
+            blocker_rows.append(
+                _rzd_embedded_candidate_ranking_blocker_row(
+                    accepted,
+                    "exact_recovery_candidate_invalid_url",
+                    ranked_candidate_id=f"task161_exact_recovery_invalid_accepted:{index}",
+                )
+            )
+            continue
+        ranked_rows.append(
+            _rzd_embedded_candidate_ranking_row(
+                accepted,
+                index=index,
+                input_hashes=input_hashes,
+                target_report_year=target_report_year,
+                allowed_prior_report_years=allowed_prior_report_years,
+                candidate_origin="task161_exact_recovery_candidate",
             )
         )
 
+    ranked_rows, duplicate_rows = _rzd_embedded_candidate_ranking_dedupe_rows(ranked_rows)
+    for duplicate in duplicate_rows:
+        blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row(duplicate, "exact_recovery_candidate_duplicate_of_task160"))
     ranked_rows.sort(key=lambda row: (-int(row.get("ranking_score_total") or 0), str(row.get("candidate_url") or ""), str(row.get("ranked_candidate_id") or "")))
     selected_candidates = [
         row
@@ -29879,8 +30275,19 @@ def _rzd_embedded_candidate_ranking_rows(
         if blocker_code:
             blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row(row, blocker_code))
 
-    if not loaded["task160_accepted_rows"]:
+    if not loaded["task160_accepted_rows"] and not loaded.get("exact_recovery_candidate_rows"):
         blocker_rows.append(_rzd_embedded_candidate_ranking_blocker_row({}, "task160_no_accepted_candidates", ranked_candidate_id="task160_no_accepted_candidates"))
+    exact_recovery_rows_available = bool(
+        loaded.get("exact_recovery_candidate_rows") or loaded.get("exact_recovery_invalid_rows")
+    )
+    if not exact_recovery_rows_available and not selected_rows:
+        blocker_rows.append(
+            _rzd_embedded_candidate_ranking_blocker_row(
+                {},
+                "exact_recovery_artifacts_not_available",
+                ranked_candidate_id="exact_recovery_artifacts_not_available",
+            )
+        )
     if ranked_rows and not selected_rows:
         if not any(row.get("year_alignment_status") in {"target_year_aligned", "prior_year_allowed"} for row in ranked_rows):
             blocker_rows.append(
@@ -29990,7 +30397,10 @@ def _rzd_embedded_candidate_ranking_accepted_invalid_code(row: dict[str, Any]) -
     candidate_host_text = str(candidate_host or "").strip().casefold()
     if not candidate_url_text or candidate_host_text != "company.rzd.ru":
         return "task160_accepted_candidate_invalid"
-    if row.get("accepted_candidate_status") != "future_embedded_document_candidate_validation_candidate_only":
+    if row.get("accepted_candidate_status") not in {
+        "future_embedded_document_candidate_validation_candidate_only",
+        "future_exact_candidate_validation_candidate_only",
+    }:
         return "task160_accepted_candidate_invalid"
     if not _as_bool(row.get("future_document_candidate_validation_required")):
         return "task160_accepted_candidate_invalid"
@@ -30141,6 +30551,7 @@ def _rzd_embedded_candidate_ranking_row(
     input_hashes: dict[str, str],
     target_report_year: int,
     allowed_prior_report_years: set[int],
+    candidate_origin: str,
 ) -> dict[str, Any]:
     candidate_url = _normalize_candidate_url(str(accepted.get("accepted_candidate_url") or ""))
     candidate_host = _host(candidate_url)
@@ -30170,6 +30581,8 @@ def _rzd_embedded_candidate_ranking_row(
         hints=hints,
         year_alignment=year_alignment,
     )
+    if candidate_origin == "task161_exact_recovery_candidate":
+        reason_codes.append("exact_candidate_recovered_from_prior_chain")
     total = sum(scores.values())
     confidence = _rzd_embedded_candidate_ranking_confidence(total)
     ranking_class = _rzd_embedded_candidate_ranking_class(
@@ -30191,6 +30604,7 @@ def _rzd_embedded_candidate_ranking_row(
         "candidate_host": candidate_host,
         "candidate_type": str(accepted.get("accepted_candidate_type") or ""),
         "candidate_source": str(accepted.get("accepted_candidate_source") or "task160_embedded_report_link_inspect"),
+        "candidate_origin": candidate_origin,
         "candidate_status": str(accepted.get("accepted_candidate_status") or ""),
         "source_hub_url": str(accepted.get("source_hub_url") or RZD_CONTROLLED_REPORTING_HUB_FETCH_URL),
         "source_hub_sha256": str(accepted.get("source_hub_sha256") or input_hashes.get("task158_hash_manifest") or ""),
@@ -30363,6 +30777,45 @@ def _rzd_embedded_candidate_ranking_short_section(parsed: urllib.parse.ParseResu
     return len(segments) == 2 and segments[0] == "ru" and segments[1].isdigit()
 
 
+def _rzd_embedded_candidate_ranking_dedupe_rows(
+    rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    by_url: dict[str, dict[str, Any]] = {}
+    duplicates: list[dict[str, Any]] = []
+    for row in rows:
+        url = str(row.get("candidate_url") or "")
+        existing = by_url.get(url)
+        if existing is None:
+            by_url[url] = row
+            continue
+        keep = _rzd_embedded_candidate_ranking_prefer_row(existing, row)
+        discard = row if keep is existing else existing
+        if (
+            row.get("candidate_origin") == "task161_exact_recovery_candidate"
+            or existing.get("candidate_origin") == "task161_exact_recovery_candidate"
+        ):
+            for target in (keep, discard):
+                reason_codes = list(target.get("ranking_reason_codes") or [])
+                if "exact_recovery_candidate_duplicate_of_task160" not in reason_codes:
+                    reason_codes.append("exact_recovery_candidate_duplicate_of_task160")
+                target["ranking_reason_codes"] = reason_codes
+        by_url[url] = keep
+        duplicates.append(discard)
+    return list(by_url.values()), duplicates
+
+
+def _rzd_embedded_candidate_ranking_prefer_row(existing: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+    def key(row: dict[str, Any]) -> tuple[int, int, int, int]:
+        return (
+            1 if row.get("target_year_aligned") is True else 0,
+            1 if row.get("candidate_origin") == "task161_exact_recovery_candidate" else 0,
+            int(row.get("ranking_score_total") or 0),
+            1 if row.get("year_alignment_status") == "prior_year_allowed" else 0,
+        )
+
+    return candidate if key(candidate) > key(existing) else existing
+
+
 def _rzd_embedded_candidate_ranking_confidence(score: int) -> str:
     if score >= 70:
         return "high"
@@ -30432,6 +30885,7 @@ def _rzd_embedded_candidate_ranking_selected_row(row: dict[str, Any]) -> dict[st
         "selected_candidate_host": str(row.get("candidate_host") or ""),
         "selected_candidate_type": row.get("candidate_type") or "",
         "selected_candidate_source": "task161_embedded_candidate_ranking_preview",
+        "candidate_origin": row.get("candidate_origin") or "",
         "selected_candidate_status": "future_controlled_candidate_validation_candidate_only",
         "source_hub_url": row.get("source_hub_url") or "",
         "source_hub_sha256": row.get("source_hub_sha256") or "",
@@ -30476,6 +30930,7 @@ def _rzd_embedded_candidate_ranking_selected_row(row: dict[str, Any]) -> dict[st
 
 def _rzd_embedded_candidate_ranking_blocker_code_for_ranked(row: dict[str, Any]) -> str:
     penalties = set(row.get("ranking_penalty_codes") or [])
+    exact_origin = row.get("candidate_origin") == "task161_exact_recovery_candidate"
     if "financial_hint_only" in penalties:
         return "candidate_financial_hint_only"
     if "generic_navigation_survived" in penalties:
@@ -30485,9 +30940,15 @@ def _rzd_embedded_candidate_ranking_blocker_code_for_ranked(row: dict[str, Any])
     if "media_placeholder_survived" in penalties:
         return "candidate_media_placeholder_survived"
     if row.get("year_alignment_status") == "stale_year_mismatch" or row.get("stale_year_mismatch") is True:
+        if exact_origin:
+            return "exact_recovery_candidate_stale_year_mismatch"
         return "candidate_stale_report_year_mismatch"
     if row.get("year_alignment_status") == "unknown_year" or row.get("unknown_year_candidate") is True:
+        if exact_origin:
+            return "exact_recovery_candidate_unknown_year"
         return "candidate_unknown_report_year"
+    if exact_origin and row.get("confidence_tier") in {"low", "reject"}:
+        return "exact_recovery_candidate_not_selected_by_threshold"
     if row.get("confidence_tier") in {"low", "reject"}:
         return "only_low_confidence_candidates"
     return ""
@@ -30562,6 +31023,12 @@ def _rzd_embedded_candidate_ranking_missing_preservation() -> dict[str, bool]:
         "task157_ready_input_preserved": False,
         "task156_accepted_candidates_input_preserved": False,
         "task148_source_pack_input_preserved": False,
+        "rzd_exact_document_refill_validation_input_preserved": True,
+        "rzd_exact_document_refill_accepted_input_preserved": True,
+        "rzd_exact_document_fetch_plan_input_preserved": True,
+        "rzd_exact_document_fetch_plan_ready_input_preserved": True,
+        "rzd_controlled_page_fetch_plan_input_preserved": True,
+        "rzd_controlled_page_fetch_plan_ready_input_preserved": True,
         "input_bytes_unchanged": False,
     }
 
@@ -30576,13 +31043,17 @@ def _rzd_embedded_candidate_ranking_preservation_fields(
     all_preserved = True
     for role in inputs:
         path = inputs.get(role)
-        preserved = False
+        preserved = role in RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_ROLES and (
+            path is None or not path.is_file()
+        )
         if path is not None and path in snapshots:
             try:
                 current = path.read_bytes()
                 preserved = current == snapshots[path] and hashlib.sha256(current).hexdigest() == input_hashes.get(role)
             except OSError:
                 preserved = False
+        elif role not in RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_ROLES:
+            preserved = False
         fields[f"{role}_input_preserved"] = preserved
         all_preserved = all_preserved and preserved
     fields["input_bytes_unchanged"] = all_preserved
@@ -30622,6 +31093,11 @@ def _build_rzd_embedded_candidate_ranking_report(
     no_target_year_aligned = bool(ranked_rows) and not any(
         row.get("year_alignment_status") in {"target_year_aligned", "prior_year_allowed"} for row in ranked_rows
     )
+    exact_ranked_rows = [row for row in ranked_rows if row.get("candidate_origin") == "task161_exact_recovery_candidate"]
+    exact_selected_rows = [row for row in selected_rows if row.get("candidate_origin") == "task161_exact_recovery_candidate"]
+    exact_blocker_rows = [
+        row for row in blocker_rows if str(row.get("blocker_code") or "").startswith("exact_recovery_")
+    ]
     status = forced_status
     if errors:
         status = "failed"
@@ -30633,6 +31109,18 @@ def _build_rzd_embedded_candidate_ranking_report(
         "input_accepted_candidate_count": len(loaded.get("task160_accepted_rows") or []),
         "target_report_year": target_report_year,
         "allowed_prior_report_years": allowed_prior_report_years,
+        "exact_recovery_input_available": bool(
+            loaded.get("exact_recovery_candidate_rows") or loaded.get("exact_recovery_invalid_rows")
+        ),
+        "exact_recovery_candidate_count": int(loaded.get("exact_recovery_raw_candidate_count") or 0),
+        "exact_recovery_ranked_candidate_count": len(exact_ranked_rows),
+        "exact_recovery_selected_candidate_count": len(exact_selected_rows),
+        "exact_recovery_blocked_candidate_count": len(exact_blocker_rows),
+        "exact_recovery_target_year_aligned_candidate_count": sum(1 for row in exact_ranked_rows if row.get("target_year_aligned") is True),
+        "exact_recovery_stale_year_mismatch_candidate_count": sum(1 for row in exact_ranked_rows if row.get("stale_year_mismatch") is True),
+        "exact_recovery_unknown_year_candidate_count": sum(1 for row in exact_ranked_rows if row.get("unknown_year_candidate") is True),
+        "exact_recovery_candidate_found": bool(loaded.get("exact_recovery_raw_candidate_count") or exact_ranked_rows),
+        "exact_recovery_selected_candidate_found": bool(exact_selected_rows),
         "ranked_candidate_count": len(ranked_rows),
         "selected_candidate_count": len(selected_rows),
         "blocked_count": len(blocker_rows),
@@ -30677,6 +31165,18 @@ def _build_rzd_embedded_candidate_ranking_report(
         "task156_accepted_candidates_input_sha256": input_hashes.get("task156_accepted_candidates") or "",
         "task148_source_pack_input_path": _path_value(inputs.get("task148_source_pack")) or "",
         "task148_source_pack_input_sha256": input_hashes.get("task148_source_pack") or "",
+        "rzd_exact_document_refill_validation_input_path": _path_value(inputs.get("rzd_exact_document_refill_validation")) if input_hashes.get("rzd_exact_document_refill_validation") else "",
+        "rzd_exact_document_refill_validation_input_sha256": input_hashes.get("rzd_exact_document_refill_validation") or "",
+        "rzd_exact_document_refill_accepted_input_path": _path_value(inputs.get("rzd_exact_document_refill_accepted")) if input_hashes.get("rzd_exact_document_refill_accepted") else "",
+        "rzd_exact_document_refill_accepted_input_sha256": input_hashes.get("rzd_exact_document_refill_accepted") or "",
+        "rzd_exact_document_fetch_plan_input_path": _path_value(inputs.get("rzd_exact_document_fetch_plan")) if input_hashes.get("rzd_exact_document_fetch_plan") else "",
+        "rzd_exact_document_fetch_plan_input_sha256": input_hashes.get("rzd_exact_document_fetch_plan") or "",
+        "rzd_exact_document_fetch_plan_ready_input_path": _path_value(inputs.get("rzd_exact_document_fetch_plan_ready")) if input_hashes.get("rzd_exact_document_fetch_plan_ready") else "",
+        "rzd_exact_document_fetch_plan_ready_input_sha256": input_hashes.get("rzd_exact_document_fetch_plan_ready") or "",
+        "rzd_controlled_page_fetch_plan_input_path": _path_value(inputs.get("rzd_controlled_page_fetch_plan")) if input_hashes.get("rzd_controlled_page_fetch_plan") else "",
+        "rzd_controlled_page_fetch_plan_input_sha256": input_hashes.get("rzd_controlled_page_fetch_plan") or "",
+        "rzd_controlled_page_fetch_plan_ready_input_path": _path_value(inputs.get("rzd_controlled_page_fetch_plan_ready")) if input_hashes.get("rzd_controlled_page_fetch_plan_ready") else "",
+        "rzd_controlled_page_fetch_plan_ready_input_sha256": input_hashes.get("rzd_controlled_page_fetch_plan_ready") or "",
         **preservation,
         **_rzd_embedded_candidate_ranking_safety_flags(),
         "confidence_tier_counts": confidence_counts,
@@ -30779,7 +31279,17 @@ def _rzd_embedded_candidate_ranking_finalize_report(
         report["status"] = "failed"
         report["errors"] = [*report.get("errors", []), {"message": "rzd_embedded_candidate_ranking_write_failed", "error": str(exc)}]
         return report
-    complete_snapshot = all(path is not None and path in snapshots for path in inputs.values())
+    complete_snapshot = all(
+        path is not None
+        and (
+            path in snapshots
+            or (
+                role in RZD_EMBEDDED_CANDIDATE_RANKING_OPTIONAL_EXACT_INPUT_ROLES
+                and not path.is_file()
+            )
+        )
+        for role, path in inputs.items()
+    )
     if not complete_snapshot:
         return report
     preservation = _rzd_embedded_candidate_ranking_preservation_fields(
