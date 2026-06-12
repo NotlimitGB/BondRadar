@@ -34181,6 +34181,52 @@ def _rzd_candidate_page_link_discovery_blocker_row(row: dict[str, Any], code: st
     }
 
 
+def _rzd_candidate_page_link_discovery_count_fields(
+    *,
+    loaded: dict[str, Any] | None,
+    candidate_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    status: str,
+    raw_page_stats: dict[str, int] | None = None,
+) -> dict[str, int]:
+    raw_page_stats = raw_page_stats or {}
+    unique_urls = {
+        str(row.get("candidate_url") or "")
+        for row in candidate_rows
+        if str(row.get("candidate_url") or "")
+    }
+    confidence_counts = _count_by_key(candidate_rows, "discovery_confidence")
+    return {
+        "input_page_count": len((loaded or {}).get("task163_page_rows") or []),
+        "raw_page_inspected_count": int(raw_page_stats.get("raw_page_count") or 0),
+        "raw_page_hash_verified_count": int(raw_page_stats.get("raw_page_verified_count") or 0),
+        "discovery_candidate_count": len(candidate_rows),
+        "unique_candidate_count": len(unique_urls),
+        "candidate_row_count": len(candidate_rows),
+        "document_candidate_count": sum(1 for row in candidate_rows if row.get("candidate_type") in {"direct_document_candidate", "document_download_candidate"}),
+        "download_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("candidate_download_hint")) or row.get("candidate_type") == "document_download_candidate"),
+        "api_hint_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("candidate_api_hint")) or row.get("candidate_type") == "candidate_api_hint"),
+        "cms_hint_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("candidate_cms_hint")) or row.get("candidate_type") in {"cms_element_hint", "candidate_page"}),
+        "target_year_aligned_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("target_year_aligned"))),
+        "stale_year_mismatch_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("stale_year_mismatch"))),
+        "unknown_year_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("unknown_year_candidate"))),
+        "blocked_candidate_count": sum(
+            1
+            for row in candidate_rows
+            if row.get("discovery_blocker_codes")
+            or row.get("candidate_type") == "blocked_candidate"
+            or (not _as_bool(row.get("future_candidate_validation_required")) and row.get("discovery_confidence") == "reject")
+        ),
+        "failed_count": 1 if status == "failed" else 0,
+        "high_confidence_candidate_count": int(confidence_counts.get("high") or 0),
+        "medium_confidence_candidate_count": int(confidence_counts.get("medium") or 0),
+        "low_confidence_candidate_count": int(confidence_counts.get("low") or 0),
+        "reject_candidate_count": int(confidence_counts.get("reject") or 0),
+        "future_validation_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("future_candidate_validation_required"))),
+        "blocked_count": len(blocker_rows),
+    }
+
+
 def _build_rzd_candidate_page_link_discovery_report(
     args: argparse.Namespace,
     *,
@@ -34198,25 +34244,32 @@ def _build_rzd_candidate_page_link_discovery_report(
 ) -> dict[str, Any]:
     ready_rows = [row for row in candidate_rows if _as_bool(row.get("future_candidate_validation_required"))]
     status = "failed" if errors else forced_status
+    count_fields = _rzd_candidate_page_link_discovery_count_fields(
+        loaded=loaded,
+        candidate_rows=candidate_rows,
+        blocker_rows=blocker_rows,
+        status=status,
+        raw_page_stats=raw_page_stats,
+    )
     report = {
         "status": status,
         "mode": "rzd-candidate-page-link-discovery-preview-v2",
         "target_report_year": RZD_CANDIDATE_PAGE_LINK_DISCOVERY_DEFAULTS["target_report_year"],
         "input_task163_page_count": len(loaded.get("task163_page_rows") or []),
-        "raw_page_inspected_count": raw_page_stats.get("raw_page_count", 0),
-        "raw_page_hash_verified_count": raw_page_stats.get("raw_page_verified_count", 0),
-        "candidate_row_count": len(candidate_rows),
+        "raw_page_inspected_count": count_fields["raw_page_inspected_count"],
+        "raw_page_hash_verified_count": count_fields["raw_page_hash_verified_count"],
+        "candidate_row_count": count_fields["candidate_row_count"],
         "useful_candidate_count": len(ready_rows),
-        "future_validation_candidate_count": len(ready_rows),
-        "blocked_count": len(blocker_rows),
-        "failed_count": 1 if status == "failed" else 0,
+        "future_validation_candidate_count": count_fields["future_validation_candidate_count"],
+        "blocked_count": count_fields["blocked_count"],
+        "failed_count": count_fields["failed_count"],
         "direct_document_candidate_count": sum(1 for row in candidate_rows if row.get("candidate_type") == "direct_document_candidate"),
         "document_download_candidate_count": sum(1 for row in candidate_rows if row.get("candidate_type") == "document_download_candidate"),
-        "api_hint_candidate_count": sum(1 for row in candidate_rows if row.get("candidate_type") == "candidate_api_hint"),
-        "cms_hint_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("candidate_cms_hint"))),
+        "api_hint_candidate_count": count_fields["api_hint_candidate_count"],
+        "cms_hint_candidate_count": count_fields["cms_hint_candidate_count"],
         "target_year_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("target_year_aligned"))),
         "stale_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("stale_year_mismatch"))),
-        "unknown_year_candidate_count": sum(1 for row in candidate_rows if _as_bool(row.get("unknown_year_candidate"))),
+        "unknown_year_candidate_count": count_fields["unknown_year_candidate_count"],
         "rzd_candidate_page_links_discovered": bool(candidate_rows),
         "rzd_document_candidate_found": bool(ready_rows),
         "rzd_ready_for_future_document_candidate_validation": bool(ready_rows),
@@ -34237,6 +34290,7 @@ def _build_rzd_candidate_page_link_discovery_report(
         **{f"{role}_input_sha256": input_hashes.get(role) or "" for role in inputs},
         **preservation,
         **_rzd_candidate_page_link_discovery_safety_flags(),
+        **count_fields,
     }
     for field in RZD_CANDIDATE_PAGE_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS:
         report[field] = bool(report.get(field))
@@ -34336,8 +34390,18 @@ def _rzd_candidate_page_link_discovery_finalize_report(
                 *report.get("blocker_rows", []),
                 _rzd_candidate_page_link_discovery_blocker_row({}, "input_drift_detected", discovery_candidate_id="input_drift"),
             ]
-    report["failed_count"] = 1 if report["status"] == "failed" else 0
-    report["blocked_count"] = len(report.get("blocker_rows") or [])
+    report.update(
+        _rzd_candidate_page_link_discovery_count_fields(
+            loaded={"task163_page_rows": [None] * int(report.get("input_page_count") or report.get("input_task163_page_count") or 0)},
+            candidate_rows=list(report.get("candidate_rows") or []),
+            blocker_rows=list(report.get("blocker_rows") or []),
+            status=str(report.get("status") or ""),
+            raw_page_stats={
+                "raw_page_count": int(report.get("raw_page_inspected_count") or 0),
+                "raw_page_verified_count": int(report.get("raw_page_hash_verified_count") or 0),
+            },
+        )
+    )
     report["blocker_code_counts"] = _count_by_key(report.get("blocker_rows") or [], "blocker_code")
     for field in RZD_CANDIDATE_PAGE_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS:
         report[field] = bool(report.get(field))

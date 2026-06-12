@@ -12061,6 +12061,17 @@ def test_rzd_candidate_page_link_discovery_discovers_direct_pdf_future_candidate
     assert row["future_candidate_validation_required"] is True
     assert row["future_document_download_required"] is False
     assert row["future_document_parse_required"] is False
+    _assert_rzd_candidate_page_link_discovery_count_fields(report)
+    assert report["document_candidate_count"] >= 1
+    assert report["download_candidate_count"] >= 1
+    assert report["target_year_aligned_candidate_count"] >= 1
+    assert (
+        report["high_confidence_candidate_count"]
+        + report["medium_confidence_candidate_count"]
+        + report["low_confidence_candidate_count"]
+        + report["reject_candidate_count"]
+    ) == report["candidate_row_count"]
+    assert report["future_validation_candidate_count"] >= 1
     for field in _rzd_candidate_page_link_discovery_required_bool_fields():
         assert field in report
         assert isinstance(report[field], bool)
@@ -12120,6 +12131,10 @@ def test_rzd_candidate_page_link_discovery_vds_like_page_without_file_extension(
     assert row["candidate_type"] == "candidate_page"
     assert row["future_candidate_validation_required"] is True
     assert row["candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    _assert_rzd_candidate_page_link_discovery_count_fields(report)
+    assert report["candidate_row_count"] > 0
+    assert report["discovery_candidate_count"] > 0
+    assert report["unique_candidate_count"] > 0
     assert report["would_fetch_urls"] is False
     assert report["would_download_documents"] is False
 
@@ -12131,7 +12146,7 @@ def test_rzd_candidate_page_link_discovery_blocks_stale_and_external_candidates(
     html = b"""
     <html><body>
       <a href="/ru/9397/page/104069?id=292429">RZD IFRS annual report 2023</a>
-      <a href="https://example.com/rzd-ifrs-annual-report-2025.pdf">RZD IFRS annual report 2025</a>
+      <a href="https://example.com/rzd-ifrs-annual-report.pdf">RZD IFRS annual report</a>
     </body></html>
     """
     _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch, html=html)
@@ -12144,6 +12159,11 @@ def test_rzd_candidate_page_link_discovery_blocks_stale_and_external_candidates(
     assert "candidate_stale_report_year_mismatch" in blocker_codes
     assert "candidate_host_not_trusted" in blocker_codes
     assert all(row["future_candidate_validation_required"] is False for row in report["candidate_rows"])
+    _assert_rzd_candidate_page_link_discovery_count_fields(report)
+    assert report["blocked_candidate_count"] >= 2
+    assert report["stale_year_mismatch_candidate_count"] >= 1
+    assert report["reject_candidate_count"] >= 1
+    assert report["future_validation_candidate_count"] == 0
 
 
 def test_rzd_candidate_page_link_discovery_raw_hash_mismatch_fails(
@@ -12244,6 +12264,12 @@ def test_rzd_candidate_page_link_discovery_required_failure_bool_fields(tmp_path
 
     assert report["status"] == "failed"
     assert {"message": "task163_page_fetch_input_required"} in report["errors"]
+    _assert_rzd_candidate_page_link_discovery_count_fields(report)
+    for field in _rzd_candidate_page_link_discovery_required_count_fields():
+        if field == "failed_count":
+            continue
+        assert report[field] == 0
+    assert report["failed_count"] == 1
     for field in _rzd_candidate_page_link_discovery_required_bool_fields():
         assert field in report
         assert isinstance(report[field], bool)
@@ -21073,6 +21099,38 @@ def _rzd_candidate_page_link_discovery_required_bool_fields() -> tuple[str, ...]
 
 def _rzd_candidate_page_link_discovery_required_row_bool_fields() -> tuple[str, ...]:
     return assistant.RZD_CANDIDATE_PAGE_LINK_DISCOVERY_ROW_BOOL_FIELDS
+
+
+def _rzd_candidate_page_link_discovery_required_count_fields() -> tuple[str, ...]:
+    return (
+        "input_page_count",
+        "raw_page_inspected_count",
+        "raw_page_hash_verified_count",
+        "discovery_candidate_count",
+        "unique_candidate_count",
+        "candidate_row_count",
+        "document_candidate_count",
+        "download_candidate_count",
+        "api_hint_candidate_count",
+        "cms_hint_candidate_count",
+        "target_year_aligned_candidate_count",
+        "stale_year_mismatch_candidate_count",
+        "unknown_year_candidate_count",
+        "blocked_candidate_count",
+        "failed_count",
+        "high_confidence_candidate_count",
+        "medium_confidence_candidate_count",
+        "low_confidence_candidate_count",
+        "reject_candidate_count",
+        "future_validation_candidate_count",
+    )
+
+
+def _assert_rzd_candidate_page_link_discovery_count_fields(report: dict) -> None:
+    for field in _rzd_candidate_page_link_discovery_required_count_fields():
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
 
 
 def _rzd_reporting_hub_embedded_required_row_bool_fields() -> tuple[str, ...]:
