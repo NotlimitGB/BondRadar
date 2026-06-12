@@ -12032,6 +12032,224 @@ def test_rzd_ranked_candidate_controlled_page_fetch_required_failure_bool_fields
         assert report[field] is not None
 
 
+def test_rzd_candidate_page_link_discovery_discovers_direct_pdf_future_candidate(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = b"""
+    <html><body>
+      <a href="/files/rzd-ifrs-consolidated-annual-report-2025.pdf">
+        RZD IFRS annual consolidated financial report 2025
+      </a>
+    </body></html>
+    """
+    _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+
+    report = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["raw_page_hash_verified_count"] == 1
+    assert report["future_validation_candidate_count"] == 1
+    assert report["rzd_ready_for_future_document_candidate_validation"] is True
+    row = report["candidate_rows"][0]
+    assert row["candidate_type"] == "direct_document_candidate"
+    assert row["candidate_status"] == "future_document_candidate_validation_candidate"
+    assert row["candidate_url"] == "https://company.rzd.ru/files/rzd-ifrs-consolidated-annual-report-2025.pdf"
+    assert row["target_year_aligned"] is True
+    assert row["candidate_ifrs_hint"] is True
+    assert row["candidate_document_file_hint"] is True
+    assert row["future_candidate_validation_required"] is True
+    assert row["future_document_download_required"] is False
+    assert row["future_document_parse_required"] is False
+    for field in _rzd_candidate_page_link_discovery_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in _rzd_candidate_page_link_discovery_required_row_bool_fields():
+        assert field in row
+        assert isinstance(row[field], bool)
+        assert row[field] is not None
+    for output_name in assistant.RZD_CANDIDATE_PAGE_LINK_DISCOVERY_ARTIFACT_NAMES.values():
+        assert (tmp_path / output_name).is_file()
+
+
+def test_rzd_candidate_page_link_discovery_discovers_js_api_and_cms_hints(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = b"""
+    <html><body>
+      <script>
+        window.report = {
+          downloadUrl: "/api/report/download?id=777&year=2025",
+          pageUrl: "/ru/9397/page/104069?id=322745"
+        };
+      </script>
+      RZD IFRS annual consolidated report 2025 document download
+    </body></html>
+    """
+    _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+
+    report = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    ready = [row for row in report["candidate_rows"] if row["future_candidate_validation_required"]]
+    assert report["status"] == "passed"
+    assert len(ready) >= 2
+    assert any(row["candidate_type"] == "candidate_api_hint" for row in ready)
+    assert any(row["candidate_cms_hint"] is True for row in ready)
+    assert all(row["would_fetch_url"] is False for row in ready)
+    assert all(row["would_download_document"] is False for row in ready)
+
+
+def test_rzd_candidate_page_link_discovery_vds_like_page_without_file_extension(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = b"""
+    <html><body>
+      <a data-url="/ru/9397/page/104069?id=322745">IFRS annual consolidated reporting page 2025</a>
+      <p>RZD 2025 financial statements and audit report context.</p>
+    </body></html>
+    """
+    _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+
+    report = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    row = next(row for row in report["candidate_rows"] if "id=322745" in row["candidate_url"])
+    assert row["candidate_type"] == "candidate_page"
+    assert row["future_candidate_validation_required"] is True
+    assert row["candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
+    assert report["would_fetch_urls"] is False
+    assert report["would_download_documents"] is False
+
+
+def test_rzd_candidate_page_link_discovery_blocks_stale_and_external_candidates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html = b"""
+    <html><body>
+      <a href="/ru/9397/page/104069?id=292429">RZD IFRS annual report 2023</a>
+      <a href="https://example.com/rzd-ifrs-annual-report-2025.pdf">RZD IFRS annual report 2025</a>
+    </body></html>
+    """
+    _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch, html=html)
+
+    report = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["future_validation_candidate_count"] == 0
+    blocker_codes = {row["blocker_code"] for row in report["blocker_rows"]}
+    assert "candidate_stale_report_year_mismatch" in blocker_codes
+    assert "candidate_host_not_trusted" in blocker_codes
+    assert all(row["future_candidate_validation_required"] is False for row in report["candidate_rows"])
+
+
+def test_rzd_candidate_page_link_discovery_raw_hash_mismatch_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch)
+    paths["task163_raw_html"].write_bytes(paths["task163_raw_html"].read_bytes() + b"\nchanged")
+
+    report = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "rzd_candidate_page_link_discovery_input_drift_detected"} not in report["errors"]
+    assert "task163_raw_candidate_page_hash_mismatch" in {row["blocker_code"] for row in report["blocker_rows"]}
+
+
+def test_rzd_candidate_page_link_discovery_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch)
+    collision = _run_rzd_candidate_page_link_discovery(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-candidate-page-link-discovery-output",
+            str(paths["task163_page_fetch"]),
+        ]
+    )
+
+    assert collision["status"] == "failed"
+    assert {"message": "rzd_candidate_page_link_discovery_output_must_not_equal_input"} in collision["errors"]
+    assert not (tmp_path / "rzd_candidate_page_link_discovery_task164.json").exists()
+
+    drift_dir = tmp_path / "drift"
+    drift_paths = _write_rzd_candidate_page_link_discovery_inputs(drift_dir, monkeypatch)
+    original_writer = assistant._rzd_candidate_page_link_discovery_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            drift_paths["ranking_selected"].write_bytes(drift_paths["ranking_selected"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_candidate_page_link_discovery_write_safe_outputs", mutate_after_first_write)
+
+    drift = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(drift_dir)])
+
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_candidate_page_link_discovery_input_drift_detected"} in drift["errors"]
+    assert drift["task161_selected_input_preserved"] is False
+    assert drift["task163_page_fetch_input_preserved"] is True
+    assert drift["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
+
+
+def test_rzd_candidate_page_link_discovery_no_side_effects_and_bool_fields(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_candidate_page_link_discovery_inputs(tmp_path, monkeypatch)
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task164 must not probe, fetch, download, parse, mutate DB/intake, score, trade, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["would_fetch_urls"] is False
+    assert report["would_fetch_pages"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["documents_downloaded"] is False
+    assert report["documents_parsed"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_trigger_paper_trading"] is False
+    for field in _rzd_candidate_page_link_discovery_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for row in report["candidate_rows"]:
+        for field in _rzd_candidate_page_link_discovery_required_row_bool_fields():
+            assert field in row
+            assert isinstance(row[field], bool)
+            assert row[field] is not None
+
+
+def test_rzd_candidate_page_link_discovery_required_failure_bool_fields(tmp_path: Path) -> None:
+    report = _run_rzd_candidate_page_link_discovery(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "task163_page_fetch_input_required"} in report["errors"]
+    for field in _rzd_candidate_page_link_discovery_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -19943,6 +20161,19 @@ def _run_rzd_ranked_candidate_controlled_page_fetch(extra_args: list[str] | None
     return report
 
 
+def _run_rzd_candidate_page_link_discovery(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-candidate-page-link-discovery-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -20836,6 +21067,14 @@ def _rzd_ranked_candidate_controlled_page_fetch_required_row_bool_fields() -> tu
     return assistant.RZD_RANKED_CANDIDATE_CONTROLLED_PAGE_FETCH_ROW_BOOL_FIELDS
 
 
+def _rzd_candidate_page_link_discovery_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_CANDIDATE_PAGE_LINK_DISCOVERY_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_candidate_page_link_discovery_required_row_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_CANDIDATE_PAGE_LINK_DISCOVERY_ROW_BOOL_FIELDS
+
+
 def _rzd_reporting_hub_embedded_required_row_bool_fields() -> tuple[str, ...]:
     return (
         "same_host",
@@ -21246,6 +21485,43 @@ def _write_rzd_ranked_candidate_controlled_page_fetch_inputs(
         "validation_plan": path / "rzd_ranked_candidate_controlled_validation_plan_task162.json",
         "validation_plan_ready": path / "rzd_ranked_candidate_controlled_validation_plan_ready_task162.json",
         "validation_plan_blockers": path / "rzd_ranked_candidate_controlled_validation_plan_blockers_task162.json",
+    }
+
+
+def _write_rzd_candidate_page_link_discovery_inputs(
+    path: Path,
+    monkeypatch,
+    *,
+    html: bytes | None = None,
+    selected_rows: list[dict[str, object]] | None = None,
+) -> dict[str, Path]:
+    body = html or b"<html><body>RZD IFRS annual consolidated reporting page 2025</body></html>"
+    paths = _write_rzd_ranked_candidate_controlled_page_fetch_inputs(
+        path,
+        monkeypatch,
+        selected_rows=selected_rows or [_task163_selected_row()],
+    )
+
+    def controlled_fetch(url, *, timeout_seconds, max_bytes, user_agent):
+        return {
+            "status": "ok",
+            "final_url": url,
+            "http_status_code": 200,
+            "content_type": "text/html; charset=utf-8",
+            "redirect_chain": [],
+            "raw_bytes": body,
+            "size_bytes": len(body),
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_ranked_candidate_controlled_page_fetch_http_get", controlled_fetch)
+    page_fetch = _run_rzd_ranked_candidate_controlled_page_fetch(["--operator-resolution-chain-output-dir", str(path)])
+    assert page_fetch["status"] == "passed"
+    return {
+        **paths,
+        "task163_page_fetch": path / "rzd_ranked_candidate_controlled_page_fetch_task163.json",
+        "task163_pages": path / "rzd_ranked_candidate_controlled_page_fetch_pages_task163.json",
+        "task163_hash_manifest": path / "rzd_ranked_candidate_controlled_page_fetch_hash_manifest_task163.json",
+        "task163_raw_html": Path(page_fetch["page_rows"][0]["raw_candidate_page_path"]),
     }
 
 
