@@ -11730,6 +11730,7 @@ def test_rzd_ranked_candidate_controlled_page_fetch_success(
     assert report["candidate_page_failed_count"] == 0
     assert report["rzd_candidate_page_fetch_completed"] is True
     assert report["rzd_ready_for_future_candidate_page_link_discovery"] is True
+    assert report["target_year_aligned_ready_candidate_count"] == 1
     row = report["page_rows"][0]
     assert row["fetch_status"] == "fetched_candidate_page_html"
     assert row["candidate_url"] == "https://company.rzd.ru/ru/9397/page/104069?id=322745"
@@ -11778,6 +11779,7 @@ def test_rzd_ranked_candidate_controlled_page_fetch_no_ready_warning(
 
     assert report["status"] == "warning"
     assert report["candidate_page_fetch_attempt_count"] == 0
+    assert report["target_year_aligned_ready_candidate_count"] == 0
     assert "no_ready_candidate_pages_to_fetch" in {row["blocker_code"] for row in report["blocker_rows"]}
     assert report["would_fetch_pages"] is False
     assert report["pages_fetched"] is False
@@ -11794,8 +11796,10 @@ def test_rzd_ranked_candidate_controlled_page_fetch_static_blockers_do_not_call_
         selected_rows=[
             _task163_selected_row(
                 selected_candidate_url="https://company.rzd.ru/ru/9397/page/104069?id=292429",
-                primary_detected_report_year=2025,
-                stale_year_mismatch=False,
+                primary_detected_report_year=2023,
+                target_year_aligned=False,
+                year_alignment_status="stale_year_mismatch",
+                stale_year_mismatch=True,
             )
         ],
     )
@@ -11822,6 +11826,8 @@ def test_rzd_ranked_candidate_controlled_page_fetch_static_blockers_do_not_call_
     wrong_host = _run_rzd_ranked_candidate_controlled_page_fetch(["--operator-resolution-chain-output-dir", str(wrong_host_dir)])
 
     assert stale["status"] == "warning"
+    assert stale["target_year_aligned_ready_candidate_count"] == 0
+    assert stale["known_stale_candidate_blocked_count"] == 1
     assert "known_stale_2023_candidate_must_not_be_fetched" in {row["blocker_code"] for row in stale["blocker_rows"]}
     assert wrong_host["status"] == "warning"
     assert "candidate_page_untrusted_host" in {row["blocker_code"] for row in wrong_host["blocker_rows"]}

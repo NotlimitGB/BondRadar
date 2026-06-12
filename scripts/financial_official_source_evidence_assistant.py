@@ -32940,7 +32940,7 @@ def _build_rzd_ranked_candidate_controlled_page_fetch_report(
         "candidate_page_failed_count": len(failed_rows),
         "failed_count": 1 if status == "failed" else 0,
         "target_report_year": 2025,
-        "target_year_aligned_ready_candidate_count": sum(1 for row in loaded.get("task162_ready_rows") or [] if _as_bool(row.get("target_year_aligned"))),
+        "target_year_aligned_ready_candidate_count": sum(1 for row in page_rows if _as_bool(row.get("target_year_aligned"))),
         "known_stale_candidate_blocked_count": sum(1 for row in page_rows if "known_stale_2023_candidate_must_not_be_fetched" in (row.get("fetch_blocker_codes") or [])),
         "rzd_candidate_page_fetch_completed": fetched and not failed_rows,
         "rzd_candidate_page_html_saved": fetched,
