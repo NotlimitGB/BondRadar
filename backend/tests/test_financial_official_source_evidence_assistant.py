@@ -12496,6 +12496,294 @@ def test_rzd_document_candidate_controlled_validation_plan_required_failure_fiel
     _assert_rzd_document_candidate_controlled_validation_plan_report_fields(report)
 
 
+def test_rzd_document_candidate_controlled_validation_fetch_four_vds_candidates(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_document_candidate_controlled_validation_fetch_inputs(tmp_path, monkeypatch)
+    calls: list[str] = []
+
+    def validation_get(url, *, timeout_seconds, max_bytes, user_agent):
+        calls.append(url)
+        assert timeout_seconds == 20.0
+        assert max_bytes == 2_097_152
+        assert "BondRadar RZD Document Candidate Validation Fetch Preview" in user_agent
+        if url.endswith("/ru/9271"):
+            body = "<html><title>RZD reporting 2025</title><body>IFRS annual financial report 2025</body></html>".encode("utf-8")
+            return {
+                "status": "ok",
+                "final_url": url,
+                "http_status_code": 200,
+                "content_type": "text/html; charset=utf-8",
+                "content_disposition": "",
+                "content_length_header": str(len(body)),
+                "redirect_chain": [],
+                "raw_bytes": body,
+                "size_bytes": len(body),
+            }
+        body = json.dumps(
+            {
+                "name": f"RZD IFRS annual report 2025 {url.rsplit('/', 1)[-1]}.pdf",
+                "downloadUrl": "/media/resources/1799205/download",
+                "year": 2025,
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return {
+            "status": "ok",
+            "final_url": url,
+            "http_status_code": 200,
+            "content_type": "application/json; charset=utf-8",
+            "content_disposition": "",
+            "content_length_header": str(len(body)),
+            "redirect_chain": [],
+            "raw_bytes": body,
+            "size_bytes": len(body),
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_http_get", validation_get)
+
+    report = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert calls == [
+        "https://company.rzd.ru/ru/9271",
+        "https://company.rzd.ru/api/media/resources/1799205",
+        "https://company.rzd.ru/api/media/resources/1799204",
+        "https://company.rzd.ru/api/media/resources/1799203",
+    ]
+    assert report["input_ready_candidate_count"] == 4
+    assert report["validation_fetch_attempt_count"] == 4
+    assert report["validation_fetch_success_count"] == 4
+    assert report["page_candidate_fetch_count"] == 1
+    assert report["api_media_resource_fetch_count"] == 3
+    assert report["html_response_count"] == 1
+    assert report["json_metadata_response_count"] == 3
+    assert report["future_link_discovery_required_count"] == 1
+    assert report["future_json_metadata_analysis_required_count"] == 3
+    assert report["urls_fetched"] is True
+    assert report["pages_fetched"] is True
+    assert report["api_fetched"] is True
+    assert report["documents_downloaded"] is False
+    assert report["documents_parsed"] is False
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+    _assert_rzd_document_candidate_controlled_validation_fetch_report_fields(report)
+    for row in report["validation_result_rows"]:
+        _assert_rzd_document_candidate_controlled_validation_fetch_row_fields(row)
+        assert Path(row["raw_validation_response_path"]).is_file()
+        assert row["raw_validation_response_sha256"] == hashlib.sha256(Path(row["raw_validation_response_path"]).read_bytes()).hexdigest()
+        assert row["documents_downloaded"] is False
+        assert row["documents_parsed"] is False
+    manifest = json.loads((tmp_path / "rzd_document_candidate_controlled_validation_fetch_hash_manifest_task166.json").read_text(encoding="utf-8"))
+    assert manifest["entry_count"] == 4
+    for output_name in assistant.RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_ARTIFACT_NAMES.values():
+        assert (tmp_path / output_name).is_file()
+
+
+def test_rzd_document_candidate_controlled_validation_fetch_classifies_html_json_and_pdf(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    html_dir = tmp_path / "html_json"
+    _write_rzd_document_candidate_controlled_validation_fetch_inputs(html_dir, monkeypatch)
+
+    def html_json_get(url, *, timeout_seconds, max_bytes, user_agent):
+        if url.endswith("/ru/9271"):
+            body = b"<html><body>RZD IFRS annual report 2025</body></html>"
+            return {"status": "ok", "final_url": url, "http_status_code": 200, "content_type": "text/html", "raw_bytes": body, "size_bytes": len(body), "redirect_chain": []}
+        body = b'{"name":"RZD IFRS annual report 2025.pdf","downloadUrl":"/media/resources/1799205/download"}'
+        return {"status": "ok", "final_url": url, "http_status_code": 200, "content_type": "application/json", "raw_bytes": body, "size_bytes": len(body), "redirect_chain": []}
+
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_http_get", html_json_get)
+    html_json_report = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(html_dir)])
+
+    html_row = next(row for row in html_json_report["validation_result_rows"] if row["candidate_url"].endswith("/ru/9271"))
+    json_row = next(row for row in html_json_report["validation_result_rows"] if row["candidate_url"].endswith("/1799205"))
+    assert html_row["validation_response_type"] == "html_page_response"
+    assert html_row["future_link_discovery_required"] is True
+    assert html_row["future_document_download_plan_required"] is False
+    assert json_row["validation_response_type"] == "json_metadata_response"
+    assert json_row["future_json_metadata_analysis_required"] is True
+    assert json_row["validation_response_target_year_aligned"] is True
+    assert "RZD IFRS annual report 2025.pdf" in json_row["validation_response_filename_hint"]
+    assert json_row["validation_response_embedded_url_count"] >= 1
+    assert json_row["future_document_download_plan_required"] is False
+
+    pdf_dir = tmp_path / "pdf"
+    _write_rzd_document_candidate_controlled_validation_fetch_inputs(
+        pdf_dir,
+        monkeypatch,
+        candidate_rows=[_task165_candidate_row("https://company.rzd.ru/api/media/resources/1799205", candidate_type="candidate_api_hint")],
+    )
+
+    def pdf_get(url, *, timeout_seconds, max_bytes, user_agent):
+        body = b"%PDF-1.7\n% validation snapshot only"
+        return {
+            "status": "ok",
+            "final_url": url,
+            "http_status_code": 200,
+            "content_type": "application/pdf",
+            "content_disposition": 'attachment; filename="rzd-ifrs-report-2025.pdf"',
+            "raw_bytes": body,
+            "size_bytes": len(body),
+            "redirect_chain": [],
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_http_get", pdf_get)
+    pdf_report = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(pdf_dir)])
+    pdf_row = pdf_report["validation_result_rows"][0]
+
+    assert pdf_row["validation_response_type"] == "potential_pdf_document_response"
+    assert pdf_row["potential_document_response_detected"] is True
+    assert pdf_row["future_document_download_plan_required"] is True
+    assert pdf_row["document_downloaded"] is False
+    assert pdf_report["documents_downloaded"] is False
+    assert pdf_row["document_parsed"] is False
+    assert pdf_report["documents_parsed"] is False
+
+
+def test_rzd_document_candidate_controlled_validation_fetch_redirect_and_no_ready(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    redirect_dir = tmp_path / "redirect"
+    _write_rzd_document_candidate_controlled_validation_fetch_inputs(
+        redirect_dir,
+        monkeypatch,
+        candidate_rows=[_task165_candidate_row("https://company.rzd.ru/api/media/resources/1799205", candidate_type="candidate_api_hint")],
+    )
+
+    def redirect_get(url, *, timeout_seconds, max_bytes, user_agent):
+        return {
+            "status": "ok",
+            "final_url": "https://example.com/report.pdf",
+            "http_status_code": 200,
+            "content_type": "application/pdf",
+            "raw_bytes": b"%PDF",
+            "size_bytes": 4,
+            "redirect_chain": ["https://example.com/report.pdf"],
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_http_get", redirect_get)
+    redirect = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(redirect_dir)])
+
+    assert redirect["status"] == "warning"
+    row = redirect["validation_result_rows"][0]
+    assert row["fetch_status"] == "blocked_candidate_redirect"
+    assert "candidate_redirected_to_untrusted_host" in row["fetch_blocker_codes"]
+    assert row["documents_downloaded"] is False
+    assert redirect["documents_downloaded"] is False
+
+    no_ready_dir = tmp_path / "no_ready"
+    _write_rzd_document_candidate_controlled_validation_fetch_inputs(no_ready_dir, monkeypatch, candidate_rows=[])
+
+    def unexpected_get(*args, **kwargs):
+        raise AssertionError("Task166 must not fetch when Task165 has no ready rows")
+
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_http_get", unexpected_get)
+    no_ready = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(no_ready_dir)])
+
+    assert no_ready["status"] == "warning"
+    assert no_ready["validation_fetch_attempt_count"] == 0
+    assert "task165_no_ready_validation_candidates" in {row["blocker_code"] for row in no_ready["blocker_rows"]}
+    _assert_rzd_document_candidate_controlled_validation_fetch_report_fields(no_ready)
+
+
+def test_rzd_document_candidate_controlled_validation_fetch_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    paths = _write_rzd_document_candidate_controlled_validation_fetch_inputs(tmp_path, monkeypatch)
+    collision = _run_rzd_document_candidate_controlled_validation_fetch(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-document-candidate-controlled-validation-fetch-output",
+            str(paths["task165_validation_plan_ready"]),
+        ]
+    )
+
+    assert collision["status"] == "failed"
+    assert {"message": "rzd_document_candidate_controlled_validation_fetch_output_must_not_equal_input"} in collision["errors"]
+    assert not (tmp_path / "rzd_document_candidate_controlled_validation_fetch_task166.json").exists()
+
+    drift_dir = tmp_path / "drift"
+    drift_paths = _write_rzd_document_candidate_controlled_validation_fetch_inputs(drift_dir, monkeypatch)
+
+    def validation_get(url, *, timeout_seconds, max_bytes, user_agent):
+        body = b'{"name":"RZD IFRS annual report 2025.pdf"}'
+        return {"status": "ok", "final_url": url, "http_status_code": 200, "content_type": "application/json", "raw_bytes": body, "size_bytes": len(body), "redirect_chain": []}
+
+    original_writer = assistant._rzd_document_candidate_controlled_validation_fetch_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            drift_paths["task165_validation_plan_ready"].write_bytes(drift_paths["task165_validation_plan_ready"].read_bytes() + b"\n")
+
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_http_get", validation_get)
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_fetch_write_safe_outputs", mutate_after_first_write)
+
+    drift = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(drift_dir)])
+
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_document_candidate_controlled_validation_fetch_input_drift_detected"} in drift["errors"]
+    assert drift["task165_validation_plan_ready_input_preserved"] is False
+    assert drift["task165_validation_plan_input_preserved"] is True
+    assert drift["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
+
+
+def test_rzd_document_candidate_controlled_validation_fetch_no_side_effects_and_required_fields(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_rzd_document_candidate_controlled_validation_fetch_inputs(tmp_path, monkeypatch)
+
+    def validation_get(url, *, timeout_seconds, max_bytes, user_agent):
+        body = b'{"name":"RZD IFRS annual report 2025.pdf","downloadUrl":"/media/resources/1799205/download"}'
+        return {"status": "ok", "final_url": url, "http_status_code": 200, "content_type": "application/json", "raw_bytes": body, "size_bytes": len(body), "redirect_chain": []}
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task166 must not use document download, parse, import, scoring, trading, or delete helpers")
+
+    monkeypatch.setattr(assistant, "_rzd_document_candidate_controlled_validation_http_get", validation_get)
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["documents_downloaded"] is False
+    assert report["documents_parsed"] is False
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+    assert report["would_download_documents"] is False
+    assert report["would_parse_documents"] is False
+    assert report["would_mutate_database"] is False
+    _assert_rzd_document_candidate_controlled_validation_fetch_report_fields(report)
+    for row in report["validation_result_rows"]:
+        _assert_rzd_document_candidate_controlled_validation_fetch_row_fields(row)
+
+
+def test_rzd_document_candidate_controlled_validation_fetch_required_failure_fields(tmp_path: Path) -> None:
+    report = _run_rzd_document_candidate_controlled_validation_fetch(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "task165_validation_plan_input_required"} in report["errors"]
+    assert report["failed_count"] == 1
+    assert report["validation_fetch_attempt_count"] == 0
+    assert report["validation_fetch_success_count"] == 0
+    _assert_rzd_document_candidate_controlled_validation_fetch_report_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -20433,6 +20721,19 @@ def _run_rzd_document_candidate_controlled_validation_plan(extra_args: list[str]
     return report
 
 
+def _run_rzd_document_candidate_controlled_validation_fetch(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-document-candidate-controlled-validation-fetch-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -21396,6 +21697,36 @@ def _assert_rzd_document_candidate_controlled_validation_plan_row_fields(row: di
         assert row[field] is not None
 
 
+def _rzd_document_candidate_controlled_validation_fetch_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_document_candidate_controlled_validation_fetch_required_count_fields() -> tuple[str, ...]:
+    return assistant.RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_COUNT_FIELDS
+
+
+def _rzd_document_candidate_controlled_validation_fetch_required_row_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_ROW_BOOL_FIELDS
+
+
+def _assert_rzd_document_candidate_controlled_validation_fetch_report_fields(report: dict) -> None:
+    for field in _rzd_document_candidate_controlled_validation_fetch_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in _rzd_document_candidate_controlled_validation_fetch_required_count_fields():
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+
+
+def _assert_rzd_document_candidate_controlled_validation_fetch_row_fields(row: dict) -> None:
+    for field in _rzd_document_candidate_controlled_validation_fetch_required_row_bool_fields():
+        assert field in row
+        assert isinstance(row[field], bool)
+        assert row[field] is not None
+
+
 def _rzd_reporting_hub_embedded_required_row_bool_fields() -> tuple[str, ...]:
     return (
         "same_host",
@@ -22037,6 +22368,29 @@ def _write_rzd_document_candidate_controlled_validation_plan_inputs(
         "task164_link_discovery": path / "rzd_candidate_page_link_discovery_task164.json",
         "task164_candidates": path / "rzd_candidate_page_link_discovery_candidates_task164.json",
         "task164_blockers": path / "rzd_candidate_page_link_discovery_blockers_task164.json",
+    }
+
+
+def _write_rzd_document_candidate_controlled_validation_fetch_inputs(
+    path: Path,
+    monkeypatch,
+    *,
+    candidate_rows: list[dict[str, object]] | None = None,
+    selected_rows: list[dict[str, object]] | None = None,
+) -> dict[str, Path]:
+    paths = _write_rzd_document_candidate_controlled_validation_plan_inputs(
+        path,
+        monkeypatch,
+        candidate_rows=candidate_rows,
+        selected_rows=selected_rows,
+    )
+    plan = _run_rzd_document_candidate_controlled_validation_plan(["--operator-resolution-chain-output-dir", str(path)])
+    assert plan["status"] in {"passed", "warning"}
+    return {
+        **paths,
+        "task165_validation_plan": path / "rzd_document_candidate_controlled_validation_plan_task165.json",
+        "task165_validation_plan_ready": path / "rzd_document_candidate_controlled_validation_plan_ready_task165.json",
+        "task165_validation_plan_blockers": path / "rzd_document_candidate_controlled_validation_plan_blockers_task165.json",
     }
 
 

@@ -78,6 +78,7 @@ MODE_CHOICES = (
     "rzd-ranked-candidate-controlled-page-fetch-preview-v2",
     "rzd-candidate-page-link-discovery-preview-v2",
     "rzd-document-candidate-controlled-validation-plan-preview-v2",
+    "rzd-document-candidate-controlled-validation-fetch-preview-v2",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -5966,6 +5967,244 @@ RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_PLAN_ROW_BOOL_FIELDS = (
     "import_executed",
     "paper_trading_called",
 )
+RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS = {
+    "max_validation_candidates_to_fetch": 10,
+    "timeout_seconds": 20,
+    "max_bytes": 2_097_152,
+    "user_agent": "BondRadar RZD Document Candidate Validation Fetch Preview / contact: local",
+}
+RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_ARTIFACT_NAMES = {
+    "fetch_json": "rzd_document_candidate_controlled_validation_fetch_task166.json",
+    "fetch_csv": "rzd_document_candidate_controlled_validation_fetch_task166.csv",
+    "fetch_markdown": "rzd_document_candidate_controlled_validation_fetch_task166.md",
+    "results_json": "rzd_document_candidate_controlled_validation_fetch_results_task166.json",
+    "results_csv": "rzd_document_candidate_controlled_validation_fetch_results_task166.csv",
+    "blockers_json": "rzd_document_candidate_controlled_validation_fetch_blockers_task166.json",
+    "blockers_csv": "rzd_document_candidate_controlled_validation_fetch_blockers_task166.csv",
+    "hash_manifest_json": "rzd_document_candidate_controlled_validation_fetch_hash_manifest_task166.json",
+    "rerun_markdown": "rzd_document_candidate_controlled_validation_fetch_rerun_task166.md",
+}
+RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_FIELDS = [
+    "validation_fetch_id",
+    "validation_plan_id",
+    "discovery_candidate_id",
+    "company_id",
+    "company_name",
+    "candidate_url",
+    "candidate_url_sha256",
+    "candidate_host",
+    "candidate_scheme",
+    "candidate_path",
+    "candidate_query",
+    "validation_candidate_type",
+    "validation_plan_class",
+    "validation_plan_status",
+    "validation_priority",
+    "target_report_year",
+    "candidate_report_years",
+    "primary_detected_report_year",
+    "target_year_aligned",
+    "mixed_year_context",
+    "mixed_year_values",
+    "year_validation_status",
+    "expected_request_method",
+    "expected_content_type_families",
+    "expected_timeout_seconds",
+    "expected_max_bytes",
+    "expected_redirect_policy",
+    "fetch_attempted",
+    "fetch_status",
+    "fetch_blocker_codes",
+    "fetch_error_message",
+    "http_status_code",
+    "http_status_family",
+    "content_type",
+    "content_disposition",
+    "content_length_header",
+    "final_url",
+    "final_host",
+    "redirect_count",
+    "redirect_chain",
+    "response_byte_count",
+    "response_truncated",
+    "raw_validation_response_saved",
+    "raw_validation_response_path",
+    "raw_validation_response_sha256",
+    "validation_response_type",
+    "validation_response_report_years",
+    "validation_response_primary_report_year",
+    "validation_response_target_year_aligned",
+    "validation_response_mixed_year_context",
+    "validation_response_ifrs_hint",
+    "validation_response_msfo_hint",
+    "validation_response_report_hint",
+    "validation_response_financial_hint",
+    "validation_response_filename_hint",
+    "validation_response_embedded_url_count",
+    "validation_response_embedded_urls_sample",
+    "potential_document_response_detected",
+    "potential_document_content_type",
+    "potential_document_filename",
+    "potential_document_extension",
+    "future_link_discovery_required",
+    "future_json_metadata_analysis_required",
+    "future_document_download_plan_required",
+    "future_document_download_required",
+    "future_document_parse_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "urls_fetched",
+    "pages_fetched",
+    "api_fetched",
+    "documents_downloaded",
+    "documents_parsed",
+    "document_downloaded",
+    "document_parsed",
+    "import_executed",
+    "paper_trading_called",
+    "operator_gate_status",
+    "operator_action",
+    "safe_hint",
+]
+RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_BLOCKER_FIELDS = [
+    "blocker_id",
+    "validation_fetch_id",
+    "validation_plan_id",
+    "discovery_candidate_id",
+    "candidate_url",
+    "candidate_host",
+    "fetch_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_COUNT_FIELDS = (
+    "input_ready_candidate_count",
+    "validation_fetch_plan_row_count",
+    "validation_fetch_attempt_count",
+    "validation_fetch_success_count",
+    "validation_fetch_blocked_count",
+    "validation_fetch_failed_count",
+    "failed_count",
+    "html_response_count",
+    "json_metadata_response_count",
+    "potential_document_response_count",
+    "potential_pdf_response_count",
+    "potential_excel_response_count",
+    "binary_or_octet_stream_response_count",
+    "http_error_response_count",
+    "unexpected_content_type_response_count",
+    "page_candidate_fetch_count",
+    "api_media_resource_fetch_count",
+    "future_link_discovery_required_count",
+    "future_json_metadata_analysis_required_count",
+    "future_document_download_plan_required_count",
+    "target_year_aligned_response_count",
+    "mixed_year_context_response_count",
+    "unknown_year_response_count",
+)
+RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_BOOL_FIELDS = (
+    "rzd_validation_fetch_completed",
+    "rzd_candidate_responses_saved",
+    "rzd_potential_document_response_found",
+    "rzd_ready_for_future_document_download_plan",
+    "rzd_ready_for_future_json_metadata_analysis",
+    "rzd_ready_for_future_link_discovery",
+    "rzd_document_download_ready",
+    "rzd_document_parse_ready",
+    "rzd_import_ready",
+    "task165_validation_plan_input_preserved",
+    "task165_validation_plan_ready_input_preserved",
+    "task165_validation_plan_blockers_input_preserved",
+    "task164_link_discovery_input_preserved",
+    "task164_candidates_input_preserved",
+    "task163_page_fetch_input_preserved",
+    "task163_pages_input_preserved",
+    "task163_hash_manifest_input_preserved",
+    "task148_source_pack_input_preserved",
+    "input_bytes_unchanged",
+    "production_source_pack_modified",
+    "controlled_source_pack_modified",
+    "production_document_intake_modified",
+    "document_intake_draft_modified",
+    "read_only",
+    "dry_run_only",
+    "controlled_validation_fetch_only",
+    "would_probe_urls",
+    "would_fetch_urls",
+    "would_fetch_pages",
+    "would_fetch_api",
+    "would_download_documents",
+    "would_parse_documents",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "urls_fetched",
+    "pages_fetched",
+    "api_fetched",
+    "documents_downloaded",
+    "documents_parsed",
+    "files_deleted",
+    "import_executed",
+    "paper_trading_called",
+)
+RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_ROW_BOOL_FIELDS = (
+    "target_year_aligned",
+    "mixed_year_context",
+    "fetch_attempted",
+    "response_truncated",
+    "raw_validation_response_saved",
+    "validation_response_target_year_aligned",
+    "validation_response_mixed_year_context",
+    "validation_response_ifrs_hint",
+    "validation_response_msfo_hint",
+    "validation_response_report_hint",
+    "validation_response_financial_hint",
+    "potential_document_response_detected",
+    "future_link_discovery_required",
+    "future_json_metadata_analysis_required",
+    "future_document_download_plan_required",
+    "future_document_download_required",
+    "future_document_parse_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_url",
+    "would_download_document",
+    "would_parse_document",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_extract_values",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "urls_fetched",
+    "pages_fetched",
+    "api_fetched",
+    "documents_downloaded",
+    "documents_parsed",
+    "document_downloaded",
+    "document_parsed",
+    "import_executed",
+    "paper_trading_called",
+)
 SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
     "workspace_json": "source_trust_recovery_workspace_task142.json",
     "workspace_csv": "source_trust_recovery_workspace_task142.csv",
@@ -7350,6 +7589,38 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=int,
         default=RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_PLAN_DEFAULTS["max_document_candidates_to_plan"],
     )
+    parser.add_argument("--rzd-document-candidate-controlled-validation-plan-input", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-plan-ready-input", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-plan-blockers-input", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-results-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-results-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-hash-manifest-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-controlled-validation-fetch-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-document-candidate-validation-fetch-raw-dir", type=Path, default=None)
+    parser.add_argument(
+        "--max-validation-candidates-to-fetch",
+        type=int,
+        default=RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["max_validation_candidates_to_fetch"],
+    )
+    parser.add_argument(
+        "--validation-fetch-timeout-seconds",
+        type=int,
+        default=RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["timeout_seconds"],
+    )
+    parser.add_argument(
+        "--validation-fetch-max-bytes",
+        type=int,
+        default=RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["max_bytes"],
+    )
+    parser.add_argument(
+        "--validation-fetch-user-agent",
+        default=RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["user_agent"],
+    )
     parser.add_argument("--source-trust-recovery-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-markdown-output", type=Path, default=None)
@@ -7563,6 +7834,8 @@ def run_assistant(
         report = run_rzd_candidate_page_link_discovery_preview_v2(args)
     elif args.mode == "rzd-document-candidate-controlled-validation-plan-preview-v2":
         report = run_rzd_document_candidate_controlled_validation_plan_preview_v2(args)
+    elif args.mode == "rzd-document-candidate-controlled-validation-fetch-preview-v2":
+        report = run_rzd_document_candidate_controlled_validation_fetch_preview_v2(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -35384,6 +35657,960 @@ def _rzd_document_candidate_controlled_validation_plan_finalize_report(
     return report
 
 
+def run_rzd_document_candidate_controlled_validation_fetch_preview_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_document_candidate_controlled_validation_fetch_inputs(args)
+    artifacts = _rzd_document_candidate_controlled_validation_fetch_artifacts(args)
+    raw_dir = _rzd_document_candidate_controlled_validation_fetch_raw_dir(args)
+    errors = _rzd_document_candidate_controlled_validation_fetch_output_errors(args, inputs=inputs, artifacts=artifacts, raw_dir=raw_dir)
+    if errors:
+        return _rzd_document_candidate_controlled_validation_fetch_failed_report(args, inputs=inputs, artifacts=artifacts, raw_dir=raw_dir, input_hashes={}, errors=errors, write_outputs=False)
+    loaded, snapshots, input_hashes, errors = _rzd_document_candidate_controlled_validation_fetch_load_inputs(inputs)
+    if errors:
+        return _rzd_document_candidate_controlled_validation_fetch_failed_report(args, inputs=inputs, artifacts=artifacts, raw_dir=raw_dir, input_hashes=input_hashes, errors=errors, write_outputs=True)
+    result_rows, blocker_rows, warnings, forced_status = _rzd_document_candidate_controlled_validation_fetch_rows(args, loaded=loaded, raw_dir=raw_dir)
+    report = _build_rzd_document_candidate_controlled_validation_fetch_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        raw_dir=raw_dir,
+        input_hashes=input_hashes,
+        preservation=_rzd_document_candidate_controlled_validation_fetch_missing_preservation(),
+        loaded=loaded,
+        result_rows=result_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=[],
+        forced_status=forced_status,
+    )
+    return _rzd_document_candidate_controlled_validation_fetch_finalize_report(report, artifacts=artifacts, inputs=inputs, snapshots=snapshots, input_hashes=input_hashes)
+
+
+def _rzd_document_candidate_controlled_validation_fetch_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "task165_validation_plan": args.rzd_document_candidate_controlled_validation_plan_input
+        or (output_dir / RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_PLAN_ARTIFACT_NAMES["plan_json"] if output_dir else None),
+        "task165_validation_plan_ready": args.rzd_document_candidate_controlled_validation_plan_ready_input
+        or (output_dir / RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_PLAN_ARTIFACT_NAMES["ready_json"] if output_dir else None),
+        "task165_validation_plan_blockers": args.rzd_document_candidate_controlled_validation_plan_blockers_input
+        or (output_dir / RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_PLAN_ARTIFACT_NAMES["blockers_json"] if output_dir else None),
+        "task164_link_discovery": args.rzd_candidate_page_link_discovery_input
+        or (output_dir / RZD_CANDIDATE_PAGE_LINK_DISCOVERY_ARTIFACT_NAMES["discovery_json"] if output_dir else None),
+        "task164_candidates": args.rzd_candidate_page_link_discovery_candidates_input
+        or (output_dir / RZD_CANDIDATE_PAGE_LINK_DISCOVERY_ARTIFACT_NAMES["candidates_json"] if output_dir else None),
+        "task163_page_fetch": args.rzd_ranked_candidate_controlled_page_fetch_input
+        or (output_dir / RZD_RANKED_CANDIDATE_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES["page_fetch_json"] if output_dir else None),
+        "task163_pages": args.rzd_ranked_candidate_controlled_page_fetch_pages_input
+        or (output_dir / RZD_RANKED_CANDIDATE_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES["pages_json"] if output_dir else None),
+        "task163_hash_manifest": args.rzd_ranked_candidate_controlled_page_fetch_hash_manifest_input
+        or (output_dir / RZD_RANKED_CANDIDATE_CONTROLLED_PAGE_FETCH_ARTIFACT_NAMES["hash_manifest_json"] if output_dir else None),
+        "task148_source_pack": args.source_trust_controlled_source_pack_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_source_pack_json"] if output_dir else None),
+    }
+
+
+def _rzd_document_candidate_controlled_validation_fetch_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "fetch_json": args.rzd_document_candidate_controlled_validation_fetch_output,
+        "fetch_csv": args.rzd_document_candidate_controlled_validation_fetch_csv_output,
+        "fetch_markdown": args.rzd_document_candidate_controlled_validation_fetch_markdown_output,
+        "results_json": args.rzd_document_candidate_controlled_validation_fetch_results_output,
+        "results_csv": args.rzd_document_candidate_controlled_validation_fetch_results_csv_output,
+        "blockers_json": args.rzd_document_candidate_controlled_validation_fetch_blockers_output,
+        "blockers_csv": args.rzd_document_candidate_controlled_validation_fetch_blockers_csv_output,
+        "hash_manifest_json": args.rzd_document_candidate_controlled_validation_fetch_hash_manifest_output,
+        "rerun_markdown": args.rzd_document_candidate_controlled_validation_fetch_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_ARTIFACT_NAMES.items()
+    }
+
+
+def _rzd_document_candidate_controlled_validation_fetch_raw_dir(args: argparse.Namespace) -> Path | None:
+    if args.rzd_document_candidate_validation_fetch_raw_dir is not None:
+        return args.rzd_document_candidate_validation_fetch_raw_dir
+    output_dir = args.operator_resolution_chain_output_dir
+    return output_dir / "rzd_document_candidate_controlled_validation_fetch_raw_task166" if output_dir else None
+
+
+def _rzd_document_candidate_controlled_validation_fetch_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    raw_dir: Path | None,
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    if raw_dir is not None:
+        outputs.append(raw_dir)
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_document_candidate_controlled_validation_fetch_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "rzd_document_candidate_controlled_validation_fetch_output_must_not_equal_input"}]
+    for field in ("max_validation_candidates_to_fetch", "validation_fetch_timeout_seconds", "validation_fetch_max_bytes"):
+        value = _as_int(getattr(args, field, None))
+        if value is None or value < 0 or (field != "max_validation_candidates_to_fetch" and value == 0):
+            return [{"message": f"invalid_rzd_document_candidate_controlled_validation_fetch_config:{field}"}]
+    if not str(getattr(args, "validation_fetch_user_agent", "") or "").strip():
+        return [{"message": "invalid_rzd_document_candidate_controlled_validation_fetch_config:validation_fetch_user_agent"}]
+    return []
+
+
+def _rzd_document_candidate_controlled_validation_fetch_load_inputs(
+    inputs: dict[str, Path | None],
+) -> tuple[dict[str, Any], dict[Path, bytes], dict[str, str], list[dict[str, Any]]]:
+    loaded: dict[str, Any] = {
+        "task165_validation_plan": {},
+        "task165_validation_plan_ready": {},
+        "task165_ready_rows": [],
+        "task165_validation_plan_blockers": {},
+        "task165_blocker_rows": [],
+        "task164_link_discovery": {},
+        "task164_candidates": {},
+        "task164_candidate_rows": [],
+        "task163_page_fetch": {},
+        "task163_pages": {},
+        "task163_page_rows": [],
+        "task163_hash_manifest": {},
+        "task163_manifest_entries": [],
+        "task148_source_pack": {},
+        "task148_source_pack_rows": [],
+    }
+    required = {
+        "task165_validation_plan": ("task165_validation_plan_input_required", "rzd-document-candidate-controlled-validation-plan-preview-v2", None),
+        "task165_validation_plan_ready": ("task165_validation_plan_ready_input_required", "rzd-document-candidate-controlled-validation-plan-ready-v2", "ready_candidate_rows"),
+        "task165_validation_plan_blockers": ("task165_validation_plan_blockers_input_required", "rzd-document-candidate-controlled-validation-plan-blockers-v2", "blocker_rows"),
+        "task164_link_discovery": ("task164_link_discovery_input_required", "rzd-candidate-page-link-discovery-preview-v2", None),
+        "task164_candidates": ("task164_candidates_input_required", "rzd-candidate-page-link-discovery-candidates-v2", "candidate_rows"),
+        "task163_page_fetch": ("task163_page_fetch_input_required", "rzd-ranked-candidate-controlled-page-fetch-preview-v2", None),
+        "task163_pages": ("task163_pages_input_required", "rzd-ranked-candidate-controlled-page-fetch-pages-v2", "page_rows"),
+        "task163_hash_manifest": ("task163_hash_manifest_input_required", "rzd-ranked-candidate-controlled-page-fetch-preview-v2", "entries"),
+        "task148_source_pack": ("task148_source_pack_input_required", None, None),
+    }
+    row_targets = {
+        "task165_validation_plan_ready": "task165_ready_rows",
+        "task165_validation_plan_blockers": "task165_blocker_rows",
+        "task164_candidates": "task164_candidate_rows",
+        "task163_pages": "task163_page_rows",
+        "task163_hash_manifest": "task163_manifest_entries",
+    }
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    errors: list[dict[str, Any]] = []
+    for role, (error_code, expected_mode, rows_key) in required.items():
+        path = inputs.get(role)
+        if path is None or not path.is_file():
+            errors.append({"message": error_code})
+            continue
+        try:
+            data = path.read_bytes()
+            payload = json.loads(data.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            errors.append({"message": error_code, "error": str(exc)})
+            continue
+        if not isinstance(payload, dict):
+            errors.append({"message": error_code})
+            continue
+        if expected_mode is not None and payload.get("mode") != expected_mode:
+            errors.append({"message": error_code, "mode": payload.get("mode")})
+            continue
+        snapshots[path] = data
+        input_hashes[role] = hashlib.sha256(data).hexdigest()
+        loaded[role] = payload
+        if role == "task148_source_pack":
+            loaded["task148_source_pack_rows"] = _rzd_reporting_hub_embedded_source_pack_rows(payload)
+        elif rows_key is not None:
+            rows = payload.get(rows_key)
+            if not isinstance(rows, list):
+                errors.append({"message": error_code})
+            else:
+                loaded[row_targets[role]] = [row for row in rows if isinstance(row, dict)]
+    return loaded, snapshots, input_hashes, errors
+
+
+def _rzd_document_candidate_controlled_validation_fetch_rows(
+    args: argparse.Namespace,
+    *,
+    loaded: dict[str, Any],
+    raw_dir: Path | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]:
+    result_rows: list[dict[str, Any]] = []
+    blocker_rows: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+    ready_rows = list(loaded.get("task165_ready_rows") or [])
+    max_rows = _as_int(getattr(args, "max_validation_candidates_to_fetch", None))
+    max_rows = max_rows if max_rows is not None and max_rows >= 0 else RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["max_validation_candidates_to_fetch"]
+    trusted_hosts = _rzd_reporting_hub_embedded_trusted_hosts(loaded.get("task148_source_pack_rows") or [])
+    upstream_blockers = _rzd_document_candidate_controlled_validation_fetch_upstream_blockers(loaded, trusted_hosts)
+    if not ready_rows:
+        blocker_rows.append(_rzd_document_candidate_controlled_validation_fetch_blocker_row({}, "task165_no_ready_validation_candidates", validation_fetch_id="summary:no_ready"))
+        warnings.append({"message": "task165_no_ready_validation_candidates"})
+    for index, ready in enumerate(ready_rows[:max_rows], start=1):
+        row = _rzd_document_candidate_controlled_validation_fetch_base_row(ready, index=index, args=args)
+        blocker = _rzd_document_candidate_controlled_validation_fetch_static_blocker(row, ready=ready, trusted_hosts=trusted_hosts, upstream_blockers=upstream_blockers)
+        if blocker:
+            row["fetch_status"] = "blocked_before_fetch"
+            row["fetch_blocker_codes"] = [blocker]
+            result_rows.append(_rzd_document_candidate_controlled_validation_fetch_normalize_row(row))
+            blocker_rows.append(_rzd_document_candidate_controlled_validation_fetch_blocker_row(row, blocker))
+            continue
+        if raw_dir is None:
+            row["fetch_status"] = "validation_fetch_failed"
+            row["fetch_blocker_codes"] = ["validation_fetch_exception"]
+            row["fetch_error_message"] = "raw_dir_not_available"
+            result_rows.append(_rzd_document_candidate_controlled_validation_fetch_normalize_row(row))
+            blocker_rows.append(_rzd_document_candidate_controlled_validation_fetch_blocker_row(row, "validation_fetch_exception"))
+            continue
+        response = _rzd_document_candidate_controlled_validation_http_get(
+            row["candidate_url"],
+            timeout_seconds=float(_as_int(getattr(args, "validation_fetch_timeout_seconds", None)) or RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["timeout_seconds"]),
+            max_bytes=int(_as_int(getattr(args, "validation_fetch_max_bytes", None)) or RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["max_bytes"]),
+            user_agent=str(getattr(args, "validation_fetch_user_agent", "") or RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["user_agent"]),
+        )
+        _rzd_document_candidate_controlled_validation_fetch_apply_response(row, response=response, raw_dir=raw_dir)
+        result_rows.append(_rzd_document_candidate_controlled_validation_fetch_normalize_row(row))
+        for code in row.get("fetch_blocker_codes") or []:
+            blocker_rows.append(_rzd_document_candidate_controlled_validation_fetch_blocker_row(row, str(code)))
+    if len(ready_rows) > max_rows:
+        warnings.append({"message": "max_validation_candidates_to_fetch_limited_candidates", "max_validation_candidates_to_fetch": max_rows})
+    saved_rows = [row for row in result_rows if _as_bool(row.get("raw_validation_response_saved"))]
+    failed_rows = [row for row in result_rows if row.get("fetch_status") in {"validation_fetch_failed", "validation_fetch_http_error", "validation_fetch_unsupported_content_type", "validation_fetch_empty_response"}]
+    if result_rows and not saved_rows and failed_rows:
+        blocker_rows.append(_rzd_document_candidate_controlled_validation_fetch_blocker_row({}, "all_validation_fetches_failed", validation_fetch_id="summary:all_failed"))
+        status = "failed"
+    elif saved_rows and not failed_rows and not blocker_rows:
+        status = "passed"
+    else:
+        status = "warning"
+    return result_rows, blocker_rows, warnings, status
+
+
+def _rzd_document_candidate_controlled_validation_fetch_upstream_blockers(loaded: dict[str, Any], trusted_hosts: set[str]) -> list[str]:
+    blockers: list[str] = []
+    plan = loaded.get("task165_validation_plan") or {}
+    if plan.get("status") != "passed":
+        blockers.append("task165_ready_row_invalid_for_validation_fetch")
+    if int(plan.get("ready_candidate_count") or 0) < 1:
+        blockers.append("task165_no_ready_validation_candidates")
+    for field in ("rzd_document_candidate_validation_plan_created", "rzd_ready_for_future_controlled_document_candidate_validation", "rzd_controlled_candidate_validation_ready"):
+        if not _as_bool(plan.get(field)):
+            blockers.append("task165_ready_row_invalid_for_validation_fetch")
+    for field in ("rzd_document_download_ready", "rzd_document_parse_ready", "urls_fetched", "pages_fetched", "api_fetched", "documents_downloaded", "documents_parsed", "import_executed", "paper_trading_called"):
+        if _as_bool(plan.get(field)):
+            blockers.append("task165_ready_row_not_safe_for_validation_fetch")
+    if not _source_trust_recovery_draft_review_host_trusted("company.rzd.ru", trusted_hosts):
+        blockers.append("candidate_host_not_trusted")
+    return list(dict.fromkeys(blockers))
+
+
+def _rzd_document_candidate_controlled_validation_fetch_base_row(
+    ready: dict[str, Any],
+    *,
+    index: int,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    candidate_url = _normalize_candidate_url(str(ready.get("candidate_url") or ""))
+    parsed = urllib.parse.urlparse(candidate_url)
+    candidate_url_sha = hashlib.sha256(candidate_url.encode("utf-8")).hexdigest() if candidate_url else ""
+    return {
+        "validation_fetch_id": f"rzd_document_candidate_validation_fetch:{candidate_url_sha[:16] or index}",
+        "validation_plan_id": str(ready.get("validation_plan_id") or ""),
+        "discovery_candidate_id": str(ready.get("discovery_candidate_id") or ""),
+        "company_id": str(ready.get("company_id") or "18"),
+        "company_name": str(ready.get("company_name") or "RZD"),
+        "candidate_url": candidate_url,
+        "candidate_url_sha256": candidate_url_sha,
+        "candidate_host": _host(candidate_url),
+        "candidate_scheme": parsed.scheme,
+        "candidate_path": parsed.path,
+        "candidate_query": parsed.query,
+        "validation_candidate_type": str(ready.get("validation_candidate_type") or ""),
+        "validation_plan_class": str(ready.get("validation_plan_class") or ""),
+        "validation_plan_status": str(ready.get("validation_plan_status") or ""),
+        "validation_priority": _as_int(ready.get("validation_priority")) or index,
+        "target_report_year": _as_int(ready.get("target_report_year")) or 2025,
+        "candidate_report_years": _financial_document_fetch_list(ready.get("candidate_report_years")),
+        "primary_detected_report_year": _as_int(ready.get("primary_detected_report_year")) or 0,
+        "target_year_aligned": _as_bool(ready.get("target_year_aligned")),
+        "mixed_year_context": _as_bool(ready.get("mixed_year_context")),
+        "mixed_year_values": _financial_document_fetch_list(ready.get("mixed_year_values")),
+        "year_validation_status": str(ready.get("year_validation_status") or ""),
+        "expected_request_method": str(ready.get("expected_request_method") or "GET"),
+        "expected_content_type_families": _financial_document_fetch_list(ready.get("expected_content_type_families")),
+        "expected_timeout_seconds": _as_int(getattr(args, "validation_fetch_timeout_seconds", None)) or RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["timeout_seconds"],
+        "expected_max_bytes": _as_int(getattr(args, "validation_fetch_max_bytes", None)) or RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_DEFAULTS["max_bytes"],
+        "expected_redirect_policy": str(ready.get("expected_redirect_policy") or "same_host_only"),
+        "fetch_attempted": False,
+        "fetch_status": "blocked_before_fetch",
+        "fetch_blocker_codes": [],
+        "fetch_error_message": "",
+        "http_status_code": 0,
+        "http_status_family": "",
+        "content_type": "",
+        "content_disposition": "",
+        "content_length_header": "",
+        "final_url": "",
+        "final_host": "",
+        "redirect_count": 0,
+        "redirect_chain": [],
+        "response_byte_count": 0,
+        "response_truncated": False,
+        "raw_validation_response_saved": False,
+        "raw_validation_response_path": "",
+        "raw_validation_response_sha256": "",
+        "validation_response_type": "blocked_before_fetch",
+        "validation_response_report_years": [],
+        "validation_response_primary_report_year": 0,
+        "validation_response_target_year_aligned": False,
+        "validation_response_mixed_year_context": False,
+        "validation_response_ifrs_hint": False,
+        "validation_response_msfo_hint": False,
+        "validation_response_report_hint": False,
+        "validation_response_financial_hint": False,
+        "validation_response_filename_hint": "",
+        "validation_response_embedded_url_count": 0,
+        "validation_response_embedded_urls_sample": [],
+        "potential_document_response_detected": False,
+        "potential_document_content_type": "",
+        "potential_document_filename": "",
+        "potential_document_extension": "",
+        "future_link_discovery_required": False,
+        "future_json_metadata_analysis_required": False,
+        "future_document_download_plan_required": False,
+        "future_document_download_required": False,
+        "future_document_parse_required": False,
+        "future_import_required": False,
+        "future_scoring_required": False,
+        "future_paper_trading_required": False,
+        "would_fetch_url": True,
+        "would_download_document": False,
+        "would_parse_document": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "urls_fetched": False,
+        "pages_fetched": False,
+        "api_fetched": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "document_downloaded": False,
+        "document_parsed": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+        "operator_gate_status": "blocked_before_validation_fetch",
+        "operator_action": "resolve_blocker_before_validation_fetch",
+        "safe_hint": "Task166 performs controlled validation fetch only and never treats snapshots as final downloaded documents.",
+    }
+
+
+def _rzd_document_candidate_controlled_validation_fetch_static_blocker(
+    row: dict[str, Any],
+    *,
+    ready: dict[str, Any],
+    trusted_hosts: set[str],
+    upstream_blockers: Sequence[str],
+) -> str:
+    if upstream_blockers:
+        return upstream_blockers[0]
+    candidate_url = str(row.get("candidate_url") or "")
+    parsed = urllib.parse.urlparse(candidate_url)
+    if not candidate_url:
+        return "candidate_invalid_url"
+    if parsed.scheme != "https":
+        return "candidate_unsupported_scheme"
+    if row.get("candidate_host") != "company.rzd.ru" or not _source_trust_recovery_draft_review_host_trusted(str(row.get("candidate_host") or ""), trusted_hosts):
+        return "candidate_host_not_trusted"
+    if "id=292429" in candidate_url:
+        return "known_stale_2023_candidate_must_not_be_fetched"
+    if ready.get("validation_plan_status") != "ready_for_future_controlled_validation":
+        return "task165_ready_row_invalid_for_validation_fetch"
+    if not _as_bool(ready.get("future_controlled_validation_required")):
+        return "task165_ready_row_invalid_for_validation_fetch"
+    if _financial_document_fetch_list(ready.get("validation_blocker_codes")):
+        return "task165_ready_row_invalid_for_validation_fetch"
+    if str(ready.get("expected_request_method") or "").upper() != "GET":
+        return "task165_ready_row_invalid_for_validation_fetch"
+    if any(_as_bool(ready.get(field)) for field in ("would_fetch_url", "would_download_document", "would_parse_document", "documents_downloaded", "documents_parsed", "future_document_download_required", "future_document_parse_required")):
+        return "task165_ready_row_not_safe_for_validation_fetch"
+    return ""
+
+
+def _rzd_document_candidate_controlled_validation_http_get(
+    url: str,
+    *,
+    timeout_seconds: float,
+    max_bytes: int,
+    user_agent: str,
+) -> dict[str, Any]:
+    if urllib.parse.urlparse(url).scheme != "https" or _host(url) != "company.rzd.ru":
+        return {"status": "error", "error_code": "candidate_host_not_trusted"}
+    redirect_handler = _RzdControlledPageFetchRedirectHandler()
+    opener = urllib.request.build_opener(redirect_handler)
+    request = urllib.request.Request(url, method="GET", headers={"User-Agent": user_agent, "Accept": "*/*"})
+    try:
+        with opener.open(request, timeout=timeout_seconds) as response:
+            return _rzd_document_candidate_controlled_validation_fetch_response_payload(response, url, max_bytes, redirect_handler.redirect_chain)
+    except urllib.error.HTTPError as exc:
+        return _rzd_document_candidate_controlled_validation_fetch_response_payload(exc, str(getattr(exc, "url", "") or url), max_bytes, redirect_handler.redirect_chain)
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        text = str(exc)
+        code = "candidate_redirected_to_untrusted_host" if "page_fetch_redirect_host_not_allowed" in text else "validation_fetch_exception"
+        return {"status": "error", "error_code": code, "error": text}
+
+
+def _rzd_document_candidate_controlled_validation_fetch_response_payload(response: Any, fallback_url: str, max_bytes: int, redirect_chain: list[str]) -> dict[str, Any]:
+    status = int(getattr(response, "status", getattr(response, "code", 0)) or 0)
+    final_url = str(response.geturl() if hasattr(response, "geturl") else fallback_url)
+    headers = getattr(response, "headers", {}) or {}
+    chunks: list[bytes] = []
+    total = 0
+    truncated = False
+    while total <= max_bytes:
+        chunk = response.read(min(65536, max_bytes + 1 - total))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > max_bytes:
+            truncated = True
+            break
+    raw = b"".join(chunks)
+    if truncated:
+        raw = raw[:max_bytes]
+    return {
+        "status": "ok",
+        "http_status_code": status,
+        "final_url": final_url,
+        "redirect_chain": list(redirect_chain),
+        "raw_bytes": raw,
+        "size_bytes": len(raw),
+        "response_truncated": truncated,
+        "content_type": str(headers.get("Content-Type") or ""),
+        "content_disposition": str(headers.get("Content-Disposition") or ""),
+        "content_length_header": str(headers.get("Content-Length") or ""),
+        "safe_response_headers": {
+            "content-type": str(headers.get("Content-Type") or ""),
+            "content-disposition": str(headers.get("Content-Disposition") or ""),
+            "content-length": str(headers.get("Content-Length") or ""),
+        },
+    }
+
+
+def _rzd_document_candidate_controlled_validation_fetch_apply_response(row: dict[str, Any], *, response: dict[str, Any], raw_dir: Path) -> None:
+    row["fetch_attempted"] = True
+    row["urls_fetched"] = True
+    row["pages_fetched"] = row.get("validation_plan_class") == "candidate_page_static_validation_plan"
+    row["api_fetched"] = row.get("validation_plan_class") == "media_resource_api_validation_plan"
+    if response.get("status") != "ok":
+        code = str(response.get("error_code") or "validation_fetch_exception")
+        row["fetch_status"] = "blocked_candidate_redirect" if code == "candidate_redirected_to_untrusted_host" else "validation_fetch_failed"
+        row["fetch_blocker_codes"] = [code]
+        row["fetch_error_message"] = str(response.get("error") or code)
+        row["validation_response_type"] = "validation_fetch_failed"
+        return
+    final_url = _normalize_candidate_url(str(response.get("final_url") or row.get("candidate_url") or ""))
+    row["final_url"] = final_url
+    row["final_host"] = _host(final_url)
+    row["http_status_code"] = _as_int(response.get("http_status_code")) or 0
+    row["http_status_family"] = f"{int(row['http_status_code']) // 100}xx" if int(row["http_status_code"]) > 0 else ""
+    row["content_type"] = str(response.get("content_type") or "")
+    row["content_disposition"] = str(response.get("content_disposition") or "")
+    row["content_length_header"] = str(response.get("content_length_header") or "")
+    row["redirect_chain"] = [str(item) for item in response.get("redirect_chain") or []]
+    row["redirect_count"] = len(row["redirect_chain"])
+    row["response_byte_count"] = int(response.get("size_bytes") or 0)
+    row["response_truncated"] = _as_bool(response.get("response_truncated"))
+    if row["final_host"] != "company.rzd.ru":
+        row["fetch_status"] = "blocked_candidate_redirect"
+        row["fetch_blocker_codes"] = ["candidate_redirected_to_untrusted_host"]
+        row["validation_response_type"] = "redirect_response"
+        return
+    raw = response.get("raw_bytes")
+    if not isinstance(raw, bytes):
+        raw = b""
+    response_type = _rzd_document_candidate_controlled_validation_response_type(row["content_type"], raw, int(row["http_status_code"] or 0))
+    row["validation_response_type"] = response_type
+    if not raw:
+        row["fetch_status"] = "validation_fetch_empty_response"
+        row["fetch_blocker_codes"] = ["validation_fetch_empty_response"]
+        return
+    raw_hash = hashlib.sha256(raw).hexdigest()
+    extension = _rzd_document_candidate_controlled_validation_snapshot_extension(response_type, row["candidate_path"], row["content_disposition"])
+    raw_path = raw_dir / f"rzd_document_validation_fetch_rank_{int(row.get('validation_priority') or 0):03d}_sha_{row['candidate_url_sha256'][:12]}{extension}"
+    try:
+        raw_path.parent.mkdir(parents=True, exist_ok=True)
+        raw_path.write_bytes(raw)
+    except OSError as exc:
+        row["fetch_status"] = "validation_fetch_failed"
+        row["fetch_blocker_codes"] = ["validation_fetch_exception"]
+        row["fetch_error_message"] = str(exc)
+        return
+    row["raw_validation_response_saved"] = True
+    row["raw_validation_response_path"] = _path_value(raw_path) or ""
+    row["raw_validation_response_sha256"] = raw_hash
+    hints = _rzd_document_candidate_controlled_validation_response_hints(raw, row["content_type"], row["content_disposition"])
+    row.update(hints)
+    potential_doc = response_type in {
+        "potential_pdf_document_response",
+        "potential_excel_document_response",
+        "potential_zip_document_response",
+        "binary_or_octet_stream_response",
+    }
+    row["potential_document_response_detected"] = potential_doc
+    if potential_doc:
+        row["potential_document_content_type"] = row["content_type"]
+        row["potential_document_filename"] = hints.get("validation_response_filename_hint") or _rzd_document_candidate_controlled_validation_content_disposition_filename(row["content_disposition"])
+        row["potential_document_extension"] = Path(str(row["potential_document_filename"]) or row["candidate_path"]).suffix.casefold()
+    row["future_link_discovery_required"] = response_type == "html_page_response"
+    row["future_json_metadata_analysis_required"] = response_type == "json_metadata_response"
+    row["future_document_download_plan_required"] = potential_doc
+    if response_type == "http_error_response":
+        row["fetch_status"] = "validation_fetch_http_error"
+        row["fetch_blocker_codes"] = ["validation_fetch_http_error"]
+    elif response_type == "unexpected_content_type_response":
+        row["fetch_status"] = "validation_fetch_unsupported_content_type"
+        row["fetch_blocker_codes"] = ["validation_fetch_unsupported_content_type"]
+    else:
+        row["fetch_status"] = "fetched_validation_response"
+        row["fetch_blocker_codes"] = []
+        row["operator_gate_status"] = "validation_response_saved_for_operator_review"
+        row["operator_action"] = "review_task166_validation_response_before_future_download_plan"
+
+
+def _rzd_document_candidate_controlled_validation_response_type(content_type: str, raw: bytes, status: int) -> str:
+    media = content_type.split(";", 1)[0].strip().casefold()
+    stripped = raw.lstrip()
+    if status < 200 or status >= 300:
+        return "http_error_response"
+    if not raw:
+        return "empty_response"
+    folded = stripped.lower()
+    if media in {"text/html", "application/xhtml+xml"} or folded.startswith(b"<!doctype html") or folded.startswith(b"<html"):
+        return "html_page_response"
+    if media in {"application/json", "text/json"} or stripped[:1] in {b"{", b"["}:
+        return "json_metadata_response"
+    if media == "application/pdf" or raw.startswith(b"%PDF"):
+        return "potential_pdf_document_response"
+    if media in {"application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}:
+        return "potential_excel_document_response"
+    if media in {"application/zip", "application/x-zip-compressed"}:
+        return "potential_zip_document_response"
+    if media == "application/octet-stream":
+        return "binary_or_octet_stream_response"
+    return "unexpected_content_type_response"
+
+
+def _rzd_document_candidate_controlled_validation_response_hints(raw: bytes, content_type: str, content_disposition: str) -> dict[str, Any]:
+    media = content_type.split(";", 1)[0].strip().casefold()
+    text = ""
+    if media.startswith("text/") or media in {"application/json", "text/json", "application/xhtml+xml"} or raw.lstrip()[:1] in {b"{", b"["}:
+        text = raw[: min(len(raw), 200_000)].decode("utf-8", errors="replace")
+    filename = _rzd_document_candidate_controlled_validation_content_disposition_filename(content_disposition)
+    filename = filename or _rzd_document_candidate_controlled_validation_filename_from_text(text)
+    combined = f"{content_disposition}\n{filename}\n{text}"
+    years = sorted({_as_int(match.group(0)) for match in re.finditer(r"\b20(?:2[0-9]|3[0-9])\b", combined) if _as_int(match.group(0))})
+    embedded_urls = _rzd_document_candidate_controlled_validation_embedded_urls(text)
+    lower = combined.casefold()
+    return {
+        "validation_response_report_years": years,
+        "validation_response_primary_report_year": years[0] if years else 0,
+        "validation_response_target_year_aligned": 2025 in years,
+        "validation_response_mixed_year_context": bool(2025 in years and any(year != 2025 for year in years)),
+        "validation_response_ifrs_hint": "ifrs" in lower,
+        "validation_response_msfo_hint": "мсфо" in lower or "msfo" in lower,
+        "validation_response_report_hint": any(term in lower for term in ("report", "reporting", "отчет", "отчёт")),
+        "validation_response_financial_hint": any(term in lower for term in ("financial", "statements", "consolidated", "отчетность", "отчётность")),
+        "validation_response_filename_hint": filename,
+        "validation_response_embedded_url_count": len(embedded_urls),
+        "validation_response_embedded_urls_sample": embedded_urls[:10],
+    }
+
+
+def _rzd_document_candidate_controlled_validation_content_disposition_filename(value: str) -> str:
+    match = re.search(r"filename\*?=(?:UTF-8''|\"?)([^\";]+)", value or "", flags=re.IGNORECASE)
+    return urllib.parse.unquote(match.group(1).strip().strip('"')) if match else ""
+
+
+def _rzd_document_candidate_controlled_validation_filename_from_text(text: str) -> str:
+    for pattern in (
+        r'"(?:fileName|filename|name)"\s*:\s*"([^"]+)"',
+        r"'(?:fileName|filename|name)'\s*:\s*'([^']+)'",
+        r"([\w./-]*(?:report|ifrs|msfo|МСФО|отчет|отчёт)[\w./-]*\.(?:pdf|xls|xlsx|zip))",
+    ):
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _rzd_document_candidate_controlled_validation_embedded_urls(text: str) -> list[str]:
+    result: list[str] = []
+    for match in re.finditer(r"(https?://[^\s\"'<>]+|/[A-Za-z0-9_./%?=&:-]+)", text or ""):
+        value = match.group(1).rstrip(".,);]")
+        if value and value not in result:
+            result.append(value)
+        if len(result) >= 25:
+            break
+    return result
+
+
+def _rzd_document_candidate_controlled_validation_snapshot_extension(response_type: str, path: str, content_disposition: str) -> str:
+    filename = _rzd_document_candidate_controlled_validation_content_disposition_filename(content_disposition)
+    suffix = Path(filename or path or "").suffix.casefold()
+    if suffix:
+        return suffix
+    return {
+        "html_page_response": ".html",
+        "json_metadata_response": ".json",
+        "potential_pdf_document_response": ".pdf",
+        "potential_excel_document_response": ".xlsx",
+        "potential_zip_document_response": ".zip",
+    }.get(response_type, ".bin")
+
+
+def _rzd_document_candidate_controlled_validation_fetch_normalize_row(row: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(row)
+    for field in RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_ROW_BOOL_FIELDS:
+        normalized[field] = bool(normalized.get(field))
+    return normalized
+
+
+def _rzd_document_candidate_controlled_validation_fetch_blocker_row(row: dict[str, Any], code: str, *, validation_fetch_id: str | None = None) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_document_candidate_validation_fetch_blocker:{validation_fetch_id or row.get('validation_fetch_id') or 'unknown'}:{code}",
+        "validation_fetch_id": validation_fetch_id or row.get("validation_fetch_id") or "",
+        "validation_plan_id": row.get("validation_plan_id") or "",
+        "discovery_candidate_id": row.get("discovery_candidate_id") or "",
+        "candidate_url": row.get("candidate_url") or "",
+        "candidate_host": row.get("candidate_host") or "",
+        "fetch_status": row.get("fetch_status") or "blocked_before_fetch",
+        "blocker_code": code,
+        "blocker_severity": "error" if code in {"input_drift_detected", "all_validation_fetches_failed", "validation_fetch_exception"} else "warning",
+        "operator_action": "review_task166_blocker_before_future_download_plan",
+        "safe_hint": "Task166 saves validation snapshots only; it never downloads final documents or parses reports.",
+    }
+
+
+def _rzd_document_candidate_controlled_validation_fetch_safety_flags(
+    *,
+    attempted: bool = False,
+    page_fetched: bool = False,
+    api_fetched: bool = False,
+) -> dict[str, bool]:
+    return {
+        "production_source_pack_modified": False,
+        "controlled_source_pack_modified": False,
+        "production_document_intake_modified": False,
+        "document_intake_draft_modified": False,
+        "read_only": True,
+        "dry_run_only": False,
+        "controlled_validation_fetch_only": True,
+        "would_probe_urls": bool(attempted),
+        "would_fetch_urls": bool(attempted),
+        "would_fetch_pages": bool(page_fetched),
+        "would_fetch_api": bool(api_fetched),
+        "would_download_documents": False,
+        "would_parse_documents": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_extract_values": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "urls_fetched": bool(attempted),
+        "pages_fetched": bool(page_fetched),
+        "api_fetched": bool(api_fetched),
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "files_deleted": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+    }
+
+
+def _rzd_document_candidate_controlled_validation_fetch_missing_preservation() -> dict[str, bool]:
+    return {
+        "task165_validation_plan_input_preserved": False,
+        "task165_validation_plan_ready_input_preserved": False,
+        "task165_validation_plan_blockers_input_preserved": False,
+        "task164_link_discovery_input_preserved": False,
+        "task164_candidates_input_preserved": False,
+        "task163_page_fetch_input_preserved": False,
+        "task163_pages_input_preserved": False,
+        "task163_hash_manifest_input_preserved": False,
+        "task148_source_pack_input_preserved": False,
+        "input_bytes_unchanged": False,
+    }
+
+
+def _rzd_document_candidate_controlled_validation_fetch_preservation_fields(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, bool]:
+    fields: dict[str, bool] = {}
+    all_preserved = True
+    for role, path in inputs.items():
+        preserved = False
+        if path is not None and path in snapshots:
+            try:
+                current = path.read_bytes()
+                preserved = current == snapshots[path] and hashlib.sha256(current).hexdigest() == input_hashes.get(role)
+            except OSError:
+                preserved = False
+        fields[f"{role}_input_preserved"] = bool(preserved)
+        all_preserved = all_preserved and preserved
+    fields["input_bytes_unchanged"] = all_preserved
+    return fields
+
+
+def _rzd_document_candidate_controlled_validation_fetch_count_fields(
+    *,
+    loaded: dict[str, Any],
+    result_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    status: str,
+) -> dict[str, int]:
+    return {
+        "input_ready_candidate_count": len(loaded.get("task165_ready_rows") or []),
+        "validation_fetch_plan_row_count": len(result_rows),
+        "validation_fetch_attempt_count": sum(1 for row in result_rows if _as_bool(row.get("fetch_attempted"))),
+        "validation_fetch_success_count": sum(1 for row in result_rows if row.get("fetch_status") == "fetched_validation_response"),
+        "validation_fetch_blocked_count": sum(1 for row in result_rows if row.get("fetch_status") in {"blocked_before_fetch", "blocked_candidate_redirect"}),
+        "validation_fetch_failed_count": sum(1 for row in result_rows if row.get("fetch_status") in {"validation_fetch_failed", "validation_fetch_http_error", "validation_fetch_unsupported_content_type", "validation_fetch_empty_response"}),
+        "failed_count": 1 if status == "failed" else 0,
+        "html_response_count": sum(1 for row in result_rows if row.get("validation_response_type") == "html_page_response"),
+        "json_metadata_response_count": sum(1 for row in result_rows if row.get("validation_response_type") == "json_metadata_response"),
+        "potential_document_response_count": sum(1 for row in result_rows if _as_bool(row.get("potential_document_response_detected"))),
+        "potential_pdf_response_count": sum(1 for row in result_rows if row.get("validation_response_type") == "potential_pdf_document_response"),
+        "potential_excel_response_count": sum(1 for row in result_rows if row.get("validation_response_type") == "potential_excel_document_response"),
+        "binary_or_octet_stream_response_count": sum(1 for row in result_rows if row.get("validation_response_type") == "binary_or_octet_stream_response"),
+        "http_error_response_count": sum(1 for row in result_rows if row.get("validation_response_type") == "http_error_response"),
+        "unexpected_content_type_response_count": sum(1 for row in result_rows if row.get("validation_response_type") == "unexpected_content_type_response"),
+        "page_candidate_fetch_count": sum(1 for row in result_rows if row.get("validation_plan_class") == "candidate_page_static_validation_plan" and _as_bool(row.get("fetch_attempted"))),
+        "api_media_resource_fetch_count": sum(1 for row in result_rows if row.get("validation_plan_class") == "media_resource_api_validation_plan" and _as_bool(row.get("fetch_attempted"))),
+        "future_link_discovery_required_count": sum(1 for row in result_rows if _as_bool(row.get("future_link_discovery_required"))),
+        "future_json_metadata_analysis_required_count": sum(1 for row in result_rows if _as_bool(row.get("future_json_metadata_analysis_required"))),
+        "future_document_download_plan_required_count": sum(1 for row in result_rows if _as_bool(row.get("future_document_download_plan_required"))),
+        "target_year_aligned_response_count": sum(1 for row in result_rows if _as_bool(row.get("validation_response_target_year_aligned"))),
+        "mixed_year_context_response_count": sum(1 for row in result_rows if _as_bool(row.get("validation_response_mixed_year_context"))),
+        "unknown_year_response_count": sum(1 for row in result_rows if _as_bool(row.get("fetch_attempted")) and not row.get("validation_response_report_years")),
+    }
+
+
+def _build_rzd_document_candidate_controlled_validation_fetch_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    raw_dir: Path | None,
+    input_hashes: dict[str, str],
+    preservation: dict[str, bool],
+    loaded: dict[str, Any],
+    result_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    forced_status: str,
+) -> dict[str, Any]:
+    status = "failed" if errors else forced_status
+    counts = _rzd_document_candidate_controlled_validation_fetch_count_fields(loaded=loaded, result_rows=result_rows, blocker_rows=blocker_rows, status=status)
+    attempted = counts["validation_fetch_attempt_count"] > 0
+    page_fetched = any(_as_bool(row.get("pages_fetched")) for row in result_rows)
+    api_fetched = any(_as_bool(row.get("api_fetched")) for row in result_rows)
+    safety = _rzd_document_candidate_controlled_validation_fetch_safety_flags(attempted=attempted, page_fetched=page_fetched, api_fetched=api_fetched)
+    report = {
+        "status": status,
+        "mode": "rzd-document-candidate-controlled-validation-fetch-preview-v2",
+        "validation_result_rows": result_rows,
+        "blocker_rows": blocker_rows,
+        "rzd_validation_fetch_completed": counts["validation_fetch_success_count"] > 0 and counts["validation_fetch_failed_count"] == 0,
+        "rzd_candidate_responses_saved": any(_as_bool(row.get("raw_validation_response_saved")) for row in result_rows),
+        "rzd_potential_document_response_found": counts["potential_document_response_count"] > 0,
+        "rzd_ready_for_future_document_download_plan": counts["future_document_download_plan_required_count"] > 0,
+        "rzd_ready_for_future_json_metadata_analysis": counts["future_json_metadata_analysis_required_count"] > 0,
+        "rzd_ready_for_future_link_discovery": counts["future_link_discovery_required_count"] > 0,
+        "rzd_document_download_ready": False,
+        "rzd_document_parse_ready": False,
+        "rzd_import_ready": False,
+        "validation_response_type_counts": _count_by_key(result_rows, "validation_response_type"),
+        "fetch_status_counts": _count_by_key(result_rows, "fetch_status"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "warnings": warnings,
+        "errors": errors,
+        "artifacts": {role: _path_value(path) for role, path in artifacts.items() if path is not None},
+        "raw_dir": _path_value(raw_dir) or "",
+        "next_steps": _next_steps("rzd-document-candidate-controlled-validation-fetch-preview-v2", status),
+        **{f"{role}_input_path": _path_value(path) or "" for role, path in inputs.items()},
+        **{f"{role}_input_sha256": input_hashes.get(role) or "" for role in inputs},
+        **preservation,
+        **safety,
+        **counts,
+    }
+    for field in RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    return report
+
+
+def _rzd_document_candidate_controlled_validation_fetch_manifest(report: dict[str, Any]) -> dict[str, Any]:
+    entries = []
+    for row in report.get("validation_result_rows") or []:
+        if not _as_bool(row.get("raw_validation_response_saved")):
+            continue
+        entries.append(
+            {
+                "validation_fetch_id": row.get("validation_fetch_id") or "",
+                "candidate_url": row.get("candidate_url") or "",
+                "candidate_url_sha256": row.get("candidate_url_sha256") or "",
+                "final_url": row.get("final_url") or "",
+                "http_status_code": int(row.get("http_status_code") or 0),
+                "content_type": row.get("content_type") or "",
+                "content_disposition": row.get("content_disposition") or "",
+                "response_byte_count": int(row.get("response_byte_count") or 0),
+                "response_truncated": bool(row.get("response_truncated")),
+                "raw_validation_response_path": row.get("raw_validation_response_path") or "",
+                "raw_validation_response_sha256": row.get("raw_validation_response_sha256") or "",
+                "validation_response_type": row.get("validation_response_type") or "",
+                "potential_document_response_detected": bool(row.get("potential_document_response_detected")),
+                "created_by_mode": "rzd-document-candidate-controlled-validation-fetch-preview-v2",
+            }
+        )
+    return {"mode": "rzd-document-candidate-controlled-validation-fetch-hash-manifest-v2", "entry_count": len(entries), "entries": entries}
+
+
+def _rzd_document_candidate_controlled_validation_fetch_failed_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    raw_dir: Path | None,
+    input_hashes: dict[str, str],
+    errors: list[dict[str, Any]],
+    write_outputs: bool,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_document_candidate_controlled_validation_fetch_blocker_row({}, str(error.get("message") or "unknown_readiness"), validation_fetch_id=f"preflight:{index}")
+        for index, error in enumerate(errors, start=1)
+    ]
+    report = _build_rzd_document_candidate_controlled_validation_fetch_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        raw_dir=raw_dir,
+        input_hashes=input_hashes,
+        preservation=_rzd_document_candidate_controlled_validation_fetch_missing_preservation(),
+        loaded={"task165_ready_rows": []},
+        result_rows=[],
+        blocker_rows=blocker_rows,
+        warnings=[],
+        errors=errors,
+        forced_status="failed",
+    )
+    if write_outputs:
+        try:
+            _rzd_document_candidate_controlled_validation_fetch_write_safe_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_document_candidate_controlled_validation_fetch_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_document_candidate_controlled_validation_fetch_write_safe_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    _write_optional_json_report(report, artifacts["fetch_json"])
+    _write_optional_flat_csv(report.get("validation_result_rows") or [], RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_FIELDS, artifacts["fetch_csv"])
+    if artifacts["fetch_markdown"] is not None:
+        write_rzd_document_candidate_controlled_validation_fetch_markdown(report, artifacts["fetch_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-document-candidate-controlled-validation-fetch-results-v2",
+            "row_count": len(report.get("validation_result_rows") or []),
+            "validation_result_rows": report.get("validation_result_rows") or [],
+            **_rzd_document_candidate_controlled_validation_fetch_safety_flags(
+                attempted=bool(report.get("validation_fetch_attempt_count")),
+                page_fetched=bool(report.get("pages_fetched")),
+                api_fetched=bool(report.get("api_fetched")),
+            ),
+        },
+        artifacts["results_json"],
+    )
+    _write_optional_flat_csv(report.get("validation_result_rows") or [], RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_FIELDS, artifacts["results_csv"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-document-candidate-controlled-validation-fetch-blockers-v2",
+            "row_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            **_rzd_document_candidate_controlled_validation_fetch_safety_flags(
+                attempted=bool(report.get("validation_fetch_attempt_count")),
+                page_fetched=bool(report.get("pages_fetched")),
+                api_fetched=bool(report.get("api_fetched")),
+            ),
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    _write_optional_json_report(_rzd_document_candidate_controlled_validation_fetch_manifest(report), artifacts["hash_manifest_json"])
+    if artifacts["rerun_markdown"] is not None:
+        write_rzd_document_candidate_controlled_validation_fetch_rerun_markdown(report, artifacts["rerun_markdown"])
+
+
+def _rzd_document_candidate_controlled_validation_fetch_finalize_report(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    try:
+        _rzd_document_candidate_controlled_validation_fetch_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_document_candidate_controlled_validation_fetch_write_failed", "error": str(exc)}]
+        return report
+    preservation = _rzd_document_candidate_controlled_validation_fetch_preservation_fields(inputs=inputs, snapshots=snapshots, input_hashes=input_hashes)
+    report.update(preservation)
+    if not preservation["input_bytes_unchanged"]:
+        report["status"] = "failed"
+        if not any(error.get("message") == "rzd_document_candidate_controlled_validation_fetch_input_drift_detected" for error in report.get("errors") or []):
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_document_candidate_controlled_validation_fetch_input_drift_detected"}]
+        if not any(row.get("blocker_code") == "input_drift_detected" for row in report.get("blocker_rows") or []):
+            report["blocker_rows"] = [*report.get("blocker_rows", []), _rzd_document_candidate_controlled_validation_fetch_blocker_row({}, "input_drift_detected", validation_fetch_id="input_drift")]
+    report.update(
+        _rzd_document_candidate_controlled_validation_fetch_count_fields(
+            loaded={"task165_ready_rows": [None] * int(report.get("input_ready_candidate_count") or 0)},
+            result_rows=list(report.get("validation_result_rows") or []),
+            blocker_rows=list(report.get("blocker_rows") or []),
+            status=str(report.get("status") or ""),
+        )
+    )
+    report["validation_response_type_counts"] = _count_by_key(report.get("validation_result_rows") or [], "validation_response_type")
+    report["fetch_status_counts"] = _count_by_key(report.get("validation_result_rows") or [], "fetch_status")
+    report["blocker_code_counts"] = _count_by_key(report.get("blocker_rows") or [], "blocker_code")
+    for field in RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_DOCUMENT_CANDIDATE_CONTROLLED_VALIDATION_FETCH_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    try:
+        _rzd_document_candidate_controlled_validation_fetch_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_document_candidate_controlled_validation_fetch_write_failed", "error": str(exc)}]
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -43567,6 +44794,16 @@ def write_rzd_document_candidate_controlled_validation_plan_rerun_markdown(repor
     path.write_text(render_rzd_document_candidate_controlled_validation_plan_rerun_markdown(report), encoding="utf-8")
 
 
+def write_rzd_document_candidate_controlled_validation_fetch_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_document_candidate_controlled_validation_fetch_markdown(report), encoding="utf-8")
+
+
+def write_rzd_document_candidate_controlled_validation_fetch_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_document_candidate_controlled_validation_fetch_rerun_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -43826,6 +45063,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_candidate_page_link_discovery_markdown(report)
     if report.get("mode") == "rzd-document-candidate-controlled-validation-plan-preview-v2":
         return render_rzd_document_candidate_controlled_validation_plan_markdown(report)
+    if report.get("mode") == "rzd-document-candidate-controlled-validation-fetch-preview-v2":
+        return render_rzd_document_candidate_controlled_validation_fetch_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -48229,6 +49468,105 @@ def render_rzd_document_candidate_controlled_validation_plan_rerun_markdown(repo
             "```bash",
             "python3 scripts/financial_official_source_evidence_assistant.py \\",
             "  --mode rzd-document-candidate-controlled-validation-fetch-preview-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+        ]
+    ) + "\n"
+
+
+def render_rzd_document_candidate_controlled_validation_fetch_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# RZD Document Candidate Controlled Validation Fetch Preview v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- input_ready_candidate_count: {report.get('input_ready_candidate_count', 0)}",
+        f"- validation_fetch_attempt_count: {report.get('validation_fetch_attempt_count', 0)}",
+        f"- validation_fetch_success_count: {report.get('validation_fetch_success_count', 0)}",
+        f"- validation_fetch_blocked_count: {report.get('validation_fetch_blocked_count', 0)}",
+        f"- validation_fetch_failed_count: {report.get('validation_fetch_failed_count', 0)}",
+        f"- response types: `{report.get('validation_response_type_counts') or {}}`",
+        "",
+        "## Validation Responses",
+        "",
+        "| URL | Status | Type | HTTP | Snapshot | Next |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in report.get("validation_result_rows") or []:
+        next_flags = []
+        if row.get("future_link_discovery_required"):
+            next_flags.append("link discovery")
+        if row.get("future_json_metadata_analysis_required"):
+            next_flags.append("JSON analysis")
+        if row.get("future_document_download_plan_required"):
+            next_flags.append("download plan")
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("candidate_url"),
+                    row.get("fetch_status"),
+                    row.get("validation_response_type"),
+                    row.get("http_status_code"),
+                    row.get("raw_validation_response_path"),
+                    ", ".join(next_flags) or "review",
+                )
+            )
+            + " |"
+        )
+    if not report.get("validation_result_rows"):
+        lines.append("| none |  |  |  |  |  |")
+    lines.extend(["", "## Blockers", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('blocker_code')}` {row.get('candidate_url')}" for row in blockers[:30])
+    else:
+        lines.append("- None")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task performs controlled validation fetch/probe only.",
+            "- This task saves limited validation response snapshots.",
+            "- This task does not write responses into production document intake.",
+            "- This task does not treat validation snapshots as final downloaded documents.",
+            "- This task does not parse PDF/XLS/XLSX documents.",
+            "- This task does not extract financial values.",
+            "- This task does not import reports.",
+            "- This task does not mutate the database.",
+            "- This task does not score issuers or trigger paper trading.",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_document_candidate_controlled_validation_fetch_rerun_markdown(report: dict[str, Any]) -> str:
+    input_path = str(report.get("task165_validation_plan_input_path") or "")
+    output_dir = str(Path(input_path).parent) if input_path else "logs/financial_reports/task124_chain_preview"
+    return "\n".join(
+        [
+            "# RZD Document Candidate Controlled Validation Fetch Preview v2 Rerun",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-document-candidate-controlled-validation-fetch-preview-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+            "",
+            "## Future Document Download Plan",
+            "",
+            "Future only; not implemented or run by Task166.",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-document-download-plan-preview-v2 \\",
             f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
             "```",
         ]
@@ -59181,6 +60519,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task164 static candidate rows; any exact-document validation, download plan, or parsing remains a separate future task."]
     if mode == "rzd-document-candidate-controlled-validation-plan-preview-v2":
         return ["Review Task165 ready rows; future candidate validation/fetch remains a separate controlled task and no URLs were fetched here."]
+    if mode == "rzd-document-candidate-controlled-validation-fetch-preview-v2":
+        return ["Review Task166 validation snapshots and response classifications; final document download and parsing remain separate future controlled tasks."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -59401,6 +60741,13 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_document_candidate_controlled_validation_plan_inputs(args),
             artifacts=_rzd_document_candidate_controlled_validation_plan_artifacts(args),
+        )
+    if args.mode == "rzd-document-candidate-controlled-validation-fetch-preview-v2":
+        return not _rzd_document_candidate_controlled_validation_fetch_output_errors(
+            args,
+            inputs=_rzd_document_candidate_controlled_validation_fetch_inputs(args),
+            artifacts=_rzd_document_candidate_controlled_validation_fetch_artifacts(args),
+            raw_dir=_rzd_document_candidate_controlled_validation_fetch_raw_dir(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
