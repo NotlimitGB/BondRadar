@@ -80,6 +80,7 @@ MODE_CHOICES = (
     "rzd-document-candidate-controlled-validation-plan-preview-v2",
     "rzd-document-candidate-controlled-validation-fetch-preview-v2",
     "rzd-validation-html-response-link-discovery-preview-v2",
+    "rzd-manual-official-pdf-evidence-registration-preview-v2",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -6451,6 +6452,232 @@ RZD_VALIDATION_HTML_RESPONSE_LINK_DISCOVERY_ROW_BOOL_FIELDS = (
     "import_executed",
     "paper_trading_called",
 )
+RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS = {
+    "source_page_url": "https://company.rzd.ru/ru/9471",
+    "company_id": "rzd",
+    "company_name": "ОАО «РЖД»",
+    "report_year": 2025,
+    "report_standard": "IFRS",
+    "document_language": "ru",
+    "document_kind": "consolidated_financial_statements_auditor_report",
+    "preview_max_pages": 12,
+}
+RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ARTIFACT_NAMES = {
+    "registration_json": "rzd_manual_official_pdf_evidence_registration_task168.json",
+    "registration_csv": "rzd_manual_official_pdf_evidence_registration_task168.csv",
+    "registration_markdown": "rzd_manual_official_pdf_evidence_registration_task168.md",
+    "evidence_json": "rzd_manual_official_pdf_evidence_registration_evidence_task168.json",
+    "evidence_csv": "rzd_manual_official_pdf_evidence_registration_evidence_task168.csv",
+    "blockers_json": "rzd_manual_official_pdf_evidence_registration_blockers_task168.json",
+    "blockers_csv": "rzd_manual_official_pdf_evidence_registration_blockers_task168.csv",
+    "hash_manifest_json": "rzd_manual_official_pdf_evidence_registration_hash_manifest_task168.json",
+    "rerun_markdown": "rzd_manual_official_pdf_evidence_registration_rerun_task168.md",
+}
+RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_FIELDS = [
+    "evidence_id",
+    "company_id",
+    "company_name",
+    "manual_source",
+    "operator_supplied",
+    "source_page_url",
+    "source_page_host",
+    "source_page_trusted",
+    "source_page_fetch_required",
+    "source_page_fetched",
+    "document_url",
+    "document_url_known",
+    "document_url_fetch_required",
+    "document_url_fetched",
+    "original_pdf_input_path",
+    "original_pdf_filename",
+    "original_pdf_size_bytes",
+    "original_pdf_sha256",
+    "controlled_pdf_copy_path",
+    "controlled_pdf_copy_filename",
+    "controlled_pdf_copy_size_bytes",
+    "controlled_pdf_copy_sha256",
+    "controlled_pdf_copy_created",
+    "pdf_magic_header_valid",
+    "pdf_page_count",
+    "pdf_text_extraction_available",
+    "pdf_preview_page_count",
+    "pdf_preview_text_sha256",
+    "target_report_year",
+    "detected_report_years",
+    "primary_detected_report_year",
+    "target_year_aligned",
+    "stale_year_mismatch",
+    "unknown_year_candidate",
+    "year_alignment_status",
+    "report_standard",
+    "detected_standard_hints",
+    "document_language",
+    "document_kind",
+    "detected_document_kind_hints",
+    "company_name_detected",
+    "company_identity_verified_from_text",
+    "report_year_verified_from_text",
+    "report_standard_verified_from_text",
+    "document_kind_verified_from_text",
+    "pdf_identity_verified_from_text",
+    "document_title_detected",
+    "document_date_detected",
+    "auditor_detected",
+    "auditor_opinion_detected",
+    "financial_statement_sections_detected",
+    "financial_statement_sections_count",
+    "manual_evidence_registration_status",
+    "manual_evidence_registration_confidence",
+    "manual_evidence_registration_reason_codes",
+    "manual_evidence_registration_blocker_codes",
+    "manual_evidence_registration_warning_codes",
+    "future_pdf_parse_plan_required",
+    "future_financial_value_extraction_required",
+    "future_document_intake_registration_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_source_page",
+    "would_fetch_document_url",
+    "would_download_document",
+    "would_parse_financial_values",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "source_page_fetched_flag",
+    "document_url_fetched_flag",
+    "documents_downloaded",
+    "documents_parsed",
+    "financial_values_extracted",
+    "document_intake_mutated",
+    "database_mutated",
+    "import_executed",
+    "paper_trading_called",
+    "files_deleted",
+    "operator_action",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_BLOCKER_FIELDS = [
+    "blocker_id",
+    "evidence_id",
+    "company_id",
+    "company_name",
+    "original_pdf_input_path",
+    "source_page_url",
+    "manual_evidence_registration_status",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_COUNT_FIELDS = (
+    "manual_pdf_input_count",
+    "evidence_row_count",
+    "registered_evidence_count",
+    "blocked_evidence_count",
+    "failed_count",
+    "controlled_pdf_copy_count",
+    "pdf_magic_valid_count",
+    "pdf_text_extraction_available_count",
+    "pdf_identity_verified_count",
+    "target_year_aligned_evidence_count",
+    "company_identity_verified_count",
+    "report_year_verified_count",
+    "report_standard_verified_count",
+    "document_kind_verified_count",
+    "high_confidence_evidence_count",
+    "medium_confidence_evidence_count",
+    "reject_evidence_count",
+)
+RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_BOOL_FIELDS = (
+    "rzd_manual_official_pdf_evidence_registered",
+    "rzd_manual_official_pdf_evidence_ready_for_parse_plan",
+    "rzd_document_download_ready",
+    "rzd_document_parse_ready",
+    "rzd_import_ready",
+    "manual_official_pdf_input_preserved",
+    "source_trust_controlled_source_pack_input_preserved",
+    "input_bytes_unchanged",
+    "production_source_pack_modified",
+    "controlled_source_pack_modified",
+    "production_document_intake_modified",
+    "document_intake_draft_modified",
+    "read_only",
+    "dry_run_only",
+    "manual_evidence_registration_only",
+    "would_fetch_source_page",
+    "would_fetch_document_url",
+    "would_download_documents",
+    "would_parse_financial_values",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "source_page_fetched",
+    "document_url_fetched",
+    "documents_downloaded",
+    "documents_parsed",
+    "financial_values_extracted",
+    "document_intake_mutated",
+    "database_mutated",
+    "import_executed",
+    "paper_trading_called",
+    "files_deleted",
+)
+RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ROW_BOOL_FIELDS = (
+    "manual_source",
+    "operator_supplied",
+    "source_page_trusted",
+    "source_page_fetch_required",
+    "source_page_fetched",
+    "document_url_known",
+    "document_url_fetch_required",
+    "document_url_fetched",
+    "controlled_pdf_copy_created",
+    "pdf_magic_header_valid",
+    "pdf_text_extraction_available",
+    "target_year_aligned",
+    "stale_year_mismatch",
+    "unknown_year_candidate",
+    "company_identity_verified_from_text",
+    "report_year_verified_from_text",
+    "report_standard_verified_from_text",
+    "document_kind_verified_from_text",
+    "pdf_identity_verified_from_text",
+    "auditor_detected",
+    "auditor_opinion_detected",
+    "future_pdf_parse_plan_required",
+    "future_financial_value_extraction_required",
+    "future_document_intake_registration_required",
+    "future_import_required",
+    "future_scoring_required",
+    "future_paper_trading_required",
+    "would_fetch_source_page",
+    "would_fetch_document_url",
+    "would_download_document",
+    "would_parse_financial_values",
+    "would_mutate_document_intake",
+    "would_mutate_database",
+    "would_import_report",
+    "would_mutate_scores",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "source_page_fetched_flag",
+    "document_url_fetched_flag",
+    "documents_downloaded",
+    "documents_parsed",
+    "financial_values_extracted",
+    "document_intake_mutated",
+    "database_mutated",
+    "import_executed",
+    "paper_trading_called",
+    "files_deleted",
+)
 SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
     "workspace_json": "source_trust_recovery_workspace_task142.json",
     "workspace_csv": "source_trust_recovery_workspace_task142.csv",
@@ -7884,6 +8111,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=int,
         default=RZD_VALIDATION_HTML_RESPONSE_LINK_DISCOVERY_DEFAULTS["max_rows"],
     )
+    parser.add_argument("--manual-official-pdf-input", type=Path, default=None)
+    parser.add_argument("--manual-official-source-page-url", default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["source_page_url"])
+    parser.add_argument("--manual-official-document-url", default="")
+    parser.add_argument("--manual-official-company-id", default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["company_id"])
+    parser.add_argument("--manual-official-company-name", default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["company_name"])
+    parser.add_argument("--manual-official-report-year", type=int, default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["report_year"])
+    parser.add_argument("--manual-official-report-standard", default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["report_standard"])
+    parser.add_argument("--manual-official-document-language", default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["document_language"])
+    parser.add_argument("--manual-official-document-kind", default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["document_kind"])
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-evidence-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-evidence-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-hash-manifest-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-evidence-registration-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--manual-official-pdf-controlled-copy-dir", type=Path, default=None)
+    parser.add_argument(
+        "--manual-official-pdf-preview-max-pages",
+        type=int,
+        default=RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["preview_max_pages"],
+    )
     parser.add_argument("--source-trust-recovery-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-markdown-output", type=Path, default=None)
@@ -8101,6 +8352,8 @@ def run_assistant(
         report = run_rzd_document_candidate_controlled_validation_fetch_preview_v2(args)
     elif args.mode == "rzd-validation-html-response-link-discovery-preview-v2":
         report = run_rzd_validation_html_response_link_discovery_preview_v2(args)
+    elif args.mode == "rzd-manual-official-pdf-evidence-registration-preview-v2":
+        report = run_rzd_manual_official_pdf_evidence_registration_preview_v2(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -37829,6 +38082,722 @@ def _rzd_validation_html_response_link_discovery_finalize_report(
     return report
 
 
+def run_rzd_manual_official_pdf_evidence_registration_preview_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_evidence_registration_inputs(args)
+    artifacts = _rzd_manual_official_pdf_evidence_registration_artifacts(args)
+    copy_dir = _rzd_manual_official_pdf_evidence_controlled_copy_dir(args)
+    errors = _rzd_manual_official_pdf_evidence_registration_output_errors(args, inputs=inputs, artifacts=artifacts, copy_dir=copy_dir)
+    if errors:
+        return _rzd_manual_official_pdf_evidence_registration_failed_report(args, inputs=inputs, artifacts=artifacts, input_hashes={}, errors=errors, write_outputs=False)
+    loaded, snapshots, input_hashes, errors = _rzd_manual_official_pdf_evidence_registration_load_inputs(args, inputs)
+    if errors:
+        return _rzd_manual_official_pdf_evidence_registration_failed_report(args, inputs=inputs, artifacts=artifacts, input_hashes=input_hashes, errors=errors, write_outputs=True)
+    evidence_rows, blocker_rows, warnings, forced_status = _rzd_manual_official_pdf_evidence_registration_rows(args, loaded=loaded, copy_dir=copy_dir)
+    report = _build_rzd_manual_official_pdf_evidence_registration_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        copy_dir=copy_dir,
+        input_hashes=input_hashes,
+        preservation=_rzd_manual_official_pdf_evidence_registration_missing_preservation(),
+        evidence_rows=evidence_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=[],
+        forced_status=forced_status,
+    )
+    return _rzd_manual_official_pdf_evidence_registration_finalize_report(report, artifacts=artifacts, inputs=inputs, snapshots=snapshots, input_hashes=input_hashes)
+
+
+def _rzd_manual_official_pdf_evidence_registration_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "manual_official_pdf": args.manual_official_pdf_input,
+        "source_trust_controlled_source_pack": args.source_trust_controlled_source_pack_input
+        or (output_dir / SOURCE_TRUST_RECOVERY_CONTROLLED_APPLY_ARTIFACT_NAMES["controlled_source_pack_json"] if output_dir else None),
+    }
+
+
+def _rzd_manual_official_pdf_evidence_registration_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "registration_json": args.rzd_manual_official_pdf_evidence_registration_output,
+        "registration_csv": args.rzd_manual_official_pdf_evidence_registration_csv_output,
+        "registration_markdown": args.rzd_manual_official_pdf_evidence_registration_markdown_output,
+        "evidence_json": args.rzd_manual_official_pdf_evidence_registration_evidence_output,
+        "evidence_csv": args.rzd_manual_official_pdf_evidence_registration_evidence_csv_output,
+        "blockers_json": args.rzd_manual_official_pdf_evidence_registration_blockers_output,
+        "blockers_csv": args.rzd_manual_official_pdf_evidence_registration_blockers_csv_output,
+        "hash_manifest_json": args.rzd_manual_official_pdf_evidence_registration_hash_manifest_output,
+        "rerun_markdown": args.rzd_manual_official_pdf_evidence_registration_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ARTIFACT_NAMES.items()
+    }
+
+
+def _rzd_manual_official_pdf_evidence_controlled_copy_dir(args: argparse.Namespace) -> Path | None:
+    if args.manual_official_pdf_controlled_copy_dir is not None:
+        return args.manual_official_pdf_controlled_copy_dir
+    output_dir = args.operator_resolution_chain_output_dir
+    return output_dir / "rzd_manual_official_pdf_evidence_task168" if output_dir else None
+
+
+def _rzd_manual_official_pdf_evidence_registration_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    copy_dir: Path | None,
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output, copy_dir] if path is not None]
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_manual_official_pdf_evidence_registration_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "rzd_manual_official_pdf_evidence_registration_output_must_not_equal_input"}]
+    max_pages = _as_int(getattr(args, "manual_official_pdf_preview_max_pages", None))
+    if max_pages is None or max_pages < 0:
+        return [{"message": "invalid_rzd_manual_official_pdf_evidence_registration_config:manual_official_pdf_preview_max_pages"}]
+    return []
+
+
+def _rzd_manual_official_pdf_evidence_registration_load_inputs(
+    args: argparse.Namespace,
+    inputs: dict[str, Path | None],
+) -> tuple[dict[str, Any], dict[Path, bytes], dict[str, str], list[dict[str, Any]]]:
+    loaded: dict[str, Any] = {
+        "manual_official_pdf_bytes": b"",
+        "manual_official_pdf_path": inputs.get("manual_official_pdf"),
+        "source_trust_controlled_source_pack": {},
+        "source_trust_controlled_source_pack_rows": [],
+    }
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    errors: list[dict[str, Any]] = []
+    if not str(getattr(args, "manual_official_source_page_url", "") or "").strip():
+        errors.append({"message": "manual_official_source_page_url_required"})
+    if not str(getattr(args, "manual_official_company_id", "") or "").strip():
+        errors.append({"message": "manual_official_company_id_required"})
+    if not str(getattr(args, "manual_official_company_name", "") or "").strip():
+        errors.append({"message": "manual_official_company_name_required"})
+    if not _as_int(getattr(args, "manual_official_report_year", None)):
+        errors.append({"message": "manual_official_report_year_required"})
+    pdf_path = inputs.get("manual_official_pdf")
+    if pdf_path is None:
+        errors.append({"message": "manual_official_pdf_input_required"})
+    elif not pdf_path.exists():
+        errors.append({"message": "manual_official_pdf_input_not_found"})
+    elif not pdf_path.is_file():
+        errors.append({"message": "manual_official_pdf_input_not_file"})
+    else:
+        try:
+            pdf_bytes = pdf_path.read_bytes()
+        except OSError as exc:
+            errors.append({"message": "manual_official_pdf_input_not_found", "error": str(exc)})
+        else:
+            if not pdf_bytes:
+                errors.append({"message": "manual_official_pdf_input_empty"})
+            elif not pdf_bytes.startswith(b"%PDF"):
+                errors.append({"message": "manual_official_pdf_input_not_pdf"})
+            else:
+                loaded["manual_official_pdf_bytes"] = pdf_bytes
+                snapshots[pdf_path] = pdf_bytes
+                input_hashes["manual_official_pdf"] = hashlib.sha256(pdf_bytes).hexdigest()
+    source_pack_path = inputs.get("source_trust_controlled_source_pack")
+    if source_pack_path is None or not source_pack_path.is_file():
+        errors.append({"message": "source_trust_controlled_source_pack_input_required"})
+    else:
+        try:
+            data = source_pack_path.read_bytes()
+            payload = json.loads(data.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            errors.append({"message": "source_trust_controlled_source_pack_input_required", "error": str(exc)})
+        else:
+            if not isinstance(payload, dict):
+                errors.append({"message": "source_trust_controlled_source_pack_input_required"})
+            else:
+                loaded["source_trust_controlled_source_pack"] = payload
+                loaded["source_trust_controlled_source_pack_rows"] = _rzd_reporting_hub_embedded_source_pack_rows(payload)
+                snapshots[source_pack_path] = data
+                input_hashes["source_trust_controlled_source_pack"] = hashlib.sha256(data).hexdigest()
+    return loaded, snapshots, input_hashes, errors
+
+
+def _rzd_manual_official_pdf_evidence_registration_rows(
+    args: argparse.Namespace,
+    *,
+    loaded: dict[str, Any],
+    copy_dir: Path | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]:
+    pdf_path = loaded.get("manual_official_pdf_path")
+    pdf_bytes = loaded.get("manual_official_pdf_bytes") if isinstance(loaded.get("manual_official_pdf_bytes"), bytes) else b""
+    source_pack_rows = [row for row in loaded.get("source_trust_controlled_source_pack_rows") or [] if _rzd_manual_official_pdf_source_pack_row_is_rzd(row)]
+    trusted_hosts = _rzd_reporting_hub_embedded_trusted_hosts(source_pack_rows)
+    source_page_url = _normalize_candidate_url(str(args.manual_official_source_page_url or ""))
+    source_host = _host(source_page_url)
+    source_trusted = _source_trust_recovery_draft_review_host_trusted(source_host, trusted_hosts)
+    blocker_codes: list[str] = []
+    warning_codes: list[str] = []
+    warnings: list[dict[str, Any]] = []
+    if not source_pack_rows or "company.rzd.ru" not in trusted_hosts:
+        blocker_codes.append("source_trust_company_rzd_missing")
+    if not source_trusted:
+        blocker_codes.append("manual_official_source_page_host_not_trusted")
+    original_sha = hashlib.sha256(pdf_bytes).hexdigest()
+    copy_path = (copy_dir / f"rzd_manual_official_pdf_evidence_sha_{original_sha[:12]}.pdf") if copy_dir is not None else None
+    copy_created = False
+    copy_size = 0
+    copy_sha = ""
+    if not blocker_codes and copy_path is not None and isinstance(pdf_path, Path):
+        try:
+            copy_path.parent.mkdir(parents=True, exist_ok=True)
+            if _paths_equal(copy_path, pdf_path):
+                raise OSError("controlled copy path equals source PDF")
+            shutil.copyfile(pdf_path, copy_path)
+            copy_bytes = copy_path.read_bytes()
+            copy_size = len(copy_bytes)
+            copy_sha = hashlib.sha256(copy_bytes).hexdigest()
+            copy_created = copy_sha == original_sha
+        except OSError:
+            blocker_codes.append("manual_official_pdf_controlled_copy_failed")
+    elif not blocker_codes:
+        blocker_codes.append("manual_official_pdf_controlled_copy_failed")
+    metadata = _rzd_manual_official_pdf_preview_metadata(pdf_path, int(_as_int(args.manual_official_pdf_preview_max_pages) or 0)) if isinstance(pdf_path, Path) else {"available": False, "text": "", "warnings": ["manual_official_pdf_text_extraction_unavailable"]}
+    text = str(metadata.get("text") or "")
+    extraction_available = bool(metadata.get("available")) and bool(text.strip())
+    if not extraction_available:
+        warning_codes.append("manual_official_pdf_text_extraction_unavailable")
+        warnings.append({"message": "manual_official_pdf_text_extraction_unavailable"})
+    signals = _rzd_manual_official_pdf_evidence_text_signals(text, int(args.manual_official_report_year or 0))
+    if extraction_available:
+        if not signals["company_identity_verified"]:
+            blocker_codes.append("manual_official_pdf_company_identity_mismatch")
+        if not signals["report_year_verified"]:
+            blocker_codes.append("manual_official_pdf_report_year_mismatch")
+        if not signals["report_standard_verified"]:
+            blocker_codes.append("manual_official_pdf_report_standard_mismatch")
+        if not signals["document_kind_verified"]:
+            blocker_codes.append("manual_official_pdf_document_kind_mismatch")
+        if not signals["auditor_detected"]:
+            warning_codes.append("manual_official_pdf_auditor_not_detected")
+        if not signals["document_date_detected"]:
+            warning_codes.append("manual_official_pdf_document_date_not_detected")
+        if signals["financial_statement_sections_count"] < 2:
+            warning_codes.append("manual_official_pdf_financial_sections_partially_detected")
+    blocker_codes = list(dict.fromkeys(blocker_codes))
+    warning_codes = list(dict.fromkeys(warning_codes))
+    confidence = "reject" if blocker_codes else "high" if extraction_available and signals["pdf_identity_verified"] and copy_created and source_trusted else "medium"
+    status = "registered_manual_official_pdf_evidence" if confidence in {"high", "medium"} else "blocked_manual_official_pdf_evidence"
+    target_year_aligned = signals["report_year_verified"] if extraction_available else True
+    evidence_id = f"rzd_manual_official_pdf_evidence:{original_sha[:16]}"
+    row = {
+        "evidence_id": evidence_id,
+        "company_id": str(args.manual_official_company_id or ""),
+        "company_name": str(args.manual_official_company_name or ""),
+        "manual_source": True,
+        "operator_supplied": True,
+        "source_page_url": source_page_url,
+        "source_page_host": source_host,
+        "source_page_trusted": source_trusted,
+        "source_page_fetch_required": False,
+        "source_page_fetched": False,
+        "document_url": _normalize_candidate_url(str(args.manual_official_document_url or "")) if str(args.manual_official_document_url or "").strip() else "",
+        "document_url_known": bool(str(args.manual_official_document_url or "").strip()),
+        "document_url_fetch_required": False,
+        "document_url_fetched": False,
+        "original_pdf_input_path": str(pdf_path or ""),
+        "original_pdf_filename": pdf_path.name if isinstance(pdf_path, Path) else "",
+        "original_pdf_size_bytes": len(pdf_bytes),
+        "original_pdf_sha256": original_sha,
+        "controlled_pdf_copy_path": str(copy_path or ""),
+        "controlled_pdf_copy_filename": copy_path.name if copy_path is not None else "",
+        "controlled_pdf_copy_size_bytes": copy_size,
+        "controlled_pdf_copy_sha256": copy_sha,
+        "controlled_pdf_copy_created": copy_created,
+        "pdf_magic_header_valid": pdf_bytes.startswith(b"%PDF"),
+        "pdf_page_count": int(metadata.get("page_count") or 0),
+        "pdf_text_extraction_available": extraction_available,
+        "pdf_preview_page_count": int(metadata.get("preview_page_count") or 0),
+        "pdf_preview_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest() if text else "",
+        "target_report_year": int(args.manual_official_report_year or 0),
+        "detected_report_years": signals["detected_report_years"],
+        "primary_detected_report_year": signals["primary_detected_report_year"],
+        "target_year_aligned": target_year_aligned,
+        "stale_year_mismatch": bool(signals["detected_report_years"] and not target_year_aligned),
+        "unknown_year_candidate": bool(extraction_available and not signals["detected_report_years"]),
+        "year_alignment_status": "target_year_aligned" if target_year_aligned else "stale_year_mismatch",
+        "report_standard": str(args.manual_official_report_standard or ""),
+        "detected_standard_hints": signals["detected_standard_hints"],
+        "document_language": str(args.manual_official_document_language or ""),
+        "document_kind": str(args.manual_official_document_kind or ""),
+        "detected_document_kind_hints": signals["detected_document_kind_hints"],
+        "company_name_detected": signals["company_name_detected"],
+        "company_identity_verified_from_text": signals["company_identity_verified"],
+        "report_year_verified_from_text": signals["report_year_verified"],
+        "report_standard_verified_from_text": signals["report_standard_verified"],
+        "document_kind_verified_from_text": signals["document_kind_verified"],
+        "pdf_identity_verified_from_text": signals["pdf_identity_verified"],
+        "document_title_detected": signals["document_title_detected"],
+        "document_date_detected": signals["document_date_detected"],
+        "auditor_detected": signals["auditor_detected"],
+        "auditor_opinion_detected": signals["auditor_opinion_detected"],
+        "financial_statement_sections_detected": signals["financial_statement_sections_detected"],
+        "financial_statement_sections_count": signals["financial_statement_sections_count"],
+        "manual_evidence_registration_status": status,
+        "manual_evidence_registration_confidence": confidence,
+        "manual_evidence_registration_reason_codes": _rzd_manual_official_pdf_evidence_reason_codes(row_status=status, extraction_available=extraction_available, source_trusted=source_trusted, copy_created=copy_created),
+        "manual_evidence_registration_blocker_codes": blocker_codes,
+        "manual_evidence_registration_warning_codes": warning_codes,
+        "future_pdf_parse_plan_required": confidence in {"high", "medium"},
+        "future_financial_value_extraction_required": False,
+        "future_document_intake_registration_required": confidence in {"high", "medium"},
+        "future_import_required": False,
+        "future_scoring_required": False,
+        "future_paper_trading_required": False,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_parse_financial_values": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "source_page_fetched_flag": False,
+        "document_url_fetched_flag": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "financial_values_extracted": False,
+        "document_intake_mutated": False,
+        "database_mutated": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+        "operator_action": "review_registered_manual_pdf_evidence_before_future_parse_plan",
+        "safe_hint": "Task168 registers a local PDF evidence copy only; it does not fetch, download, parse financial values, import, or mutate production state.",
+    }
+    for field in RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ROW_BOOL_FIELDS:
+        row[field] = bool(row.get(field))
+    blocker_rows = [_rzd_manual_official_pdf_evidence_registration_blocker_row(row, code) for code in blocker_codes]
+    if blocker_codes:
+        forced_status = "failed"
+    elif confidence == "high" and not warning_codes:
+        forced_status = "passed"
+    else:
+        forced_status = "warning"
+    warnings.extend({"message": code} for code in warning_codes if not any(item.get("message") == code for item in warnings))
+    return [row], blocker_rows, warnings, forced_status
+
+
+def _rzd_manual_official_pdf_preview_metadata(path: Path, max_pages: int) -> dict[str, Any]:
+    for module_name in ("pypdf", "PyPDF2"):
+        try:
+            module = __import__(module_name)
+            reader = module.PdfReader(str(path))
+            pages = list(getattr(reader, "pages", []) or [])
+            texts: list[str] = []
+            for page in pages[:max_pages]:
+                try:
+                    texts.append(str(page.extract_text() or ""))
+                except Exception:
+                    continue
+            text = "\n".join(texts)
+            if text.strip():
+                return {"available": True, "page_count": len(pages), "preview_page_count": min(len(pages), max_pages), "text": text, "warnings": []}
+        except Exception:
+            continue
+    try:
+        data = path.read_bytes()[:500_000]
+    except OSError:
+        data = b""
+    fallback = data.decode("utf-8", errors="ignore")
+    fallback = fallback if len(fallback.strip()) > 80 and any(term in fallback.casefold() for term in ("rzd", "ifrs", "мсфо", "2025", "report", "отчет", "отчёт")) else ""
+    return {
+        "available": bool(fallback),
+        "page_count": 0,
+        "preview_page_count": 0,
+        "text": fallback,
+        "warnings": [] if fallback else ["manual_official_pdf_text_extraction_unavailable"],
+    }
+
+
+def _rzd_manual_official_pdf_source_pack_row_is_rzd(row: dict[str, Any]) -> bool:
+    identifiers = " ".join(
+        str(row.get(key) or "")
+        for key in (
+            "company_id",
+            "canonical_company_id",
+            "company_name",
+            "canonical_company_name",
+            "issuer_name",
+            "resolution_id",
+        )
+    ).casefold()
+    return (
+        "18" in {str(row.get("company_id") or ""), str(row.get("canonical_company_id") or "")}
+        or "rzd" in identifiers
+        or "ржд" in identifiers
+        or "russian railways" in identifiers
+    )
+
+
+def _rzd_manual_official_pdf_evidence_text_signals(text: str, target_year: int) -> dict[str, Any]:
+    folded = str(text or "").casefold()
+    years = _rzd_candidate_page_link_discovery_years(text)
+    company_terms = ("российские железные дороги", "оао «ржд»", 'оао "ржд"', "russian railways", "ржд")
+    standard_terms = ("ifrs", "мсфо", "мфсо")
+    document_terms = (
+        "аудиторское заключение",
+        "независимого аудитора",
+        "консолидированн",
+        "финансовой отчетности",
+        "financial statements",
+        "statement of financial position",
+    )
+    section_terms = {
+        "statement_of_financial_position": ("финансовом положении", "financial position"),
+        "profit_or_loss": ("прибылях и убытках", "profit or loss"),
+        "cash_flows": ("движении денежных", "cash flows"),
+        "changes_in_equity": ("изменениях капитала", "changes in equity"),
+        "notes": ("примечания", "notes to"),
+    }
+    detected_sections = [name for name, terms in section_terms.items() if any(term in folded for term in terms)]
+    standard_hints = [term.upper() if term == "ifrs" else term for term in standard_terms if term in folded]
+    kind_hints = [term for term in document_terms if term in folded]
+    company_verified = any(term in folded for term in company_terms)
+    year_verified = target_year in years or str(target_year) in folded
+    standard_verified = any(term in folded for term in standard_terms)
+    kind_verified = any(term in folded for term in document_terms) and ("аудитор" in folded or "auditor" in folded or "financial statements" in folded or "финансов" in folded)
+    date_match = re.search(r"(31\s+декабр[яь]\s+20\d{2}|31\s+december\s+20\d{2}|december\s+31,\s*20\d{2}|март\s+20\d{2}|20\d{2}\s*г\.)", text, flags=re.IGNORECASE)
+    title_match = re.search(r"(аудиторское заключение[^\n\r]{0,160}|consolidated financial statements[^\n\r]{0,160})", text, flags=re.IGNORECASE)
+    return {
+        "detected_report_years": years,
+        "primary_detected_report_year": years[0] if years else 0,
+        "detected_standard_hints": standard_hints,
+        "detected_document_kind_hints": kind_hints,
+        "company_name_detected": "Russian Railways/RZD" if company_verified else "",
+        "company_identity_verified": company_verified,
+        "report_year_verified": year_verified,
+        "report_standard_verified": standard_verified,
+        "document_kind_verified": kind_verified,
+        "pdf_identity_verified": company_verified and year_verified and standard_verified and kind_verified,
+        "document_title_detected": title_match.group(0).strip() if title_match else "",
+        "document_date_detected": date_match.group(0).strip() if date_match else "",
+        "auditor_detected": "аудитор" in folded or "auditor" in folded,
+        "auditor_opinion_detected": "аудиторское заключение" in folded or "auditor" in folded,
+        "financial_statement_sections_detected": detected_sections,
+        "financial_statement_sections_count": len(detected_sections),
+    }
+
+
+def _rzd_manual_official_pdf_evidence_reason_codes(*, row_status: str, extraction_available: bool, source_trusted: bool, copy_created: bool) -> list[str]:
+    codes = ["manual_official_pdf_evidence_registration_preview"]
+    if source_trusted:
+        codes.append("trusted_source_page_context")
+    if copy_created:
+        codes.append("controlled_pdf_copy_created")
+    if extraction_available:
+        codes.append("pdf_text_preview_extracted")
+    if row_status == "registered_manual_official_pdf_evidence":
+        codes.append("future_pdf_parse_plan_candidate_only")
+    return codes
+
+
+def _rzd_manual_official_pdf_evidence_registration_safety_flags() -> dict[str, bool]:
+    return {
+        "production_source_pack_modified": False,
+        "controlled_source_pack_modified": False,
+        "production_document_intake_modified": False,
+        "document_intake_draft_modified": False,
+        "read_only": True,
+        "dry_run_only": True,
+        "manual_evidence_registration_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_documents": False,
+        "would_parse_financial_values": False,
+        "would_mutate_document_intake": False,
+        "would_mutate_database": False,
+        "would_import_report": False,
+        "would_mutate_scores": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "documents_parsed": False,
+        "financial_values_extracted": False,
+        "document_intake_mutated": False,
+        "database_mutated": False,
+        "import_executed": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_evidence_registration_missing_preservation() -> dict[str, bool]:
+    return {
+        "manual_official_pdf_input_preserved": False,
+        "source_trust_controlled_source_pack_input_preserved": False,
+        "input_bytes_unchanged": False,
+    }
+
+
+def _rzd_manual_official_pdf_evidence_registration_preservation_fields(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, bool]:
+    fields: dict[str, bool] = {}
+    all_preserved = True
+    role_aliases = {
+        "manual_official_pdf": "manual_official_pdf_input_preserved",
+        "source_trust_controlled_source_pack": "source_trust_controlled_source_pack_input_preserved",
+    }
+    for role, path in inputs.items():
+        preserved = False
+        if path is not None and path in snapshots:
+            try:
+                current = path.read_bytes()
+                preserved = current == snapshots[path] and hashlib.sha256(current).hexdigest() == input_hashes.get(role)
+            except OSError:
+                preserved = False
+        fields[role_aliases[role]] = bool(preserved)
+        all_preserved = all_preserved and preserved
+    fields["input_bytes_unchanged"] = bool(all_preserved)
+    return fields
+
+
+def _rzd_manual_official_pdf_evidence_registration_blocker_row(row: dict[str, Any], code: str, *, evidence_id: str | None = None) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_manual_official_pdf_evidence_registration_blocker:{evidence_id or row.get('evidence_id') or 'unknown'}:{code}",
+        "evidence_id": evidence_id or row.get("evidence_id") or "",
+        "company_id": row.get("company_id") or "",
+        "company_name": row.get("company_name") or "",
+        "original_pdf_input_path": row.get("original_pdf_input_path") or "",
+        "source_page_url": row.get("source_page_url") or "",
+        "manual_evidence_registration_status": row.get("manual_evidence_registration_status") or "blocked_manual_official_pdf_evidence",
+        "blocker_code": code,
+        "blocker_severity": "error",
+        "operator_action": "resolve_manual_pdf_evidence_blocker_before_future_parse_plan",
+        "safe_hint": "Task168 registers local PDF evidence only; it never fetches, downloads, parses values, imports, or mutates production state.",
+    }
+
+
+def _rzd_manual_official_pdf_evidence_registration_count_fields(*, evidence_rows: list[dict[str, Any]], blocker_rows: list[dict[str, Any]], status: str) -> dict[str, int]:
+    confidence_counts = _count_by_key(evidence_rows, "manual_evidence_registration_confidence")
+    return {
+        "manual_pdf_input_count": 1 if evidence_rows else 0,
+        "evidence_row_count": len(evidence_rows),
+        "registered_evidence_count": sum(1 for row in evidence_rows if row.get("manual_evidence_registration_status") == "registered_manual_official_pdf_evidence"),
+        "blocked_evidence_count": sum(1 for row in evidence_rows if row.get("manual_evidence_registration_status") != "registered_manual_official_pdf_evidence") + (1 if blocker_rows and not evidence_rows else 0),
+        "failed_count": 1 if status == "failed" else 0,
+        "controlled_pdf_copy_count": sum(1 for row in evidence_rows if _as_bool(row.get("controlled_pdf_copy_created"))),
+        "pdf_magic_valid_count": sum(1 for row in evidence_rows if _as_bool(row.get("pdf_magic_header_valid"))),
+        "pdf_text_extraction_available_count": sum(1 for row in evidence_rows if _as_bool(row.get("pdf_text_extraction_available"))),
+        "pdf_identity_verified_count": sum(1 for row in evidence_rows if _as_bool(row.get("pdf_identity_verified_from_text"))),
+        "target_year_aligned_evidence_count": sum(1 for row in evidence_rows if _as_bool(row.get("target_year_aligned"))),
+        "company_identity_verified_count": sum(1 for row in evidence_rows if _as_bool(row.get("company_identity_verified_from_text"))),
+        "report_year_verified_count": sum(1 for row in evidence_rows if _as_bool(row.get("report_year_verified_from_text"))),
+        "report_standard_verified_count": sum(1 for row in evidence_rows if _as_bool(row.get("report_standard_verified_from_text"))),
+        "document_kind_verified_count": sum(1 for row in evidence_rows if _as_bool(row.get("document_kind_verified_from_text"))),
+        "high_confidence_evidence_count": int(confidence_counts.get("high") or 0),
+        "medium_confidence_evidence_count": int(confidence_counts.get("medium") or 0),
+        "reject_evidence_count": int(confidence_counts.get("reject") or 0),
+    }
+
+
+def _build_rzd_manual_official_pdf_evidence_registration_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    copy_dir: Path | None,
+    input_hashes: dict[str, str],
+    preservation: dict[str, bool],
+    evidence_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    forced_status: str,
+) -> dict[str, Any]:
+    status = "failed" if errors else forced_status
+    counts = _rzd_manual_official_pdf_evidence_registration_count_fields(evidence_rows=evidence_rows, blocker_rows=blocker_rows, status=status)
+    registered = [row for row in evidence_rows if row.get("manual_evidence_registration_status") == "registered_manual_official_pdf_evidence"]
+    report = {
+        "status": status,
+        "mode": "rzd-manual-official-pdf-evidence-registration-preview-v2",
+        "manual_official_pdf_input_path": str(inputs.get("manual_official_pdf") or ""),
+        "manual_official_pdf_input_sha256": input_hashes.get("manual_official_pdf", ""),
+        "source_trust_controlled_source_pack_input_path": str(inputs.get("source_trust_controlled_source_pack") or ""),
+        "source_trust_controlled_source_pack_input_sha256": input_hashes.get("source_trust_controlled_source_pack", ""),
+        "manual_official_source_page_url": _normalize_candidate_url(str(args.manual_official_source_page_url or "")),
+        "manual_official_document_url": _normalize_candidate_url(str(args.manual_official_document_url or "")) if str(args.manual_official_document_url or "").strip() else "",
+        "manual_official_company_id": str(args.manual_official_company_id or ""),
+        "manual_official_company_name": str(args.manual_official_company_name or ""),
+        "manual_official_report_year": int(args.manual_official_report_year or 0),
+        "manual_official_report_standard": str(args.manual_official_report_standard or ""),
+        "manual_official_document_language": str(args.manual_official_document_language or ""),
+        "manual_official_document_kind": str(args.manual_official_document_kind or ""),
+        "controlled_pdf_copy_dir": str(copy_dir or ""),
+        "evidence_rows": evidence_rows,
+        "blocker_rows": blocker_rows,
+        "evidence_registration_status_counts": _count_by_key(evidence_rows, "manual_evidence_registration_status"),
+        "evidence_confidence_counts": _count_by_key(evidence_rows, "manual_evidence_registration_confidence"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "warning_code_counts": _count_by_key([{"code": code} for row in evidence_rows for code in (row.get("manual_evidence_registration_warning_codes") or [])], "code"),
+        "warnings": warnings,
+        "errors": errors,
+        "artifacts": {role: str(path) for role, path in artifacts.items() if path is not None},
+        "next_steps": _next_steps("rzd-manual-official-pdf-evidence-registration-preview-v2", status),
+        "rzd_manual_official_pdf_evidence_registered": bool(registered),
+        "rzd_manual_official_pdf_evidence_ready_for_parse_plan": bool(registered),
+        "rzd_document_download_ready": False,
+        "rzd_document_parse_ready": False,
+        "rzd_import_ready": False,
+        **preservation,
+        **_rzd_manual_official_pdf_evidence_registration_safety_flags(),
+        **counts,
+    }
+    for field in RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    return report
+
+
+def _rzd_manual_official_pdf_evidence_registration_manifest(report: dict[str, Any]) -> dict[str, Any]:
+    entries = []
+    for row in report.get("evidence_rows") or []:
+        entries.append(
+            {
+                "evidence_id": row.get("evidence_id") or "",
+                "original_pdf_input_path": row.get("original_pdf_input_path") or "",
+                "original_pdf_filename": row.get("original_pdf_filename") or "",
+                "original_pdf_size_bytes": int(row.get("original_pdf_size_bytes") or 0),
+                "original_pdf_sha256": row.get("original_pdf_sha256") or "",
+                "controlled_pdf_copy_path": row.get("controlled_pdf_copy_path") or "",
+                "controlled_pdf_copy_filename": row.get("controlled_pdf_copy_filename") or "",
+                "controlled_pdf_copy_size_bytes": int(row.get("controlled_pdf_copy_size_bytes") or 0),
+                "controlled_pdf_copy_sha256": row.get("controlled_pdf_copy_sha256") or "",
+                "source_page_url": row.get("source_page_url") or "",
+                "document_url": row.get("document_url") or "",
+                "target_report_year": int(row.get("target_report_year") or 0),
+                "report_standard": row.get("report_standard") or "",
+                "document_kind": row.get("document_kind") or "",
+                "created_by_mode": "rzd-manual-official-pdf-evidence-registration-preview-v2",
+            }
+        )
+    return {"mode": "rzd-manual-official-pdf-evidence-registration-hash-manifest-v2", "entry_count": len(entries), "entries": entries}
+
+
+def _rzd_manual_official_pdf_evidence_registration_failed_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    errors: list[dict[str, Any]],
+    write_outputs: bool,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_evidence_registration_blocker_row({}, str(error.get("message") or "unknown_readiness"), evidence_id=f"preflight:{index}")
+        for index, error in enumerate(errors, start=1)
+    ]
+    report = _build_rzd_manual_official_pdf_evidence_registration_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        copy_dir=_rzd_manual_official_pdf_evidence_controlled_copy_dir(args),
+        input_hashes=input_hashes,
+        preservation=_rzd_manual_official_pdf_evidence_registration_missing_preservation(),
+        evidence_rows=[],
+        blocker_rows=blocker_rows,
+        warnings=[],
+        errors=errors,
+        forced_status="failed",
+    )
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_evidence_registration_write_safe_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_manual_official_pdf_evidence_registration_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_evidence_registration_write_safe_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    _write_optional_json_report(report, artifacts["registration_json"])
+    _write_optional_flat_csv(report.get("evidence_rows") or [], RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_FIELDS, artifacts["registration_csv"])
+    if artifacts["registration_markdown"] is not None:
+        write_rzd_manual_official_pdf_evidence_registration_markdown(report, artifacts["registration_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-manual-official-pdf-evidence-registration-evidence-v2",
+            "row_count": len(report.get("evidence_rows") or []),
+            "evidence_rows": report.get("evidence_rows") or [],
+            **_rzd_manual_official_pdf_evidence_registration_safety_flags(),
+        },
+        artifacts["evidence_json"],
+    )
+    _write_optional_flat_csv(report.get("evidence_rows") or [], RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_FIELDS, artifacts["evidence_csv"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-manual-official-pdf-evidence-registration-blockers-v2",
+            "row_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            **_rzd_manual_official_pdf_evidence_registration_safety_flags(),
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    _write_optional_json_report(_rzd_manual_official_pdf_evidence_registration_manifest(report), artifacts["hash_manifest_json"])
+    if artifacts["rerun_markdown"] is not None:
+        write_rzd_manual_official_pdf_evidence_registration_rerun_markdown(report, artifacts["rerun_markdown"])
+
+
+def _rzd_manual_official_pdf_evidence_registration_finalize_report(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    try:
+        _rzd_manual_official_pdf_evidence_registration_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_manual_official_pdf_evidence_registration_write_failed", "error": str(exc)}]
+        return report
+    preservation = _rzd_manual_official_pdf_evidence_registration_preservation_fields(inputs=inputs, snapshots=snapshots, input_hashes=input_hashes)
+    report.update(preservation)
+    if not preservation["input_bytes_unchanged"]:
+        report["status"] = "failed"
+        if not any(error.get("message") == "rzd_manual_official_pdf_evidence_registration_input_drift_detected" for error in report.get("errors") or []):
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_manual_official_pdf_evidence_registration_input_drift_detected"}]
+        if not any(row.get("blocker_code") == "input_drift_detected" for row in report.get("blocker_rows") or []):
+            report["blocker_rows"] = [*report.get("blocker_rows", []), _rzd_manual_official_pdf_evidence_registration_blocker_row({}, "input_drift_detected", evidence_id="input_drift")]
+    report.update(_rzd_manual_official_pdf_evidence_registration_count_fields(evidence_rows=list(report.get("evidence_rows") or []), blocker_rows=list(report.get("blocker_rows") or []), status=str(report.get("status") or "")))
+    report["blocker_code_counts"] = _count_by_key(report.get("blocker_rows") or [], "blocker_code")
+    for field in RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    try:
+        _rzd_manual_official_pdf_evidence_registration_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "rzd_manual_official_pdf_evidence_registration_write_failed", "error": str(exc)}]
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -46032,6 +47001,16 @@ def write_rzd_validation_html_response_link_discovery_rerun_markdown(report: dic
     path.write_text(render_rzd_validation_html_response_link_discovery_rerun_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_evidence_registration_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_evidence_registration_markdown(report), encoding="utf-8")
+
+
+def write_rzd_manual_official_pdf_evidence_registration_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_evidence_registration_rerun_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -46295,6 +47274,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_document_candidate_controlled_validation_fetch_markdown(report)
     if report.get("mode") == "rzd-validation-html-response-link-discovery-preview-v2":
         return render_rzd_validation_html_response_link_discovery_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-evidence-registration-preview-v2":
+        return render_rzd_manual_official_pdf_evidence_registration_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -50904,6 +51885,114 @@ def render_rzd_validation_html_response_link_discovery_rerun_markdown(report: di
             "```bash",
             "python3 scripts/financial_official_source_evidence_assistant.py \\",
             "  --mode rzd-validation-html-discovered-candidate-plan-preview-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
+            "```",
+        ]
+    ) + "\n"
+
+
+def render_rzd_manual_official_pdf_evidence_registration_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# RZD Manual Official PDF Evidence Registration Preview v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- registered evidence rows: {report.get('registered_evidence_count', 0)}",
+        f"- high confidence rows: {report.get('high_confidence_evidence_count', 0)}",
+        f"- medium confidence rows: {report.get('medium_confidence_evidence_count', 0)}",
+        f"- blockers: {len(report.get('blocker_rows') or [])}",
+        f"- source page: `{report.get('manual_official_source_page_url') or RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS['source_page_url']}`",
+        f"- input PDF: `{report.get('manual_official_pdf_input_path') or ''}`",
+        f"- controlled copy dir: `{report.get('controlled_pdf_copy_dir') or ''}`",
+        "",
+        "## Evidence",
+        "",
+        "| PDF | Confidence | Copy | Source trusted | Text verified | Parse plan |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in report.get("evidence_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("original_pdf_filename"),
+                    row.get("manual_evidence_registration_confidence"),
+                    row.get("controlled_pdf_copy_path"),
+                    row.get("source_page_trusted"),
+                    row.get("pdf_identity_verified_from_text"),
+                    row.get("future_pdf_parse_plan_required"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("evidence_rows"):
+        lines.append("| none |  |  |  |  |  |")
+    lines.extend(["", "## Hashes", ""])
+    for row in report.get("evidence_rows") or []:
+        lines.extend(
+            [
+                f"- original `{row.get('original_pdf_sha256') or ''}` `{row.get('original_pdf_input_path') or ''}`",
+                f"- controlled copy `{row.get('controlled_pdf_copy_sha256') or ''}` `{row.get('controlled_pdf_copy_path') or ''}`",
+            ]
+        )
+    if not report.get("evidence_rows"):
+        lines.append("- none")
+    lines.extend(["", "## Blockers And Warnings", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- blocker `{row.get('blocker_code')}`" for row in blockers)
+    else:
+        lines.append("- blockers: none")
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(f"- warning `{row.get('message')}`" for row in warnings)
+    else:
+        lines.append("- warnings: none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task reads a local operator-supplied PDF and writes a controlled preview copy.",
+            "- This task does not fetch the source page.",
+            "- This task does not fetch or download document URLs.",
+            "- This task does not parse financial values or import reports.",
+            "- This task does not mutate source packs, document intake, or the database.",
+            "- This task does not score issuers, trigger paper trading, or delete files.",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_evidence_registration_rerun_markdown(report: dict[str, Any]) -> str:
+    input_path = str(report.get("manual_official_pdf_input_path") or "")
+    output_dir = str(Path(str(report.get("artifacts", {}).get("registration_json") or "")).parent) if report.get("artifacts", {}).get("registration_json") else "logs/financial_reports/task124_chain_preview"
+    source_page = RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS["source_page_url"]
+    return "\n".join(
+        [
+            "# RZD Manual Official PDF Evidence Registration Preview v2 Rerun",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-manual-official-pdf-evidence-registration-preview-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)} \\",
+            f"  --manual-official-pdf-input {_bash_quote(input_path or '<local-pdf-path>')} \\",
+            f"  --manual-official-source-page-url {_bash_quote(str(report.get('manual_official_source_page_url') or source_page))}",
+            "```",
+            "",
+            "## Future Parse Plan",
+            "",
+            "Future only; not implemented or run by Task168.",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-manual-official-pdf-parse-plan-preview-v2 \\",
             f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
             "```",
         ]
@@ -61860,6 +62949,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task166 validation snapshots and response classifications; final document download and parsing remain separate future controlled tasks."]
     if mode == "rzd-validation-html-response-link-discovery-preview-v2":
         return ["Review Task167 static HTML candidates; any discovered URL validation, fetching, document download, and parsing remain separate future controlled tasks."]
+    if mode == "rzd-manual-official-pdf-evidence-registration-preview-v2":
+        return ["Review Task168 registered PDF evidence and controlled copy; parsing, intake registration, import, scoring, and trading remain separate future controlled tasks."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -62093,6 +63184,13 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_validation_html_response_link_discovery_inputs(args),
             artifacts=_rzd_validation_html_response_link_discovery_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-evidence-registration-preview-v2":
+        return not _rzd_manual_official_pdf_evidence_registration_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_evidence_registration_inputs(args),
+            artifacts=_rzd_manual_official_pdf_evidence_registration_artifacts(args),
+            copy_dir=_rzd_manual_official_pdf_evidence_controlled_copy_dir(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(

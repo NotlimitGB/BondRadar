@@ -12943,6 +12943,250 @@ def test_rzd_validation_html_response_link_discovery_required_failure_fields(tmp
     _assert_rzd_validation_html_response_link_discovery_report_fields(report)
 
 
+def test_rzd_manual_official_pdf_evidence_registration_high_confidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-ifrs-2025.pdf"
+    pdf_bytes = b"%PDF-1.7\n% local evidence preview\n%%EOF\n"
+    pdf_path.write_bytes(pdf_bytes)
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    def metadata(path: Path, max_pages: int) -> dict:
+        return {
+            "available": True,
+            "page_count": 120,
+            "preview_page_count": 4,
+            "text": (
+                "Russian Railways consolidated financial statements IFRS 2025 "
+                "independent auditor report 31 December 2025. "
+                "Statement of financial position. Profit or loss. Cash flows. Notes to financial statements."
+            ),
+            "warnings": [],
+        }
+
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task168 must not fetch, download, parse, import, score, trade, or delete")
+
+    monkeypatch.setattr(assistant, "_rzd_manual_official_pdf_preview_metadata", metadata)
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "passed"
+    assert report["registered_evidence_count"] == 1
+    assert report["high_confidence_evidence_count"] == 1
+    assert report["medium_confidence_evidence_count"] == 0
+    row = report["evidence_rows"][0]
+    assert row["manual_evidence_registration_confidence"] == "high"
+    assert row["controlled_pdf_copy_created"] is True
+    assert Path(row["controlled_pdf_copy_path"]).read_bytes() == pdf_bytes
+    assert row["original_pdf_sha256"] == hashlib.sha256(pdf_bytes).hexdigest()
+    assert row["controlled_pdf_copy_sha256"] == row["original_pdf_sha256"]
+    assert row["source_page_trusted"] is True
+    assert row["pdf_identity_verified_from_text"] is True
+    assert row["future_pdf_parse_plan_required"] is True
+    manifest = json.loads((tmp_path / "rzd_manual_official_pdf_evidence_registration_hash_manifest_task168.json").read_text(encoding="utf-8"))
+    assert manifest["entry_count"] == 1
+    assert manifest["entries"][0]["controlled_pdf_copy_sha256"] == row["controlled_pdf_copy_sha256"]
+    assert (tmp_path / "rzd_manual_official_pdf_evidence_registration_task168.md").is_file()
+    assert report["documents_downloaded"] is False
+    assert report["documents_parsed"] is False
+    assert report["import_executed"] is False
+    assert report["paper_trading_called"] is False
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_evidence_registration_unavailable_text_is_medium_confidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-ifrs-2025.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {"available": False, "page_count": 0, "preview_page_count": 0, "text": "", "warnings": ["manual_official_pdf_text_extraction_unavailable"]},
+    )
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert report["registered_evidence_count"] == 1
+    row = report["evidence_rows"][0]
+    assert row["manual_evidence_registration_confidence"] == "medium"
+    assert row["pdf_text_extraction_available"] is False
+    assert "manual_official_pdf_text_extraction_unavailable" in row["manual_evidence_registration_warning_codes"]
+    assert {"message": "manual_official_pdf_text_extraction_unavailable"} in report["warnings"]
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_evidence_registration_blocks_contradictions_and_untrusted_source(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-ifrs-2025.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {
+            "available": True,
+            "page_count": 3,
+            "preview_page_count": 3,
+            "text": "Unrelated issuer consolidated financial statements IFRS 2024 independent auditor report.",
+            "warnings": [],
+        },
+    )
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+    codes = {row["blocker_code"] for row in report["blocker_rows"]}
+    assert report["status"] == "failed"
+    assert "manual_official_pdf_company_identity_mismatch" in codes
+    assert "manual_official_pdf_report_year_mismatch" in codes
+
+    untrusted_dir = tmp_path / "untrusted"
+    untrusted_dir.mkdir()
+    untrusted_pdf = untrusted_dir / "rzd-ifrs-2025.pdf"
+    untrusted_pdf.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(
+        untrusted_dir,
+        trusted_host="example.com",
+        source_page_url="https://example.com/reports",
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {"available": False, "page_count": 0, "preview_page_count": 0, "text": "", "warnings": []},
+    )
+    untrusted = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(untrusted_dir),
+            "--manual-official-pdf-input",
+            str(untrusted_pdf),
+        ]
+    )
+    untrusted_codes = {row["blocker_code"] for row in untrusted["blocker_rows"]}
+    assert untrusted["status"] == "failed"
+    assert "source_trust_company_rzd_missing" in untrusted_codes
+    assert "manual_official_source_page_host_not_trusted" in untrusted_codes
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(untrusted)
+
+
+def test_rzd_manual_official_pdf_evidence_registration_invalid_pdf_and_collision(
+    tmp_path: Path,
+) -> None:
+    source_pack = _write_exact_document_draft_gate_source_pack(tmp_path)
+    invalid_pdf = tmp_path / "not-a-pdf.pdf"
+    invalid_pdf.write_bytes(b"not a pdf")
+
+    invalid = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(invalid_pdf),
+        ]
+    )
+    assert invalid["status"] == "failed"
+    assert {"message": "manual_official_pdf_input_not_pdf"} in invalid["errors"]
+    assert invalid["evidence_row_count"] == 0
+    assert (tmp_path / "rzd_manual_official_pdf_evidence_registration_task168.json").is_file()
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(invalid)
+
+    collision_dir = tmp_path / "collision"
+    collision_dir.mkdir()
+    pdf_path = collision_dir / "rzd.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n%%EOF\n")
+    source_pack.replace(collision_dir / "source_trust_recovery_controlled_source_pack_task148.json")
+    collision = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(collision_dir),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+            "--rzd-manual-official-pdf-evidence-registration-output",
+            str(pdf_path),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert {"message": "rzd_manual_official_pdf_evidence_registration_output_must_not_equal_input"} in collision["errors"]
+    assert not (collision_dir / "rzd_manual_official_pdf_evidence_registration_evidence_task168.json").exists()
+
+
+def test_rzd_manual_official_pdf_evidence_registration_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-ifrs-2025.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {"available": False, "page_count": 0, "preview_page_count": 0, "text": "", "warnings": []},
+    )
+    original_writer = assistant._rzd_manual_official_pdf_evidence_registration_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            pdf_path.write_bytes(pdf_path.read_bytes() + b"\n% drift\n")
+
+    monkeypatch.setattr(assistant, "_rzd_manual_official_pdf_evidence_registration_write_safe_outputs", mutate_after_first_write)
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert {"message": "rzd_manual_official_pdf_evidence_registration_input_drift_detected"} in report["errors"]
+    assert report["manual_official_pdf_input_preserved"] is False
+    assert report["source_trust_controlled_source_pack_input_preserved"] is True
+    assert report["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in report["blocker_rows"]}
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -20906,6 +21150,19 @@ def _run_rzd_validation_html_response_link_discovery(extra_args: list[str] | Non
     return report
 
 
+def _run_rzd_manual_official_pdf_evidence_registration(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-evidence-registration-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -21924,6 +22181,36 @@ def _assert_rzd_validation_html_response_link_discovery_report_fields(report: di
 
 def _assert_rzd_validation_html_response_link_discovery_row_fields(row: dict) -> None:
     for field in _rzd_validation_html_response_link_discovery_required_row_bool_fields():
+        assert field in row
+        assert isinstance(row[field], bool)
+        assert row[field] is not None
+
+
+def _rzd_manual_official_pdf_evidence_registration_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_manual_official_pdf_evidence_registration_required_count_fields() -> tuple[str, ...]:
+    return assistant.RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_REQUIRED_COUNT_FIELDS
+
+
+def _rzd_manual_official_pdf_evidence_registration_required_row_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ROW_BOOL_FIELDS
+
+
+def _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report: dict) -> None:
+    for field in _rzd_manual_official_pdf_evidence_registration_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in _rzd_manual_official_pdf_evidence_registration_required_count_fields():
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+
+
+def _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row: dict) -> None:
+    for field in _rzd_manual_official_pdf_evidence_registration_required_row_bool_fields():
         assert field in row
         assert isinstance(row[field], bool)
         assert row[field] is not None
