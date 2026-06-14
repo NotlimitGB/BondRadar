@@ -6794,10 +6794,20 @@ RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_FIELDS = [
     "report_year",
     "report_standard",
     "pdf_text_extraction_backend",
+    "pdf_page_count_detection_backend",
+    "pdf_page_count_unknown",
+    "pdf_page_count_suspicious",
     "pdf_page_count",
     "pdf_extracted_page_count",
+    "pdf_page_extraction_requested_max_pages",
+    "pdf_page_extraction_attempted_page_count",
+    "pdf_page_extraction_empty_page_count",
+    "pdf_page_extraction_nonempty_page_count",
     "page_map_row_count",
+    "target_parse_plan_row_count",
     "target_row_count",
+    "future_value_extraction_candidate_count",
+    "future_value_extraction_target_count",
     "future_extraction_target_count",
     "blocker_count",
     "parse_plan_ready",
@@ -6817,18 +6827,27 @@ RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_REQUIRED_COUNT_FIELDS = (
     "input_registration_count",
     "input_pdf_count",
     "page_map_row_count",
+    "target_parse_plan_row_count",
     "target_row_count",
     "blocker_count",
     "failed_count",
     "pdf_page_count",
     "pdf_extracted_page_count",
+    "pdf_page_extraction_requested_max_pages",
+    "pdf_page_extraction_attempted_page_count",
+    "pdf_page_extraction_empty_page_count",
+    "pdf_page_extraction_nonempty_page_count",
     "financial_statement_page_count",
     "statement_of_financial_position_page_count",
     "profit_or_loss_page_count",
+    "other_comprehensive_income_page_count",
+    "changes_in_equity_page_count",
     "cash_flows_page_count",
     "notes_page_count",
     "audit_report_page_count",
     "future_value_extraction_page_count",
+    "future_value_extraction_candidate_count",
+    "future_value_extraction_target_count",
     "future_extraction_target_count",
 )
 RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_REQUIRED_BOOL_FIELDS = (
@@ -6836,6 +6855,8 @@ RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_REQUIRED_BOOL_FIELDS = (
     "controlled_pdf_input_preserved",
     "input_bytes_unchanged",
     "pdf_text_extraction_available",
+    "pdf_page_count_unknown",
+    "pdf_page_count_suspicious",
     "parse_plan_ready",
     "future_financial_value_extraction_required",
     "future_import_required",
@@ -6851,11 +6872,14 @@ RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_REQUIRED_BOOL_FIELDS = (
     "dry_run_only",
     "would_fetch_source_page",
     "would_fetch_document_url",
+    "would_download_document",
     "would_download_documents",
+    "would_extract_financial_values",
     "would_parse_financial_values",
     "would_mutate_document_intake",
     "would_mutate_database",
     "would_import_report",
+    "would_score_issuers",
     "would_mutate_scores",
     "would_trigger_paper_trading",
     "would_delete_files",
@@ -6867,6 +6891,7 @@ RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_REQUIRED_BOOL_FIELDS = (
     "document_intake_mutated",
     "database_mutated",
     "import_executed",
+    "issuer_scores_mutated",
     "paper_trading_called",
     "files_deleted",
 )
@@ -39047,11 +39072,14 @@ def _rzd_manual_official_pdf_evidence_registration_safety_flags() -> dict[str, b
         "manual_evidence_registration_only": True,
         "would_fetch_source_page": False,
         "would_fetch_document_url": False,
+        "would_download_document": False,
         "would_download_documents": False,
+        "would_extract_financial_values": False,
         "would_parse_financial_values": False,
         "would_mutate_document_intake": False,
         "would_mutate_database": False,
         "would_import_report": False,
+        "would_score_issuers": False,
         "would_mutate_scores": False,
         "would_trigger_paper_trading": False,
         "would_delete_files": False,
@@ -39063,6 +39091,7 @@ def _rzd_manual_official_pdf_evidence_registration_safety_flags() -> dict[str, b
         "document_intake_mutated": False,
         "database_mutated": False,
         "import_executed": False,
+        "issuer_scores_mutated": False,
         "paper_trading_called": False,
         "files_deleted": False,
     }
@@ -39503,50 +39532,144 @@ def _rzd_manual_official_pdf_parse_plan_select_evidence(registration: dict[str, 
     return dict((high or medium or registered or [{}])[0])
 
 
+def _rzd_pdf_detect_page_count(path: Path) -> tuple[int, str, list[str]]:
+    warnings: list[str] = []
+    executable = shutil.which("pdfinfo")
+    if executable:
+        try:
+            result = subprocess.run([executable, str(path)], check=False, capture_output=True, timeout=20)
+            output = "\n".join(
+                part.decode("utf-8", errors="replace")
+                for part in (result.stdout, result.stderr)
+                if part
+            )
+            match = re.search(r"(?im)^\s*Pages:\s*(\d+)\s*$", output)
+            if match:
+                return int(match.group(1)), "pdfinfo", warnings
+            warnings.append("pdf_page_count_pdfinfo_pages_not_found")
+        except (OSError, subprocess.SubprocessError):
+            warnings.append("pdf_page_count_pdfinfo_failed")
+    for module_name in ("pypdf", "PyPDF2"):
+        try:
+            module = __import__(module_name)
+            reader = module.PdfReader(str(path))
+            pages = list(getattr(reader, "pages", []) or [])
+            if pages:
+                return len(pages), module_name, warnings
+        except Exception:
+            warnings.append(f"pdf_page_count_{module_name}_failed")
+    try:
+        fitz = __import__("fitz")
+        document = fitz.open(str(path))
+        try:
+            page_count = int(getattr(document, "page_count", len(document)))
+            if page_count > 0:
+                return page_count, "pymupdf", warnings
+        finally:
+            document.close()
+    except Exception:
+        warnings.append("pdf_page_count_pymupdf_failed")
+    warnings.append("pdf_page_count_unknown")
+    return 0, "", list(dict.fromkeys(warnings))
+
+
+def _rzd_pdf_page_text_has_human_text(text: str) -> bool:
+    value = str(text or "")
+    non_space_count = len(re.sub(r"\s+", "", value))
+    letter_count = sum(1 for char in value if char.isalpha())
+    return non_space_count >= 20 and letter_count >= 8
+
+
+def _rzd_manual_official_pdf_page_record(page_number: int, text: str) -> dict[str, Any]:
+    prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+    return {
+        "page_number": page_number,
+        "text": text,
+        "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "char_count": len(text),
+        "normalized_char_count": len(prepared["normalized_text"]),
+    }
+
+
 def _rzd_manual_official_pdf_extract_page_text_map(path: Path, max_pages: int, backend: str = "auto") -> dict[str, Any]:
     backend = str(backend or "auto")
+    detected_page_count, detection_backend, detection_warnings = _rzd_pdf_detect_page_count(path)
+    page_count_unknown = detected_page_count <= 0
+    requested_max_pages = max(0, int(max_pages or 0))
+    attempted_page_count = 0
+    empty_page_count = 0
     if backend in {"auto", "pdftotext"}:
         executable = shutil.which("pdftotext")
         if executable:
             pages: list[dict[str, Any]] = []
-            page_count = 0
-            for page_number in range(1, max_pages + 1):
-                command = [executable, "-f", str(page_number), "-l", str(page_number), "-layout", "-enc", "UTF-8", str(path), "-"]
+            if detected_page_count > 0:
+                page_numbers = range(1, min(detected_page_count, requested_max_pages) + 1)
+                for page_number in page_numbers:
+                    attempted_page_count += 1
+                    command = [executable, "-f", str(page_number), "-l", str(page_number), "-layout", "-enc", "UTF-8", str(path), "-"]
+                    try:
+                        result = subprocess.run(command, check=False, capture_output=True, timeout=30)
+                    except (OSError, subprocess.SubprocessError):
+                        empty_page_count += 1
+                        continue
+                    text = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+                    if not text.strip():
+                        empty_page_count += 1
+                        continue
+                    if _rzd_pdf_preview_text_looks_like_raw_pdf(text) or not _rzd_pdf_page_text_has_human_text(text):
+                        empty_page_count += 1
+                        continue
+                    pages.append(_rzd_manual_official_pdf_page_record(page_number, text))
+            else:
+                command = [executable, "-layout", "-enc", "UTF-8", str(path), "-"]
                 try:
                     result = subprocess.run(command, check=False, capture_output=True, timeout=30)
                 except (OSError, subprocess.SubprocessError):
-                    break
-                text = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
-                if result.returncode != 0 and not text.strip():
-                    break
-                if not text.strip():
-                    if page_number > 1:
-                        break
-                    continue
-                if _rzd_pdf_preview_text_looks_like_raw_pdf(text) or not _rzd_pdf_preview_text_has_human_text(text):
-                    continue
-                page_count = page_number
-                prepared = _normalize_pdf_preview_text_for_signal_detection(text)
-                pages.append(
-                    {
-                        "page_number": page_number,
-                        "text": text,
-                        "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
-                        "char_count": len(text),
-                        "normalized_char_count": len(prepared["normalized_text"]),
-                    }
-                )
+                    result = None
+                text = result.stdout.decode("utf-8", errors="replace") if result is not None and result.stdout else ""
+                chunks = [chunk.strip() for chunk in re.split(r"\f+", text) if chunk.strip()]
+                if not chunks and text.strip():
+                    chunks = [text]
+                for index, chunk in enumerate(chunks[:requested_max_pages], start=1):
+                    attempted_page_count += 1
+                    if _rzd_pdf_preview_text_looks_like_raw_pdf(chunk) or not _rzd_pdf_page_text_has_human_text(chunk):
+                        empty_page_count += 1
+                        continue
+                    pages.append(_rzd_manual_official_pdf_page_record(index, chunk))
+                if not chunks:
+                    empty_page_count += 1
             if pages:
                 return {
                     "available": True,
                     "backend": "pdftotext",
-                    "page_count": page_count,
+                    "page_count": detected_page_count,
+                    "page_count_detection_backend": detection_backend,
+                    "page_count_detection_warning_codes": list(dict.fromkeys(detection_warnings)),
+                    "page_count_unknown": page_count_unknown,
+                    "page_extraction_requested_max_pages": requested_max_pages,
+                    "page_extraction_attempted_page_count": attempted_page_count,
+                    "page_extraction_empty_page_count": empty_page_count,
+                    "page_extraction_nonempty_page_count": len(pages),
                     "extracted_page_count": len(pages),
                     "pages": pages,
                     "warnings": [],
                 }
         if backend == "pdftotext":
-            return {"available": False, "backend": "", "page_count": 0, "extracted_page_count": 0, "pages": [], "warnings": ["rzd_manual_official_pdf_parse_plan_page_text_extraction_unavailable"]}
+            return {
+                "available": False,
+                "backend": "",
+                "page_count": detected_page_count,
+                "page_count_detection_backend": detection_backend,
+                "page_count_detection_warning_codes": list(dict.fromkeys(detection_warnings)),
+                "page_count_unknown": page_count_unknown,
+                "page_extraction_requested_max_pages": requested_max_pages,
+                "page_extraction_attempted_page_count": attempted_page_count,
+                "page_extraction_empty_page_count": empty_page_count,
+                "page_extraction_nonempty_page_count": 0,
+                "extracted_page_count": 0,
+                "pages": [],
+                "warnings": ["rzd_manual_official_pdf_parse_plan_page_text_extraction_unavailable"],
+            }
     for backend_name, extractor in _rzd_manual_official_pdf_preview_extractors():
         if backend != "auto" and backend_name != backend:
             continue
@@ -39564,25 +39687,37 @@ def _rzd_manual_official_pdf_extract_page_text_map(path: Path, max_pages: int, b
             chunks = [text]
         pages = []
         for index, chunk in enumerate(chunks[:max_pages], start=1):
-            prepared = _normalize_pdf_preview_text_for_signal_detection(chunk)
-            pages.append(
-                {
-                    "page_number": index,
-                    "text": chunk,
-                    "text_sha256": hashlib.sha256(chunk.encode("utf-8")).hexdigest(),
-                    "char_count": len(chunk),
-                    "normalized_char_count": len(prepared["normalized_text"]),
-                }
-            )
+            pages.append(_rzd_manual_official_pdf_page_record(index, chunk))
         return {
             "available": True,
             "backend": backend_name,
-            "page_count": int(metadata.get("page_count") or len(pages)),
+            "page_count": detected_page_count or int(metadata.get("page_count") or len(pages)),
+            "page_count_detection_backend": detection_backend,
+            "page_count_detection_warning_codes": list(dict.fromkeys(detection_warnings)),
+            "page_count_unknown": page_count_unknown,
+            "page_extraction_requested_max_pages": requested_max_pages,
+            "page_extraction_attempted_page_count": len(chunks[:max_pages]),
+            "page_extraction_empty_page_count": 0,
+            "page_extraction_nonempty_page_count": len(pages),
             "extracted_page_count": len(pages),
             "pages": pages,
             "warnings": list(metadata.get("warnings") or []),
         }
-    return {"available": False, "backend": "", "page_count": 0, "extracted_page_count": 0, "pages": [], "warnings": ["rzd_manual_official_pdf_parse_plan_page_text_extraction_unavailable"]}
+    return {
+        "available": False,
+        "backend": "",
+        "page_count": detected_page_count,
+        "page_count_detection_backend": detection_backend,
+        "page_count_detection_warning_codes": list(dict.fromkeys(detection_warnings)),
+        "page_count_unknown": page_count_unknown,
+        "page_extraction_requested_max_pages": requested_max_pages,
+        "page_extraction_attempted_page_count": attempted_page_count,
+        "page_extraction_empty_page_count": empty_page_count,
+        "page_extraction_nonempty_page_count": 0,
+        "extracted_page_count": 0,
+        "pages": [],
+        "warnings": ["rzd_manual_official_pdf_parse_plan_page_text_extraction_unavailable"],
+    }
 
 
 def _rzd_manual_official_pdf_parse_plan_rows(
@@ -39610,9 +39745,14 @@ def _rzd_manual_official_pdf_parse_plan_rows(
     warning_codes: list[str] = []
     if int(extraction.get("page_count") or 0) == 0:
         warning_codes.append("rzd_manual_official_pdf_parse_plan_page_count_unknown")
+    if _rzd_manual_official_pdf_parse_plan_page_count_suspicious(extraction, pages):
+        extraction["page_count_suspicious"] = True
+        warning_codes.append("rzd_manual_official_pdf_parse_plan_suspicious_low_page_count")
     required_targets = {
         "statement_of_financial_position": "rzd_manual_official_pdf_parse_plan_statement_of_financial_position_not_detected",
         "profit_or_loss": "rzd_manual_official_pdf_parse_plan_profit_or_loss_not_detected",
+        "other_comprehensive_income": "rzd_manual_official_pdf_parse_plan_other_comprehensive_income_not_detected",
+        "changes_in_equity": "rzd_manual_official_pdf_parse_plan_changes_in_equity_not_detected",
         "cash_flows": "rzd_manual_official_pdf_parse_plan_cash_flows_not_detected",
         "notes_general": "rzd_manual_official_pdf_parse_plan_notes_not_detected",
         "audit_report": "rzd_manual_official_pdf_parse_plan_audit_report_not_detected",
@@ -39634,6 +39774,30 @@ def _rzd_manual_official_pdf_parse_plan_rows(
     forced_status = "passed" if core_ready and not warning_codes else "warning"
     warnings = [{"message": code} for code in list(dict.fromkeys(warning_codes))]
     return page_map_rows, target_rows, blocker_rows, warnings, forced_status, extraction
+
+
+def _rzd_manual_official_pdf_parse_plan_page_count_suspicious(extraction: dict[str, Any], pages: list[dict[str, Any]]) -> bool:
+    page_count = int(extraction.get("page_count") or 0)
+    if page_count <= 0 or page_count > 2:
+        return False
+    text = "\n".join(str(page.get("text") or "") for page in pages)
+    prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+    normalized = prepared["normalized_text"]
+    has_late_refs = len(set(re.findall(r"\b(?:9|1[1-9]|[2-9][0-9]|1[0-5][0-9])\b", normalized))) >= 2
+    has_contents_terms = any(
+        _rzd_manual_official_pdf_phrase_found(term, normalized, prepared["compact_text"])
+        for term in (
+            "statement of financial position",
+            "profit or loss",
+            "cash flows",
+            "notes",
+            "отчет о финансовом положении",
+            "прибылях и убытках",
+            "движении денежных средств",
+            "примечания",
+        )
+    )
+    return bool(has_late_refs and has_contents_terms)
 
 
 def _rzd_manual_official_pdf_parse_plan_page_row(selected: dict[str, Any], page: dict[str, Any]) -> dict[str, Any]:
@@ -39713,6 +39877,19 @@ def _rzd_manual_official_pdf_parse_plan_detect_section(normalized: str, compact:
         ("contents", "Contents", ("contents", "table of contents", "содержание")),
     ]
     for section_type, title, phrases in patterns:
+        if any(_rzd_manual_official_pdf_phrase_found(phrase, normalized, compact) for phrase in phrases):
+            return section_type, title, "high"
+    russian_patterns: list[tuple[str, str, tuple[str, ...]]] = [
+        ("statement_of_financial_position", "Statement of financial position", ("\u043e\u0442\u0447\u0435\u0442 \u043e \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u043e\u043c \u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0438",)),
+        ("profit_or_loss", "Statement of profit or loss", ("\u043e\u0442\u0447\u0435\u0442 \u043e \u043f\u0440\u0438\u0431\u044b\u043b\u044f\u0445 \u0438 \u0443\u0431\u044b\u0442\u043a\u0430\u0445", "\u043f\u0440\u0438\u0431\u044b\u043b\u044f\u0445 \u0438 \u0443\u0431\u044b\u0442\u043a\u0430\u0445")),
+        ("other_comprehensive_income", "Other comprehensive income", ("\u043f\u0440\u043e\u0447\u0435\u043c \u0441\u043e\u0432\u043e\u043a\u0443\u043f\u043d\u043e\u043c \u0434\u043e\u0445\u043e\u0434\u0435", "\u0441\u043e\u0432\u043e\u043a\u0443\u043f\u043d\u043e\u043c \u0434\u043e\u0445\u043e\u0434\u0435")),
+        ("changes_in_equity", "Statement of changes in equity", ("\u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f\u0445 \u043a\u0430\u043f\u0438\u0442\u0430\u043b\u0430",)),
+        ("cash_flows", "Statement of cash flows", ("\u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0438 \u0434\u0435\u043d\u0435\u0436\u043d\u044b\u0445 \u0441\u0440\u0435\u0434\u0441\u0442\u0432",)),
+        ("notes_general", "Notes to financial statements", ("\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u043d\u0438\u044f \u043a", "\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u043d\u0438\u044f")),
+        ("audit_report", "Independent auditor report", ("\u0430\u0443\u0434\u0438\u0442\u043e\u0440\u0441\u043a\u043e\u0435 \u0437\u0430\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435", "\u043d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c\u043e\u0433\u043e \u0430\u0443\u0434\u0438\u0442\u043e\u0440\u0430")),
+        ("contents", "Contents", ("\u0441\u043e\u0434\u0435\u0440\u0436\u0430\u043d\u0438\u0435",)),
+    ]
+    for section_type, title, phrases in russian_patterns:
         if any(_rzd_manual_official_pdf_phrase_found(phrase, normalized, compact) for phrase in phrases):
             return section_type, title, "high"
     return "", "", "low"
@@ -39860,23 +40037,34 @@ def _rzd_manual_official_pdf_parse_plan_count_fields(
     status: str,
     extraction: dict[str, Any],
 ) -> dict[str, int]:
+    future_page_count = sum(1 for row in page_map_rows if _as_bool(row.get("future_value_extraction_candidate")))
+    future_target_count = sum(1 for row in target_rows if _as_bool(row.get("future_extraction_required")))
     return {
         "input_registration_count": 1,
         "input_pdf_count": 1 if page_map_rows or target_rows else 0,
         "page_map_row_count": len(page_map_rows),
+        "target_parse_plan_row_count": len(target_rows),
         "target_row_count": len(target_rows),
         "blocker_count": len(blocker_rows),
         "failed_count": 1 if status == "failed" else 0,
         "pdf_page_count": int(extraction.get("page_count") or 0),
         "pdf_extracted_page_count": int(extraction.get("extracted_page_count") or len(page_map_rows)),
+        "pdf_page_extraction_requested_max_pages": int(extraction.get("page_extraction_requested_max_pages") or 0),
+        "pdf_page_extraction_attempted_page_count": int(extraction.get("page_extraction_attempted_page_count") or 0),
+        "pdf_page_extraction_empty_page_count": int(extraction.get("page_extraction_empty_page_count") or 0),
+        "pdf_page_extraction_nonempty_page_count": int(extraction.get("page_extraction_nonempty_page_count") or len(page_map_rows)),
         "financial_statement_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_financial_statement_page"))),
         "statement_of_financial_position_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_statement_of_financial_position_page"))),
         "profit_or_loss_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_profit_or_loss_page"))),
+        "other_comprehensive_income_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_other_comprehensive_income_page"))),
+        "changes_in_equity_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_changes_in_equity_page"))),
         "cash_flows_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_cash_flows_page"))),
         "notes_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_notes_page"))),
         "audit_report_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("is_auditor_report_page"))),
-        "future_value_extraction_page_count": sum(1 for row in page_map_rows if _as_bool(row.get("future_value_extraction_candidate"))),
-        "future_extraction_target_count": sum(1 for row in target_rows if _as_bool(row.get("future_extraction_required"))),
+        "future_value_extraction_page_count": future_page_count,
+        "future_value_extraction_candidate_count": future_page_count,
+        "future_value_extraction_target_count": future_target_count,
+        "future_extraction_target_count": future_target_count,
     }
 
 
@@ -39922,9 +40110,19 @@ def _build_rzd_manual_official_pdf_parse_plan_report(
         "rzd_manual_official_pdf_parse_plan_text_backend": str(args.rzd_manual_official_pdf_parse_plan_text_backend or "auto"),
         "pdf_text_extraction_available": bool(extraction.get("available")),
         "pdf_text_extraction_backend": extraction.get("backend") or "",
+        "pdf_page_count_detection_backend": extraction.get("page_count_detection_backend") or "",
+        "pdf_page_count_detection_warning_codes": list(extraction.get("page_count_detection_warning_codes") or []),
+        "pdf_page_count_unknown": bool(extraction.get("page_count_unknown")),
+        "pdf_page_count_suspicious": bool(extraction.get("page_count_suspicious")),
         "pdf_page_count": int(extraction.get("page_count") or 0),
         "pdf_extracted_page_count": int(extraction.get("extracted_page_count") or len(page_map_rows)),
+        "pdf_page_extraction_backend": extraction.get("backend") or "",
+        "pdf_page_extraction_requested_max_pages": int(extraction.get("page_extraction_requested_max_pages") or 0),
+        "pdf_page_extraction_attempted_page_count": int(extraction.get("page_extraction_attempted_page_count") or 0),
+        "pdf_page_extraction_empty_page_count": int(extraction.get("page_extraction_empty_page_count") or 0),
+        "pdf_page_extraction_nonempty_page_count": int(extraction.get("page_extraction_nonempty_page_count") or len(page_map_rows)),
         "page_map_rows": page_map_rows,
+        "target_parse_plan_rows": target_rows,
         "target_rows": target_rows,
         "blocker_rows": blocker_rows,
         "parse_plan_status_counts": _count_by_key(target_rows, "confidence"),
@@ -40063,7 +40261,14 @@ def _rzd_manual_official_pdf_parse_plan_finalize_report(
             target_rows=list(report.get("target_rows") or []),
             blocker_rows=list(report.get("blocker_rows") or []),
             status=str(report.get("status") or ""),
-            extraction={"page_count": report.get("pdf_page_count"), "extracted_page_count": report.get("pdf_extracted_page_count")},
+            extraction={
+                "page_count": report.get("pdf_page_count"),
+                "extracted_page_count": report.get("pdf_extracted_page_count"),
+                "page_extraction_requested_max_pages": report.get("pdf_page_extraction_requested_max_pages"),
+                "page_extraction_attempted_page_count": report.get("pdf_page_extraction_attempted_page_count"),
+                "page_extraction_empty_page_count": report.get("pdf_page_extraction_empty_page_count"),
+                "page_extraction_nonempty_page_count": report.get("pdf_page_extraction_nonempty_page_count"),
+            },
         )
     )
     report["blocker_code_counts"] = _count_by_key(report.get("blocker_rows") or [], "blocker_code")

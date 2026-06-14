@@ -13503,10 +13503,15 @@ def test_rzd_manual_official_pdf_parse_plan_synthetic_page_map_passes(
     assert report["future_db_mutation_allowed"] is False
     assert report["future_paper_trading_allowed"] is False
     assert report["page_map_row_count"] == 8
+    assert report["target_parse_plan_row_count"] == report["target_row_count"]
     assert report["target_row_count"] >= 7
     assert report["statement_of_financial_position_page_count"] >= 1
     assert report["profit_or_loss_page_count"] >= 1
+    assert report["other_comprehensive_income_page_count"] >= 1
+    assert report["changes_in_equity_page_count"] >= 1
     assert report["cash_flows_page_count"] >= 1
+    assert report["future_value_extraction_candidate_count"] >= 3
+    assert report["future_value_extraction_target_count"] == report["future_extraction_target_count"]
     assert report["future_extraction_target_count"] >= 3
     assert (tmp_path / "rzd_manual_official_pdf_parse_plan_task169.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_parse_plan_task169.csv").is_file()
@@ -13524,6 +13529,146 @@ def test_rzd_manual_official_pdf_parse_plan_synthetic_page_map_passes(
         assert len(row["page_text_sample"]) <= 1000
     for row in report["target_rows"]:
         _assert_rzd_manual_official_pdf_parse_plan_target_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_parse_plan_uses_pdfinfo_not_task168_preview_count(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task168_pdf_parse_plan_fixture(tmp_path, evidence_overrides={"pdf_page_count": 2, "pdf_preview_page_count": 2})
+
+    class Result:
+        def __init__(self, stdout: bytes = b"", returncode: int = 0) -> None:
+            self.stdout = stdout
+            self.stderr = b""
+            self.returncode = returncode
+
+    def fake_which(name: str) -> str | None:
+        return name if name in {"pdfinfo", "pdftotext"} else None
+
+    def page_text(page_number: int) -> str:
+        section_by_page = {
+            1: "Independent auditor report Russian Railways IFRS 2025 consolidated financial statements.",
+            9: "Statement of financial position 2025 2024 million rubles assets liabilities equity total 100 90.",
+            11: "Statement of profit or loss 2025 2024 million rubles revenue cost profit total 100 90.",
+            12: "Other comprehensive income 2025 2024 million rubles total comprehensive income 100 90.",
+            13: "Statement of changes in equity 2025 2024 million rubles capital retained earnings total 100 90.",
+            15: "Statement of cash flows 2025 2024 million rubles cash flows operating activities total 100 90.",
+            17: "Notes to the consolidated financial statements IFRS 2025 note accounting policies million rubles.",
+        }
+        return section_by_page.get(page_number, f"RZD IFRS 2025 page {page_number} regular text with enough human readable characters.")
+
+    def fake_run(command, check=False, capture_output=True, timeout=None):
+        if command[0] == "pdfinfo":
+            return Result(b"Title: RZD\nPages: 115\n")
+        page_number = int(command[command.index("-f") + 1])
+        return Result(page_text(page_number).encode("utf-8"))
+
+    monkeypatch.setattr(assistant.shutil, "which", fake_which)
+    monkeypatch.setattr(assistant.subprocess, "run", fake_run)
+
+    report = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["pdf_text_extraction_backend"] == "pdftotext"
+    assert report["pdf_page_count_detection_backend"] == "pdfinfo"
+    assert report["pdf_page_count"] == 115
+    assert report["pdf_extracted_page_count"] == 115
+    assert report["page_map_row_count"] == 115
+    assert report["pdf_page_extraction_attempted_page_count"] == 115
+    assert report["pdf_page_extraction_nonempty_page_count"] == 115
+    assert report["parse_plan_ready"] is True
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(report)
+
+
+def test_rzd_manual_official_pdf_parse_plan_low_page_count_suspicious_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task168_pdf_parse_plan_fixture(tmp_path)
+    contents_text = """
+    Contents
+    Statement of financial position 9
+    Statement of profit or loss 11
+    Statement of cash flows 15
+    Notes 17
+    """
+    pages = [
+        {"page_number": 1, "text": contents_text, "text_sha256": hashlib.sha256(contents_text.encode()).hexdigest(), "char_count": len(contents_text), "normalized_char_count": len(contents_text)},
+        {"page_number": 2, "text": "Independent auditor report IFRS 2025 RZD.", "text_sha256": hashlib.sha256(b"audit").hexdigest(), "char_count": 39, "normalized_char_count": 39},
+    ]
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_extract_page_text_map",
+        lambda path, max_pages, backend="auto": {
+            "available": True,
+            "backend": "synthetic",
+            "page_count": 2,
+            "page_count_detection_backend": "pdfinfo",
+            "page_count_detection_warning_codes": [],
+            "page_count_unknown": False,
+            "page_extraction_requested_max_pages": 160,
+            "page_extraction_attempted_page_count": 2,
+            "page_extraction_empty_page_count": 0,
+            "page_extraction_nonempty_page_count": 2,
+            "extracted_page_count": 2,
+            "pages": pages,
+            "warnings": [],
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["pdf_page_count_suspicious"] is True
+    assert "rzd_manual_official_pdf_parse_plan_suspicious_low_page_count" in {item["message"] for item in report["warnings"]}
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(report)
+
+
+def test_rzd_manual_official_pdf_parse_plan_full_russian_sections_pass(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task168_pdf_parse_plan_fixture(tmp_path)
+    sections = [
+        (1, "\u0430\u0443\u0434\u0438\u0442\u043e\u0440\u0441\u043a\u043e\u0435 \u0437\u0430\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c\u043e\u0433\u043e \u0430\u0443\u0434\u0438\u0442\u043e\u0440\u0430 \u041c\u0421\u0424\u041e 2025."),
+        (9, "\u043e\u0442\u0447\u0435\u0442 \u043e \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u043e\u043c \u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u0438 2025 2024 \u043c\u043b\u043d \u0440\u0443\u0431 \u0430\u043a\u0442\u0438\u0432 \u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u0441\u0442\u0432 \u043a\u0430\u043f\u0438\u0442\u0430\u043b \u0438\u0442\u043e\u0433\u043e 100 90."),
+        (11, "\u043e\u0442\u0447\u0435\u0442 \u043e \u043f\u0440\u0438\u0431\u044b\u043b\u044f\u0445 \u0438 \u0443\u0431\u044b\u0442\u043a\u0430\u0445 2025 2024 \u043c\u043b\u043d \u0440\u0443\u0431 \u0432\u044b\u0440\u0443\u0447\u043a\u0430 \u043f\u0440\u0438\u0431\u044b\u043b\u044c \u0438\u0442\u043e\u0433\u043e 100 90."),
+        (12, "\u043e\u0442\u0447\u0435\u0442 \u043e \u043f\u0440\u043e\u0447\u0435\u043c \u0441\u043e\u0432\u043e\u043a\u0443\u043f\u043d\u043e\u043c \u0434\u043e\u0445\u043e\u0434\u0435 2025 2024 \u043c\u043b\u043d \u0440\u0443\u0431 \u0438\u0442\u043e\u0433\u043e 100 90."),
+        (13, "\u043e\u0442\u0447\u0435\u0442 \u043e\u0431 \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f\u0445 \u043a\u0430\u043f\u0438\u0442\u0430\u043b\u0430 2025 2024 \u043c\u043b\u043d \u0440\u0443\u0431 \u043a\u0430\u043f\u0438\u0442\u0430\u043b \u0438\u0442\u043e\u0433\u043e 100 90."),
+        (15, "\u043e\u0442\u0447\u0435\u0442 \u043e \u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0438 \u0434\u0435\u043d\u0435\u0436\u043d\u044b\u0445 \u0441\u0440\u0435\u0434\u0441\u0442\u0432 2025 2024 \u043c\u043b\u043d \u0440\u0443\u0431 \u0434\u0435\u043d\u0435\u0436\u043d\u044b\u0445 \u0441\u0440\u0435\u0434\u0441\u0442\u0432 \u0438\u0442\u043e\u0433\u043e 100 90."),
+        (17, "\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u043d\u0438\u044f \u043a \u043a\u043e\u043d\u0441\u043e\u043b\u0438\u0434\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u043e\u0439 \u0444\u0438\u043d\u0430\u043d\u0441\u043e\u0432\u043e\u0439 \u043e\u0442\u0447\u0435\u0442\u043d\u043e\u0441\u0442\u0438 \u041c\u0421\u0424\u041e 2025 \u043f\u0440\u0438\u043c\u0435\u0447\u0430\u043d\u0438\u0435 100 90."),
+    ]
+    pages = [
+        {"page_number": number, "text": text, "text_sha256": hashlib.sha256(text.encode()).hexdigest(), "char_count": len(text), "normalized_char_count": len(text)}
+        for number, text in sections
+    ]
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_extract_page_text_map",
+        lambda path, max_pages, backend="auto": {
+            "available": True,
+            "backend": "synthetic",
+            "page_count": 115,
+            "page_count_detection_backend": "pdfinfo",
+            "page_count_detection_warning_codes": [],
+            "page_count_unknown": False,
+            "page_extraction_requested_max_pages": 160,
+            "page_extraction_attempted_page_count": len(pages),
+            "page_extraction_empty_page_count": 0,
+            "page_extraction_nonempty_page_count": len(pages),
+            "extracted_page_count": len(pages),
+            "pages": pages,
+            "warnings": [],
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["parse_plan_ready"] is True
+    assert report["target_parse_plan_row_count"] >= 7
+    assert report["future_value_extraction_target_count"] >= 3
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(report)
 
 
 def test_rzd_manual_official_pdf_parse_plan_missing_task168_input_fails(tmp_path: Path) -> None:
@@ -22674,6 +22819,7 @@ def _write_task168_pdf_parse_plan_fixture(
     status: str = "passed",
     confidence: str = "high",
     pdf_bytes: bytes = b"%PDF-1.7\n% controlled copy\n%%EOF\n",
+    evidence_overrides: dict | None = None,
 ) -> tuple[Path, Path, dict]:
     pdf_path = tmp_path / "rzd_manual_official_pdf_evidence_task168" / "rzd_manual_official_pdf_evidence_sha_fixture.pdf"
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -22697,6 +22843,8 @@ def _write_task168_pdf_parse_plan_fixture(
         "report_standard": "IFRS",
         "document_kind": "consolidated_financial_statements_auditor_report",
     }
+    if evidence_overrides:
+        row.update(evidence_overrides)
     report = {
         "status": status,
         "mode": "rzd-manual-official-pdf-evidence-registration-preview-v2",
@@ -22726,6 +22874,14 @@ def _rzd_manual_official_pdf_parse_plan_page_map() -> dict:
     return {
         "available": True,
         "backend": "synthetic",
+        "page_count_detection_backend": "synthetic",
+        "page_count_detection_warning_codes": [],
+        "page_count_unknown": False,
+        "page_count_suspicious": False,
+        "page_extraction_requested_max_pages": 160,
+        "page_extraction_attempted_page_count": len(pages),
+        "page_extraction_empty_page_count": 0,
+        "page_extraction_nonempty_page_count": len(pages),
         "page_count": 115,
         "extracted_page_count": len(pages),
         "warnings": [],
@@ -22751,6 +22907,27 @@ def _assert_rzd_manual_official_pdf_parse_plan_report_fields(report: dict) -> No
         assert field in report
         assert isinstance(report[field], int)
         assert report[field] is not None
+    for field in (
+        "target_parse_plan_row_count",
+        "target_row_count",
+        "future_value_extraction_candidate_count",
+        "future_value_extraction_target_count",
+        "future_extraction_target_count",
+        "other_comprehensive_income_page_count",
+        "changes_in_equity_page_count",
+    ):
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "would_download_document",
+        "would_extract_financial_values",
+        "would_score_issuers",
+        "issuer_scores_mutated",
+    ):
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is False
 
 
 def _assert_rzd_manual_official_pdf_parse_plan_page_row_fields(row: dict) -> None:
