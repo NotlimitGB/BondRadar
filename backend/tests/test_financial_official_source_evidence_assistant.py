@@ -13153,6 +13153,126 @@ def test_rzd_manual_official_pdf_evidence_registration_missing_standard_is_mediu
     _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
 
 
+def test_rzd_manual_official_pdf_evidence_registration_rejects_raw_pdf_stream_as_text(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-raw-stream.pdf"
+    pdf_path.write_bytes(b"%PDF-1.5\n1 0 obj\nstream\nxref\nstartxref\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+    raw_pdf_text = "%PDF-1.5\n1 0 obj\n<< /Linearized 1 /Filter /FlateDecode >>\nstream\nxref\ntrailer\nstartxref\nendstream\nendobj\n"
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_extractors",
+        lambda: [("mock_raw", lambda path, max_pages: {"page_count": 1, "preview_page_count": 1, "text": raw_pdf_text, "warnings": []})],
+    )
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert report["registered_evidence_count"] == 1
+    assert report["medium_confidence_evidence_count"] == 1
+    assert report["pdf_text_extraction_available_count"] == 0
+    row = report["evidence_rows"][0]
+    assert row["pdf_text_extraction_available"] is False
+    assert row["pdf_raw_stream_rejected"] is True
+    assert row["pdf_text_extraction_backend"] == ""
+    assert row["pdf_preview_text_char_count"] == 0
+    assert row["pdf_preview_text_signal_sample"] == ""
+    assert row["company_identity_verified_from_text"] is False
+    assert row["report_year_verified_from_text"] is False
+    assert "manual_official_pdf_text_extraction_returned_raw_pdf_stream" in row["pdf_text_extraction_warning_codes"]
+    assert "manual_official_pdf_text_extraction_returned_raw_pdf_stream" in row["manual_evidence_registration_warning_codes"]
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_evidence_registration_backend_fallback_order(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-fallback.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+    calls: list[str] = []
+    raw_pdf_text = "%PDF-1.5\n1 0 obj\nstream\nxref\ntrailer\nstartxref\nendstream\nendobj\n"
+
+    def backend(name: str, text: str):
+        def _extract(path: Path, max_pages: int) -> dict:
+            calls.append(name)
+            return {"page_count": 10, "preview_page_count": max_pages, "text": text, "warnings": []}
+
+        return _extract
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_extractors",
+        lambda: [
+            ("empty_backend", backend("empty_backend", "")),
+            ("raw_backend", backend("raw_backend", raw_pdf_text)),
+            ("real_backend", backend("real_backend", _rzd_manual_official_pdf_russian_signal_text(include_standard=True))),
+        ],
+    )
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert calls == ["empty_backend", "raw_backend", "real_backend"]
+    assert report["status"] == "passed"
+    row = report["evidence_rows"][0]
+    assert row["pdf_text_extraction_backend"] == "real_backend"
+    assert row["pdf_raw_stream_rejected"] is True
+    assert row["pdf_text_extraction_available"] is True
+    assert row["manual_evidence_registration_confidence"] == "high"
+    assert "manual_official_pdf_text_extraction_returned_raw_pdf_stream" in row["pdf_text_extraction_warning_codes"]
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_evidence_registration_no_extraction_backend_available(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-no-backend.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+    monkeypatch.setattr(assistant, "_rzd_manual_official_pdf_preview_extractors", lambda: [])
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert report["registered_evidence_count"] == 1
+    assert report["medium_confidence_evidence_count"] == 1
+    assert report["pdf_text_extraction_available_count"] == 0
+    row = report["evidence_rows"][0]
+    assert row["pdf_text_extraction_available"] is False
+    assert row["pdf_text_extraction_backend"] == ""
+    assert row["pdf_raw_stream_rejected"] is False
+    assert "manual_official_pdf_text_extraction_unavailable" in row["manual_evidence_registration_warning_codes"]
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
 def test_rzd_manual_official_pdf_evidence_registration_unavailable_text_is_medium_confidence(
     tmp_path: Path,
     monkeypatch,
@@ -22423,8 +22543,10 @@ def _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row: dict) 
         assert field in row
         assert isinstance(row[field], int)
     assert isinstance(row.get("pdf_preview_text_signal_sample"), str)
+    assert isinstance(row.get("pdf_text_extraction_backend"), str)
     assert len(row["pdf_preview_text_signal_sample"]) <= 1000
     for field in (
+        "pdf_text_extraction_warning_codes",
         "company_signal_matches",
         "year_signal_matches",
         "standard_signal_matches",

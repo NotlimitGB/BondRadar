@@ -11,6 +11,7 @@ import re
 import shlex
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import time
@@ -6501,6 +6502,9 @@ RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_FIELDS = [
     "pdf_magic_header_valid",
     "pdf_page_count",
     "pdf_text_extraction_available",
+    "pdf_text_extraction_backend",
+    "pdf_text_extraction_warning_codes",
+    "pdf_raw_stream_rejected",
     "pdf_preview_page_count",
     "pdf_preview_text_sha256",
     "pdf_preview_text_char_count",
@@ -6650,6 +6654,7 @@ RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ROW_BOOL_FIELDS = (
     "controlled_pdf_copy_created",
     "pdf_magic_header_valid",
     "pdf_text_extraction_available",
+    "pdf_raw_stream_rejected",
     "target_year_aligned",
     "stale_year_mismatch",
     "unknown_year_candidate",
@@ -38277,9 +38282,15 @@ def _rzd_manual_official_pdf_evidence_registration_rows(
     metadata = _rzd_manual_official_pdf_preview_metadata(pdf_path, int(_as_int(args.manual_official_pdf_preview_max_pages) or 0)) if isinstance(pdf_path, Path) else {"available": False, "text": "", "warnings": ["manual_official_pdf_text_extraction_unavailable"]}
     text = str(metadata.get("text") or "")
     extraction_available = bool(metadata.get("available")) and bool(text.strip())
+    metadata_warning_codes = [str(code) for code in (metadata.get("warnings") or []) if str(code)]
     if not extraction_available:
-        warning_codes.append("manual_official_pdf_text_extraction_unavailable")
-        warnings.append({"message": "manual_official_pdf_text_extraction_unavailable"})
+        if metadata_warning_codes:
+            warning_codes.extend(metadata_warning_codes)
+        if "manual_official_pdf_text_extraction_unavailable" not in warning_codes:
+            warning_codes.append("manual_official_pdf_text_extraction_unavailable")
+        for code in warning_codes:
+            if code.startswith("manual_official_pdf_text_extraction"):
+                warnings.append({"message": code})
     signals = _rzd_manual_official_pdf_evidence_text_signals(text, int(args.manual_official_report_year or 0))
     if extraction_available:
         if not signals["company_identity_verified"]:
@@ -38346,6 +38357,9 @@ def _rzd_manual_official_pdf_evidence_registration_rows(
         "pdf_magic_header_valid": pdf_bytes.startswith(b"%PDF"),
         "pdf_page_count": int(metadata.get("page_count") or 0),
         "pdf_text_extraction_available": extraction_available,
+        "pdf_text_extraction_backend": str(metadata.get("backend") or ""),
+        "pdf_text_extraction_warning_codes": metadata_warning_codes,
+        "pdf_raw_stream_rejected": bool(metadata.get("raw_stream_rejected")),
         "pdf_preview_page_count": int(metadata.get("preview_page_count") or 0),
         "pdf_preview_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest() if text else "",
         "pdf_preview_text_char_count": len(text),
@@ -38456,6 +38470,134 @@ def _rzd_manual_official_pdf_preview_metadata(path: Path, max_pages: int) -> dic
         "preview_page_count": 0,
         "text": fallback,
         "warnings": [] if fallback else ["manual_official_pdf_text_extraction_unavailable"],
+    }
+
+
+def _rzd_manual_official_pdf_preview_extractors() -> list[tuple[str, Any]]:
+    return [
+        ("pypdf", lambda path, max_pages: _rzd_manual_official_pdf_preview_with_pypdf(path, max_pages, "pypdf")),
+        ("PyPDF2", lambda path, max_pages: _rzd_manual_official_pdf_preview_with_pypdf(path, max_pages, "PyPDF2")),
+        ("pdfminer.six", _rzd_manual_official_pdf_preview_with_pdfminer),
+        ("pymupdf", _rzd_manual_official_pdf_preview_with_pymupdf),
+        ("pdftotext", _rzd_manual_official_pdf_preview_with_pdftotext),
+    ]
+
+
+def _rzd_manual_official_pdf_preview_with_pypdf(path: Path, max_pages: int, module_name: str) -> dict[str, Any]:
+    module = __import__(module_name)
+    reader = module.PdfReader(str(path))
+    pages = list(getattr(reader, "pages", []) or [])
+    texts: list[str] = []
+    for page in pages[:max_pages]:
+        try:
+            texts.append(str(page.extract_text() or ""))
+        except Exception:
+            continue
+    return {
+        "page_count": len(pages),
+        "preview_page_count": min(len(pages), max_pages),
+        "text": "\n".join(texts),
+        "warnings": [],
+    }
+
+
+def _rzd_manual_official_pdf_preview_with_pdfminer(path: Path, max_pages: int) -> dict[str, Any]:
+    high_level = __import__("pdfminer.high_level", fromlist=["extract_text"])
+    text = high_level.extract_text(str(path), page_numbers=list(range(max_pages)))
+    return {"page_count": 0, "preview_page_count": max_pages, "text": str(text or ""), "warnings": []}
+
+
+def _rzd_manual_official_pdf_preview_with_pymupdf(path: Path, max_pages: int) -> dict[str, Any]:
+    fitz = __import__("fitz")
+    document = fitz.open(str(path))
+    try:
+        page_count = int(getattr(document, "page_count", len(document)))
+        texts = [str(document.load_page(index).get_text("text") or "") for index in range(min(page_count, max_pages))]
+        return {
+            "page_count": page_count,
+            "preview_page_count": min(page_count, max_pages),
+            "text": "\n".join(texts),
+            "warnings": [],
+        }
+    finally:
+        document.close()
+
+
+def _rzd_manual_official_pdf_preview_with_pdftotext(path: Path, max_pages: int) -> dict[str, Any]:
+    executable = shutil.which("pdftotext")
+    if not executable:
+        return {"page_count": 0, "preview_page_count": 0, "text": "", "warnings": []}
+    command = [executable, "-f", "1", "-l", str(max_pages), "-layout", "-enc", "UTF-8", str(path), "-"]
+    result = subprocess.run(command, check=False, capture_output=True, timeout=30)
+    text = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+    return {
+        "page_count": 0,
+        "preview_page_count": max_pages,
+        "text": text,
+        "warnings": [] if result.returncode == 0 else ["manual_official_pdf_text_extraction_unavailable"],
+    }
+
+
+def _rzd_pdf_preview_text_looks_like_raw_pdf(text: str) -> bool:
+    folded = str(text or "").casefold()
+    if not folded.strip():
+        return False
+    raw_tokens = ("%pdf-", " obj", "endobj", "stream", "endstream", "xref", "trailer", "startxref", "/flatedecode", "/linearized")
+    token_count = sum(folded.count(token) for token in raw_tokens)
+    return folded.lstrip().startswith("%pdf-") or token_count >= 4
+
+
+def _rzd_pdf_preview_text_has_human_text(text: str) -> bool:
+    value = str(text or "")
+    non_space_count = len(re.sub(r"\s+", "", value))
+    letter_count = len(re.findall(r"[A-Za-zА-Яа-яЁё]", value))
+    if non_space_count < 100 or letter_count < 30:
+        return False
+    raw_token_count = sum(value.casefold().count(token) for token in (" obj", "endobj", "stream", "endstream", "xref", "startxref"))
+    return raw_token_count < max(4, letter_count // 20)
+
+
+def _rzd_manual_official_pdf_preview_metadata(path: Path, max_pages: int) -> dict[str, Any]:
+    warnings: list[str] = []
+    raw_stream_rejected = False
+    for backend_name, extractor in _rzd_manual_official_pdf_preview_extractors():
+        try:
+            metadata = extractor(path, max_pages)
+        except Exception:
+            continue
+        if not isinstance(metadata, dict):
+            continue
+        warnings.extend(str(code) for code in (metadata.get("warnings") or []) if str(code))
+        text = str(metadata.get("text") or "")
+        if not text.strip():
+            continue
+        if _rzd_pdf_preview_text_looks_like_raw_pdf(text):
+            raw_stream_rejected = True
+            warnings.append("manual_official_pdf_text_extraction_returned_raw_pdf_stream")
+            continue
+        if not _rzd_pdf_preview_text_has_human_text(text):
+            warnings.append("manual_official_pdf_text_extraction_unavailable")
+            continue
+        return {
+            "available": True,
+            "backend": backend_name,
+            "page_count": int(metadata.get("page_count") or 0),
+            "preview_page_count": int(metadata.get("preview_page_count") or 0),
+            "text": text,
+            "warnings": list(dict.fromkeys(warnings)),
+            "raw_stream_rejected": raw_stream_rejected,
+        }
+    if raw_stream_rejected:
+        warnings.append("manual_official_pdf_text_extraction_returned_raw_pdf_stream")
+    warnings.append("manual_official_pdf_text_extraction_unavailable")
+    return {
+        "available": False,
+        "backend": "",
+        "page_count": 0,
+        "preview_page_count": 0,
+        "text": "",
+        "warnings": list(dict.fromkeys(warnings)),
+        "raw_stream_rejected": raw_stream_rejected,
     }
 
 
