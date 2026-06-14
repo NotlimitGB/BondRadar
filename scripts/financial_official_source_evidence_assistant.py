@@ -14,6 +14,7 @@ import stat
 import sys
 import tempfile
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -6460,7 +6461,7 @@ RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_DEFAULTS = {
     "report_standard": "IFRS",
     "document_language": "ru",
     "document_kind": "consolidated_financial_statements_auditor_report",
-    "preview_max_pages": 12,
+    "preview_max_pages": 32,
 }
 RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ARTIFACT_NAMES = {
     "registration_json": "rzd_manual_official_pdf_evidence_registration_task168.json",
@@ -6502,6 +6503,14 @@ RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_FIELDS = [
     "pdf_text_extraction_available",
     "pdf_preview_page_count",
     "pdf_preview_text_sha256",
+    "pdf_preview_text_char_count",
+    "pdf_preview_text_normalized_char_count",
+    "pdf_preview_text_signal_sample",
+    "company_signal_matches",
+    "year_signal_matches",
+    "standard_signal_matches",
+    "document_kind_signal_matches",
+    "financial_section_signal_matches",
     "target_report_year",
     "detected_report_years",
     "primary_detected_report_year",
@@ -38277,10 +38286,10 @@ def _rzd_manual_official_pdf_evidence_registration_rows(
             blocker_codes.append("manual_official_pdf_company_identity_mismatch")
         if not signals["report_year_verified"]:
             blocker_codes.append("manual_official_pdf_report_year_mismatch")
-        if not signals["report_standard_verified"]:
-            blocker_codes.append("manual_official_pdf_report_standard_mismatch")
         if not signals["document_kind_verified"]:
             blocker_codes.append("manual_official_pdf_document_kind_mismatch")
+        if not signals["report_standard_verified"]:
+            warning_codes.append("manual_official_pdf_report_standard_not_detected_in_preview")
         if not signals["auditor_detected"]:
             warning_codes.append("manual_official_pdf_auditor_not_detected")
         if not signals["document_date_detected"]:
@@ -38289,7 +38298,24 @@ def _rzd_manual_official_pdf_evidence_registration_rows(
             warning_codes.append("manual_official_pdf_financial_sections_partially_detected")
     blocker_codes = list(dict.fromkeys(blocker_codes))
     warning_codes = list(dict.fromkeys(warning_codes))
-    confidence = "reject" if blocker_codes else "high" if extraction_available and signals["pdf_identity_verified"] and copy_created and source_trusted else "medium"
+    strong_identity_without_standard = (
+        extraction_available
+        and signals["company_identity_verified"]
+        and signals["report_year_verified"]
+        and signals["document_kind_verified"]
+        and str(args.manual_official_report_standard or "").casefold() == "ifrs"
+    )
+    confidence = (
+        "reject"
+        if blocker_codes
+        else "high"
+        if extraction_available and signals["pdf_identity_verified"] and copy_created and source_trusted
+        else "medium"
+        if not extraction_available or strong_identity_without_standard
+        else "reject"
+    )
+    if confidence == "reject" and not blocker_codes:
+        blocker_codes.append("manual_official_pdf_unknown_readiness")
     status = "registered_manual_official_pdf_evidence" if confidence in {"high", "medium"} else "blocked_manual_official_pdf_evidence"
     target_year_aligned = signals["report_year_verified"] if extraction_available else True
     evidence_id = f"rzd_manual_official_pdf_evidence:{original_sha[:16]}"
@@ -38322,6 +38348,14 @@ def _rzd_manual_official_pdf_evidence_registration_rows(
         "pdf_text_extraction_available": extraction_available,
         "pdf_preview_page_count": int(metadata.get("preview_page_count") or 0),
         "pdf_preview_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest() if text else "",
+        "pdf_preview_text_char_count": len(text),
+        "pdf_preview_text_normalized_char_count": len(signals["normalized_text"]),
+        "pdf_preview_text_signal_sample": signals["signal_sample"],
+        "company_signal_matches": signals["company_signal_matches"],
+        "year_signal_matches": signals["year_signal_matches"],
+        "standard_signal_matches": signals["standard_signal_matches"],
+        "document_kind_signal_matches": signals["document_kind_signal_matches"],
+        "financial_section_signal_matches": signals["financial_section_signal_matches"],
         "target_report_year": int(args.manual_official_report_year or 0),
         "detected_report_years": signals["detected_report_years"],
         "primary_detected_report_year": signals["primary_detected_report_year"],
@@ -38445,40 +38479,150 @@ def _rzd_manual_official_pdf_source_pack_row_is_rzd(row: dict[str, Any]) -> bool
     )
 
 
-def _rzd_manual_official_pdf_evidence_text_signals(text: str, target_year: int) -> dict[str, Any]:
-    folded = str(text or "").casefold()
-    years = _rzd_candidate_page_link_discovery_years(text)
-    company_terms = ("российские железные дороги", "оао «ржд»", 'оао "ржд"', "russian railways", "ржд")
-    standard_terms = ("ifrs", "мсфо", "мфсо")
-    document_terms = (
-        "аудиторское заключение",
-        "независимого аудитора",
-        "консолидированн",
-        "финансовой отчетности",
-        "financial statements",
-        "statement of financial position",
-    )
-    section_terms = {
-        "statement_of_financial_position": ("финансовом положении", "financial position"),
-        "profit_or_loss": ("прибылях и убытках", "profit or loss"),
-        "cash_flows": ("движении денежных", "cash flows"),
-        "changes_in_equity": ("изменениях капитала", "changes in equity"),
-        "notes": ("примечания", "notes to"),
+def _normalize_pdf_preview_text_for_signal_detection(text: str) -> dict[str, str]:
+    normalized = unicodedata.normalize("NFKC", str(text or ""))
+    replacements = {
+        "\u00ad": "",
+        "\ufeff": "",
+        "\ufffe": "",
+        "\u200b": "",
+        "\u200c": "",
+        "\u200d": "",
+        "\xa0": " ",
+        "“": '"',
+        "”": '"',
+        "„": '"',
+        "«": '"',
+        "»": '"',
+        "‘": "'",
+        "’": "'",
+        "ё": "е",
+        "Ё": "е",
     }
-    detected_sections = [name for name, terms in section_terms.items() if any(term in folded for term in terms)]
-    standard_hints = [term.upper() if term == "ifrs" else term for term in standard_terms if term in folded]
-    kind_hints = [term for term in document_terms if term in folded]
-    company_verified = any(term in folded for term in company_terms)
-    year_verified = target_year in years or str(target_year) in folded
-    standard_verified = any(term in folded for term in standard_terms)
-    kind_verified = any(term in folded for term in document_terms) and ("аудитор" in folded or "auditor" in folded or "financial statements" in folded or "финансов" in folded)
-    date_match = re.search(r"(31\s+декабр[яь]\s+20\d{2}|31\s+december\s+20\d{2}|december\s+31,\s*20\d{2}|март\s+20\d{2}|20\d{2}\s*г\.)", text, flags=re.IGNORECASE)
-    title_match = re.search(r"(аудиторское заключение[^\n\r]{0,160}|consolidated financial statements[^\n\r]{0,160})", text, flags=re.IGNORECASE)
+    for old, new in replacements.items():
+        normalized = normalized.replace(old, new)
+    normalized = normalized.casefold()
+    normalized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]+", " ", normalized)
+    normalized = re.sub(r"(?<=[0-9a-zа-я])[\-‐‑‒–—]\s*(?=[a-zа-я])", "", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    compact = re.sub(r"[^0-9a-zа-я]+", "", normalized)
+    return {"normalized_text": normalized, "compact_text": compact}
+
+
+def _rzd_manual_official_pdf_phrase_found(phrase: str, normalized: str, compact: str) -> bool:
+    prepared = _normalize_pdf_preview_text_for_signal_detection(phrase)
+    return prepared["normalized_text"] in normalized or prepared["compact_text"] in compact
+
+
+def _rzd_manual_official_pdf_signal_matches(
+    patterns: Sequence[tuple[str, str]],
+    *,
+    normalized: str,
+    compact: str,
+) -> list[str]:
+    matches: list[str] = []
+    for label, pattern in patterns:
+        found = False
+        if pattern.startswith("re:"):
+            found = re.search(pattern[3:], normalized, flags=re.IGNORECASE | re.DOTALL) is not None
+        else:
+            found = _rzd_manual_official_pdf_phrase_found(pattern, normalized, compact)
+        if found:
+            matches.append(label)
+    return matches
+
+
+def _rzd_manual_official_pdf_evidence_text_signals(text: str, target_year: int) -> dict[str, Any]:
+    prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+    normalized = prepared["normalized_text"]
+    compact = prepared["compact_text"]
+    years = sorted({int(match) for match in re.findall(r"\b(20[0-9]{2})\b", normalized)})
+    company_patterns = (
+        ("russian_railways_ru_nom", "российские железные дороги"),
+        ("russian_railways_ru_gen", "российских железных дорог"),
+        ("rzd_oao_plain", "оао ржд"),
+        ("rzd_oao_quoted", 'оао "ржд"'),
+        ("russian_railways_en", "russian railways"),
+    )
+    year_patterns = (
+        ("december_31_ru", rf"re:31\s*декабр[яь]\s*{target_year}"),
+        ("date_numeric", rf"re:31\s*[.]\s*12\s*[.]\s*{target_year}"),
+        ("target_year_ru_short", rf"re:{target_year}\s*(?:г|год)"),
+        ("year_ended_ru", rf"re:за\s+год[,\s\S]{{0,120}}31\s*декабр[яь]\s*{target_year}"),
+        ("year_ended_numeric", rf"re:за\s+год[,\s\S]{{0,120}}31\s*[.]\s*12\s*[.]\s*{target_year}"),
+        ("december_31_en", rf"re:31\s+december\s+{target_year}|december\s+31,\s*{target_year}"),
+    )
+    standard_patterns = (
+        ("ifrs", "ifrs"),
+        ("msfo", "мсфо"),
+        ("mfso_typo", "мфсо"),
+        ("international_financial_reporting_standards", "международные стандарты финансовой отчетности"),
+        ("international_financial_reporting_standards_case", "международным стандартам финансовой отчетности"),
+        ("standards_msfo", "стандарты финансовой отчетности мсфо"),
+        ("iasb_msfo", "советом по мсфо"),
+    )
+    auditor_patterns = (
+        ("auditor_report_ru", "аудиторское заключение"),
+        ("independent_auditor_ru", "независимого аудитора"),
+        ("independent_auditor_en", "independent auditor"),
+        ("auditor_report_en", "auditor report"),
+    )
+    consolidated_patterns = (
+        ("consolidated_financial_reporting_ru", "консолидированной финансовой отчетности"),
+        ("consolidated_financial_statements_ru", "консолидированная финансовая отчетность"),
+        ("consolidated_financial_statements_en", "consolidated financial statements"),
+    )
+    section_patterns = {
+        "statement_of_financial_position": (
+            "консолидированный отчет о финансовом положении",
+            "statement of financial position",
+            "financial position",
+        ),
+        "profit_or_loss": (
+            "консолидированный отчет о прибылях и убытках",
+            "profit or loss",
+        ),
+        "other_comprehensive_income": (
+            "консолидированный отчет о прочем совокупном доходе",
+            "comprehensive income",
+        ),
+        "changes_in_equity": (
+            "консолидированный отчет об изменениях капитала",
+            "changes in equity",
+        ),
+        "cash_flows": (
+            "консолидированный отчет о движении денежных средств",
+            "cash flows",
+        ),
+        "notes": (
+            "примечания к консолидированной финансовой отчетности",
+            "notes to financial statements",
+            "notes to the consolidated financial statements",
+        ),
+    }
+    company_matches = _rzd_manual_official_pdf_signal_matches(company_patterns, normalized=normalized, compact=compact)
+    year_matches = _rzd_manual_official_pdf_signal_matches(year_patterns, normalized=normalized, compact=compact)
+    standard_matches = _rzd_manual_official_pdf_signal_matches(standard_patterns, normalized=normalized, compact=compact)
+    auditor_matches = _rzd_manual_official_pdf_signal_matches(auditor_patterns, normalized=normalized, compact=compact)
+    consolidated_matches = _rzd_manual_official_pdf_signal_matches(consolidated_patterns, normalized=normalized, compact=compact)
+    section_matches: list[str] = []
+    for section, phrases in section_patterns.items():
+        if any(_rzd_manual_official_pdf_phrase_found(phrase, normalized, compact) for phrase in phrases):
+            section_matches.append(section)
+    rzd_context = bool(consolidated_matches) and bool(year_matches) and ("дочерн" in normalized or "subsidiar" in normalized or bool(section_matches))
+    rzd_abbrev_in_text = _rzd_manual_official_pdf_phrase_found("ржд", normalized, compact)
+    company_verified = bool(company_matches) or (rzd_abbrev_in_text and rzd_context)
+    year_verified = bool(year_matches) or (target_year in years and (bool(consolidated_matches) or bool(section_matches)))
+    standard_verified = bool(standard_matches)
+    kind_verified = bool(auditor_matches) and bool(consolidated_matches) and bool(section_matches)
+    date_match = re.search(rf"(31\s+декабр[яь]\s+{target_year}|31\s+december\s+{target_year}|december\s+31,\s*{target_year}|март\s+20\d{{2}}|20\d{{2}}\s*г\.)", normalized, flags=re.IGNORECASE)
+    title_match = re.search(r"(аудиторское заключение.{0,160}|consolidated financial statements.{0,160})", normalized, flags=re.IGNORECASE | re.DOTALL)
+    kind_matches = [*auditor_matches, *consolidated_matches]
     return {
         "detected_report_years": years,
         "primary_detected_report_year": years[0] if years else 0,
-        "detected_standard_hints": standard_hints,
-        "detected_document_kind_hints": kind_hints,
+        "detected_standard_hints": standard_matches,
+        "detected_document_kind_hints": kind_matches,
         "company_name_detected": "Russian Railways/RZD" if company_verified else "",
         "company_identity_verified": company_verified,
         "report_year_verified": year_verified,
@@ -38487,10 +38631,17 @@ def _rzd_manual_official_pdf_evidence_text_signals(text: str, target_year: int) 
         "pdf_identity_verified": company_verified and year_verified and standard_verified and kind_verified,
         "document_title_detected": title_match.group(0).strip() if title_match else "",
         "document_date_detected": date_match.group(0).strip() if date_match else "",
-        "auditor_detected": "аудитор" in folded or "auditor" in folded,
-        "auditor_opinion_detected": "аудиторское заключение" in folded or "auditor" in folded,
-        "financial_statement_sections_detected": detected_sections,
-        "financial_statement_sections_count": len(detected_sections),
+        "auditor_detected": bool(auditor_matches),
+        "auditor_opinion_detected": bool(auditor_matches),
+        "financial_statement_sections_detected": section_matches,
+        "financial_statement_sections_count": len(section_matches),
+        "normalized_text": normalized,
+        "signal_sample": normalized[:1000],
+        "company_signal_matches": company_matches + (["rzd_abbrev_with_context"] if not company_matches and rzd_abbrev_in_text and rzd_context else []),
+        "year_signal_matches": year_matches,
+        "standard_signal_matches": standard_matches,
+        "document_kind_signal_matches": kind_matches,
+        "financial_section_signal_matches": section_matches,
     }
 
 

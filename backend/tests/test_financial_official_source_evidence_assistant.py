@@ -13009,6 +13009,150 @@ def test_rzd_manual_official_pdf_evidence_registration_high_confidence(
     _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
 
 
+def test_rzd_manual_official_pdf_evidence_registration_russian_rzd_text_passes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-russian-2025.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {
+            "available": True,
+            "page_count": 96,
+            "preview_page_count": max_pages,
+            "text": _rzd_manual_official_pdf_russian_signal_text(include_standard=True),
+            "warnings": [],
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "passed"
+    assert report["registered_evidence_count"] == 1
+    assert report["high_confidence_evidence_count"] == 1
+    assert report["pdf_identity_verified_count"] == 1
+    assert report["company_identity_verified_count"] == 1
+    assert report["report_year_verified_count"] == 1
+    assert report["report_standard_verified_count"] == 1
+    assert report["document_kind_verified_count"] == 1
+    row = report["evidence_rows"][0]
+    assert row["company_identity_verified_from_text"] is True
+    assert row["report_year_verified_from_text"] is True
+    assert row["report_standard_verified_from_text"] is True
+    assert row["document_kind_verified_from_text"] is True
+    assert row["auditor_detected"] is True
+    assert row["financial_statement_sections_count"] >= 4
+    assert "russian_railways_ru_nom" in row["company_signal_matches"]
+    assert row["year_signal_matches"]
+    assert row["standard_signal_matches"]
+    assert row["document_kind_signal_matches"]
+    assert row["financial_section_signal_matches"]
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_evidence_registration_russian_pdf_artifacts_still_pass(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-russian-artifacts-2025.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+    text = _rzd_manual_official_pdf_russian_signal_text(include_standard=True)
+    text = (
+        text.replace("консолидированной", "консолидирован-\nной")
+        .replace("финансовой", "финансо-\nвой")
+        .replace("Российские железные дороги", "«Российские\u00a0железные\u00ad дороги»")
+        .replace("МСФО", "\ufeffМСФО")
+    )
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {
+            "available": True,
+            "page_count": 96,
+            "preview_page_count": max_pages,
+            "text": text,
+            "warnings": [],
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "passed"
+    row = report["evidence_rows"][0]
+    assert row["manual_evidence_registration_confidence"] == "high"
+    assert row["company_identity_verified_from_text"] is True
+    assert row["report_year_verified_from_text"] is True
+    assert row["report_standard_verified_from_text"] is True
+    assert row["document_kind_verified_from_text"] is True
+    assert len(row["pdf_preview_text_signal_sample"]) <= 1000
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_evidence_registration_missing_standard_is_medium_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pdf_path = tmp_path / "rzd-russian-no-standard-2025.pdf"
+    pdf_path.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {
+            "available": True,
+            "page_count": 30,
+            "preview_page_count": max_pages,
+            "text": _rzd_manual_official_pdf_russian_signal_text(include_standard=False),
+            "warnings": [],
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--manual-official-pdf-input",
+            str(pdf_path),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert report["registered_evidence_count"] == 1
+    assert report["medium_confidence_evidence_count"] == 1
+    assert report["report_standard_verified_count"] == 0
+    row = report["evidence_rows"][0]
+    assert row["company_identity_verified_from_text"] is True
+    assert row["report_year_verified_from_text"] is True
+    assert row["document_kind_verified_from_text"] is True
+    assert row["report_standard_verified_from_text"] is False
+    assert row["manual_evidence_registration_confidence"] == "medium"
+    assert "manual_official_pdf_report_standard_not_detected_in_preview" in row["manual_evidence_registration_warning_codes"]
+    assert "manual_official_pdf_report_standard_mismatch" not in row["manual_evidence_registration_blocker_codes"]
+    _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
+    _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row)
+
+
 def test_rzd_manual_official_pdf_evidence_registration_unavailable_text_is_medium_confidence(
     tmp_path: Path,
     monkeypatch,
@@ -13074,6 +13218,34 @@ def test_rzd_manual_official_pdf_evidence_registration_blocks_contradictions_and
     assert report["status"] == "failed"
     assert "manual_official_pdf_company_identity_mismatch" in codes
     assert "manual_official_pdf_report_year_mismatch" in codes
+
+    year_dir = tmp_path / "wrong_year"
+    year_dir.mkdir()
+    year_pdf = year_dir / "rzd-ifrs-2024.pdf"
+    year_pdf.write_bytes(b"%PDF-1.7\n% local evidence preview\n%%EOF\n")
+    _write_exact_document_draft_gate_source_pack(year_dir)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_preview_metadata",
+        lambda path, max_pages: {
+            "available": True,
+            "page_count": 24,
+            "preview_page_count": max_pages,
+            "text": _rzd_manual_official_pdf_russian_signal_text(include_standard=True).replace("2025", "2024"),
+            "warnings": [],
+        },
+    )
+    wrong_year = _run_rzd_manual_official_pdf_evidence_registration(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(year_dir),
+            "--manual-official-pdf-input",
+            str(year_pdf),
+        ]
+    )
+    wrong_year_codes = {row["blocker_code"] for row in wrong_year["blocker_rows"]}
+    assert wrong_year["status"] == "failed"
+    assert "manual_official_pdf_report_year_mismatch" in wrong_year_codes
 
     untrusted_dir = tmp_path / "untrusted"
     untrusted_dir.mkdir()
@@ -22198,6 +22370,35 @@ def _rzd_manual_official_pdf_evidence_registration_required_row_bool_fields() ->
     return assistant.RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ROW_BOOL_FIELDS
 
 
+def _rzd_manual_official_pdf_russian_signal_text(*, include_standard: bool = True) -> str:
+    standard_text = (
+        "Настоящая консолидированная финансовая отчетность была подготовлена "
+        "в соответствии со стандартами финансовой отчетности МСФО."
+        if include_standard
+        else ""
+    )
+    return f"""
+Аудиторское заключение независимого аудитора
+о консолидированной финансовой отчетности
+открытого акционерного общества
+«Российские железные дороги»
+и его дочерних компаний
+за год, закончившийся 31 декабря 2025 г.
+Март 2026 г.
+
+Содержание
+Аудиторское заключение независимого аудитора
+Консолидированный отчет о финансовом положении
+Консолидированный отчет о прибылях и убытках
+Консолидированный отчет о прочем совокупном доходе
+Консолидированный отчет об изменениях капитала
+Консолидированный отчет о движении денежных средств
+Примечания к консолидированной финансовой отчетности
+
+{standard_text}
+"""
+
+
 def _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report: dict) -> None:
     for field in _rzd_manual_official_pdf_evidence_registration_required_bool_fields():
         assert field in report
@@ -22214,6 +22415,24 @@ def _assert_rzd_manual_official_pdf_evidence_registration_row_fields(row: dict) 
         assert field in row
         assert isinstance(row[field], bool)
         assert row[field] is not None
+    for field in (
+        "pdf_preview_text_char_count",
+        "pdf_preview_text_normalized_char_count",
+        "financial_statement_sections_count",
+    ):
+        assert field in row
+        assert isinstance(row[field], int)
+    assert isinstance(row.get("pdf_preview_text_signal_sample"), str)
+    assert len(row["pdf_preview_text_signal_sample"]) <= 1000
+    for field in (
+        "company_signal_matches",
+        "year_signal_matches",
+        "standard_signal_matches",
+        "document_kind_signal_matches",
+        "financial_section_signal_matches",
+    ):
+        assert field in row
+        assert isinstance(row[field], list)
 
 
 def _rzd_reporting_hub_embedded_required_row_bool_fields() -> tuple[str, ...]:
