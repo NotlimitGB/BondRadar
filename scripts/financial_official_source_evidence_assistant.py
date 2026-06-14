@@ -84,6 +84,7 @@ MODE_CHOICES = (
     "rzd-validation-html-response-link-discovery-preview-v2",
     "rzd-manual-official-pdf-evidence-registration-preview-v2",
     "rzd-manual-official-pdf-parse-plan-preview-v2",
+    "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -6929,6 +6930,188 @@ RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_TARGET_ROW_BOOL_FIELDS = (
     "future_db_mutation_allowed",
     "future_paper_trading_allowed",
 )
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS = {
+    "text_backend": "auto",
+    "target_types": "statement_of_financial_position,profit_or_loss,other_comprehensive_income,cash_flows",
+    "max_pages_per_target": 3,
+    "allow_notes_pages": False,
+}
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_ARTIFACT_NAMES = {
+    "extraction_json": "rzd_manual_official_pdf_controlled_value_extraction_task170.json",
+    "extraction_csv": "rzd_manual_official_pdf_controlled_value_extraction_task170.csv",
+    "extraction_markdown": "rzd_manual_official_pdf_controlled_value_extraction_task170.md",
+    "values_json": "rzd_manual_official_pdf_controlled_value_extraction_values_task170.json",
+    "values_csv": "rzd_manual_official_pdf_controlled_value_extraction_values_task170.csv",
+    "blockers_json": "rzd_manual_official_pdf_controlled_value_extraction_blockers_task170.json",
+    "blockers_csv": "rzd_manual_official_pdf_controlled_value_extraction_blockers_task170.csv",
+    "page_snapshots_json": "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.json",
+    "page_snapshots_csv": "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.csv",
+    "rerun_markdown": "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md",
+}
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
+    "status",
+    "mode",
+    "task168_registration_input_path",
+    "task169_parse_plan_input_path",
+    "task169_page_map_input_path",
+    "task169_targets_input_path",
+    "controlled_pdf_input_path",
+    "selected_evidence_id",
+    "source_page_url",
+    "company_id",
+    "company_name",
+    "report_year",
+    "report_standard",
+    "selected_target_type_count",
+    "selected_page_count",
+    "value_candidate_row_count",
+    "blocker_count",
+    "controlled_value_extraction_ready",
+    "future_human_review_required",
+    "future_import_required",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS = [
+    "snapshot_id",
+    "target_type",
+    "page_number",
+    "page_text_sha256",
+    "page_text_char_count",
+    "page_text_sample",
+    "page_source",
+    "text_backend",
+    "selected_for_extraction",
+    "selection_reason_codes",
+    "selection_warning_codes",
+    "selection_blocker_codes",
+    "has_2025_column",
+    "has_2024_column",
+    "has_rub_million_unit",
+    "has_table_like_text",
+    "has_negative_parentheses_values",
+    "has_note_reference_column",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
+    "value_id",
+    "company_id",
+    "company_name",
+    "report_year",
+    "report_standard",
+    "source_page_url",
+    "controlled_pdf_input_path",
+    "target_type",
+    "metric_key",
+    "metric_name_ru",
+    "metric_name_en",
+    "page_number",
+    "line_number",
+    "raw_line",
+    "raw_line_sha256",
+    "raw_value_2025",
+    "value_2025",
+    "value_2025_present",
+    "raw_value_2024",
+    "value_2024",
+    "value_2024_present",
+    "unit",
+    "scale",
+    "note_reference",
+    "row_label",
+    "extraction_method",
+    "extraction_confidence",
+    "extraction_status",
+    "reason_codes",
+    "warning_codes",
+    "blocker_codes",
+    "future_import_candidate",
+    "future_human_review_required",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_BLOCKER_FIELDS = [
+    "blocker_id",
+    "target_type",
+    "page_number",
+    "metric_key",
+    "blocker_code",
+    "blocker_severity",
+    "operator_action",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
+    "input_registration_count",
+    "input_parse_plan_count",
+    "input_page_map_count",
+    "input_targets_count",
+    "input_pdf_count",
+    "selected_target_type_count",
+    "selected_page_count",
+    "page_snapshot_row_count",
+    "value_candidate_row_count",
+    "statement_of_financial_position_value_count",
+    "profit_or_loss_value_count",
+    "other_comprehensive_income_value_count",
+    "cash_flows_value_count",
+    "high_confidence_value_count",
+    "medium_confidence_value_count",
+    "low_confidence_value_count",
+    "ambiguous_value_count",
+    "blocked_value_count",
+    "value_2025_present_count",
+    "value_2024_present_count",
+    "blocker_count",
+    "failed_count",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS = (
+    "task168_registration_input_preserved",
+    "task169_parse_plan_input_preserved",
+    "task169_page_map_input_preserved",
+    "task169_targets_input_preserved",
+    "controlled_pdf_input_preserved",
+    "input_bytes_unchanged",
+    "controlled_value_extraction_ready",
+    "future_human_review_required",
+    "future_import_required",
+    "future_import_allowed",
+    "future_db_mutation_allowed",
+    "future_paper_trading_allowed",
+    "read_only",
+    "dry_run_only",
+    "controlled_value_extraction_preview_only",
+    "would_fetch_source_page",
+    "would_fetch_document_url",
+    "would_download_document",
+    "would_download_documents",
+    "would_extract_financial_values",
+    "would_import_report",
+    "would_mutate_database",
+    "would_score_issuers",
+    "would_trigger_paper_trading",
+    "would_delete_files",
+    "source_page_fetched",
+    "document_url_fetched",
+    "documents_downloaded",
+    "financial_values_extracted",
+    "import_executed",
+    "database_mutated",
+    "issuer_scores_mutated",
+    "paper_trading_called",
+    "files_deleted",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
+    "selected_for_extraction",
+    "has_2025_column",
+    "has_2024_column",
+    "has_rub_million_unit",
+    "has_table_like_text",
+    "has_negative_parentheses_values",
+    "has_note_reference_column",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS = (
+    "value_2025_present",
+    "value_2024_present",
+    "future_import_candidate",
+    "future_human_review_required",
+)
 SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
     "workspace_json": "source_trust_recovery_workspace_task142.json",
     "workspace_csv": "source_trust_recovery_workspace_task142.csv",
@@ -8408,6 +8591,42 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=("auto", "pdftotext", "pypdf", "PyPDF2", "pdfminer.six", "pymupdf"),
         default=RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_DEFAULTS["text_backend"],
     )
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-values-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-values-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-snapshots-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-snapshots-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-rerun-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-values-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-blockers-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-snapshots-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
+    parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-value-extraction-text-backend",
+        choices=("auto", "pdftotext", "pypdf", "PyPDF2", "pdfminer.six", "pymupdf"),
+        default=RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["text_backend"],
+    )
+    parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+        default=RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["target_types"],
+    )
+    parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-value-extraction-max-pages-per-target",
+        type=int,
+        default=RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["max_pages_per_target"],
+    )
+    parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-value-extraction-allow-notes-pages",
+        type=_parse_bool,
+        default=RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["allow_notes_pages"],
+    )
     parser.add_argument("--source-trust-recovery-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-csv-output", type=Path, default=None)
     parser.add_argument("--source-trust-recovery-markdown-output", type=Path, default=None)
@@ -8629,6 +8848,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_evidence_registration_preview_v2(args)
     elif args.mode == "rzd-manual-official-pdf-parse-plan-preview-v2":
         report = run_rzd_manual_official_pdf_parse_plan_preview_v2(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-value-extraction-preview-v2":
+        report = run_rzd_manual_official_pdf_controlled_value_extraction_preview_v2(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -40284,6 +40505,902 @@ def _rzd_manual_official_pdf_parse_plan_finalize_report(
     return report
 
 
+def run_rzd_manual_official_pdf_controlled_value_extraction_preview_v2(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_value_extraction_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_value_extraction_artifacts(args)
+    errors = _rzd_manual_official_pdf_controlled_value_extraction_output_errors(args, inputs=inputs, artifacts=artifacts)
+    if errors:
+        return _rzd_manual_official_pdf_controlled_value_extraction_failed_report(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            input_hashes={},
+            errors=errors,
+            write_outputs=False,
+        )
+    loaded, snapshots, input_hashes, errors = _rzd_manual_official_pdf_controlled_value_extraction_load_inputs(args, inputs)
+    if errors:
+        return _rzd_manual_official_pdf_controlled_value_extraction_failed_report(
+            args,
+            inputs=inputs,
+            artifacts=artifacts,
+            input_hashes=input_hashes,
+            errors=errors,
+            write_outputs=True,
+        )
+    page_snapshot_rows, value_rows, blocker_rows, warnings, forced_status = _rzd_manual_official_pdf_controlled_value_extraction_rows(args, loaded=loaded)
+    report = _build_rzd_manual_official_pdf_controlled_value_extraction_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        input_hashes=input_hashes,
+        preservation=_rzd_manual_official_pdf_controlled_value_extraction_missing_preservation(),
+        selected_evidence=loaded.get("selected_evidence") if isinstance(loaded.get("selected_evidence"), dict) else {},
+        page_snapshot_rows=page_snapshot_rows,
+        value_rows=value_rows,
+        blocker_rows=blocker_rows,
+        warnings=warnings,
+        errors=[],
+        forced_status=forced_status,
+    )
+    return _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
+        report,
+        artifacts=artifacts,
+        inputs=inputs,
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+    )
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    return {
+        "task168_registration": args.rzd_manual_official_pdf_evidence_registration_input
+        or (output_dir / RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ARTIFACT_NAMES["registration_json"] if output_dir else None),
+        "task169_parse_plan": args.rzd_manual_official_pdf_parse_plan_input
+        or (output_dir / RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_ARTIFACT_NAMES["parse_plan_json"] if output_dir else None),
+        "task169_page_map": args.rzd_manual_official_pdf_parse_plan_page_map_input
+        or (output_dir / RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_ARTIFACT_NAMES["page_map_json"] if output_dir else None),
+        "task169_targets": args.rzd_manual_official_pdf_parse_plan_targets_input
+        or (output_dir / RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_ARTIFACT_NAMES["targets_json"] if output_dir else None),
+        "controlled_pdf": args.rzd_manual_official_pdf_evidence_input,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    output_dir = args.operator_resolution_chain_output_dir
+    overrides = {
+        "extraction_json": args.rzd_manual_official_pdf_controlled_value_extraction_output,
+        "extraction_csv": args.rzd_manual_official_pdf_controlled_value_extraction_csv_output,
+        "extraction_markdown": args.rzd_manual_official_pdf_controlled_value_extraction_markdown_output,
+        "values_json": args.rzd_manual_official_pdf_controlled_value_extraction_values_output,
+        "values_csv": args.rzd_manual_official_pdf_controlled_value_extraction_values_csv_output,
+        "blockers_json": args.rzd_manual_official_pdf_controlled_value_extraction_blockers_output,
+        "blockers_csv": args.rzd_manual_official_pdf_controlled_value_extraction_blockers_csv_output,
+        "page_snapshots_json": args.rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_output,
+        "page_snapshots_csv": args.rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_csv_output,
+        "rerun_markdown": args.rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown_output,
+    }
+    return {
+        role: overrides[role] or (output_dir / filename if output_dir is not None else None)
+        for role, filename in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_ARTIFACT_NAMES.items()
+    }
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in [*artifacts.values(), args.json_output, args.markdown_output] if path is not None]
+    protected_inputs = [path for path in inputs.values() if path is not None]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "controlled_value_extraction_output_must_not_equal_input"}]
+        if any(_paths_equal(output, input_path) for input_path in protected_inputs):
+            return [{"message": "controlled_value_extraction_output_must_not_equal_input"}]
+    if int(getattr(args, "rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target", 0) or 0) <= 0:
+        return [{"message": "invalid_controlled_value_extraction_config:max_pages_per_target"}]
+    return []
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_load_json(
+    path: Path | None,
+    *,
+    role: str,
+    expected_mode: str | None,
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+    errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if path is None:
+        errors.append({"message": f"{role}_input_required"})
+        return {}
+    if not path.exists():
+        errors.append({"message": f"{role}_input_not_found"})
+        return {}
+    try:
+        raw = path.read_bytes()
+        payload = json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        errors.append({"message": f"{role}_input_invalid_json", "error": str(exc)})
+        return {}
+    except (OSError, UnicodeDecodeError) as exc:
+        errors.append({"message": f"{role}_input_required", "error": str(exc)})
+        return {}
+    if not isinstance(payload, dict) or (expected_mode and payload.get("mode") != expected_mode):
+        errors.append({"message": f"{role}_input_invalid_json"})
+        return {}
+    snapshots[path] = raw
+    input_hashes[role] = hashlib.sha256(raw).hexdigest()
+    return payload
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_load_inputs(
+    args: argparse.Namespace,
+    inputs: dict[str, Path | None],
+) -> tuple[dict[str, Any], dict[Path, bytes], dict[str, str], list[dict[str, Any]]]:
+    loaded: dict[str, Any] = {}
+    snapshots: dict[Path, bytes] = {}
+    input_hashes: dict[str, str] = {}
+    errors: list[dict[str, Any]] = []
+    registration = _rzd_manual_official_pdf_controlled_value_extraction_load_json(
+        inputs.get("task168_registration"),
+        role="task168_registration",
+        expected_mode="rzd-manual-official-pdf-evidence-registration-preview-v2",
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+        errors=errors,
+    )
+    parse_plan = _rzd_manual_official_pdf_controlled_value_extraction_load_json(
+        inputs.get("task169_parse_plan"),
+        role="task169_parse_plan",
+        expected_mode="rzd-manual-official-pdf-parse-plan-preview-v2",
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+        errors=errors,
+    )
+    page_map = _rzd_manual_official_pdf_controlled_value_extraction_load_json(
+        inputs.get("task169_page_map"),
+        role="task169_page_map",
+        expected_mode="rzd-manual-official-pdf-parse-plan-page-map-v2",
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+        errors=errors,
+    )
+    targets = _rzd_manual_official_pdf_controlled_value_extraction_load_json(
+        inputs.get("task169_targets"),
+        role="task169_targets",
+        expected_mode="rzd-manual-official-pdf-parse-plan-targets-v2",
+        snapshots=snapshots,
+        input_hashes=input_hashes,
+        errors=errors,
+    )
+    if errors:
+        return loaded, snapshots, input_hashes, list(_dedupe_error_dicts(errors))
+    selected = _rzd_manual_official_pdf_parse_plan_select_evidence(registration)
+    if registration.get("status") not in {"passed", "warning"} or not _as_bool(registration.get("rzd_manual_official_pdf_evidence_registered")):
+        errors.append({"message": "task168_registration_not_registered"})
+    if not selected:
+        errors.append({"message": "task168_registration_not_registered"})
+    if parse_plan.get("status") not in {"passed", "warning"} or not _as_bool(parse_plan.get("parse_plan_ready")):
+        errors.append({"message": "task169_parse_plan_not_ready"})
+    page_rows_source = page_map.get("page_map_rows") if "page_map_rows" in page_map else parse_plan.get("page_map_rows")
+    target_rows_source = targets.get("target_rows") if "target_rows" in targets else parse_plan.get("target_rows")
+    page_rows = [row for row in page_rows_source or [] if isinstance(row, dict)]
+    target_rows = [row for row in target_rows_source or [] if isinstance(row, dict)]
+    if not page_rows:
+        errors.append({"message": "task169_page_map_input_not_found"})
+    if not target_rows:
+        errors.append({"message": "task169_targets_input_not_found"})
+    pdf_path = inputs.get("controlled_pdf")
+    if pdf_path is None and selected:
+        pdf_text = str(selected.get("controlled_pdf_copy_path") or "").strip()
+        pdf_path = Path(pdf_text) if pdf_text else None
+        inputs["controlled_pdf"] = pdf_path
+    if pdf_path is None:
+        errors.append({"message": "controlled_pdf_input_not_found"})
+        return loaded, snapshots, input_hashes, list(_dedupe_error_dicts(errors))
+    if not pdf_path.exists() or not pdf_path.is_file():
+        errors.append({"message": "controlled_pdf_input_not_found"})
+        return loaded, snapshots, input_hashes, list(_dedupe_error_dicts(errors))
+    try:
+        pdf_bytes = pdf_path.read_bytes()
+    except OSError as exc:
+        errors.append({"message": "controlled_pdf_input_not_found", "error": str(exc)})
+        return loaded, snapshots, input_hashes, list(_dedupe_error_dicts(errors))
+    pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
+    expected_pdf_sha = str(selected.get("controlled_pdf_copy_sha256") or parse_plan.get("controlled_pdf_input_sha256") or "")
+    if expected_pdf_sha and pdf_sha != expected_pdf_sha:
+        errors.append({"message": "controlled_pdf_sha256_mismatch"})
+    if not pdf_bytes.startswith(b"%PDF"):
+        errors.append({"message": "controlled_pdf_input_not_pdf"})
+    snapshots[pdf_path] = pdf_bytes
+    input_hashes["controlled_pdf"] = pdf_sha
+    loaded.update(
+        {
+            "task168_registration": registration,
+            "task169_parse_plan": parse_plan,
+            "task169_page_map": page_map,
+            "task169_targets": targets,
+            "selected_evidence": selected,
+            "page_map_rows": page_rows,
+            "target_rows": target_rows,
+            "controlled_pdf_path": pdf_path,
+        }
+    )
+    return loaded, snapshots, input_hashes, list(_dedupe_error_dicts(errors))
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_target_types(args: argparse.Namespace) -> list[str]:
+    configured = str(getattr(args, "rzd_manual_official_pdf_controlled_value_extraction_target_types", "") or "")
+    values = [item.strip() for item in configured.split(",") if item.strip()]
+    return values or list(RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["target_types"].split(","))
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_page_numbers(value: Any) -> list[int]:
+    if isinstance(value, list):
+        candidates = value
+    elif isinstance(value, str):
+        candidates = re.findall(r"\d+", value)
+    else:
+        candidates = []
+    numbers: list[int] = []
+    for candidate in candidates:
+        page = _as_int(candidate)
+        if page and page > 0 and page not in numbers:
+            numbers.append(page)
+    return numbers
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_selected_pages(
+    args: argparse.Namespace,
+    *,
+    page_map_rows: list[dict[str, Any]],
+    target_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    max_pages = int(args.rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target or 0)
+    allow_notes = bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages)
+    target_types = _rzd_manual_official_pdf_controlled_value_extraction_target_types(args)
+    by_page = {int(row.get("page_number") or 0): row for row in page_map_rows if int(row.get("page_number") or 0) > 0}
+    selected: list[dict[str, Any]] = []
+    seen: set[tuple[str, int]] = set()
+    for target_type in target_types:
+        target = next((row for row in target_rows if row.get("target_type") == target_type), {})
+        candidate_pages = _rzd_manual_official_pdf_controlled_value_extraction_page_numbers(target.get("candidate_pages"))
+        if not candidate_pages:
+            candidate_pages = [
+                int(row.get("page_number") or 0)
+                for row in page_map_rows
+                if row.get("detected_section_type") == target_type
+                or _as_bool(row.get(f"is_{target_type}_page"))
+            ]
+        chosen_for_target = 0
+        for page_number in candidate_pages:
+            page_row = by_page.get(page_number, {})
+            if not page_row:
+                continue
+            if _as_bool(page_row.get("is_auditor_report_page")):
+                continue
+            if _as_bool(page_row.get("is_notes_page")) and not allow_notes:
+                continue
+            if chosen_for_target >= max_pages:
+                break
+            key = (target_type, page_number)
+            if key in seen:
+                continue
+            seen.add(key)
+            selected.append({"target_type": target_type, "page_number": page_number, "page_map_row": page_row, "target_row": target})
+            chosen_for_target += 1
+    return selected
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
+    path: Path,
+    pages: Sequence[int],
+    backend: str = "auto",
+) -> dict[int, dict[str, Any]]:
+    backend = str(backend or "auto")
+    unique_pages = [page for page in dict.fromkeys(int(page) for page in pages if int(page) > 0)]
+    results: dict[int, dict[str, Any]] = {}
+    if backend in {"auto", "pdftotext"}:
+        executable = shutil.which("pdftotext")
+        if executable:
+            for page in unique_pages:
+                try:
+                    result = subprocess.run(
+                        [executable, "-f", str(page), "-l", str(page), "-layout", "-enc", "UTF-8", str(path), "-"],
+                        check=False,
+                        capture_output=True,
+                        timeout=30,
+                    )
+                except (OSError, subprocess.SubprocessError):
+                    continue
+                text = result.stdout.decode("utf-8", errors="replace") if result.stdout else ""
+                if text.strip() and not _rzd_pdf_preview_text_looks_like_raw_pdf(text):
+                    results[page] = {"text": text, "backend": "pdftotext"}
+            if results or backend == "pdftotext":
+                return results
+    for module_name in ("pypdf", "PyPDF2"):
+        if backend not in {"auto", module_name}:
+            continue
+        try:
+            module = __import__(module_name)
+            reader = module.PdfReader(str(path))
+            for page in unique_pages:
+                try:
+                    text = reader.pages[page - 1].extract_text() or ""
+                except Exception:
+                    text = ""
+                if text.strip() and not _rzd_pdf_preview_text_looks_like_raw_pdf(text):
+                    results[page] = {"text": text, "backend": module_name}
+            if results or backend == module_name:
+                return results
+        except Exception:
+            continue
+    if backend in {"auto", "pymupdf"}:
+        try:
+            fitz = __import__("fitz")
+            document = fitz.open(str(path))
+            try:
+                for page in unique_pages:
+                    if 1 <= page <= int(getattr(document, "page_count", len(document))):
+                        text = document[page - 1].get_text() or ""
+                        if text.strip() and not _rzd_pdf_preview_text_looks_like_raw_pdf(text):
+                            results[page] = {"text": text, "backend": "pymupdf"}
+            finally:
+                document.close()
+        except Exception:
+            pass
+    return results
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_metric_specs() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "statement_of_financial_position": [
+            {"metric_key": "total_assets", "name_en": "Total assets", "name_ru": "Итого активы", "terms": ("total assets", "assets total", "итого актив", "всего актив")},
+            {"metric_key": "non_current_assets", "name_en": "Non-current assets", "name_ru": "Внеоборотные активы", "terms": ("non-current assets", "noncurrent assets", "внеоборотные актив")},
+            {"metric_key": "current_assets", "name_en": "Current assets", "name_ru": "Оборотные активы", "terms": ("current assets", "оборотные актив")},
+            {"metric_key": "equity", "name_en": "Equity", "name_ru": "Капитал", "terms": ("equity", "capital", "капитал")},
+            {"metric_key": "total_equity", "name_en": "Total equity", "name_ru": "Итого капитал", "terms": ("total equity", "итого капитал", "всего капитал")},
+            {"metric_key": "non_current_liabilities", "name_en": "Non-current liabilities", "name_ru": "Долгосрочные обязательства", "terms": ("non-current liabilities", "долгосрочные обязатель")},
+            {"metric_key": "current_liabilities", "name_en": "Current liabilities", "name_ru": "Краткосрочные обязательства", "terms": ("current liabilities", "краткосрочные обязатель")},
+            {"metric_key": "total_liabilities", "name_en": "Total liabilities", "name_ru": "Итого обязательства", "terms": ("total liabilities", "итого обязательств", "всего обязательств")},
+            {"metric_key": "total_equity_and_liabilities", "name_en": "Total equity and liabilities", "name_ru": "Итого капитал и обязательства", "terms": ("total equity and liabilities", "equity and liabilities", "капитал и обязательств")},
+            {"metric_key": "cash_and_cash_equivalents", "name_en": "Cash and cash equivalents", "name_ru": "Денежные средства", "terms": ("cash and cash equivalents", "cash equivalents", "денежные средства")},
+            {"metric_key": "borrowings_or_loans", "name_en": "Borrowings or loans", "name_ru": "Займы и кредиты", "terms": ("borrowings", "loans", "займы", "кредиты")},
+        ],
+        "profit_or_loss": [
+            {"metric_key": "revenue", "name_en": "Revenue", "name_ru": "Выручка", "terms": ("revenue", "выручка")},
+            {"metric_key": "operating_expenses", "name_en": "Operating expenses", "name_ru": "Операционные расходы", "terms": ("operating expenses", "операционные расходы")},
+            {"metric_key": "operating_profit", "name_en": "Operating profit", "name_ru": "Операционная прибыль", "terms": ("operating profit", "операционная прибыль")},
+            {"metric_key": "finance_income", "name_en": "Finance income", "name_ru": "Финансовые доходы", "terms": ("finance income", "financial income", "финансовые доход")},
+            {"metric_key": "finance_costs", "name_en": "Finance costs", "name_ru": "Финансовые расходы", "terms": ("finance costs", "finance expenses", "финансовые расходы")},
+            {"metric_key": "profit_before_tax", "name_en": "Profit before tax", "name_ru": "Прибыль до налогообложения", "terms": ("profit before tax", "прибыль до налогообложения")},
+            {"metric_key": "income_tax_expense", "name_en": "Income tax expense", "name_ru": "Расход по налогу на прибыль", "terms": ("income tax", "налог на прибыль")},
+            {"metric_key": "profit_for_the_year", "name_en": "Profit for the year", "name_ru": "Прибыль за год", "terms": ("profit for the year", "profit for year", "прибыль за год")},
+            {"metric_key": "net_profit", "name_en": "Net profit", "name_ru": "Чистая прибыль", "terms": ("net profit", "чистая прибыль")},
+        ],
+        "other_comprehensive_income": [
+            {"metric_key": "profit_for_the_year", "name_en": "Profit for the year", "name_ru": "Прибыль за год", "terms": ("profit for the year", "прибыль за год")},
+            {"metric_key": "other_comprehensive_income", "name_en": "Other comprehensive income", "name_ru": "Прочий совокупный доход", "terms": ("other comprehensive income", "прочий совокупный доход")},
+            {"metric_key": "total_comprehensive_income", "name_en": "Total comprehensive income", "name_ru": "Итого совокупный доход", "terms": ("total comprehensive income", "совокупный доход за год", "итого совокупный доход")},
+        ],
+        "cash_flows": [
+            {"metric_key": "net_cash_from_operating_activities", "name_en": "Net cash from operating activities", "name_ru": "Денежные потоки от операционной деятельности", "terms": ("operating activities", "операционной деятельности")},
+            {"metric_key": "net_cash_used_in_investing_activities", "name_en": "Net cash used in investing activities", "name_ru": "Денежные потоки от инвестиционной деятельности", "terms": ("investing activities", "инвестиционной деятельности")},
+            {"metric_key": "net_cash_from_financing_activities", "name_en": "Net cash from financing activities", "name_ru": "Денежные потоки от финансовой деятельности", "terms": ("financing activities", "финансовой деятельности")},
+            {"metric_key": "net_increase_decrease_in_cash", "name_en": "Net increase/decrease in cash", "name_ru": "Чистое изменение денежных средств", "terms": ("net increase", "net decrease", "чистое изменение")},
+            {"metric_key": "cash_and_cash_equivalents_beginning", "name_en": "Cash at beginning", "name_ru": "Денежные средства на начало", "terms": ("beginning of", "at beginning", "на начало")},
+            {"metric_key": "cash_and_cash_equivalents_ending", "name_en": "Cash at end", "name_ru": "Денежные средства на конец", "terms": ("end of", "at end", "на конец")},
+        ],
+    }
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_number_token_to_int(token: str) -> int | None:
+    raw = str(token or "").strip()
+    if not raw or raw in {"-", "—", "–"}:
+        return None
+    negative = raw.startswith("(") and raw.endswith(")")
+    cleaned = raw.strip("()").replace("\u00a0", " ").replace("\u202f", " ")
+    cleaned = re.sub(r"\s+", "", cleaned)
+    cleaned = cleaned.replace(",", ".")
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return None
+    integer = int(round(value))
+    return -integer if negative else integer
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_line_numbers(line: str) -> list[tuple[str, int | None]]:
+    tokens = re.findall(
+        r"\(?-?\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[,.]\d+)?\)?|\(?-?\d+(?:[,.]\d+)?\)?|[—–-]",
+        line,
+    )
+    results: list[tuple[str, int | None]] = []
+    for token in tokens:
+        value = _rzd_manual_official_pdf_controlled_value_extraction_number_token_to_int(token)
+        if value is not None:
+            results.append((token.strip(), value))
+    return results
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_line_matches_metric(line: str, spec: dict[str, Any]) -> bool:
+    prepared = _normalize_pdf_preview_text_for_signal_detection(line)
+    normalized = prepared["normalized_text"]
+    compact = prepared["compact_text"]
+    return any(_rzd_manual_official_pdf_phrase_found(str(term), normalized, compact) for term in spec.get("terms") or [])
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_page(
+    *,
+    selected_evidence: dict[str, Any],
+    controlled_pdf_path: Path | None,
+    target_type: str,
+    page_number: int,
+    text: str,
+) -> list[dict[str, Any]]:
+    specs = _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])
+    rows: list[dict[str, Any]] = []
+    matched_metrics: set[str] = set()
+    for line_number, raw_line in enumerate(str(text or "").splitlines(), start=1):
+        if not raw_line.strip():
+            continue
+        for spec in specs:
+            metric_key = str(spec.get("metric_key") or "")
+            if metric_key in matched_metrics:
+                continue
+            if not _rzd_manual_official_pdf_controlled_value_extraction_line_matches_metric(raw_line, spec):
+                continue
+            numbers = _rzd_manual_official_pdf_controlled_value_extraction_line_numbers(raw_line)
+            if len(numbers) < 1:
+                continue
+            raw_2025, value_2025 = numbers[-2] if len(numbers) >= 2 else numbers[-1]
+            raw_2024, value_2024 = numbers[-1] if len(numbers) >= 2 else ("", None)
+            note_match = re.search(r"\b(?:note|примечание)\s*(\d+[A-Za-zА-Яа-я]?)", raw_line, re.IGNORECASE)
+            confidence = "high" if value_2025 is not None and value_2024 is not None else "medium"
+            row = {
+                "value_id": f"rzd_manual_official_pdf_controlled_value:{selected_evidence.get('evidence_id') or 'evidence'}:{target_type}:{page_number}:{metric_key}",
+                "company_id": selected_evidence.get("company_id") or "",
+                "company_name": selected_evidence.get("company_name") or "",
+                "report_year": int(selected_evidence.get("target_report_year") or 0),
+                "report_standard": selected_evidence.get("report_standard") or "",
+                "source_page_url": selected_evidence.get("source_page_url") or "",
+                "controlled_pdf_input_path": str(controlled_pdf_path or selected_evidence.get("controlled_pdf_copy_path") or ""),
+                "target_type": target_type,
+                "metric_key": metric_key,
+                "metric_name_ru": spec.get("name_ru") or "",
+                "metric_name_en": spec.get("name_en") or "",
+                "page_number": page_number,
+                "line_number": line_number,
+                "raw_line": raw_line.strip(),
+                "raw_line_sha256": hashlib.sha256(raw_line.encode("utf-8")).hexdigest(),
+                "raw_value_2025": raw_2025,
+                "value_2025": value_2025,
+                "value_2025_present": value_2025 is not None,
+                "raw_value_2024": raw_2024,
+                "value_2024": value_2024,
+                "value_2024_present": value_2024 is not None,
+                "unit": "RUB million",
+                "scale": 1000000,
+                "note_reference": note_match.group(1) if note_match else "",
+                "row_label": raw_line.strip()[:160],
+                "extraction_method": "controlled_static_line_metric_match",
+                "extraction_confidence": confidence,
+                "extraction_status": "candidate_value_extracted_for_human_review",
+                "reason_codes": ["metric_label_matched", "controlled_value_extraction_preview_only"],
+                "warning_codes": ["controlled_value_extraction_human_review_required"] if confidence == "medium" else [],
+                "blocker_codes": [],
+                "future_import_candidate": False,
+                "future_human_review_required": True,
+                "safe_hint": "Preview value candidate only. Task170 does not import, mutate the database, score issuers, or trade.",
+            }
+            for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:
+                row[field] = bool(row.get(field))
+            rows.append(row)
+            matched_metrics.add(metric_key)
+    return rows
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_rows(
+    args: argparse.Namespace,
+    *,
+    loaded: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]:
+    selected_evidence = loaded.get("selected_evidence") if isinstance(loaded.get("selected_evidence"), dict) else {}
+    page_map_rows = [row for row in loaded.get("page_map_rows") or [] if isinstance(row, dict)]
+    target_rows = [row for row in loaded.get("target_rows") or [] if isinstance(row, dict)]
+    controlled_pdf_path = loaded.get("controlled_pdf_path") if isinstance(loaded.get("controlled_pdf_path"), Path) else None
+    selected_pages = _rzd_manual_official_pdf_controlled_value_extraction_selected_pages(args, page_map_rows=page_map_rows, target_rows=target_rows)
+    if not selected_pages:
+        blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
+        return [], [], [blocker], [], "failed"
+    page_numbers = [int(item["page_number"]) for item in selected_pages]
+    text_by_page = _rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
+        controlled_pdf_path or Path(str(selected_evidence.get("controlled_pdf_copy_path") or "")),
+        page_numbers,
+        str(args.rzd_manual_official_pdf_controlled_value_extraction_text_backend or "auto"),
+    )
+    page_snapshot_rows: list[dict[str, Any]] = []
+    value_rows: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+    for item in selected_pages:
+        target_type = str(item["target_type"])
+        page_number = int(item["page_number"])
+        page_map_row = item.get("page_map_row") if isinstance(item.get("page_map_row"), dict) else {}
+        extracted = text_by_page.get(page_number, {})
+        text = str(extracted.get("text") or page_map_row.get("page_text_sample") or "")
+        backend = str(extracted.get("backend") or "task169_page_sample")
+        prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+        normalized = prepared["normalized_text"]
+        has_table = bool(re.search(r"\d[\d\s\u00a0\u202f.,]{2,}\s+\(?-?\d", text))
+        snapshot = {
+            "snapshot_id": f"rzd_manual_official_pdf_controlled_value_snapshot:{selected_evidence.get('evidence_id') or 'evidence'}:{target_type}:{page_number}",
+            "target_type": target_type,
+            "page_number": page_number,
+            "page_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "page_text_char_count": len(text),
+            "page_text_sample": normalized[:1500],
+            "page_source": "controlled_pdf_selected_page_text" if extracted else "task169_page_map_sample",
+            "text_backend": backend,
+            "selected_for_extraction": bool(text.strip()),
+            "selection_reason_codes": ["task169_target_page_selected", "controlled_value_extraction_preview_only"] if text.strip() else [],
+            "selection_warning_codes": [] if text.strip() else ["controlled_value_extraction_page_text_unavailable"],
+            "selection_blocker_codes": [] if text.strip() else ["controlled_value_extraction_page_text_unavailable"],
+            "has_2025_column": "2025" in normalized,
+            "has_2024_column": "2024" in normalized,
+            "has_rub_million_unit": any(_rzd_manual_official_pdf_phrase_found(term, normalized, prepared["compact_text"]) for term in ("million rubles", "млн руб", "миллионах рублей")),
+            "has_table_like_text": has_table,
+            "has_negative_parentheses_values": bool(re.search(r"\(\s*\d[\d\s\u00a0\u202f.,]*\s*\)", text)),
+            "has_note_reference_column": bool(re.search(r"\b(?:note|notes|примечани[ея])\b", normalized, re.IGNORECASE)),
+            "safe_hint": "Selected page text is used only for preview candidate value extraction.",
+        }
+        for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS:
+            snapshot[field] = bool(snapshot.get(field))
+        page_snapshot_rows.append(snapshot)
+        value_rows.extend(
+            _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_page(
+                selected_evidence=selected_evidence,
+                controlled_pdf_path=controlled_pdf_path,
+                target_type=target_type,
+                page_number=page_number,
+                text=text,
+            )
+        )
+    if not value_rows:
+        blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_values")
+        return page_snapshot_rows, [], [blocker], warnings, "failed"
+    found_by_target = {row.get("target_type") for row in value_rows}
+    for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
+        if target_type not in found_by_target:
+            warnings.append({"message": "controlled_value_extraction_metric_not_found", "target_type": target_type})
+    warnings.append({"message": "controlled_value_extraction_human_review_required"})
+    status = "passed"
+    if len(page_snapshot_rows) < 3 or len(value_rows) < 8 or warnings:
+        status = "warning"
+    return page_snapshot_rows, value_rows, [], warnings, status
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_safety_flags() -> dict[str, bool]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "controlled_value_extraction_preview_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_download_documents": False,
+        "would_extract_financial_values": True,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "would_delete_files": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "financial_values_extracted": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_missing_preservation() -> dict[str, bool]:
+    return {
+        "task168_registration_input_preserved": False,
+        "task169_parse_plan_input_preserved": False,
+        "task169_page_map_input_preserved": False,
+        "task169_targets_input_preserved": False,
+        "controlled_pdf_input_preserved": False,
+        "input_bytes_unchanged": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_preservation_fields(
+    *,
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, bool]:
+    aliases = {
+        "task168_registration": "task168_registration_input_preserved",
+        "task169_parse_plan": "task169_parse_plan_input_preserved",
+        "task169_page_map": "task169_page_map_input_preserved",
+        "task169_targets": "task169_targets_input_preserved",
+        "controlled_pdf": "controlled_pdf_input_preserved",
+    }
+    fields: dict[str, bool] = {}
+    all_preserved = True
+    for role, alias in aliases.items():
+        path = inputs.get(role)
+        preserved = False
+        if path is not None and path in snapshots:
+            try:
+                current = path.read_bytes()
+                preserved = current == snapshots[path] and hashlib.sha256(current).hexdigest() == input_hashes.get(role)
+            except OSError:
+                preserved = False
+        fields[alias] = bool(preserved)
+        all_preserved = all_preserved and preserved
+    fields["input_bytes_unchanged"] = bool(all_preserved)
+    return fields
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_blocker_row(
+    code: str,
+    *,
+    target_type: str = "",
+    page_number: int = 0,
+    metric_key: str = "",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_manual_official_pdf_controlled_value_extraction_blocker:{target_type or page_number or metric_key or 'preflight'}:{code}",
+        "target_type": target_type,
+        "page_number": page_number,
+        "metric_key": metric_key,
+        "blocker_code": code,
+        "blocker_severity": "error",
+        "operator_action": "resolve_controlled_value_extraction_blocker_before_future_import_review",
+        "safe_hint": "Task170 writes preview value candidates only and never imports values or mutates downstream systems.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
+    *,
+    page_snapshot_rows: list[dict[str, Any]],
+    value_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    status: str,
+) -> dict[str, int]:
+    return {
+        "input_registration_count": 1,
+        "input_parse_plan_count": 1,
+        "input_page_map_count": 1,
+        "input_targets_count": 1,
+        "input_pdf_count": 1,
+        "selected_target_type_count": len({row.get("target_type") for row in page_snapshot_rows if row.get("target_type")}),
+        "selected_page_count": len(page_snapshot_rows),
+        "page_snapshot_row_count": len(page_snapshot_rows),
+        "value_candidate_row_count": len(value_rows),
+        "statement_of_financial_position_value_count": sum(1 for row in value_rows if row.get("target_type") == "statement_of_financial_position"),
+        "profit_or_loss_value_count": sum(1 for row in value_rows if row.get("target_type") == "profit_or_loss"),
+        "other_comprehensive_income_value_count": sum(1 for row in value_rows if row.get("target_type") == "other_comprehensive_income"),
+        "cash_flows_value_count": sum(1 for row in value_rows if row.get("target_type") == "cash_flows"),
+        "high_confidence_value_count": sum(1 for row in value_rows if row.get("extraction_confidence") == "high"),
+        "medium_confidence_value_count": sum(1 for row in value_rows if row.get("extraction_confidence") == "medium"),
+        "low_confidence_value_count": sum(1 for row in value_rows if row.get("extraction_confidence") == "low"),
+        "ambiguous_value_count": sum(1 for row in value_rows if row.get("extraction_confidence") == "medium" or row.get("warning_codes")),
+        "blocked_value_count": sum(1 for row in value_rows if row.get("blocker_codes")),
+        "value_2025_present_count": sum(1 for row in value_rows if _as_bool(row.get("value_2025_present"))),
+        "value_2024_present_count": sum(1 for row in value_rows if _as_bool(row.get("value_2024_present"))),
+        "blocker_count": len(blocker_rows),
+        "failed_count": 1 if status == "failed" else 0,
+    }
+
+
+def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    preservation: dict[str, bool],
+    selected_evidence: dict[str, Any],
+    page_snapshot_rows: list[dict[str, Any]],
+    value_rows: list[dict[str, Any]],
+    blocker_rows: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+    errors: list[dict[str, Any]],
+    forced_status: str,
+) -> dict[str, Any]:
+    status = "failed" if errors else forced_status
+    counts = _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
+        page_snapshot_rows=page_snapshot_rows,
+        value_rows=value_rows,
+        blocker_rows=blocker_rows,
+        status=status,
+    )
+    ready = status in {"passed", "warning"} and counts["value_candidate_row_count"] > 0 and not blocker_rows
+    report = {
+        "status": status,
+        "mode": "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
+        "task168_registration_input_path": str(inputs.get("task168_registration") or ""),
+        "task168_registration_input_sha256": input_hashes.get("task168_registration", ""),
+        "task169_parse_plan_input_path": str(inputs.get("task169_parse_plan") or ""),
+        "task169_parse_plan_input_sha256": input_hashes.get("task169_parse_plan", ""),
+        "task169_page_map_input_path": str(inputs.get("task169_page_map") or ""),
+        "task169_page_map_input_sha256": input_hashes.get("task169_page_map", ""),
+        "task169_targets_input_path": str(inputs.get("task169_targets") or ""),
+        "task169_targets_input_sha256": input_hashes.get("task169_targets", ""),
+        "controlled_pdf_input_path": str(inputs.get("controlled_pdf") or selected_evidence.get("controlled_pdf_copy_path") or ""),
+        "controlled_pdf_input_sha256": input_hashes.get("controlled_pdf", ""),
+        "selected_evidence_id": selected_evidence.get("evidence_id") or "",
+        "source_page_url": selected_evidence.get("source_page_url") or "",
+        "company_id": selected_evidence.get("company_id") or "",
+        "company_name": selected_evidence.get("company_name") or "",
+        "report_year": int(selected_evidence.get("target_report_year") or 0),
+        "report_standard": selected_evidence.get("report_standard") or "",
+        "controlled_value_extraction_text_backend": str(args.rzd_manual_official_pdf_controlled_value_extraction_text_backend or "auto"),
+        "controlled_value_extraction_target_types": _rzd_manual_official_pdf_controlled_value_extraction_target_types(args),
+        "controlled_value_extraction_max_pages_per_target": int(args.rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target or 0),
+        "controlled_value_extraction_allow_notes_pages": bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages),
+        "page_snapshot_rows": page_snapshot_rows,
+        "value_rows": value_rows,
+        "blocker_rows": blocker_rows,
+        "value_status_counts": _count_by_key(value_rows, "extraction_status"),
+        "value_confidence_counts": _count_by_key(value_rows, "extraction_confidence"),
+        "target_type_counts": _count_by_key(value_rows, "target_type"),
+        "blocker_code_counts": _count_by_key(blocker_rows, "blocker_code"),
+        "warnings": warnings,
+        "errors": errors,
+        "artifacts": {role: str(path) for role, path in artifacts.items() if path is not None},
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-value-extraction-preview-v2", status),
+        "controlled_value_extraction_ready": ready,
+        "future_human_review_required": bool(value_rows),
+        "future_import_required": False,
+        "future_import_allowed": False,
+        "future_db_mutation_allowed": False,
+        "future_paper_trading_allowed": False,
+        **preservation,
+        **_rzd_manual_official_pdf_controlled_value_extraction_safety_flags(),
+        "financial_values_extracted": bool(value_rows),
+        **counts,
+    }
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_failed_report(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    input_hashes: dict[str, str],
+    errors: list[dict[str, Any]],
+    write_outputs: bool,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_value_extraction_blocker_row(str(error.get("message") or "unknown_readiness"))
+        for error in errors
+    ]
+    report = _build_rzd_manual_official_pdf_controlled_value_extraction_report(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+        input_hashes=input_hashes,
+        preservation=_rzd_manual_official_pdf_controlled_value_extraction_missing_preservation(),
+        selected_evidence={},
+        page_snapshot_rows=[],
+        value_rows=[],
+        blocker_rows=blocker_rows,
+        warnings=[],
+        errors=errors,
+        forced_status="failed",
+    )
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_value_extraction_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    _write_optional_json_report(report, artifacts["extraction_json"])
+    _write_optional_flat_csv([report], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS, artifacts["extraction_csv"])
+    if artifacts["extraction_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_value_extraction_markdown(report, artifacts["extraction_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-manual-official-pdf-controlled-value-extraction-values-v2",
+            "row_count": len(report.get("value_rows") or []),
+            "value_rows": report.get("value_rows") or [],
+            **_rzd_manual_official_pdf_controlled_value_extraction_safety_flags(),
+        },
+        artifacts["values_json"],
+    )
+    _write_optional_flat_csv(report.get("value_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS, artifacts["values_csv"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-manual-official-pdf-controlled-value-extraction-blockers-v2",
+            "row_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            **_rzd_manual_official_pdf_controlled_value_extraction_safety_flags(),
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-manual-official-pdf-controlled-value-extraction-page-snapshots-v2",
+            "row_count": len(report.get("page_snapshot_rows") or []),
+            "page_snapshot_rows": report.get("page_snapshot_rows") or [],
+            **_rzd_manual_official_pdf_controlled_value_extraction_safety_flags(),
+        },
+        artifacts["page_snapshots_json"],
+    )
+    _write_optional_flat_csv(report.get("page_snapshot_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS, artifacts["page_snapshots_csv"])
+    if artifacts["rerun_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown(report, artifacts["rerun_markdown"])
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
+    report: dict[str, Any],
+    *,
+    artifacts: dict[str, Path | None],
+    inputs: dict[str, Path | None],
+    snapshots: dict[Path, bytes],
+    input_hashes: dict[str, str],
+) -> dict[str, Any]:
+    try:
+        _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_value_extraction_write_failed", "error": str(exc)}]
+        return report
+    preservation = _rzd_manual_official_pdf_controlled_value_extraction_preservation_fields(inputs=inputs, snapshots=snapshots, input_hashes=input_hashes)
+    report.update(preservation)
+    if not preservation["input_bytes_unchanged"]:
+        report["status"] = "failed"
+        if not any(error.get("message") == "rzd_manual_official_pdf_controlled_value_extraction_input_drift_detected" for error in report.get("errors") or []):
+            report["errors"] = [*report.get("errors", []), {"message": "rzd_manual_official_pdf_controlled_value_extraction_input_drift_detected"}]
+        if not any(row.get("blocker_code") == "input_drift_detected" for row in report.get("blocker_rows") or []):
+            report["blocker_rows"] = [
+                *report.get("blocker_rows", []),
+                _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("input_drift_detected"),
+            ]
+    report.update(
+        _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
+            page_snapshot_rows=list(report.get("page_snapshot_rows") or []),
+            value_rows=list(report.get("value_rows") or []),
+            blocker_rows=list(report.get("blocker_rows") or []),
+            status=str(report.get("status") or ""),
+        )
+    )
+    report["blocker_code_counts"] = _count_by_key(report.get("blocker_rows") or [], "blocker_code")
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    try:
+        _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_value_extraction_write_failed", "error": str(exc)}]
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -48507,6 +49624,16 @@ def write_rzd_manual_official_pdf_parse_plan_rerun_markdown(report: dict[str, An
     path.write_text(render_rzd_manual_official_pdf_parse_plan_rerun_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_value_extraction_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_value_extraction_markdown(report), encoding="utf-8")
+
+
+def write_rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -48774,6 +49901,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_evidence_registration_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-parse-plan-preview-v2":
         return render_rzd_manual_official_pdf_parse_plan_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-value-extraction-preview-v2":
+        return render_rzd_manual_official_pdf_controlled_value_extraction_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -53618,6 +54747,124 @@ def render_rzd_manual_official_pdf_parse_plan_rerun_markdown(report: dict[str, A
             "  --mode rzd-manual-official-pdf-value-extraction-preview-v2 \\",
             f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)}",
             "```",
+        ]
+    ) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_value_extraction_markdown(report: dict[str, Any]) -> str:
+    lines = [
+        "# RZD Manual Official PDF Controlled Value Extraction Preview v2",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- selected evidence: `{report.get('selected_evidence_id') or ''}`",
+        f"- controlled PDF: `{report.get('controlled_pdf_input_path') or ''}`",
+        f"- selected pages: {report.get('selected_page_count', 0)}",
+        f"- value candidates: {report.get('value_candidate_row_count', 0)}",
+        f"- blockers: {report.get('blocker_count', 0)}",
+        "",
+        "## Candidate Values",
+        "",
+        "| Target | Metric | Page | 2025 | 2024 | Confidence |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in (report.get("value_rows") or [])[:40]:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("target_type"),
+                    row.get("metric_key"),
+                    row.get("page_number"),
+                    row.get("value_2025"),
+                    row.get("value_2024"),
+                    row.get("extraction_confidence"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("value_rows"):
+        lines.append("| none |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Selected Pages",
+            "",
+            "| Target | Page | Backend | 2025 | 2024 | Unit |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("page_snapshot_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("target_type"),
+                    row.get("page_number"),
+                    row.get("text_backend"),
+                    row.get("has_2025_column"),
+                    row.get("has_2024_column"),
+                    row.get("has_rub_million_unit"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("page_snapshot_rows"):
+        lines.append("| none |  |  |  |  |")
+    lines.extend(["", "## Blockers And Warnings", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- blocker `{row.get('blocker_code')}`" for row in blockers)
+    else:
+        lines.append("- blockers: none")
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(f"- warning `{row.get('message')}`" for row in warnings)
+    else:
+        lines.append("- warnings: none")
+    lines.extend(
+        [
+            "",
+            "## Safety Notes",
+            "",
+            "- This task extracts candidate values into preview artifacts only.",
+            "- This task does not fetch source pages or document URLs.",
+            "- This task does not download documents or mutate document intake.",
+            "- This task does not import reports, mutate the database, score issuers, trigger paper trading, or delete files.",
+            "- Candidate values require human review before any future import task.",
+            "",
+            "## Next Steps",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown(report: dict[str, Any]) -> str:
+    output_dir = str(Path(str(report.get("artifacts", {}).get("extraction_json") or "")).parent) if report.get("artifacts", {}).get("extraction_json") else "logs/financial_reports/task124_chain_preview"
+    target_types = ",".join(report.get("controlled_value_extraction_target_types") or RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["target_types"].split(","))
+    max_pages = int(report.get("controlled_value_extraction_max_pages_per_target") or RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["max_pages_per_target"])
+    backend = str(report.get("controlled_value_extraction_text_backend") or RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_DEFAULTS["text_backend"])
+    allow_notes = "true" if _as_bool(report.get("controlled_value_extraction_allow_notes_pages")) else "false"
+    return "\n".join(
+        [
+            "# RZD Manual Official PDF Controlled Value Extraction Preview v2 Rerun",
+            "",
+            "```bash",
+            "python3 scripts/financial_official_source_evidence_assistant.py \\",
+            "  --mode rzd-manual-official-pdf-controlled-value-extraction-preview-v2 \\",
+            f"  --operator-resolution-chain-output-dir {_bash_quote(output_dir)} \\",
+            f"  --rzd-manual-official-pdf-controlled-value-extraction-text-backend {_bash_quote(backend)} \\",
+            f"  --rzd-manual-official-pdf-controlled-value-extraction-target-types {_bash_quote(target_types)} \\",
+            f"  --rzd-manual-official-pdf-controlled-value-extraction-max-pages-per-target {max_pages} \\",
+            f"  --rzd-manual-official-pdf-controlled-value-extraction-allow-notes-pages {allow_notes}",
+            "```",
+            "",
+            "Future import/review step is not run by Task170.",
         ]
     ) + "\n"
 
@@ -64576,6 +65823,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task168 registered PDF evidence and controlled copy; parsing, intake registration, import, scoring, and trading remain separate future controlled tasks."]
     if mode == "rzd-manual-official-pdf-parse-plan-preview-v2":
         return ["Review Task169 page map and parse targets; numeric extraction, intake registration, import, scoring, and trading remain separate future controlled tasks."]
+    if mode == "rzd-manual-official-pdf-controlled-value-extraction-preview-v2":
+        return ["Review Task170 candidate values manually; future import, DB mutation, scoring, and trading remain separate controlled tasks."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -64822,6 +66071,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_parse_plan_inputs(args),
             artifacts=_rzd_manual_official_pdf_parse_plan_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-value-extraction-preview-v2":
+        return not _rzd_manual_official_pdf_controlled_value_extraction_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_value_extraction_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_value_extraction_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(

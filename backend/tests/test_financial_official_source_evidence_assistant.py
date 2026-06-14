@@ -13773,6 +13773,184 @@ def test_rzd_manual_official_pdf_parse_plan_collision_and_input_drift(
     _assert_rzd_manual_official_pdf_parse_plan_report_fields(drift)
 
 
+def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statements(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task170 must not fetch, download, import, score, trade, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: _task170_page_texts()[page] for page in pages if page in _task170_page_texts()},
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["would_extract_financial_values"] is True
+    assert report["financial_values_extracted"] is True
+    assert report["future_import_required"] is False
+    assert report["would_import_report"] is False
+    assert report["would_mutate_database"] is False
+    assert report["would_score_issuers"] is False
+    assert report["would_trigger_paper_trading"] is False
+    assert report["selected_page_count"] == 4
+    assert report["value_candidate_row_count"] >= 12
+    assert report["statement_of_financial_position_value_count"] >= 4
+    assert report["profit_or_loss_value_count"] >= 4
+    assert report["other_comprehensive_income_value_count"] >= 2
+    assert report["cash_flows_value_count"] >= 3
+    assert report["value_2025_present_count"] == report["value_candidate_row_count"]
+    values_by_key = {row["metric_key"]: row for row in report["value_rows"]}
+    assert values_by_key["total_assets"]["value_2025"] == 1000
+    assert values_by_key["finance_costs"]["value_2025"] == -100
+    assert values_by_key["net_cash_used_in_investing_activities"]["value_2024"] == -180
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.md").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_values_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_values_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_blockers_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_blockers_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md").is_file()
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_notes_are_excluded_by_default(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: _task170_page_texts()[page] for page in pages if page in _task170_page_texts()},
+    )
+
+    default_report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert 17 not in {row["page_number"] for row in default_report["page_snapshot_rows"]}
+
+    allow_notes = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "statement_of_financial_position,profit_or_loss,other_comprehensive_income,cash_flows,notes_general",
+            "--rzd-manual-official-pdf-controlled-value-extraction-allow-notes-pages",
+            "true",
+        ]
+    )
+    assert 17 in {row["page_number"] for row in allow_notes["page_snapshot_rows"]}
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(allow_notes)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_required_input_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert missing["status"] == "failed"
+    assert {"message": "task168_registration_input_not_found"} in missing["errors"]
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.json").is_file()
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(missing)
+
+    _registration, parse_plan_path, _page_map, _targets, pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    parse_plan_path.unlink()
+    missing_parse = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert missing_parse["status"] == "failed"
+    assert {"message": "task169_parse_plan_input_not_found"} in missing_parse["errors"]
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(missing_parse)
+
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    registration_payload = json.loads((tmp_path / "rzd_manual_official_pdf_evidence_registration_task168.json").read_text(encoding="utf-8"))
+    registration_payload["evidence_rows"][0]["controlled_pdf_copy_sha256"] = "0" * 64
+    (tmp_path / "rzd_manual_official_pdf_evidence_registration_task168.json").write_text(json.dumps(registration_payload), encoding="utf-8")
+    mismatch = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert mismatch["status"] == "failed"
+    assert {"message": "controlled_pdf_sha256_mismatch"} in mismatch["errors"]
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(mismatch)
+
+    assert pdf_path.exists()
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_no_pages_or_values(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    targets_path = tmp_path / "rzd_manual_official_pdf_parse_plan_targets_task169.json"
+    payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    payload["target_rows"] = []
+    targets_path.write_text(json.dumps(payload), encoding="utf-8")
+    no_pages = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert no_pages["status"] == "failed"
+    assert "task169_targets_input_not_found" in {row["blocker_code"] for row in no_pages["blocker_rows"]}
+
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: {"backend": "synthetic", "text": "Statement page without numeric metric rows"} for page in pages},
+    )
+    no_values = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert no_values["status"] == "failed"
+    assert "controlled_value_extraction_no_values" in {row["blocker_code"] for row in no_values["blocker_rows"]}
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(no_values)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    registration_path, _parse_plan, _page_map, _targets, pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    collision = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-output",
+            str(registration_path),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert {"message": "controlled_value_extraction_output_must_not_equal_input"} in collision["errors"]
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: _task170_page_texts()[page] for page in pages if page in _task170_page_texts()},
+    )
+    original_writer = assistant._rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            pdf_path.write_bytes(pdf_path.read_bytes() + b"\n% drift\n")
+
+    monkeypatch.setattr(assistant, "_rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs", mutate_after_first_write)
+    drift = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_manual_official_pdf_controlled_value_extraction_input_drift_detected"} in drift["errors"]
+    assert drift["controlled_pdf_input_preserved"] is False
+    assert drift["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(drift)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -21762,6 +21940,19 @@ def _run_rzd_manual_official_pdf_parse_plan(extra_args: list[str] | None = None)
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_value_extraction(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -22896,6 +23087,185 @@ def _rzd_manual_official_pdf_parse_plan_page_map() -> dict:
             for number, text in pages
         ],
     }
+
+
+def _write_task170_controlled_value_extraction_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
+    registration_path, pdf_path, evidence_row = _write_task168_pdf_parse_plan_fixture(tmp_path)
+    page_rows: list[dict[str, object]] = []
+    page_specs = [
+        (9, "statement_of_financial_position", "Statement of financial position 2025 2024 million rubles total assets 1000 900."),
+        (11, "profit_or_loss", "Statement of profit or loss 2025 2024 million rubles revenue 2000 1800."),
+        (12, "other_comprehensive_income", "Other comprehensive income 2025 2024 million rubles total comprehensive income 400 350."),
+        (15, "cash_flows", "Statement of cash flows 2025 2024 million rubles operating activities 500 450."),
+        (17, "notes_general", "Notes to the consolidated financial statements 2025 million rubles revenue details 1 1."),
+    ]
+    for page_number, section_type, sample in page_specs:
+        row = {
+            "page_map_id": f"page:{page_number}",
+            "evidence_id": evidence_row["evidence_id"],
+            "page_number": page_number,
+            "page_text_sha256": hashlib.sha256(sample.encode("utf-8")).hexdigest(),
+            "page_text_char_count": len(sample),
+            "page_text_normalized_char_count": len(sample.casefold()),
+            "page_text_sample": sample,
+            "detected_section_type": section_type,
+            "detected_section_title": section_type,
+            "detected_section_confidence": "high",
+            "is_financial_statement_page": section_type != "audit_report",
+            "is_statement_of_financial_position_page": section_type == "statement_of_financial_position",
+            "is_profit_or_loss_page": section_type == "profit_or_loss",
+            "is_other_comprehensive_income_page": section_type == "other_comprehensive_income",
+            "is_changes_in_equity_page": False,
+            "is_cash_flows_page": section_type == "cash_flows",
+            "is_notes_page": section_type == "notes_general",
+            "is_auditor_report_page": False,
+            "has_table_like_text": True,
+            "has_rub_million_unit": True,
+            "has_2025_column": True,
+            "has_2024_column": True,
+            "future_value_extraction_candidate": True,
+        }
+        page_rows.append(row)
+    target_rows = [
+        {
+            "target_id": f"target:{target_type}",
+            "target_type": target_type,
+            "source_pdf_path": str(pdf_path),
+            "source_pdf_sha256": hashlib.sha256(pdf_path.read_bytes()).hexdigest(),
+            "report_year": 2025,
+            "company_id": "18",
+            "company_name": "RZD",
+            "candidate_pages": pages,
+            "confidence": "high",
+            "future_extraction_required": True,
+            "future_extraction_safe": True,
+            "future_import_allowed": False,
+            "future_db_mutation_allowed": False,
+            "future_paper_trading_allowed": False,
+            "blocker_codes": [],
+        }
+        for target_type, pages in (
+            ("statement_of_financial_position", [9]),
+            ("profit_or_loss", [11]),
+            ("other_comprehensive_income", [12]),
+            ("cash_flows", [15]),
+            ("notes_general", [17]),
+        )
+    ]
+    parse_plan = {
+        "status": "passed",
+        "mode": "rzd-manual-official-pdf-parse-plan-preview-v2",
+        "parse_plan_ready": True,
+        "target_row_count": len(target_rows),
+        "target_parse_plan_row_count": len(target_rows),
+        "page_map_row_count": len(page_rows),
+        "pdf_text_extraction_available": True,
+        "controlled_pdf_input_path": str(pdf_path),
+        "controlled_pdf_input_sha256": hashlib.sha256(pdf_path.read_bytes()).hexdigest(),
+        "page_map_rows": page_rows,
+        "target_rows": target_rows,
+    }
+    page_map = {
+        "status": "passed",
+        "mode": "rzd-manual-official-pdf-parse-plan-page-map-v2",
+        "row_count": len(page_rows),
+        "page_map_rows": page_rows,
+    }
+    targets = {
+        "status": "passed",
+        "mode": "rzd-manual-official-pdf-parse-plan-targets-v2",
+        "row_count": len(target_rows),
+        "target_rows": target_rows,
+    }
+    parse_plan_path = tmp_path / "rzd_manual_official_pdf_parse_plan_task169.json"
+    page_map_path = tmp_path / "rzd_manual_official_pdf_parse_plan_page_map_task169.json"
+    targets_path = tmp_path / "rzd_manual_official_pdf_parse_plan_targets_task169.json"
+    parse_plan_path.write_text(json.dumps(parse_plan, ensure_ascii=False), encoding="utf-8")
+    page_map_path.write_text(json.dumps(page_map, ensure_ascii=False), encoding="utf-8")
+    targets_path.write_text(json.dumps(targets, ensure_ascii=False), encoding="utf-8")
+    return registration_path, parse_plan_path, page_map_path, targets_path, pdf_path
+
+
+def _task170_page_texts() -> dict[int, dict[str, object]]:
+    return {
+        9: {
+            "backend": "synthetic",
+            "text": "\n".join(
+                [
+                    "Statement of financial position 2025 2024 million rubles",
+                    "Total assets 1000 900",
+                    "Non-current assets 700 650",
+                    "Current assets 300 250",
+                    "Total equity 400 350",
+                    "Total liabilities 600 550",
+                    "Cash and cash equivalents 50 40",
+                ]
+            ),
+        },
+        11: {
+            "backend": "synthetic",
+            "text": "\n".join(
+                [
+                    "Statement of profit or loss 2025 2024 million rubles",
+                    "Revenue 2 000 1 800",
+                    "Operating profit 500 450",
+                    "Finance costs (100) (80)",
+                    "Profit before tax 400 370",
+                    "Profit for the year 300 280",
+                    "Net profit 300 280",
+                ]
+            ),
+        },
+        12: {
+            "backend": "synthetic",
+            "text": "\n".join(
+                [
+                    "Other comprehensive income 2025 2024 million rubles",
+                    "Profit for the year 300 280",
+                    "Other comprehensive income 20 10",
+                    "Total comprehensive income 320 290",
+                ]
+            ),
+        },
+        15: {
+            "backend": "synthetic",
+            "text": "\n".join(
+                [
+                    "Statement of cash flows 2025 2024 million rubles",
+                    "Net cash from operating activities 600 550",
+                    "Net cash used in investing activities (200) (180)",
+                    "Net cash from financing activities 100 90",
+                    "Cash and cash equivalents at beginning 40 35",
+                    "Cash and cash equivalents at end 50 40",
+                ]
+            ),
+        },
+        17: {"backend": "synthetic", "text": "Notes revenue 999 888"},
+    }
+
+
+def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+
+
+def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report: dict) -> None:
+    for row in report.get("page_snapshot_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS:
+            assert field in row
+            assert isinstance(row[field], bool)
+            assert row[field] is not None
+    for row in report.get("value_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:
+            assert field in row
+            assert isinstance(row[field], bool)
+            assert row[field] is not None
 
 
 def _assert_rzd_manual_official_pdf_parse_plan_report_fields(report: dict) -> None:
