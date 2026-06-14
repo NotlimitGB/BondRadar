@@ -13479,6 +13479,155 @@ def test_rzd_manual_official_pdf_evidence_registration_input_drift(
     _assert_rzd_manual_official_pdf_evidence_registration_report_fields(report)
 
 
+def test_rzd_manual_official_pdf_parse_plan_synthetic_page_map_passes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Task169 must not fetch, download, parse values, import, score, trade, or delete")
+
+    monkeypatch.setattr(assistant, "_probe_url", unexpected_call)
+    monkeypatch.setattr(assistant, "_fetch_candidate_page", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_valid_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_download_source_document", unexpected_call)
+    monkeypatch.setattr(assistant, "_delete_backup_file_after_all_guards", unexpected_call)
+    _write_task168_pdf_parse_plan_fixture(tmp_path)
+    monkeypatch.setattr(assistant, "_rzd_manual_official_pdf_extract_page_text_map", lambda path, max_pages, backend="auto": _rzd_manual_official_pdf_parse_plan_page_map())
+
+    report = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "passed"
+    assert report["parse_plan_ready"] is True
+    assert report["future_financial_value_extraction_required"] is True
+    assert report["future_import_required"] is False
+    assert report["future_db_mutation_allowed"] is False
+    assert report["future_paper_trading_allowed"] is False
+    assert report["page_map_row_count"] == 8
+    assert report["target_row_count"] >= 7
+    assert report["statement_of_financial_position_page_count"] >= 1
+    assert report["profit_or_loss_page_count"] >= 1
+    assert report["cash_flows_page_count"] >= 1
+    assert report["future_extraction_target_count"] >= 3
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_task169.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_task169.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_task169.md").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_page_map_task169.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_page_map_task169.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_targets_task169.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_targets_task169.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_blockers_task169.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_blockers_task169.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_rerun_task169.md").is_file()
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(report)
+    for row in report["page_map_rows"]:
+        _assert_rzd_manual_official_pdf_parse_plan_page_row_fields(row)
+        assert len(row["page_text_sample"]) <= 1000
+    for row in report["target_rows"]:
+        _assert_rzd_manual_official_pdf_parse_plan_target_row_fields(row)
+
+
+def test_rzd_manual_official_pdf_parse_plan_missing_task168_input_fails(tmp_path: Path) -> None:
+    report = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "failed"
+    assert {"message": "task168_registration_input_not_found"} in report["errors"]
+    assert "task168_registration_input_not_found" in {row["blocker_code"] for row in report["blocker_rows"]}
+    assert (tmp_path / "rzd_manual_official_pdf_parse_plan_task169.json").is_file()
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(report)
+
+
+def test_rzd_manual_official_pdf_parse_plan_hash_mismatch_and_extraction_unavailable(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    registration_path, pdf_path, _row = _write_task168_pdf_parse_plan_fixture(tmp_path)
+    payload = json.loads(registration_path.read_text(encoding="utf-8"))
+    payload["evidence_rows"][0]["controlled_pdf_copy_sha256"] = "0" * 64
+    registration_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    mismatch = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert mismatch["status"] == "failed"
+    assert {"message": "controlled_pdf_sha256_mismatch"} in mismatch["errors"]
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(mismatch)
+
+    registration_path, pdf_path, _row = _write_task168_pdf_parse_plan_fixture(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_extract_page_text_map",
+        lambda path, max_pages, backend="auto": {"available": False, "backend": "", "page_count": 0, "extracted_page_count": 0, "pages": [], "warnings": []},
+    )
+    unavailable = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert unavailable["status"] == "failed"
+    assert "rzd_manual_official_pdf_parse_plan_page_text_extraction_unavailable" in {row["blocker_code"] for row in unavailable["blocker_rows"]}
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(unavailable)
+
+
+def test_rzd_manual_official_pdf_parse_plan_partial_sections_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task168_pdf_parse_plan_fixture(tmp_path)
+    page = {
+        "page_number": 1,
+        "text": "Statement of financial position 2025 2024 million rubles assets liabilities equity total 100 90.",
+        "text_sha256": hashlib.sha256(b"position").hexdigest(),
+        "char_count": 90,
+        "normalized_char_count": 90,
+    }
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_extract_page_text_map",
+        lambda path, max_pages, backend="auto": {"available": True, "backend": "synthetic", "page_count": 1, "extracted_page_count": 1, "pages": [page], "warnings": []},
+    )
+
+    report = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] == "warning"
+    assert report["parse_plan_ready"] is False
+    warning_codes = {item["message"] for item in report["warnings"]}
+    assert "rzd_manual_official_pdf_parse_plan_profit_or_loss_not_detected" in warning_codes
+    assert "rzd_manual_official_pdf_parse_plan_cash_flows_not_detected" in warning_codes
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(report)
+
+
+def test_rzd_manual_official_pdf_parse_plan_collision_and_input_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    registration_path, pdf_path, _row = _write_task168_pdf_parse_plan_fixture(tmp_path)
+    collision = _run_rzd_manual_official_pdf_parse_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-parse-plan-output",
+            str(registration_path),
+        ]
+    )
+    assert collision["status"] == "failed"
+    assert {"message": "rzd_manual_official_pdf_parse_plan_output_must_not_equal_input"} in collision["errors"]
+
+    monkeypatch.setattr(assistant, "_rzd_manual_official_pdf_extract_page_text_map", lambda path, max_pages, backend="auto": _rzd_manual_official_pdf_parse_plan_page_map())
+    original_writer = assistant._rzd_manual_official_pdf_parse_plan_write_safe_outputs
+    writes = 0
+
+    def mutate_after_first_write(report, artifacts):
+        nonlocal writes
+        writes += 1
+        original_writer(report, artifacts)
+        if writes == 1:
+            pdf_path.write_bytes(pdf_path.read_bytes() + b"\n% drift\n")
+
+    monkeypatch.setattr(assistant, "_rzd_manual_official_pdf_parse_plan_write_safe_outputs", mutate_after_first_write)
+    drift = _run_rzd_manual_official_pdf_parse_plan(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    assert drift["status"] == "failed"
+    assert {"message": "rzd_manual_official_pdf_parse_plan_input_drift_detected"} in drift["errors"]
+    assert drift["task168_registration_input_preserved"] is True
+    assert drift["controlled_pdf_input_preserved"] is False
+    assert drift["input_bytes_unchanged"] is False
+    assert "input_drift_detected" in {row["blocker_code"] for row in drift["blocker_rows"]}
+    _assert_rzd_manual_official_pdf_parse_plan_report_fields(drift)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -21455,6 +21604,19 @@ def _run_rzd_manual_official_pdf_evidence_registration(extra_args: list[str] | N
     return report
 
 
+def _run_rzd_manual_official_pdf_parse_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-parse-plan-preview-v2",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -22488,6 +22650,121 @@ def _rzd_manual_official_pdf_evidence_registration_required_count_fields() -> tu
 
 def _rzd_manual_official_pdf_evidence_registration_required_row_bool_fields() -> tuple[str, ...]:
     return assistant.RZD_MANUAL_OFFICIAL_PDF_EVIDENCE_ROW_BOOL_FIELDS
+
+
+def _rzd_manual_official_pdf_parse_plan_required_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_REQUIRED_BOOL_FIELDS
+
+
+def _rzd_manual_official_pdf_parse_plan_required_count_fields() -> tuple[str, ...]:
+    return assistant.RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_REQUIRED_COUNT_FIELDS
+
+
+def _rzd_manual_official_pdf_parse_plan_page_row_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_PAGE_ROW_BOOL_FIELDS
+
+
+def _rzd_manual_official_pdf_parse_plan_target_row_bool_fields() -> tuple[str, ...]:
+    return assistant.RZD_MANUAL_OFFICIAL_PDF_PARSE_PLAN_TARGET_ROW_BOOL_FIELDS
+
+
+def _write_task168_pdf_parse_plan_fixture(
+    tmp_path: Path,
+    *,
+    status: str = "passed",
+    confidence: str = "high",
+    pdf_bytes: bytes = b"%PDF-1.7\n% controlled copy\n%%EOF\n",
+) -> tuple[Path, Path, dict]:
+    pdf_path = tmp_path / "rzd_manual_official_pdf_evidence_task168" / "rzd_manual_official_pdf_evidence_sha_fixture.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(pdf_bytes)
+    pdf_sha = hashlib.sha256(pdf_bytes).hexdigest()
+    row = {
+        "evidence_id": "rzd_manual_official_pdf_evidence:test",
+        "company_id": "18",
+        "company_name": "RZD",
+        "source_page_url": "https://company.rzd.ru/ru/9471",
+        "source_page_trusted": True,
+        "controlled_pdf_copy_path": str(pdf_path),
+        "controlled_pdf_copy_sha256": pdf_sha,
+        "controlled_pdf_copy_size_bytes": len(pdf_bytes),
+        "controlled_pdf_copy_created": True,
+        "pdf_magic_header_valid": True,
+        "manual_evidence_registration_status": "registered_manual_official_pdf_evidence",
+        "manual_evidence_registration_confidence": confidence,
+        "future_pdf_parse_plan_required": True,
+        "target_report_year": 2025,
+        "report_standard": "IFRS",
+        "document_kind": "consolidated_financial_statements_auditor_report",
+    }
+    report = {
+        "status": status,
+        "mode": "rzd-manual-official-pdf-evidence-registration-preview-v2",
+        "registered_evidence_count": 1 if status in {"passed", "warning"} else 0,
+        "rzd_manual_official_pdf_evidence_registered": status in {"passed", "warning"},
+        "controlled_pdf_copy_count": 1,
+        "pdf_magic_valid_count": 1,
+        "evidence_rows": [row],
+        "blocker_rows": [],
+    }
+    registration_path = tmp_path / "rzd_manual_official_pdf_evidence_registration_task168.json"
+    registration_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+    return registration_path, pdf_path, row
+
+
+def _rzd_manual_official_pdf_parse_plan_page_map() -> dict:
+    pages = [
+        (1, "Independent auditor report for Russian Railways RZD consolidated financial statements IFRS 2025."),
+        (2, "Contents statement of financial position profit or loss other comprehensive income changes in equity cash flows notes."),
+        (9, "Statement of financial position 2025 2024 million rubles assets liabilities equity total 100 90."),
+        (11, "Statement of profit or loss 2025 2024 million rubles revenue cost profit total 100 90."),
+        (12, "Other comprehensive income 2025 2024 million rubles profit total comprehensive income 100 90."),
+        (13, "Statement of changes in equity 2025 2024 million rubles capital retained earnings total 100 90."),
+        (15, "Statement of cash flows 2025 2024 million rubles cash flows operating activities total 100 90."),
+        (17, "Notes to the consolidated financial statements IFRS 2025 note accounting policies million rubles."),
+    ]
+    return {
+        "available": True,
+        "backend": "synthetic",
+        "page_count": 115,
+        "extracted_page_count": len(pages),
+        "warnings": [],
+        "pages": [
+            {
+                "page_number": number,
+                "text": text,
+                "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                "char_count": len(text),
+                "normalized_char_count": len(text.casefold()),
+            }
+            for number, text in pages
+        ],
+    }
+
+
+def _assert_rzd_manual_official_pdf_parse_plan_report_fields(report: dict) -> None:
+    for field in _rzd_manual_official_pdf_parse_plan_required_bool_fields():
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in _rzd_manual_official_pdf_parse_plan_required_count_fields():
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+
+
+def _assert_rzd_manual_official_pdf_parse_plan_page_row_fields(row: dict) -> None:
+    for field in _rzd_manual_official_pdf_parse_plan_page_row_bool_fields():
+        assert field in row
+        assert isinstance(row[field], bool)
+        assert row[field] is not None
+
+
+def _assert_rzd_manual_official_pdf_parse_plan_target_row_fields(row: dict) -> None:
+    for field in _rzd_manual_official_pdf_parse_plan_target_row_bool_fields():
+        assert field in row
+        assert isinstance(row[field], bool)
+        assert row[field] is not None
 
 
 def _rzd_manual_official_pdf_russian_signal_text(*, include_standard: bool = True) -> str:
