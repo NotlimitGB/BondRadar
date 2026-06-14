@@ -13810,10 +13810,24 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     assert report["other_comprehensive_income_value_count"] >= 2
     assert report["cash_flows_value_count"] >= 3
     assert report["value_2025_present_count"] == report["value_candidate_row_count"]
+    assert report["parse_plan_ready_input"] is True
+    assert report["pdf_text_extraction_backend"] == "synthetic"
+    assert report["metric_key_counts"]["total_assets"] == 1
+    assert report["confidence_counts"]["high"] >= 1
+    assert report["candidate_line_scanned_count"] >= report["candidate_line_matched_count"] >= report["value_candidate_row_count"]
     values_by_key = {row["metric_key"]: row for row in report["value_rows"]}
     assert values_by_key["total_assets"]["value_2025"] == 1000
+    assert values_by_key["total_assets"]["statement_page"] == 9
+    assert values_by_key["total_assets"]["line_number_on_page"] == 2
+    assert values_by_key["total_equity_and_liabilities"]["value_2024"] == 950
+    assert values_by_key["cash_and_cash_equivalents"]["value_2025"] == 50
     assert values_by_key["finance_costs"]["value_2025"] == -100
+    assert values_by_key["finance_costs"]["value_2024"] == -80
     assert values_by_key["net_cash_used_in_investing_activities"]["value_2024"] == -180
+    snapshots_by_target = {row["target_type"]: row for row in report["page_snapshot_rows"]}
+    assert snapshots_by_target["statement_of_financial_position"]["selection_score"] > 0
+    assert snapshots_by_target["statement_of_financial_position"]["target_exact_section_match"] is True
+    assert snapshots_by_target["statement_of_financial_position"]["value_candidate_count"] >= 4
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.md").is_file()
@@ -13824,6 +13838,52 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md").is_file()
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_contents_navigation_lines(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {
+            9: {
+                "backend": "synthetic",
+                "text": "\n".join(
+                    [
+                        "Contents 8",
+                        "Statement of financial position 9",
+                        "Total assets 1000 900",
+                        "Total equity and liabilities 1000 900",
+                        "Cash and cash equivalents 50 40",
+                    ]
+                ),
+            }
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "statement_of_financial_position",
+        ]
+    )
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["contents_navigation_line_rejected_count"] >= 2
+    assert report["candidate_line_rejected_count"] >= report["contents_navigation_line_rejected_count"]
+    assert all("Statement of financial position 9" not in row["raw_line"] for row in report["value_rows"])
+    assert {row["metric_key"] for row in report["value_rows"]} >= {
+        "total_assets",
+        "total_equity_and_liabilities",
+        "cash_and_cash_equivalents",
+    }
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -23198,6 +23258,7 @@ def _task170_page_texts() -> dict[int, dict[str, object]]:
                     "Current assets 300 250",
                     "Total equity 400 350",
                     "Total liabilities 600 550",
+                    "Total equity and liabilities 1000 950",
                     "Cash and cash equivalents 50 40",
                 ]
             ),
@@ -23207,7 +23268,7 @@ def _task170_page_texts() -> dict[int, dict[str, object]]:
             "text": "\n".join(
                 [
                     "Statement of profit or loss 2025 2024 million rubles",
-                    "Revenue 2 000 1 800",
+                    "Revenue 5 2000 1800",
                     "Operating profit 500 450",
                     "Finance costs (100) (80)",
                     "Profit before tax 400 370",
@@ -23253,6 +23314,14 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(re
         assert field in report
         assert isinstance(report[field], int)
         assert report[field] is not None
+    for field in ("pdf_text_extraction_backend",):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    for field in ("metric_key_counts", "extraction_status_counts", "confidence_counts", "warning_code_counts"):
+        assert field in report
+        assert isinstance(report[field], dict)
+        assert report[field] is not None
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report: dict) -> None:
@@ -23261,11 +23330,27 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             assert field in row
             assert isinstance(row[field], bool)
             assert row[field] is not None
+        for field in (
+            "selection_score",
+            "contents_navigation_line_rejected_count",
+            "page_number_value_rejected_count",
+            "candidate_line_scanned_count",
+            "candidate_line_matched_count",
+            "candidate_line_rejected_count",
+            "value_candidate_count",
+        ):
+            assert field in row
+            assert isinstance(row[field], int)
+            assert row[field] is not None
     for row in report.get("value_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:
             assert field in row
             assert isinstance(row[field], bool)
             assert row[field] is not None
+        assert isinstance(row.get("statement_page"), int)
+        assert row["statement_page"] > 0
+        assert isinstance(row.get("line_number_on_page"), int)
+        assert row["line_number_on_page"] > 0
 
 
 def _assert_rzd_manual_official_pdf_parse_plan_report_fields(report: dict) -> None:
