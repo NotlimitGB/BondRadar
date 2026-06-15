@@ -13879,6 +13879,131 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_page_override(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_text = "\n".join(
+        [
+            "Содержание",
+            "Консолидированный отчет о финансовом положении 9",
+            "Консолидированный отчет о прибылях и убытках 11",
+            "Консолидированный отчет о прочем совокупном доходе 12",
+            "Консолидированный отчет об изменениях капитала 13",
+            "Консолидированный отчет о движении денежных средств 15",
+            "Примечания к консолидированной финансовой отчетности 17",
+        ]
+    )
+    contents_row = {
+        "page_map_id": "page:2",
+        "page_number": 2,
+        "page_text_sample": toc_text,
+        "detected_section_type": "contents",
+        "detected_section_title": "contents",
+        "is_financial_statement_page": False,
+        "is_statement_of_financial_position_page": False,
+        "is_profit_or_loss_page": False,
+        "is_other_comprehensive_income_page": False,
+        "is_changes_in_equity_page": False,
+        "is_cash_flows_page": False,
+        "is_notes_page": False,
+        "is_auditor_report_page": False,
+        "is_contents_page": True,
+        "has_table_like_text": False,
+        "has_rub_million_unit": False,
+        "has_2025_column": False,
+        "has_2024_column": False,
+        "future_value_extraction_candidate": True,
+    }
+    false_notes_rows = [
+        {
+            "page_map_id": f"page:{page}",
+            "page_number": page,
+            "page_text_sample": "Notes after TOC start with misleading profit or loss metrics 2025 2024 million rubles revenue 999 888.",
+            "detected_section_type": "profit_or_loss",
+            "detected_section_title": "profit_or_loss",
+            "is_financial_statement_page": False,
+            "is_statement_of_financial_position_page": False,
+            "is_profit_or_loss_page": True,
+            "is_other_comprehensive_income_page": False,
+            "is_changes_in_equity_page": False,
+            "is_cash_flows_page": False,
+            "is_notes_page": True,
+            "is_auditor_report_page": False,
+            "is_contents_page": False,
+            "has_table_like_text": True,
+            "has_rub_million_unit": True,
+            "has_2025_column": True,
+            "has_2024_column": True,
+            "future_value_extraction_candidate": True,
+        }
+        for page in (89, 91)
+    ]
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, contents_row)
+        rows.extend(false_notes_rows)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    for row in targets_payload["target_rows"]:
+        if row["target_type"] in {
+            "statement_of_financial_position",
+            "profit_or_loss",
+            "other_comprehensive_income",
+            "cash_flows",
+        }:
+            row["start_page"] = 2
+            row["candidate_pages"] = [2, 89, 91, *row.get("candidate_pages", [])]
+            row["confidence"] = "high"
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    page_texts = _task170_page_texts()
+    page_texts.update(
+        {
+            2: {"backend": "synthetic", "text": toc_text},
+            89: {"backend": "synthetic", "text": "Notes profit or loss revenue 999 888"},
+            91: {"backend": "synthetic", "text": "Notes tax disclosure profit before tax 100 90"},
+        }
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["toc_primary_pages_detected"] is True
+    assert report["toc_primary_page_override_used"] is True
+    assert report["toc_source_page"] == 2
+    assert report["toc_statement_of_financial_position_page"] == 9
+    assert report["toc_profit_or_loss_page"] == 11
+    assert report["toc_other_comprehensive_income_page"] == 12
+    assert report["toc_changes_in_equity_page"] == 13
+    assert report["toc_cash_flows_page"] == 15
+    assert report["toc_notes_start_page"] == 17
+    assert report["toc_notes_range_page_rejected_count"] >= 1
+    assert report["toc_notes_range_value_rejected_count"] >= 1
+    assert report["page_map_false_statement_flag_rejected_count"] >= 1
+    assert report["contents_page_primary_rejected_count"] >= 1
+    assert {row["statement_page"] for row in report["value_rows"]} <= {9, 11, 12, 15}
+    assert all(row["statement_page"] < 17 for row in report["value_rows"])
+    snapshots_by_target = {row["target_type"]: row for row in report["page_snapshot_rows"]}
+    assert snapshots_by_target["statement_of_financial_position"]["selection_source"] == "toc_primary_page"
+    assert snapshots_by_target["statement_of_financial_position"]["toc_primary_page_anchor_used"] is True
+    assert snapshots_by_target["profit_or_loss"]["selection_source"] == "toc_primary_page"
+    assert snapshots_by_target["profit_or_loss"]["page_number"] == 11
+    assert any("toc_primary_page_anchor_used" in (row.get("reason_codes") or []) for row in report["target_group_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
 def test_rzd_manual_official_pdf_controlled_value_extraction_discovers_real_sofp_after_noisy_start_page(
     tmp_path: Path,
     monkeypatch,
@@ -24329,6 +24454,10 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             "generic_row_date_or_period_rejected_count",
             "body_reference_title_rejected_count",
             "body_reference_title_value_rejected_count",
+            "toc_notes_range_page_rejected_count",
+            "toc_notes_range_value_rejected_count",
+            "page_map_false_statement_flag_rejected_count",
+            "contents_page_primary_rejected_count",
             "table_row_candidate_count",
             "table_bearing_primary_page_score",
             "target_specific_value_row_count",
@@ -24349,6 +24478,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("title_reject_reason_codes"), list)
         assert isinstance(row.get("page_title_detected"), str)
         assert isinstance(row.get("selection_source"), str)
+        assert isinstance(row.get("toc_primary_page_target_type"), str)
     for row in report.get("target_group_rows") or []:
         assert isinstance(row.get("target_group_id"), str)
         assert isinstance(row.get("selected_pages"), list)
@@ -24388,6 +24518,12 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("matched_title_line_number"), int)
         assert isinstance(row.get("cross_target_title_detected"), bool)
         assert isinstance(row.get("cross_target_title_type"), str)
+        assert isinstance(row.get("toc_primary_page_candidate"), bool)
+        assert isinstance(row.get("toc_primary_page_target_type"), str)
+        assert isinstance(row.get("toc_primary_page_anchor_used"), bool)
+        assert isinstance(row.get("toc_notes_range_rejected"), bool)
+        assert isinstance(row.get("page_map_false_statement_flag_rejected"), bool)
+        assert isinstance(row.get("contents_page_rejected_as_primary"), bool)
         assert isinstance(row.get("sample_lines"), list)
         assert isinstance(row.get("candidate_row_count"), int)
         assert isinstance(row.get("false_generic_row_rejected_count"), int)
