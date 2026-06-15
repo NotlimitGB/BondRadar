@@ -13872,6 +13872,8 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_blockers_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md").is_file()
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
@@ -14303,6 +14305,270 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_pl_title_generic_ro
     assert all(row["generic_metric"] is True for row in report["value_rows"])
     assert all(row["title_anchored_value"] is True for row in report["value_rows"])
     assert all(row["cross_target_page_value"] is False for row in report["value_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_false_generic_pl_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {
+            11: {
+                "backend": "synthetic",
+                "text": "\n".join(
+                        [
+                            "Statement of profit or loss 2025 2024 million rubles",
+                            "Maximum discount 0% 0 0",
+                            "Exchange rate dollar euro 92,1234 90,1111",
+                            "Profit in the statement of profit or loss reference 100 90",
+                            "Profit March 26 adjustment 100 90",
+                        ]
+                    ),
+                }
+            },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "profit_or_loss",
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["value_candidate_row_count"] == 0
+    assert report["false_generic_statement_row_rejected_count"] >= 3
+    assert report["generic_row_percent_or_discount_rejected_count"] >= 1
+    assert report["generic_row_fx_rate_rejected_count"] >= 1
+    assert report["generic_row_statement_reference_rejected_count"] >= 1
+    assert report["generic_row_date_or_period_rejected_count"] >= 1
+    assert report["false_generic_profit_or_loss_value_count"] == 0
+    assert "controlled_value_extraction_no_values" in {row["blocker_code"] for row in report["blocker_rows"]}
+    diagnostics_path = tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.json"
+    assert diagnostics_path.is_file()
+    diagnostics = json.loads(diagnostics_path.read_text(encoding="utf-8"))
+    assert diagnostics["row_count"] >= 1
+    diagnostic_row = diagnostics["page_diagnostic_rows"][0]
+    assert isinstance(diagnostic_row["title_anchor_accepted"], bool)
+    assert isinstance(diagnostic_row["candidate_row_count"], int)
+    assert isinstance(diagnostic_row["false_generic_row_rejected_count"], int)
+    assert isinstance(diagnostic_row["sample_lines"], list)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_body_reference_title_anchor(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for row in payload.get("page_map_rows") or []:
+            if row.get("page_number") == 11:
+                row["detected_section_type"] = ""
+                row["detected_section_title"] = ""
+                row["is_profit_or_loss_page"] = False
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    targets_payload["target_rows"] = [
+        {
+            **targets_payload["target_rows"][1],
+            "target_type": "profit_or_loss",
+            "start_page": 11,
+            "end_page": 11,
+            "candidate_pages": [11],
+        }
+    ]
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {
+            11: {
+                "backend": "synthetic",
+                "text": "\n".join(
+                    [
+                        "Income tax expense is recognized in the statement of profit or loss for the year ended 31 December 2025.",
+                        "Revenue 2 000 1 800",
+                        "Operating profit 500 450",
+                    ]
+                ),
+            }
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "profit_or_loss",
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["body_reference_title_rejected_count"] >= 1
+    assert report["body_reference_title_value_rejected_count"] >= 0
+    assert report["profit_or_loss_value_count"] == 0
+    assert all(row["target_title_matched"] is False for row in report["target_group_rows"])
+    assert all(row["title_anchored_value"] is True for row in report["value_rows"])  # no final leaked rows
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_accepts_sofp_title_continuation_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    title_page = {
+        "page_map_id": "page:8",
+        "page_number": 8,
+        "page_text_sample": "Statement of financial position 2025 2024 million rubles.",
+        "detected_section_type": "statement_of_financial_position",
+        "detected_section_title": "statement_of_financial_position",
+        "is_financial_statement_page": True,
+        "is_statement_of_financial_position_page": True,
+        "is_profit_or_loss_page": False,
+        "is_other_comprehensive_income_page": False,
+        "is_changes_in_equity_page": False,
+        "is_cash_flows_page": False,
+        "is_notes_page": False,
+        "is_auditor_report_page": False,
+        "is_contents_page": False,
+        "has_table_like_text": False,
+        "has_rub_million_unit": True,
+        "has_2025_column": True,
+        "has_2024_column": True,
+        "future_value_extraction_candidate": True,
+    }
+    value_page = {**title_page, "page_map_id": "page:10", "page_number": 10, "detected_section_type": "", "detected_section_title": "", "is_statement_of_financial_position_page": False, "has_table_like_text": True}
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["page_map_rows"] = [title_page, value_page]
+        payload["row_count"] = 2
+        payload["page_map_row_count"] = 2
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    targets_payload["target_rows"] = [
+        {
+            **targets_payload["target_rows"][0],
+            "target_type": "statement_of_financial_position",
+            "start_page": 8,
+            "end_page": 10,
+            "candidate_pages": [8, 10],
+        }
+    ]
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {
+            8: {"backend": "synthetic", "text": "Statement of financial position 2025 2024 million rubles"},
+            10: {
+                "backend": "synthetic",
+                "text": "\n".join(["Total assets 1000 900", "Total equity and liabilities 1000 900", "Cash and cash equivalents 50 40"]),
+            },
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "statement_of_financial_position",
+        ]
+    )
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["statement_of_financial_position_value_count"] >= 2
+    accepted_group = next(row for row in report["target_group_rows"] if row["primary_statement_group_accepted"] is True)
+    assert accepted_group["selected_pages"] == [8, 10]
+    assert "target_statement_title_anchor_inherited_from_previous_page" in accepted_group["reason_codes"]
+    assert {row["statement_page"] for row in report["value_rows"]} == {10}
+    assert all(row["title_anchored_value"] is True for row in report["value_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_accepts_pl_title_continuation_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    title_page = {
+        "page_map_id": "page:11",
+        "page_number": 11,
+        "page_text_sample": "Statement of profit or loss 2025 2024 million rubles.",
+        "detected_section_type": "profit_or_loss",
+        "detected_section_title": "profit_or_loss",
+        "is_financial_statement_page": True,
+        "is_statement_of_financial_position_page": False,
+        "is_profit_or_loss_page": True,
+        "is_other_comprehensive_income_page": False,
+        "is_changes_in_equity_page": False,
+        "is_cash_flows_page": False,
+        "is_notes_page": False,
+        "is_auditor_report_page": False,
+        "is_contents_page": False,
+        "has_table_like_text": False,
+        "has_rub_million_unit": True,
+        "has_2025_column": True,
+        "has_2024_column": True,
+        "future_value_extraction_candidate": True,
+    }
+    value_page = {**title_page, "page_map_id": "page:13", "page_number": 13, "detected_section_type": "", "detected_section_title": "", "is_profit_or_loss_page": False, "has_table_like_text": True}
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["page_map_rows"] = [title_page, value_page]
+        payload["row_count"] = 2
+        payload["page_map_row_count"] = 2
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    targets_payload["target_rows"] = [
+        {
+            **targets_payload["target_rows"][1],
+            "target_type": "profit_or_loss",
+            "start_page": 11,
+            "end_page": 13,
+            "candidate_pages": [11, 13],
+        }
+    ]
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {
+            11: {"backend": "synthetic", "text": "Statement of profit or loss 2025 2024 million rubles"},
+            13: {"backend": "synthetic", "text": "\n".join(["Revenue 2000 1800", "Operating profit 500 450", "Finance costs (100) (80)"])},
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "profit_or_loss",
+        ]
+    )
+
+    assert report["status"] in {"passed", "warning"}
+    assert report["profit_or_loss_value_count"] >= 2
+    accepted_group = next(row for row in report["target_group_rows"] if row["primary_statement_group_accepted"] is True)
+    assert accepted_group["selected_pages"] == [11, 13]
+    assert "target_statement_title_anchor_inherited_from_previous_page" in accepted_group["reason_codes"]
+    assert {row["statement_page"] for row in report["value_rows"]} == {13}
+    assert all(row["title_anchored_value"] is True for row in report["value_rows"])
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -24056,6 +24322,13 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             "candidate_line_scanned_count",
             "candidate_line_matched_count",
             "candidate_line_rejected_count",
+            "false_generic_statement_row_rejected_count",
+            "generic_row_fx_rate_rejected_count",
+            "generic_row_percent_or_discount_rejected_count",
+            "generic_row_statement_reference_rejected_count",
+            "generic_row_date_or_period_rejected_count",
+            "body_reference_title_rejected_count",
+            "body_reference_title_value_rejected_count",
             "table_row_candidate_count",
             "table_bearing_primary_page_score",
             "target_specific_value_row_count",
@@ -24096,12 +24369,29 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert row.get("reject_reason_codes") == row.get("group_reject_reason_codes")
         assert isinstance(row.get("tax_note_group"), bool)
         assert isinstance(row.get("target_title_matched"), bool)
+        assert isinstance(row.get("target_statement_title_anchor_inherited_from_previous_page"), bool)
         assert isinstance(row.get("matched_title"), str)
         assert isinstance(row.get("matched_title_line_number"), int)
         assert isinstance(row.get("cross_target_title_detected"), bool)
         assert isinstance(row.get("cross_target_title_type"), str)
         assert isinstance(row.get("title_anchor_pages"), list)
         assert isinstance(row.get("target_group_diagnostics_truncated"), bool)
+    for row in report.get("page_diagnostic_rows") or []:
+        assert isinstance(row.get("diagnostic_id"), str)
+        assert isinstance(row.get("target_type"), str)
+        assert isinstance(row.get("page_number"), int)
+        assert isinstance(row.get("title_anchor_candidate"), bool)
+        assert isinstance(row.get("title_anchor_accepted"), bool)
+        assert isinstance(row.get("title_anchor_reject_reason_codes"), list)
+        assert isinstance(row.get("title_anchor_reason_codes"), list)
+        assert isinstance(row.get("matched_title"), str)
+        assert isinstance(row.get("matched_title_line_number"), int)
+        assert isinstance(row.get("cross_target_title_detected"), bool)
+        assert isinstance(row.get("cross_target_title_type"), str)
+        assert isinstance(row.get("sample_lines"), list)
+        assert isinstance(row.get("candidate_row_count"), int)
+        assert isinstance(row.get("false_generic_row_rejected_count"), int)
+        assert isinstance(row.get("false_generic_reject_reason_counts"), dict)
     for row in report.get("value_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:
             assert field in row

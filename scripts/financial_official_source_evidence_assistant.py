@@ -6946,6 +6946,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_ARTIFACT_NAMES = {
     "blockers_csv": "rzd_manual_official_pdf_controlled_value_extraction_blockers_task170.csv",
     "page_snapshots_json": "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.json",
     "page_snapshots_csv": "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.csv",
+    "page_diagnostics_json": "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.json",
+    "page_diagnostics_csv": "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.csv",
     "rerun_markdown": "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md",
 }
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
@@ -6983,6 +6985,15 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "cross_target_value_rejected_count",
     "cross_target_page_value_count",
     "generic_primary_statement_value_count",
+    "valid_generic_profit_or_loss_value_count",
+    "false_generic_profit_or_loss_value_count",
+    "false_generic_statement_row_rejected_count",
+    "generic_row_fx_rate_rejected_count",
+    "generic_row_percent_or_discount_rejected_count",
+    "generic_row_statement_reference_rejected_count",
+    "generic_row_date_or_period_rejected_count",
+    "body_reference_title_rejected_count",
+    "body_reference_title_value_rejected_count",
     "wide_equity_movement_line_rejected_count",
     "wide_equity_movement_value_rejected_count",
     "target_group_row_count",
@@ -7064,6 +7075,13 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS = [
     "candidate_line_scanned_count",
     "candidate_line_matched_count",
     "candidate_line_rejected_count",
+    "false_generic_statement_row_rejected_count",
+    "generic_row_fx_rate_rejected_count",
+    "generic_row_percent_or_discount_rejected_count",
+    "generic_row_statement_reference_rejected_count",
+    "generic_row_date_or_period_rejected_count",
+    "body_reference_title_rejected_count",
+    "body_reference_title_value_rejected_count",
     "table_row_candidate_count",
     "small_number_line_rejected_count",
     "value_candidate_count",
@@ -7076,6 +7094,24 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS = [
     "has_table_like_text",
     "has_negative_parentheses_values",
     "has_note_reference_column",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_DIAGNOSTIC_FIELDS = [
+    "diagnostic_id",
+    "target_type",
+    "page_number",
+    "title_anchor_candidate",
+    "title_anchor_accepted",
+    "title_anchor_reject_reason_codes",
+    "title_anchor_reason_codes",
+    "matched_title",
+    "matched_title_line_number",
+    "cross_target_title_detected",
+    "cross_target_title_type",
+    "sample_lines",
+    "candidate_row_count",
+    "false_generic_row_rejected_count",
+    "false_generic_reject_reason_counts",
     "safe_hint",
 ]
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
@@ -7156,6 +7192,15 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "cross_target_value_rejected_count",
     "cross_target_page_value_count",
     "generic_primary_statement_value_count",
+    "valid_generic_profit_or_loss_value_count",
+    "false_generic_profit_or_loss_value_count",
+    "false_generic_statement_row_rejected_count",
+    "generic_row_fx_rate_rejected_count",
+    "generic_row_percent_or_discount_rejected_count",
+    "generic_row_statement_reference_rejected_count",
+    "generic_row_date_or_period_rejected_count",
+    "body_reference_title_rejected_count",
+    "body_reference_title_value_rejected_count",
     "wide_equity_movement_line_rejected_count",
     "wide_equity_movement_value_rejected_count",
     "target_group_row_count",
@@ -8755,6 +8800,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-snapshots-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-snapshots-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-diagnostics-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-diagnostics-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-values-input", type=Path, default=None)
@@ -40738,6 +40785,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_artifacts(args: argpars
         "blockers_csv": args.rzd_manual_official_pdf_controlled_value_extraction_blockers_csv_output,
         "page_snapshots_json": args.rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_output,
         "page_snapshots_csv": args.rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_csv_output,
+        "page_diagnostics_json": args.rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_output,
+        "page_diagnostics_csv": args.rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_csv_output,
         "rerun_markdown": args.rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown_output,
     }
     return {
@@ -40957,6 +41006,150 @@ def _rzd_controlled_value_extraction_phrase_count(terms: Sequence[str], normaliz
     return sum(1 for term in terms if _rzd_manual_official_pdf_phrase_found(term, normalized, compact))
 
 
+def _rzd_controlled_value_extraction_phrase_found_any(text: str, terms: Sequence[str]) -> bool:
+    prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+    return bool(_rzd_controlled_value_extraction_phrase_count(terms, prepared["normalized_text"], prepared["compact_text"]))
+
+
+def _rzd_controlled_value_extraction_is_statement_body_reference(line: str) -> bool:
+    text = str(line or "")
+    if not text.strip():
+        return False
+    body_reference_terms = (
+        "in the statement of profit or loss",
+        "in the consolidated statement",
+        "statement of profit or loss for the year ended",
+        "as part of the line item",
+        "notes",
+        "note ",
+        "for the year ended",
+        "РєРѕРЅСЃРѕР»РёРґРёСЂРѕРІР°РЅРЅРѕРіРѕ РѕС‚С‡РµС‚Р° Рѕ РїСЂРёР±С‹Р»СЏС… Рё СѓР±С‹С‚РєР°С…",
+        "РєРѕРЅСЃРѕР»РёРґРёСЂРѕРІР°РЅРЅРѕРіРѕ РѕС‚С‡РµС‚Р° Рѕ С„РёРЅР°РЅСЃРѕРІРѕРј РїРѕР»РѕР¶РµРЅРёРё",
+        "РєРѕРЅСЃРѕР»РёРґРёСЂРѕРІР°РЅРЅРѕРіРѕ РѕС‚С‡РµС‚Р° Рѕ РґРІРёР¶РµРЅРёРё РґРµРЅРµР¶РЅС‹С… СЃСЂРµРґСЃС‚РІ",
+        "РєРѕРЅСЃРѕР»РёРґРёСЂРѕРІР°РЅРЅРѕРіРѕ РѕС‚С‡РµС‚Р° Рѕ РїСЂРѕС‡РµРј СЃРѕРІРѕРєСѓРїРЅРѕРј РґРѕС…РѕРґРµ",
+        "РІ СЃРѕСЃС‚Р°РІРµ СЃС‚Р°С‚СЊРё",
+        "РџСЂРёРјРµС‡Р°РЅРёСЏ",
+        "РџСЂРёРјРµС‡Р°РЅРёРµ",
+        "Р·Р° РіРѕРґ, Р·Р°РєРѕРЅС‡РёРІС€РёР№СЃСЏ",
+    )
+    return _rzd_controlled_value_extraction_phrase_found_any(text, body_reference_terms)
+
+
+def _rzd_controlled_value_extraction_is_heading_like_title_line(line: str) -> bool:
+    text = str(line or "").strip()
+    if not text or len(text) > 220:
+        return False
+    if _rzd_controlled_value_extraction_is_statement_body_reference(text):
+        return False
+    if _rzd_controlled_value_extraction_is_date_or_period_line(text):
+        return False
+    if re.search(r"\([^)]*(?:notes?|РџСЂРёРјРµС‡Р°РЅРё[РµСЏ])", text, flags=re.IGNORECASE):
+        return False
+    numbers = _rzd_controlled_value_extraction_numeric_groups(text)
+    if len(numbers) > 2:
+        return False
+    # Real statement titles are usually a single heading or a short wrapped heading, not prose.
+    return len(re.findall(r"[.!?;:]", text)) <= 1
+
+
+def _rzd_controlled_value_extraction_profit_or_loss_generic_label_allowed(line: str) -> bool:
+    allowed_terms = (
+        "revenue",
+        "income",
+        "operating income",
+        "transport services income",
+        "operating result",
+        "operating expenses",
+        "ordinary activities expenses",
+        "cost of sales",
+        "expenses",
+        "gross profit",
+        "operating profit",
+        "finance income",
+        "finance costs",
+        "profit before tax",
+        "income tax",
+        "net profit",
+        "profit for the year",
+        "РІС‹СЂСѓС‡РєР°",
+        "РґРѕС…РѕРґ",
+        "РґРѕС…РѕРґС‹",
+        "РґРѕС…РѕРґС‹ РѕС‚ РїРµСЂРµРІРѕР·РѕРє",
+        "РѕРїРµСЂР°С†РёРѕРЅРЅС‹Рµ РґРѕС…РѕРґС‹",
+        "РѕРїРµСЂР°С†РёРѕРЅРЅС‹Рµ СЂР°СЃС…РѕРґС‹",
+        "СЂР°СЃС…РѕРґС‹ РїРѕ РѕР±С‹С‡РЅС‹Рј РІРёРґР°Рј РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
+        "СЃРµР±РµСЃС‚РѕРёРјРѕСЃС‚СЊ",
+        "РІР°Р»РѕРІР°СЏ РїСЂРёР±С‹Р»СЊ",
+        "РїСЂРёР±С‹Р»СЊ РѕС‚ РїСЂРѕРґР°Р¶",
+        "РѕРїРµСЂР°С†РёРѕРЅРЅР°СЏ РїСЂРёР±С‹Р»СЊ",
+        "РїСЂРёР±С‹Р»СЊ РѕС‚ РѕРїРµСЂР°С†РёРѕРЅРЅРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
+        "С„РёРЅР°РЅСЃРѕРІС‹Рµ РґРѕС…РѕРґС‹",
+        "С„РёРЅР°РЅСЃРѕРІС‹Рµ СЂР°СЃС…РѕРґС‹",
+        "РїСЂРёР±С‹Р»СЊ РґРѕ РЅР°Р»РѕРіРѕРѕР±Р»РѕР¶РµРЅРёСЏ",
+        "РЅР°Р»РѕРі РЅР° РїСЂРёР±С‹Р»СЊ",
+        "СЂР°СЃС…РѕРґ РїРѕ РЅР°Р»РѕРіСѓ РЅР° РїСЂРёР±С‹Р»СЊ",
+        "С‡РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ",
+        "С‡РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ Р·Р° РіРѕРґ",
+        "РїСЂРёР±С‹Р»СЊ Р·Р° РіРѕРґ",
+    )
+    return _rzd_controlled_value_extraction_phrase_found_any(line, allowed_terms)
+
+
+def _rzd_controlled_value_extraction_is_false_generic_statement_row(
+    target_type: str,
+    line: str,
+    values: dict[str, Any],
+    page_text_context: str,
+) -> tuple[bool, list[str]]:
+    text = str(line or "")
+    _ = page_text_context
+    prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+    normalized = prepared["normalized_text"]
+    compact = prepared["compact_text"]
+    codes: list[str] = []
+    percent_terms = ("percent", "discount", "maximum discount", "РїСЂРѕС†РµРЅС‚", "СЃРєРёРґРєР°", "РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ СЃРєРёРґРєР°", "СЃРѕСЃС‚Р°РІРёС‚ 0%")
+    if any(term in text for term in ("%",)) or _rzd_controlled_value_extraction_phrase_count(percent_terms, normalized, compact):
+        codes.append("generic_row_percent_or_discount_rejected")
+    reference_terms = (
+        "notes",
+        "note ",
+        "statement reference",
+        "as part of the line item",
+        "РџСЂРёРјРµС‡Р°РЅРёСЏ",
+        "РџСЂРёРјРµС‡Р°РЅРёРµ",
+        "РІ СЃРѕСЃС‚Р°РІРµ СЃС‚Р°С‚СЊРё",
+        "РїСЂРёР±С‹Р»СЏС… Рё СѓР±С‹С‚РєР°С… (РџСЂРёРјРµС‡Р°РЅРёСЏ",
+    )
+    if _rzd_controlled_value_extraction_is_statement_body_reference(text) or _rzd_controlled_value_extraction_phrase_count(reference_terms, normalized, compact):
+        codes.append("generic_row_statement_reference_rejected")
+    date_terms = ("26 РјР°СЂС‚Р°", "31 РґРµРєР°Р±СЂСЏ", "march", "december", "Р·Р° РіРѕРґ, Р·Р°РєРѕРЅС‡РёРІС€РёР№СЃСЏ", "РїРѕ СЃРѕСЃС‚РѕСЏРЅРёСЋ РЅР°")
+    if _rzd_controlled_value_extraction_is_date_or_period_line(text) or _rzd_controlled_value_extraction_phrase_count(date_terms, normalized, compact):
+        codes.append("generic_row_date_or_period_rejected")
+    fx_terms = (
+        "dollar",
+        "euro",
+        "franc",
+        "pound sterling",
+        "exchange rate",
+        "РґРѕР»Р»Р°СЂ РЎРЁРђ",
+        "РµРІСЂРѕ",
+        "С€РІРµР№С†Р°СЂСЃРєРёР№ С„СЂР°РЅРє",
+        "С„СѓРЅС‚ СЃС‚РµСЂР»РёРЅРіРѕРІ",
+        "РєСѓСЂСЃ",
+    )
+    comma_decimal_count = len(re.findall(r"\d+,\d{3,4}", text))
+    if _rzd_controlled_value_extraction_phrase_count(fx_terms, normalized, compact) or comma_decimal_count >= 2:
+        codes.append("generic_row_fx_rate_rejected")
+    value_2025 = values.get("value_2025")
+    value_2024 = values.get("value_2024")
+    numeric_values = [abs(int(value)) for value in (value_2025, value_2024) if isinstance(value, int)]
+    if numeric_values and (all(value <= 99 for value in numeric_values) or set(numeric_values).issubset({0, 50})):
+        codes.append("generic_row_small_reference_numbers_rejected")
+    if target_type == "profit_or_loss" and not _rzd_controlled_value_extraction_profit_or_loss_generic_label_allowed(text):
+        codes.append("generic_row_statement_reference_rejected")
+    return bool(codes), list(dict.fromkeys(codes))
+
+
 def _rzd_controlled_value_extraction_statement_title_term_map() -> dict[str, tuple[str, ...]]:
     return {
         "statement_of_financial_position": (
@@ -41008,7 +41201,8 @@ def _rzd_controlled_value_extraction_statement_title_match(
         str(page_row.get("detected_section_title") or ""),
     ]
     text_lines = [line.strip() for line in str(text or "").splitlines() if line.strip()]
-    candidate_lines = [line for line in metadata_lines if line] + text_lines[:20]
+    title_zone_lines = text_lines[:12]
+    candidate_lines = [line for line in metadata_lines if line] + title_zone_lines
 
     def _line_has_terms(line: str, terms: Sequence[str]) -> bool:
         prepared = _normalize_pdf_preview_text_for_signal_detection(line)
@@ -41020,23 +41214,37 @@ def _rzd_controlled_value_extraction_statement_title_match(
     matched_title = ""
     matched_title_line_number = 0
     target_title_matched = False
-    if page_row.get("detected_section_type") == target_type or _as_bool(page_row.get(f"is_{target_type}_page")):
+    body_reference_title_rejected_count = 0
+    clean_page_metadata_match = (
+        (page_row.get("detected_section_type") == target_type or _as_bool(page_row.get(f"is_{target_type}_page")))
+        and not _rzd_controlled_value_extraction_page_is_disallowed_primary(page_row, allow_notes=False)
+    )
+    if clean_page_metadata_match:
         target_title_matched = True
         matched_title = str(page_row.get("detected_section_title") or page_row.get("detected_section_type") or target_type)
         matched_title_line_number = 0
-    for offset, line in enumerate(text_lines[:20], start=1):
+    for offset, line in enumerate(title_zone_lines, start=1):
         if _line_has_terms(line, target_terms):
-            target_title_matched = True
-            matched_title = line[:240]
-            matched_title_line_number = offset
-            break
-    if not target_title_matched:
-        for line in metadata_lines:
-            if line and _line_has_terms(line, target_terms):
+            if _rzd_controlled_value_extraction_is_heading_like_title_line(line):
                 target_title_matched = True
                 matched_title = line[:240]
-                matched_title_line_number = 0
+                matched_title_line_number = offset
                 break
+            body_reference_title_rejected_count += 1
+    if not target_title_matched:
+        for offset, line in enumerate(text_lines[12:40], start=13):
+            if _line_has_terms(line, target_terms):
+                body_reference_title_rejected_count += 1
+                break
+    if not target_title_matched and not body_reference_title_rejected_count:
+        for line in metadata_lines:
+            if line and _line_has_terms(line, target_terms):
+                if not _rzd_controlled_value_extraction_is_statement_body_reference(line):
+                    target_title_matched = True
+                    matched_title = line[:240]
+                    matched_title_line_number = 0
+                    break
+                body_reference_title_rejected_count += 1
 
     cross_target_title_type = ""
     detected_type = str(page_row.get("detected_section_type") or "")
@@ -41070,6 +41278,8 @@ def _rzd_controlled_value_extraction_statement_title_match(
         reason_codes.append("target_statement_title_matched")
     else:
         reject_codes.append("target_statement_title_missing")
+    if body_reference_title_rejected_count:
+        reject_codes.append("body_reference_title_rejected")
     if cross_target_title_detected:
         reject_codes.append("controlled_value_extraction_cross_target_page_rejected")
     return {
@@ -41080,6 +41290,7 @@ def _rzd_controlled_value_extraction_statement_title_match(
         "cross_target_title_type": str(cross_target_title_type or ""),
         "title_match_reason_codes": reason_codes,
         "title_reject_reason_codes": reject_codes,
+        "body_reference_title_rejected_count": int(body_reference_title_rejected_count),
     }
 
 
@@ -41509,6 +41720,12 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
         "small_page_or_note_number_value_rejected_count": 0,
         "wide_equity_movement_line_rejected_count": 0,
         "wide_equity_movement_value_rejected_count": 0,
+        "false_generic_statement_row_rejected_count": 0,
+        "generic_row_fx_rate_rejected_count": 0,
+        "generic_row_percent_or_discount_rejected_count": 0,
+        "generic_row_statement_reference_rejected_count": 0,
+        "generic_row_date_or_period_rejected_count": 0,
+        "body_reference_title_value_rejected_count": 0,
     }
     specs = _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])
     target_metric_keys = _rzd_controlled_value_extraction_target_metric_keys(target_type)
@@ -41659,8 +41876,30 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
                 primary_statement_page_accepted=True,
             )
             if reject_code:
+                diagnostics["candidate_line_rejected_count"] += 1
                 continue
             if target_type == "profit_or_loss" and _rzd_controlled_value_extraction_is_tax_note_context(raw_line, {}):
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+            is_false_generic, false_generic_codes = _rzd_controlled_value_extraction_is_false_generic_statement_row(
+                target_type,
+                raw_line,
+                columns,
+                text,
+            )
+            if is_false_generic:
+                diagnostics["false_generic_statement_row_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                if "generic_row_fx_rate_rejected" in false_generic_codes:
+                    diagnostics["generic_row_fx_rate_rejected_count"] += 1
+                if "generic_row_percent_or_discount_rejected" in false_generic_codes:
+                    diagnostics["generic_row_percent_or_discount_rejected_count"] += 1
+                if "generic_row_statement_reference_rejected" in false_generic_codes:
+                    diagnostics["generic_row_statement_reference_rejected_count"] += 1
+                    if _rzd_controlled_value_extraction_is_statement_body_reference(raw_line):
+                        diagnostics["body_reference_title_value_rejected_count"] += 1
+                if "generic_row_date_or_period_rejected" in false_generic_codes:
+                    diagnostics["generic_row_date_or_period_rejected_count"] += 1
                 continue
             slug = re.sub(r"[^a-z0-9]+", "_", line_prepared["normalized_text"])
             slug = slug.strip("_")[:40] or hashlib.sha1(raw_line.encode("utf-8")).hexdigest()[:10]
@@ -41694,6 +41933,7 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
                     "extraction_status": "candidate_value_extracted_for_human_review",
                     "reason_codes": [
                         "generic_title_anchored_primary_statement_row",
+                        "valid_generic_profit_or_loss_row" if target_type == "profit_or_loss" else "valid_generic_primary_statement_row",
                         "controlled_value_extraction_preview_only",
                     ],
                     "warning_codes": ["controlled_value_extraction_human_review_required"],
@@ -41728,6 +41968,13 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
     wide_equity_movement_line_rejected_count = 0
     wide_equity_movement_value_rejected_count = 0
     tax_note_page_rejected_count = 0
+    false_generic_statement_row_rejected_count = 0
+    generic_row_fx_rate_rejected_count = 0
+    generic_row_percent_or_discount_rejected_count = 0
+    generic_row_statement_reference_rejected_count = 0
+    generic_row_date_or_period_rejected_count = 0
+    body_reference_title_rejected_count = 0
+    body_reference_title_value_rejected_count = 0
     for page_number in bounded_pages:
         page_row = page_map_by_page.get(page_number) or {}
         reject_codes: list[str] = []
@@ -41740,6 +41987,7 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
         text = str((page_texts.get(page_number) or {}).get("text") or page_row.get("page_text_sample") or "")
         title_match = _rzd_controlled_value_extraction_statement_title_match(target_type, text, page_row)
         title_matches_by_page[page_number] = title_match
+        body_reference_title_rejected_count += int(title_match.get("body_reference_title_rejected_count") or 0)
         wide_rejected = 0
         if _as_bool(title_match.get("target_title_matched")) and not _as_bool(title_match.get("cross_target_title_detected")):
             title_anchor_page_count += 1
@@ -41770,8 +42018,19 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
                 "candidate_line_scanned_count": 0,
                 "candidate_line_matched_count": 0,
                 "candidate_line_rejected_count": 0,
+                "contents_navigation_line_rejected_count": 0,
+                "page_number_value_rejected_count": 0,
+                "date_period_line_rejected_count": 0,
+                "date_number_value_rejected_count": 0,
+                "small_page_or_note_number_value_rejected_count": 0,
                 "wide_equity_movement_line_rejected_count": wide_rejected,
                 "wide_equity_movement_value_rejected_count": wide_rejected,
+                "false_generic_statement_row_rejected_count": 0,
+                "generic_row_fx_rate_rejected_count": 0,
+                "generic_row_percent_or_discount_rejected_count": 0,
+                "generic_row_statement_reference_rejected_count": 0,
+                "generic_row_date_or_period_rejected_count": 0,
+                "body_reference_title_value_rejected_count": 0,
             }
             if _as_bool(title_match.get("cross_target_title_detected")):
                 cross_target_value_rejected_count += len(_rzd_controlled_value_extraction_numeric_groups(text))
@@ -41792,6 +42051,12 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
         rejected_line_count += int(diagnostics.get("candidate_line_rejected_count") or 0)
         wide_equity_movement_line_rejected_count += int(diagnostics.get("wide_equity_movement_line_rejected_count") or 0)
         wide_equity_movement_value_rejected_count += int(diagnostics.get("wide_equity_movement_value_rejected_count") or 0)
+        false_generic_statement_row_rejected_count += int(diagnostics.get("false_generic_statement_row_rejected_count") or 0)
+        generic_row_fx_rate_rejected_count += int(diagnostics.get("generic_row_fx_rate_rejected_count") or 0)
+        generic_row_percent_or_discount_rejected_count += int(diagnostics.get("generic_row_percent_or_discount_rejected_count") or 0)
+        generic_row_statement_reference_rejected_count += int(diagnostics.get("generic_row_statement_reference_rejected_count") or 0)
+        generic_row_date_or_period_rejected_count += int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0)
+        body_reference_title_value_rejected_count += int(diagnostics.get("body_reference_title_value_rejected_count") or 0)
         candidate_rows_by_page[page_number] = candidate_rows
         page_reject_reason_codes[page_number] = reject_codes
         page_scores[page_number] = {
@@ -41815,6 +42080,13 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             "small_page_or_note_number_value_rejected_count": int(diagnostics.get("small_page_or_note_number_value_rejected_count") or 0),
             "wide_equity_movement_line_rejected_count": int(diagnostics.get("wide_equity_movement_line_rejected_count") or 0),
             "wide_equity_movement_value_rejected_count": int(diagnostics.get("wide_equity_movement_value_rejected_count") or 0),
+            "false_generic_statement_row_rejected_count": int(diagnostics.get("false_generic_statement_row_rejected_count") or 0),
+            "generic_row_fx_rate_rejected_count": int(diagnostics.get("generic_row_fx_rate_rejected_count") or 0),
+            "generic_row_percent_or_discount_rejected_count": int(diagnostics.get("generic_row_percent_or_discount_rejected_count") or 0),
+            "generic_row_statement_reference_rejected_count": int(diagnostics.get("generic_row_statement_reference_rejected_count") or 0),
+            "generic_row_date_or_period_rejected_count": int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0),
+            "body_reference_title_rejected_count": int(title_match.get("body_reference_title_rejected_count") or 0),
+            "body_reference_title_value_rejected_count": int(diagnostics.get("body_reference_title_value_rejected_count") or 0),
         }
     return {
         "target_type": target_type,
@@ -41834,6 +42106,13 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             "wide_equity_movement_line_rejected_count": wide_equity_movement_line_rejected_count,
             "wide_equity_movement_value_rejected_count": wide_equity_movement_value_rejected_count,
             "tax_note_page_rejected_count": tax_note_page_rejected_count,
+            "false_generic_statement_row_rejected_count": false_generic_statement_row_rejected_count,
+            "generic_row_fx_rate_rejected_count": generic_row_fx_rate_rejected_count,
+            "generic_row_percent_or_discount_rejected_count": generic_row_percent_or_discount_rejected_count,
+            "generic_row_statement_reference_rejected_count": generic_row_statement_reference_rejected_count,
+            "generic_row_date_or_period_rejected_count": generic_row_date_or_period_rejected_count,
+            "body_reference_title_rejected_count": body_reference_title_rejected_count,
+            "body_reference_title_value_rejected_count": body_reference_title_value_rejected_count,
         },
     }
 
@@ -42062,7 +42341,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
                 rank=1,
                 target_start_page_used=True,
             )
-            for adjacent_page in (start_page - 1, start_page + 1, start_page + 2):
+            continuation_limit = 6 if target_type == "statement_of_financial_position" else 4 if target_type == "profit_or_loss" else 2
+            for adjacent_page in (start_page - 1, *range(start_page + 1, start_page + continuation_limit + 1)):
                 _add_candidate(
                     target_type=target_type,
                     target=target,
@@ -42350,8 +42630,9 @@ def _rzd_controlled_value_extraction_group_acceptance(
         reject_codes.append("controlled_value_extraction_cross_target_page_rejected")
     if title_anchor_pages:
         allowed_value_pages = set(title_anchor_pages)
+        continuation_limit = 6 if target_type == "statement_of_financial_position" else 4 if target_type == "profit_or_loss" else 2
         for anchor in title_anchor_pages:
-            allowed_value_pages.update({anchor + 1, anchor + 2})
+            allowed_value_pages.update(range(anchor + 1, anchor + continuation_limit + 1))
         if any(page not in allowed_value_pages for page in value_pages):
             reject_codes.append("target_statement_title_anchor_missing_for_value_page")
     if len(metric_keys) < required_count:
@@ -42367,6 +42648,10 @@ def _rzd_controlled_value_extraction_group_acceptance(
         cross_title_type = str((title_matches_by_page.get(page) or {}).get("cross_target_title_type") or "")
         if cross_title_type:
             break
+    inherited_title_anchor = bool(title_anchor_pages and any(page not in title_anchor_pages for page in value_pages))
+    reason_codes = ["extract_first_primary_group_discovered", "target_metric_rows_verified", "target_statement_title_anchored"] if accepted else []
+    if accepted and inherited_title_anchor:
+        reason_codes.append("target_statement_title_anchor_inherited_from_previous_page")
     return {
         "accepted": bool(accepted),
         "value_count": len(rows),
@@ -42375,7 +42660,7 @@ def _rzd_controlled_value_extraction_group_acceptance(
         "generic_profit_or_loss_row_count": generic_pl_row_count,
         "required_metric_count": required_count,
         "reject_reason_codes": reject_codes,
-        "reason_codes": ["extract_first_primary_group_discovered", "target_metric_rows_verified", "target_statement_title_anchored"] if accepted else [],
+        "reason_codes": reason_codes,
         "candidate_rows": rows,
         "title_anchor_pages": title_anchor_pages,
         "value_pages": value_pages,
@@ -42384,6 +42669,7 @@ def _rzd_controlled_value_extraction_group_acceptance(
         "matched_title_line_number": int(representative_title.get("matched_title_line_number") or 0),
         "cross_target_title_detected": bool(cross_target_pages),
         "cross_target_title_type": cross_title_type,
+        "target_statement_title_anchor_inherited_from_previous_page": bool(inherited_title_anchor),
     }
 
 
@@ -42449,6 +42735,19 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
             _add_group([page])
             if page + 1 in by_page:
                 _add_group([page, page + 1])
+            title_match = (discovery.get("title_matches_by_page") or {}).get(page) if isinstance(discovery.get("title_matches_by_page"), dict) else {}
+            if isinstance(title_match, dict) and _as_bool(title_match.get("target_title_matched")) and not _as_bool(title_match.get("cross_target_title_detected")):
+                continuation_limit = 6 if target_type == "statement_of_financial_position" else 4 if target_type == "profit_or_loss" else 2
+                for offset in range(2, continuation_limit + 1):
+                    continuation_page = page + offset
+                    if continuation_page not in by_page:
+                        continue
+                    continuation_title = (discovery.get("title_matches_by_page") or {}).get(continuation_page) if isinstance(discovery.get("title_matches_by_page"), dict) else {}
+                    if isinstance(continuation_title, dict) and _as_bool(continuation_title.get("cross_target_title_detected")):
+                        break
+                    _add_group([page, continuation_page])
+                    if offset <= max_pages - 1:
+                        _add_group(range(page, continuation_page + 1))
         evaluated_groups: list[dict[str, Any]] = []
         for group_pages in group_page_sets:
             acceptance = _rzd_controlled_value_extraction_group_acceptance(target_type, group_pages, discovery)
@@ -42487,6 +42786,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
                 "group_reject_reason_codes": reject_codes,
                 "tax_note_group": bool(tax_note_group),
                 "target_title_matched": _as_bool(acceptance.get("target_title_matched")),
+                "target_statement_title_anchor_inherited_from_previous_page": _as_bool(
+                    acceptance.get("target_statement_title_anchor_inherited_from_previous_page")
+                ),
                 "matched_title": str(acceptance.get("matched_title") or ""),
                 "matched_title_line_number": int(acceptance.get("matched_title_line_number") or 0),
                 "cross_target_title_detected": _as_bool(acceptance.get("cross_target_title_detected")),
@@ -42569,6 +42871,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
                     "small_page_or_note_number_value_rejected_count": int(page_score.get("small_page_or_note_number_value_rejected_count") or 0),
                     "wide_equity_movement_line_rejected_count": int(page_score.get("wide_equity_movement_line_rejected_count") or 0),
                     "wide_equity_movement_value_rejected_count": int(page_score.get("wide_equity_movement_value_rejected_count") or 0),
+                    "false_generic_statement_row_rejected_count": int(page_score.get("false_generic_statement_row_rejected_count") or 0),
+                    "generic_row_fx_rate_rejected_count": int(page_score.get("generic_row_fx_rate_rejected_count") or 0),
+                    "generic_row_percent_or_discount_rejected_count": int(page_score.get("generic_row_percent_or_discount_rejected_count") or 0),
+                    "generic_row_statement_reference_rejected_count": int(page_score.get("generic_row_statement_reference_rejected_count") or 0),
+                    "generic_row_date_or_period_rejected_count": int(page_score.get("generic_row_date_or_period_rejected_count") or 0),
+                    "body_reference_title_rejected_count": int(page_score.get("body_reference_title_rejected_count") or 0),
+                    "body_reference_title_value_rejected_count": int(page_score.get("body_reference_title_value_rejected_count") or 0),
                 },
             }
             selected.append(
@@ -43032,6 +43341,29 @@ def _rzd_controlled_value_extraction_finalize_internal_value_rows(
     return rows
 
 
+def _rzd_controlled_value_extraction_final_value_row_guard(row: dict[str, Any]) -> list[str]:
+    codes: list[str] = []
+    if _as_bool(row.get("generic_metric")):
+        is_false_generic, false_codes = _rzd_controlled_value_extraction_is_false_generic_statement_row(
+            str(row.get("target_type") or ""),
+            str(row.get("raw_line") or ""),
+            {
+                "value_2025": row.get("value_2025"),
+                "value_2024": row.get("value_2024"),
+                "raw_2025": row.get("raw_value_2025"),
+                "raw_2024": row.get("raw_value_2024"),
+            },
+            str(row.get("row_label") or ""),
+        )
+        if is_false_generic:
+            codes.extend(false_codes)
+            codes.append("controlled_value_extraction_false_generic_row_final_guard")
+    if row.get("target_type") == "profit_or_loss" and _as_bool(row.get("generic_metric")):
+        if not _rzd_controlled_value_extraction_profit_or_loss_generic_label_allowed(str(row.get("raw_line") or "")):
+            codes.append("controlled_value_extraction_false_generic_row_final_guard")
+    return list(dict.fromkeys(codes))
+
+
 def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     args: argparse.Namespace,
     *,
@@ -43054,6 +43386,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         "wide_equity_movement_line_rejected_count": 0,
         "wide_equity_movement_value_rejected_count": 0,
         "tax_note_page_rejected_count": 0,
+        "false_generic_statement_row_rejected_count": 0,
+        "generic_row_fx_rate_rejected_count": 0,
+        "generic_row_percent_or_discount_rejected_count": 0,
+        "generic_row_statement_reference_rejected_count": 0,
+        "generic_row_date_or_period_rejected_count": 0,
+        "body_reference_title_rejected_count": 0,
+        "body_reference_title_value_rejected_count": 0,
     }
     if not candidate_pages:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
@@ -43093,6 +43432,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         discovery_stats["wide_equity_movement_line_rejected_count"] += int(diagnostics.get("wide_equity_movement_line_rejected_count") or 0)
         discovery_stats["wide_equity_movement_value_rejected_count"] += int(diagnostics.get("wide_equity_movement_value_rejected_count") or 0)
         discovery_stats["tax_note_page_rejected_count"] += int(diagnostics.get("tax_note_page_rejected_count") or 0)
+        discovery_stats["false_generic_statement_row_rejected_count"] += int(diagnostics.get("false_generic_statement_row_rejected_count") or 0)
+        discovery_stats["generic_row_fx_rate_rejected_count"] += int(diagnostics.get("generic_row_fx_rate_rejected_count") or 0)
+        discovery_stats["generic_row_percent_or_discount_rejected_count"] += int(diagnostics.get("generic_row_percent_or_discount_rejected_count") or 0)
+        discovery_stats["generic_row_statement_reference_rejected_count"] += int(diagnostics.get("generic_row_statement_reference_rejected_count") or 0)
+        discovery_stats["generic_row_date_or_period_rejected_count"] += int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0)
+        discovery_stats["body_reference_title_rejected_count"] += int(diagnostics.get("body_reference_title_rejected_count") or 0)
+        discovery_stats["body_reference_title_value_rejected_count"] += int(diagnostics.get("body_reference_title_value_rejected_count") or 0)
     selected_pages, selection_warnings, target_group_rows = _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages_extract_first(
         args,
         candidates=candidate_pages,
@@ -43203,6 +43549,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
                 "candidate_line_scanned_count": int(diagnostics.get("candidate_line_scanned_count") or 0),
                 "candidate_line_matched_count": int(diagnostics.get("candidate_line_matched_count") or 0),
                 "candidate_line_rejected_count": int(diagnostics.get("candidate_line_rejected_count") or 0),
+                "false_generic_statement_row_rejected_count": int(diagnostics.get("false_generic_statement_row_rejected_count") or 0),
+                "generic_row_fx_rate_rejected_count": int(diagnostics.get("generic_row_fx_rate_rejected_count") or 0),
+                "generic_row_percent_or_discount_rejected_count": int(diagnostics.get("generic_row_percent_or_discount_rejected_count") or 0),
+                "generic_row_statement_reference_rejected_count": int(diagnostics.get("generic_row_statement_reference_rejected_count") or 0),
+                "generic_row_date_or_period_rejected_count": int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0),
+                "body_reference_title_rejected_count": int(diagnostics.get("body_reference_title_rejected_count") or 0),
+                "body_reference_title_value_rejected_count": int(diagnostics.get("body_reference_title_value_rejected_count") or 0),
                 "table_row_candidate_count": int(primary_assessment.get("table_row_candidate_count") or 0),
                 "small_number_line_rejected_count": int(diagnostics.get("small_page_or_note_number_value_rejected_count") or 0),
                 "value_candidate_count": len(page_values),
@@ -43212,9 +43565,34 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
             snapshot[field] = bool(snapshot.get(field))
         page_snapshot_rows.append(snapshot)
         value_rows.extend(page_values)
+    guarded_value_rows: list[dict[str, Any]] = []
+    final_guard_blockers: list[dict[str, Any]] = []
+    for row in value_rows:
+        guard_codes = _rzd_controlled_value_extraction_final_value_row_guard(row)
+        if guard_codes:
+            discovery_stats["false_generic_statement_row_rejected_count"] = int(discovery_stats.get("false_generic_statement_row_rejected_count") or 0) + 1
+            if "generic_row_fx_rate_rejected" in guard_codes:
+                discovery_stats["generic_row_fx_rate_rejected_count"] = int(discovery_stats.get("generic_row_fx_rate_rejected_count") or 0) + 1
+            if "generic_row_percent_or_discount_rejected" in guard_codes:
+                discovery_stats["generic_row_percent_or_discount_rejected_count"] = int(discovery_stats.get("generic_row_percent_or_discount_rejected_count") or 0) + 1
+            if "generic_row_statement_reference_rejected" in guard_codes:
+                discovery_stats["generic_row_statement_reference_rejected_count"] = int(discovery_stats.get("generic_row_statement_reference_rejected_count") or 0) + 1
+            if "generic_row_date_or_period_rejected" in guard_codes:
+                discovery_stats["generic_row_date_or_period_rejected_count"] = int(discovery_stats.get("generic_row_date_or_period_rejected_count") or 0) + 1
+            final_guard_blockers.append(
+                _rzd_manual_official_pdf_controlled_value_extraction_blocker_row(
+                    "controlled_value_extraction_false_generic_row_final_guard",
+                    target_type=str(row.get("target_type") or ""),
+                    page_number=int(row.get("statement_page") or row.get("page_number") or 0),
+                    metric_key=str(row.get("metric_key") or ""),
+                )
+            )
+            continue
+        guarded_value_rows.append(row)
+    value_rows = guarded_value_rows
     if not value_rows:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_values")
-        return page_snapshot_rows, [], [blocker], warnings, "failed", target_group_rows, discovery_stats
+        return page_snapshot_rows, [], [blocker, *final_guard_blockers], warnings, "failed", target_group_rows, discovery_stats
     found_by_target = {row.get("target_type") for row in value_rows}
     for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
         if target_type not in found_by_target:
@@ -43223,7 +43601,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     status = "passed"
     if len(page_snapshot_rows) < 3 or len(value_rows) < 8 or warnings:
         status = "warning"
-    return page_snapshot_rows, value_rows, [], warnings, status, target_group_rows, discovery_stats
+    return page_snapshot_rows, value_rows, final_guard_blockers, warnings, status, target_group_rows, discovery_stats
 
 
 def _rzd_manual_official_pdf_controlled_value_extraction_safety_flags() -> dict[str, bool]:
@@ -43366,6 +43744,27 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "cross_target_value_rejected_count": int(discovery_stats.get("cross_target_value_rejected_count") or 0),
         "cross_target_page_value_count": sum(1 for row in value_rows if _as_bool(row.get("cross_target_page_value"))),
         "generic_primary_statement_value_count": sum(1 for row in value_rows if _as_bool(row.get("generic_metric"))),
+        "valid_generic_profit_or_loss_value_count": sum(
+            1
+            for row in value_rows
+            if row.get("target_type") == "profit_or_loss"
+            and _as_bool(row.get("generic_metric"))
+            and not row.get("blocker_codes")
+        ),
+        "false_generic_profit_or_loss_value_count": sum(
+            1
+            for row in value_rows
+            if row.get("target_type") == "profit_or_loss"
+            and _as_bool(row.get("generic_metric"))
+            and "controlled_value_extraction_false_generic_row_final_guard" in (row.get("blocker_codes") or [])
+        ),
+        "false_generic_statement_row_rejected_count": int(discovery_stats.get("false_generic_statement_row_rejected_count") or 0),
+        "generic_row_fx_rate_rejected_count": int(discovery_stats.get("generic_row_fx_rate_rejected_count") or 0),
+        "generic_row_percent_or_discount_rejected_count": int(discovery_stats.get("generic_row_percent_or_discount_rejected_count") or 0),
+        "generic_row_statement_reference_rejected_count": int(discovery_stats.get("generic_row_statement_reference_rejected_count") or 0),
+        "generic_row_date_or_period_rejected_count": int(discovery_stats.get("generic_row_date_or_period_rejected_count") or 0),
+        "body_reference_title_rejected_count": int(discovery_stats.get("body_reference_title_rejected_count") or 0),
+        "body_reference_title_value_rejected_count": int(discovery_stats.get("body_reference_title_value_rejected_count") or 0),
         "wide_equity_movement_line_rejected_count": int(discovery_stats.get("wide_equity_movement_line_rejected_count") or 0),
         "wide_equity_movement_value_rejected_count": int(discovery_stats.get("wide_equity_movement_value_rejected_count") or 0),
         "target_group_row_count": len(target_group_rows),
@@ -43412,6 +43811,51 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
     }
 
 
+def _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(
+    page_snapshot_rows: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for snapshot in page_snapshot_rows or []:
+        if not isinstance(snapshot, dict):
+            continue
+        target_type = str(snapshot.get("target_type") or "")
+        page_number = int(snapshot.get("page_number") or 0)
+        sample_text = str(snapshot.get("selected_page_text_sample") or snapshot.get("page_text_sample") or "")
+        sample_lines = [line.strip()[:240] for line in sample_text.splitlines() if line.strip()][:6]
+        false_counts = {
+            "generic_row_fx_rate_rejected": int(snapshot.get("generic_row_fx_rate_rejected_count") or 0),
+            "generic_row_percent_or_discount_rejected": int(snapshot.get("generic_row_percent_or_discount_rejected_count") or 0),
+            "generic_row_statement_reference_rejected": int(snapshot.get("generic_row_statement_reference_rejected_count") or 0),
+            "generic_row_date_or_period_rejected": int(snapshot.get("generic_row_date_or_period_rejected_count") or 0),
+        }
+        rows.append(
+            {
+                "diagnostic_id": f"rzd_manual_official_pdf_controlled_value_page_diagnostic:{target_type}:{page_number}",
+                "target_type": target_type,
+                "page_number": page_number,
+                "title_anchor_candidate": bool(
+                    snapshot.get("matched_title")
+                    or snapshot.get("target_title_matched")
+                    or int(snapshot.get("body_reference_title_rejected_count") or 0) > 0
+                ),
+                "title_anchor_accepted": _as_bool(snapshot.get("target_title_matched"))
+                and not _as_bool(snapshot.get("cross_target_title_detected")),
+                "title_anchor_reject_reason_codes": list(snapshot.get("title_reject_reason_codes") or []),
+                "title_anchor_reason_codes": list(snapshot.get("title_match_reason_codes") or []),
+                "matched_title": str(snapshot.get("matched_title") or ""),
+                "matched_title_line_number": int(snapshot.get("matched_title_line_number") or 0),
+                "cross_target_title_detected": _as_bool(snapshot.get("cross_target_title_detected")),
+                "cross_target_title_type": str(snapshot.get("cross_target_title_type") or ""),
+                "sample_lines": sample_lines,
+                "candidate_row_count": int(snapshot.get("target_specific_value_row_count") or snapshot.get("value_candidate_count") or 0),
+                "false_generic_row_rejected_count": int(snapshot.get("false_generic_statement_row_rejected_count") or 0),
+                "false_generic_reject_reason_counts": false_counts,
+                "safe_hint": "Diagnostic row only. Task170 does not import values or mutate downstream systems.",
+            }
+        )
+    return rows
+
+
 def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     args: argparse.Namespace,
     *,
@@ -43455,6 +43899,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         counts.get("non_primary_statement_value_count", 0) > 0
         or counts.get("notes_page_value_count", 0) > 0
         or counts.get("cross_target_page_value_count", 0) > 0
+        or counts.get("false_generic_profit_or_loss_value_count", 0) > 0
         or counts.get("primary_statement_group_value_count", 0) != counts.get("value_candidate_row_count", 0)
     ):
         quality_warnings.append({"message": "controlled_value_extraction_primary_statement_pages_missing"})
@@ -43470,6 +43915,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         and counts["notes_page_value_count"] == 0
         and counts["non_primary_statement_value_count"] == 0
         and counts["cross_target_page_value_count"] == 0
+        and counts["false_generic_profit_or_loss_value_count"] == 0
         and counts["primary_statement_group_value_count"] == counts["value_candidate_row_count"]
     )
     ready = status in {"passed", "warning"} and counts["value_candidate_row_count"] > 0 and not blocker_rows and quality_ready
@@ -43482,6 +43928,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         for code in row.get("warning_codes") or []:
             warning_count_rows.append({"warning_code": str(code)})
     actual_backend = next((str(row.get("text_backend") or "") for row in page_snapshot_rows if row.get("text_backend")), "")
+    page_diagnostic_rows = _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(page_snapshot_rows)
     report = {
         "status": status,
         "mode": "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
@@ -43509,6 +43956,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         "controlled_value_extraction_allow_notes_pages": bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages),
         "target_group_diagnostics_truncated": any(_as_bool(row.get("target_group_diagnostics_truncated")) for row in target_group_rows),
         "page_snapshot_rows": page_snapshot_rows,
+        "page_diagnostic_rows": page_diagnostic_rows,
         "target_group_rows": target_group_rows,
         "value_rows": value_rows,
         "blocker_rows": blocker_rows,
@@ -43620,6 +44068,21 @@ def _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(repo
         artifacts["page_snapshots_json"],
     )
     _write_optional_flat_csv(report.get("page_snapshot_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS, artifacts["page_snapshots_csv"])
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-manual-official-pdf-controlled-value-extraction-page-diagnostics-v2",
+            "row_count": len(report.get("page_diagnostic_rows") or []),
+            "page_diagnostic_rows": report.get("page_diagnostic_rows") or [],
+            **_rzd_manual_official_pdf_controlled_value_extraction_safety_flags(),
+        },
+        artifacts["page_diagnostics_json"],
+    )
+    _write_optional_flat_csv(
+        report.get("page_diagnostic_rows") or [],
+        RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_DIAGNOSTIC_FIELDS,
+        artifacts["page_diagnostics_csv"],
+    )
     if artifacts["rerun_markdown"] is not None:
         write_rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown(report, artifacts["rerun_markdown"])
 
@@ -43665,6 +44128,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
                 "wide_equity_movement_line_rejected_count": int(report.get("wide_equity_movement_line_rejected_count") or 0),
                 "wide_equity_movement_value_rejected_count": int(report.get("wide_equity_movement_value_rejected_count") or 0),
                 "tax_note_page_rejected_count": int(report.get("tax_note_page_rejected_count") or 0),
+                "false_generic_statement_row_rejected_count": int(report.get("false_generic_statement_row_rejected_count") or 0),
+                "generic_row_fx_rate_rejected_count": int(report.get("generic_row_fx_rate_rejected_count") or 0),
+                "generic_row_percent_or_discount_rejected_count": int(report.get("generic_row_percent_or_discount_rejected_count") or 0),
+                "generic_row_statement_reference_rejected_count": int(report.get("generic_row_statement_reference_rejected_count") or 0),
+                "generic_row_date_or_period_rejected_count": int(report.get("generic_row_date_or_period_rejected_count") or 0),
+                "body_reference_title_rejected_count": int(report.get("body_reference_title_rejected_count") or 0),
+                "body_reference_title_value_rejected_count": int(report.get("body_reference_title_value_rejected_count") or 0),
             },
             value_rows=list(report.get("value_rows") or []),
             blocker_rows=list(report.get("blocker_rows") or []),
@@ -43672,6 +44142,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
         )
     )
     report["blocker_code_counts"] = _count_by_key(report.get("blocker_rows") or [], "blocker_code")
+    report["page_diagnostic_rows"] = _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(
+        list(report.get("page_snapshot_rows") or [])
+    )
     for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS:
         report[field] = bool(report.get(field))
     for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS:
