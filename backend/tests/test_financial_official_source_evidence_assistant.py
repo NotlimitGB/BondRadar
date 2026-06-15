@@ -13884,17 +13884,7 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     monkeypatch,
 ) -> None:
     _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
-    toc_text = "\n".join(
-        [
-            "Содержание",
-            "Консолидированный отчет о финансовом положении 9",
-            "Консолидированный отчет о прибылях и убытках 11",
-            "Консолидированный отчет о прочем совокупном доходе 12",
-            "Консолидированный отчет об изменениях капитала 13",
-            "Консолидированный отчет о движении денежных средств 15",
-            "Примечания к консолидированной финансовой отчетности 17",
-        ]
-    )
+    toc_text = _task170_strict_toc_text()
     contents_row = {
         "page_map_id": "page:2",
         "page_number": 2,
@@ -13981,6 +13971,8 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     assert report["controlled_value_extraction_ready"] is True
     assert report["toc_primary_pages_detected"] is True
     assert report["toc_primary_page_override_used"] is True
+    assert report["toc_primary_page_order_valid"] is True
+    assert report["toc_primary_page_order_reject_reason_codes"] == []
     assert report["toc_source_page"] == 2
     assert report["toc_statement_of_financial_position_page"] == 9
     assert report["toc_profit_or_loss_page"] == 11
@@ -14000,8 +13992,68 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     assert snapshots_by_target["profit_or_loss"]["selection_source"] == "toc_primary_page"
     assert snapshots_by_target["profit_or_loss"]["page_number"] == 11
     assert any("toc_primary_page_anchor_used" in (row.get("reason_codes") or []) for row in report["target_group_rows"])
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.csv").is_file()
+    toc_diagnostics = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.json").read_text(encoding="utf-8"))
+    assert toc_diagnostics["row_count"] >= 6
+    assert all(row["accepted"] is True for row in toc_diagnostics["toc_diagnostic_rows"])
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_strict_toc_parser_accepts_ordered_refs() -> None:
+    row = _task170_toc_page_map_row(_task170_strict_toc_text())
+    parsed = assistant._rzd_controlled_value_extraction_parse_toc_primary_pages([row], pdf_page_count=115)
+
+    assert parsed["toc_primary_pages_detected"] is True
+    assert parsed["toc_primary_page_override_used"] is True
+    assert parsed["toc_primary_page_order_valid"] is True
+    assert parsed["toc_source_page"] == 2
+    assert parsed["toc_statement_of_financial_position_page"] == 9
+    assert parsed["toc_profit_or_loss_page"] == 11
+    assert parsed["toc_other_comprehensive_income_page"] == 12
+    assert parsed["toc_changes_in_equity_page"] == 13
+    assert parsed["toc_cash_flows_page"] == 15
+    assert parsed["toc_notes_start_page"] == 17
+    assert parsed["toc_candidate_page_ref_rejected_count"] == 0
+    assert parsed["toc_year_number_rejected_count"] == 0
+    assert parsed["toc_large_number_rejected_count"] == 0
+    assert len(parsed["toc_diagnostic_rows"]) == 6
+    assert all(row["accepted"] is True for row in parsed["toc_diagnostic_rows"])
+
+    collapsed = _task170_toc_page_map_row(" ".join(_task170_strict_toc_text().splitlines()))
+    collapsed_parsed = assistant._rzd_controlled_value_extraction_parse_toc_primary_pages([collapsed], pdf_page_count=115)
+    assert collapsed_parsed["toc_primary_page_order_valid"] is True
+    assert collapsed_parsed["toc_role_pages"] == parsed["toc_role_pages"]
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_strict_toc_rejects_bad_refs() -> None:
+    bad_toc = "\n".join(
+        [
+            "Содержание стр. 2",
+            "Консолидированный отчет о финансовом положении 2",
+            "Консолидированный отчет о прибылях и убытках 2025",
+            "Консолидированный отчет о прочем совокупном доходе 12",
+            "Консолидированный отчет об изменениях капитала 507",
+            "Консолидированный отчет о движении денежных средств 10",
+            "Примечания к консолидированной финансовой отчетности 245",
+        ]
+    )
+    parsed = assistant._rzd_controlled_value_extraction_parse_toc_primary_pages([_task170_toc_page_map_row(bad_toc)], pdf_page_count=115)
+
+    assert parsed["toc_primary_pages_detected"] is False
+    assert parsed["toc_primary_page_override_used"] is False
+    assert parsed["toc_primary_page_order_valid"] is False
+    assert parsed["toc_statement_of_financial_position_page"] == 0
+    assert parsed["toc_profit_or_loss_page"] == 0
+    assert parsed["toc_changes_in_equity_page"] == 0
+    assert parsed["toc_notes_start_page"] == 0
+    assert parsed["toc_source_page_number_rejected_count"] >= 1
+    assert parsed["toc_year_number_rejected_count"] >= 1
+    assert parsed["toc_large_number_rejected_count"] >= 2
+    assert parsed["toc_out_of_order_page_ref_rejected_count"] >= 1
+    assert "controlled_value_extraction_toc_page_order_invalid" in parsed["toc_primary_page_order_reject_reason_codes"]
+    assert any(row["accepted"] is False for row in parsed["toc_diagnostic_rows"])
 
 
 def test_rzd_manual_official_pdf_controlled_value_extraction_discovers_real_sofp_after_noisy_start_page(
@@ -24410,6 +24462,39 @@ def _task170_page_texts() -> dict[int, dict[str, object]]:
     }
 
 
+def _task170_strict_toc_text() -> str:
+    return "\n".join(
+        [
+            "Содержание стр.",
+            "Консолидированный отчет о финансовом положении 9",
+            "Консолидированный отчет о прибылях и убытках 11",
+            "Консолидированный отчет о прочем совокупном доходе 12",
+            "Консолидированный отчет об изменениях капитала 13",
+            "Консолидированный отчет о движении денежных средств 15",
+            "Примечания к консолидированной финансовой отчетности 17",
+        ]
+    )
+
+
+def _task170_toc_page_map_row(text: str) -> dict[str, object]:
+    return {
+        "page_map_id": "page:2",
+        "page_number": 2,
+        "page_text_sample": text,
+        "detected_section_type": "contents",
+        "detected_section_title": "contents",
+        "is_financial_statement_page": False,
+        "is_statement_of_financial_position_page": False,
+        "is_profit_or_loss_page": False,
+        "is_other_comprehensive_income_page": False,
+        "is_changes_in_equity_page": False,
+        "is_cash_flows_page": False,
+        "is_notes_page": False,
+        "is_auditor_report_page": False,
+        "is_contents_page": True,
+    }
+
+
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -24427,6 +24512,8 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(re
         assert field in report
         assert isinstance(report[field], dict)
         assert report[field] is not None
+    assert isinstance(report.get("toc_primary_page_order_reject_reason_codes"), list)
+    assert isinstance(report.get("toc_diagnostic_rows"), list)
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report: dict) -> None:
@@ -24528,6 +24615,17 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("candidate_row_count"), int)
         assert isinstance(row.get("false_generic_row_rejected_count"), int)
         assert isinstance(row.get("false_generic_reject_reason_counts"), dict)
+    for row in report.get("toc_diagnostic_rows") or []:
+        assert isinstance(row.get("toc_diagnostic_id"), str)
+        assert isinstance(row.get("toc_source_page"), int)
+        assert isinstance(row.get("target_type"), str)
+        assert isinstance(row.get("matched_phrase"), str)
+        assert isinstance(row.get("text_slice"), str)
+        assert isinstance(row.get("raw_page_ref"), str)
+        assert isinstance(row.get("parsed_page_ref"), int)
+        assert isinstance(row.get("accepted"), bool)
+        assert isinstance(row.get("reject_reason_codes"), list)
+        assert isinstance(row.get("safe_hint"), str)
     for row in report.get("value_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:
             assert field in row
