@@ -13995,8 +13995,107 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.csv").is_file()
     toc_diagnostics = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.json").read_text(encoding="utf-8"))
-    assert toc_diagnostics["row_count"] >= 6
+    assert toc_diagnostics["row_count"] >= 7
+    assert toc_diagnostics["toc_source_candidate_row_count"] >= 1
+    assert toc_diagnostics["toc_source_candidate_rows"][0]["accepted"] is True
     assert all(row["accepted"] is True for row in toc_diagnostics["toc_diagnostic_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_detects_early_toc_without_contents_flag(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_row = _task170_toc_page_map_row(
+        _task170_strict_toc_text(),
+        detected_section_type="auditor_report",
+        is_contents_page=False,
+        is_auditor_report_page=True,
+    )
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, toc_row)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    for row in targets_payload["target_rows"]:
+        if row["target_type"] in {"statement_of_financial_position", "profit_or_loss", "other_comprehensive_income", "cash_flows"}:
+            row["start_page"] = 2
+            row["candidate_pages"] = [2, *row.get("candidate_pages", [])]
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    page_texts = _task170_page_texts()
+    page_texts[2] = {"backend": "synthetic", "text": _task170_strict_toc_text()}
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["toc_primary_pages_detected"] is True
+    assert report["toc_source_page"] == 2
+    assert report["toc_source_text_detected_count"] >= 1
+    assert report["toc_source_flag_detected_count"] == 0
+    assert report["toc_statement_of_financial_position_page"] == 9
+    assert report["toc_profit_or_loss_page"] == 11
+    assert report["toc_other_comprehensive_income_page"] == 12
+    assert report["toc_cash_flows_page"] == 15
+    assert report["toc_notes_start_page"] == 17
+    assert report["contents_page_primary_rejected_count"] >= 1
+    assert all(row["statement_page"] != 2 for row in report["value_rows"])
+    assert any(
+        row["page_number"] == 2
+        and row["accepted"] is True
+        and "early_page_toc_text_detected" in row["accepted_reason_codes"]
+        for row in report["toc_source_candidate_rows"]
+    )
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_detects_toc_from_full_page_text(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, _targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_row = _task170_toc_page_map_row(
+        "Independent auditor front matter only.",
+        detected_section_type="auditor_report",
+        is_contents_page=False,
+        is_auditor_report_page=True,
+    )
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, toc_row)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    page_texts = _task170_page_texts()
+    page_texts[2] = {"backend": "synthetic", "text": _task170_strict_toc_text()}
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["toc_primary_pages_detected"] is True
+    assert report["toc_source_page"] == 2
+    source_row = next(row for row in report["toc_source_candidate_rows"] if row["page_number"] == 2)
+    assert source_row["accepted"] is True
+    assert source_row["toc_source_text_detected"] is True
+    assert source_row["toc_source_flag_detected"] is False
+    assert source_row["text_source"] == "full_extracted_page_text"
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -24476,13 +24575,19 @@ def _task170_strict_toc_text() -> str:
     )
 
 
-def _task170_toc_page_map_row(text: str) -> dict[str, object]:
+def _task170_toc_page_map_row(
+    text: str,
+    *,
+    detected_section_type: str = "contents",
+    is_contents_page: bool = True,
+    is_auditor_report_page: bool = False,
+) -> dict[str, object]:
     return {
         "page_map_id": "page:2",
         "page_number": 2,
         "page_text_sample": text,
-        "detected_section_type": "contents",
-        "detected_section_title": "contents",
+        "detected_section_type": detected_section_type,
+        "detected_section_title": detected_section_type,
         "is_financial_statement_page": False,
         "is_statement_of_financial_position_page": False,
         "is_profit_or_loss_page": False,
@@ -24490,8 +24595,8 @@ def _task170_toc_page_map_row(text: str) -> dict[str, object]:
         "is_changes_in_equity_page": False,
         "is_cash_flows_page": False,
         "is_notes_page": False,
-        "is_auditor_report_page": False,
-        "is_contents_page": True,
+        "is_auditor_report_page": is_auditor_report_page,
+        "is_contents_page": is_contents_page,
     }
 
 
@@ -24513,6 +24618,8 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(re
         assert isinstance(report[field], dict)
         assert report[field] is not None
     assert isinstance(report.get("toc_primary_page_order_reject_reason_codes"), list)
+    assert isinstance(report.get("toc_source_detection_failed_reason_codes"), list)
+    assert isinstance(report.get("toc_source_candidate_rows"), list)
     assert isinstance(report.get("toc_diagnostic_rows"), list)
 
 
@@ -24616,6 +24723,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("false_generic_row_rejected_count"), int)
         assert isinstance(row.get("false_generic_reject_reason_counts"), dict)
     for row in report.get("toc_diagnostic_rows") or []:
+        assert isinstance(row.get("row_type"), str)
         assert isinstance(row.get("toc_diagnostic_id"), str)
         assert isinstance(row.get("toc_source_page"), int)
         assert isinstance(row.get("target_type"), str)
@@ -24624,7 +24732,23 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("raw_page_ref"), str)
         assert isinstance(row.get("parsed_page_ref"), int)
         assert isinstance(row.get("accepted"), bool)
+        assert isinstance(row.get("accepted_reason_codes"), list)
         assert isinstance(row.get("reject_reason_codes"), list)
+        assert isinstance(row.get("safe_hint"), str)
+    for row in report.get("toc_source_candidate_rows") or []:
+        assert isinstance(row.get("row_type"), str)
+        assert isinstance(row.get("page_number"), int)
+        assert isinstance(row.get("page_map_detected_section_type"), str)
+        assert isinstance(row.get("is_contents_page_flag"), bool)
+        assert isinstance(row.get("toc_source_text_detected"), bool)
+        assert isinstance(row.get("toc_source_flag_detected"), bool)
+        assert isinstance(row.get("toc_source_score"), int)
+        assert isinstance(row.get("primary_title_phrase_hit_count"), int)
+        assert isinstance(row.get("title_with_page_ref_count"), int)
+        assert isinstance(row.get("accepted"), bool)
+        assert isinstance(row.get("accepted_reason_codes"), list)
+        assert isinstance(row.get("reject_reason_codes"), list)
+        assert isinstance(row.get("sample_text"), str)
         assert isinstance(row.get("safe_hint"), str)
     for row in report.get("value_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:

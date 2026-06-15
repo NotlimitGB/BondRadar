@@ -7000,6 +7000,11 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "toc_primary_page_override_used",
     "toc_primary_page_order_valid",
     "toc_primary_page_order_reject_reason_codes",
+    "toc_source_candidate_page_count",
+    "toc_source_text_detected_count",
+    "toc_source_flag_detected_count",
+    "toc_source_candidate_rejected_count",
+    "toc_source_detection_failed_reason_codes",
     "toc_source_page",
     "toc_statement_of_financial_position_page",
     "toc_profit_or_loss_page",
@@ -7149,6 +7154,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_DIAGNOSTIC_FIELDS = [
     "safe_hint",
 ]
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_TOC_DIAGNOSTIC_FIELDS = [
+    "row_type",
     "toc_diagnostic_id",
     "toc_source_page",
     "target_type",
@@ -7156,8 +7162,18 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_TOC_DIAGNOSTIC_FIELDS = [
     "text_slice",
     "raw_page_ref",
     "parsed_page_ref",
+    "page_number",
+    "page_map_detected_section_type",
+    "is_contents_page_flag",
+    "toc_source_text_detected",
+    "toc_source_flag_detected",
+    "toc_source_score",
+    "primary_title_phrase_hit_count",
+    "title_with_page_ref_count",
     "accepted",
+    "accepted_reason_codes",
     "reject_reason_codes",
+    "sample_text",
     "safe_hint",
 ]
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
@@ -7247,6 +7263,10 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "generic_row_date_or_period_rejected_count",
     "body_reference_title_rejected_count",
     "body_reference_title_value_rejected_count",
+    "toc_source_candidate_page_count",
+    "toc_source_text_detected_count",
+    "toc_source_flag_detected_count",
+    "toc_source_candidate_rejected_count",
     "toc_source_page",
     "toc_statement_of_financial_position_page",
     "toc_profit_or_loss_page",
@@ -42572,6 +42592,168 @@ def _rzd_controlled_value_extraction_is_toc_source_page(row: dict[str, Any], tex
     return bool(has_contents and has_page)
 
 
+def _rzd_controlled_value_extraction_toc_contents_terms() -> tuple[str, ...]:
+    return (
+        "contents",
+        "table of contents",
+        "СЃРѕРґРµСЂР¶Р°РЅРёРµ",
+        "РЎРѓР С•Р Т‘Р ВµРЎР‚Р В¶Р В°Р Р…Р С‘Р Вµ",
+        "Р РЋР С“Р В РЎвЂўР В РўвЂР В Р’ВµР РЋР вЂљР В Р’В¶Р В Р’В°Р В Р вЂ¦Р В РЎвЂР В Р’Вµ",
+        "РѕРіР»Р°РІР»РµРЅРёРµ",
+    )
+
+
+def _rzd_controlled_value_extraction_toc_page_terms() -> tuple[str, ...]:
+    return (
+        "page",
+        "pages",
+        "СЃС‚СЂ",
+        "СЃС‚СЂ.",
+        "СЃС‚СЂР°РЅРёС†Р°",
+        "РЎРѓРЎвЂљРЎР‚",
+        "РЎРѓРЎвЂљРЎР‚.",
+        "Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљ",
+    )
+
+
+def _rzd_controlled_value_extraction_toc_source_fragment_terms() -> tuple[str, ...]:
+    return (
+        "С„РёРЅР°РЅСЃРѕРІРѕРј РїРѕР»РѕР¶РµРЅРёРё",
+        "РїСЂРёР±С‹Р»СЏС… Рё СѓР±С‹С‚РєР°С…",
+        "РїСЂРѕС‡РµРј СЃРѕРІРѕРєСѓРїРЅРѕРј РґРѕС…РѕРґРµ",
+        "РґРІРёР¶РµРЅРёРё РґРµРЅРµР¶РЅС‹С… СЃСЂРµРґСЃС‚РІ",
+        "РїСЂРёРјРµС‡Р°РЅРёСЏ",
+        "financial position",
+        "profit or loss",
+        "comprehensive income",
+        "cash flows",
+        "notes",
+    )
+
+
+def _rzd_controlled_value_extraction_toc_text_for_page(
+    row: dict[str, Any],
+    page_texts: dict[int, dict[str, Any]] | None,
+) -> tuple[str, str]:
+    page_number = int(row.get("page_number") or 0)
+    extracted = (page_texts or {}).get(page_number) if page_number > 0 else None
+    if isinstance(extracted, dict) and str(extracted.get("text") or "").strip():
+        return str(extracted.get("text") or ""), "full_extracted_page_text"
+    for key in ("page_text_sample", "selected_page_text_sample", "detected_section_title", "section_title"):
+        value = str(row.get(key) or "")
+        if value.strip():
+            return value, key
+    return "", ""
+
+
+def _rzd_controlled_value_extraction_discover_toc_source_pages(
+    page_map_rows: list[dict[str, Any]],
+    page_texts: dict[int, dict[str, Any]] | None,
+    *,
+    max_early_pages: int = 7,
+) -> list[dict[str, Any]]:
+    page_texts = page_texts or {}
+    max_early_pages = int(max_early_pages or 7)
+    by_page = {int(row.get("page_number") or 0): row for row in page_map_rows if isinstance(row, dict) and int(row.get("page_number") or 0) > 0}
+    early_pages = sorted(
+        page
+        for page in set(range(1, max_early_pages + 1)) | {int(page) for page in page_texts if 1 <= int(page) <= max_early_pages}
+        if page > 0
+    )
+    phrases_by_role = _rzd_controlled_value_extraction_toc_title_phrases_by_role()
+    primary_roles = (
+        "statement_of_financial_position",
+        "profit_or_loss",
+        "other_comprehensive_income",
+        "changes_in_equity",
+        "cash_flows",
+        "notes_start_page",
+    )
+    rows: list[dict[str, Any]] = []
+    for page_number in early_pages:
+        page_row = dict(by_page.get(page_number, {"page_number": page_number}))
+        text, text_source = _rzd_controlled_value_extraction_toc_text_for_page(page_row, page_texts)
+        prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+        normalized = prepared["normalized_text"]
+        compact = prepared["compact_text"]
+        flag_detected = bool(
+            _as_bool(page_row.get("is_contents_page"))
+            or str(page_row.get("detected_section_type") or "").casefold() in {"contents", "table_of_contents"}
+        )
+        contents_marker = _rzd_controlled_value_extraction_phrase_count(_rzd_controlled_value_extraction_toc_contents_terms(), normalized, compact) > 0
+        page_marker = _rzd_controlled_value_extraction_phrase_count(_rzd_controlled_value_extraction_toc_page_terms(), normalized, compact) > 0
+        title_hits = 0
+        title_with_page_refs = 0
+        for role in primary_roles:
+            phrases = phrases_by_role.get(role, ())
+            if _rzd_controlled_value_extraction_phrase_count(phrases, normalized, compact) > 0:
+                title_hits += 1
+            extraction = _rzd_controlled_value_extraction_extract_toc_page_ref(text, phrases, ())
+            if int(extraction.get("parsed_page_ref") or 0) > 0:
+                title_with_page_refs += 1
+        fragment_hits = _rzd_controlled_value_extraction_phrase_count(
+            _rzd_controlled_value_extraction_toc_source_fragment_terms(),
+            normalized,
+            compact,
+        )
+        condition_a = bool(contents_marker and page_marker and title_hits >= 3)
+        condition_b = bool(title_with_page_refs >= 4)
+        condition_c = bool(page_number <= max_early_pages and fragment_hits >= 4)
+        text_detected = bool(condition_a or condition_b or condition_c)
+        accepted_reason_codes: list[str] = []
+        if text_detected:
+            accepted_reason_codes.append("early_page_toc_text_detected")
+        if flag_detected:
+            accepted_reason_codes.append("toc_page_map_flag_detected")
+        if contents_marker:
+            accepted_reason_codes.append("contents_marker_detected")
+        if page_marker:
+            accepted_reason_codes.append("page_marker_detected")
+        if title_hits >= 3:
+            accepted_reason_codes.append("multiple_statement_titles_detected")
+        if title_with_page_refs >= 4:
+            accepted_reason_codes.append("multiple_statement_titles_with_page_refs_detected")
+        if condition_c:
+            accepted_reason_codes.append("rzd_toc_title_fragment_cluster_detected")
+        reject_reason_codes: list[str] = []
+        if not str(text or "").strip():
+            reject_reason_codes.append("toc_source_text_missing")
+        if not (text_detected or flag_detected):
+            reject_reason_codes.append("toc_source_text_evidence_insufficient")
+        score = (
+            (25 if flag_detected else 0)
+            + (30 if contents_marker and page_marker else 0)
+            + title_hits * 10
+            + title_with_page_refs * 15
+            + fragment_hits * 5
+        )
+        accepted = bool((text_detected or flag_detected) and not reject_reason_codes)
+        if not accepted and not reject_reason_codes:
+            reject_reason_codes.append("toc_source_not_accepted")
+        rows.append(
+            {
+                "row_type": "source_candidate",
+                "toc_diagnostic_id": f"rzd_manual_official_pdf_controlled_value_toc_source:{page_number}",
+                "page_number": page_number,
+                "toc_source_page": page_number,
+                "page_map_detected_section_type": str(page_row.get("detected_section_type") or ""),
+                "is_contents_page_flag": _as_bool(page_row.get("is_contents_page")),
+                "toc_source_text_detected": bool(text_detected),
+                "toc_source_flag_detected": bool(flag_detected),
+                "toc_source_score": int(score),
+                "primary_title_phrase_hit_count": int(title_hits),
+                "title_with_page_ref_count": int(title_with_page_refs),
+                "accepted": bool(accepted),
+                "accepted_reason_codes": accepted_reason_codes if accepted else [],
+                "reject_reason_codes": [] if accepted else reject_reason_codes,
+                "sample_text": normalized[:1000],
+                "text_source": text_source,
+                "safe_hint": "TOC source candidate only. Task170 does not import values or mutate downstream systems.",
+            }
+        )
+    return sorted(rows, key=lambda row: (not _as_bool(row.get("accepted")), -int(row.get("toc_source_score") or 0), int(row.get("page_number") or 0)))
+
+
 def _rzd_controlled_value_extraction_find_toc_phrase(text: str, phrases: Sequence[str], *, start: int = 0) -> tuple[int, int, str]:
     matches: list[tuple[int, int, str]] = []
     for phrase in phrases:
@@ -42719,6 +42901,12 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
         "toc_primary_page_override_used": False,
         "toc_primary_page_order_valid": False,
         "toc_primary_page_order_reject_reason_codes": [],
+        "toc_source_candidate_page_count": 0,
+        "toc_source_text_detected_count": 0,
+        "toc_source_flag_detected_count": 0,
+        "toc_source_candidate_rejected_count": 0,
+        "toc_source_detection_failed_reason_codes": [],
+        "toc_source_candidate_rows": [],
         "toc_source_page": 0,
         "toc_statement_of_financial_position_page": 0,
         "toc_profit_or_loss_page": 0,
@@ -42751,15 +42939,60 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
         "notes_start_page": "toc_notes_start_page",
     }
     phrases_by_role = _rzd_controlled_value_extraction_toc_title_phrases_by_role()
-    for row in page_map_rows or []:
-        if not isinstance(row, dict):
-            continue
-        page_number = int(row.get("page_number") or 0)
+    page_map_list = [row for row in page_map_rows or [] if isinstance(row, dict)]
+    by_page = {int(row.get("page_number") or 0): row for row in page_map_list if int(row.get("page_number") or 0) > 0}
+    source_candidates = _rzd_controlled_value_extraction_discover_toc_source_pages(page_map_list, page_texts)
+    result["toc_source_candidate_rows"] = source_candidates
+    result["toc_source_candidate_page_count"] = len(source_candidates)
+    result["toc_source_text_detected_count"] = sum(1 for row in source_candidates if _as_bool(row.get("toc_source_text_detected")))
+    result["toc_source_flag_detected_count"] = sum(1 for row in source_candidates if _as_bool(row.get("toc_source_flag_detected")))
+    result["toc_source_candidate_rejected_count"] = sum(1 for row in source_candidates if not _as_bool(row.get("accepted")))
+    accepted_sources = [row for row in source_candidates if _as_bool(row.get("accepted"))]
+    if not accepted_sources:
+        failed_codes = sorted(
+            {
+                str(code)
+                for row in source_candidates
+                for code in (row.get("reject_reason_codes") or [])
+                if str(code)
+            }
+        )
+        result["toc_source_detection_failed_reason_codes"] = failed_codes or ["toc_source_candidates_not_found"]
+        return result
+
+    best_invalid: dict[str, Any] | None = None
+    for source_candidate in accepted_sources:
+        page_number = int(source_candidate.get("page_number") or source_candidate.get("toc_source_page") or 0)
         if page_number <= 0:
             continue
-        text = str((page_texts.get(page_number) or {}).get("text") or row.get("page_text_sample") or row.get("detected_section_title") or "")
-        if not text.strip() or not _rzd_controlled_value_extraction_is_toc_source_page(row, text):
+        page_row = by_page.get(page_number, {"page_number": page_number})
+        text, _text_source = _rzd_controlled_value_extraction_toc_text_for_page(page_row, page_texts)
+        if not text.strip():
             continue
+        trial = dict(result)
+        trial.update(
+            {
+                "toc_primary_pages_detected": False,
+                "toc_primary_page_override_used": False,
+                "toc_primary_page_order_valid": False,
+                "toc_primary_page_order_reject_reason_codes": [],
+                "toc_source_detection_failed_reason_codes": [],
+                "toc_source_page": page_number,
+                "toc_statement_of_financial_position_page": 0,
+                "toc_profit_or_loss_page": 0,
+                "toc_other_comprehensive_income_page": 0,
+                "toc_changes_in_equity_page": 0,
+                "toc_cash_flows_page": 0,
+                "toc_notes_start_page": 0,
+                "toc_role_pages": {},
+                "toc_diagnostic_rows": [],
+                "toc_candidate_page_ref_rejected_count": 0,
+                "toc_year_number_rejected_count": 0,
+                "toc_out_of_order_page_ref_rejected_count": 0,
+                "toc_source_page_number_rejected_count": 0,
+                "toc_large_number_rejected_count": 0,
+            }
+        )
         result["toc_source_page"] = page_number
         accepted_values: dict[str, int] = {"toc_source_page": page_number}
         for index, role in enumerate(roles):
@@ -42783,21 +43016,22 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
             accepted = parsed_page_ref > 0 and not reject_codes
             field = role_to_field[role]
             if accepted:
-                result[field] = parsed_page_ref
-                result["toc_role_pages"][role] = parsed_page_ref
+                trial[field] = parsed_page_ref
+                trial["toc_role_pages"][role] = parsed_page_ref
                 accepted_values[role] = parsed_page_ref
             else:
-                result[field] = 0
+                trial[field] = 0
                 if any(code == "toc_year_number_rejected" for code in reject_codes):
-                    result["toc_year_number_rejected_count"] += 1
+                    trial["toc_year_number_rejected_count"] += 1
                 if any(code == "toc_source_page_number_rejected" for code in reject_codes):
-                    result["toc_source_page_number_rejected_count"] += 1
+                    trial["toc_source_page_number_rejected_count"] += 1
                 if any(code == "toc_large_number_rejected" for code in reject_codes):
-                    result["toc_large_number_rejected_count"] += 1
+                    trial["toc_large_number_rejected_count"] += 1
                 if any(code in {"toc_candidate_page_ref_rejected", "toc_page_ref_missing", "toc_title_phrase_not_found"} for code in reject_codes):
-                    result["toc_candidate_page_ref_rejected_count"] += 1
-            result["toc_diagnostic_rows"].append(
+                    trial["toc_candidate_page_ref_rejected_count"] += 1
+            trial["toc_diagnostic_rows"].append(
                 {
+                    "row_type": "page_ref",
                     "toc_diagnostic_id": f"rzd_manual_official_pdf_controlled_value_toc:{page_number}:{role}",
                     "toc_source_page": page_number,
                     "target_type": role,
@@ -42806,25 +43040,42 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
                     "raw_page_ref": str(extraction.get("raw_page_ref") or ""),
                     "parsed_page_ref": parsed_page_ref,
                     "accepted": bool(accepted),
+                    "accepted_reason_codes": ["toc_page_ref_accepted"] if accepted else [],
                     "reject_reason_codes": reject_codes,
                     "safe_hint": "TOC diagnostic only. Task170 does not import values or mutate downstream systems.",
+                    "page_number": 0,
+                    "page_map_detected_section_type": "",
+                    "is_contents_page_flag": False,
+                    "toc_source_text_detected": False,
+                    "toc_source_flag_detected": False,
+                    "toc_source_score": 0,
+                    "primary_title_phrase_hit_count": 0,
+                    "title_with_page_ref_count": 0,
+                    "sample_text": "",
                 }
             )
         order_valid, order_reject_codes = _rzd_controlled_value_extraction_validate_toc_page_order(accepted_values)
         if not order_valid:
-            result["toc_out_of_order_page_ref_rejected_count"] += 1
-        result["toc_primary_page_order_valid"] = bool(order_valid)
-        result["toc_primary_page_order_reject_reason_codes"] = order_reject_codes
-        result["toc_primary_pages_detected"] = bool(order_valid)
-        result["toc_primary_page_override_used"] = bool(order_valid)
+            trial["toc_out_of_order_page_ref_rejected_count"] += 1
+        trial["toc_primary_page_order_valid"] = bool(order_valid)
+        trial["toc_primary_page_order_reject_reason_codes"] = order_reject_codes
+        trial["toc_primary_pages_detected"] = bool(order_valid)
+        trial["toc_primary_page_override_used"] = bool(order_valid)
         if not order_valid and order_reject_codes:
-            for diagnostic in result["toc_diagnostic_rows"]:
+            trial["toc_source_detection_failed_reason_codes"] = order_reject_codes
+            for diagnostic in trial["toc_diagnostic_rows"]:
                 if diagnostic.get("accepted"):
                     diagnostic["reject_reason_codes"] = list(
                         dict.fromkeys([*(diagnostic.get("reject_reason_codes") or []), *order_reject_codes])
                     )
                     diagnostic["accepted"] = False
-        return result
+        if order_valid:
+            return trial
+        if best_invalid is None:
+            best_invalid = trial
+    if best_invalid is not None:
+        return best_invalid
+    result["toc_source_detection_failed_reason_codes"] = ["toc_source_text_unavailable_for_accepted_candidate"]
     return result
 
 
@@ -42845,11 +43096,12 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
     page_map_rows: list[dict[str, Any]],
     target_rows: list[dict[str, Any]],
     pdf_page_count: int = 0,
+    page_texts: dict[int, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     target_types = _rzd_manual_official_pdf_controlled_value_extraction_target_types(args)
     by_page = {int(row.get("page_number") or 0): row for row in page_map_rows if int(row.get("page_number") or 0) > 0}
     allow_notes = bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages)
-    toc_info = _rzd_controlled_value_extraction_parse_toc_primary_pages(page_map_rows, pdf_page_count=pdf_page_count)
+    toc_info = _rzd_controlled_value_extraction_parse_toc_primary_pages(page_map_rows, page_texts=page_texts, pdf_page_count=pdf_page_count)
     candidates: list[dict[str, Any]] = []
     seen: set[tuple[str, int]] = set()
 
@@ -42878,9 +43130,10 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
         if not page_row:
             return
         page_context = " ".join([str(page_row.get("detected_section_title") or ""), str(page_row.get("page_text_sample") or "")])
+        toc_source_page = int(toc_info.get("toc_source_page") or 0)
         inferred_contents_page = _as_bool(page_row.get("is_contents_page")) or (
             source != "toc_primary_page"
-            and _rzd_controlled_value_extraction_is_toc_page_text(page_context)
+            and (page_number == toc_source_page or _rzd_controlled_value_extraction_is_toc_page_text(page_context))
         )
         in_notes_range = _rzd_controlled_value_extraction_page_is_in_toc_notes_range(page_number, toc_info, allow_notes)
         seen.add((target_type, page_number))
@@ -44010,16 +44263,23 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         loaded.get("task169_page_map") if isinstance(loaded.get("task169_page_map"), dict) else {},
         selected_evidence,
     )
+    controlled_text_path = controlled_pdf_path or Path(str(selected_evidence.get("controlled_pdf_copy_path") or ""))
+    early_page_texts = _rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
+        controlled_text_path,
+        range(1, 8),
+        str(args.rzd_manual_official_pdf_controlled_value_extraction_text_backend or "auto"),
+    )
     candidate_pages = _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
         args,
         page_map_rows=page_map_rows,
         target_rows=target_rows,
         pdf_page_count=pdf_page_count,
+        page_texts=early_page_texts,
     )
     toc_info = (
         candidate_pages[0].get("toc_info")
         if candidate_pages and isinstance(candidate_pages[0].get("toc_info"), dict)
-        else _rzd_controlled_value_extraction_parse_toc_primary_pages(page_map_rows, pdf_page_count=pdf_page_count)
+        else _rzd_controlled_value_extraction_parse_toc_primary_pages(page_map_rows, page_texts=early_page_texts, pdf_page_count=pdf_page_count)
     )
     empty_discovery_stats = {
         "candidate_discovery_page_count": 0,
@@ -44040,6 +44300,12 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         "generic_row_date_or_period_rejected_count": 0,
         "body_reference_title_rejected_count": 0,
         "body_reference_title_value_rejected_count": 0,
+        "toc_source_candidate_page_count": int(toc_info.get("toc_source_candidate_page_count") or 0),
+        "toc_source_text_detected_count": int(toc_info.get("toc_source_text_detected_count") or 0),
+        "toc_source_flag_detected_count": int(toc_info.get("toc_source_flag_detected_count") or 0),
+        "toc_source_candidate_rejected_count": int(toc_info.get("toc_source_candidate_rejected_count") or 0),
+        "toc_source_detection_failed_reason_codes": list(toc_info.get("toc_source_detection_failed_reason_codes") or []),
+        "toc_source_candidate_rows": list(toc_info.get("toc_source_candidate_rows") or []),
         "toc_primary_pages_detected": 1 if _as_bool(toc_info.get("toc_primary_pages_detected")) else 0,
         "toc_primary_page_override_used": 1 if _as_bool(toc_info.get("toc_primary_page_override_used")) else 0,
         "toc_primary_page_order_valid": 1 if _as_bool(toc_info.get("toc_primary_page_order_valid")) else 0,
@@ -44066,11 +44332,15 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
         return [], [], [blocker], [], "failed", [], empty_discovery_stats
     page_numbers = [int(item["page_number"]) for item in candidate_pages]
-    text_by_page = _rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
-        controlled_pdf_path or Path(str(selected_evidence.get("controlled_pdf_copy_path") or "")),
-        page_numbers,
-        str(args.rzd_manual_official_pdf_controlled_value_extraction_text_backend or "auto"),
-    )
+    remaining_page_numbers = [page for page in page_numbers if page not in early_page_texts]
+    text_by_page = {
+        **early_page_texts,
+        **_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
+            controlled_text_path,
+            remaining_page_numbers,
+            str(args.rzd_manual_official_pdf_controlled_value_extraction_text_backend or "auto"),
+        ),
+    }
     page_map_by_page = {int(row.get("page_number") or 0): row for row in page_map_rows if int(row.get("page_number") or 0) > 0}
     discovery_by_target: dict[str, dict[str, Any]] = {}
     discovery_stats = dict(empty_discovery_stats)
@@ -44169,7 +44439,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
             "page_source": "controlled_pdf_selected_page_text" if extracted else "task169_page_map_sample",
             "text_backend": backend,
             "selected_for_extraction": bool(text.strip()),
-            "is_contents_page": _as_bool(page_map_row.get("is_contents_page")),
+            "is_contents_page": _as_bool(page_map_row.get("is_contents_page")) or page_number == int(toc_info.get("toc_source_page") or 0),
             "is_notes_page": _as_bool(page_map_row.get("is_notes_page")),
             "is_auditor_report_page": _as_bool(page_map_row.get("is_auditor_report_page")),
             "target_exact_section_match": bool(
@@ -44453,6 +44723,10 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "generic_row_date_or_period_rejected_count": int(discovery_stats.get("generic_row_date_or_period_rejected_count") or 0),
         "body_reference_title_rejected_count": int(discovery_stats.get("body_reference_title_rejected_count") or 0),
         "body_reference_title_value_rejected_count": int(discovery_stats.get("body_reference_title_value_rejected_count") or 0),
+        "toc_source_candidate_page_count": int(discovery_stats.get("toc_source_candidate_page_count") or 0),
+        "toc_source_text_detected_count": int(discovery_stats.get("toc_source_text_detected_count") or 0),
+        "toc_source_flag_detected_count": int(discovery_stats.get("toc_source_flag_detected_count") or 0),
+        "toc_source_candidate_rejected_count": int(discovery_stats.get("toc_source_candidate_rejected_count") or 0),
         "toc_primary_pages_detected": int(discovery_stats.get("toc_primary_pages_detected") or 0),
         "toc_primary_page_override_used": int(discovery_stats.get("toc_primary_page_override_used") or 0),
         "toc_primary_page_order_valid": int(discovery_stats.get("toc_primary_page_order_valid") or 0),
@@ -44621,6 +44895,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         if target_type in configured_targets and int(counts.get(count_field) or 0) < minimum_count:
             quality_warnings.append({"message": warning_code, "target_type": target_type})
     toc_order_reject_reason_codes = list(discovery_stats.get("toc_primary_page_order_reject_reason_codes") or [])
+    toc_source_detection_failed_reason_codes = list(discovery_stats.get("toc_source_detection_failed_reason_codes") or [])
     if int(counts.get("toc_source_page") or 0) > 0 and not bool(counts.get("toc_primary_page_order_valid")):
         quality_warnings.append(
             {
@@ -44663,6 +44938,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     actual_backend = next((str(row.get("text_backend") or "") for row in page_snapshot_rows if row.get("text_backend")), "")
     page_diagnostic_rows = _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(page_snapshot_rows)
     toc_diagnostic_rows = list(discovery_stats.get("toc_diagnostic_rows") or [])
+    toc_source_candidate_rows = list(discovery_stats.get("toc_source_candidate_rows") or [])
     report = {
         "status": status,
         "mode": "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
@@ -44693,6 +44969,8 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         "toc_primary_page_override_used": bool(counts.get("toc_primary_page_override_used")),
         "toc_primary_page_order_valid": bool(counts.get("toc_primary_page_order_valid")),
         "toc_primary_page_order_reject_reason_codes": toc_order_reject_reason_codes,
+        "toc_source_detection_failed_reason_codes": toc_source_detection_failed_reason_codes,
+        "toc_source_candidate_rows": toc_source_candidate_rows,
         "page_snapshot_rows": page_snapshot_rows,
         "page_diagnostic_rows": page_diagnostic_rows,
         "toc_diagnostic_rows": toc_diagnostic_rows,
@@ -44822,18 +45100,75 @@ def _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(repo
         RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_DIAGNOSTIC_FIELDS,
         artifacts["page_diagnostics_csv"],
     )
+    toc_source_candidate_rows = report.get("toc_source_candidate_rows") or []
+    toc_diagnostic_rows = report.get("toc_diagnostic_rows") or []
+    toc_output_rows = [
+        {
+            "row_type": "source_candidate",
+            "toc_diagnostic_id": str(row.get("toc_diagnostic_id") or ""),
+            "toc_source_page": int(row.get("toc_source_page") or row.get("page_number") or 0),
+            "target_type": "",
+            "matched_phrase": "",
+            "text_slice": "",
+            "raw_page_ref": "",
+            "parsed_page_ref": 0,
+            "page_number": int(row.get("page_number") or row.get("toc_source_page") or 0),
+            "page_map_detected_section_type": str(row.get("page_map_detected_section_type") or ""),
+            "is_contents_page_flag": _as_bool(row.get("is_contents_page_flag")),
+            "toc_source_text_detected": _as_bool(row.get("toc_source_text_detected")),
+            "toc_source_flag_detected": _as_bool(row.get("toc_source_flag_detected")),
+            "toc_source_score": int(row.get("toc_source_score") or 0),
+            "primary_title_phrase_hit_count": int(row.get("primary_title_phrase_hit_count") or 0),
+            "title_with_page_ref_count": int(row.get("title_with_page_ref_count") or 0),
+            "accepted": _as_bool(row.get("accepted")),
+            "accepted_reason_codes": list(row.get("accepted_reason_codes") or []),
+            "reject_reason_codes": list(row.get("reject_reason_codes") or []),
+            "sample_text": str(row.get("sample_text") or ""),
+            "safe_hint": str(row.get("safe_hint") or ""),
+        }
+        for row in toc_source_candidate_rows
+    ] + [
+        {
+            "row_type": "page_ref",
+            "toc_diagnostic_id": str(row.get("toc_diagnostic_id") or ""),
+            "toc_source_page": int(row.get("toc_source_page") or 0),
+            "target_type": str(row.get("target_type") or ""),
+            "matched_phrase": str(row.get("matched_phrase") or ""),
+            "text_slice": str(row.get("text_slice") or ""),
+            "raw_page_ref": str(row.get("raw_page_ref") or ""),
+            "parsed_page_ref": int(row.get("parsed_page_ref") or 0),
+            "page_number": int(row.get("page_number") or 0),
+            "page_map_detected_section_type": str(row.get("page_map_detected_section_type") or ""),
+            "is_contents_page_flag": _as_bool(row.get("is_contents_page_flag")),
+            "toc_source_text_detected": _as_bool(row.get("toc_source_text_detected")),
+            "toc_source_flag_detected": _as_bool(row.get("toc_source_flag_detected")),
+            "toc_source_score": int(row.get("toc_source_score") or 0),
+            "primary_title_phrase_hit_count": int(row.get("primary_title_phrase_hit_count") or 0),
+            "title_with_page_ref_count": int(row.get("title_with_page_ref_count") or 0),
+            "accepted": _as_bool(row.get("accepted")),
+            "accepted_reason_codes": list(row.get("accepted_reason_codes") or []),
+            "reject_reason_codes": list(row.get("reject_reason_codes") or []),
+            "sample_text": str(row.get("sample_text") or ""),
+            "safe_hint": str(row.get("safe_hint") or ""),
+        }
+        for row in toc_diagnostic_rows
+    ]
     _write_optional_json_report(
         {
             "status": report["status"],
             "mode": "rzd-manual-official-pdf-controlled-value-extraction-toc-diagnostics-v2",
-            "row_count": len(report.get("toc_diagnostic_rows") or []),
-            "toc_diagnostic_rows": report.get("toc_diagnostic_rows") or [],
+            "row_count": len(toc_output_rows),
+            "toc_source_candidate_row_count": len(toc_source_candidate_rows),
+            "toc_diagnostic_row_count": len(toc_diagnostic_rows),
+            "toc_source_candidate_rows": toc_source_candidate_rows,
+            "toc_diagnostic_rows": toc_diagnostic_rows,
+            "rows": toc_output_rows,
             **_rzd_manual_official_pdf_controlled_value_extraction_safety_flags(),
         },
         artifacts["toc_diagnostics_json"],
     )
     _write_optional_flat_csv(
-        report.get("toc_diagnostic_rows") or [],
+        toc_output_rows,
         RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_TOC_DIAGNOSTIC_FIELDS,
         artifacts["toc_diagnostics_csv"],
     )
@@ -44889,6 +45224,12 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
                 "generic_row_date_or_period_rejected_count": int(report.get("generic_row_date_or_period_rejected_count") or 0),
                 "body_reference_title_rejected_count": int(report.get("body_reference_title_rejected_count") or 0),
                 "body_reference_title_value_rejected_count": int(report.get("body_reference_title_value_rejected_count") or 0),
+                "toc_source_candidate_page_count": int(report.get("toc_source_candidate_page_count") or 0),
+                "toc_source_text_detected_count": int(report.get("toc_source_text_detected_count") or 0),
+                "toc_source_flag_detected_count": int(report.get("toc_source_flag_detected_count") or 0),
+                "toc_source_candidate_rejected_count": int(report.get("toc_source_candidate_rejected_count") or 0),
+                "toc_source_detection_failed_reason_codes": list(report.get("toc_source_detection_failed_reason_codes") or []),
+                "toc_source_candidate_rows": list(report.get("toc_source_candidate_rows") or []),
                 "toc_primary_pages_detected": 1 if _as_bool(report.get("toc_primary_pages_detected")) else 0,
                 "toc_primary_page_override_used": 1 if _as_bool(report.get("toc_primary_page_override_used")) else 0,
                 "toc_primary_page_order_valid": 1 if _as_bool(report.get("toc_primary_page_order_valid")) else 0,
