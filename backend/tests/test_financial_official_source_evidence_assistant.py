@@ -13874,6 +13874,8 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md").is_file()
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
@@ -13999,6 +14001,198 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     assert toc_diagnostics["toc_source_candidate_row_count"] >= 1
     assert toc_diagnostics["toc_source_candidate_rows"][0]["accepted"] is True
     assert all(row["accepted"] is True for row in toc_diagnostics["toc_diagnostic_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_uses_ocr_for_textless_toc_primary_pages(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, _targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_row = _task170_toc_page_map_row(_task170_strict_toc_text())
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, toc_row)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    ocr_sofp = "\n".join(
+        [
+            "Statement of financial position 2025 2024 million rubles",
+            "Total assets 1000 900",
+            "Current assets 300 250",
+            "Total equity 400 350",
+            "Total equity and liabilities 1000 950",
+            "Cash and cash equivalents 50 40",
+        ]
+    )
+    ocr_pl = "\n".join(
+        [
+            "Statement of profit or loss 2025 2024 million rubles",
+            "Revenue 2000 1800",
+            "Operating profit 500 450",
+            "Finance costs (100) (80)",
+            "Profit for the year 300 280",
+        ]
+    )
+    normal_oci = "\n".join(
+        [
+            "Other comprehensive income 2025 2024 million rubles",
+            "Profit for the year 300 280",
+            "Other comprehensive income 20 10",
+            "Total comprehensive income 320 290",
+            "Text line to keep normal extraction strong",
+            "Another context line with 2025 and 2024",
+        ]
+    )
+    page_texts = _task170_page_texts()
+    page_texts.update(
+        {
+            2: {"backend": "synthetic", "text": _task170_strict_toc_text()},
+            9: {"backend": "synthetic", "text": ""},
+            11: {"backend": "synthetic", "text": ""},
+            12: {"backend": "synthetic", "text": normal_oci},
+        }
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+    ocr_attempted_pages: list[int] = []
+
+    def fake_ocr(pdf_path, page_numbers, output_dir, languages="rus+eng"):
+        ocr_attempted_pages.extend(int(page) for page in page_numbers)
+        rows = {}
+        for page in page_numbers:
+            text = ocr_sofp if int(page) == 9 else ocr_pl if int(page) == 11 else ""
+            rows[int(page)] = {
+                "ocr_diagnostic_id": f"ocr:{page}",
+                "page_number": int(page),
+                "target_type": "",
+                "ocr_attempted": True,
+                "ocr_success": bool(text),
+                "text": text,
+                "backend": "ocr_tesseract" if text else "",
+                "ocr_text_char_count": len(text),
+                "ocr_text_nonempty_line_count": len([line for line in text.splitlines() if line.strip()]),
+                "ocr_error": "" if text else "local_pdf_ocr_empty_text",
+                "local_pdf_page_render_available": True,
+                "local_pdf_page_render_backend": "pdftoppm",
+                "local_pdf_page_render_attempted": True,
+                "local_pdf_page_render_success": True,
+                "effective_page_text_source": "ocr_tesseract" if text else "",
+                "effective_page_text_backend": "ocr_tesseract" if text else "",
+                "safe_hint": "test ocr",
+            }
+        return rows
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_value_extraction_ocr_local_pdf_pages", fake_ocr)
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["ocr_text_extraction_available"] is True
+    assert report["ocr_text_extraction_backend"] == "ocr_tesseract"
+    assert report["ocr_page_attempt_count"] >= 2
+    assert report["ocr_page_success_count"] >= 2
+    assert report["toc_primary_page_text_probe_count"] >= 4
+    assert 9 in ocr_attempted_pages
+    assert 11 in ocr_attempted_pages
+    assert all(page < 17 for page in ocr_attempted_pages)
+    assert report["statement_of_financial_position_value_count"] >= 2
+    assert report["profit_or_loss_value_count"] >= 2
+    assert report["other_comprehensive_income_value_count"] >= 2
+    assert any(row["value_text_source"] == "ocr_tesseract" and row["statement_page"] == 9 for row in report["value_rows"])
+    assert any(row["value_text_source"] == "ocr_tesseract" and row["statement_page"] == 11 for row in report["value_rows"])
+    assert any(row["value_text_source"] != "ocr_tesseract" and row["statement_page"] == 12 for row in report["value_rows"])
+    snapshot_by_page = {row["page_number"]: row for row in report["page_snapshot_rows"]}
+    assert snapshot_by_page[9]["effective_page_text_source"] == "ocr_tesseract"
+    assert snapshot_by_page[9]["ocr_success"] is True
+    assert snapshot_by_page[11]["effective_page_text_backend"] == "ocr_tesseract"
+    ocr_diagnostics_path = tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_task170.json"
+    assert ocr_diagnostics_path.is_file()
+    ocr_diagnostics = json.loads(ocr_diagnostics_path.read_text(encoding="utf-8"))
+    assert ocr_diagnostics["row_count"] >= 2
+    assert any(row["page_number"] == 9 and row["ocr_success"] is True for row in ocr_diagnostics["ocr_diagnostic_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_ocr_unavailable_does_not_crash(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, _targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_row = _task170_toc_page_map_row(_task170_strict_toc_text())
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, toc_row)
+        for row in rows:
+            if int(row.get("page_number") or 0) == 9:
+                row["page_text_sample"] = "Statement of financial position 2025 2024 million rubles"
+                row["has_table_like_text"] = False
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    page_texts = {
+        2: {"backend": "synthetic", "text": _task170_strict_toc_text()},
+        9: {"backend": "synthetic", "text": ""},
+    }
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+
+    def fake_ocr_unavailable(pdf_path, page_numbers, output_dir, languages="rus+eng"):
+        return {
+            int(page): {
+                "ocr_diagnostic_id": f"ocr:{page}",
+                "page_number": int(page),
+                "target_type": "",
+                "ocr_attempted": True,
+                "ocr_success": False,
+                "text": "",
+                "backend": "",
+                "ocr_text_char_count": 0,
+                "ocr_text_nonempty_line_count": 0,
+                "ocr_error": "local_pdf_ocr_tools_unavailable",
+                "local_pdf_page_render_available": False,
+                "local_pdf_page_render_backend": "",
+                "local_pdf_page_render_attempted": False,
+                "local_pdf_page_render_success": False,
+                "effective_page_text_source": "",
+                "effective_page_text_backend": "",
+                "safe_hint": "test ocr unavailable",
+            }
+            for page in page_numbers
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_value_extraction_ocr_local_pdf_pages", fake_ocr_unavailable)
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "statement_of_financial_position",
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["controlled_value_extraction_ready"] is False
+    assert report["ocr_text_extraction_available"] is False
+    assert report["ocr_page_attempt_count"] >= 1
+    assert report["ocr_page_failed_count"] >= 1
+    assert {"message": "controlled_value_extraction_ocr_unavailable_or_failed"} in report["warnings"]
+    assert "controlled_value_extraction_no_values" in {row["blocker_code"] for row in report["blocker_rows"]}
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -24670,7 +24864,12 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(re
         assert field in report
         assert isinstance(report[field], int)
         assert report[field] is not None
-    for field in ("pdf_text_extraction_backend",):
+    for field in (
+        "pdf_text_extraction_backend",
+        "local_pdf_page_render_backend",
+        "ocr_text_extraction_backend",
+        "ocr_text_extraction_languages",
+    ):
         assert field in report
         assert isinstance(report[field], str)
         assert report[field] is not None
@@ -24683,6 +24882,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(re
     assert isinstance(report.get("toc_notes_start_page_inference_reason_codes"), list)
     assert isinstance(report.get("toc_source_candidate_rows"), list)
     assert isinstance(report.get("toc_diagnostic_rows"), list)
+    assert isinstance(report.get("ocr_diagnostic_rows"), list)
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report: dict) -> None:
@@ -24694,6 +24894,11 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         for field in (
             "selection_score",
             "selection_priority_rank",
+            "page_text_char_count",
+            "page_text_nonempty_line_count",
+            "page_text_table_like_line_count",
+            "ocr_text_char_count",
+            "ocr_text_nonempty_line_count",
             "contents_navigation_line_rejected_count",
             "page_number_value_rejected_count",
             "date_period_line_rejected_count",
@@ -24735,6 +24940,12 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("page_title_detected"), str)
         assert isinstance(row.get("selection_source"), str)
         assert isinstance(row.get("toc_primary_page_target_type"), str)
+        assert isinstance(row.get("page_text_backend"), str)
+        assert isinstance(row.get("toc_primary_page_text_probe_target_type"), str)
+        assert isinstance(row.get("toc_primary_page_text_probe_result"), str)
+        assert isinstance(row.get("effective_page_text_backend"), str)
+        assert isinstance(row.get("effective_page_text_source"), str)
+        assert isinstance(row.get("ocr_error"), str)
     for row in report.get("target_group_rows") or []:
         assert isinstance(row.get("target_group_id"), str)
         assert isinstance(row.get("selected_pages"), list)
@@ -24780,6 +24991,21 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("toc_notes_range_rejected"), bool)
         assert isinstance(row.get("page_map_false_statement_flag_rejected"), bool)
         assert isinstance(row.get("contents_page_rejected_as_primary"), bool)
+        assert isinstance(row.get("page_text_backend"), str)
+        assert isinstance(row.get("page_text_char_count"), int)
+        assert isinstance(row.get("page_text_nonempty_line_count"), int)
+        assert isinstance(row.get("page_text_table_like_line_count"), int)
+        assert isinstance(row.get("page_text_empty_or_weak"), bool)
+        assert isinstance(row.get("toc_primary_page_text_probe"), bool)
+        assert isinstance(row.get("toc_primary_page_text_probe_target_type"), str)
+        assert isinstance(row.get("toc_primary_page_text_probe_result"), str)
+        assert isinstance(row.get("effective_page_text_backend"), str)
+        assert isinstance(row.get("effective_page_text_source"), str)
+        assert isinstance(row.get("ocr_attempted"), bool)
+        assert isinstance(row.get("ocr_success"), bool)
+        assert isinstance(row.get("ocr_text_char_count"), int)
+        assert isinstance(row.get("ocr_text_nonempty_line_count"), int)
+        assert isinstance(row.get("ocr_error"), str)
         assert isinstance(row.get("sample_lines"), list)
         assert isinstance(row.get("candidate_row_count"), int)
         assert isinstance(row.get("false_generic_row_rejected_count"), int)
@@ -24816,6 +25042,22 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("inference_reason_codes"), list)
         assert isinstance(row.get("sample_text"), str)
         assert isinstance(row.get("safe_hint"), str)
+    for row in report.get("ocr_diagnostic_rows") or []:
+        assert isinstance(row.get("ocr_diagnostic_id"), str)
+        assert isinstance(row.get("page_number"), int)
+        assert isinstance(row.get("target_type"), str)
+        assert isinstance(row.get("ocr_attempted"), bool)
+        assert isinstance(row.get("ocr_success"), bool)
+        assert isinstance(row.get("ocr_text_char_count"), int)
+        assert isinstance(row.get("ocr_text_nonempty_line_count"), int)
+        assert isinstance(row.get("ocr_error"), str)
+        assert isinstance(row.get("local_pdf_page_render_available"), bool)
+        assert isinstance(row.get("local_pdf_page_render_backend"), str)
+        assert isinstance(row.get("local_pdf_page_render_attempted"), bool)
+        assert isinstance(row.get("local_pdf_page_render_success"), bool)
+        assert isinstance(row.get("effective_page_text_source"), str)
+        assert isinstance(row.get("effective_page_text_backend"), str)
+        assert isinstance(row.get("safe_hint"), str)
     for row in report.get("value_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:
             assert field in row
@@ -24825,6 +25067,8 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert row["statement_page"] > 0
         assert isinstance(row.get("line_number_on_page"), int)
         assert row["line_number_on_page"] > 0
+        assert isinstance(row.get("value_text_source"), str)
+        assert isinstance(row.get("value_text_backend"), str)
 
 
 def _assert_rzd_manual_official_pdf_parse_plan_report_fields(report: dict) -> None:

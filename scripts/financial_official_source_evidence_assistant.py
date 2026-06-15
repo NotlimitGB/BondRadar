@@ -6950,6 +6950,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_ARTIFACT_NAMES = {
     "page_diagnostics_csv": "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.csv",
     "toc_diagnostics_json": "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.json",
     "toc_diagnostics_csv": "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.csv",
+    "ocr_diagnostics_json": "rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_task170.json",
+    "ocr_diagnostics_csv": "rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_task170.csv",
     "rerun_markdown": "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md",
 }
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
@@ -7017,6 +7019,23 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "toc_notes_start_page_inference_attempt_count",
     "toc_notes_start_page_inference_success_count",
     "toc_notes_start_page_inference_rejected_count",
+    "toc_primary_page_text_probe_count",
+    "toc_primary_page_text_probe_empty_count",
+    "toc_primary_page_text_probe_weak_count",
+    "toc_primary_page_text_probe_table_like_count",
+    "local_pdf_page_render_available",
+    "local_pdf_page_render_backend",
+    "local_pdf_page_render_attempt_count",
+    "local_pdf_page_render_success_count",
+    "local_pdf_page_render_failed_count",
+    "ocr_text_extraction_available",
+    "ocr_text_extraction_backend",
+    "ocr_text_extraction_languages",
+    "ocr_page_attempt_count",
+    "ocr_page_success_count",
+    "ocr_page_failed_count",
+    "ocr_primary_statement_page_count",
+    "ocr_text_char_count_total",
     "toc_candidate_page_ref_rejected_count",
     "toc_year_number_rejected_count",
     "toc_out_of_order_page_ref_rejected_count",
@@ -7067,6 +7086,20 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS = [
     "page_number",
     "page_text_sha256",
     "page_text_char_count",
+    "page_text_backend",
+    "page_text_nonempty_line_count",
+    "page_text_table_like_line_count",
+    "page_text_empty_or_weak",
+    "toc_primary_page_text_probe",
+    "toc_primary_page_text_probe_target_type",
+    "toc_primary_page_text_probe_result",
+    "effective_page_text_backend",
+    "effective_page_text_source",
+    "ocr_attempted",
+    "ocr_success",
+    "ocr_text_char_count",
+    "ocr_text_nonempty_line_count",
+    "ocr_error",
     "page_text_sample",
     "page_source",
     "text_backend",
@@ -7152,6 +7185,21 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_DIAGNOSTIC_FIELDS = [
     "toc_notes_range_rejected",
     "page_map_false_statement_flag_rejected",
     "contents_page_rejected_as_primary",
+    "page_text_backend",
+    "page_text_char_count",
+    "page_text_nonempty_line_count",
+    "page_text_table_like_line_count",
+    "page_text_empty_or_weak",
+    "toc_primary_page_text_probe",
+    "toc_primary_page_text_probe_target_type",
+    "toc_primary_page_text_probe_result",
+    "effective_page_text_backend",
+    "effective_page_text_source",
+    "ocr_attempted",
+    "ocr_success",
+    "ocr_text_char_count",
+    "ocr_text_nonempty_line_count",
+    "ocr_error",
     "sample_lines",
     "candidate_row_count",
     "false_generic_row_rejected_count",
@@ -7183,6 +7231,23 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_TOC_DIAGNOSTIC_FIELDS = [
     "sample_text",
     "safe_hint",
 ]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_OCR_DIAGNOSTIC_FIELDS = [
+    "ocr_diagnostic_id",
+    "page_number",
+    "target_type",
+    "ocr_attempted",
+    "ocr_success",
+    "ocr_text_char_count",
+    "ocr_text_nonempty_line_count",
+    "ocr_error",
+    "local_pdf_page_render_available",
+    "local_pdf_page_render_backend",
+    "local_pdf_page_render_attempted",
+    "local_pdf_page_render_success",
+    "effective_page_text_source",
+    "effective_page_text_backend",
+    "safe_hint",
+]
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
     "value_id",
     "company_id",
@@ -7212,6 +7277,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
     "note_reference",
     "row_label",
     "extraction_method",
+    "value_text_source",
+    "value_text_backend",
     "extraction_confidence",
     "extraction_status",
     "reason_codes",
@@ -7284,6 +7351,18 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "toc_notes_start_page_inference_attempt_count",
     "toc_notes_start_page_inference_success_count",
     "toc_notes_start_page_inference_rejected_count",
+    "toc_primary_page_text_probe_count",
+    "toc_primary_page_text_probe_empty_count",
+    "toc_primary_page_text_probe_weak_count",
+    "toc_primary_page_text_probe_table_like_count",
+    "local_pdf_page_render_attempt_count",
+    "local_pdf_page_render_success_count",
+    "local_pdf_page_render_failed_count",
+    "ocr_page_attempt_count",
+    "ocr_page_success_count",
+    "ocr_page_failed_count",
+    "ocr_primary_statement_page_count",
+    "ocr_text_char_count_total",
     "toc_candidate_page_ref_rejected_count",
     "toc_year_number_rejected_count",
     "toc_out_of_order_page_ref_rejected_count",
@@ -7345,6 +7424,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS = (
     "toc_primary_page_override_used",
     "toc_primary_page_order_valid",
     "toc_notes_start_page_inferred",
+    "local_pdf_page_render_available",
+    "ocr_text_extraction_available",
     "controlled_value_extraction_ready",
     "future_human_review_required",
     "future_import_required",
@@ -7391,6 +7472,10 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "toc_primary_page_candidate",
     "toc_primary_page_anchor_used",
     "toc_notes_range_rejected",
+    "page_text_empty_or_weak",
+    "toc_primary_page_text_probe",
+    "ocr_attempted",
+    "ocr_success",
     "page_map_false_statement_flag_rejected",
     "contents_page_rejected_as_primary",
     "has_2025_column",
@@ -8905,6 +8990,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-page-diagnostics-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-toc-diagnostics-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-toc-diagnostics-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-ocr-diagnostics-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-ocr-diagnostics-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-rerun-markdown-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-value-extraction-values-input", type=Path, default=None)
@@ -40892,6 +40979,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_artifacts(args: argpars
         "page_diagnostics_csv": args.rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_csv_output,
         "toc_diagnostics_json": args.rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_output,
         "toc_diagnostics_csv": args.rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_csv_output,
+        "ocr_diagnostics_json": args.rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_output,
+        "ocr_diagnostics_csv": args.rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_csv_output,
         "rerun_markdown": args.rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown_output,
     }
     return {
@@ -42166,6 +42255,12 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
                 is_contents_page=_as_bool(page_row.get("is_contents_page")),
                 title_match_info=title_match,
             )
+        text_info = page_texts.get(page_number) or {}
+        value_text_source = str(text_info.get("effective_page_text_source") or ("controlled_pdf_selected_page_text" if text.strip() else ""))
+        value_text_backend = str(text_info.get("effective_page_text_backend") or text_info.get("backend") or "")
+        for candidate_row in candidate_rows:
+            candidate_row["value_text_source"] = value_text_source
+            candidate_row["value_text_backend"] = value_text_backend
         metric_keys = {str(row.get("metric_key") or "") for row in candidate_rows}
         broad_metric_keys = metric_keys & _rzd_controlled_value_extraction_profit_or_loss_broad_metric_keys()
         table_score = len(metric_keys) * 50 + sum(1 for row in candidate_rows if row.get("value_2025_present") and row.get("value_2024_present")) * 10
@@ -44205,6 +44300,405 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
     return results
 
 
+def _rzd_controlled_value_extraction_text_profile(text: str) -> dict[str, int | bool]:
+    text = str(text or "")
+    nonempty_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    table_like_lines = 0
+    for line in nonempty_lines:
+        numbers = _rzd_manual_official_pdf_controlled_value_extraction_line_numbers(line)
+        if len([value for _raw, value in numbers if isinstance(value, int)]) >= 2:
+            table_like_lines += 1
+    prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+    return {
+        "char_count": len(text),
+        "nonempty_line_count": len(nonempty_lines),
+        "table_like_line_count": table_like_lines,
+        "has_2025_column": "2025" in prepared["normalized_text"],
+        "has_2024_column": "2024" in prepared["normalized_text"],
+    }
+
+
+def _rzd_controlled_value_extraction_toc_ocr_allowed_page(
+    *,
+    target_type: str,
+    page_number: int,
+    toc_info: dict[str, Any],
+    allow_notes_pages: bool,
+) -> bool:
+    if page_number <= 0:
+        return False
+    if _rzd_controlled_value_extraction_page_is_in_toc_notes_range(page_number, toc_info, allow_notes_pages):
+        return False
+    anchor = int(toc_info.get(f"toc_{target_type}_page") or 0)
+    if anchor <= 0:
+        return False
+    allowed_offsets = {
+        "statement_of_financial_position": {0, 1},
+        "profit_or_loss": {0},
+        "other_comprehensive_income": {0},
+        "cash_flows": {0, 1},
+    }.get(target_type, {0})
+    return page_number - anchor in allowed_offsets
+
+
+def _rzd_controlled_value_extraction_page_text_probe(
+    *,
+    target_type: str,
+    text: str,
+    page_row: dict[str, Any],
+    toc_primary: bool,
+) -> dict[str, Any]:
+    profile = _rzd_controlled_value_extraction_text_profile(text)
+    prepared = _normalize_pdf_preview_text_for_signal_detection(
+        " ".join([str(page_row.get("detected_section_title") or ""), str(text or "")])
+    )
+    title_matched = _rzd_controlled_value_extraction_phrase_count(
+        _rzd_controlled_value_extraction_statement_title_terms(target_type),
+        prepared["normalized_text"],
+        prepared["compact_text"],
+    ) > 0
+    empty = int(profile["char_count"]) == 0 or int(profile["nonempty_line_count"]) == 0
+    weak = bool(
+        empty
+        or int(profile["char_count"]) < 200
+        or int(profile["nonempty_line_count"]) < 5
+        or int(profile["table_like_line_count"]) < 1
+        or not (_as_bool(profile["has_2025_column"]) and _as_bool(profile["has_2024_column"]))
+        or (toc_primary and not title_matched)
+    )
+    if empty:
+        result = "empty"
+    elif weak:
+        result = "weak"
+    elif int(profile["table_like_line_count"]) > 0:
+        result = "table_like"
+    else:
+        result = "strong"
+    return {
+        **profile,
+        "target_title_matched": bool(title_matched),
+        "page_text_empty_or_weak": bool(weak),
+        "toc_primary_page_text_probe_result": result,
+    }
+
+
+def _rzd_controlled_value_extraction_ocr_diagnostic_row(
+    *,
+    page_number: int,
+    target_type: str,
+    attempted: bool,
+    success: bool,
+    text: str = "",
+    error: str = "",
+    render_available: bool = False,
+    render_backend: str = "",
+    render_attempted: bool = False,
+    render_success: bool = False,
+    effective_source: str = "",
+    effective_backend: str = "",
+) -> dict[str, Any]:
+    profile = _rzd_controlled_value_extraction_text_profile(text)
+    return {
+        "ocr_diagnostic_id": f"rzd_manual_official_pdf_controlled_value_ocr:{target_type or 'unknown'}:{page_number}",
+        "page_number": int(page_number or 0),
+        "target_type": str(target_type or ""),
+        "ocr_attempted": bool(attempted),
+        "ocr_success": bool(success),
+        "ocr_text_char_count": int(profile.get("char_count") or 0),
+        "ocr_text_nonempty_line_count": int(profile.get("nonempty_line_count") or 0),
+        "ocr_error": str(error or ""),
+        "local_pdf_page_render_available": bool(render_available),
+        "local_pdf_page_render_backend": str(render_backend or ""),
+        "local_pdf_page_render_attempted": bool(render_attempted),
+        "local_pdf_page_render_success": bool(render_success),
+        "effective_page_text_source": str(effective_source or ""),
+        "effective_page_text_backend": str(effective_backend or ""),
+        "safe_hint": "Local OCR diagnostic only. Task170 does not fetch, download, import, score, trade, or mutate production state.",
+    }
+
+
+def _rzd_controlled_value_extraction_ocr_local_pdf_pages(
+    pdf_path: Path,
+    page_numbers: Sequence[int],
+    output_dir: Path,
+    languages: str = "rus+eng",
+) -> dict[int, dict[str, Any]]:
+    unique_pages = [page for page in dict.fromkeys(int(page) for page in page_numbers if int(page) > 0)]
+    rows: dict[int, dict[str, Any]] = {}
+    pdftoppm = shutil.which("pdftoppm")
+    tesseract = shutil.which("tesseract")
+    tools_available = bool(pdftoppm and tesseract)
+    if not tools_available:
+        for page in unique_pages:
+            rows[page] = _rzd_controlled_value_extraction_ocr_diagnostic_row(
+                page_number=page,
+                target_type="",
+                attempted=True,
+                success=False,
+                error="local_pdf_ocr_tools_unavailable",
+                render_available=bool(pdftoppm),
+                render_backend="pdftoppm" if pdftoppm else "",
+                render_attempted=False,
+                render_success=False,
+            )
+        return rows
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        for page in unique_pages:
+            rows[page] = _rzd_controlled_value_extraction_ocr_diagnostic_row(
+                page_number=page,
+                target_type="",
+                attempted=True,
+                success=False,
+                error=f"local_pdf_ocr_output_dir_failed:{exc}",
+                render_available=True,
+                render_backend="pdftoppm",
+                render_attempted=False,
+                render_success=False,
+            )
+        return rows
+    for page in unique_pages:
+        prefix = output_dir / f"task170_ocr_page_{page}"
+        try:
+            render = subprocess.run(
+                [pdftoppm, "-f", str(page), "-l", str(page), "-png", str(pdf_path), str(prefix)],
+                check=False,
+                capture_output=True,
+                timeout=60,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            rows[page] = _rzd_controlled_value_extraction_ocr_diagnostic_row(
+                page_number=page,
+                target_type="",
+                attempted=True,
+                success=False,
+                error=f"local_pdf_render_failed:{exc}",
+                render_available=True,
+                render_backend="pdftoppm",
+                render_attempted=True,
+                render_success=False,
+            )
+            continue
+        image_candidates = sorted(output_dir.glob(f"{prefix.name}*.png"))
+        if render.returncode != 0 or not image_candidates:
+            error = (render.stderr or b"").decode("utf-8", errors="replace")[:300]
+            rows[page] = _rzd_controlled_value_extraction_ocr_diagnostic_row(
+                page_number=page,
+                target_type="",
+                attempted=True,
+                success=False,
+                error=f"local_pdf_render_failed:{error}",
+                render_available=True,
+                render_backend="pdftoppm",
+                render_attempted=True,
+                render_success=False,
+            )
+            continue
+        image_path = image_candidates[0]
+        try:
+            ocr = subprocess.run(
+                [tesseract, str(image_path), "stdout", "-l", languages],
+                check=False,
+                capture_output=True,
+                timeout=90,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            rows[page] = _rzd_controlled_value_extraction_ocr_diagnostic_row(
+                page_number=page,
+                target_type="",
+                attempted=True,
+                success=False,
+                error=f"local_pdf_ocr_failed:{exc}",
+                render_available=True,
+                render_backend="pdftoppm",
+                render_attempted=True,
+                render_success=True,
+            )
+            continue
+        text = ocr.stdout.decode("utf-8", errors="replace") if ocr.stdout else ""
+        success = ocr.returncode == 0 and bool(text.strip()) and not _rzd_pdf_preview_text_looks_like_raw_pdf(text)
+        error = "" if success else (ocr.stderr or b"").decode("utf-8", errors="replace")[:300] or "local_pdf_ocr_empty_text"
+        row = _rzd_controlled_value_extraction_ocr_diagnostic_row(
+            page_number=page,
+            target_type="",
+            attempted=True,
+            success=success,
+            text=text if success else "",
+            error=error,
+            render_available=True,
+            render_backend="pdftoppm",
+            render_attempted=True,
+            render_success=True,
+            effective_source="ocr_tesseract" if success else "",
+            effective_backend="ocr_tesseract" if success else "",
+        )
+        row["text"] = text if success else ""
+        row["backend"] = "ocr_tesseract" if success else ""
+        rows[page] = row
+    return rows
+
+
+def _rzd_controlled_value_extraction_apply_toc_ocr_fallback(
+    *,
+    args: argparse.Namespace,
+    controlled_pdf_path: Path,
+    candidate_pages: Sequence[dict[str, Any]],
+    page_map_by_page: dict[int, dict[str, Any]],
+    text_by_page: dict[int, dict[str, Any]],
+    toc_info: dict[str, Any],
+    allow_notes_pages: bool,
+) -> tuple[dict[int, dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
+    stats: dict[str, Any] = {
+        "toc_primary_page_text_probe_count": 0,
+        "toc_primary_page_text_probe_empty_count": 0,
+        "toc_primary_page_text_probe_weak_count": 0,
+        "toc_primary_page_text_probe_table_like_count": 0,
+        "local_pdf_page_render_available": False,
+        "local_pdf_page_render_backend": "",
+        "local_pdf_page_render_attempt_count": 0,
+        "local_pdf_page_render_success_count": 0,
+        "local_pdf_page_render_failed_count": 0,
+        "ocr_text_extraction_available": False,
+        "ocr_text_extraction_backend": "",
+        "ocr_text_extraction_languages": "rus+eng",
+        "ocr_page_attempt_count": 0,
+        "ocr_page_success_count": 0,
+        "ocr_page_failed_count": 0,
+        "ocr_primary_statement_page_count": 0,
+        "ocr_text_char_count_total": 0,
+        "ocr_diagnostic_rows": [],
+    }
+    page_targets: dict[int, str] = {}
+    probe_pages: set[int] = set()
+    for item in candidate_pages:
+        if not _as_bool(item.get("toc_primary_page_candidate")):
+            continue
+        target_type = str(item.get("target_type") or item.get("toc_primary_page_target_type") or "")
+        page_number = int(item.get("page_number") or 0)
+        if not _rzd_controlled_value_extraction_toc_ocr_allowed_page(
+            target_type=target_type,
+            page_number=page_number,
+            toc_info=toc_info,
+            allow_notes_pages=allow_notes_pages,
+        ):
+            continue
+        probe_pages.add(page_number)
+        page_targets.setdefault(page_number, target_type)
+    ocr_needed: list[int] = []
+    for page_number in sorted(probe_pages):
+        target_type = page_targets.get(page_number, "")
+        page_row = page_map_by_page.get(page_number) or {}
+        existing = dict(text_by_page.get(page_number) or {})
+        original_text = str(existing.get("text") or "")
+        original_backend = str(existing.get("backend") or "")
+        probe = _rzd_controlled_value_extraction_page_text_probe(
+            target_type=target_type,
+            text=original_text,
+            page_row=page_row,
+            toc_primary=True,
+        )
+        stats["toc_primary_page_text_probe_count"] = int(stats["toc_primary_page_text_probe_count"]) + 1
+        result = str(probe.get("toc_primary_page_text_probe_result") or "")
+        if result == "empty":
+            stats["toc_primary_page_text_probe_empty_count"] = int(stats["toc_primary_page_text_probe_empty_count"]) + 1
+        if _as_bool(probe.get("page_text_empty_or_weak")):
+            stats["toc_primary_page_text_probe_weak_count"] = int(stats["toc_primary_page_text_probe_weak_count"]) + 1
+            ocr_needed.append(page_number)
+        if int(probe.get("table_like_line_count") or 0) > 0:
+            stats["toc_primary_page_text_probe_table_like_count"] = int(stats["toc_primary_page_text_probe_table_like_count"]) + 1
+        text_by_page[page_number] = {
+            **existing,
+            "text": original_text,
+            "backend": original_backend,
+            "page_text_backend": original_backend,
+            "page_text_nonempty_line_count": int(probe.get("nonempty_line_count") or 0),
+            "page_text_table_like_line_count": int(probe.get("table_like_line_count") or 0),
+            "page_text_empty_or_weak": _as_bool(probe.get("page_text_empty_or_weak")),
+            "toc_primary_page_text_probe": True,
+            "toc_primary_page_text_probe_target_type": target_type,
+            "toc_primary_page_text_probe_result": result,
+            "effective_page_text_source": "controlled_pdf_selected_page_text" if original_text.strip() else "",
+            "effective_page_text_backend": original_backend,
+        }
+    if not ocr_needed:
+        return text_by_page, stats, []
+    output_dir = (
+        args.operator_resolution_chain_output_dir / "rzd_manual_official_pdf_controlled_value_extraction_ocr_work_task170"
+        if args.operator_resolution_chain_output_dir
+        else Path(tempfile.gettempdir()) / "rzd_manual_official_pdf_controlled_value_extraction_ocr_work_task170"
+    )
+    ocr_results = _rzd_controlled_value_extraction_ocr_local_pdf_pages(
+        controlled_pdf_path,
+        sorted(ocr_needed),
+        output_dir,
+        languages="rus+eng",
+    )
+    warnings: list[dict[str, Any]] = []
+    for page_number in sorted(ocr_needed):
+        target_type = page_targets.get(page_number, "")
+        ocr_row = dict(ocr_results.get(page_number) or {})
+        ocr_row["target_type"] = target_type
+        ocr_row["ocr_diagnostic_id"] = f"rzd_manual_official_pdf_controlled_value_ocr:{target_type or 'unknown'}:{page_number}"
+        attempted = _as_bool(ocr_row.get("ocr_attempted")) or True
+        success = _as_bool(ocr_row.get("ocr_success"))
+        text = str(ocr_row.get("text") or "")
+        stats["ocr_page_attempt_count"] = int(stats["ocr_page_attempt_count"]) + 1
+        stats["local_pdf_page_render_attempt_count"] = int(stats["local_pdf_page_render_attempt_count"]) + (1 if _as_bool(ocr_row.get("local_pdf_page_render_attempted")) else 0)
+        if _as_bool(ocr_row.get("local_pdf_page_render_available")):
+            stats["local_pdf_page_render_available"] = True
+            stats["local_pdf_page_render_backend"] = str(ocr_row.get("local_pdf_page_render_backend") or "pdftoppm")
+        if _as_bool(ocr_row.get("local_pdf_page_render_success")):
+            stats["local_pdf_page_render_success_count"] = int(stats["local_pdf_page_render_success_count"]) + 1
+        elif _as_bool(ocr_row.get("local_pdf_page_render_attempted")):
+            stats["local_pdf_page_render_failed_count"] = int(stats["local_pdf_page_render_failed_count"]) + 1
+        existing = dict(text_by_page.get(page_number) or {})
+        if success and text.strip():
+            ocr_profile = _rzd_controlled_value_extraction_text_profile(text)
+            stats["ocr_page_success_count"] = int(stats["ocr_page_success_count"]) + 1
+            stats["ocr_primary_statement_page_count"] = int(stats["ocr_primary_statement_page_count"]) + 1
+            stats["ocr_text_char_count_total"] = int(stats["ocr_text_char_count_total"]) + int(ocr_profile.get("char_count") or 0)
+            stats["ocr_text_extraction_available"] = True
+            stats["ocr_text_extraction_backend"] = "ocr_tesseract"
+            text_by_page[page_number] = {
+                **existing,
+                "text": text,
+                "backend": "ocr_tesseract",
+                "ocr_attempted": attempted,
+                "ocr_success": True,
+                "ocr_text_char_count": int(ocr_profile.get("char_count") or 0),
+                "ocr_text_nonempty_line_count": int(ocr_profile.get("nonempty_line_count") or 0),
+                "ocr_error": "",
+                "effective_page_text_source": "ocr_tesseract",
+                "effective_page_text_backend": "ocr_tesseract",
+            }
+            ocr_row["effective_page_text_source"] = "ocr_tesseract"
+            ocr_row["effective_page_text_backend"] = "ocr_tesseract"
+        else:
+            stats["ocr_page_failed_count"] = int(stats["ocr_page_failed_count"]) + 1
+            if not any(warning.get("message") == "controlled_value_extraction_ocr_unavailable_or_failed" for warning in warnings):
+                warnings.append({"message": "controlled_value_extraction_ocr_unavailable_or_failed"})
+            sample = str((page_map_by_page.get(page_number) or {}).get("page_text_sample") or "")
+            fallback_source = "task169_page_map_sample" if sample.strip() and not str(existing.get("text") or "").strip() else existing.get("effective_page_text_source") or ""
+            fallback_backend = "task169_page_sample" if fallback_source == "task169_page_map_sample" else existing.get("effective_page_text_backend") or ""
+            text_by_page[page_number] = {
+                **existing,
+                "ocr_attempted": attempted,
+                "ocr_success": False,
+                "ocr_text_char_count": 0,
+                "ocr_text_nonempty_line_count": 0,
+                "ocr_error": str(ocr_row.get("ocr_error") or "local_pdf_ocr_failed"),
+                "effective_page_text_source": fallback_source,
+                "effective_page_text_backend": fallback_backend,
+            }
+            ocr_row["effective_page_text_source"] = str(fallback_source or "")
+            ocr_row["effective_page_text_backend"] = str(fallback_backend or "")
+        if "safe_hint" not in ocr_row:
+            ocr_row["safe_hint"] = "Local OCR diagnostic only. Task170 does not fetch, download, import, score, trade, or mutate production state."
+        stats["ocr_diagnostic_rows"].append(ocr_row)
+    return text_by_page, stats, warnings
+
+
 def _rzd_manual_official_pdf_controlled_value_extraction_metric_specs() -> dict[str, list[dict[str, Any]]]:
     return {
         "statement_of_financial_position": [
@@ -44351,6 +44845,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
     is_contents_page: bool = False,
     primary_statement_page_accepted: bool = False,
     primary_statement_group_accepted: bool = False,
+    value_text_source: str = "",
+    value_text_backend: str = "",
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     diagnostics = {
         "candidate_line_scanned_count": 0,
@@ -44465,6 +44961,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
                 "note_reference": str(columns.get("note_reference") or (note_match.group(1) if note_match else "")),
                 "row_label": raw_line.strip()[:160],
                 "extraction_method": "controlled_static_line_metric_match",
+                "value_text_source": str(value_text_source or ""),
+                "value_text_backend": str(value_text_backend or ""),
                 "extraction_confidence": confidence,
                 "extraction_status": "candidate_value_extracted_for_human_review",
                 "reason_codes": ["metric_label_matched", "controlled_value_extraction_preview_only"],
@@ -44516,6 +45014,8 @@ def _rzd_controlled_value_extraction_finalize_internal_value_rows(
             "generic_metric": _as_bool(internal.get("generic_metric")),
             "title_anchored_value": bool(title_anchored),
             "cross_target_page_value": bool(cross_target),
+            "value_text_source": str(internal.get("value_text_source") or ""),
+            "value_text_backend": str(internal.get("value_text_backend") or ""),
             "safe_hint": "Preview value candidate only. Task170 does not import, mutate the database, score issuers, or trade.",
         }
         warning_codes = list(row.get("warning_codes") or [])
@@ -44644,6 +45144,24 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         "toc_notes_range_value_rejected_count": 0,
         "page_map_false_statement_flag_rejected_count": 0,
         "contents_page_primary_rejected_count": 0,
+        "toc_primary_page_text_probe_count": 0,
+        "toc_primary_page_text_probe_empty_count": 0,
+        "toc_primary_page_text_probe_weak_count": 0,
+        "toc_primary_page_text_probe_table_like_count": 0,
+        "local_pdf_page_render_available": False,
+        "local_pdf_page_render_backend": "",
+        "local_pdf_page_render_attempt_count": 0,
+        "local_pdf_page_render_success_count": 0,
+        "local_pdf_page_render_failed_count": 0,
+        "ocr_text_extraction_available": False,
+        "ocr_text_extraction_backend": "",
+        "ocr_text_extraction_languages": "rus+eng",
+        "ocr_page_attempt_count": 0,
+        "ocr_page_success_count": 0,
+        "ocr_page_failed_count": 0,
+        "ocr_primary_statement_page_count": 0,
+        "ocr_text_char_count_total": 0,
+        "ocr_diagnostic_rows": [],
     }
     if not candidate_pages:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
@@ -44661,6 +45179,16 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     page_map_by_page = {int(row.get("page_number") or 0): row for row in page_map_rows if int(row.get("page_number") or 0) > 0}
     discovery_by_target: dict[str, dict[str, Any]] = {}
     discovery_stats = dict(empty_discovery_stats)
+    text_by_page, ocr_stats, ocr_warnings = _rzd_controlled_value_extraction_apply_toc_ocr_fallback(
+        args=args,
+        controlled_pdf_path=controlled_text_path,
+        candidate_pages=candidate_pages,
+        page_map_by_page=page_map_by_page,
+        text_by_page=text_by_page,
+        toc_info=toc_info,
+        allow_notes_pages=bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages),
+    )
+    discovery_stats.update(ocr_stats)
     for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
         target_pages = [
             int(item.get("page_number") or 0)
@@ -44715,7 +45243,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         return [], [], [blocker], selection_warnings, "failed", target_group_rows, discovery_stats
     page_snapshot_rows: list[dict[str, Any]] = []
     value_rows: list[dict[str, Any]] = []
-    warnings: list[dict[str, Any]] = [*selection_warnings]
+    warnings: list[dict[str, Any]] = [*ocr_warnings, *selection_warnings]
     for item in selected_pages:
         target_type = str(item["target_type"])
         page_number = int(item["page_number"])
@@ -44726,6 +45254,14 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         extracted = text_by_page.get(page_number, {})
         text = str(extracted.get("text") or page_map_row.get("page_text_sample") or "")
         backend = str(extracted.get("backend") or "task169_page_sample")
+        profile = _rzd_controlled_value_extraction_text_profile(text)
+        effective_source = str(
+            extracted.get("effective_page_text_source")
+            or ("controlled_pdf_selected_page_text" if str(extracted.get("text") or "").strip() else "task169_page_map_sample")
+        )
+        effective_backend = str(extracted.get("effective_page_text_backend") or backend)
+        page_text_backend = str(extracted.get("page_text_backend") or extracted.get("backend") or "")
+        probe_result = str(extracted.get("toc_primary_page_text_probe_result") or "")
         prepared = _normalize_pdf_preview_text_for_signal_detection(text)
         normalized = prepared["normalized_text"]
         has_table = bool(re.search(r"\d[\d\s\u00a0\u202f.,]{2,}\s+\(?-?\d", text))
@@ -44751,9 +45287,27 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
             "contents_page_rejected_as_primary": _as_bool(item.get("contents_page_rejected_as_primary")),
             "page_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             "page_text_char_count": len(text),
+            "page_text_backend": page_text_backend,
+            "page_text_nonempty_line_count": int(profile.get("nonempty_line_count") or 0),
+            "page_text_table_like_line_count": int(profile.get("table_like_line_count") or 0),
+            "page_text_empty_or_weak": _as_bool(extracted.get("page_text_empty_or_weak")) or len(text.strip()) == 0,
+            "toc_primary_page_text_probe": _as_bool(extracted.get("toc_primary_page_text_probe")),
+            "toc_primary_page_text_probe_target_type": str(extracted.get("toc_primary_page_text_probe_target_type") or ""),
+            "toc_primary_page_text_probe_result": probe_result,
+            "effective_page_text_backend": effective_backend,
+            "effective_page_text_source": effective_source,
+            "ocr_attempted": _as_bool(extracted.get("ocr_attempted")),
+            "ocr_success": _as_bool(extracted.get("ocr_success")),
+            "ocr_text_char_count": int(extracted.get("ocr_text_char_count") or (len(text) if effective_source == "ocr_tesseract" else 0)),
+            "ocr_text_nonempty_line_count": int(
+                extracted.get("ocr_text_nonempty_line_count")
+                or (profile.get("nonempty_line_count") if effective_source == "ocr_tesseract" else 0)
+                or 0
+            ),
+            "ocr_error": str(extracted.get("ocr_error") or ""),
             "page_text_sample": normalized[:1500],
             "selected_page_text_sample": normalized[:1500],
-            "page_source": "controlled_pdf_selected_page_text" if extracted else "task169_page_map_sample",
+            "page_source": effective_source or ("controlled_pdf_selected_page_text" if extracted else "task169_page_map_sample"),
             "text_backend": backend,
             "selected_for_extraction": bool(text.strip()),
             "is_contents_page": _as_bool(page_map_row.get("is_contents_page")) or page_number == int(toc_info.get("toc_source_page") or 0),
@@ -45057,6 +45611,18 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "toc_notes_start_page_inference_attempt_count": int(discovery_stats.get("toc_notes_start_page_inference_attempt_count") or 0),
         "toc_notes_start_page_inference_success_count": int(discovery_stats.get("toc_notes_start_page_inference_success_count") or 0),
         "toc_notes_start_page_inference_rejected_count": int(discovery_stats.get("toc_notes_start_page_inference_rejected_count") or 0),
+        "toc_primary_page_text_probe_count": int(discovery_stats.get("toc_primary_page_text_probe_count") or 0),
+        "toc_primary_page_text_probe_empty_count": int(discovery_stats.get("toc_primary_page_text_probe_empty_count") or 0),
+        "toc_primary_page_text_probe_weak_count": int(discovery_stats.get("toc_primary_page_text_probe_weak_count") or 0),
+        "toc_primary_page_text_probe_table_like_count": int(discovery_stats.get("toc_primary_page_text_probe_table_like_count") or 0),
+        "local_pdf_page_render_attempt_count": int(discovery_stats.get("local_pdf_page_render_attempt_count") or 0),
+        "local_pdf_page_render_success_count": int(discovery_stats.get("local_pdf_page_render_success_count") or 0),
+        "local_pdf_page_render_failed_count": int(discovery_stats.get("local_pdf_page_render_failed_count") or 0),
+        "ocr_page_attempt_count": int(discovery_stats.get("ocr_page_attempt_count") or 0),
+        "ocr_page_success_count": int(discovery_stats.get("ocr_page_success_count") or 0),
+        "ocr_page_failed_count": int(discovery_stats.get("ocr_page_failed_count") or 0),
+        "ocr_primary_statement_page_count": int(discovery_stats.get("ocr_primary_statement_page_count") or 0),
+        "ocr_text_char_count_total": int(discovery_stats.get("ocr_text_char_count_total") or 0),
         "toc_candidate_page_ref_rejected_count": int(discovery_stats.get("toc_candidate_page_ref_rejected_count") or 0),
         "toc_year_number_rejected_count": int(discovery_stats.get("toc_year_number_rejected_count") or 0),
         "toc_out_of_order_page_ref_rejected_count": int(discovery_stats.get("toc_out_of_order_page_ref_rejected_count") or 0),
@@ -45165,6 +45731,21 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(
                 "toc_notes_range_rejected": _as_bool(snapshot.get("toc_notes_range_rejected")),
                 "page_map_false_statement_flag_rejected": _as_bool(snapshot.get("page_map_false_statement_flag_rejected")),
                 "contents_page_rejected_as_primary": _as_bool(snapshot.get("contents_page_rejected_as_primary")),
+                "page_text_backend": str(snapshot.get("page_text_backend") or ""),
+                "page_text_char_count": int(snapshot.get("page_text_char_count") or 0),
+                "page_text_nonempty_line_count": int(snapshot.get("page_text_nonempty_line_count") or 0),
+                "page_text_table_like_line_count": int(snapshot.get("page_text_table_like_line_count") or 0),
+                "page_text_empty_or_weak": _as_bool(snapshot.get("page_text_empty_or_weak")),
+                "toc_primary_page_text_probe": _as_bool(snapshot.get("toc_primary_page_text_probe")),
+                "toc_primary_page_text_probe_target_type": str(snapshot.get("toc_primary_page_text_probe_target_type") or ""),
+                "toc_primary_page_text_probe_result": str(snapshot.get("toc_primary_page_text_probe_result") or ""),
+                "effective_page_text_backend": str(snapshot.get("effective_page_text_backend") or ""),
+                "effective_page_text_source": str(snapshot.get("effective_page_text_source") or ""),
+                "ocr_attempted": _as_bool(snapshot.get("ocr_attempted")),
+                "ocr_success": _as_bool(snapshot.get("ocr_success")),
+                "ocr_text_char_count": int(snapshot.get("ocr_text_char_count") or 0),
+                "ocr_text_nonempty_line_count": int(snapshot.get("ocr_text_nonempty_line_count") or 0),
+                "ocr_error": str(snapshot.get("ocr_error") or ""),
                 "sample_lines": sample_lines,
                 "candidate_row_count": int(snapshot.get("target_specific_value_row_count") or snapshot.get("value_candidate_count") or 0),
                 "false_generic_row_rejected_count": int(snapshot.get("false_generic_statement_row_rejected_count") or 0),
@@ -45256,10 +45837,18 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     for row in value_rows:
         for code in row.get("warning_codes") or []:
             warning_count_rows.append({"warning_code": str(code)})
-    actual_backend = next((str(row.get("text_backend") or "") for row in page_snapshot_rows if row.get("text_backend")), "")
+    actual_backend = next(
+        (
+            str(row.get("effective_page_text_backend") or row.get("text_backend") or "")
+            for row in page_snapshot_rows
+            if row.get("effective_page_text_backend") or row.get("text_backend")
+        ),
+        "",
+    )
     page_diagnostic_rows = _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(page_snapshot_rows)
     toc_diagnostic_rows = list(discovery_stats.get("toc_diagnostic_rows") or [])
     toc_source_candidate_rows = list(discovery_stats.get("toc_source_candidate_rows") or [])
+    ocr_diagnostic_rows = list(discovery_stats.get("ocr_diagnostic_rows") or [])
     report = {
         "status": status,
         "mode": "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
@@ -45285,6 +45874,11 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         "controlled_value_extraction_target_types": _rzd_manual_official_pdf_controlled_value_extraction_target_types(args),
         "controlled_value_extraction_max_pages_per_target": int(args.rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target or 0),
         "controlled_value_extraction_allow_notes_pages": bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages),
+        "local_pdf_page_render_available": _as_bool(discovery_stats.get("local_pdf_page_render_available")),
+        "local_pdf_page_render_backend": str(discovery_stats.get("local_pdf_page_render_backend") or ""),
+        "ocr_text_extraction_available": _as_bool(discovery_stats.get("ocr_text_extraction_available")),
+        "ocr_text_extraction_backend": str(discovery_stats.get("ocr_text_extraction_backend") or ""),
+        "ocr_text_extraction_languages": str(discovery_stats.get("ocr_text_extraction_languages") or "rus+eng"),
         "target_group_diagnostics_truncated": any(_as_bool(row.get("target_group_diagnostics_truncated")) for row in target_group_rows),
         "toc_primary_pages_detected": bool(counts.get("toc_primary_pages_detected")),
         "toc_primary_page_override_used": bool(counts.get("toc_primary_page_override_used")),
@@ -45297,6 +45891,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         "page_snapshot_rows": page_snapshot_rows,
         "page_diagnostic_rows": page_diagnostic_rows,
         "toc_diagnostic_rows": toc_diagnostic_rows,
+        "ocr_diagnostic_rows": ocr_diagnostic_rows,
         "target_group_rows": target_group_rows,
         "value_rows": value_rows,
         "blocker_rows": blocker_rows,
@@ -45499,6 +46094,21 @@ def _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(repo
         RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_TOC_DIAGNOSTIC_FIELDS,
         artifacts["toc_diagnostics_csv"],
     )
+    _write_optional_json_report(
+        {
+            "status": report["status"],
+            "mode": "rzd-manual-official-pdf-controlled-value-extraction-ocr-diagnostics-v2",
+            "row_count": len(report.get("ocr_diagnostic_rows") or []),
+            "ocr_diagnostic_rows": report.get("ocr_diagnostic_rows") or [],
+            **_rzd_manual_official_pdf_controlled_value_extraction_safety_flags(),
+        },
+        artifacts["ocr_diagnostics_json"],
+    )
+    _write_optional_flat_csv(
+        report.get("ocr_diagnostic_rows") or [],
+        RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_OCR_DIAGNOSTIC_FIELDS,
+        artifacts["ocr_diagnostics_csv"],
+    )
     if artifacts["rerun_markdown"] is not None:
         write_rzd_manual_official_pdf_controlled_value_extraction_rerun_markdown(report, artifacts["rerun_markdown"])
 
@@ -45573,6 +46183,18 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
                 "toc_notes_start_page_inference_attempt_count": int(report.get("toc_notes_start_page_inference_attempt_count") or 0),
                 "toc_notes_start_page_inference_success_count": int(report.get("toc_notes_start_page_inference_success_count") or 0),
                 "toc_notes_start_page_inference_rejected_count": int(report.get("toc_notes_start_page_inference_rejected_count") or 0),
+                "toc_primary_page_text_probe_count": int(report.get("toc_primary_page_text_probe_count") or 0),
+                "toc_primary_page_text_probe_empty_count": int(report.get("toc_primary_page_text_probe_empty_count") or 0),
+                "toc_primary_page_text_probe_weak_count": int(report.get("toc_primary_page_text_probe_weak_count") or 0),
+                "toc_primary_page_text_probe_table_like_count": int(report.get("toc_primary_page_text_probe_table_like_count") or 0),
+                "local_pdf_page_render_attempt_count": int(report.get("local_pdf_page_render_attempt_count") or 0),
+                "local_pdf_page_render_success_count": int(report.get("local_pdf_page_render_success_count") or 0),
+                "local_pdf_page_render_failed_count": int(report.get("local_pdf_page_render_failed_count") or 0),
+                "ocr_page_attempt_count": int(report.get("ocr_page_attempt_count") or 0),
+                "ocr_page_success_count": int(report.get("ocr_page_success_count") or 0),
+                "ocr_page_failed_count": int(report.get("ocr_page_failed_count") or 0),
+                "ocr_primary_statement_page_count": int(report.get("ocr_primary_statement_page_count") or 0),
+                "ocr_text_char_count_total": int(report.get("ocr_text_char_count_total") or 0),
                 "toc_diagnostic_rows": list(report.get("toc_diagnostic_rows") or []),
                 "toc_candidate_page_ref_rejected_count": int(report.get("toc_candidate_page_ref_rejected_count") or 0),
                 "toc_year_number_rejected_count": int(report.get("toc_year_number_rejected_count") or 0),
