@@ -14124,6 +14124,67 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_strict_toc_parser_a
     collapsed_parsed = assistant._rzd_controlled_value_extraction_parse_toc_primary_pages([collapsed], pdf_page_count=115)
     assert collapsed_parsed["toc_primary_page_order_valid"] is True
     assert collapsed_parsed["toc_role_pages"] == parsed["toc_role_pages"]
+    assert collapsed_parsed["toc_notes_start_page"] == 17
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_infers_notes_start_from_page_map() -> None:
+    toc_without_notes = "\n".join(_task170_strict_toc_text().splitlines()[:-1])
+    rows = [
+        _task170_toc_page_map_row(toc_without_notes),
+        {
+            "page_map_id": "page:17",
+            "page_number": 17,
+            "page_text_sample": "Notes to the consolidated financial statements",
+            "detected_section_type": "front_matter",
+            "is_notes_page": True,
+            "is_contents_page": False,
+            "is_auditor_report_page": False,
+        },
+    ]
+    parsed = assistant._rzd_controlled_value_extraction_parse_toc_primary_pages(rows, pdf_page_count=115)
+
+    assert parsed["toc_primary_pages_detected"] is True
+    assert parsed["toc_primary_page_override_used"] is True
+    assert parsed["toc_primary_page_order_valid"] is True
+    assert parsed["toc_notes_start_page"] == 17
+    assert parsed["toc_notes_start_page_inferred"] is True
+    assert parsed["toc_notes_start_page_inference_attempt_count"] >= 1
+    assert parsed["toc_notes_start_page_inference_success_count"] == 1
+    assert "toc_notes_start_page_inferred_from_first_notes_page" in parsed["toc_notes_start_page_inference_reason_codes"]
+    notes_row = next(row for row in parsed["toc_diagnostic_rows"] if row["target_type"] == "notes_start_page")
+    assert notes_row["accepted"] is True
+    assert notes_row["inferred"] is True
+    assert notes_row["parsed_page_ref"] == 17
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_invalid_notes_start_inference() -> None:
+    toc_without_notes = "\n".join(_task170_strict_toc_text().splitlines()[:-1])
+    rows = [
+        _task170_toc_page_map_row(toc_without_notes),
+        {
+            "page_map_id": "page:12",
+            "page_number": 12,
+            "page_text_sample": "Notes too early",
+            "detected_section_type": "notes",
+            "is_notes_page": True,
+        },
+        {
+            "page_map_id": "page:245",
+            "page_number": 245,
+            "page_text_sample": "Notes huge page ref",
+            "detected_section_type": "notes",
+            "is_notes_page": True,
+        },
+    ]
+    parsed = assistant._rzd_controlled_value_extraction_parse_toc_primary_pages(rows, pdf_page_count=115)
+
+    assert parsed["toc_primary_pages_detected"] is False
+    assert parsed["toc_primary_page_override_used"] is False
+    assert parsed["toc_primary_page_order_valid"] is False
+    assert parsed["toc_notes_start_page"] == 0
+    assert parsed["toc_notes_start_page_inferred"] is False
+    assert parsed["toc_notes_start_page_inference_rejected_count"] >= 2
+    assert "controlled_value_extraction_toc_page_order_invalid" in parsed["toc_primary_page_order_reject_reason_codes"]
 
 
 def test_rzd_manual_official_pdf_controlled_value_extraction_strict_toc_rejects_bad_refs() -> None:
@@ -24619,6 +24680,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(re
         assert report[field] is not None
     assert isinstance(report.get("toc_primary_page_order_reject_reason_codes"), list)
     assert isinstance(report.get("toc_source_detection_failed_reason_codes"), list)
+    assert isinstance(report.get("toc_notes_start_page_inference_reason_codes"), list)
     assert isinstance(report.get("toc_source_candidate_rows"), list)
     assert isinstance(report.get("toc_diagnostic_rows"), list)
 
@@ -24734,6 +24796,8 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("accepted"), bool)
         assert isinstance(row.get("accepted_reason_codes"), list)
         assert isinstance(row.get("reject_reason_codes"), list)
+        assert isinstance(row.get("inferred"), bool)
+        assert isinstance(row.get("inference_reason_codes"), list)
         assert isinstance(row.get("safe_hint"), str)
     for row in report.get("toc_source_candidate_rows") or []:
         assert isinstance(row.get("row_type"), str)
@@ -24748,6 +24812,8 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("accepted"), bool)
         assert isinstance(row.get("accepted_reason_codes"), list)
         assert isinstance(row.get("reject_reason_codes"), list)
+        assert isinstance(row.get("inferred"), bool)
+        assert isinstance(row.get("inference_reason_codes"), list)
         assert isinstance(row.get("sample_text"), str)
         assert isinstance(row.get("safe_hint"), str)
     for row in report.get("value_rows") or []:

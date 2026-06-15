@@ -7012,6 +7012,11 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "toc_changes_in_equity_page",
     "toc_cash_flows_page",
     "toc_notes_start_page",
+    "toc_notes_start_page_inferred",
+    "toc_notes_start_page_inference_reason_codes",
+    "toc_notes_start_page_inference_attempt_count",
+    "toc_notes_start_page_inference_success_count",
+    "toc_notes_start_page_inference_rejected_count",
     "toc_candidate_page_ref_rejected_count",
     "toc_year_number_rejected_count",
     "toc_out_of_order_page_ref_rejected_count",
@@ -7173,6 +7178,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_TOC_DIAGNOSTIC_FIELDS = [
     "accepted",
     "accepted_reason_codes",
     "reject_reason_codes",
+    "inferred",
+    "inference_reason_codes",
     "sample_text",
     "safe_hint",
 ]
@@ -7274,6 +7281,9 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "toc_changes_in_equity_page",
     "toc_cash_flows_page",
     "toc_notes_start_page",
+    "toc_notes_start_page_inference_attempt_count",
+    "toc_notes_start_page_inference_success_count",
+    "toc_notes_start_page_inference_rejected_count",
     "toc_candidate_page_ref_rejected_count",
     "toc_year_number_rejected_count",
     "toc_out_of_order_page_ref_rejected_count",
@@ -7334,6 +7344,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS = (
     "toc_primary_pages_detected",
     "toc_primary_page_override_used",
     "toc_primary_page_order_valid",
+    "toc_notes_start_page_inferred",
     "controlled_value_extraction_ready",
     "future_human_review_required",
     "future_import_required",
@@ -42746,6 +42757,8 @@ def _rzd_controlled_value_extraction_discover_toc_source_pages(
                 "accepted": bool(accepted),
                 "accepted_reason_codes": accepted_reason_codes if accepted else [],
                 "reject_reason_codes": [] if accepted else reject_reason_codes,
+                "inferred": False,
+                "inference_reason_codes": [],
                 "sample_text": normalized[:1000],
                 "text_source": text_source,
                 "safe_hint": "TOC source candidate only. Task170 does not import values or mutate downstream systems.",
@@ -42808,6 +42821,19 @@ def _rzd_controlled_value_extraction_extract_toc_page_ref(
     }
 
 
+def _rzd_controlled_value_extraction_notes_start_phrases() -> tuple[str, ...]:
+    phrases = list(_rzd_controlled_value_extraction_toc_title_phrases_by_role().get("notes_start_page", ()))
+    phrases.extend(
+        [
+            "РїСЂРёРјРµС‡Р°РЅРёСЏ Рє С„РёРЅР°РЅСЃРѕРІРѕР№ РѕС‚С‡РµС‚РЅРѕСЃС‚Рё",
+            "РїСЂРёРјРµС‡Р°РЅРёСЏ Рє РєРѕРЅСЃРѕР»РёРґРёСЂРѕРІР°РЅРЅРѕР№ РѕС‚С‡РµС‚РЅРѕСЃС‚Рё",
+            "notes to financial statements",
+            "notes",
+        ]
+    )
+    return tuple(dict.fromkeys(str(phrase) for phrase in phrases if str(phrase or "").strip()))
+
+
 def _rzd_controlled_value_extraction_validate_toc_page_ref(
     *,
     target_type: str,
@@ -42830,6 +42856,69 @@ def _rzd_controlled_value_extraction_validate_toc_page_ref(
     if target_type != "notes_start_page" and parsed_page_ref < 3:
         codes.append("toc_candidate_page_ref_rejected")
     return list(dict.fromkeys(codes))
+
+
+def _rzd_controlled_value_extraction_extract_notes_start_page_ref(
+    toc_text: str,
+    title_phrases: Sequence[str],
+    next_title_phrases: Sequence[str],
+    *,
+    toc_source_page: int,
+    pdf_page_count: int,
+) -> dict[str, Any]:
+    normalized = _rzd_controlled_value_extraction_toc_compact_text(toc_text)
+    phrases = tuple(dict.fromkeys([*title_phrases, *_rzd_controlled_value_extraction_notes_start_phrases()]))
+    start, end, matched_phrase = _rzd_controlled_value_extraction_find_toc_phrase(normalized, phrases)
+    if start < 0:
+        return {
+            "matched_phrase": "",
+            "text_slice": "",
+            "raw_page_ref": "",
+            "parsed_page_ref": 0,
+            "reject_reason_codes": ["toc_title_phrase_not_found"],
+        }
+    next_start = len(normalized)
+    for phrase in next_title_phrases:
+        phrase_start, _phrase_end, _phrase = _rzd_controlled_value_extraction_find_toc_phrase(normalized, [phrase], start=end)
+        if phrase_start >= 0:
+            next_start = min(next_start, phrase_start)
+    text_slice = normalized[end:next_start].strip()
+    matches = list(re.finditer(r"(?<!\d)(\d{1,4})(?!\d)", text_slice))
+    if not matches:
+        return {
+            "matched_phrase": matched_phrase,
+            "text_slice": text_slice[:500],
+            "raw_page_ref": "",
+            "parsed_page_ref": 0,
+            "reject_reason_codes": ["toc_page_ref_missing"],
+        }
+    first_invalid: dict[str, Any] | None = None
+    for match in matches:
+        parsed_page_ref = int(match.group(1))
+        reject_codes = _rzd_controlled_value_extraction_validate_toc_page_ref(
+            target_type="notes_start_page",
+            parsed_page_ref=parsed_page_ref,
+            toc_source_page=toc_source_page,
+            pdf_page_count=pdf_page_count,
+        )
+        candidate = {
+            "matched_phrase": matched_phrase,
+            "text_slice": text_slice[:500],
+            "raw_page_ref": match.group(1),
+            "parsed_page_ref": parsed_page_ref,
+            "reject_reason_codes": reject_codes,
+        }
+        if not reject_codes:
+            return candidate
+        if first_invalid is None:
+            first_invalid = candidate
+    return first_invalid or {
+        "matched_phrase": matched_phrase,
+        "text_slice": text_slice[:500],
+        "raw_page_ref": "",
+        "parsed_page_ref": 0,
+        "reject_reason_codes": ["toc_page_ref_missing"],
+    }
 
 
 def _rzd_controlled_value_extraction_validate_toc_page_order(values: dict[str, int]) -> tuple[bool, list[str]]:
@@ -42888,9 +42977,161 @@ def _rzd_controlled_value_extraction_pdf_page_count_from_context(
     return max(candidates) if candidates else 0
 
 
+def _rzd_controlled_value_extraction_notes_inference_invalid_codes(
+    *,
+    page_ref: int,
+    toc_source_page: int,
+    cash_flows_page: int,
+    pdf_page_count: int,
+    accepted_values: dict[str, int],
+) -> list[str]:
+    reject_codes = _rzd_controlled_value_extraction_validate_toc_page_ref(
+        target_type="notes_start_page",
+        parsed_page_ref=page_ref,
+        toc_source_page=toc_source_page,
+        pdf_page_count=pdf_page_count,
+    )
+    if page_ref <= cash_flows_page:
+        reject_codes.append("toc_notes_start_page_not_after_cash_flows")
+    order_valid, order_reject_codes = _rzd_controlled_value_extraction_validate_toc_page_order(
+        {**accepted_values, "notes_start_page": page_ref}
+    )
+    if not order_valid:
+        reject_codes.extend(order_reject_codes)
+    return list(dict.fromkeys(reject_codes))
+
+
+def _rzd_controlled_value_extraction_infer_notes_start_page(
+    *,
+    toc_text: str,
+    toc_source_page: int,
+    accepted_values: dict[str, int],
+    page_map_rows: Sequence[dict[str, Any]],
+    page_texts: dict[int, dict[str, Any]],
+    target_rows: Sequence[dict[str, Any]],
+    pdf_page_count: int,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "page_ref": 0,
+        "matched_phrase": "",
+        "text_slice": "",
+        "raw_page_ref": "",
+        "reason_codes": [],
+        "attempt_count": 0,
+        "success_count": 0,
+        "rejected_count": 0,
+        "reject_reason_codes": [],
+    }
+    cash_flows_page = int(accepted_values.get("cash_flows") or 0)
+    required_before_notes = (
+        "toc_source_page",
+        "statement_of_financial_position",
+        "profit_or_loss",
+        "other_comprehensive_income",
+        "cash_flows",
+    )
+    if any(int(accepted_values.get(role) or 0) <= 0 for role in required_before_notes):
+        result["reject_reason_codes"] = ["toc_notes_start_page_primary_pages_incomplete"]
+        return result
+
+    def _try_candidate(
+        page_ref: int,
+        reason_code: str,
+        *,
+        matched_phrase: str = "",
+        text_slice: str = "",
+        raw_page_ref: str = "",
+    ) -> bool:
+        page_ref = int(page_ref or 0)
+        if page_ref <= 0:
+            return False
+        result["attempt_count"] = int(result["attempt_count"] or 0) + 1
+        reject_codes = _rzd_controlled_value_extraction_notes_inference_invalid_codes(
+            page_ref=page_ref,
+            toc_source_page=toc_source_page,
+            cash_flows_page=cash_flows_page,
+            pdf_page_count=pdf_page_count,
+            accepted_values=accepted_values,
+        )
+        if reject_codes:
+            result["rejected_count"] = int(result["rejected_count"] or 0) + 1
+            result["reject_reason_codes"] = list(dict.fromkeys([*result.get("reject_reason_codes", []), *reject_codes]))
+            return False
+        result.update(
+            {
+                "page_ref": page_ref,
+                "matched_phrase": matched_phrase,
+                "text_slice": text_slice,
+                "raw_page_ref": raw_page_ref or str(page_ref),
+                "reason_codes": [reason_code],
+                "success_count": 1,
+            }
+        )
+        return True
+
+    broad_extraction = _rzd_controlled_value_extraction_extract_notes_start_page_ref(
+        toc_text,
+        _rzd_controlled_value_extraction_notes_start_phrases(),
+        (),
+        toc_source_page=toc_source_page,
+        pdf_page_count=pdf_page_count,
+    )
+    broad_ref = int(broad_extraction.get("parsed_page_ref") or 0)
+    if broad_ref > 0 and _try_candidate(
+        broad_ref,
+        "toc_notes_start_page_inferred_from_toc_broad_phrase",
+        matched_phrase=str(broad_extraction.get("matched_phrase") or ""),
+        text_slice=str(broad_extraction.get("text_slice") or ""),
+        raw_page_ref=str(broad_extraction.get("raw_page_ref") or ""),
+    ):
+        return result
+    if broad_ref > 0 and broad_extraction.get("reject_reason_codes"):
+        result["reject_reason_codes"] = list(
+            dict.fromkeys([*result.get("reject_reason_codes", []), *list(broad_extraction.get("reject_reason_codes") or [])])
+        )
+
+    page_map_list = [row for row in page_map_rows or [] if isinstance(row, dict)]
+    for row in sorted(page_map_list, key=lambda item: int(item.get("page_number") or 0)):
+        page_ref = int(row.get("page_number") or 0)
+        if page_ref <= 0:
+            continue
+        if _as_bool(row.get("is_notes_page")) and _try_candidate(page_ref, "toc_notes_start_page_inferred_from_first_notes_page"):
+            return result
+    for row in sorted(page_map_list, key=lambda item: int(item.get("page_number") or 0)):
+        page_ref = int(row.get("page_number") or 0)
+        detected_type = str(row.get("detected_section_type") or "").casefold()
+        if page_ref > 0 and detected_type.startswith("notes") and _try_candidate(page_ref, "toc_notes_start_page_inferred_from_page_map"):
+            return result
+    for row in sorted(page_map_list, key=lambda item: int(item.get("page_number") or 0)):
+        page_ref = int(row.get("page_number") or 0)
+        if page_ref <= cash_flows_page:
+            continue
+        text, _source = _rzd_controlled_value_extraction_toc_text_for_page(row, page_texts)
+        prepared = _normalize_pdf_preview_text_for_signal_detection(text)
+        if _rzd_controlled_value_extraction_phrase_count(
+            _rzd_controlled_value_extraction_notes_start_phrases(),
+            prepared["normalized_text"],
+            prepared["compact_text"],
+        ) > 0 and _try_candidate(page_ref, "toc_notes_start_page_inferred_from_page_map"):
+            return result
+    for row in sorted((row for row in target_rows or [] if isinstance(row, dict)), key=lambda item: int(item.get("start_page") or 0)):
+        target_type = str(row.get("target_type") or row.get("detected_section_type") or "").casefold()
+        if "notes" not in target_type:
+            continue
+        for key in ("start_page", "page_number"):
+            page_ref = int(row.get(key) or 0)
+            if page_ref > 0 and _try_candidate(page_ref, "toc_notes_start_page_inferred_from_page_map"):
+                return result
+        for page_ref in _rzd_manual_official_pdf_controlled_value_extraction_page_numbers(row.get("candidate_pages")):
+            if _try_candidate(int(page_ref), "toc_notes_start_page_inferred_from_page_map"):
+                return result
+    return result
+
+
 def _rzd_controlled_value_extraction_parse_toc_primary_pages(
     page_map_rows: Sequence[dict[str, Any]],
     page_texts: dict[int, dict[str, Any]] | None = None,
+    target_rows: Sequence[dict[str, Any]] | None = None,
     *,
     pdf_page_count: int = 0,
 ) -> dict[str, Any]:
@@ -42914,6 +43155,11 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
         "toc_changes_in_equity_page": 0,
         "toc_cash_flows_page": 0,
         "toc_notes_start_page": 0,
+        "toc_notes_start_page_inferred": False,
+        "toc_notes_start_page_inference_reason_codes": [],
+        "toc_notes_start_page_inference_attempt_count": 0,
+        "toc_notes_start_page_inference_success_count": 0,
+        "toc_notes_start_page_inference_rejected_count": 0,
         "toc_role_pages": {},
         "toc_diagnostic_rows": [],
         "toc_candidate_page_ref_rejected_count": 0,
@@ -42984,6 +43230,11 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
                 "toc_changes_in_equity_page": 0,
                 "toc_cash_flows_page": 0,
                 "toc_notes_start_page": 0,
+                "toc_notes_start_page_inferred": False,
+                "toc_notes_start_page_inference_reason_codes": [],
+                "toc_notes_start_page_inference_attempt_count": 0,
+                "toc_notes_start_page_inference_success_count": 0,
+                "toc_notes_start_page_inference_rejected_count": 0,
                 "toc_role_pages": {},
                 "toc_diagnostic_rows": [],
                 "toc_candidate_page_ref_rejected_count": 0,
@@ -42997,11 +43248,20 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
         accepted_values: dict[str, int] = {"toc_source_page": page_number}
         for index, role in enumerate(roles):
             next_roles = roles[index + 1 :]
-            extraction = _rzd_controlled_value_extraction_extract_toc_page_ref(
-                text,
-                phrases_by_role.get(role, ()),
-                tuple(phrase for next_role in next_roles for phrase in phrases_by_role.get(next_role, ())),
-            )
+            if role == "notes_start_page":
+                extraction = _rzd_controlled_value_extraction_extract_notes_start_page_ref(
+                    text,
+                    phrases_by_role.get(role, ()),
+                    tuple(phrase for next_role in next_roles for phrase in phrases_by_role.get(next_role, ())),
+                    toc_source_page=page_number,
+                    pdf_page_count=pdf_page_count,
+                )
+            else:
+                extraction = _rzd_controlled_value_extraction_extract_toc_page_ref(
+                    text,
+                    phrases_by_role.get(role, ()),
+                    tuple(phrase for next_role in next_roles for phrase in phrases_by_role.get(next_role, ())),
+                )
             parsed_page_ref = int(extraction.get("parsed_page_ref") or 0)
             reject_codes = list(extraction.get("reject_reason_codes") or [])
             reject_codes.extend(
@@ -43042,6 +43302,8 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
                     "accepted": bool(accepted),
                     "accepted_reason_codes": ["toc_page_ref_accepted"] if accepted else [],
                     "reject_reason_codes": reject_codes,
+                    "inferred": False,
+                    "inference_reason_codes": [],
                     "safe_hint": "TOC diagnostic only. Task170 does not import values or mutate downstream systems.",
                     "page_number": 0,
                     "page_map_detected_section_type": "",
@@ -43054,6 +43316,46 @@ def _rzd_controlled_value_extraction_parse_toc_primary_pages(
                     "sample_text": "",
                 }
             )
+        if int(accepted_values.get("notes_start_page") or 0) <= 0:
+            inference = _rzd_controlled_value_extraction_infer_notes_start_page(
+                toc_text=text,
+                toc_source_page=page_number,
+                accepted_values=accepted_values,
+                page_map_rows=page_map_list,
+                page_texts=page_texts,
+                target_rows=target_rows or (),
+                pdf_page_count=pdf_page_count,
+            )
+            trial["toc_notes_start_page_inference_attempt_count"] = int(inference.get("attempt_count") or 0)
+            trial["toc_notes_start_page_inference_success_count"] = int(inference.get("success_count") or 0)
+            trial["toc_notes_start_page_inference_rejected_count"] = int(inference.get("rejected_count") or 0)
+            if int(inference.get("page_ref") or 0) > 0:
+                inferred_page = int(inference.get("page_ref") or 0)
+                trial["toc_notes_start_page"] = inferred_page
+                trial["toc_role_pages"]["notes_start_page"] = inferred_page
+                trial["toc_notes_start_page_inferred"] = True
+                trial["toc_notes_start_page_inference_reason_codes"] = list(inference.get("reason_codes") or [])
+                accepted_values["notes_start_page"] = inferred_page
+                for diagnostic in trial["toc_diagnostic_rows"]:
+                    if diagnostic.get("target_type") == "notes_start_page":
+                        diagnostic.update(
+                            {
+                                "matched_phrase": str(inference.get("matched_phrase") or diagnostic.get("matched_phrase") or ""),
+                                "text_slice": str(inference.get("text_slice") or diagnostic.get("text_slice") or ""),
+                                "raw_page_ref": str(inference.get("raw_page_ref") or inferred_page),
+                                "parsed_page_ref": inferred_page,
+                                "accepted": True,
+                                "accepted_reason_codes": ["toc_page_ref_accepted", *list(inference.get("reason_codes") or [])],
+                                "reject_reason_codes": [],
+                                "inferred": True,
+                                "inference_reason_codes": list(inference.get("reason_codes") or []),
+                            }
+                        )
+                        break
+            elif inference.get("reject_reason_codes"):
+                trial["toc_source_detection_failed_reason_codes"] = list(
+                    dict.fromkeys([*trial.get("toc_source_detection_failed_reason_codes", []), *list(inference.get("reject_reason_codes") or [])])
+                )
         order_valid, order_reject_codes = _rzd_controlled_value_extraction_validate_toc_page_order(accepted_values)
         if not order_valid:
             trial["toc_out_of_order_page_ref_rejected_count"] += 1
@@ -43101,7 +43403,12 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
     target_types = _rzd_manual_official_pdf_controlled_value_extraction_target_types(args)
     by_page = {int(row.get("page_number") or 0): row for row in page_map_rows if int(row.get("page_number") or 0) > 0}
     allow_notes = bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages)
-    toc_info = _rzd_controlled_value_extraction_parse_toc_primary_pages(page_map_rows, page_texts=page_texts, pdf_page_count=pdf_page_count)
+    toc_info = _rzd_controlled_value_extraction_parse_toc_primary_pages(
+        page_map_rows,
+        page_texts=page_texts,
+        target_rows=target_rows,
+        pdf_page_count=pdf_page_count,
+    )
     candidates: list[dict[str, Any]] = []
     seen: set[tuple[str, int]] = set()
 
@@ -44279,7 +44586,12 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     toc_info = (
         candidate_pages[0].get("toc_info")
         if candidate_pages and isinstance(candidate_pages[0].get("toc_info"), dict)
-        else _rzd_controlled_value_extraction_parse_toc_primary_pages(page_map_rows, page_texts=early_page_texts, pdf_page_count=pdf_page_count)
+        else _rzd_controlled_value_extraction_parse_toc_primary_pages(
+            page_map_rows,
+            page_texts=early_page_texts,
+            target_rows=target_rows,
+            pdf_page_count=pdf_page_count,
+        )
     )
     empty_discovery_stats = {
         "candidate_discovery_page_count": 0,
@@ -44317,6 +44629,11 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         "toc_changes_in_equity_page": int(toc_info.get("toc_changes_in_equity_page") or 0),
         "toc_cash_flows_page": int(toc_info.get("toc_cash_flows_page") or 0),
         "toc_notes_start_page": int(toc_info.get("toc_notes_start_page") or 0),
+        "toc_notes_start_page_inferred": 1 if _as_bool(toc_info.get("toc_notes_start_page_inferred")) else 0,
+        "toc_notes_start_page_inference_reason_codes": list(toc_info.get("toc_notes_start_page_inference_reason_codes") or []),
+        "toc_notes_start_page_inference_attempt_count": int(toc_info.get("toc_notes_start_page_inference_attempt_count") or 0),
+        "toc_notes_start_page_inference_success_count": int(toc_info.get("toc_notes_start_page_inference_success_count") or 0),
+        "toc_notes_start_page_inference_rejected_count": int(toc_info.get("toc_notes_start_page_inference_rejected_count") or 0),
         "toc_diagnostic_rows": list(toc_info.get("toc_diagnostic_rows") or []),
         "toc_candidate_page_ref_rejected_count": int(toc_info.get("toc_candidate_page_ref_rejected_count") or 0),
         "toc_year_number_rejected_count": int(toc_info.get("toc_year_number_rejected_count") or 0),
@@ -44737,6 +45054,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "toc_changes_in_equity_page": int(discovery_stats.get("toc_changes_in_equity_page") or 0),
         "toc_cash_flows_page": int(discovery_stats.get("toc_cash_flows_page") or 0),
         "toc_notes_start_page": int(discovery_stats.get("toc_notes_start_page") or 0),
+        "toc_notes_start_page_inference_attempt_count": int(discovery_stats.get("toc_notes_start_page_inference_attempt_count") or 0),
+        "toc_notes_start_page_inference_success_count": int(discovery_stats.get("toc_notes_start_page_inference_success_count") or 0),
+        "toc_notes_start_page_inference_rejected_count": int(discovery_stats.get("toc_notes_start_page_inference_rejected_count") or 0),
         "toc_candidate_page_ref_rejected_count": int(discovery_stats.get("toc_candidate_page_ref_rejected_count") or 0),
         "toc_year_number_rejected_count": int(discovery_stats.get("toc_year_number_rejected_count") or 0),
         "toc_out_of_order_page_ref_rejected_count": int(discovery_stats.get("toc_out_of_order_page_ref_rejected_count") or 0),
@@ -44896,6 +45216,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
             quality_warnings.append({"message": warning_code, "target_type": target_type})
     toc_order_reject_reason_codes = list(discovery_stats.get("toc_primary_page_order_reject_reason_codes") or [])
     toc_source_detection_failed_reason_codes = list(discovery_stats.get("toc_source_detection_failed_reason_codes") or [])
+    toc_notes_start_page_inference_reason_codes = list(discovery_stats.get("toc_notes_start_page_inference_reason_codes") or [])
     if int(counts.get("toc_source_page") or 0) > 0 and not bool(counts.get("toc_primary_page_order_valid")):
         quality_warnings.append(
             {
@@ -44970,6 +45291,8 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         "toc_primary_page_order_valid": bool(counts.get("toc_primary_page_order_valid")),
         "toc_primary_page_order_reject_reason_codes": toc_order_reject_reason_codes,
         "toc_source_detection_failed_reason_codes": toc_source_detection_failed_reason_codes,
+        "toc_notes_start_page_inferred": bool(discovery_stats.get("toc_notes_start_page_inferred")),
+        "toc_notes_start_page_inference_reason_codes": toc_notes_start_page_inference_reason_codes,
         "toc_source_candidate_rows": toc_source_candidate_rows,
         "page_snapshot_rows": page_snapshot_rows,
         "page_diagnostic_rows": page_diagnostic_rows,
@@ -45123,6 +45446,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(repo
             "accepted": _as_bool(row.get("accepted")),
             "accepted_reason_codes": list(row.get("accepted_reason_codes") or []),
             "reject_reason_codes": list(row.get("reject_reason_codes") or []),
+            "inferred": _as_bool(row.get("inferred")),
+            "inference_reason_codes": list(row.get("inference_reason_codes") or []),
             "sample_text": str(row.get("sample_text") or ""),
             "safe_hint": str(row.get("safe_hint") or ""),
         }
@@ -45148,6 +45473,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_write_safe_outputs(repo
             "accepted": _as_bool(row.get("accepted")),
             "accepted_reason_codes": list(row.get("accepted_reason_codes") or []),
             "reject_reason_codes": list(row.get("reject_reason_codes") or []),
+            "inferred": _as_bool(row.get("inferred")),
+            "inference_reason_codes": list(row.get("inference_reason_codes") or []),
             "sample_text": str(row.get("sample_text") or ""),
             "safe_hint": str(row.get("safe_hint") or ""),
         }
@@ -45241,6 +45568,11 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
                 "toc_changes_in_equity_page": int(report.get("toc_changes_in_equity_page") or 0),
                 "toc_cash_flows_page": int(report.get("toc_cash_flows_page") or 0),
                 "toc_notes_start_page": int(report.get("toc_notes_start_page") or 0),
+                "toc_notes_start_page_inferred": 1 if _as_bool(report.get("toc_notes_start_page_inferred")) else 0,
+                "toc_notes_start_page_inference_reason_codes": list(report.get("toc_notes_start_page_inference_reason_codes") or []),
+                "toc_notes_start_page_inference_attempt_count": int(report.get("toc_notes_start_page_inference_attempt_count") or 0),
+                "toc_notes_start_page_inference_success_count": int(report.get("toc_notes_start_page_inference_success_count") or 0),
+                "toc_notes_start_page_inference_rejected_count": int(report.get("toc_notes_start_page_inference_rejected_count") or 0),
                 "toc_diagnostic_rows": list(report.get("toc_diagnostic_rows") or []),
                 "toc_candidate_page_ref_rejected_count": int(report.get("toc_candidate_page_ref_rejected_count") or 0),
                 "toc_year_number_rejected_count": int(report.get("toc_year_number_rejected_count") or 0),
