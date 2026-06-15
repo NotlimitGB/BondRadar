@@ -6971,7 +6971,14 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "selected_notes_page_count",
     "selected_contents_page_count",
     "selected_audit_page_count",
+    "candidate_discovery_page_count",
+    "candidate_discovery_row_count",
+    "candidate_discovery_target_count",
+    "candidate_discovery_rejected_page_count",
+    "candidate_discovery_rejected_line_count",
     "target_group_row_count",
+    "target_group_diagnostics_truncated",
+    "target_group_rejected_group_limit",
     "accepted_primary_group_count",
     "rejected_primary_group_count",
     "tax_note_page_rejected_count",
@@ -7118,7 +7125,13 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "selected_notes_page_count",
     "selected_contents_page_count",
     "selected_audit_page_count",
+    "candidate_discovery_page_count",
+    "candidate_discovery_row_count",
+    "candidate_discovery_target_count",
+    "candidate_discovery_rejected_page_count",
+    "candidate_discovery_rejected_line_count",
     "target_group_row_count",
+    "target_group_rejected_group_limit",
     "accepted_primary_group_count",
     "rejected_primary_group_count",
     "tax_note_page_rejected_count",
@@ -7162,6 +7175,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_BOOL_FIELDS = (
     "controlled_pdf_input_preserved",
     "input_bytes_unchanged",
     "parse_plan_ready_input",
+    "target_group_diagnostics_truncated",
     "controlled_value_extraction_ready",
     "future_human_review_required",
     "future_import_required",
@@ -7218,6 +7232,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS = (
     "future_import_candidate",
     "future_human_review_required",
 )
+RZD_CONTROLLED_VALUE_EXTRACTION_MAX_DISCOVERY_PAGES_PER_TARGET = 40
+RZD_CONTROLLED_VALUE_EXTRACTION_REJECTED_GROUP_DIAGNOSTIC_LIMIT = 5
 SOURCE_TRUST_RECOVERY_ARTIFACT_NAMES = {
     "workspace_json": "source_trust_recovery_workspace_task142.json",
     "workspace_csv": "source_trust_recovery_workspace_task142.csv",
@@ -40634,7 +40650,7 @@ def run_rzd_manual_official_pdf_controlled_value_extraction_preview_v2(args: arg
             errors=errors,
             write_outputs=True,
         )
-    page_snapshot_rows, value_rows, blocker_rows, warnings, forced_status, target_group_rows = _rzd_manual_official_pdf_controlled_value_extraction_rows(args, loaded=loaded)
+    page_snapshot_rows, value_rows, blocker_rows, warnings, forced_status, target_group_rows, discovery_stats = _rzd_manual_official_pdf_controlled_value_extraction_rows(args, loaded=loaded)
     report = _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         args,
         inputs=inputs,
@@ -40646,6 +40662,7 @@ def run_rzd_manual_official_pdf_controlled_value_extraction_preview_v2(args: arg
         page_map_report=loaded.get("task169_page_map") if isinstance(loaded.get("task169_page_map"), dict) else {},
         page_snapshot_rows=page_snapshot_rows,
         target_group_rows=target_group_rows,
+        discovery_stats=discovery_stats,
         value_rows=value_rows,
         blocker_rows=blocker_rows,
         warnings=warnings,
@@ -41068,9 +41085,11 @@ def _rzd_controlled_value_extraction_target_metric_keys(target_type: str) -> set
             "cost_of_sales",
             "gross_profit",
             "operating_profit",
+            "operating_expenses",
+            "finance_income",
             "finance_costs",
             "profit_before_tax",
-            "income_tax",
+            "income_tax_expense",
             "profit_for_the_year",
             "net_profit",
         }
@@ -41081,8 +41100,9 @@ def _rzd_controlled_value_extraction_target_metric_keys(target_type: str) -> set
             "net_cash_from_operating_activities",
             "net_cash_used_in_investing_activities",
             "net_cash_from_financing_activities",
+            "net_increase_decrease_in_cash",
             "cash_and_cash_equivalents_beginning",
-            "cash_and_cash_equivalents_end",
+            "cash_and_cash_equivalents_ending",
         }
     return {str(spec.get("metric_key") or "") for spec in _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])}
 
@@ -41283,6 +41303,211 @@ def _rzd_controlled_value_extraction_scan_target_value_rows(
         "contents_navigation_line_rejected_count": contents_rejected_count,
         "date_period_line_rejected_count": date_rejected_count,
         "small_page_or_note_number_value_rejected_count": small_rejected_count,
+    }
+
+
+def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
+    target_type: str,
+    text: str,
+    *,
+    page_number: int,
+    is_contents_page: bool = False,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    diagnostics = {
+        "candidate_line_scanned_count": 0,
+        "candidate_line_matched_count": 0,
+        "candidate_line_rejected_count": 0,
+        "contents_navigation_line_rejected_count": 0,
+        "page_number_value_rejected_count": 0,
+        "date_period_line_rejected_count": 0,
+        "date_number_value_rejected_count": 0,
+        "small_page_or_note_number_value_rejected_count": 0,
+    }
+    specs = _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])
+    target_metric_keys = _rzd_controlled_value_extraction_target_metric_keys(target_type)
+    rows: list[dict[str, Any]] = []
+    matched_metrics: set[str] = set()
+    for line_number, raw_line in enumerate(str(text or "").splitlines(), start=1):
+        stripped_line = raw_line.strip()
+        if not stripped_line:
+            continue
+        diagnostics["candidate_line_scanned_count"] += 1
+        if _rzd_controlled_value_extraction_is_contents_or_navigation_line(raw_line, is_contents_page=is_contents_page):
+            diagnostics["contents_navigation_line_rejected_count"] += 1
+            diagnostics["candidate_line_rejected_count"] += 1
+            continue
+        if _rzd_controlled_value_extraction_is_date_or_period_line(raw_line):
+            columns = _rzd_controlled_value_extraction_value_columns(raw_line)
+            values = [columns.get("value_2025"), columns.get("value_2024")]
+            if sum(1 for value in values if isinstance(value, int) and abs(value) >= 100) < 2:
+                diagnostics["date_period_line_rejected_count"] += 1
+                diagnostics["date_number_value_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+        for spec in specs:
+            metric_key = str(spec.get("metric_key") or "")
+            if metric_key in matched_metrics or metric_key not in target_metric_keys:
+                continue
+            if not _rzd_manual_official_pdf_controlled_value_extraction_line_matches_metric(raw_line, spec):
+                continue
+            diagnostics["candidate_line_matched_count"] += 1
+            columns = _rzd_controlled_value_extraction_value_columns(raw_line)
+            raw_2025 = str(columns.get("raw_2025") or "")
+            value_2025 = columns.get("value_2025")
+            raw_2024 = str(columns.get("raw_2024") or "")
+            value_2024 = columns.get("value_2024")
+            numbers = [(raw_2025, value_2025)] if value_2024 is None else [(raw_2025, value_2025), (raw_2024, value_2024)]
+            numbers = [(raw, value) for raw, value in numbers if value is not None]
+            if len(numbers) < 1:
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+            if len(numbers) == 1:
+                value = numbers[0][1]
+                prepared_line = _normalize_pdf_preview_text_for_signal_detection(raw_line)
+                has_year_columns = "2025" in prepared_line["normalized_text"] or "2024" in prepared_line["normalized_text"]
+                has_unit_context = any(
+                    _rzd_manual_official_pdf_phrase_found(term, prepared_line["normalized_text"], prepared_line["compact_text"])
+                    for term in ("million rubles", "млн руб", "миллионах рублей")
+                )
+                if value is not None and 0 < abs(value) < 300 and not has_year_columns and not has_unit_context:
+                    diagnostics["page_number_value_rejected_count"] += 1
+                    diagnostics["candidate_line_rejected_count"] += 1
+                    continue
+            raw_2025, value_2025 = numbers[-2] if len(numbers) >= 2 else numbers[-1]
+            raw_2024, value_2024 = numbers[-1] if len(numbers) >= 2 else ("", None)
+            reject_code = _rzd_controlled_value_extraction_reject_value_columns(
+                line=raw_line,
+                page_number=page_number,
+                value_2025=value_2025 if isinstance(value_2025, int) else None,
+                value_2024=value_2024 if isinstance(value_2024, int) else None,
+                primary_statement_page_accepted=True,
+            )
+            if reject_code:
+                if reject_code == "date_period_line_value_rejected":
+                    diagnostics["date_period_line_rejected_count"] += 1
+                    diagnostics["date_number_value_rejected_count"] += 1
+                else:
+                    diagnostics["small_page_or_note_number_value_rejected_count"] += 1
+                    diagnostics["page_number_value_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+            note_match = re.search(r"\b(?:note|примечание)\s*(\d+[A-Za-zА-Яа-я]?)", raw_line, re.IGNORECASE)
+            confidence = "high" if value_2025 is not None and value_2024 is not None else "medium"
+            rows.append(
+                {
+                    "target_type": target_type,
+                    "metric_key": metric_key,
+                    "metric_name_ru": spec.get("name_ru") or "",
+                    "metric_name_en": spec.get("name_en") or "",
+                    "page_number": page_number,
+                    "statement_page": page_number,
+                    "line_number": line_number,
+                    "line_number_on_page": line_number,
+                    "raw_line": raw_line.strip(),
+                    "raw_line_sha256": hashlib.sha256(raw_line.encode("utf-8")).hexdigest(),
+                    "raw_value_2025": raw_2025,
+                    "value_2025": value_2025,
+                    "value_2025_present": value_2025 is not None,
+                    "raw_value_2024": raw_2024,
+                    "value_2024": value_2024,
+                    "value_2024_present": value_2024 is not None,
+                    "unit": "RUB million",
+                    "scale": 1000000,
+                    "note_reference": str(columns.get("note_reference") or (note_match.group(1) if note_match else "")),
+                    "row_label": raw_line.strip()[:160],
+                    "extraction_method": "controlled_static_line_metric_match",
+                    "extraction_confidence": confidence,
+                    "extraction_status": "candidate_value_extracted_for_human_review",
+                    "reason_codes": ["metric_label_matched", "controlled_value_extraction_preview_only"],
+                    "warning_codes": ["controlled_value_extraction_human_review_required"] if confidence == "medium" else [],
+                    "blocker_codes": [],
+                }
+            )
+            matched_metrics.add(metric_key)
+    return rows, diagnostics
+
+
+def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
+    target_type: str,
+    candidate_pages: list[int],
+    page_texts: dict[int, dict],
+    page_map_by_page: dict[int, dict],
+    allow_notes_pages: bool,
+) -> dict[str, Any]:
+    unique_pages = [page for page in dict.fromkeys(int(page) for page in candidate_pages if int(page) > 0)]
+    bounded_pages = unique_pages[:RZD_CONTROLLED_VALUE_EXTRACTION_MAX_DISCOVERY_PAGES_PER_TARGET]
+    candidate_rows_by_page: dict[int, list[dict[str, Any]]] = {}
+    page_scores: dict[int, dict[str, Any]] = {}
+    page_reject_reason_codes: dict[int, list[str]] = {}
+    rejected_page_count = 0
+    rejected_line_count = 0
+    for page_number in bounded_pages:
+        page_row = page_map_by_page.get(page_number) or {}
+        reject_codes: list[str] = []
+        if _as_bool(page_row.get("is_contents_page")):
+            reject_codes.append("contents_page_not_primary_statement")
+        if _as_bool(page_row.get("is_auditor_report_page")):
+            reject_codes.append("auditor_report_page_not_primary_statement")
+        if _as_bool(page_row.get("is_notes_page")) and not allow_notes_pages:
+            reject_codes.append("notes_page_not_primary_statement")
+        text = str((page_texts.get(page_number) or {}).get("text") or page_row.get("page_text_sample") or "")
+        title_score = 20 * _rzd_controlled_value_extraction_phrase_count(
+            _rzd_controlled_value_extraction_statement_title_terms(target_type),
+            _normalize_pdf_preview_text_for_signal_detection(text)["normalized_text"],
+            _normalize_pdf_preview_text_for_signal_detection(text)["compact_text"],
+        )
+        hint_bonus = 0
+        if _as_bool(page_row.get(f"is_{target_type}_page")):
+            hint_bonus += 30
+        if page_row.get("detected_section_type") == target_type:
+            hint_bonus += 20
+        if reject_codes:
+            candidate_rows: list[dict[str, Any]] = []
+            diagnostics = {
+                "candidate_line_scanned_count": 0,
+                "candidate_line_matched_count": 0,
+                "candidate_line_rejected_count": 0,
+            }
+            rejected_page_count += 1
+        else:
+            candidate_rows, diagnostics = _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
+                target_type,
+                text,
+                page_number=page_number,
+                is_contents_page=_as_bool(page_row.get("is_contents_page")),
+            )
+        metric_keys = {str(row.get("metric_key") or "") for row in candidate_rows}
+        broad_metric_keys = metric_keys & _rzd_controlled_value_extraction_profit_or_loss_broad_metric_keys()
+        table_score = len(metric_keys) * 50 + sum(1 for row in candidate_rows if row.get("value_2025_present") and row.get("value_2024_present")) * 10
+        note_penalty = 75 if _rzd_controlled_value_extraction_is_tax_note_context(text, page_row) else 0
+        page_total_score = int(table_score + title_score + hint_bonus - note_penalty)
+        rejected_line_count += int(diagnostics.get("candidate_line_rejected_count") or 0)
+        candidate_rows_by_page[page_number] = candidate_rows
+        page_reject_reason_codes[page_number] = reject_codes
+        page_scores[page_number] = {
+            "page_value_row_count": len(candidate_rows),
+            "page_required_metric_hit_count": len(metric_keys),
+            "page_broad_metric_hit_count": len(broad_metric_keys),
+            "page_title_score": int(title_score),
+            "page_table_score": int(table_score),
+            "page_note_penalty": int(note_penalty),
+            "page_total_discovery_score": page_total_score,
+            "candidate_line_scanned_count": int(diagnostics.get("candidate_line_scanned_count") or 0),
+            "candidate_line_matched_count": int(diagnostics.get("candidate_line_matched_count") or 0),
+            "candidate_line_rejected_count": int(diagnostics.get("candidate_line_rejected_count") or 0),
+        }
+    return {
+        "target_type": target_type,
+        "scanned_page_count": len(bounded_pages),
+        "candidate_row_count": sum(len(rows) for rows in candidate_rows_by_page.values()),
+        "candidate_rows_by_page": candidate_rows_by_page,
+        "page_scores": page_scores,
+        "page_reject_reason_codes": page_reject_reason_codes,
+        "diagnostics": {
+            "candidate_discovery_rejected_page_count": rejected_page_count,
+            "candidate_discovery_rejected_line_count": rejected_line_count,
+            "candidate_discovery_pages_truncated": len(unique_pages) > len(bounded_pages),
+        },
     }
 
 
@@ -41510,6 +41735,15 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
                 rank=1,
                 target_start_page_used=True,
             )
+            for adjacent_page in (start_page - 1, start_page + 1, start_page + 2):
+                _add_candidate(
+                    target_type=target_type,
+                    target=target,
+                    page_number=adjacent_page,
+                    source="target_start_adjacent_page",
+                    rank=4,
+                    target_candidate_page_used=True,
+                )
         exact_flag_pages = [
             int(row.get("page_number") or 0)
             for row in page_map_rows
@@ -41552,10 +41786,35 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
                 target=target,
                 page_number=page_number,
                 source="target_candidate_page",
-                rank=4,
+                rank=5,
                 target_candidate_page_used=True,
             )
         for page_number, page_row in by_page.items():
+            sample_context = " ".join(
+                [
+                    str(page_row.get("detected_section_title") or ""),
+                    str(page_row.get("page_text_sample") or ""),
+                ]
+            )
+            prepared_sample = _normalize_pdf_preview_text_for_signal_detection(sample_context)
+            has_target_title = _rzd_controlled_value_extraction_phrase_count(
+                _rzd_controlled_value_extraction_statement_title_terms(target_type),
+                prepared_sample["normalized_text"],
+                prepared_sample["compact_text"],
+            ) > 0
+            has_metric_label = any(
+                _rzd_manual_official_pdf_controlled_value_extraction_line_matches_metric(sample_context, spec)
+                for spec in _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])
+            )
+            if _as_bool(page_row.get("future_value_extraction_candidate")) or has_target_title or has_metric_label:
+                _add_candidate(
+                    target_type=target_type,
+                    target=target,
+                    page_number=page_number,
+                    source="target_sample_or_metric_candidate",
+                    rank=6,
+                    fallback_page_used=not (_as_bool(page_row.get(f"is_{target_type}_page")) or page_row.get("detected_section_type") == target_type),
+                )
             score = _rzd_manual_official_pdf_controlled_value_extraction_page_score(
                 target_type,
                 page_row,
@@ -41567,7 +41826,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(
                     target=target,
                     page_number=page_number,
                     source="fallback_score",
-                    rank=5,
+                    rank=7,
                     fallback_page_used=True,
                 )
     return candidates
@@ -41721,6 +41980,213 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
                     "primary_statement_group_accepted": bool(selected_group_row),
                     "primary_statement_group_reject_reason_codes": (selected_group_row or {}).get("reject_reason_codes") or [],
                     "primary_statement_group_reason_codes": (selected_group_row or {}).get("reason_codes") or [],
+                }
+            )
+    return selected, warnings, target_group_rows
+
+
+def _rzd_controlled_value_extraction_group_acceptance(
+    target_type: str,
+    pages: Sequence[int],
+    discovery: dict[str, Any],
+) -> dict[str, Any]:
+    candidate_rows_by_page = discovery.get("candidate_rows_by_page") if isinstance(discovery.get("candidate_rows_by_page"), dict) else {}
+    rows: list[dict[str, Any]] = []
+    for page in pages:
+        rows.extend(candidate_rows_by_page.get(int(page)) or [])
+    metric_keys = {str(row.get("metric_key") or "") for row in rows}
+    broad_pl_keys = metric_keys & _rzd_controlled_value_extraction_profit_or_loss_broad_metric_keys()
+    required_count = 1 if target_type == "cash_flows" else _rzd_controlled_value_extraction_target_required_metric_count(target_type)
+    reject_codes: list[str] = []
+    if len(metric_keys) < required_count:
+        reject_codes.append("primary_statement_table_rows_missing")
+    if target_type == "profit_or_loss" and len(broad_pl_keys) < 1:
+        reject_codes.append("primary_profit_or_loss_group_tax_note_only")
+    accepted = not reject_codes
+    return {
+        "accepted": bool(accepted),
+        "value_count": len(rows),
+        "metric_keys": sorted(metric_keys),
+        "broad_metric_keys": sorted(broad_pl_keys),
+        "required_metric_count": required_count,
+        "reject_reason_codes": reject_codes,
+        "reason_codes": ["extract_first_primary_group_discovered", "target_metric_rows_verified"] if accepted else [],
+        "candidate_rows": rows,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages_extract_first(
+    args: argparse.Namespace,
+    *,
+    candidates: list[dict[str, Any]],
+    text_by_page: dict[int, dict[str, Any]],
+    discovery_by_target: dict[str, dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    max_pages = int(args.rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target or 0)
+    allow_notes = bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages)
+    selected: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+    target_group_rows: list[dict[str, Any]] = []
+    for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
+        target_candidates = [item for item in candidates if item.get("target_type") == target_type]
+        by_page: dict[int, dict[str, Any]] = {}
+        for item in target_candidates:
+            page_number = int(item.get("page_number") or 0)
+            if page_number > 0 and page_number not in by_page:
+                by_page[page_number] = item
+        discovery = discovery_by_target.get(target_type) or {}
+        candidate_rows_by_page = discovery.get("candidate_rows_by_page") if isinstance(discovery.get("candidate_rows_by_page"), dict) else {}
+        page_scores = discovery.get("page_scores") if isinstance(discovery.get("page_scores"), dict) else {}
+        page_rejects = discovery.get("page_reject_reason_codes") if isinstance(discovery.get("page_reject_reason_codes"), dict) else {}
+        ranked_pages = sorted(
+            by_page,
+            key=lambda page: (
+                int(by_page[page].get("selection_priority_rank") or 99),
+                -int((page_scores.get(page) or {}).get("page_total_discovery_score") or 0),
+                page,
+            ),
+        )
+        value_pages = [
+            page
+            for page in sorted(
+                candidate_rows_by_page,
+                key=lambda page: (
+                    -int((page_scores.get(page) or {}).get("page_total_discovery_score") or 0),
+                    int(by_page.get(page, {}).get("selection_priority_rank") or 99),
+                    int(page),
+                ),
+            )
+            if candidate_rows_by_page.get(page)
+        ]
+        group_page_sets: list[list[int]] = []
+        seen_groups: set[tuple[int, ...]] = set()
+
+        def _add_group(pages: Sequence[int]) -> None:
+            group = [page for page in dict.fromkeys(int(page) for page in pages if int(page) in by_page)]
+            if not group:
+                return
+            key = tuple(group)
+            if key in seen_groups:
+                return
+            seen_groups.add(key)
+            group_page_sets.append(group)
+
+        if value_pages:
+            _add_group(value_pages[:max_pages])
+        for page in ranked_pages:
+            _add_group([page])
+            if page + 1 in by_page:
+                _add_group([page, page + 1])
+        evaluated_groups: list[dict[str, Any]] = []
+        for group_pages in group_page_sets:
+            acceptance = _rzd_controlled_value_extraction_group_acceptance(target_type, group_pages, discovery)
+            row_score = sum(int((page_scores.get(page) or {}).get("page_total_discovery_score") or 0) for page in group_pages)
+            tax_note_group = any(
+                _rzd_controlled_value_extraction_is_tax_note_context(
+                    str((text_by_page.get(page) or {}).get("text") or ((by_page.get(page) or {}).get("page_map_row") or {}).get("page_text_sample") or ""),
+                    (by_page.get(page) or {}).get("page_map_row") or {},
+                )
+                for page in group_pages
+            )
+            reject_codes = list(acceptance.get("reject_reason_codes") or [])
+            if target_type == "profit_or_loss" and tax_note_group and not acceptance.get("broad_metric_keys"):
+                reject_codes = list(dict.fromkeys([*reject_codes, "primary_profit_or_loss_group_tax_note_only"]))
+            accepted = _as_bool(acceptance.get("accepted")) and not reject_codes
+            group_row = {
+                "target_group_id": f"rzd_manual_official_pdf_controlled_value_target_group:{target_type}:{','.join(str(page) for page in group_pages)}",
+                "target_type": target_type,
+                "selected_pages": group_pages,
+                "primary_statement_group_accepted": bool(accepted),
+                "primary_statement_group_rejected": not bool(accepted),
+                "row_score": int(row_score),
+                "group_statement_row_score": int(row_score),
+                "value_count": int(acceptance.get("value_count") or 0),
+                "group_value_candidate_count": int(acceptance.get("value_count") or 0),
+                "target_specific_required_metric_count": int(acceptance.get("required_metric_count") or 0),
+                "metric_keys": acceptance.get("metric_keys") or [],
+                "reason_codes": list(acceptance.get("reason_codes") or []) if accepted else [],
+                "group_accepted_reason_codes": list(acceptance.get("reason_codes") or []) if accepted else [],
+                "reject_reason_codes": reject_codes,
+                "group_reject_reason_codes": reject_codes,
+                "tax_note_group": bool(tax_note_group),
+                "target_group_diagnostics_truncated": False,
+                "safe_hint": "Target group is a static preview selection only; Task170 does not import values.",
+            }
+            evaluated_groups.append({"row": group_row, "pages": group_pages, "accepted": accepted, "candidate_rows": acceptance.get("candidate_rows") or []})
+        accepted_groups = [group for group in evaluated_groups if _as_bool((group.get("row") or {}).get("primary_statement_group_accepted"))]
+        selected_group = None
+        if accepted_groups:
+            selected_group = sorted(
+                accepted_groups,
+                key=lambda group: (
+                    sum(
+                        1
+                        for page in (group.get("pages") or [])
+                        if not (candidate_rows_by_page.get(int(page)) or [])
+                    )
+                    if target_type != "cash_flows"
+                    else 0,
+                    min(int(by_page.get(page, {}).get("selection_priority_rank") or 99) for page in (group.get("pages") or [9999])),
+                    len(group.get("pages") or []),
+                    -int((group.get("row") or {}).get("row_score") or 0),
+                    min(group.get("pages") or [9999]),
+                ),
+            )[0]
+            target_group_rows.append(selected_group["row"])
+        rejected_groups = [group for group in evaluated_groups if group is not selected_group and not _as_bool((group.get("row") or {}).get("primary_statement_group_accepted"))]
+        rejected_groups = sorted(
+            rejected_groups,
+            key=lambda group: (
+                -int((group.get("row") or {}).get("row_score") or 0),
+                min(group.get("pages") or [9999]),
+            ),
+        )
+        truncated = len(rejected_groups) > RZD_CONTROLLED_VALUE_EXTRACTION_REJECTED_GROUP_DIAGNOSTIC_LIMIT
+        for group in rejected_groups[:RZD_CONTROLLED_VALUE_EXTRACTION_REJECTED_GROUP_DIAGNOSTIC_LIMIT]:
+            row = dict(group["row"])
+            row["target_group_diagnostics_truncated"] = bool(truncated)
+            target_group_rows.append(row)
+        if not selected_group:
+            warnings.append({"message": "controlled_value_extraction_target_missing_selected_pages", "target_type": target_type})
+            diagnostic_pages = ranked_pages[:max_pages]
+        else:
+            diagnostic_pages = list(selected_group.get("pages") or [])[:max_pages]
+        for page in diagnostic_pages:
+            item = by_page.get(page)
+            if not item:
+                continue
+            page_row = item.get("page_map_row") if isinstance(item.get("page_map_row"), dict) else {}
+            text = str((text_by_page.get(page) or {}).get("text") or page_row.get("page_text_sample") or "")
+            page_score = page_scores.get(page) or {}
+            rows_for_page = candidate_rows_by_page.get(page) or []
+            accepted_page = bool(selected_group and page in (selected_group.get("pages") or []) and rows_for_page)
+            assessment = {
+                "accepted": accepted_page,
+                "table_bearing_primary_page": accepted_page,
+                "reject_reason_codes": list(page_rejects.get(page) or ([] if accepted_page else ["primary_statement_table_rows_missing"])),
+                "reason_codes": ["extract_first_page_in_accepted_primary_group"] if accepted_page else [],
+                "accepted_reason_codes": ["extract_first_page_in_accepted_primary_group"] if accepted_page else [],
+                "page_title_detected": _rzd_controlled_value_extraction_page_title(target_type, text, page_row),
+                "table_row_candidate_count": len(rows_for_page),
+                "target_specific_value_row_count": len(rows_for_page),
+                "target_specific_required_metric_count": 1 if target_type == "cash_flows" else _rzd_controlled_value_extraction_target_required_metric_count(target_type),
+                "table_bearing_primary_page_score": int(page_score.get("page_total_discovery_score") or 0),
+                "scan_diagnostics": {
+                    "candidate_line_scanned_count": int(page_score.get("candidate_line_scanned_count") or 0),
+                    "candidate_line_matched_count": int(page_score.get("candidate_line_matched_count") or 0),
+                    "candidate_line_rejected_count": int(page_score.get("candidate_line_rejected_count") or 0),
+                },
+            }
+            selected.append(
+                {
+                    **item,
+                    "selection_score": int(page_score.get("page_total_discovery_score") or item.get("selection_score") or 0),
+                    "primary_assessment": assessment,
+                    "target_group_id": (selected_group or {}).get("row", {}).get("target_group_id") if selected_group else "",
+                    "primary_statement_group_accepted": bool(selected_group),
+                    "primary_statement_group_reject_reason_codes": (selected_group or {}).get("row", {}).get("reject_reason_codes", []) if selected_group else [],
+                    "primary_statement_group_reason_codes": (selected_group or {}).get("row", {}).get("reason_codes", []) if selected_group else [],
+                    "internal_candidate_rows": rows_for_page if selected_group and page in (selected_group.get("pages") or []) else [],
                 }
             )
     return selected, warnings, target_group_rows
@@ -42126,29 +42592,60 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     args: argparse.Namespace,
     *,
     loaded: dict[str, Any],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str, list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str, list[dict[str, Any]], dict[str, int]]:
     selected_evidence = loaded.get("selected_evidence") if isinstance(loaded.get("selected_evidence"), dict) else {}
     page_map_rows = [row for row in loaded.get("page_map_rows") or [] if isinstance(row, dict)]
     target_rows = [row for row in loaded.get("target_rows") or [] if isinstance(row, dict)]
     controlled_pdf_path = loaded.get("controlled_pdf_path") if isinstance(loaded.get("controlled_pdf_path"), Path) else None
     candidate_pages = _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(args, page_map_rows=page_map_rows, target_rows=target_rows)
+    empty_discovery_stats = {
+        "candidate_discovery_page_count": 0,
+        "candidate_discovery_row_count": 0,
+        "candidate_discovery_target_count": 0,
+        "candidate_discovery_rejected_page_count": 0,
+        "candidate_discovery_rejected_line_count": 0,
+    }
     if not candidate_pages:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
-        return [], [], [blocker], [], "failed", []
+        return [], [], [blocker], [], "failed", [], empty_discovery_stats
     page_numbers = [int(item["page_number"]) for item in candidate_pages]
     text_by_page = _rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
         controlled_pdf_path or Path(str(selected_evidence.get("controlled_pdf_copy_path") or "")),
         page_numbers,
         str(args.rzd_manual_official_pdf_controlled_value_extraction_text_backend or "auto"),
     )
-    selected_pages, selection_warnings, target_group_rows = _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages(
+    page_map_by_page = {int(row.get("page_number") or 0): row for row in page_map_rows if int(row.get("page_number") or 0) > 0}
+    discovery_by_target: dict[str, dict[str, Any]] = {}
+    discovery_stats = dict(empty_discovery_stats)
+    for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
+        target_pages = [
+            int(item.get("page_number") or 0)
+            for item in candidate_pages
+            if item.get("target_type") == target_type and int(item.get("page_number") or 0) > 0
+        ]
+        discovery = _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
+            target_type,
+            target_pages,
+            text_by_page,
+            page_map_by_page,
+            bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages),
+        )
+        discovery_by_target[target_type] = discovery
+        discovery_stats["candidate_discovery_page_count"] += int(discovery.get("scanned_page_count") or 0)
+        discovery_stats["candidate_discovery_row_count"] += int(discovery.get("candidate_row_count") or 0)
+        discovery_stats["candidate_discovery_target_count"] += 1
+        diagnostics = discovery.get("diagnostics") if isinstance(discovery.get("diagnostics"), dict) else {}
+        discovery_stats["candidate_discovery_rejected_page_count"] += int(diagnostics.get("candidate_discovery_rejected_page_count") or 0)
+        discovery_stats["candidate_discovery_rejected_line_count"] += int(diagnostics.get("candidate_discovery_rejected_line_count") or 0)
+    selected_pages, selection_warnings, target_group_rows = _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages_extract_first(
         args,
         candidates=candidate_pages,
         text_by_page=text_by_page,
+        discovery_by_target=discovery_by_target,
     )
     if not selected_pages:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
-        return [], [], [blocker], selection_warnings, "failed", target_group_rows
+        return [], [], [blocker], selection_warnings, "failed", target_group_rows, discovery_stats
     page_snapshot_rows: list[dict[str, Any]] = []
     value_rows: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = [*selection_warnings]
@@ -42254,7 +42751,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         value_rows.extend(page_values)
     if not value_rows:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_values")
-        return page_snapshot_rows, [], [blocker], warnings, "failed", target_group_rows
+        return page_snapshot_rows, [], [blocker], warnings, "failed", target_group_rows, discovery_stats
     found_by_target = {row.get("target_type") for row in value_rows}
     for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
         if target_type not in found_by_target:
@@ -42263,7 +42760,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     status = "passed"
     if len(page_snapshot_rows) < 3 or len(value_rows) < 8 or warnings:
         status = "warning"
-    return page_snapshot_rows, value_rows, [], warnings, status, target_group_rows
+    return page_snapshot_rows, value_rows, [], warnings, status, target_group_rows, discovery_stats
 
 
 def _rzd_manual_official_pdf_controlled_value_extraction_safety_flags() -> dict[str, bool]:
@@ -42357,11 +42854,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
     *,
     page_snapshot_rows: list[dict[str, Any]],
     target_group_rows: list[dict[str, Any]],
+    discovery_stats: dict[str, int] | None = None,
     value_rows: list[dict[str, Any]],
     blocker_rows: list[dict[str, Any]],
     status: str,
 ) -> dict[str, int]:
     target_group_rows = target_group_rows or []
+    discovery_stats = discovery_stats or {}
 
     def _sum_page_int(field: str) -> int:
         return sum(int(row.get(field) or 0) for row in page_snapshot_rows)
@@ -42387,7 +42886,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "selected_notes_page_count": sum(1 for row in page_snapshot_rows if _as_bool(row.get("is_notes_page"))),
         "selected_contents_page_count": sum(1 for row in page_snapshot_rows if _as_bool(row.get("is_contents_page"))),
         "selected_audit_page_count": sum(1 for row in page_snapshot_rows if _as_bool(row.get("is_auditor_report_page"))),
+        "candidate_discovery_page_count": int(discovery_stats.get("candidate_discovery_page_count") or 0),
+        "candidate_discovery_row_count": int(discovery_stats.get("candidate_discovery_row_count") or 0),
+        "candidate_discovery_target_count": int(discovery_stats.get("candidate_discovery_target_count") or 0),
+        "candidate_discovery_rejected_page_count": int(discovery_stats.get("candidate_discovery_rejected_page_count") or 0),
+        "candidate_discovery_rejected_line_count": int(discovery_stats.get("candidate_discovery_rejected_line_count") or 0),
         "target_group_row_count": len(target_group_rows),
+        "target_group_rejected_group_limit": RZD_CONTROLLED_VALUE_EXTRACTION_REJECTED_GROUP_DIAGNOSTIC_LIMIT,
         "accepted_primary_group_count": sum(1 for row in target_group_rows if _as_bool(row.get("primary_statement_group_accepted"))),
         "rejected_primary_group_count": sum(1 for row in target_group_rows if _as_bool(row.get("primary_statement_group_rejected"))),
         "tax_note_page_rejected_count": sum(1 for row in target_group_rows if _as_bool(row.get("tax_note_group"))),
@@ -42441,6 +42946,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     page_map_report: dict[str, Any],
     page_snapshot_rows: list[dict[str, Any]],
     target_group_rows: list[dict[str, Any]],
+    discovery_stats: dict[str, int],
     value_rows: list[dict[str, Any]],
     blocker_rows: list[dict[str, Any]],
     warnings: list[dict[str, Any]],
@@ -42451,6 +42957,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     counts = _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         page_snapshot_rows=page_snapshot_rows,
         target_group_rows=target_group_rows,
+        discovery_stats=discovery_stats,
         value_rows=value_rows,
         blocker_rows=blocker_rows,
         status=status,
@@ -42520,6 +43027,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         "controlled_value_extraction_target_types": _rzd_manual_official_pdf_controlled_value_extraction_target_types(args),
         "controlled_value_extraction_max_pages_per_target": int(args.rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target or 0),
         "controlled_value_extraction_allow_notes_pages": bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages),
+        "target_group_diagnostics_truncated": any(_as_bool(row.get("target_group_diagnostics_truncated")) for row in target_group_rows),
         "page_snapshot_rows": page_snapshot_rows,
         "target_group_rows": target_group_rows,
         "value_rows": value_rows,
@@ -42579,6 +43087,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_failed_report(
         page_map_report={},
         page_snapshot_rows=[],
         target_group_rows=[],
+        discovery_stats={},
         value_rows=[],
         blocker_rows=blocker_rows,
         warnings=[],
@@ -42664,6 +43173,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
         _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
             page_snapshot_rows=list(report.get("page_snapshot_rows") or []),
             target_group_rows=list(report.get("target_group_rows") or []),
+            discovery_stats={
+                "candidate_discovery_page_count": int(report.get("candidate_discovery_page_count") or 0),
+                "candidate_discovery_row_count": int(report.get("candidate_discovery_row_count") or 0),
+                "candidate_discovery_target_count": int(report.get("candidate_discovery_target_count") or 0),
+                "candidate_discovery_rejected_page_count": int(report.get("candidate_discovery_rejected_page_count") or 0),
+                "candidate_discovery_rejected_line_count": int(report.get("candidate_discovery_rejected_line_count") or 0),
+            },
             value_rows=list(report.get("value_rows") or []),
             blocker_rows=list(report.get("blocker_rows") or []),
             status=str(report.get("status") or ""),
