@@ -6982,6 +6982,11 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "candidate_discovery_target_count",
     "candidate_discovery_rejected_page_count",
     "candidate_discovery_rejected_line_count",
+    "primary_statement_table_row_parser_attempt_count",
+    "primary_statement_table_row_parser_success_count",
+    "primary_statement_table_row_parser_failed_count",
+    "primary_statement_table_row_value_count",
+    "primary_statement_table_row_parser_zero_value_page_count",
     "title_anchor_page_count",
     "title_anchor_group_count",
     "title_anchor_missing_group_count",
@@ -7156,6 +7161,10 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS = [
     "table_row_candidate_count",
     "small_number_line_rejected_count",
     "value_candidate_count",
+    "primary_statement_table_row_parser_attempted",
+    "primary_statement_table_row_parser_success",
+    "primary_statement_table_row_parser_value_count",
+    "primary_statement_table_row_parser_failure_reason_codes",
     "selection_reason_codes",
     "selection_warning_codes",
     "selection_blocker_codes",
@@ -7202,6 +7211,10 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_DIAGNOSTIC_FIELDS = [
     "ocr_error",
     "sample_lines",
     "candidate_row_count",
+    "primary_statement_table_row_parser_attempted",
+    "primary_statement_table_row_parser_success",
+    "primary_statement_table_row_parser_value_count",
+    "primary_statement_table_row_parser_failure_reason_codes",
     "false_generic_row_rejected_count",
     "false_generic_reject_reason_counts",
     "safe_hint",
@@ -7277,6 +7290,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
     "note_reference",
     "row_label",
     "extraction_method",
+    "value_extraction_method",
     "value_text_source",
     "value_text_backend",
     "extraction_confidence",
@@ -7321,6 +7335,11 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "candidate_discovery_target_count",
     "candidate_discovery_rejected_page_count",
     "candidate_discovery_rejected_line_count",
+    "primary_statement_table_row_parser_attempt_count",
+    "primary_statement_table_row_parser_success_count",
+    "primary_statement_table_row_parser_failed_count",
+    "primary_statement_table_row_value_count",
+    "primary_statement_table_row_parser_zero_value_page_count",
     "title_anchor_page_count",
     "title_anchor_group_count",
     "title_anchor_missing_group_count",
@@ -7472,6 +7491,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "toc_primary_page_candidate",
     "toc_primary_page_anchor_used",
     "toc_notes_range_rejected",
+    "primary_statement_table_row_parser_attempted",
+    "primary_statement_table_row_parser_success",
     "page_text_empty_or_weak",
     "toc_primary_page_text_probe",
     "ocr_attempted",
@@ -41586,6 +41607,416 @@ def _rzd_controlled_value_extraction_value_columns(line: str) -> dict[str, Any]:
     return {"raw_2025": "", "value_2025": None, "raw_2024": "", "value_2024": None, "note_reference": ""}
 
 
+def _rzd_controlled_value_extraction_primary_statement_table_specs() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "statement_of_financial_position": [
+            {
+                "metric_key": "non_current_assets",
+                "name_en": "Non-current assets",
+                "name_ru": "Внеоборотные активы",
+                "terms": ("non-current assets", "noncurrent assets", "внеоборотные активы"),
+            },
+            {
+                "metric_key": "current_assets",
+                "name_en": "Current assets",
+                "name_ru": "Оборотные активы",
+                "terms": ("current assets", "оборотные активы"),
+            },
+            {
+                "metric_key": "total_assets",
+                "name_en": "Total assets",
+                "name_ru": "Итого активы",
+                "terms": ("total assets", "итого активы", "всего активы", "активы всего"),
+            },
+            {
+                "metric_key": "cash_and_cash_equivalents",
+                "name_en": "Cash and cash equivalents",
+                "name_ru": "Денежные средства и их эквиваленты",
+                "terms": ("cash and cash equivalents", "денежные средства и их эквиваленты", "денежные средства"),
+            },
+            {
+                "metric_key": "total_equity_and_liabilities",
+                "name_en": "Total equity and liabilities",
+                "name_ru": "Итого капитал и обязательства",
+                "terms": (
+                    "total equity and liabilities",
+                    "equity and liabilities",
+                    "итого капитал и обязательства",
+                    "всего капитал и обязательства",
+                    "капитал и обязательства",
+                ),
+            },
+            {
+                "metric_key": "total_equity",
+                "name_en": "Total equity",
+                "name_ru": "Итого капитал",
+                "terms": ("total equity", "итого капитал", "всего капитал", "капитал всего"),
+            },
+            {
+                "metric_key": "non_current_liabilities",
+                "name_en": "Non-current liabilities",
+                "name_ru": "Долгосрочные обязательства",
+                "terms": ("non-current liabilities", "долгосрочные обязательства"),
+            },
+            {
+                "metric_key": "current_liabilities",
+                "name_en": "Current liabilities",
+                "name_ru": "Краткосрочные обязательства",
+                "terms": ("current liabilities", "краткосрочные обязательства"),
+            },
+            {
+                "metric_key": "total_liabilities",
+                "name_en": "Total liabilities",
+                "name_ru": "Итого обязательства",
+                "terms": ("total liabilities", "итого обязательства", "всего обязательства"),
+            },
+            {
+                "metric_key": "borrowings_or_loans",
+                "name_en": "Borrowings or loans",
+                "name_ru": "Кредиты и займы",
+                "terms": ("borrowings", "loans", "кредиты и займы", "заемные средства", "займы"),
+            },
+        ],
+        "profit_or_loss": [
+            {
+                "metric_key": "revenue",
+                "name_en": "Total revenue",
+                "name_ru": "Итого выручка",
+                "terms": ("total revenue", "revenue", "итого выручка", "выручка", "доходы от перевозок"),
+            },
+            {
+                "metric_key": "operating_expenses",
+                "name_en": "Total operating expenses",
+                "name_ru": "Итого операционные расходы",
+                "terms": (
+                    "total operating expenses",
+                    "operating expenses",
+                    "итого операционные расходы",
+                    "операционные расходы",
+                    "расходы по обычным видам деятельности",
+                ),
+            },
+            {
+                "metric_key": "operating_profit",
+                "name_en": "Operating profit",
+                "name_ru": "Операционная прибыль",
+                "terms": ("operating profit", "операционная прибыль", "прибыль от операционной деятельности"),
+            },
+            {
+                "metric_key": "net_finance_costs",
+                "name_en": "Net finance costs",
+                "name_ru": "Чистые финансовые расходы",
+                "terms": ("net finance costs", "net finance expense", "чистые финансовые расходы"),
+            },
+            {
+                "metric_key": "finance_costs",
+                "name_en": "Finance costs",
+                "name_ru": "Финансовые расходы",
+                "terms": ("finance costs", "finance expenses", "финансовые расходы"),
+            },
+            {
+                "metric_key": "profit_before_tax",
+                "name_en": "Profit before tax",
+                "name_ru": "Прибыль до налогообложения",
+                "terms": ("profit before tax", "прибыль до налогообложения"),
+            },
+            {
+                "metric_key": "income_tax_expense",
+                "name_en": "Income tax expense",
+                "name_ru": "Расход по налогу на прибыль",
+                "terms": ("income tax expense", "income tax", "расход по налогу на прибыль", "налог на прибыль"),
+            },
+            {
+                "metric_key": "profit_for_the_year",
+                "name_en": "Profit for the year",
+                "name_ru": "Прибыль за год",
+                "terms": ("profit for the year", "profit for year", "прибыль за год"),
+            },
+            {
+                "metric_key": "net_profit",
+                "name_en": "Net profit",
+                "name_ru": "Чистая прибыль",
+                "terms": ("net profit", "чистая прибыль", "чистая прибыль за год"),
+            },
+        ],
+        "other_comprehensive_income": [
+            {
+                "metric_key": "profit_for_the_year",
+                "name_en": "Profit for the year",
+                "name_ru": "Прибыль за год",
+                "terms": ("profit for the year", "profit for year", "прибыль за год"),
+            },
+            {
+                "metric_key": "other_comprehensive_income",
+                "name_en": "Other comprehensive income",
+                "name_ru": "Прочий совокупный доход",
+                "terms": ("other comprehensive income", "прочий совокупный доход", "прочего совокупного дохода"),
+            },
+            {
+                "metric_key": "total_comprehensive_income",
+                "name_en": "Total comprehensive income",
+                "name_ru": "Итого совокупный доход",
+                "terms": ("total comprehensive income", "итого совокупный доход", "совокупный доход за год"),
+            },
+        ],
+        "cash_flows": [
+            {
+                "metric_key": "net_cash_from_operating_activities",
+                "name_en": "Net cash from operating activities",
+                "name_ru": "Денежные потоки от операционной деятельности",
+                "terms": ("operating activities", "операционной деятельности"),
+            },
+            {
+                "metric_key": "net_cash_used_in_investing_activities",
+                "name_en": "Net cash used in investing activities",
+                "name_ru": "Денежные потоки от инвестиционной деятельности",
+                "terms": ("investing activities", "инвестиционной деятельности"),
+            },
+            {
+                "metric_key": "net_cash_from_financing_activities",
+                "name_en": "Net cash from financing activities",
+                "name_ru": "Денежные потоки от финансовой деятельности",
+                "terms": ("financing activities", "финансовой деятельности"),
+            },
+            {
+                "metric_key": "net_increase_decrease_in_cash",
+                "name_en": "Net increase/decrease in cash",
+                "name_ru": "Чистое изменение денежных средств",
+                "terms": ("net increase", "net decrease", "чистое изменение"),
+            },
+            {
+                "metric_key": "cash_and_cash_equivalents_beginning",
+                "name_en": "Cash at beginning",
+                "name_ru": "Денежные средства на начало",
+                "terms": ("beginning of", "at beginning", "на начало"),
+            },
+            {
+                "metric_key": "cash_and_cash_equivalents_ending",
+                "name_en": "Cash at end",
+                "name_ru": "Денежные средства на конец",
+                "terms": ("end of", "at end", "на конец"),
+            },
+        ],
+    }
+
+
+def _rzd_controlled_value_extraction_line_matches_table_metric(line: str, spec: dict[str, Any]) -> bool:
+    prepared = _normalize_pdf_preview_text_for_signal_detection(line)
+    normalized = prepared["normalized_text"]
+    compact = prepared["compact_text"]
+    return any(_rzd_manual_official_pdf_phrase_found(str(term), normalized, compact) for term in spec.get("terms") or [])
+
+
+def _rzd_controlled_value_extraction_table_parser_diagnostics() -> dict[str, Any]:
+    return {
+        "candidate_line_scanned_count": 0,
+        "candidate_line_matched_count": 0,
+        "candidate_line_rejected_count": 0,
+        "contents_navigation_line_rejected_count": 0,
+        "page_number_value_rejected_count": 0,
+        "date_period_line_rejected_count": 0,
+        "date_number_value_rejected_count": 0,
+        "small_page_or_note_number_value_rejected_count": 0,
+        "wide_equity_movement_line_rejected_count": 0,
+        "wide_equity_movement_value_rejected_count": 0,
+        "false_generic_statement_row_rejected_count": 0,
+        "generic_row_fx_rate_rejected_count": 0,
+        "generic_row_percent_or_discount_rejected_count": 0,
+        "generic_row_statement_reference_rejected_count": 0,
+        "generic_row_date_or_period_rejected_count": 0,
+        "body_reference_title_value_rejected_count": 0,
+        "primary_statement_table_row_parser_attempted": False,
+        "primary_statement_table_row_parser_success": False,
+        "primary_statement_table_row_parser_value_count": 0,
+        "primary_statement_table_row_parser_failure_reason_codes": [],
+    }
+
+
+def _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+    *,
+    target_type: str,
+    page_number: int,
+    page_text: str,
+    text_source: str,
+    text_backend: str,
+    is_contents_page: bool = False,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    diagnostics = _rzd_controlled_value_extraction_table_parser_diagnostics()
+    diagnostics["primary_statement_table_row_parser_attempted"] = True
+    specs = _rzd_controlled_value_extraction_primary_statement_table_specs().get(str(target_type or ""), [])
+    rows: list[dict[str, Any]] = []
+    if not specs or not str(page_text or "").strip():
+        diagnostics["primary_statement_table_row_parser_failure_reason_codes"] = ["primary_statement_table_parser_no_text_or_specs"]
+        return rows, diagnostics
+
+    matched_metrics: set[str] = set()
+    pending_label = ""
+    pending_line_number = 0
+
+    for line_number, raw_line in enumerate(str(page_text or "").splitlines(), start=1):
+        stripped_line = raw_line.strip()
+        if not stripped_line:
+            pending_label = ""
+            pending_line_number = 0
+            continue
+        diagnostics["candidate_line_scanned_count"] += 1
+        if target_type == "other_comprehensive_income" and _rzd_controlled_value_extraction_is_wide_equity_movement_line(raw_line):
+            diagnostics["wide_equity_movement_line_rejected_count"] += 1
+            diagnostics["wide_equity_movement_value_rejected_count"] += 1
+            diagnostics["candidate_line_rejected_count"] += 1
+            pending_label = ""
+            pending_line_number = 0
+            continue
+        if _rzd_controlled_value_extraction_is_contents_or_navigation_line(raw_line, is_contents_page=is_contents_page):
+            diagnostics["contents_navigation_line_rejected_count"] += 1
+            diagnostics["candidate_line_rejected_count"] += 1
+            pending_label = ""
+            pending_line_number = 0
+            continue
+        if _rzd_controlled_value_extraction_is_date_or_period_line(raw_line):
+            columns = _rzd_controlled_value_extraction_value_columns(raw_line)
+            values = [columns.get("value_2025"), columns.get("value_2024")]
+            if sum(1 for value in values if isinstance(value, int) and abs(value) >= 100) < 2:
+                diagnostics["date_period_line_rejected_count"] += 1
+                diagnostics["date_number_value_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                pending_label = ""
+                pending_line_number = 0
+                continue
+
+        columns = _rzd_controlled_value_extraction_value_columns(raw_line)
+        value_2025 = columns.get("value_2025")
+        value_2024 = columns.get("value_2024")
+        has_two_values = isinstance(value_2025, int) and isinstance(value_2024, int)
+        if not has_two_values:
+            if re.search(r"[^\W\d_]", raw_line, flags=re.UNICODE) and len(_rzd_controlled_value_extraction_numeric_groups(raw_line)) <= 1:
+                pending_label = f"{pending_label} {stripped_line}".strip()[-240:]
+                pending_line_number = pending_line_number or line_number
+            else:
+                pending_label = ""
+                pending_line_number = 0
+            continue
+
+        candidate_line = f"{pending_label} {stripped_line}".strip() if pending_label else stripped_line
+        matched_spec = None
+        for spec in specs:
+            metric_key = str(spec.get("metric_key") or "")
+            if metric_key in matched_metrics:
+                continue
+            if _rzd_controlled_value_extraction_line_matches_table_metric(candidate_line, spec):
+                matched_spec = spec
+                break
+        if matched_spec is None:
+            pending_label = ""
+            pending_line_number = 0
+            continue
+
+        reject_code = _rzd_controlled_value_extraction_reject_value_columns(
+            line=raw_line,
+            page_number=page_number,
+            value_2025=value_2025,
+            value_2024=value_2024,
+            primary_statement_page_accepted=True,
+        )
+        if reject_code:
+            diagnostics["candidate_line_rejected_count"] += 1
+            if reject_code == "date_period_line_value_rejected":
+                diagnostics["date_period_line_rejected_count"] += 1
+                diagnostics["date_number_value_rejected_count"] += 1
+            else:
+                diagnostics["small_page_or_note_number_value_rejected_count"] += 1
+                diagnostics["page_number_value_rejected_count"] += 1
+            pending_label = ""
+            pending_line_number = 0
+            continue
+
+        is_false_generic, false_generic_codes = _rzd_controlled_value_extraction_is_false_generic_statement_row(
+            target_type,
+            candidate_line,
+            columns,
+            page_text,
+        )
+        filtered_false_codes = [
+            code
+            for code in false_generic_codes
+            if code
+            not in {
+                "generic_row_statement_reference_rejected",
+                "generic_row_small_reference_numbers_rejected",
+            }
+        ]
+        if is_false_generic and filtered_false_codes:
+            diagnostics["false_generic_statement_row_rejected_count"] += 1
+            diagnostics["candidate_line_rejected_count"] += 1
+            if "generic_row_fx_rate_rejected" in filtered_false_codes:
+                diagnostics["generic_row_fx_rate_rejected_count"] += 1
+            if "generic_row_percent_or_discount_rejected" in filtered_false_codes:
+                diagnostics["generic_row_percent_or_discount_rejected_count"] += 1
+            if "generic_row_statement_reference_rejected" in filtered_false_codes:
+                diagnostics["generic_row_statement_reference_rejected_count"] += 1
+                if _rzd_controlled_value_extraction_is_statement_body_reference(raw_line):
+                    diagnostics["body_reference_title_value_rejected_count"] += 1
+            if "generic_row_date_or_period_rejected" in filtered_false_codes:
+                diagnostics["generic_row_date_or_period_rejected_count"] += 1
+            pending_label = ""
+            pending_line_number = 0
+            continue
+
+        metric_key = str(matched_spec.get("metric_key") or "")
+        confidence = "high"
+        line_for_hash = candidate_line if pending_label else raw_line
+        rows.append(
+            {
+                "target_type": target_type,
+                "metric_key": metric_key,
+                "metric_name_ru": matched_spec.get("name_ru") or "",
+                "metric_name_en": matched_spec.get("name_en") or "",
+                "page_number": page_number,
+                "statement_page": page_number,
+                "line_number": pending_line_number or line_number,
+                "line_number_on_page": line_number,
+                "raw_line": candidate_line[:500],
+                "raw_line_sha256": hashlib.sha256(line_for_hash.encode("utf-8")).hexdigest(),
+                "raw_value_2025": str(columns.get("raw_2025") or ""),
+                "value_2025": value_2025,
+                "value_2025_present": True,
+                "raw_value_2024": str(columns.get("raw_2024") or ""),
+                "value_2024": value_2024,
+                "value_2024_present": True,
+                "unit": "RUB million",
+                "scale": 1000000,
+                "note_reference": str(columns.get("note_reference") or ""),
+                "row_label": candidate_line[:160],
+                "extraction_method": "primary_statement_table_row_parser",
+                "value_extraction_method": "primary_statement_table_row_parser",
+                "value_text_source": str(text_source or ""),
+                "value_text_backend": str(text_backend or ""),
+                "extraction_confidence": confidence,
+                "extraction_status": "candidate_value_extracted_for_human_review",
+                "reason_codes": [
+                    "primary_statement_table_row_parser_metric_matched",
+                    "metric_label_matched",
+                    "controlled_value_extraction_preview_only",
+                ],
+                "warning_codes": [],
+                "blocker_codes": [],
+                "generic_metric": False,
+                "title_anchored_value": True,
+                "cross_target_page_value": False,
+            }
+        )
+        diagnostics["candidate_line_matched_count"] += 1
+        matched_metrics.add(metric_key)
+        pending_label = ""
+        pending_line_number = 0
+
+    diagnostics["primary_statement_table_row_parser_value_count"] = len(rows)
+    diagnostics["primary_statement_table_row_parser_success"] = bool(rows)
+    if not rows:
+        diagnostics["primary_statement_table_row_parser_failure_reason_codes"] = ["primary_statement_table_parser_zero_value_rows"]
+    return rows, diagnostics
+
+
 def _rzd_controlled_value_extraction_table_row_candidate_count(text: str) -> int:
     count = 0
     for line in str(text or "").splitlines():
@@ -41665,12 +42096,15 @@ def _rzd_controlled_value_extraction_target_metric_keys(target_type: str) -> set
         }
     if target_type == "profit_or_loss":
         return {
+            "total_revenue",
             "revenue",
             "cost_of_sales",
             "gross_profit",
             "operating_profit",
+            "total_operating_expenses",
             "operating_expenses",
             "finance_income",
+            "net_finance_costs",
             "finance_costs",
             "profit_before_tax",
             "income_tax_expense",
@@ -41696,7 +42130,7 @@ def _rzd_controlled_value_extraction_target_required_metric_count(target_type: s
 
 
 def _rzd_controlled_value_extraction_profit_or_loss_broad_metric_keys() -> set[str]:
-    return {"revenue", "gross_profit", "operating_profit", "profit_for_the_year", "net_profit"}
+    return {"total_revenue", "revenue", "gross_profit", "operating_profit", "profit_for_the_year", "net_profit"}
 
 
 def _rzd_controlled_value_extraction_statement_title_terms(target_type: str) -> tuple[str, ...]:
@@ -41903,31 +42337,34 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     title_match_info = title_match_info if isinstance(title_match_info, dict) else {}
     title_anchored = _as_bool(title_match_info.get("target_title_matched")) and not _as_bool(title_match_info.get("cross_target_title_detected"))
-    diagnostics = {
-        "candidate_line_scanned_count": 0,
-        "candidate_line_matched_count": 0,
-        "candidate_line_rejected_count": 0,
-        "contents_navigation_line_rejected_count": 0,
-        "page_number_value_rejected_count": 0,
-        "date_period_line_rejected_count": 0,
-        "date_number_value_rejected_count": 0,
-        "small_page_or_note_number_value_rejected_count": 0,
-        "wide_equity_movement_line_rejected_count": 0,
-        "wide_equity_movement_value_rejected_count": 0,
-        "false_generic_statement_row_rejected_count": 0,
-        "generic_row_fx_rate_rejected_count": 0,
-        "generic_row_percent_or_discount_rejected_count": 0,
-        "generic_row_statement_reference_rejected_count": 0,
-        "generic_row_date_or_period_rejected_count": 0,
-        "body_reference_title_value_rejected_count": 0,
-    }
+    diagnostics = _rzd_controlled_value_extraction_table_parser_diagnostics()
     specs = _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])
     target_metric_keys = _rzd_controlled_value_extraction_target_metric_keys(target_type)
-    rows: list[dict[str, Any]] = []
-    matched_metrics: set[str] = set()
+    table_rows, table_diagnostics = _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type=target_type,
+        page_number=page_number,
+        page_text=text,
+        text_source="",
+        text_backend="",
+        is_contents_page=is_contents_page,
+    )
+    rows: list[dict[str, Any]] = list(table_rows)
+    matched_metrics: set[str] = {str(row.get("metric_key") or "") for row in rows if row.get("metric_key")}
+    parser_line_hashes: set[str] = {str(row.get("raw_line_sha256") or "") for row in rows if row.get("raw_line_sha256")}
+    for key, value in table_diagnostics.items():
+        if isinstance(value, bool):
+            diagnostics[key] = bool(value)
+        elif isinstance(value, int):
+            diagnostics[key] = int(diagnostics.get(key) or 0) + int(value)
+        elif isinstance(value, list):
+            diagnostics[key] = list(dict.fromkeys([*(diagnostics.get(key) or []), *value]))
+        else:
+            diagnostics[key] = value
     for line_number, raw_line in enumerate(str(text or "").splitlines(), start=1):
         stripped_line = raw_line.strip()
         if not stripped_line:
+            continue
+        if hashlib.sha256(raw_line.encode("utf-8")).hexdigest() in parser_line_hashes:
             continue
         diagnostics["candidate_line_scanned_count"] += 1
         if target_type == "other_comprehensive_income" and _rzd_controlled_value_extraction_is_wide_equity_movement_line(raw_line):
@@ -42016,10 +42453,11 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
                     "value_2024_present": value_2024 is not None,
                     "unit": "RUB million",
                     "scale": 1000000,
-                    "note_reference": str(columns.get("note_reference") or (note_match.group(1) if note_match else "")),
-                    "row_label": raw_line.strip()[:160],
-                    "extraction_method": "controlled_static_line_metric_match",
-                    "extraction_confidence": confidence,
+                "note_reference": str(columns.get("note_reference") or (note_match.group(1) if note_match else "")),
+                "row_label": raw_line.strip()[:160],
+                "extraction_method": "controlled_static_line_metric_match",
+                "value_extraction_method": "controlled_static_line_metric_match",
+                "extraction_confidence": confidence,
                     "extraction_status": "candidate_value_extracted_for_human_review",
                     "reason_codes": ["metric_label_matched", "controlled_value_extraction_preview_only"],
                     "warning_codes": ["controlled_value_extraction_human_review_required"] if confidence == "medium" else [],
@@ -42123,6 +42561,7 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
                     "note_reference": str(columns.get("note_reference") or ""),
                     "row_label": raw_line.strip()[:160],
                     "extraction_method": "controlled_static_title_anchored_generic_line_match",
+                    "value_extraction_method": "controlled_static_title_anchored_generic_line_match",
                     "extraction_confidence": "medium",
                     "extraction_status": "candidate_value_extracted_for_human_review",
                     "reason_codes": [
@@ -42175,6 +42614,11 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
     toc_notes_range_value_rejected_count = 0
     page_map_false_statement_flag_rejected_count = 0
     contents_page_primary_rejected_count = 0
+    primary_statement_table_row_parser_attempt_count = 0
+    primary_statement_table_row_parser_success_count = 0
+    primary_statement_table_row_parser_failed_count = 0
+    primary_statement_table_row_value_count = 0
+    primary_statement_table_row_parser_zero_value_page_count = 0
     for page_number in bounded_pages:
         page_row = page_map_by_page.get(page_number) or {}
         page_meta = candidate_metadata_by_page.get(page_number) or {}
@@ -42224,24 +42668,9 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             candidate_rows: list[dict[str, Any]] = []
             if _rzd_controlled_value_extraction_is_tax_note_context(text, page_row):
                 tax_note_page_rejected_count += 1
-            diagnostics = {
-                "candidate_line_scanned_count": 0,
-                "candidate_line_matched_count": 0,
-                "candidate_line_rejected_count": 0,
-                "contents_navigation_line_rejected_count": 0,
-                "page_number_value_rejected_count": 0,
-                "date_period_line_rejected_count": 0,
-                "date_number_value_rejected_count": 0,
-                "small_page_or_note_number_value_rejected_count": 0,
-                "wide_equity_movement_line_rejected_count": wide_rejected,
-                "wide_equity_movement_value_rejected_count": wide_rejected,
-                "false_generic_statement_row_rejected_count": 0,
-                "generic_row_fx_rate_rejected_count": 0,
-                "generic_row_percent_or_discount_rejected_count": 0,
-                "generic_row_statement_reference_rejected_count": 0,
-                "generic_row_date_or_period_rejected_count": 0,
-                "body_reference_title_value_rejected_count": 0,
-            }
+            diagnostics = _rzd_controlled_value_extraction_table_parser_diagnostics()
+            diagnostics["wide_equity_movement_line_rejected_count"] = wide_rejected
+            diagnostics["wide_equity_movement_value_rejected_count"] = wide_rejected
             if _as_bool(title_match.get("cross_target_title_detected")):
                 cross_target_value_rejected_count += len(_rzd_controlled_value_extraction_numeric_groups(text))
             if _as_bool(page_meta.get("toc_notes_range_rejected")):
@@ -42275,6 +42704,16 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
         generic_row_statement_reference_rejected_count += int(diagnostics.get("generic_row_statement_reference_rejected_count") or 0)
         generic_row_date_or_period_rejected_count += int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0)
         body_reference_title_value_rejected_count += int(diagnostics.get("body_reference_title_value_rejected_count") or 0)
+        if _as_bool(diagnostics.get("primary_statement_table_row_parser_attempted")):
+            primary_statement_table_row_parser_attempt_count += 1
+            if _as_bool(diagnostics.get("primary_statement_table_row_parser_success")):
+                primary_statement_table_row_parser_success_count += 1
+            else:
+                primary_statement_table_row_parser_failed_count += 1
+            parser_value_count = int(diagnostics.get("primary_statement_table_row_parser_value_count") or 0)
+            primary_statement_table_row_value_count += parser_value_count
+            if parser_value_count == 0:
+                primary_statement_table_row_parser_zero_value_page_count += 1
         candidate_rows_by_page[page_number] = candidate_rows
         page_reject_reason_codes[page_number] = reject_codes
         page_scores[page_number] = {
@@ -42305,6 +42744,12 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             "generic_row_date_or_period_rejected_count": int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0),
             "body_reference_title_rejected_count": int(title_match.get("body_reference_title_rejected_count") or 0),
             "body_reference_title_value_rejected_count": int(diagnostics.get("body_reference_title_value_rejected_count") or 0),
+            "primary_statement_table_row_parser_attempted": _as_bool(diagnostics.get("primary_statement_table_row_parser_attempted")),
+            "primary_statement_table_row_parser_success": _as_bool(diagnostics.get("primary_statement_table_row_parser_success")),
+            "primary_statement_table_row_parser_value_count": int(diagnostics.get("primary_statement_table_row_parser_value_count") or 0),
+            "primary_statement_table_row_parser_failure_reason_codes": list(
+                diagnostics.get("primary_statement_table_row_parser_failure_reason_codes") or []
+            ),
             "toc_primary_page_candidate": _as_bool(page_meta.get("toc_primary_page_candidate")),
             "toc_primary_page_target_type": str(page_meta.get("toc_primary_page_target_type") or ""),
             "toc_primary_page_anchor_used": _as_bool(page_meta.get("toc_primary_page_anchor_used")),
@@ -42341,6 +42786,11 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             "generic_row_date_or_period_rejected_count": generic_row_date_or_period_rejected_count,
             "body_reference_title_rejected_count": body_reference_title_rejected_count,
             "body_reference_title_value_rejected_count": body_reference_title_value_rejected_count,
+            "primary_statement_table_row_parser_attempt_count": primary_statement_table_row_parser_attempt_count,
+            "primary_statement_table_row_parser_success_count": primary_statement_table_row_parser_success_count,
+            "primary_statement_table_row_parser_failed_count": primary_statement_table_row_parser_failed_count,
+            "primary_statement_table_row_value_count": primary_statement_table_row_value_count,
+            "primary_statement_table_row_parser_zero_value_page_count": primary_statement_table_row_parser_zero_value_page_count,
             "toc_notes_range_page_rejected_count": toc_notes_range_page_rejected_count,
             "toc_notes_range_value_rejected_count": toc_notes_range_value_rejected_count,
             "page_map_false_statement_flag_rejected_count": page_map_false_statement_flag_rejected_count,
@@ -44158,9 +44608,15 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
                     "generic_row_percent_or_discount_rejected_count": int(page_score.get("generic_row_percent_or_discount_rejected_count") or 0),
                     "generic_row_statement_reference_rejected_count": int(page_score.get("generic_row_statement_reference_rejected_count") or 0),
                     "generic_row_date_or_period_rejected_count": int(page_score.get("generic_row_date_or_period_rejected_count") or 0),
-                    "body_reference_title_rejected_count": int(page_score.get("body_reference_title_rejected_count") or 0),
-                    "body_reference_title_value_rejected_count": int(page_score.get("body_reference_title_value_rejected_count") or 0),
-                    "toc_notes_range_page_rejected_count": 1 if _as_bool(page_score.get("toc_notes_range_rejected")) else 0,
+                "body_reference_title_rejected_count": int(page_score.get("body_reference_title_rejected_count") or 0),
+                "body_reference_title_value_rejected_count": int(page_score.get("body_reference_title_value_rejected_count") or 0),
+                "primary_statement_table_row_parser_attempted": _as_bool(page_score.get("primary_statement_table_row_parser_attempted")),
+                "primary_statement_table_row_parser_success": _as_bool(page_score.get("primary_statement_table_row_parser_success")),
+                "primary_statement_table_row_parser_value_count": int(page_score.get("primary_statement_table_row_parser_value_count") or 0),
+                "primary_statement_table_row_parser_failure_reason_codes": list(
+                    page_score.get("primary_statement_table_row_parser_failure_reason_codes") or []
+                ),
+                "toc_notes_range_page_rejected_count": 1 if _as_bool(page_score.get("toc_notes_range_rejected")) else 0,
                     "toc_notes_range_value_rejected_count": int(page_score.get("toc_notes_range_value_rejected_count") or 0),
                     "page_map_false_statement_flag_rejected_count": 1 if _as_bool(page_score.get("page_map_false_statement_flag_rejected")) else 0,
                     "contents_page_primary_rejected_count": 1 if _as_bool(page_score.get("contents_page_rejected_as_primary")) else 0,
@@ -44607,6 +45063,18 @@ def _rzd_controlled_value_extraction_apply_toc_ocr_fallback(
             ocr_needed.append(page_number)
         if int(probe.get("table_like_line_count") or 0) > 0:
             stats["toc_primary_page_text_probe_table_like_count"] = int(stats["toc_primary_page_text_probe_table_like_count"]) + 1
+            parser_rows, _parser_diagnostics = _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+                target_type=target_type,
+                page_number=page_number,
+                page_text=original_text,
+                text_source="controlled_pdf_selected_page_text" if original_text.strip() else "",
+                text_backend=original_backend,
+                is_contents_page=_as_bool(page_row.get("is_contents_page")),
+            )
+            if not parser_rows and page_number not in ocr_needed:
+                result = "table_like_parser_zero_values"
+                stats["toc_primary_page_text_probe_weak_count"] = int(stats["toc_primary_page_text_probe_weak_count"]) + 1
+                ocr_needed.append(page_number)
         text_by_page[page_number] = {
             **existing,
             "text": original_text,
@@ -44961,6 +45429,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
                 "note_reference": str(columns.get("note_reference") or (note_match.group(1) if note_match else "")),
                 "row_label": raw_line.strip()[:160],
                 "extraction_method": "controlled_static_line_metric_match",
+                "value_extraction_method": "controlled_static_line_metric_match",
                 "value_text_source": str(value_text_source or ""),
                 "value_text_backend": str(value_text_backend or ""),
                 "extraction_confidence": confidence,
@@ -45019,6 +45488,7 @@ def _rzd_controlled_value_extraction_finalize_internal_value_rows(
             "safe_hint": "Preview value candidate only. Task170 does not import, mutate the database, score issuers, or trade.",
         }
         warning_codes = list(row.get("warning_codes") or [])
+        row["value_extraction_method"] = str(row.get("value_extraction_method") or row.get("extraction_method") or "")
         if _as_bool(row.get("generic_metric")) and "controlled_value_extraction_human_review_required" not in warning_codes:
             warning_codes.append("controlled_value_extraction_human_review_required")
         if not title_anchored and "controlled_value_extraction_title_anchor_missing" not in warning_codes:
@@ -45099,6 +45569,11 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         "candidate_discovery_target_count": 0,
         "candidate_discovery_rejected_page_count": 0,
         "candidate_discovery_rejected_line_count": 0,
+        "primary_statement_table_row_parser_attempt_count": 0,
+        "primary_statement_table_row_parser_success_count": 0,
+        "primary_statement_table_row_parser_failed_count": 0,
+        "primary_statement_table_row_value_count": 0,
+        "primary_statement_table_row_parser_zero_value_page_count": 0,
         "title_anchor_page_count": 0,
         "cross_target_page_rejected_count": 0,
         "cross_target_value_rejected_count": 0,
@@ -45215,6 +45690,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         diagnostics = discovery.get("diagnostics") if isinstance(discovery.get("diagnostics"), dict) else {}
         discovery_stats["candidate_discovery_rejected_page_count"] += int(diagnostics.get("candidate_discovery_rejected_page_count") or 0)
         discovery_stats["candidate_discovery_rejected_line_count"] += int(diagnostics.get("candidate_discovery_rejected_line_count") or 0)
+        discovery_stats["primary_statement_table_row_parser_attempt_count"] += int(diagnostics.get("primary_statement_table_row_parser_attempt_count") or 0)
+        discovery_stats["primary_statement_table_row_parser_success_count"] += int(diagnostics.get("primary_statement_table_row_parser_success_count") or 0)
+        discovery_stats["primary_statement_table_row_parser_failed_count"] += int(diagnostics.get("primary_statement_table_row_parser_failed_count") or 0)
+        discovery_stats["primary_statement_table_row_value_count"] += int(diagnostics.get("primary_statement_table_row_value_count") or 0)
+        discovery_stats["primary_statement_table_row_parser_zero_value_page_count"] += int(
+            diagnostics.get("primary_statement_table_row_parser_zero_value_page_count") or 0
+        )
         discovery_stats["title_anchor_page_count"] += int(diagnostics.get("title_anchor_page_count") or 0)
         discovery_stats["cross_target_page_rejected_count"] += int(diagnostics.get("cross_target_page_rejected_count") or 0)
         discovery_stats["cross_target_value_rejected_count"] += int(diagnostics.get("cross_target_value_rejected_count") or 0)
@@ -45381,6 +45863,16 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
                 "generic_row_date_or_period_rejected_count": int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0),
                 "body_reference_title_rejected_count": int(diagnostics.get("body_reference_title_rejected_count") or 0),
                 "body_reference_title_value_rejected_count": int(diagnostics.get("body_reference_title_value_rejected_count") or 0),
+                "primary_statement_table_row_parser_attempted": _as_bool(
+                    diagnostics.get("primary_statement_table_row_parser_attempted")
+                ),
+                "primary_statement_table_row_parser_success": _as_bool(diagnostics.get("primary_statement_table_row_parser_success")),
+                "primary_statement_table_row_parser_value_count": int(
+                    diagnostics.get("primary_statement_table_row_parser_value_count") or 0
+                ),
+                "primary_statement_table_row_parser_failure_reason_codes": list(
+                    diagnostics.get("primary_statement_table_row_parser_failure_reason_codes") or []
+                ),
                 "toc_notes_range_page_rejected_count": int(diagnostics.get("toc_notes_range_page_rejected_count") or 0),
                 "toc_notes_range_value_rejected_count": int(diagnostics.get("toc_notes_range_value_rejected_count") or 0),
                 "page_map_false_statement_flag_rejected_count": int(diagnostics.get("page_map_false_statement_flag_rejected_count") or 0),
@@ -45543,6 +46035,20 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
     primary_statement_value_count = sum(1 for row in value_rows if _as_bool(row.get("primary_statement_page_value")))
     primary_statement_group_value_count = sum(1 for row in value_rows if _as_bool(row.get("primary_statement_group_value")))
     date_period_rejections = _sum_page_int("date_period_line_rejected_count")
+    snapshot_parser_attempt_count = sum(
+        1 for row in page_snapshot_rows if _as_bool(row.get("primary_statement_table_row_parser_attempted"))
+    )
+    snapshot_parser_success_count = sum(
+        1 for row in page_snapshot_rows if _as_bool(row.get("primary_statement_table_row_parser_success"))
+    )
+    snapshot_parser_value_count = _sum_page_int("primary_statement_table_row_parser_value_count")
+    snapshot_parser_zero_value_page_count = sum(
+        1
+        for row in page_snapshot_rows
+        if _as_bool(row.get("primary_statement_table_row_parser_attempted"))
+        and int(row.get("primary_statement_table_row_parser_value_count") or 0) == 0
+    )
+    snapshot_parser_failed_count = max(0, snapshot_parser_attempt_count - snapshot_parser_success_count)
     return {
         "input_registration_count": 1,
         "input_parse_plan_count": 1,
@@ -45561,6 +46067,26 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "candidate_discovery_target_count": int(discovery_stats.get("candidate_discovery_target_count") or 0),
         "candidate_discovery_rejected_page_count": int(discovery_stats.get("candidate_discovery_rejected_page_count") or 0),
         "candidate_discovery_rejected_line_count": int(discovery_stats.get("candidate_discovery_rejected_line_count") or 0),
+        "primary_statement_table_row_parser_attempt_count": max(
+            int(discovery_stats.get("primary_statement_table_row_parser_attempt_count") or 0),
+            snapshot_parser_attempt_count,
+        ),
+        "primary_statement_table_row_parser_success_count": max(
+            int(discovery_stats.get("primary_statement_table_row_parser_success_count") or 0),
+            snapshot_parser_success_count,
+        ),
+        "primary_statement_table_row_parser_failed_count": max(
+            int(discovery_stats.get("primary_statement_table_row_parser_failed_count") or 0),
+            snapshot_parser_failed_count,
+        ),
+        "primary_statement_table_row_value_count": max(
+            int(discovery_stats.get("primary_statement_table_row_value_count") or 0),
+            snapshot_parser_value_count,
+        ),
+        "primary_statement_table_row_parser_zero_value_page_count": max(
+            int(discovery_stats.get("primary_statement_table_row_parser_zero_value_page_count") or 0),
+            snapshot_parser_zero_value_page_count,
+        ),
         "title_anchor_page_count": int(discovery_stats.get("title_anchor_page_count") or 0),
         "title_anchor_group_count": sum(1 for row in target_group_rows if _as_bool(row.get("target_title_matched"))),
         "title_anchor_missing_group_count": sum(
@@ -45748,6 +46274,16 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(
                 "ocr_error": str(snapshot.get("ocr_error") or ""),
                 "sample_lines": sample_lines,
                 "candidate_row_count": int(snapshot.get("target_specific_value_row_count") or snapshot.get("value_candidate_count") or 0),
+                "primary_statement_table_row_parser_attempted": _as_bool(
+                    snapshot.get("primary_statement_table_row_parser_attempted")
+                ),
+                "primary_statement_table_row_parser_success": _as_bool(snapshot.get("primary_statement_table_row_parser_success")),
+                "primary_statement_table_row_parser_value_count": int(
+                    snapshot.get("primary_statement_table_row_parser_value_count") or 0
+                ),
+                "primary_statement_table_row_parser_failure_reason_codes": list(
+                    snapshot.get("primary_statement_table_row_parser_failure_reason_codes") or []
+                ),
                 "false_generic_row_rejected_count": int(snapshot.get("false_generic_statement_row_rejected_count") or 0),
                 "false_generic_reject_reason_counts": false_counts,
                 "safe_hint": "Diagnostic row only. Task170 does not import values or mutate downstream systems.",

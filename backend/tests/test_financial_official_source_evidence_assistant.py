@@ -13881,6 +13881,88 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_value_extraction_primary_statement_table_parser_direct() -> None:
+    sofp_text = "\n".join(
+        [
+            "Консолидированный отчет о финансовом положении",
+            "Внеоборотные активы 9 621 481 8 955 339",
+            "Оборотные активы 855 372 705 496",
+            "Итого активы 10 476 853 9 660 835",
+            "Денежные средства и их эквиваленты 275 383 279 130",
+            "Итого капитал 4 000 000 3 900 000",
+            "Итого капитал и обязательства 10 476 853 9 660 835",
+        ]
+    )
+    sofp_rows, sofp_diag = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="statement_of_financial_position",
+        page_number=9,
+        page_text=sofp_text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    sofp_by_key = {row["metric_key"]: row for row in sofp_rows}
+    assert sofp_diag["primary_statement_table_row_parser_success"] is True
+    assert sofp_by_key["non_current_assets"]["value_2025"] == 9621481
+    assert sofp_by_key["current_assets"]["value_2024"] == 705496
+    assert sofp_by_key["total_assets"]["value_2025"] == 10476853
+    assert sofp_by_key["cash_and_cash_equivalents"]["value_2025"] == 275383
+    assert sofp_by_key["total_equity_and_liabilities"]["value_2024"] == 9660835
+
+    pl_text = "\n".join(
+        [
+            "Консолидированный отчет о прибылях и убытках",
+            "Выручка 3 637 906 3 296 301",
+            "Расходы по обычным видам деятельности (3 093 260) (2 838 891)",
+            "Операционная прибыль 544 646 457 410",
+            "Чистые финансовые расходы (510 439) (329 084)",
+            "Прибыль до налогообложения 34 207 128 326",
+            "Расход по налогу на прибыль (31 898) (77 631)",
+            "Прибыль за год 11 2 309 50 695",
+            "За год, закончившийся 31 декабря 2025 года",
+            "Курс доллара США 89,6883 92,2914",
+            "Максимальная скидка 50 50",
+        ]
+    )
+    pl_rows, pl_diag = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="profit_or_loss",
+        page_number=11,
+        page_text=pl_text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    pl_by_key = {row["metric_key"]: row for row in pl_rows}
+    assert pl_diag["primary_statement_table_row_parser_success"] is True
+    assert pl_by_key["revenue"]["value_2025"] == 3637906
+    assert pl_by_key["operating_expenses"]["value_2025"] == -3093260
+    assert pl_by_key["operating_profit"]["value_2024"] == 457410
+    assert pl_by_key["net_finance_costs"]["value_2025"] == -510439
+    assert pl_by_key["profit_before_tax"]["value_2025"] == 34207
+    assert pl_by_key["income_tax_expense"]["value_2024"] == -77631
+    assert pl_by_key["profit_for_the_year"]["note_reference"] == "11"
+    assert pl_by_key["profit_for_the_year"]["value_2025"] == 2309
+    assert all("89,6883" not in row["raw_line"] for row in pl_rows)
+    assert all("скидка" not in row["raw_line"].casefold() for row in pl_rows)
+
+    oci_text = "\n".join(
+        [
+            "Консолидированный отчет о прочем совокупном доходе",
+            "Прибыль за год 2 309 50 695",
+            "Прочий совокупный доход 20 10",
+            "Итого совокупный доход 2 329 50 705",
+        ]
+    )
+    oci_rows, oci_diag = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="other_comprehensive_income",
+        page_number=12,
+        page_text=oci_text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    assert oci_diag["primary_statement_table_row_parser_value_count"] >= 2
+    assert {row["metric_key"] for row in oci_rows} >= {"profit_for_the_year", "total_comprehensive_income"}
+    assert all(row["value_extraction_method"] == "primary_statement_table_row_parser" for row in sofp_rows + pl_rows + oci_rows)
+
+
 def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_page_override(
     tmp_path: Path,
     monkeypatch,
@@ -14119,6 +14201,98 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_ocr_for_textle
     ocr_diagnostics = json.loads(ocr_diagnostics_path.read_text(encoding="utf-8"))
     assert ocr_diagnostics["row_count"] >= 2
     assert any(row["page_number"] == 9 and row["ocr_success"] is True for row in ocr_diagnostics["ocr_diagnostic_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_uses_ocr_when_table_like_primary_parser_finds_zero_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, _targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_row = _task170_toc_page_map_row(_task170_strict_toc_text())
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, toc_row)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    table_like_unmatched = "\n".join(
+        [
+            "Statement of financial position 2025 2024 million rubles",
+            "Unmapped balance row alpha 111 222",
+            "Unmapped balance row beta 333 444",
+            "Unmapped balance row gamma 555 666",
+            "Unmapped balance row delta 777 888",
+            "Unmapped balance row epsilon 999 111",
+            "Unmapped balance row zeta 222 333",
+            "Context line with 2025 and 2024 columns but no known metric labels.",
+        ]
+    )
+    page_texts = _task170_page_texts()
+    page_texts.update({2: {"backend": "synthetic", "text": _task170_strict_toc_text()}, 9: {"backend": "synthetic", "text": table_like_unmatched}})
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+    ocr_attempted_pages: list[int] = []
+
+    def fake_ocr(pdf_path, page_numbers, output_dir, languages="rus+eng"):
+        ocr_attempted_pages.extend(int(page) for page in page_numbers)
+        return {
+            int(page): {
+                "ocr_diagnostic_id": f"ocr:{page}",
+                "page_number": int(page),
+                "target_type": "",
+                "ocr_attempted": True,
+                "ocr_success": int(page) == 9,
+                "text": "\n".join(
+                    [
+                        "Statement of financial position 2025 2024 million rubles",
+                        "Total assets 1000 900",
+                        "Total equity and liabilities 1000 900",
+                    ]
+                )
+                if int(page) == 9
+                else "",
+                "backend": "ocr_tesseract" if int(page) == 9 else "",
+                "ocr_text_char_count": 120 if int(page) == 9 else 0,
+                "ocr_text_nonempty_line_count": 3 if int(page) == 9 else 0,
+                "ocr_error": "" if int(page) == 9 else "local_pdf_ocr_empty_text",
+                "local_pdf_page_render_available": True,
+                "local_pdf_page_render_backend": "pdftoppm",
+                "local_pdf_page_render_attempted": True,
+                "local_pdf_page_render_success": True,
+                "effective_page_text_source": "ocr_tesseract" if int(page) == 9 else "",
+                "effective_page_text_backend": "ocr_tesseract" if int(page) == 9 else "",
+                "safe_hint": "test ocr",
+            }
+            for page in page_numbers
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_value_extraction_ocr_local_pdf_pages", fake_ocr)
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "statement_of_financial_position",
+        ]
+    )
+
+    assert 9 in ocr_attempted_pages
+    assert report["status"] in {"passed", "warning"}
+    assert report["ocr_page_attempt_count"] >= 1
+    assert report["statement_of_financial_position_value_count"] >= 2
+    assert report["primary_statement_table_row_parser_success_count"] >= 1
+    snapshot = next(row for row in report["page_snapshot_rows"] if row["target_type"] == "statement_of_financial_position")
+    assert snapshot["effective_page_text_source"] == "ocr_tesseract"
+    assert snapshot["primary_statement_table_row_parser_success"] is True
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -24925,6 +25099,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             "target_specific_required_metric_count",
             "small_number_line_rejected_count",
             "value_candidate_count",
+            "primary_statement_table_row_parser_value_count",
         ):
             assert field in row
             assert isinstance(row[field], int)
@@ -24932,6 +25107,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("primary_statement_page_reject_reason_codes"), list)
         assert isinstance(row.get("table_bearing_primary_page_reject_reason_codes"), list)
         assert isinstance(row.get("table_bearing_primary_page_accepted_reason_codes"), list)
+        assert isinstance(row.get("primary_statement_table_row_parser_failure_reason_codes"), list)
         assert isinstance(row.get("matched_title"), str)
         assert isinstance(row.get("matched_title_line_number"), int)
         assert isinstance(row.get("cross_target_title_type"), str)
@@ -25008,6 +25184,10 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("ocr_error"), str)
         assert isinstance(row.get("sample_lines"), list)
         assert isinstance(row.get("candidate_row_count"), int)
+        assert isinstance(row.get("primary_statement_table_row_parser_attempted"), bool)
+        assert isinstance(row.get("primary_statement_table_row_parser_success"), bool)
+        assert isinstance(row.get("primary_statement_table_row_parser_value_count"), int)
+        assert isinstance(row.get("primary_statement_table_row_parser_failure_reason_codes"), list)
         assert isinstance(row.get("false_generic_row_rejected_count"), int)
         assert isinstance(row.get("false_generic_reject_reason_counts"), dict)
     for row in report.get("toc_diagnostic_rows") or []:
@@ -25069,6 +25249,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert row["line_number_on_page"] > 0
         assert isinstance(row.get("value_text_source"), str)
         assert isinstance(row.get("value_text_backend"), str)
+        assert isinstance(row.get("value_extraction_method"), str)
 
 
 def _assert_rzd_manual_official_pdf_parse_plan_report_fields(report: dict) -> None:
