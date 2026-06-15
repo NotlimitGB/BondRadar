@@ -13809,8 +13809,12 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     assert report["selected_notes_page_count"] == 0
     assert report["selected_contents_page_count"] == 0
     assert report["selected_audit_page_count"] == 0
+    assert report["target_group_row_count"] >= 4
+    assert report["accepted_primary_group_count"] >= 4
+    assert report["table_bearing_primary_page_count"] == 4
     assert report["value_candidate_row_count"] >= 12
     assert report["primary_statement_value_count"] == report["value_candidate_row_count"]
+    assert report["primary_statement_group_value_count"] == report["value_candidate_row_count"]
     assert report["non_primary_statement_value_count"] == 0
     assert report["notes_page_value_count"] == 0
     assert report["statement_of_financial_position_value_count"] >= 4
@@ -13844,7 +13848,10 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     assert snapshots_by_target["statement_of_financial_position"]["target_start_page_used"] is True
     assert snapshots_by_target["statement_of_financial_position"]["fallback_page_used"] is False
     assert snapshots_by_target["statement_of_financial_position"]["value_candidate_count"] >= 4
+    assert snapshots_by_target["statement_of_financial_position"]["table_bearing_primary_page"] is True
+    assert snapshots_by_target["statement_of_financial_position"]["target_specific_value_row_count"] >= 2
     assert all(row["primary_statement_page_value"] is True for row in report["value_rows"])
+    assert all(row["primary_statement_group_value"] is True for row in report["value_rows"])
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.md").is_file()
@@ -14058,11 +14065,15 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_primary_pl_page_bea
     assert 91 not in selected_pages
     assert report["profit_or_loss_value_count"] >= 2
     assert report["notes_page_value_count"] == 0
+    assert report["tax_note_page_rejected_count"] >= 1
+    assert report["notes_page_value_count"] == 0
     profit_snapshot = next(row for row in report["page_snapshot_rows"] if row["target_type"] == "profit_or_loss")
     assert profit_snapshot["page_number"] == 11
     assert profit_snapshot["selection_source"] == "target_start_page"
     assert profit_snapshot["target_start_page_used"] is True
     assert profit_snapshot["primary_statement_page_accepted"] is True
+    assert profit_snapshot["table_bearing_primary_page"] is True
+    assert all(row["statement_page"] == 11 for row in report["value_rows"])
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -14154,6 +14165,130 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_ready_false_when_so
     assert "controlled_value_extraction_statement_of_financial_position_partial" in {
         row.get("message") for row in report["warnings"]
     }
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_start_page_title_without_rows_not_accepted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _write_task170_controlled_value_extraction_inputs(tmp_path)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {
+            9: {
+                "backend": "synthetic",
+                "text": "Statement of financial position 2025 2024 million rubles\nNo usable table rows on this page.",
+            }
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "statement_of_financial_position",
+        ]
+    )
+
+    assert report["status"] == "failed"
+    assert report["value_candidate_row_count"] == 0
+    assert report["table_bearing_primary_page_count"] == 0
+    assert report["accepted_primary_group_count"] == 0
+    assert report["controlled_value_extraction_ready"] is False
+    snapshot = report["page_snapshot_rows"][0]
+    assert snapshot["target_start_page_used"] is True
+    assert snapshot["primary_statement_page_accepted"] is False
+    assert snapshot["table_bearing_primary_page"] is False
+    assert "primary_statement_table_rows_missing" in snapshot["table_bearing_primary_page_reject_reason_codes"]
+    assert "controlled_value_extraction_no_values" in {row["blocker_code"] for row in report["blocker_rows"]}
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_accepts_cash_flow_adjacent_group(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    page16 = {
+        "page_map_id": "page:16",
+        "page_number": 16,
+        "page_text_sample": "Cash flow continuation operating activities 600 550 cash and cash equivalents at end 700 650.",
+        "detected_section_type": "",
+        "detected_section_title": "",
+        "is_financial_statement_page": True,
+        "is_statement_of_financial_position_page": False,
+        "is_profit_or_loss_page": False,
+        "is_other_comprehensive_income_page": False,
+        "is_changes_in_equity_page": False,
+        "is_cash_flows_page": False,
+        "is_notes_page": False,
+        "is_auditor_report_page": False,
+        "has_table_like_text": True,
+        "has_rub_million_unit": True,
+        "has_2025_column": True,
+        "has_2024_column": True,
+        "future_value_extraction_candidate": True,
+    }
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.append(page16)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    for row in targets_payload["target_rows"]:
+        if row["target_type"] == "cash_flows":
+            row["start_page"] = 15
+            row["end_page"] = 16
+            row["candidate_pages"] = [15, 16]
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {
+            15: {
+                "backend": "synthetic",
+                "text": "Statement of cash flows 2025 2024 million rubles\nTitle page only.",
+            },
+            16: {
+                "backend": "synthetic",
+                "text": "\n".join(
+                    [
+                        "Operating activities 600 550",
+                        "Net cash from financing activities 100 90",
+                        "Cash and cash equivalents at end 700 650",
+                    ]
+                ),
+            },
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "cash_flows",
+        ]
+    )
+
+    assert report["status"] in {"passed", "warning"}
+    accepted_group = next(row for row in report["target_group_rows"] if row["primary_statement_group_accepted"] is True)
+    assert accepted_group["selected_pages"] == [15, 16]
+    assert report["cash_flows_value_count"] >= 2
+    assert {row["statement_page"] for row in report["value_rows"]} == {16}
+    assert all(row["primary_statement_group_value"] is True for row in report["value_rows"])
+    page15 = next(row for row in report["page_snapshot_rows"] if row["page_number"] == 15)
+    page16_snapshot = next(row for row in report["page_snapshot_rows"] if row["page_number"] == 16)
+    assert page15["value_candidate_count"] == 0
+    assert page16_snapshot["table_bearing_primary_page"] is True
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -23611,10 +23746,14 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             "date_period_line_rejected_count",
             "date_number_value_rejected_count",
             "small_page_or_note_number_value_rejected_count",
+            "tax_note_value_rejected_count",
             "candidate_line_scanned_count",
             "candidate_line_matched_count",
             "candidate_line_rejected_count",
             "table_row_candidate_count",
+            "table_bearing_primary_page_score",
+            "target_specific_value_row_count",
+            "target_specific_required_metric_count",
             "small_number_line_rejected_count",
             "value_candidate_count",
         ):
@@ -23622,8 +23761,21 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             assert isinstance(row[field], int)
             assert row[field] is not None
         assert isinstance(row.get("primary_statement_page_reject_reason_codes"), list)
+        assert isinstance(row.get("table_bearing_primary_page_reject_reason_codes"), list)
+        assert isinstance(row.get("table_bearing_primary_page_accepted_reason_codes"), list)
         assert isinstance(row.get("page_title_detected"), str)
         assert isinstance(row.get("selection_source"), str)
+    for row in report.get("target_group_rows") or []:
+        assert isinstance(row.get("target_group_id"), str)
+        assert isinstance(row.get("selected_pages"), list)
+        assert isinstance(row.get("primary_statement_group_accepted"), bool)
+        assert isinstance(row.get("primary_statement_group_rejected"), bool)
+        assert isinstance(row.get("row_score"), int)
+        assert isinstance(row.get("value_count"), int)
+        assert isinstance(row.get("target_specific_required_metric_count"), int)
+        assert isinstance(row.get("reason_codes"), list)
+        assert isinstance(row.get("reject_reason_codes"), list)
+        assert isinstance(row.get("tax_note_group"), bool)
     for row in report.get("value_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS:
             assert field in row

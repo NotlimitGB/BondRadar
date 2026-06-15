@@ -6971,8 +6971,16 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "selected_notes_page_count",
     "selected_contents_page_count",
     "selected_audit_page_count",
+    "target_group_row_count",
+    "accepted_primary_group_count",
+    "rejected_primary_group_count",
+    "tax_note_page_rejected_count",
+    "tax_note_value_rejected_count",
+    "table_bearing_primary_page_count",
+    "non_table_bearing_primary_page_count",
     "value_candidate_row_count",
     "primary_statement_value_count",
+    "primary_statement_group_value_count",
     "non_primary_statement_value_count",
     "notes_page_value_count",
     "contents_navigation_line_rejected_count",
@@ -6981,6 +6989,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "date_period_line_rejected_count",
     "date_number_value_rejected_count",
     "small_page_or_note_number_value_rejected_count",
+    "tax_note_value_rejected_count",
     "candidate_line_scanned_count",
     "candidate_line_matched_count",
     "candidate_line_rejected_count",
@@ -7016,6 +7025,12 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS = [
     "target_exact_section_match",
     "primary_statement_page_accepted",
     "primary_statement_page_reject_reason_codes",
+    "table_bearing_primary_page",
+    "table_bearing_primary_page_score",
+    "table_bearing_primary_page_reject_reason_codes",
+    "table_bearing_primary_page_accepted_reason_codes",
+    "target_specific_value_row_count",
+    "target_specific_required_metric_count",
     "page_title_detected",
     "selected_page_text_sample",
     "contents_navigation_line_rejected_count",
@@ -7075,6 +7090,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
     "warning_codes",
     "blocker_codes",
     "primary_statement_page_value",
+    "primary_statement_group_value",
     "future_import_candidate",
     "future_human_review_required",
     "safe_hint",
@@ -7102,9 +7118,17 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "selected_notes_page_count",
     "selected_contents_page_count",
     "selected_audit_page_count",
+    "target_group_row_count",
+    "accepted_primary_group_count",
+    "rejected_primary_group_count",
+    "tax_note_page_rejected_count",
+    "tax_note_value_rejected_count",
+    "table_bearing_primary_page_count",
+    "non_table_bearing_primary_page_count",
     "page_snapshot_row_count",
     "value_candidate_row_count",
     "primary_statement_value_count",
+    "primary_statement_group_value_count",
     "non_primary_statement_value_count",
     "notes_page_value_count",
     "statement_of_financial_position_value_count",
@@ -7174,6 +7198,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "is_auditor_report_page",
     "target_exact_section_match",
     "primary_statement_page_accepted",
+    "table_bearing_primary_page",
     "target_start_page_used",
     "target_candidate_page_used",
     "target_exact_page_flag_used",
@@ -7189,6 +7214,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_ROW_BOOL_FIELDS = (
     "value_2025_present",
     "value_2024_present",
     "primary_statement_page_value",
+    "primary_statement_group_value",
     "future_import_candidate",
     "future_human_review_required",
 )
@@ -40608,7 +40634,7 @@ def run_rzd_manual_official_pdf_controlled_value_extraction_preview_v2(args: arg
             errors=errors,
             write_outputs=True,
         )
-    page_snapshot_rows, value_rows, blocker_rows, warnings, forced_status = _rzd_manual_official_pdf_controlled_value_extraction_rows(args, loaded=loaded)
+    page_snapshot_rows, value_rows, blocker_rows, warnings, forced_status, target_group_rows = _rzd_manual_official_pdf_controlled_value_extraction_rows(args, loaded=loaded)
     report = _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         args,
         inputs=inputs,
@@ -40619,6 +40645,7 @@ def run_rzd_manual_official_pdf_controlled_value_extraction_preview_v2(args: arg
         parse_plan_report=loaded.get("task169_parse_plan") if isinstance(loaded.get("task169_parse_plan"), dict) else {},
         page_map_report=loaded.get("task169_page_map") if isinstance(loaded.get("task169_page_map"), dict) else {},
         page_snapshot_rows=page_snapshot_rows,
+        target_group_rows=target_group_rows,
         value_rows=value_rows,
         blocker_rows=blocker_rows,
         warnings=warnings,
@@ -41021,6 +41048,332 @@ def _rzd_controlled_value_extraction_reject_value_columns(
     return ""
 
 
+def _rzd_controlled_value_extraction_target_metric_keys(target_type: str) -> set[str]:
+    if target_type == "statement_of_financial_position":
+        return {
+            "total_assets",
+            "non_current_assets",
+            "current_assets",
+            "total_equity",
+            "total_liabilities",
+            "total_equity_and_liabilities",
+            "cash_and_cash_equivalents",
+            "borrowings_or_loans",
+            "non_current_liabilities",
+            "current_liabilities",
+        }
+    if target_type == "profit_or_loss":
+        return {
+            "revenue",
+            "cost_of_sales",
+            "gross_profit",
+            "operating_profit",
+            "finance_costs",
+            "profit_before_tax",
+            "income_tax",
+            "profit_for_the_year",
+            "net_profit",
+        }
+    if target_type == "other_comprehensive_income":
+        return {"profit_for_the_year", "other_comprehensive_income", "total_comprehensive_income"}
+    if target_type == "cash_flows":
+        return {
+            "net_cash_from_operating_activities",
+            "net_cash_used_in_investing_activities",
+            "net_cash_from_financing_activities",
+            "cash_and_cash_equivalents_beginning",
+            "cash_and_cash_equivalents_end",
+        }
+    return {str(spec.get("metric_key") or "") for spec in _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])}
+
+
+def _rzd_controlled_value_extraction_target_required_metric_count(target_type: str) -> int:
+    return 2 if target_type in {"statement_of_financial_position", "profit_or_loss", "other_comprehensive_income", "cash_flows"} else 1
+
+
+def _rzd_controlled_value_extraction_profit_or_loss_broad_metric_keys() -> set[str]:
+    return {"revenue", "gross_profit", "operating_profit", "profit_for_the_year", "net_profit"}
+
+
+def _rzd_controlled_value_extraction_statement_title_terms(target_type: str) -> tuple[str, ...]:
+    return {
+        "statement_of_financial_position": (
+            "консолидированный отчет о финансовом положении",
+            "отчет о финансовом положении",
+            "statement of financial position",
+            "financial position",
+        ),
+        "profit_or_loss": (
+            "консолидированный отчет о прибылях и убытках",
+            "отчет о прибылях и убытках",
+            "statement of profit or loss",
+            "profit or loss",
+        ),
+        "other_comprehensive_income": (
+            "консолидированный отчет о прочем совокупном доходе",
+            "прочий совокупный доход",
+            "other comprehensive income",
+        ),
+        "cash_flows": (
+            "консолидированный отчет о движении денежных средств",
+            "отчет о движении денежных средств",
+            "statement of cash flows",
+            "cash flows",
+        ),
+    }.get(target_type, (target_type.replace("_", " "),))
+
+
+def _rzd_controlled_value_extraction_target_required_terms(target_type: str) -> tuple[str, ...]:
+    return {
+        "statement_of_financial_position": (
+            "активы",
+            "обязательства",
+            "капитал",
+            "итого активы",
+            "итого капитал и обязательства",
+            "assets",
+            "liabilities",
+            "equity",
+            "total assets",
+            "total equity and liabilities",
+        ),
+        "profit_or_loss": (
+            "выручка",
+            "операционная прибыль",
+            "прибыль до налогообложения",
+            "налог на прибыль",
+            "чистая прибыль",
+            "прибыль за год",
+            "revenue",
+            "gross profit",
+            "operating profit",
+            "profit before tax",
+            "income tax",
+            "net profit",
+            "profit for the year",
+        ),
+        "other_comprehensive_income": (
+            "прибыль за год",
+            "прочий совокупный доход",
+            "profit for the year",
+            "other comprehensive income",
+            "total comprehensive income",
+        ),
+        "cash_flows": (
+            "операционная деятельность",
+            "инвестиционная деятельность",
+            "финансовая деятельность",
+            "денежные средства на начало",
+            "денежные средства на конец",
+            "operating activities",
+            "investing activities",
+            "financing activities",
+            "cash and cash equivalents",
+        ),
+    }.get(target_type, ())
+
+
+def _rzd_controlled_value_extraction_is_tax_note_context(text: str, page_row: dict[str, Any]) -> bool:
+    prepared = _normalize_pdf_preview_text_for_signal_detection(
+        " ".join(
+            [
+                str(page_row.get("detected_section_title") or ""),
+                str(page_row.get("detected_section_type") or ""),
+                str(text or ""),
+            ]
+        )
+    )
+    normalized = prepared["normalized_text"]
+    compact = prepared["compact_text"]
+    tax_terms = (
+        "income tax",
+        "tax expense",
+        "deferred tax",
+        "current tax",
+        "налог на прибыль",
+        "отложенный налог",
+        "текущий налог",
+    )
+    note_terms = (
+        "notes",
+        "note ",
+        "примечания",
+        "в составе статьи",
+        "за год, закончившийся 31 декабря",
+        "консолидированного отчета о прибылях и убытках",
+    )
+    return bool(
+        _rzd_controlled_value_extraction_phrase_count(tax_terms, normalized, compact)
+        and (_as_bool(page_row.get("is_notes_page")) or _rzd_controlled_value_extraction_phrase_count(note_terms, normalized, compact))
+    )
+
+
+def _rzd_controlled_value_extraction_scan_target_value_rows(
+    target_type: str,
+    text: str,
+    *,
+    page_number: int = 0,
+    is_contents_page: bool = False,
+) -> dict[str, Any]:
+    specs = _rzd_manual_official_pdf_controlled_value_extraction_metric_specs().get(target_type, [])
+    target_metric_keys = _rzd_controlled_value_extraction_target_metric_keys(target_type)
+    broad_pl_keys = _rzd_controlled_value_extraction_profit_or_loss_broad_metric_keys()
+    metric_keys: set[str] = set()
+    broad_metric_keys: set[str] = set()
+    scanned_count = 0
+    matched_count = 0
+    rejected_count = 0
+    date_rejected_count = 0
+    contents_rejected_count = 0
+    small_rejected_count = 0
+    for raw_line in str(text or "").splitlines():
+        stripped_line = raw_line.strip()
+        if not stripped_line:
+            continue
+        scanned_count += 1
+        if _rzd_controlled_value_extraction_is_contents_or_navigation_line(raw_line, is_contents_page=is_contents_page):
+            contents_rejected_count += 1
+            rejected_count += 1
+            continue
+        if _rzd_controlled_value_extraction_is_date_or_period_line(raw_line):
+            columns = _rzd_controlled_value_extraction_value_columns(raw_line)
+            values = [columns.get("value_2025"), columns.get("value_2024")]
+            if sum(1 for value in values if isinstance(value, int) and abs(value) >= 100) < 2:
+                date_rejected_count += 1
+                rejected_count += 1
+                continue
+        for spec in specs:
+            metric_key = str(spec.get("metric_key") or "")
+            if metric_key in metric_keys or metric_key not in target_metric_keys:
+                continue
+            if not _rzd_manual_official_pdf_controlled_value_extraction_line_matches_metric(raw_line, spec):
+                continue
+            matched_count += 1
+            columns = _rzd_controlled_value_extraction_value_columns(raw_line)
+            value_2025 = columns.get("value_2025")
+            value_2024 = columns.get("value_2024")
+            if not isinstance(value_2025, int) and not isinstance(value_2024, int):
+                rejected_count += 1
+                continue
+            reject_code = _rzd_controlled_value_extraction_reject_value_columns(
+                line=raw_line,
+                page_number=page_number,
+                value_2025=value_2025 if isinstance(value_2025, int) else None,
+                value_2024=value_2024 if isinstance(value_2024, int) else None,
+                primary_statement_page_accepted=True,
+            )
+            if reject_code:
+                if reject_code == "date_period_line_value_rejected":
+                    date_rejected_count += 1
+                else:
+                    small_rejected_count += 1
+                rejected_count += 1
+                continue
+            metric_keys.add(metric_key)
+            if metric_key in broad_pl_keys:
+                broad_metric_keys.add(metric_key)
+    return {
+        "metric_keys": sorted(metric_keys),
+        "broad_profit_or_loss_metric_keys": sorted(broad_metric_keys),
+        "value_row_count": len(metric_keys),
+        "broad_profit_or_loss_value_row_count": len(broad_metric_keys),
+        "candidate_line_scanned_count": scanned_count,
+        "candidate_line_matched_count": matched_count,
+        "candidate_line_rejected_count": rejected_count,
+        "contents_navigation_line_rejected_count": contents_rejected_count,
+        "date_period_line_rejected_count": date_rejected_count,
+        "small_page_or_note_number_value_rejected_count": small_rejected_count,
+    }
+
+
+def _rzd_controlled_value_extraction_verify_table_bearing_primary_page(
+    target_type: str,
+    page_text: str,
+    page_map_row: dict[str, Any],
+    target_row: dict[str, Any] | None,
+    *,
+    selection_source: str = "",
+    allow_notes: bool = False,
+) -> dict[str, Any]:
+    target_row = target_row if isinstance(target_row, dict) else {}
+    prepared = _normalize_pdf_preview_text_for_signal_detection(
+        " ".join([str(page_map_row.get("detected_section_title") or ""), str(page_text or "")])
+    )
+    normalized = prepared["normalized_text"]
+    compact = prepared["compact_text"]
+    reject_codes: list[str] = []
+    accepted_reason_codes: list[str] = []
+    if _as_bool(page_map_row.get("is_contents_page")):
+        reject_codes.append("contents_page_not_primary_statement")
+    if _as_bool(page_map_row.get("is_auditor_report_page")):
+        reject_codes.append("auditor_report_page_not_primary_statement")
+    if _as_bool(page_map_row.get("is_notes_page")) and not allow_notes:
+        reject_codes.append("notes_page_not_primary_statement")
+
+    high_confidence_start_page = (
+        selection_source == "target_start_page"
+        and str(target_row.get("confidence") or "").casefold() == "high"
+        and bool(str(page_text or "").strip())
+        and not reject_codes
+    )
+    target_exact_section = (
+        page_map_row.get("detected_section_type") == target_type
+        or _as_bool(page_map_row.get(f"is_{target_type}_page"))
+    )
+    title_match = _rzd_controlled_value_extraction_phrase_count(
+        _rzd_controlled_value_extraction_statement_title_terms(target_type),
+        normalized,
+        compact,
+    ) > 0
+    if high_confidence_start_page or target_exact_section:
+        title_match = True
+    if high_confidence_start_page:
+        accepted_reason_codes.append("accepted_from_task169_high_confidence_start_page")
+    required_term_count = _rzd_controlled_value_extraction_phrase_count(
+        _rzd_controlled_value_extraction_target_required_terms(target_type),
+        normalized,
+        compact,
+    )
+    scan = _rzd_controlled_value_extraction_scan_target_value_rows(
+        target_type,
+        page_text,
+        page_number=int(page_map_row.get("page_number") or 0),
+        is_contents_page=_as_bool(page_map_row.get("is_contents_page")),
+    )
+    value_row_count = int(scan.get("value_row_count") or 0)
+    required_metric_count = _rzd_controlled_value_extraction_target_required_metric_count(target_type)
+    if not title_match:
+        reject_codes.append("primary_statement_title_missing")
+    if required_term_count < 1 and value_row_count < required_metric_count:
+        reject_codes.append("primary_statement_required_terms_missing")
+    if value_row_count < required_metric_count:
+        reject_codes.append("primary_statement_table_rows_missing")
+    if target_type == "profit_or_loss":
+        if _rzd_controlled_value_extraction_is_tax_note_context(page_text, page_map_row):
+            reject_codes.append("primary_profit_or_loss_page_tax_note_only")
+        elif int(scan.get("broad_profit_or_loss_value_row_count") or 0) < 1:
+            reject_codes.append("primary_profit_or_loss_broad_statement_row_missing")
+    accepted = not reject_codes
+    if accepted:
+        accepted_reason_codes.append("table_bearing_primary_page_verified")
+    return {
+        "accepted": bool(accepted),
+        "table_bearing_primary_page": bool(accepted),
+        "reject_reason_codes": list(dict.fromkeys(reject_codes)),
+        "reason_codes": list(dict.fromkeys(accepted_reason_codes)),
+        "accepted_reason_codes": list(dict.fromkeys(accepted_reason_codes)),
+        "page_title_detected": _rzd_controlled_value_extraction_page_title(target_type, page_text, page_map_row),
+        "table_row_candidate_count": value_row_count,
+        "target_specific_value_row_count": value_row_count,
+        "target_specific_required_metric_count": required_metric_count,
+        "table_bearing_primary_page_score": value_row_count * 20 + (20 if title_match else 0) + (10 if target_exact_section else 0),
+        "title_match": bool(title_match),
+        "required_term_count": int(required_term_count),
+        "metric_keys": scan.get("metric_keys") or [],
+        "scan_diagnostics": scan,
+    }
+
+
 def _rzd_controlled_value_extraction_primary_statement_assessment(
     target_type: str,
     *,
@@ -41030,6 +41383,14 @@ def _rzd_controlled_value_extraction_primary_statement_assessment(
     selection_source: str = "",
     allow_notes: bool,
 ) -> dict[str, Any]:
+    return _rzd_controlled_value_extraction_verify_table_bearing_primary_page(
+        target_type,
+        text,
+        page_row,
+        target_row,
+        selection_source=selection_source,
+        allow_notes=allow_notes,
+    )
     target_row = target_row if isinstance(target_row, dict) else {}
     prepared = _normalize_pdf_preview_text_for_signal_detection(" ".join([str(page_row.get("detected_section_title") or ""), str(text or "")]))
     normalized = prepared["normalized_text"]
@@ -41217,11 +41578,12 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
     *,
     candidates: list[dict[str, Any]],
     text_by_page: dict[int, dict[str, Any]],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     max_pages = int(args.rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target or 0)
     allow_notes = bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages)
     selected: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
+    target_group_rows: list[dict[str, Any]] = []
     for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
         target_candidates = [item for item in candidates if item.get("target_type") == target_type]
         scored: list[dict[str, Any]] = []
@@ -41240,8 +41602,100 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
             base_score = _rzd_manual_official_pdf_controlled_value_extraction_page_score(target_type, page_row, allow_notes)
             score = base_score + (1000 if assessment["accepted"] else 0) + int(assessment.get("table_row_candidate_count") or 0)
             scored.append({**item, "selection_score": score, "primary_assessment": assessment})
-        primary = [item for item in scored if _as_bool((item.get("primary_assessment") or {}).get("accepted"))]
-        pool = primary
+
+        scored_by_page = {int(item.get("page_number") or 0): item for item in scored if int(item.get("page_number") or 0) > 0}
+        group_candidates: list[list[dict[str, Any]]] = []
+        seen_groups: set[tuple[int, ...]] = set()
+
+        def _add_group(items: Sequence[dict[str, Any]]) -> None:
+            pages = tuple(dict.fromkeys(int(item.get("page_number") or 0) for item in items if int(item.get("page_number") or 0) > 0))
+            if not pages or pages in seen_groups:
+                return
+            seen_groups.add(pages)
+            group_candidates.append([scored_by_page[page] for page in pages if page in scored_by_page])
+
+        for item in sorted(scored, key=lambda row: (int(row.get("selection_priority_rank") or 99), int(row.get("page_number") or 0))):
+            page_number = int(item.get("page_number") or 0)
+            if page_number <= 0:
+                continue
+            _add_group([item])
+            next_item = scored_by_page.get(page_number + 1)
+            if next_item and (target_type == "cash_flows" or _as_bool(item.get("target_start_page_used"))):
+                _add_group([item, next_item])
+
+        evaluated_groups: list[dict[str, Any]] = []
+        for index, group in enumerate(group_candidates, start=1):
+            pages = [int(item.get("page_number") or 0) for item in group if int(item.get("page_number") or 0) > 0]
+            combined_text = "\n".join(
+                str((text_by_page.get(page) or {}).get("text") or (scored_by_page.get(page, {}).get("page_map_row") or {}).get("page_text_sample") or "")
+                for page in pages
+            )
+            group_page_row = {
+                "page_number": pages[0] if pages else 0,
+                "detected_section_title": " ".join(
+                    str((item.get("page_map_row") or {}).get("detected_section_title") or "")
+                    for item in group
+                    if isinstance(item.get("page_map_row"), dict)
+                ),
+                "detected_section_type": target_type if any((item.get("page_map_row") or {}).get("detected_section_type") == target_type for item in group) else "",
+                f"is_{target_type}_page": any(_as_bool((item.get("page_map_row") or {}).get(f"is_{target_type}_page")) for item in group),
+                "is_contents_page": any(_as_bool((item.get("page_map_row") or {}).get("is_contents_page")) for item in group),
+                "is_notes_page": any(_as_bool((item.get("page_map_row") or {}).get("is_notes_page")) for item in group),
+                "is_auditor_report_page": any(_as_bool((item.get("page_map_row") or {}).get("is_auditor_report_page")) for item in group),
+            }
+            assessment = _rzd_controlled_value_extraction_verify_table_bearing_primary_page(
+                target_type,
+                combined_text,
+                group_page_row,
+                group[0].get("target_row") if group and isinstance(group[0].get("target_row"), dict) else {},
+                selection_source=str(group[0].get("selection_source") or "") if group else "",
+                allow_notes=allow_notes,
+            )
+            accepted = _as_bool(assessment.get("accepted"))
+            reject_codes = list(assessment.get("reject_reason_codes") or [])
+            if any(_rzd_controlled_value_extraction_is_tax_note_context(str((text_by_page.get(page) or {}).get("text") or ""), scored_by_page.get(page, {}).get("page_map_row") or {}) for page in pages):
+                if target_type == "profit_or_loss" and "primary_profit_or_loss_page_tax_note_only" not in reject_codes:
+                    reject_codes.append("primary_profit_or_loss_page_tax_note_only")
+                accepted = False
+            group_row = {
+                "target_group_id": f"rzd_manual_official_pdf_controlled_value_target_group:{target_type}:{','.join(str(page) for page in pages) or index}",
+                "target_type": target_type,
+                "selected_pages": pages,
+                "primary_statement_group_accepted": bool(accepted),
+                "primary_statement_group_rejected": not bool(accepted),
+                "row_score": int(assessment.get("table_bearing_primary_page_score") or 0)
+                + sum(int(item.get("selection_score") or 0) for item in group),
+                "value_count": int(assessment.get("target_specific_value_row_count") or 0),
+                "target_specific_required_metric_count": int(assessment.get("target_specific_required_metric_count") or 0),
+                "reason_codes": list(assessment.get("accepted_reason_codes") or assessment.get("reason_codes") or []),
+                "reject_reason_codes": reject_codes,
+                "tax_note_group": any(
+                    _rzd_controlled_value_extraction_is_tax_note_context(
+                        str((text_by_page.get(page) or {}).get("text") or ""),
+                        scored_by_page.get(page, {}).get("page_map_row") or {},
+                    )
+                    for page in pages
+                ),
+                "safe_hint": "Target group is a static preview selection only; Task170 does not import values.",
+            }
+            evaluated_groups.append({"row": group_row, "items": group, "accepted": accepted})
+            target_group_rows.append(group_row)
+
+        accepted_groups = [group for group in evaluated_groups if _as_bool((group.get("row") or {}).get("primary_statement_group_accepted"))]
+        pool: list[dict[str, Any]] = []
+        selected_group_row: dict[str, Any] | None = None
+        if accepted_groups:
+            chosen_group = sorted(
+                accepted_groups,
+                key=lambda group: (
+                    min(int(item.get("selection_priority_rank") or 99) for item in group["items"]),
+                    len(group["items"]),
+                    -int((group.get("row") or {}).get("row_score") or 0),
+                    min(int(item.get("page_number") or 0) for item in group["items"]),
+                ),
+            )[0]
+            selected_group_row = chosen_group.get("row") if isinstance(chosen_group.get("row"), dict) else None
+            pool = list(chosen_group.get("items") or [])
         if not pool:
             warnings.append({"message": "controlled_value_extraction_target_missing_selected_pages", "target_type": target_type})
             pool = [
@@ -41260,8 +41714,16 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
                 int(row.get("page_number") or 0),
             ),
         )[:max_pages]:
-            selected.append(item)
-    return selected, warnings
+            selected.append(
+                {
+                    **item,
+                    "target_group_id": (selected_group_row or {}).get("target_group_id") or "",
+                    "primary_statement_group_accepted": bool(selected_group_row),
+                    "primary_statement_group_reject_reason_codes": (selected_group_row or {}).get("reject_reason_codes") or [],
+                    "primary_statement_group_reason_codes": (selected_group_row or {}).get("reason_codes") or [],
+                }
+            )
+    return selected, warnings, target_group_rows
 
 
 def _rzd_manual_official_pdf_controlled_value_extraction_selected_pages(
@@ -41526,6 +41988,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
     text: str,
     is_contents_page: bool = False,
     primary_statement_page_accepted: bool = False,
+    primary_statement_group_accepted: bool = False,
 ) -> tuple[list[dict[str, Any]], dict[str, int]]:
     diagnostics = {
         "candidate_line_scanned_count": 0,
@@ -41609,7 +42072,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
             note_match = re.search(r"\b(?:note|примечание)\s*(\d+[A-Za-zА-Яа-я]?)", raw_line, re.IGNORECASE)
             confidence = "high" if value_2025 is not None and value_2024 is not None else "medium"
             warning_codes = ["controlled_value_extraction_human_review_required"] if confidence == "medium" else []
-            if not primary_statement_page_accepted:
+            if not primary_statement_page_accepted or not primary_statement_group_accepted:
                 warning_codes.append("controlled_value_extraction_non_primary_statement_value")
             row = {
                 "value_id": f"rzd_manual_official_pdf_controlled_value:{selected_evidence.get('evidence_id') or 'evidence'}:{target_type}:{page_number}:{metric_key}",
@@ -41646,6 +42109,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
                 "warning_codes": ["controlled_value_extraction_human_review_required"] if confidence == "medium" else [],
                 "blocker_codes": [],
                 "primary_statement_page_value": bool(primary_statement_page_accepted),
+                "primary_statement_group_value": bool(primary_statement_group_accepted),
                 "future_import_candidate": False,
                 "future_human_review_required": True,
                 "safe_hint": "Preview value candidate only. Task170 does not import, mutate the database, score issuers, or trade.",
@@ -41662,7 +42126,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     args: argparse.Namespace,
     *,
     loaded: dict[str, Any],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str, list[dict[str, Any]]]:
     selected_evidence = loaded.get("selected_evidence") if isinstance(loaded.get("selected_evidence"), dict) else {}
     page_map_rows = [row for row in loaded.get("page_map_rows") or [] if isinstance(row, dict)]
     target_rows = [row for row in loaded.get("target_rows") or [] if isinstance(row, dict)]
@@ -41670,21 +42134,21 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     candidate_pages = _rzd_manual_official_pdf_controlled_value_extraction_page_candidates(args, page_map_rows=page_map_rows, target_rows=target_rows)
     if not candidate_pages:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
-        return [], [], [blocker], [], "failed"
+        return [], [], [blocker], [], "failed", []
     page_numbers = [int(item["page_number"]) for item in candidate_pages]
     text_by_page = _rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts(
         controlled_pdf_path or Path(str(selected_evidence.get("controlled_pdf_copy_path") or "")),
         page_numbers,
         str(args.rzd_manual_official_pdf_controlled_value_extraction_text_backend or "auto"),
     )
-    selected_pages, selection_warnings = _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages(
+    selected_pages, selection_warnings, target_group_rows = _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages(
         args,
         candidates=candidate_pages,
         text_by_page=text_by_page,
     )
     if not selected_pages:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_selected_pages")
-        return [], [], [blocker], selection_warnings, "failed"
+        return [], [], [blocker], selection_warnings, "failed", target_group_rows
     page_snapshot_rows: list[dict[str, Any]] = []
     value_rows: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = [*selection_warnings]
@@ -41693,12 +42157,16 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         page_number = int(item["page_number"])
         page_map_row = item.get("page_map_row") if isinstance(item.get("page_map_row"), dict) else {}
         primary_assessment = item.get("primary_assessment") if isinstance(item.get("primary_assessment"), dict) else {}
+        group_accepted = _as_bool(item.get("primary_statement_group_accepted"))
         extracted = text_by_page.get(page_number, {})
         text = str(extracted.get("text") or page_map_row.get("page_text_sample") or "")
         backend = str(extracted.get("backend") or "task169_page_sample")
         prepared = _normalize_pdf_preview_text_for_signal_detection(text)
         normalized = prepared["normalized_text"]
         has_table = bool(re.search(r"\d[\d\s\u00a0\u202f.,]{2,}\s+\(?-?\d", text))
+        page_table_bearing = _as_bool(primary_assessment.get("accepted")) or (
+            group_accepted and int(primary_assessment.get("target_specific_value_row_count") or 0) > 0
+        )
         snapshot = {
             "snapshot_id": f"rzd_manual_official_pdf_controlled_value_snapshot:{selected_evidence.get('evidence_id') or 'evidence'}:{target_type}:{page_number}",
             "target_type": target_type,
@@ -41723,13 +42191,20 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
             "target_exact_section_match": bool(
                 page_map_row.get("detected_section_type") == target_type or _as_bool(page_map_row.get(f"is_{target_type}_page"))
             ),
-            "primary_statement_page_accepted": _as_bool(primary_assessment.get("accepted")),
+            "primary_statement_page_accepted": bool(page_table_bearing),
             "primary_statement_page_reject_reason_codes": primary_assessment.get("reject_reason_codes") or [],
+            "table_bearing_primary_page": bool(page_table_bearing),
+            "table_bearing_primary_page_score": int(primary_assessment.get("table_bearing_primary_page_score") or 0),
+            "table_bearing_primary_page_reject_reason_codes": primary_assessment.get("reject_reason_codes") or [],
+            "table_bearing_primary_page_accepted_reason_codes": primary_assessment.get("accepted_reason_codes") or primary_assessment.get("reason_codes") or [],
+            "target_specific_value_row_count": int(primary_assessment.get("target_specific_value_row_count") or 0),
+            "target_specific_required_metric_count": int(primary_assessment.get("target_specific_required_metric_count") or 0),
             "page_title_detected": primary_assessment.get("page_title_detected") or "",
             "selection_reason_codes": [
                 "task169_target_page_selected",
                 str(item.get("selection_source") or "unknown_selection_source"),
                 *[str(code) for code in (primary_assessment.get("reason_codes") or [])],
+                *[str(code) for code in (item.get("primary_statement_group_reason_codes") or [])],
                 "controlled_value_extraction_preview_only",
             ] if text.strip() else [],
             "selection_warning_codes": [] if text.strip() else ["controlled_value_extraction_page_text_unavailable"],
@@ -41742,15 +42217,19 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
             "has_note_reference_column": bool(re.search(r"\b(?:note|notes|примечани[ея])\b", normalized, re.IGNORECASE)),
             "safe_hint": "Selected page text is used only for preview candidate value extraction.",
         }
-        page_values, diagnostics = _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_page(
-            selected_evidence=selected_evidence,
-            controlled_pdf_path=controlled_pdf_path,
-            target_type=target_type,
-            page_number=page_number,
-            text=text,
-            is_contents_page=_as_bool(page_map_row.get("is_contents_page")),
-            primary_statement_page_accepted=_as_bool(primary_assessment.get("accepted")),
-        )
+        page_values: list[dict[str, Any]] = []
+        diagnostics = dict(primary_assessment.get("scan_diagnostics") or {})
+        if group_accepted and page_table_bearing and text.strip():
+            page_values, diagnostics = _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_page(
+                selected_evidence=selected_evidence,
+                controlled_pdf_path=controlled_pdf_path,
+                target_type=target_type,
+                page_number=page_number,
+                text=text,
+                is_contents_page=_as_bool(page_map_row.get("is_contents_page")),
+                primary_statement_page_accepted=True,
+                primary_statement_group_accepted=True,
+            )
         snapshot.update(
             {
                 "contents_navigation_line_rejected_count": int(diagnostics.get("contents_navigation_line_rejected_count") or 0),
@@ -41758,6 +42237,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
                 "date_period_line_rejected_count": int(diagnostics.get("date_period_line_rejected_count") or 0),
                 "date_number_value_rejected_count": int(diagnostics.get("date_number_value_rejected_count") or 0),
                 "small_page_or_note_number_value_rejected_count": int(diagnostics.get("small_page_or_note_number_value_rejected_count") or 0),
+                "tax_note_value_rejected_count": int(primary_assessment.get("target_specific_value_row_count") or 0)
+                if _rzd_controlled_value_extraction_is_tax_note_context(text, page_map_row)
+                else 0,
                 "candidate_line_scanned_count": int(diagnostics.get("candidate_line_scanned_count") or 0),
                 "candidate_line_matched_count": int(diagnostics.get("candidate_line_matched_count") or 0),
                 "candidate_line_rejected_count": int(diagnostics.get("candidate_line_rejected_count") or 0),
@@ -41772,7 +42254,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         value_rows.extend(page_values)
     if not value_rows:
         blocker = _rzd_manual_official_pdf_controlled_value_extraction_blocker_row("controlled_value_extraction_no_values")
-        return page_snapshot_rows, [], [blocker], warnings, "failed"
+        return page_snapshot_rows, [], [blocker], warnings, "failed", target_group_rows
     found_by_target = {row.get("target_type") for row in value_rows}
     for target_type in _rzd_manual_official_pdf_controlled_value_extraction_target_types(args):
         if target_type not in found_by_target:
@@ -41781,7 +42263,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
     status = "passed"
     if len(page_snapshot_rows) < 3 or len(value_rows) < 8 or warnings:
         status = "warning"
-    return page_snapshot_rows, value_rows, [], warnings, status
+    return page_snapshot_rows, value_rows, [], warnings, status, target_group_rows
 
 
 def _rzd_manual_official_pdf_controlled_value_extraction_safety_flags() -> dict[str, bool]:
@@ -41874,10 +42356,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_blocker_row(
 def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
     *,
     page_snapshot_rows: list[dict[str, Any]],
+    target_group_rows: list[dict[str, Any]],
     value_rows: list[dict[str, Any]],
     blocker_rows: list[dict[str, Any]],
     status: str,
 ) -> dict[str, int]:
+    target_group_rows = target_group_rows or []
+
     def _sum_page_int(field: str) -> int:
         return sum(int(row.get(field) or 0) for row in page_snapshot_rows)
 
@@ -41887,6 +42372,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         if _as_bool(row.get("is_notes_page"))
     }
     primary_statement_value_count = sum(1 for row in value_rows if _as_bool(row.get("primary_statement_page_value")))
+    primary_statement_group_value_count = sum(1 for row in value_rows if _as_bool(row.get("primary_statement_group_value")))
     date_period_rejections = _sum_page_int("date_period_line_rejected_count")
     return {
         "input_registration_count": 1,
@@ -41901,9 +42387,17 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "selected_notes_page_count": sum(1 for row in page_snapshot_rows if _as_bool(row.get("is_notes_page"))),
         "selected_contents_page_count": sum(1 for row in page_snapshot_rows if _as_bool(row.get("is_contents_page"))),
         "selected_audit_page_count": sum(1 for row in page_snapshot_rows if _as_bool(row.get("is_auditor_report_page"))),
+        "target_group_row_count": len(target_group_rows),
+        "accepted_primary_group_count": sum(1 for row in target_group_rows if _as_bool(row.get("primary_statement_group_accepted"))),
+        "rejected_primary_group_count": sum(1 for row in target_group_rows if _as_bool(row.get("primary_statement_group_rejected"))),
+        "tax_note_page_rejected_count": sum(1 for row in target_group_rows if _as_bool(row.get("tax_note_group"))),
+        "tax_note_value_rejected_count": _sum_page_int("tax_note_value_rejected_count"),
+        "table_bearing_primary_page_count": sum(1 for row in page_snapshot_rows if _as_bool(row.get("table_bearing_primary_page"))),
+        "non_table_bearing_primary_page_count": sum(1 for row in page_snapshot_rows if not _as_bool(row.get("table_bearing_primary_page"))),
         "page_snapshot_row_count": len(page_snapshot_rows),
         "value_candidate_row_count": len(value_rows),
         "primary_statement_value_count": primary_statement_value_count,
+        "primary_statement_group_value_count": primary_statement_group_value_count,
         "non_primary_statement_value_count": len(value_rows) - primary_statement_value_count,
         "notes_page_value_count": sum(
             1
@@ -41946,6 +42440,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     parse_plan_report: dict[str, Any],
     page_map_report: dict[str, Any],
     page_snapshot_rows: list[dict[str, Any]],
+    target_group_rows: list[dict[str, Any]],
     value_rows: list[dict[str, Any]],
     blocker_rows: list[dict[str, Any]],
     warnings: list[dict[str, Any]],
@@ -41955,6 +42450,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     status = "failed" if errors else forced_status
     counts = _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         page_snapshot_rows=page_snapshot_rows,
+        target_group_rows=target_group_rows,
         value_rows=value_rows,
         blocker_rows=blocker_rows,
         status=status,
@@ -41970,12 +42466,25 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
     for target_type, (count_field, minimum_count, warning_code) in minimum_target_counts.items():
         if target_type in configured_targets and int(counts.get(count_field) or 0) < minimum_count:
             quality_warnings.append({"message": warning_code, "target_type": target_type})
-    if counts.get("non_primary_statement_value_count", 0) > 0 or counts.get("notes_page_value_count", 0) > 0:
+    if (
+        counts.get("non_primary_statement_value_count", 0) > 0
+        or counts.get("notes_page_value_count", 0) > 0
+        or counts.get("primary_statement_group_value_count", 0) != counts.get("value_candidate_row_count", 0)
+    ):
         quality_warnings.append({"message": "controlled_value_extraction_primary_statement_pages_missing"})
     warnings = [*warnings, *quality_warnings]
     if quality_warnings and status == "passed":
         status = "warning"
-    quality_ready = not quality_warnings
+    quality_ready = (
+        not quality_warnings
+        and counts["statement_of_financial_position_value_count"] >= 2
+        and counts["profit_or_loss_value_count"] >= 2
+        and counts["other_comprehensive_income_value_count"] >= 2
+        and counts["cash_flows_value_count"] >= 1
+        and counts["notes_page_value_count"] == 0
+        and counts["non_primary_statement_value_count"] == 0
+        and counts["primary_statement_group_value_count"] == counts["value_candidate_row_count"]
+    )
     ready = status in {"passed", "warning"} and counts["value_candidate_row_count"] > 0 and not blocker_rows and quality_ready
     warning_count_rows = [
         {"warning_code": str(item.get("message") or item.get("warning_code") or "")}
@@ -42012,6 +42521,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         "controlled_value_extraction_max_pages_per_target": int(args.rzd_manual_official_pdf_controlled_value_extraction_max_pages_per_target or 0),
         "controlled_value_extraction_allow_notes_pages": bool(args.rzd_manual_official_pdf_controlled_value_extraction_allow_notes_pages),
         "page_snapshot_rows": page_snapshot_rows,
+        "target_group_rows": target_group_rows,
         "value_rows": value_rows,
         "blocker_rows": blocker_rows,
         "value_status_counts": _count_by_key(value_rows, "extraction_status"),
@@ -42068,6 +42578,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_failed_report(
         parse_plan_report={},
         page_map_report={},
         page_snapshot_rows=[],
+        target_group_rows=[],
         value_rows=[],
         blocker_rows=blocker_rows,
         warnings=[],
@@ -42152,6 +42663,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
     report.update(
         _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
             page_snapshot_rows=list(report.get("page_snapshot_rows") or []),
+            target_group_rows=list(report.get("target_group_rows") or []),
             value_rows=list(report.get("value_rows") or []),
             blocker_rows=list(report.get("blocker_rows") or []),
             status=str(report.get("status") or ""),
