@@ -7013,6 +7013,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "semantic_component_oci_row_rejected_count",
     "semantic_wrong_aggregate_row_rejected_count",
     "semantic_cash_flow_starting_profit_row_rejected_count",
+    "semantic_cash_flow_component_row_rejected_count",
     "bad_semantic_value_line_count",
     "toc_primary_pages_detected",
     "toc_primary_page_override_used",
@@ -7174,6 +7175,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_FIELDS = [
     "semantic_component_oci_row_rejected_count",
     "semantic_wrong_aggregate_row_rejected_count",
     "semantic_cash_flow_starting_profit_row_rejected_count",
+    "semantic_cash_flow_component_row_rejected_count",
     "table_row_candidate_count",
     "small_number_line_rejected_count",
     "value_candidate_count",
@@ -7237,6 +7239,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_DIAGNOSTIC_FIELDS = [
     "semantic_component_oci_row_rejected_count",
     "semantic_wrong_aggregate_row_rejected_count",
     "semantic_cash_flow_starting_profit_row_rejected_count",
+    "semantic_cash_flow_component_row_rejected_count",
     "false_generic_reject_reason_counts",
     "safe_hint",
 ]
@@ -7400,6 +7403,7 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "semantic_component_oci_row_rejected_count",
     "semantic_wrong_aggregate_row_rejected_count",
     "semantic_cash_flow_starting_profit_row_rejected_count",
+    "semantic_cash_flow_component_row_rejected_count",
     "bad_semantic_value_line_count",
     "toc_source_candidate_page_count",
     "toc_source_text_detected_count",
@@ -41898,6 +41902,57 @@ def _rzd_controlled_value_extraction_is_oci_component_row(line: str) -> bool:
     )
 
 
+def _rzd_controlled_value_extraction_is_cash_flow_component_row(metric_key: str, line: str) -> bool:
+    aggregate_terms_by_metric = {
+        "net_cash_used_in_investing_activities": (
+            "net cash used in investing activities",
+            "net cash from investing activities",
+            "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР° РѕС‚ РёРЅРІРµСЃС‚РёС†РёРѕРЅРЅРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
+            "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР°, РёСЃРїРѕР»СЊР·РѕРІР°РЅРЅС‹Рµ РІ РёРЅРІРµСЃС‚РёС†РёРѕРЅРЅРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
+        ),
+        "net_cash_from_financing_activities": (
+            "net cash from financing activities",
+            "net cash generated from financing activities",
+            "net cash provided by financing activities",
+            "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР° РѕС‚ С„РёРЅР°РЅСЃРѕРІРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
+            "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР°, РїРѕР»СѓС‡РµРЅРЅС‹Рµ РѕС‚ С„РёРЅР°РЅСЃРѕРІРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
+        ),
+    }
+    component_terms_by_metric = {
+        "net_cash_used_in_investing_activities": (
+            "acquisition of property",
+            "purchase of property",
+            "purchase of fixed assets",
+            "acquisition of fixed assets",
+            "purchase of intangible assets",
+            "acquisition of intangible assets",
+            "purchase of investment property",
+            "acquisition of investment property",
+            "РїСЂРёРѕР±СЂРµС‚РµРЅРёРµ РѕСЃРЅРѕРІРЅС‹С… СЃСЂРµРґСЃС‚РІ",
+            "РїСЂРёРѕР±СЂРµС‚РµРЅРёРµ РЅРµРјР°С‚РµСЂРёР°Р»СЊРЅС‹С… Р°РєС‚РёРІРѕРІ",
+            "РїСЂРёРѕР±СЂРµС‚РµРЅРёРµ РёРЅРІРµСЃС‚РёС†РёРѕРЅРЅРѕР№ РЅРµРґРІРёР¶РёРјРѕСЃС‚Рё",
+        ),
+        "net_cash_from_financing_activities": (
+            "proceeds from borrowings",
+            "repayment of borrowings",
+            "repayment of loans",
+            "lease payments",
+            "interest paid",
+            "РїРѕСЃС‚СѓРїР»РµРЅРёСЏ РїРѕ Р·Р°РµРјРЅС‹Рј СЃСЂРµРґСЃС‚РІР°Рј",
+            "РїРѕРіР°С€РµРЅРёРµ Р·Р°РµРјРЅС‹С… СЃСЂРµРґСЃС‚РІ",
+            "РІС‹РїР»Р°С‚С‹ РїРѕ Р°СЂРµРЅРґРµ",
+            "РїСЂРѕС†РµРЅС‚С‹ СѓРїР»Р°С‡РµРЅРЅС‹Рµ",
+        ),
+    }
+    metric_key = str(metric_key or "")
+    component_terms = component_terms_by_metric.get(metric_key)
+    if not component_terms:
+        return False
+    if _rzd_controlled_value_extraction_phrase_in_line(line, aggregate_terms_by_metric.get(metric_key, ())):
+        return False
+    return _rzd_controlled_value_extraction_phrase_in_line(line, component_terms)
+
+
 def _rzd_controlled_value_extraction_semantic_reject_metric(target_type: str, metric_key: str, line: str) -> list[str]:
     if target_type == "other_comprehensive_income":
         if metric_key in {"other_comprehensive_income", "total_comprehensive_income"} and _rzd_controlled_value_extraction_is_oci_component_row(line):
@@ -41925,6 +41980,8 @@ def _rzd_controlled_value_extraction_semantic_reject_metric(target_type: str, me
     if target_type == "cash_flows" and metric_key == "net_cash_from_operating_activities":
         if _rzd_controlled_value_extraction_phrase_in_line(line, ("profit before tax", "прибыль до налогообложения")):
             return ["semantic_cash_flow_starting_profit_row_rejected"]
+    if target_type == "cash_flows" and _rzd_controlled_value_extraction_is_cash_flow_component_row(metric_key, line):
+        return ["semantic_cash_flow_component_row_rejected"]
     return []
 
 
@@ -41949,6 +42006,7 @@ def _rzd_controlled_value_extraction_table_parser_diagnostics() -> dict[str, Any
         "semantic_component_oci_row_rejected_count": 0,
         "semantic_wrong_aggregate_row_rejected_count": 0,
         "semantic_cash_flow_starting_profit_row_rejected_count": 0,
+        "semantic_cash_flow_component_row_rejected_count": 0,
         "primary_statement_table_row_parser_attempted": False,
         "primary_statement_table_row_parser_success": False,
         "primary_statement_table_row_parser_value_count": 0,
@@ -42110,6 +42168,8 @@ def _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
                 diagnostics["semantic_wrong_aggregate_row_rejected_count"] += 1
             if "semantic_cash_flow_starting_profit_row_rejected" in semantic_reject_codes:
                 diagnostics["semantic_cash_flow_starting_profit_row_rejected_count"] += 1
+            if "semantic_cash_flow_component_row_rejected" in semantic_reject_codes:
+                diagnostics["semantic_cash_flow_component_row_rejected_count"] += 1
             diagnostics["candidate_line_rejected_count"] += 1
             pending_label = ""
             pending_line_number = 0
@@ -42591,6 +42651,8 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
                     diagnostics["semantic_wrong_aggregate_row_rejected_count"] += 1
                 if "semantic_cash_flow_starting_profit_row_rejected" in semantic_reject_codes:
                     diagnostics["semantic_cash_flow_starting_profit_row_rejected_count"] += 1
+                if "semantic_cash_flow_component_row_rejected" in semantic_reject_codes:
+                    diagnostics["semantic_cash_flow_component_row_rejected_count"] += 1
                 diagnostics["candidate_line_rejected_count"] += 1
                 continue
             confidence = "high" if value_2025 is not None and value_2024 is not None else "medium"
@@ -42774,6 +42836,7 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
     semantic_component_oci_row_rejected_count = 0
     semantic_wrong_aggregate_row_rejected_count = 0
     semantic_cash_flow_starting_profit_row_rejected_count = 0
+    semantic_cash_flow_component_row_rejected_count = 0
     toc_notes_range_page_rejected_count = 0
     toc_notes_range_value_rejected_count = 0
     page_map_false_statement_flag_rejected_count = 0
@@ -42828,7 +42891,18 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             hint_bonus += 30
         if page_row.get("detected_section_type") == target_type:
             hint_bonus += 20
-        if reject_codes:
+        toc_enforced_effective_text = _as_bool(page_meta.get("toc_primary_page_enforced_extraction")) and bool(text.strip())
+        if reject_codes and toc_enforced_effective_text:
+            candidate_rows, diagnostics = _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+                target_type=target_type,
+                page_number=page_number,
+                page_text=text,
+                text_source=str((page_texts.get(page_number) or {}).get("effective_page_text_source") or "toc_enforced_effective_page_text"),
+                text_backend=str((page_texts.get(page_number) or {}).get("effective_page_text_backend") or (page_texts.get(page_number) or {}).get("backend") or ""),
+                is_contents_page=False,
+            )
+            reject_codes = []
+        elif reject_codes:
             candidate_rows: list[dict[str, Any]] = []
             if _rzd_controlled_value_extraction_is_tax_note_context(text, page_row):
                 tax_note_page_rejected_count += 1
@@ -42872,6 +42946,9 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
         semantic_wrong_aggregate_row_rejected_count += int(diagnostics.get("semantic_wrong_aggregate_row_rejected_count") or 0)
         semantic_cash_flow_starting_profit_row_rejected_count += int(
             diagnostics.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+        )
+        semantic_cash_flow_component_row_rejected_count += int(
+            diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
         )
         if _as_bool(diagnostics.get("primary_statement_table_row_parser_attempted")):
             primary_statement_table_row_parser_attempt_count += 1
@@ -42917,6 +42994,9 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             "semantic_wrong_aggregate_row_rejected_count": int(diagnostics.get("semantic_wrong_aggregate_row_rejected_count") or 0),
             "semantic_cash_flow_starting_profit_row_rejected_count": int(
                 diagnostics.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+            ),
+            "semantic_cash_flow_component_row_rejected_count": int(
+                diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
             ),
             "primary_statement_table_row_parser_attempted": _as_bool(diagnostics.get("primary_statement_table_row_parser_attempted")),
             "primary_statement_table_row_parser_success": _as_bool(diagnostics.get("primary_statement_table_row_parser_success")),
@@ -42967,6 +43047,7 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             "semantic_component_oci_row_rejected_count": semantic_component_oci_row_rejected_count,
             "semantic_wrong_aggregate_row_rejected_count": semantic_wrong_aggregate_row_rejected_count,
             "semantic_cash_flow_starting_profit_row_rejected_count": semantic_cash_flow_starting_profit_row_rejected_count,
+            "semantic_cash_flow_component_row_rejected_count": semantic_cash_flow_component_row_rejected_count,
             "primary_statement_table_row_parser_attempt_count": primary_statement_table_row_parser_attempt_count,
             "primary_statement_table_row_parser_success_count": primary_statement_table_row_parser_success_count,
             "primary_statement_table_row_parser_failed_count": primary_statement_table_row_parser_failed_count,
@@ -44967,6 +45048,14 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
                     "generic_row_percent_or_discount_rejected_count": int(page_score.get("generic_row_percent_or_discount_rejected_count") or 0),
                     "generic_row_statement_reference_rejected_count": int(page_score.get("generic_row_statement_reference_rejected_count") or 0),
                     "generic_row_date_or_period_rejected_count": int(page_score.get("generic_row_date_or_period_rejected_count") or 0),
+                    "semantic_component_oci_row_rejected_count": int(page_score.get("semantic_component_oci_row_rejected_count") or 0),
+                    "semantic_wrong_aggregate_row_rejected_count": int(page_score.get("semantic_wrong_aggregate_row_rejected_count") or 0),
+                    "semantic_cash_flow_starting_profit_row_rejected_count": int(
+                        page_score.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+                    ),
+                    "semantic_cash_flow_component_row_rejected_count": int(
+                        page_score.get("semantic_cash_flow_component_row_rejected_count") or 0
+                    ),
                 "body_reference_title_rejected_count": int(page_score.get("body_reference_title_rejected_count") or 0),
                 "body_reference_title_value_rejected_count": int(page_score.get("body_reference_title_value_rejected_count") or 0),
                 "primary_statement_table_row_parser_attempted": _as_bool(page_score.get("primary_statement_table_row_parser_attempted")),
@@ -45972,6 +46061,7 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         "semantic_component_oci_row_rejected_count": 0,
         "semantic_wrong_aggregate_row_rejected_count": 0,
         "semantic_cash_flow_starting_profit_row_rejected_count": 0,
+        "semantic_cash_flow_component_row_rejected_count": 0,
         "bad_semantic_value_line_count": 0,
         "toc_primary_page_enforced_extraction_count": 0,
         "toc_primary_page_enforced_extraction_target_count": 0,
@@ -46105,6 +46195,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         discovery_stats["semantic_wrong_aggregate_row_rejected_count"] += int(diagnostics.get("semantic_wrong_aggregate_row_rejected_count") or 0)
         discovery_stats["semantic_cash_flow_starting_profit_row_rejected_count"] += int(
             diagnostics.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+        )
+        discovery_stats["semantic_cash_flow_component_row_rejected_count"] += int(
+            diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
         )
         discovery_stats["toc_notes_range_page_rejected_count"] += int(diagnostics.get("toc_notes_range_page_rejected_count") or 0)
         discovery_stats["toc_notes_range_value_rejected_count"] += int(diagnostics.get("toc_notes_range_value_rejected_count") or 0)
@@ -46285,6 +46378,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
                 "semantic_cash_flow_starting_profit_row_rejected_count": int(
                     diagnostics.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
                 ),
+                "semantic_cash_flow_component_row_rejected_count": int(
+                    diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
+                ),
                 "primary_statement_table_row_parser_attempted": _as_bool(
                     diagnostics.get("primary_statement_table_row_parser_attempted")
                 ),
@@ -46329,6 +46425,10 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
             if "semantic_cash_flow_starting_profit_row_rejected" in guard_codes:
                 discovery_stats["semantic_cash_flow_starting_profit_row_rejected_count"] = int(
                     discovery_stats.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+                ) + 1
+            if "semantic_cash_flow_component_row_rejected" in guard_codes:
+                discovery_stats["semantic_cash_flow_component_row_rejected_count"] = int(
+                    discovery_stats.get("semantic_cash_flow_component_row_rejected_count") or 0
                 ) + 1
             final_guard_blockers.append(
                 _rzd_manual_official_pdf_controlled_value_extraction_blocker_row(
@@ -46566,6 +46666,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "semantic_cash_flow_starting_profit_row_rejected_count": int(
             discovery_stats.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
         ),
+        "semantic_cash_flow_component_row_rejected_count": int(
+            discovery_stats.get("semantic_cash_flow_component_row_rejected_count") or 0
+        ),
         "bad_semantic_value_line_count": sum(
             1
             for row in value_rows
@@ -46748,6 +46851,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_page_diagnostic_rows(
                 "semantic_wrong_aggregate_row_rejected_count": int(snapshot.get("semantic_wrong_aggregate_row_rejected_count") or 0),
                 "semantic_cash_flow_starting_profit_row_rejected_count": int(
                     snapshot.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+                ),
+                "semantic_cash_flow_component_row_rejected_count": int(
+                    snapshot.get("semantic_cash_flow_component_row_rejected_count") or 0
                 ),
                 "false_generic_reject_reason_counts": false_counts,
                 "safe_hint": "Diagnostic row only. Task170 does not import values or mutate downstream systems.",
@@ -47183,6 +47289,9 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
                 "semantic_wrong_aggregate_row_rejected_count": int(report.get("semantic_wrong_aggregate_row_rejected_count") or 0),
                 "semantic_cash_flow_starting_profit_row_rejected_count": int(
                     report.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+                ),
+                "semantic_cash_flow_component_row_rejected_count": int(
+                    report.get("semantic_cash_flow_component_row_rejected_count") or 0
                 ),
                 "bad_semantic_value_line_count": int(report.get("bad_semantic_value_line_count") or 0),
                 "toc_primary_page_enforced_extraction_count": int(report.get("toc_primary_page_enforced_extraction_count") or 0),

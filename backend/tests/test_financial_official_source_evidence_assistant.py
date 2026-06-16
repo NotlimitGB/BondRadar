@@ -14298,6 +14298,149 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_ocr_for_textle
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_value_extraction_runs_parser_on_ocr_effective_toc_pages_with_noisy_map(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, _targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_row = _task170_toc_page_map_row(_task170_strict_toc_text())
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, toc_row)
+        for row in rows:
+            if int(row.get("page_number") or 0) in {9, 10, 11}:
+                row["is_auditor_report_page"] = True
+                row["detected_section_type"] = "auditor_report"
+                row["detected_section_title"] = "noisy auditor/front matter flag"
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    ocr_sofp_9 = "\n".join(
+        [
+            "Statement of financial position 2025 2024 million rubles",
+            "Non-current assets 9 621 481 8 955 339",
+            "Current assets 855 372 705 496",
+            "Total assets 10 476 853 9 660 835",
+            "Cash and cash equivalents 275 591 279 130",
+        ]
+    )
+    ocr_sofp_10 = "\n".join(
+        [
+            "Statement of financial position continued 2025 2024 million rubles",
+            "Total equity 4 634 272 4 644 889",
+            "Non-current liabilities 3 368 142 2 176 298",
+            "Current liabilities 2 474 439 2 839 648",
+            "Total equity and liabilities 10 476 853 9 660 835",
+        ]
+    )
+    ocr_pl_11 = "\n".join(
+        [
+            "Statement of profit or loss 2025 2024 million rubles",
+            "Revenue 3 637 906 3 296 301",
+            "Operating expenses (3 093 260) (2 838 891)",
+            "Operating profit 544 646 457 410",
+            "Finance costs (519 414) (278 683)",
+            "Profit before tax 34 207 128 326",
+            "Income tax expense (31 898) (77 631)",
+            "Profit for the year 2 309 50 695",
+        ]
+    )
+    page_texts = _task170_page_texts()
+    page_texts.update(
+        {
+            2: {"backend": "synthetic", "text": _task170_strict_toc_text()},
+            9: {"backend": "synthetic", "text": ""},
+            10: {"backend": "synthetic", "text": ""},
+            11: {"backend": "synthetic", "text": ""},
+        }
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+
+    def fake_ocr(pdf_path, page_numbers, output_dir, languages="rus+eng"):
+        by_page = {9: ocr_sofp_9, 10: ocr_sofp_10, 11: ocr_pl_11}
+        return {
+            int(page): {
+                "ocr_diagnostic_id": f"ocr:{page}",
+                "page_number": int(page),
+                "target_type": "",
+                "ocr_attempted": True,
+                "ocr_success": int(page) in by_page,
+                "text": by_page.get(int(page), ""),
+                "backend": "ocr_tesseract" if int(page) in by_page else "",
+                "ocr_text_char_count": len(by_page.get(int(page), "")),
+                "ocr_text_nonempty_line_count": len([line for line in by_page.get(int(page), "").splitlines() if line.strip()]),
+                "ocr_error": "" if int(page) in by_page else "local_pdf_ocr_empty_text",
+                "local_pdf_page_render_available": True,
+                "local_pdf_page_render_backend": "pdftoppm",
+                "local_pdf_page_render_attempted": True,
+                "local_pdf_page_render_success": True,
+                "effective_page_text_source": "ocr_tesseract" if int(page) in by_page else "",
+                "effective_page_text_backend": "ocr_tesseract" if int(page) in by_page else "",
+                "safe_hint": "test ocr",
+            }
+            for page in page_numbers
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_value_extraction_ocr_local_pdf_pages", fake_ocr)
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+
+    enforced = {(row["target_type"], row["page_number"]): row for row in report["toc_enforced_plan_rows"]}
+    assert enforced[("statement_of_financial_position", 9)]["parser_attempted"] is True
+    assert enforced[("statement_of_financial_position", 10)]["parser_attempted"] is True
+    assert enforced[("profit_or_loss", 11)]["parser_attempted"] is True
+    assert report["statement_of_financial_position_value_count"] >= 2
+    assert report["profit_or_loss_value_count"] >= 2
+    assert report["toc_primary_page_enforced_extraction_parser_attempt_count"] >= 3
+    assert not any(
+        warning.get("message") == "controlled_value_extraction_target_missing_selected_pages"
+        and warning.get("target_type") in {"statement_of_financial_position", "profit_or_loss"}
+        for warning in report["warnings"]
+    )
+    assert any(
+        row["target_type"] == "profit_or_loss"
+        and row["value_text_source"] == "ocr_tesseract"
+        and row["value_text_backend"] == "ocr_tesseract"
+        and row["value_extraction_method"] == "primary_statement_table_row_parser"
+        for row in report["value_rows"]
+    )
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_cash_flow_component_rows() -> None:
+    text = "\n".join(
+        [
+            "Statement of cash flows 2025 2024 million rubles",
+            "Investing activities Acquisition of property (1 093 961) (1 394 914)",
+            "Financing activities Proceeds from borrowings 3 404 519 2 302 826",
+            "Net cash used in investing activities (200) (180)",
+            "Net cash from financing activities 100 90",
+        ]
+    )
+    rows, diagnostics = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="cash_flows",
+        page_number=16,
+        page_text=text,
+        text_source="synthetic",
+        text_backend="synthetic",
+        is_contents_page=False,
+    )
+    by_metric = {row["metric_key"]: row for row in rows}
+    assert by_metric["net_cash_used_in_investing_activities"]["raw_line"] == "Net cash used in investing activities (200) (180)"
+    assert by_metric["net_cash_from_financing_activities"]["raw_line"] == "Net cash from financing activities 100 90"
+    assert all("Acquisition of property" not in row["raw_line"] for row in rows)
+    assert all("Proceeds from borrowings" not in row["raw_line"] for row in rows)
+    assert diagnostics["semantic_cash_flow_component_row_rejected_count"] >= 2
+
+
 def test_rzd_manual_official_pdf_controlled_value_extraction_uses_ocr_when_table_like_primary_parser_finds_zero_rows(
     tmp_path: Path,
     monkeypatch,
@@ -25186,6 +25329,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             "semantic_component_oci_row_rejected_count",
             "semantic_wrong_aggregate_row_rejected_count",
             "semantic_cash_flow_starting_profit_row_rejected_count",
+            "semantic_cash_flow_component_row_rejected_count",
             "toc_notes_range_page_rejected_count",
             "toc_notes_range_value_rejected_count",
             "page_map_false_statement_flag_rejected_count",
@@ -25291,6 +25435,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("semantic_component_oci_row_rejected_count"), int)
         assert isinstance(row.get("semantic_wrong_aggregate_row_rejected_count"), int)
         assert isinstance(row.get("semantic_cash_flow_starting_profit_row_rejected_count"), int)
+        assert isinstance(row.get("semantic_cash_flow_component_row_rejected_count"), int)
         assert isinstance(row.get("false_generic_reject_reason_counts"), dict)
     for row in report.get("toc_enforced_plan_rows") or []:
         assert isinstance(row.get("target_type"), str)
