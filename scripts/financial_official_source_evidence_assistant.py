@@ -7015,6 +7015,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "semantic_cash_flow_starting_profit_row_rejected_count",
     "semantic_cash_flow_component_row_rejected_count",
     "bad_semantic_value_line_count",
+    "bad_aggregate_precision_row_count",
+    "component_row_mapped_to_aggregate_rejected_count",
     "toc_primary_pages_detected",
     "toc_primary_page_override_used",
     "toc_primary_page_order_valid",
@@ -7310,6 +7312,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_VALUE_FIELDS = [
     "controlled_pdf_input_path",
     "target_type",
     "metric_key",
+    "metric_role",
+    "aggregate_match_priority",
     "metric_name_ru",
     "metric_name_en",
     "page_number",
@@ -7405,6 +7409,8 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "semantic_cash_flow_starting_profit_row_rejected_count",
     "semantic_cash_flow_component_row_rejected_count",
     "bad_semantic_value_line_count",
+    "bad_aggregate_precision_row_count",
+    "component_row_mapped_to_aggregate_rejected_count",
     "toc_source_candidate_page_count",
     "toc_source_text_detected_count",
     "toc_source_flag_detected_count",
@@ -42031,6 +42037,273 @@ def _rzd_controlled_value_extraction_phrase_in_line(line: str, terms: Sequence[s
     return False
 
 
+RZD_CONTROLLED_VALUE_EXTRACTION_AGGREGATE_ONLY_KEYS = {
+    ("statement_of_financial_position", "non_current_assets"),
+    ("statement_of_financial_position", "current_assets"),
+    ("statement_of_financial_position", "total_assets"),
+    ("statement_of_financial_position", "total_equity"),
+    ("statement_of_financial_position", "total_liabilities"),
+    ("statement_of_financial_position", "total_equity_and_liabilities"),
+    ("statement_of_financial_position", "non_current_liabilities"),
+    ("statement_of_financial_position", "current_liabilities"),
+    ("profit_or_loss", "total_revenue"),
+    ("profit_or_loss", "total_operating_expenses"),
+    ("profit_or_loss", "income_tax_expense"),
+}
+
+
+def _rzd_controlled_value_extraction_metric_role(target_type: str, metric_key: str) -> str:
+    if (str(target_type or ""), str(metric_key or "")) in RZD_CONTROLLED_VALUE_EXTRACTION_AGGREGATE_ONLY_KEYS:
+        return "aggregate"
+    if str(metric_key or "") in {
+        "operating_profit",
+        "net_finance_costs",
+        "profit_before_tax",
+        "profit_for_the_year",
+        "net_profit",
+        "other_comprehensive_income",
+        "total_comprehensive_income",
+        "net_cash_from_operating_activities",
+        "net_cash_used_in_investing_activities",
+        "net_cash_from_financing_activities",
+        "net_increase_decrease_in_cash",
+        "cash_and_cash_equivalents_beginning",
+        "cash_and_cash_equivalents_ending",
+    }:
+        return "aggregate"
+    return "component"
+
+
+def _rzd_controlled_value_extraction_aggregate_precision_terms() -> tuple[dict[tuple[str, str], tuple[str, ...]], dict[tuple[str, str], tuple[str, ...]], dict[tuple[str, str], tuple[str, ...]]]:
+    exact = {
+        ("statement_of_financial_position", "non_current_assets"): (
+            "total non-current assets",
+            "итого внеоборотные активы",
+            "всего внеоборотные активы",
+        ),
+        ("statement_of_financial_position", "current_assets"): (
+            "total current assets",
+            "итого оборотные активы",
+            "всего оборотные активы",
+        ),
+        ("statement_of_financial_position", "total_assets"): (
+            "total assets",
+            "итого активы",
+            "всего активы",
+            "активы всего",
+        ),
+        ("statement_of_financial_position", "total_equity"): (
+            "total equity",
+            "итого капитал",
+            "всего капитал",
+            "капитал всего",
+        ),
+        ("statement_of_financial_position", "non_current_liabilities"): (
+            "total non-current liabilities",
+            "total long-term liabilities",
+            "итого долгосрочные обязательства",
+            "итого внеоборотные обязательства",
+            "всего долгосрочные обязательства",
+        ),
+        ("statement_of_financial_position", "current_liabilities"): (
+            "total current liabilities",
+            "total short-term liabilities",
+            "итого краткосрочные обязательства",
+            "итого текущие обязательства",
+            "всего краткосрочные обязательства",
+        ),
+        ("statement_of_financial_position", "total_liabilities"): (
+            "total liabilities",
+            "итого обязательства",
+            "всего обязательства",
+        ),
+        ("statement_of_financial_position", "total_equity_and_liabilities"): (
+            "total equity and liabilities",
+            "итого капитал и обязательства",
+            "всего капитал и обязательства",
+            "капитал и обязательства всего",
+        ),
+        ("profit_or_loss", "total_revenue"): (
+            "total revenue",
+            "total income",
+            "итого доходы",
+            "итого выручка",
+            "доходы итого",
+            "выручка итого",
+        ),
+        ("profit_or_loss", "total_operating_expenses"): (
+            "total operating expenses",
+            "итого операционные расходы",
+            "операционные расходы итого",
+            "итого расходы по обычным видам деятельности",
+        ),
+        ("profit_or_loss", "income_tax_expense"): (
+            "total income tax",
+            "income tax expense total",
+            "итого налог на прибыль",
+            "налог на прибыль итого",
+            "итого расход по налогу на прибыль",
+        ),
+    }
+    strong = {
+        ("statement_of_financial_position", "non_current_assets"): ("non-current assets", "внеоборотные активы"),
+        ("statement_of_financial_position", "current_assets"): ("current assets", "оборотные активы"),
+        ("profit_or_loss", "income_tax_expense"): ("income tax expense", "расход по налогу на прибыль"),
+    }
+    component = {
+        ("statement_of_financial_position", "non_current_assets"): (
+            "property, plant and equipment",
+            "intangible assets",
+            "deferred tax assets",
+            "основные средства",
+            "нематериальные активы",
+        ),
+        ("statement_of_financial_position", "current_assets"): (
+            "inventories",
+            "trade receivables",
+            "accounts receivable",
+            "запасы",
+            "дебиторская задолженность",
+        ),
+        ("statement_of_financial_position", "total_assets"): (
+            "non-current assets",
+            "current assets",
+            "cash and cash equivalents",
+            "внеоборотные активы",
+            "оборотные активы",
+            "денежные средства",
+        ),
+        ("statement_of_financial_position", "total_equity"): (
+            "share capital",
+            "retained earnings",
+            "additional paid-in capital",
+            "уставный капитал",
+            "нераспределенная прибыль",
+            "нераспределённая прибыль",
+        ),
+        ("statement_of_financial_position", "non_current_liabilities"): (
+            "borrowings",
+            "loans",
+            "lease liabilities",
+            "deferred tax liabilities",
+            "pension liabilities",
+            "кредиты и займы",
+            "заемные средства",
+            "заёмные средства",
+            "обязательства по аренде",
+            "отложенные налоговые обязательства",
+        ),
+        ("statement_of_financial_position", "current_liabilities"): (
+            "trade payables",
+            "accounts payable",
+            "borrowings",
+            "loans",
+            "tax payable",
+            "кредиторская задолженность",
+            "кредиты и займы",
+            "налоги к уплате",
+        ),
+        ("statement_of_financial_position", "total_liabilities"): (
+            "non-current liabilities",
+            "current liabilities",
+            "borrowings",
+            "payables",
+            "долгосрочные обязательства",
+            "краткосрочные обязательства",
+            "кредиты и займы",
+            "кредиторская задолженность",
+        ),
+        ("statement_of_financial_position", "total_equity_and_liabilities"): (
+            "total equity",
+            "total liabilities",
+            "итого капитал",
+            "итого обязательства",
+        ),
+        ("profit_or_loss", "total_revenue"): (
+            "passenger revenue",
+            "freight revenue",
+            "other revenue",
+            "other operating income",
+            "доходы от грузовых перевозок",
+            "доходы от пассажирских перевозок",
+            "прочие доходы",
+            "прочие операционные доходы",
+        ),
+        ("profit_or_loss", "total_operating_expenses"): (
+            "wages",
+            "materials",
+            "fuel",
+            "electricity",
+            "depreciation",
+            "amortization",
+            "taxes other than income tax",
+            "other operating expenses",
+            "расходы на оплату труда",
+            "материалы",
+            "топливо",
+            "электроэнергия",
+            "амортизация",
+            "налоги, кроме налога на прибыль",
+            "прочие операционные расходы",
+        ),
+        ("profit_or_loss", "income_tax_expense"): (
+            "current income tax",
+            "deferred income tax",
+            "current tax",
+            "deferred tax",
+            "текущий налог на прибыль",
+            "отложенный налог на прибыль",
+            "текущий налог",
+            "отложенный налог",
+        ),
+    }
+    return exact, strong, component
+
+
+def _rzd_controlled_value_extraction_aggregate_match_priority(target_type: str, metric_key: str, line: str) -> int:
+    target_type = str(target_type or "")
+    metric_key = str(metric_key or "")
+    exact, strong, component = _rzd_controlled_value_extraction_aggregate_precision_terms()
+    key = (target_type, metric_key)
+    if metric_key in {"current_assets", "current_liabilities"} and _rzd_controlled_value_extraction_phrase_in_line(
+        line,
+        ("non-current", "noncurrent", "long-term", "внеоборотные", "долгосрочные"),
+    ):
+        return 0
+    if metric_key in {"non_current_assets", "non_current_liabilities"} and _rzd_controlled_value_extraction_phrase_in_line(
+        line,
+        ("current assets", "current liabilities", "short-term", "оборотные активы", "краткосрочные"),
+    ) and not _rzd_controlled_value_extraction_phrase_in_line(line, ("non-current", "noncurrent", "внеоборотные", "долгосрочные")):
+        return 0
+    if _rzd_controlled_value_extraction_phrase_in_line(line, exact.get(key, ())):
+        return 100
+    if _rzd_controlled_value_extraction_phrase_in_line(line, strong.get(key, ())):
+        return 80
+    if _rzd_controlled_value_extraction_phrase_in_line(line, component.get(key, ())):
+        return 10
+    if key in RZD_CONTROLLED_VALUE_EXTRACTION_AGGREGATE_ONLY_KEYS:
+        return 0
+    return 50
+
+
+def _rzd_controlled_value_extraction_bad_aggregate_precision_codes(row: dict[str, Any]) -> list[str]:
+    target_type = str(row.get("target_type") or "")
+    metric_key = str(row.get("metric_key") or "")
+    metric_role = str(row.get("metric_role") or _rzd_controlled_value_extraction_metric_role(target_type, metric_key))
+    priority = int(row.get("aggregate_match_priority") or 0)
+    if metric_role == "aggregate" and priority < 50:
+        return ["controlled_value_extraction_bad_aggregate_precision_row"]
+    if (target_type, metric_key) in RZD_CONTROLLED_VALUE_EXTRACTION_AGGREGATE_ONLY_KEYS and priority == 10:
+        return ["component_row_mapped_to_aggregate_rejected", "controlled_value_extraction_bad_aggregate_precision_row"]
+    if metric_key == "borrowings_or_loans":
+        value_2025 = row.get("value_2025")
+        value_2024 = row.get("value_2024")
+        if isinstance(value_2025, int) and isinstance(value_2024, int):
+            if abs(value_2025) > 100_000_000:
+                return ["controlled_value_extraction_bad_aggregate_precision_row"]
+    return []
+
+
 def _rzd_controlled_value_extraction_is_oci_component_row(line: str) -> bool:
     return _rzd_controlled_value_extraction_phrase_in_line(
         line,
@@ -42185,6 +42458,8 @@ def _rzd_controlled_value_extraction_table_parser_diagnostics() -> dict[str, Any
         "semantic_wrong_aggregate_row_rejected_count": 0,
         "semantic_cash_flow_starting_profit_row_rejected_count": 0,
         "semantic_cash_flow_component_row_rejected_count": 0,
+        "bad_aggregate_precision_row_count": 0,
+        "component_row_mapped_to_aggregate_rejected_count": 0,
         "primary_statement_table_row_parser_attempted": False,
         "primary_statement_table_row_parser_success": False,
         "primary_statement_table_row_parser_value_count": 0,
@@ -42209,7 +42484,7 @@ def _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
         diagnostics["primary_statement_table_row_parser_failure_reason_codes"] = ["primary_statement_table_parser_no_text_or_specs"]
         return rows, diagnostics
 
-    matched_metrics: set[str] = set()
+    candidate_rows_by_metric: dict[str, list[dict[str, Any]]] = {}
     pending_label = ""
     pending_line_number = 0
 
@@ -42279,15 +42554,12 @@ def _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
             pending_label = ""
             pending_line_number = 0
             continue
-        matched_spec = None
-        for spec in specs:
-            metric_key = str(spec.get("metric_key") or "")
-            if metric_key in matched_metrics:
-                continue
-            if _rzd_controlled_value_extraction_line_matches_table_metric(candidate_line, spec):
-                matched_spec = spec
-                break
-        if matched_spec is None:
+        matched_specs = [
+            spec
+            for spec in specs
+            if _rzd_controlled_value_extraction_line_matches_table_metric(candidate_line, spec)
+        ]
+        if not matched_specs:
             pending_label = ""
             pending_line_number = 0
             continue
@@ -42343,27 +42615,68 @@ def _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
             pending_line_number = 0
             continue
 
-        metric_key = str(matched_spec.get("metric_key") or "")
-        semantic_reject_codes = _rzd_controlled_value_extraction_semantic_reject_metric(target_type, metric_key, candidate_line)
-        if semantic_reject_codes:
-            if "semantic_component_oci_row_rejected" in semantic_reject_codes:
-                diagnostics["semantic_component_oci_row_rejected_count"] += 1
-            if "semantic_wrong_aggregate_row_rejected" in semantic_reject_codes:
-                diagnostics["semantic_wrong_aggregate_row_rejected_count"] += 1
-            if "semantic_cash_flow_starting_profit_row_rejected" in semantic_reject_codes:
-                diagnostics["semantic_cash_flow_starting_profit_row_rejected_count"] += 1
-            if "semantic_cash_flow_component_row_rejected" in semantic_reject_codes:
-                diagnostics["semantic_cash_flow_component_row_rejected_count"] += 1
-            diagnostics["candidate_line_rejected_count"] += 1
-            pending_label = ""
-            pending_line_number = 0
-            continue
-        confidence = "high"
         line_for_hash = candidate_line if pending_label else raw_line
-        rows.append(
-            {
+        line_produced_candidate = False
+        for matched_spec in matched_specs:
+            metric_key = str(matched_spec.get("metric_key") or "")
+            metric_role = _rzd_controlled_value_extraction_metric_role(target_type, metric_key)
+            aggregate_priority = _rzd_controlled_value_extraction_aggregate_match_priority(target_type, metric_key, candidate_line)
+            if (
+                (target_type, metric_key) in RZD_CONTROLLED_VALUE_EXTRACTION_AGGREGATE_ONLY_KEYS
+                and aggregate_priority == 10
+            ):
+                diagnostics["component_row_mapped_to_aggregate_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+            if aggregate_priority <= 0:
+                if (target_type, metric_key) in RZD_CONTROLLED_VALUE_EXTRACTION_AGGREGATE_ONLY_KEYS:
+                    diagnostics["component_row_mapped_to_aggregate_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+            semantic_reject_codes = _rzd_controlled_value_extraction_semantic_reject_metric(target_type, metric_key, candidate_line)
+            if semantic_reject_codes:
+                if "semantic_component_oci_row_rejected" in semantic_reject_codes:
+                    diagnostics["semantic_component_oci_row_rejected_count"] += 1
+                if "semantic_wrong_aggregate_row_rejected" in semantic_reject_codes:
+                    diagnostics["semantic_wrong_aggregate_row_rejected_count"] += 1
+                if "semantic_cash_flow_starting_profit_row_rejected" in semantic_reject_codes:
+                    diagnostics["semantic_cash_flow_starting_profit_row_rejected_count"] += 1
+                if "semantic_cash_flow_component_row_rejected" in semantic_reject_codes:
+                    diagnostics["semantic_cash_flow_component_row_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+            precision_codes = _rzd_controlled_value_extraction_bad_aggregate_precision_codes(
+                {
+                    "target_type": target_type,
+                    "metric_key": metric_key,
+                    "metric_role": metric_role,
+                    "aggregate_match_priority": aggregate_priority,
+                    "raw_line": candidate_line,
+                    "value_2025": value_2025,
+                    "value_2024": value_2024,
+                }
+            )
+            if precision_codes:
+                diagnostics["bad_aggregate_precision_row_count"] += 1
+                if "component_row_mapped_to_aggregate_rejected" in precision_codes:
+                    diagnostics["component_row_mapped_to_aggregate_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
+            confidence = "high" if aggregate_priority >= 80 else "medium"
+            reason_codes = [
+                "primary_statement_table_row_parser_metric_matched",
+                "metric_label_matched",
+                "controlled_value_extraction_preview_only",
+            ]
+            if aggregate_priority >= 80:
+                reason_codes.append("aggregate_metric_label_matched")
+            elif metric_role == "component":
+                reason_codes.append("component_metric_label_matched")
+            row = {
                 "target_type": target_type,
                 "metric_key": metric_key,
+                "metric_role": metric_role,
+                "aggregate_match_priority": aggregate_priority,
                 "metric_name_ru": matched_spec.get("name_ru") or "",
                 "metric_name_en": matched_spec.get("name_en") or "",
                 "page_number": page_number,
@@ -42388,22 +42701,33 @@ def _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
                 "value_text_backend": str(text_backend or ""),
                 "extraction_confidence": confidence,
                 "extraction_status": "candidate_value_extracted_for_human_review",
-                "reason_codes": [
-                    "primary_statement_table_row_parser_metric_matched",
-                    "metric_label_matched",
-                    "controlled_value_extraction_preview_only",
-                ],
+                "reason_codes": reason_codes,
                 "warning_codes": [],
                 "blocker_codes": [],
                 "generic_metric": False,
                 "title_anchored_value": True,
                 "cross_target_page_value": False,
             }
-        )
-        diagnostics["candidate_line_matched_count"] += 1
-        matched_metrics.add(metric_key)
+            candidate_rows_by_metric.setdefault(metric_key, []).append(row)
+            line_produced_candidate = True
+        if line_produced_candidate:
+            diagnostics["candidate_line_matched_count"] += 1
         pending_label = ""
         pending_line_number = 0
+
+    for metric_key, candidate_rows in candidate_rows_by_metric.items():
+        if not candidate_rows:
+            continue
+        selected = sorted(
+            candidate_rows,
+            key=lambda row: (
+                -int(row.get("aggregate_match_priority") or 0),
+                0 if row.get("extraction_confidence") == "high" else 1,
+                0 if _rzd_controlled_value_extraction_phrase_in_line(str(row.get("raw_line") or ""), ("total", "итого", "всего")) else 1,
+                int(row.get("line_number") or 0),
+            ),
+        )[0]
+        rows.append(selected)
 
     diagnostics["primary_statement_table_row_parser_value_count"] = len(rows)
     diagnostics["primary_statement_table_row_parser_success"] = bool(rows)
@@ -42827,6 +43151,25 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
                 diagnostics["candidate_line_rejected_count"] += 1
                 continue
             note_match = re.search(r"\b(?:note|примечание)\s*(\d+[A-Za-zА-Яа-я]?)", raw_line, re.IGNORECASE)
+            metric_role = _rzd_controlled_value_extraction_metric_role(target_type, metric_key)
+            aggregate_priority = _rzd_controlled_value_extraction_aggregate_match_priority(target_type, metric_key, raw_line)
+            precision_codes = _rzd_controlled_value_extraction_bad_aggregate_precision_codes(
+                {
+                    "target_type": target_type,
+                    "metric_key": metric_key,
+                    "metric_role": metric_role,
+                    "aggregate_match_priority": aggregate_priority,
+                    "raw_line": raw_line,
+                    "value_2025": value_2025,
+                    "value_2024": value_2024,
+                }
+            )
+            if precision_codes:
+                diagnostics["bad_aggregate_precision_row_count"] += 1
+                if "component_row_mapped_to_aggregate_rejected" in precision_codes:
+                    diagnostics["component_row_mapped_to_aggregate_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
             semantic_reject_codes = _rzd_controlled_value_extraction_semantic_reject_metric(target_type, metric_key, raw_line)
             if semantic_reject_codes:
                 if "semantic_component_oci_row_rejected" in semantic_reject_codes:
@@ -42844,6 +43187,8 @@ def _rzd_controlled_value_extraction_internal_candidate_rows_from_text(
                 {
                     "target_type": target_type,
                     "metric_key": metric_key,
+                    "metric_role": metric_role,
+                    "aggregate_match_priority": aggregate_priority,
                     "metric_name_ru": spec.get("name_ru") or "",
                     "metric_name_en": spec.get("name_en") or "",
                     "page_number": page_number,
@@ -43021,6 +43366,8 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
     semantic_wrong_aggregate_row_rejected_count = 0
     semantic_cash_flow_starting_profit_row_rejected_count = 0
     semantic_cash_flow_component_row_rejected_count = 0
+    bad_aggregate_precision_row_count = 0
+    component_row_mapped_to_aggregate_rejected_count = 0
     toc_notes_range_page_rejected_count = 0
     toc_notes_range_value_rejected_count = 0
     page_map_false_statement_flag_rejected_count = 0
@@ -43134,6 +43481,10 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
         semantic_cash_flow_component_row_rejected_count += int(
             diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
         )
+        bad_aggregate_precision_row_count += int(diagnostics.get("bad_aggregate_precision_row_count") or 0)
+        component_row_mapped_to_aggregate_rejected_count += int(
+            diagnostics.get("component_row_mapped_to_aggregate_rejected_count") or 0
+        )
         if _as_bool(diagnostics.get("primary_statement_table_row_parser_attempted")):
             primary_statement_table_row_parser_attempt_count += 1
             if _as_bool(diagnostics.get("primary_statement_table_row_parser_success")):
@@ -43181,6 +43532,10 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             ),
             "semantic_cash_flow_component_row_rejected_count": int(
                 diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
+            ),
+            "bad_aggregate_precision_row_count": int(diagnostics.get("bad_aggregate_precision_row_count") or 0),
+            "component_row_mapped_to_aggregate_rejected_count": int(
+                diagnostics.get("component_row_mapped_to_aggregate_rejected_count") or 0
             ),
             "primary_statement_table_row_parser_attempted": _as_bool(diagnostics.get("primary_statement_table_row_parser_attempted")),
             "primary_statement_table_row_parser_success": _as_bool(diagnostics.get("primary_statement_table_row_parser_success")),
@@ -43232,6 +43587,8 @@ def _rzd_controlled_value_extraction_discover_candidate_rows_for_target(
             "semantic_wrong_aggregate_row_rejected_count": semantic_wrong_aggregate_row_rejected_count,
             "semantic_cash_flow_starting_profit_row_rejected_count": semantic_cash_flow_starting_profit_row_rejected_count,
             "semantic_cash_flow_component_row_rejected_count": semantic_cash_flow_component_row_rejected_count,
+            "bad_aggregate_precision_row_count": bad_aggregate_precision_row_count,
+            "component_row_mapped_to_aggregate_rejected_count": component_row_mapped_to_aggregate_rejected_count,
             "primary_statement_table_row_parser_attempt_count": primary_statement_table_row_parser_attempt_count,
             "primary_statement_table_row_parser_success_count": primary_statement_table_row_parser_success_count,
             "primary_statement_table_row_parser_failed_count": primary_statement_table_row_parser_failed_count,
@@ -46164,6 +46521,25 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
                 diagnostics["candidate_line_rejected_count"] += 1
                 continue
             note_match = re.search(r"\b(?:note|примечание)\s*(\d+[A-Za-zА-Яа-я]?)", raw_line, re.IGNORECASE)
+            metric_role = _rzd_controlled_value_extraction_metric_role(target_type, metric_key)
+            aggregate_priority = _rzd_controlled_value_extraction_aggregate_match_priority(target_type, metric_key, raw_line)
+            precision_codes = _rzd_controlled_value_extraction_bad_aggregate_precision_codes(
+                {
+                    "target_type": target_type,
+                    "metric_key": metric_key,
+                    "metric_role": metric_role,
+                    "aggregate_match_priority": aggregate_priority,
+                    "raw_line": raw_line,
+                    "value_2025": value_2025,
+                    "value_2024": value_2024,
+                }
+            )
+            if precision_codes:
+                diagnostics["bad_aggregate_precision_row_count"] += 1
+                if "component_row_mapped_to_aggregate_rejected" in precision_codes:
+                    diagnostics["component_row_mapped_to_aggregate_rejected_count"] += 1
+                diagnostics["candidate_line_rejected_count"] += 1
+                continue
             confidence = "high" if value_2025 is not None and value_2024 is not None else "medium"
             warning_codes = ["controlled_value_extraction_human_review_required"] if confidence == "medium" else []
             if not primary_statement_page_accepted or not primary_statement_group_accepted:
@@ -46178,6 +46554,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_extract_values_from_pag
                 "controlled_pdf_input_path": str(controlled_pdf_path or selected_evidence.get("controlled_pdf_copy_path") or ""),
                 "target_type": target_type,
                 "metric_key": metric_key,
+                "metric_role": metric_role,
+                "aggregate_match_priority": aggregate_priority,
                 "metric_name_ru": spec.get("name_ru") or "",
                 "metric_name_en": spec.get("name_en") or "",
                 "page_number": page_number,
@@ -46244,6 +46622,8 @@ def _rzd_controlled_value_extraction_finalize_internal_value_rows(
             "target_type": target_type,
             "page_number": page_number,
             "statement_page": page_number,
+            "metric_role": str(internal.get("metric_role") or _rzd_controlled_value_extraction_metric_role(target_type, metric_key)),
+            "aggregate_match_priority": int(internal.get("aggregate_match_priority") or 0),
             "primary_statement_page_value": True,
             "primary_statement_group_value": True,
             "future_import_candidate": False,
@@ -46296,6 +46676,7 @@ def _rzd_controlled_value_extraction_final_value_row_guard(row: dict[str, Any]) 
         str(row.get("raw_line") or row.get("row_label") or ""),
     )
     codes.extend(semantic_codes)
+    codes.extend(_rzd_controlled_value_extraction_bad_aggregate_precision_codes(row))
     return list(dict.fromkeys(codes))
 
 
@@ -46383,6 +46764,8 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         "semantic_cash_flow_starting_profit_row_rejected_count": 0,
         "semantic_cash_flow_component_row_rejected_count": 0,
         "bad_semantic_value_line_count": 0,
+        "bad_aggregate_precision_row_count": 0,
+        "component_row_mapped_to_aggregate_rejected_count": 0,
         "toc_primary_page_enforced_extraction_count": 0,
         "toc_primary_page_enforced_extraction_target_count": 0,
         "toc_primary_page_enforced_extraction_missing_text_count": 0,
@@ -46518,6 +46901,10 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         )
         discovery_stats["semantic_cash_flow_component_row_rejected_count"] += int(
             diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
+        )
+        discovery_stats["bad_aggregate_precision_row_count"] += int(diagnostics.get("bad_aggregate_precision_row_count") or 0)
+        discovery_stats["component_row_mapped_to_aggregate_rejected_count"] += int(
+            diagnostics.get("component_row_mapped_to_aggregate_rejected_count") or 0
         )
         discovery_stats["toc_notes_range_page_rejected_count"] += int(diagnostics.get("toc_notes_range_page_rejected_count") or 0)
         discovery_stats["toc_notes_range_value_rejected_count"] += int(diagnostics.get("toc_notes_range_value_rejected_count") or 0)
@@ -46708,6 +47095,10 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
                 "semantic_cash_flow_component_row_rejected_count": int(
                     diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0
                 ),
+                "bad_aggregate_precision_row_count": int(diagnostics.get("bad_aggregate_precision_row_count") or 0),
+                "component_row_mapped_to_aggregate_rejected_count": int(
+                    diagnostics.get("component_row_mapped_to_aggregate_rejected_count") or 0
+                ),
                 "primary_statement_table_row_parser_attempted": _as_bool(
                     diagnostics.get("primary_statement_table_row_parser_attempted")
                 ),
@@ -46756,6 +47147,14 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
             if "semantic_cash_flow_component_row_rejected" in guard_codes:
                 discovery_stats["semantic_cash_flow_component_row_rejected_count"] = int(
                     discovery_stats.get("semantic_cash_flow_component_row_rejected_count") or 0
+                ) + 1
+            if "controlled_value_extraction_bad_aggregate_precision_row" in guard_codes:
+                discovery_stats["bad_aggregate_precision_row_count"] = int(
+                    discovery_stats.get("bad_aggregate_precision_row_count") or 0
+                ) + 1
+            if "component_row_mapped_to_aggregate_rejected" in guard_codes:
+                discovery_stats["component_row_mapped_to_aggregate_rejected_count"] = int(
+                    discovery_stats.get("component_row_mapped_to_aggregate_rejected_count") or 0
                 ) + 1
             final_guard_blockers.append(
                 _rzd_manual_official_pdf_controlled_value_extraction_blocker_row(
@@ -47005,6 +47404,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
                 str(row.get("raw_line") or row.get("row_label") or ""),
             )
         ),
+        "bad_aggregate_precision_row_count": max(
+            int(discovery_stats.get("bad_aggregate_precision_row_count") or 0),
+            sum(1 for row in value_rows if _rzd_controlled_value_extraction_bad_aggregate_precision_codes(row)),
+        ),
+        "component_row_mapped_to_aggregate_rejected_count": int(
+            discovery_stats.get("component_row_mapped_to_aggregate_rejected_count") or 0
+        ),
         "toc_source_candidate_page_count": int(discovery_stats.get("toc_source_candidate_page_count") or 0),
         "toc_source_text_detected_count": int(discovery_stats.get("toc_source_text_detected_count") or 0),
         "toc_source_flag_detected_count": int(discovery_stats.get("toc_source_flag_detected_count") or 0),
@@ -47243,6 +47649,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         or counts.get("notes_page_value_count", 0) > 0
         or counts.get("cross_target_page_value_count", 0) > 0
         or counts.get("false_generic_profit_or_loss_value_count", 0) > 0
+        or counts.get("bad_aggregate_precision_row_count", 0) > 0
         or counts.get("primary_statement_group_value_count", 0) != counts.get("value_candidate_row_count", 0)
     ):
         quality_warnings.append({"message": "controlled_value_extraction_primary_statement_pages_missing"})
@@ -47260,6 +47667,7 @@ def _build_rzd_manual_official_pdf_controlled_value_extraction_report(
         and counts["cross_target_page_value_count"] == 0
         and counts["false_generic_profit_or_loss_value_count"] == 0
         and counts["bad_semantic_value_line_count"] == 0
+        and counts["bad_aggregate_precision_row_count"] == 0
         and counts["primary_statement_group_value_count"] == counts["value_candidate_row_count"]
     )
     ready = status in {"passed", "warning"} and counts["value_candidate_row_count"] > 0 and not blocker_rows and quality_ready
@@ -47621,6 +48029,10 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_report(
                     report.get("semantic_cash_flow_component_row_rejected_count") or 0
                 ),
                 "bad_semantic_value_line_count": int(report.get("bad_semantic_value_line_count") or 0),
+                "bad_aggregate_precision_row_count": int(report.get("bad_aggregate_precision_row_count") or 0),
+                "component_row_mapped_to_aggregate_rejected_count": int(
+                    report.get("component_row_mapped_to_aggregate_rejected_count") or 0
+                ),
                 "toc_primary_page_enforced_extraction_count": int(report.get("toc_primary_page_enforced_extraction_count") or 0),
                 "toc_primary_page_enforced_extraction_target_count": int(report.get("toc_primary_page_enforced_extraction_target_count") or 0),
                 "toc_primary_page_enforced_extraction_missing_text_count": int(
@@ -61125,6 +61537,8 @@ def render_rzd_manual_official_pdf_controlled_value_extraction_markdown(report: 
             f"- TOC-enforced parser attempts: {report.get('toc_primary_page_enforced_extraction_parser_attempt_count', 0)}",
             f"- TOC-enforced parser values: {report.get('toc_primary_page_enforced_extraction_parser_value_count', 0)}",
             f"- semantic bad-line leakage count: {report.get('bad_semantic_value_line_count', 0)}",
+            f"- aggregate precision leakage count: {report.get('bad_aggregate_precision_row_count', 0)}",
+            f"- component rows rejected for aggregate metrics: {report.get('component_row_mapped_to_aggregate_rejected_count', 0)}",
         ]
     )
     toc_reject_codes = report.get("toc_primary_page_order_reject_reason_codes") or []

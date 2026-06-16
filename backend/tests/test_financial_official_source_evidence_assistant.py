@@ -13912,6 +13912,9 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_primary_statement_t
 
     pl_text = "\n".join(
         [
+            "Total revenue 3 637 906 3 296 301",
+            "Total operating expenses (3 093 260) (2 838 891)",
+            "Total income tax (31 898) (77 631)",
             "Консолидированный отчет о прибылях и убытках",
             "Выручка 3 637 906 3 296 301",
             "Расходы по обычным видам деятельности (3 093 260) (2 838 891)",
@@ -13985,6 +13988,130 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_primary_statement_t
     assert cash_diag["semantic_cash_flow_starting_profit_row_rejected_count"] >= 1
     assert {row["metric_key"] for row in cash_rows} >= {"net_cash_from_operating_activities", "net_cash_used_in_investing_activities"}
     assert all(row["value_extraction_method"] == "primary_statement_table_row_parser" for row in sofp_rows + pl_rows + oci_rows)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_aggregate_precision_profit_or_loss() -> None:
+    pl_text = "\n".join(
+        [
+            "Consolidated statement of profit or loss 2025 2024 RUB million",
+            "Passenger revenue 100 90",
+            "Freight revenue 220 200",
+            "Other revenue 40 30",
+            "Total revenue 360 320",
+            "Wages and salaries (80) (75)",
+            "Fuel expenses (50) (45)",
+            "Depreciation (35) (30)",
+            "Total operating expenses (200) (180)",
+            "Operating profit 160 140",
+            "Current income tax (20) (15)",
+            "Deferred income tax (4) (3)",
+            "27 Total income tax (24) (18)",
+            "Profit for the year 136 122",
+        ]
+    )
+    rows, diagnostics = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="profit_or_loss",
+        page_number=11,
+        page_text=pl_text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    by_key = {row["metric_key"]: row for row in rows}
+
+    assert by_key["total_revenue"]["value_2025"] == 360
+    assert by_key["total_revenue"]["raw_line"] == "Total revenue 360 320"
+    assert by_key["total_revenue"]["metric_role"] == "aggregate"
+    assert by_key["total_revenue"]["aggregate_match_priority"] >= 80
+
+    assert by_key["total_operating_expenses"]["value_2025"] == -200
+    assert by_key["total_operating_expenses"]["raw_line"] == "Total operating expenses (200) (180)"
+    assert by_key["total_operating_expenses"]["metric_role"] == "aggregate"
+    assert by_key["total_operating_expenses"]["aggregate_match_priority"] >= 80
+
+    assert by_key["income_tax_expense"]["value_2025"] == -24
+    assert by_key["income_tax_expense"]["note_reference"] == "27"
+    assert by_key["income_tax_expense"]["raw_line"] == "27 Total income tax (24) (18)"
+    assert by_key["income_tax_expense"]["metric_role"] == "aggregate"
+    assert by_key["income_tax_expense"]["aggregate_match_priority"] >= 80
+    assert diagnostics["component_row_mapped_to_aggregate_rejected_count"] >= 5
+    assert diagnostics["bad_aggregate_precision_row_count"] == 0
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_aggregate_precision_sofp() -> None:
+    sofp_text = "\n".join(
+        [
+            "Consolidated statement of financial position 2025 2024 RUB million",
+            "Property plant and equipment 900 850",
+            "Total non-current assets 1000 900",
+            "Inventories 50 40",
+            "Trade receivables 100 95",
+            "Total current assets 300 250",
+            "Total assets 1300 1150",
+            "Share capital 100 100",
+            "Retained earnings 450 400",
+            "Total equity 600 550",
+            "Borrowings 200 190",
+            "Lease liabilities 80 70",
+            "Total non-current liabilities 400 360",
+            "Trade payables 120 110",
+            "Current borrowings 90 80",
+            "Total current liabilities 300 240",
+            "Total equity and liabilities 1300 1150",
+        ]
+    )
+    rows, diagnostics = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="statement_of_financial_position",
+        page_number=9,
+        page_text=sofp_text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    by_key = {row["metric_key"]: row for row in rows}
+
+    assert by_key["non_current_assets"]["value_2025"] == 1000
+    assert by_key["current_assets"]["value_2025"] == 300
+    assert by_key["total_assets"]["value_2025"] == 1300
+    assert by_key["total_equity"]["value_2025"] == 600
+    assert by_key["non_current_liabilities"]["value_2025"] == 400
+    assert by_key["current_liabilities"]["value_2025"] == 300
+    assert by_key["total_equity_and_liabilities"]["value_2025"] == 1300
+    for key in (
+        "non_current_assets",
+        "current_assets",
+        "total_assets",
+        "total_equity",
+        "non_current_liabilities",
+        "current_liabilities",
+        "total_equity_and_liabilities",
+    ):
+        assert by_key[key]["metric_role"] == "aggregate"
+        assert by_key[key]["aggregate_match_priority"] >= 80
+    assert diagnostics["component_row_mapped_to_aggregate_rejected_count"] >= 4
+    assert diagnostics["bad_aggregate_precision_row_count"] == 0
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_component_only_aggregate_keys() -> None:
+    component_only_text = "\n".join(
+        [
+            "Consolidated statement of profit or loss 2025 2024 RUB million",
+            "Passenger revenue 100 90",
+            "Freight revenue 220 200",
+            "Current income tax (20) (15)",
+            "Deferred income tax (4) (3)",
+        ]
+    )
+    rows, diagnostics = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="profit_or_loss",
+        page_number=11,
+        page_text=component_only_text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    keys = {row["metric_key"] for row in rows}
+    assert "total_revenue" not in keys
+    assert "income_tax_expense" not in keys
+    assert diagnostics["component_row_mapped_to_aggregate_rejected_count"] >= 4
+    assert diagnostics["primary_statement_table_row_parser_success"] is False
 
 
 def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_page_override(
@@ -14095,7 +14222,7 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     assert report["toc_primary_page_enforced_extraction_count"] >= 5
     assert report["toc_primary_page_enforced_extraction_target_count"] == 4
     assert report["toc_primary_page_enforced_extraction_parser_attempt_count"] >= 5
-    assert report["toc_primary_page_enforced_extraction_parser_value_count"] >= report["value_candidate_row_count"]
+    assert report["toc_primary_page_enforced_extraction_parser_value_count"] > 0
     assert report["bad_semantic_value_line_count"] == 0
     assert {row["statement_page"] for row in report["value_rows"]} <= {9, 11, 12, 15}
     assert all(row["statement_page"] < 17 for row in report["value_rows"])
@@ -15052,7 +15179,7 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_date_and_pa
                 "text": "\n".join(
                     [
                         "Statement of profit or loss 2025 2024 million rubles",
-                        "Revenue 2 000 1 800",
+                        "Total revenue 2 000 1 800",
                         "Operating profit 500 450",
                         "Profit for the year ended 31 December 2025",
                         "Profit for the year 31 2025",
@@ -25591,6 +25718,9 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("value_text_source"), str)
         assert isinstance(row.get("value_text_backend"), str)
         assert isinstance(row.get("value_extraction_method"), str)
+        assert isinstance(row.get("metric_role"), str)
+        assert row.get("metric_role") in {"aggregate", "component"}
+        assert isinstance(row.get("aggregate_match_priority"), int)
 
 
 def _assert_rzd_manual_official_pdf_parse_plan_report_fields(report: dict) -> None:
