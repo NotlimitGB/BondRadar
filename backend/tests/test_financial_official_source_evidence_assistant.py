@@ -16466,6 +16466,144 @@ def test_rzd_manual_official_pdf_controlled_values_evidence_pack_vds_like_counts
     _assert_rzd_controlled_values_evidence_pack_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_manual_review_gate_happy_path(tmp_path: Path) -> None:
+    _write_task174_ready_evidence_pack(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "warning"
+    assert report["manual_review_gate_status"] == "warning"
+    assert report["ready_for_manual_review"] is True
+    assert report["ready_for_controlled_import_plan"] is True
+    assert report["ready_for_controlled_import"] is False
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["blocker_count"] == 0
+    assert report["bad_required_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert report["bad_evidence_pack_count"] == 0
+    assert report["bad_manual_review_gate_count"] == 0
+    assert report["required_aggregate_metric_count"] == 21
+    assert report["required_aggregate_metric_present_count"] == 21
+    assert report["required_aggregate_metric_missing_count"] == 0
+    assert "controlled_value_extraction_human_review_required" in report["human_review_reason_codes"]
+    _assert_rzd_controlled_values_manual_review_gate_fields(report)
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.md").is_file()
+    checks_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_manual_review_gate_checks_task174.json").read_text(encoding="utf-8"))
+    assert isinstance(checks_payload, dict)
+    assert isinstance(checks_payload["check_count"], int)
+    assert isinstance(checks_payload["manual_review_check_rows"], list)
+    assert checks_payload["check_count"] == len(checks_payload["manual_review_check_rows"])
+    assert isinstance(checks_payload["safe_hint"], str)
+    blockers_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_manual_review_gate_blockers_task174.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers_payload, dict)
+    assert isinstance(blockers_payload["blocker_count"], int)
+    assert isinstance(blockers_payload["blocker_rows"], list)
+    assert blockers_payload["blocker_count"] == len(blockers_payload["blocker_rows"])
+    assert isinstance(blockers_payload["safe_hint"], str)
+
+
+def test_rzd_manual_official_pdf_controlled_values_manual_review_gate_missing_metric_blocks(tmp_path: Path) -> None:
+    _write_task174_ready_evidence_pack(tmp_path, omit=("profit_or_loss", "income_tax_expense"))
+
+    report = _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["manual_review_gate_status"] == "blocked"
+    assert report["ready_for_controlled_import_plan"] is False
+    assert report["required_aggregate_metric_missing_count"] == 1
+    assert "required_aggregate_metric_missing" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_manual_review_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_manual_review_gate_pack_blocker_blocks(tmp_path: Path) -> None:
+    _write_task174_ready_evidence_pack(
+        tmp_path,
+        mutate_pack={
+            "blocker_count": 1,
+            "blocker_rows": [
+                {
+                    "blocker_id": "synthetic",
+                    "severity": "error",
+                    "code": "synthetic_pack_blocker",
+                    "message": "synthetic pack blocker",
+                    "target_type": "",
+                    "metric_key": "",
+                    "safe_hint": "synthetic",
+                }
+            ],
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_controlled_import_plan"] is False
+    assert "no_pack_blockers" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_manual_review_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_manual_review_gate_safety_flag_blocks(tmp_path: Path) -> None:
+    _write_task174_ready_evidence_pack(tmp_path, mutate_pack={"database_mutated": True})
+
+    report = _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["bad_safety_count"] > 0
+    assert report["ready_for_controlled_import_plan"] is False
+    assert "safety_flags_false" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_manual_review_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_manual_review_gate_direct_import_ready_blocks(tmp_path: Path) -> None:
+    _write_task174_ready_evidence_pack(tmp_path, mutate_pack={"ready_for_controlled_import": True})
+
+    report = _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_controlled_import_plan"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert "evidence_pack_not_ready_for_direct_import" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_manual_review_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown_sections(tmp_path: Path) -> None:
+    _write_task174_ready_evidence_pack(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    markdown = (tmp_path / "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values Manual Review Gate",
+        "## Summary",
+        "## Evidence pack input",
+        "## Required aggregate metric coverage",
+        "## Safety status",
+        "## Manual review checks",
+        "## Warnings",
+        "## Blockers",
+        "## Decision",
+        "## Next step",
+    ):
+        assert section in markdown
+    assert "No database import was executed" in markdown
+    assert "Decision: ready for controlled import planning, but not for direct import." in markdown
+    _assert_rzd_controlled_values_manual_review_gate_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -24481,6 +24619,19 @@ def _run_rzd_manual_official_pdf_controlled_values_evidence_pack(extra_args: lis
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-manual-review-gate",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -25940,6 +26091,106 @@ def _assert_rzd_controlled_values_evidence_pack_fields(report: dict) -> None:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_BLOCKER_FIELDS:
             assert field in blocker
             assert blocker[field] is not None
+
+
+def _task174_required_metric_rows(*, omit: tuple[str, str] | None = None, include_components: bool = True) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    page_by_target = {
+        "statement_of_financial_position": 9,
+        "profit_or_loss": 11,
+        "other_comprehensive_income": 12,
+        "cash_flows": 15,
+    }
+    for target_type, metric_key in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS:
+        if omit == (target_type, metric_key):
+            continue
+        rows.append(
+            _task173_value_row(
+                target_type,
+                metric_key,
+                page=page_by_target[target_type],
+                raw_line=f"{metric_key} aggregate 1000 900",
+            )
+        )
+    if include_components:
+        for index in range(3):
+            rows.append(
+                _task173_value_row(
+                    "cash_flows",
+                    f"cash_flow_component_{index}",
+                    page=15,
+                    raw_line=f"cash flow component {index} 10 9",
+                    metric_role="component",
+                    aggregate_match_priority=10,
+                )
+            )
+    return rows
+
+
+def _write_task174_ready_evidence_pack(
+    tmp_path: Path,
+    *,
+    omit: tuple[str, str] | None = None,
+    mutate_pack: dict[str, object] | None = None,
+) -> dict:
+    _write_task173_controlled_value_extraction_report(
+        tmp_path,
+        value_rows=_task174_required_metric_rows(omit=omit),
+    )
+    pack = _run_rzd_manual_official_pdf_controlled_values_evidence_pack(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+    if mutate_pack:
+        pack.update(mutate_pack)
+        (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_task173.json").write_text(
+            json.dumps(pack, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    return pack
+
+
+def _assert_rzd_controlled_values_manual_review_gate_fields(report: dict) -> None:
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "manual_review_gate_status",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "document_language",
+        "document_kind",
+        "source_pdf_sha256",
+        "source_pdf_controlled_copy_path",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("human_review_reason_codes"), list)
+    assert isinstance(report.get("warning_code_counts"), dict)
+    assert isinstance(report.get("warnings"), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert isinstance(report.get("manual_review_check_rows"), list)
+    assert isinstance(report.get("blocker_rows"), list)
+    for row in report.get("manual_review_check_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert row["severity"] in {"info", "warning", "error"}
+        assert row["status"] in {"passed", "warning", "blocked"}
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:

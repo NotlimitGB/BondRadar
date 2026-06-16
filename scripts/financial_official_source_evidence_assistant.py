@@ -86,6 +86,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-parse-plan-preview-v2",
     "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
     "rzd-manual-official-pdf-controlled-values-evidence-pack",
+    "rzd-manual-official-pdf-controlled-values-manual-review-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -7696,6 +7697,165 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_FORBIDDEN_SAFETY_FLAGS =
     "paper_trading_called",
     "files_deleted",
 )
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_ARTIFACT_NAMES = {
+    "gate_json": "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.json",
+    "gate_csv": "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.csv",
+    "gate_markdown": "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_manual_review_gate_checks_task174.json",
+    "checks_csv": "rzd_manual_official_pdf_controlled_values_manual_review_gate_checks_task174.csv",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_manual_review_gate_blockers_task174.json",
+    "blockers_csv": "rzd_manual_official_pdf_controlled_values_manual_review_gate_blockers_task174.csv",
+}
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS = (
+    ("statement_of_financial_position", "non_current_assets"),
+    ("statement_of_financial_position", "current_assets"),
+    ("statement_of_financial_position", "total_assets"),
+    ("statement_of_financial_position", "total_equity"),
+    ("statement_of_financial_position", "non_current_liabilities"),
+    ("statement_of_financial_position", "current_liabilities"),
+    ("statement_of_financial_position", "total_equity_and_liabilities"),
+    ("profit_or_loss", "total_revenue"),
+    ("profit_or_loss", "total_operating_expenses"),
+    ("profit_or_loss", "operating_profit"),
+    ("profit_or_loss", "net_finance_costs"),
+    ("profit_or_loss", "profit_before_tax"),
+    ("profit_or_loss", "income_tax_expense"),
+    ("profit_or_loss", "profit_for_the_year"),
+    ("other_comprehensive_income", "profit_for_the_year"),
+    ("other_comprehensive_income", "other_comprehensive_income"),
+    ("other_comprehensive_income", "total_comprehensive_income"),
+    ("cash_flows", "net_cash_used_in_investing_activities"),
+    ("cash_flows", "net_cash_from_financing_activities"),
+    ("cash_flows", "cash_and_cash_equivalents_beginning"),
+    ("cash_flows", "cash_and_cash_equivalents_ending"),
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_FIELDS = [
+    "mode",
+    "status",
+    "manual_review_gate_status",
+    "ready_for_manual_review",
+    "ready_for_controlled_import_plan",
+    "ready_for_controlled_import",
+    "controlled_value_extraction_ready",
+    "company_id",
+    "company_name",
+    "report_year",
+    "report_standard",
+    "document_language",
+    "document_kind",
+    "source_pdf_sha256",
+    "source_pdf_page_count",
+    "source_pdf_controlled_copy_path",
+    "input_evidence_value_row_count",
+    "accepted_evidence_row_count",
+    "aggregate_value_row_count",
+    "component_value_row_count",
+    "statement_of_financial_position_value_count",
+    "profit_or_loss_value_count",
+    "other_comprehensive_income_value_count",
+    "cash_flows_value_count",
+    "required_aggregate_metric_count",
+    "required_aggregate_metric_present_count",
+    "required_aggregate_metric_missing_count",
+    "manual_review_check_count",
+    "manual_review_passed_check_count",
+    "manual_review_warning_check_count",
+    "manual_review_blocked_check_count",
+    "bad_required_count",
+    "bad_safety_count",
+    "bad_evidence_pack_count",
+    "bad_manual_review_gate_count",
+    "blocker_count",
+    "warning_count",
+    "human_review_required",
+    "human_review_reason_codes",
+    "safe_hint",
+    "next_step",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_CHECK_FIELDS = [
+    "check_id",
+    "severity",
+    "status",
+    "code",
+    "message",
+    "target_type",
+    "metric_key",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_BLOCKER_FIELDS = [
+    "blocker_id",
+    "severity",
+    "code",
+    "message",
+    "target_type",
+    "metric_key",
+    "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_BOOL_FIELDS = (
+    "ready_for_manual_review",
+    "ready_for_controlled_import_plan",
+    "ready_for_controlled_import",
+    "controlled_value_extraction_ready",
+    "human_review_required",
+    "read_only",
+    "dry_run_only",
+    "would_fetch_source_page",
+    "would_fetch_document_url",
+    "would_download_document",
+    "would_import_report",
+    "would_mutate_database",
+    "would_score_issuers",
+    "would_trigger_paper_trading",
+    "source_page_fetched",
+    "document_url_fetched",
+    "documents_downloaded",
+    "import_executed",
+    "database_mutated",
+    "issuer_scores_mutated",
+    "paper_trading_called",
+    "files_deleted",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_COUNT_FIELDS = (
+    "source_pdf_page_count",
+    "input_evidence_value_row_count",
+    "accepted_evidence_row_count",
+    "aggregate_value_row_count",
+    "component_value_row_count",
+    "statement_of_financial_position_value_count",
+    "profit_or_loss_value_count",
+    "other_comprehensive_income_value_count",
+    "cash_flows_value_count",
+    "required_aggregate_metric_count",
+    "required_aggregate_metric_present_count",
+    "required_aggregate_metric_missing_count",
+    "manual_review_check_count",
+    "manual_review_passed_check_count",
+    "manual_review_warning_check_count",
+    "manual_review_blocked_check_count",
+    "bad_required_count",
+    "bad_safety_count",
+    "bad_evidence_pack_count",
+    "bad_manual_review_gate_count",
+    "blocker_count",
+    "warning_count",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_FORBIDDEN_SAFETY_FLAGS = (
+    "would_fetch_source_page",
+    "would_fetch_document_url",
+    "would_download_document",
+    "would_import_report",
+    "would_mutate_database",
+    "would_score_issuers",
+    "would_trigger_paper_trading",
+    "source_page_fetched",
+    "document_url_fetched",
+    "documents_downloaded",
+    "import_executed",
+    "database_mutated",
+    "issuer_scores_mutated",
+    "paper_trading_called",
+    "files_deleted",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -9250,6 +9410,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-evidence-pack-rows-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-evidence-pack-blockers-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-evidence-pack-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-evidence-pack-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-evidence-pack-rows-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-evidence-pack-blockers-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-checks-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -9497,6 +9667,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_value_extraction_preview_v2(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-evidence-pack":
         report = run_rzd_manual_official_pdf_controlled_values_evidence_pack(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-manual-review-gate":
+        report = run_rzd_manual_official_pdf_controlled_values_manual_review_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -48862,6 +49034,551 @@ def _rzd_manual_official_pdf_controlled_values_evidence_pack_write_outputs(
     )
 
 
+def run_rzd_manual_official_pdf_controlled_values_manual_review_gate(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_values_manual_review_gate_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_values_manual_review_gate_artifacts(args)
+    output_errors = _rzd_manual_official_pdf_controlled_values_manual_review_gate_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_manual_official_pdf_controlled_values_manual_review_gate_failed_report(
+            output_errors,
+            inputs=inputs,
+            artifacts=artifacts,
+            write_outputs=False,
+        )
+    pack_path = inputs["evidence_pack"]
+    if pack_path is None or not pack_path.is_file():
+        return _rzd_manual_official_pdf_controlled_values_manual_review_gate_failed_report(
+            [{"message": "controlled_values_evidence_pack_input_required"}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+    try:
+        evidence_pack = _load_json_object(pack_path)
+        rows_payload = _load_json_object(inputs["evidence_pack_rows"]) if inputs.get("evidence_pack_rows") and inputs["evidence_pack_rows"].is_file() else {}
+        blockers_payload = (
+            _load_json_object(inputs["evidence_pack_blockers"])
+            if inputs.get("evidence_pack_blockers") and inputs["evidence_pack_blockers"].is_file()
+            else {}
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_manual_official_pdf_controlled_values_manual_review_gate_failed_report(
+            [{"message": "controlled_values_evidence_pack_input_required", "error": str(exc)}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+    report = _build_rzd_manual_official_pdf_controlled_values_manual_review_gate_report(
+        evidence_pack,
+        rows_payload=rows_payload,
+        blockers_payload=blockers_payload,
+        inputs=inputs,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["manual_review_gate_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_manual_review_gate_write_failed", "error": str(exc)}]
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            "evidence_pack": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_ARTIFACT_NAMES["pack_json"],
+            "evidence_pack_rows": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_ARTIFACT_NAMES["rows_json"],
+            "evidence_pack_blockers": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_ARTIFACT_NAMES["blockers_json"],
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "evidence_pack": args.rzd_manual_official_pdf_controlled_values_evidence_pack_input or defaults.get("evidence_pack"),
+        "evidence_pack_rows": args.rzd_manual_official_pdf_controlled_values_evidence_pack_rows_input or defaults.get("evidence_pack_rows"),
+        "evidence_pack_blockers": args.rzd_manual_official_pdf_controlled_values_evidence_pack_blockers_input or defaults.get("evidence_pack_blockers"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            key: chain_dir / name
+            for key, name in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_ARTIFACT_NAMES.items()
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "gate_json": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_output or defaults.get("gate_json"),
+        "gate_csv": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_csv_output or defaults.get("gate_csv"),
+        "gate_markdown": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown_output or defaults.get("gate_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_checks_output or defaults.get("checks_json"),
+        "checks_csv": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_checks_csv_output or defaults.get("checks_csv"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_blockers_output or defaults.get("blockers_json"),
+        "blockers_csv": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_blockers_csv_output or defaults.get("blockers_csv"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in artifacts.values() if path is not None]
+    for generic_output in (args.json_output, args.markdown_output):
+        if generic_output is not None:
+            outputs.append(generic_output)
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output in outputs:
+        if any(_paths_equal(output, input_path) for input_path in input_paths):
+            return [{"message": "rzd_controlled_values_manual_review_gate_output_must_not_equal_input"}]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_controlled_values_manual_review_gate_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_safety_flags() -> dict[str, bool]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_extract_rows(
+    pack: dict[str, Any],
+    rows_payload: Any,
+    blockers_payload: Any,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if isinstance(rows_payload, dict) and isinstance(rows_payload.get("evidence_rows"), list):
+        evidence_rows = [row for row in rows_payload.get("evidence_rows") or [] if isinstance(row, dict)]
+    elif isinstance(rows_payload, list):
+        evidence_rows = [row for row in rows_payload if isinstance(row, dict)]
+    else:
+        evidence_rows = [row for row in pack.get("evidence_rows") or [] if isinstance(row, dict)]
+    if isinstance(blockers_payload, dict) and isinstance(blockers_payload.get("blocker_rows"), list):
+        blocker_rows = [row for row in blockers_payload.get("blocker_rows") or [] if isinstance(row, dict)]
+    elif isinstance(blockers_payload, list):
+        blocker_rows = [row for row in blockers_payload if isinstance(row, dict)]
+    else:
+        blocker_rows = [row for row in pack.get("blocker_rows") or [] if isinstance(row, dict)]
+    return evidence_rows, blocker_rows
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+    code: str,
+    *,
+    passed: bool,
+    severity: str = "error",
+    warning: bool = False,
+    message: str = "",
+    target_type: str = "",
+    metric_key: str = "",
+) -> dict[str, Any]:
+    status = "passed" if passed else ("warning" if warning else "blocked")
+    return {
+        "check_id": f"rzd_controlled_values_manual_review_gate:{target_type or 'global'}:{metric_key or 'global'}:{code}",
+        "severity": "info" if passed else ("warning" if warning else severity),
+        "status": status,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "target_type": target_type,
+        "metric_key": metric_key,
+        "safe_hint": "This gate only allows preparing a future controlled import plan; no database import was executed.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_blocker_row(
+    code: str,
+    *,
+    message: str = "",
+    target_type: str = "",
+    metric_key: str = "",
+    severity: str = "error",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_manual_review_gate:{target_type or 'global'}:{metric_key or 'global'}:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "target_type": target_type,
+        "metric_key": metric_key,
+        "safe_hint": "Resolve this blocker before a future controlled import planning step.",
+    }
+
+
+def _build_rzd_manual_official_pdf_controlled_values_manual_review_gate_report(
+    evidence_pack: dict[str, Any],
+    *,
+    rows_payload: Any,
+    blockers_payload: Any,
+    inputs: dict[str, Path | None],
+) -> dict[str, Any]:
+    evidence_rows, pack_blocker_rows = _rzd_manual_official_pdf_controlled_values_manual_review_gate_extract_rows(
+        evidence_pack,
+        rows_payload,
+        blockers_payload,
+    )
+    accepted_rows = [row for row in evidence_rows if str(row.get("quality_status") or "accepted") == "accepted"]
+    accepted_aggregate_keys = {
+        (str(row.get("target_type") or ""), str(row.get("metric_key") or ""))
+        for row in accepted_rows
+        if _as_bool(row.get("is_aggregate")) or str(row.get("metric_role") or "") == "aggregate"
+    }
+    missing_required_metrics = [
+        (target_type, metric_key)
+        for target_type, metric_key in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS
+        if (target_type, metric_key) not in accepted_aggregate_keys
+    ]
+    evidence_pack_safety_leaks = [
+        flag
+        for flag in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_FORBIDDEN_SAFETY_FLAGS
+        if _as_bool(evidence_pack.get(flag)) or _as_bool((evidence_pack.get("safety_flags") or {}).get(flag))
+    ]
+    pack_blocker_count = int(evidence_pack.get("blocker_count") or len(pack_blocker_rows))
+    pack_status = str(evidence_pack.get("status") or "")
+    pack_ready_for_manual_review = _as_bool(evidence_pack.get("ready_for_manual_review"))
+    pack_direct_import_ready = _as_bool(evidence_pack.get("ready_for_controlled_import"))
+    extraction_ready = _as_bool(evidence_pack.get("controlled_value_extraction_ready"))
+    bad_required = int(evidence_pack.get("bad_required_count") or 0)
+    bad_safety = int(evidence_pack.get("bad_safety_count") or 0) + len(evidence_pack_safety_leaks)
+    bad_semantic = int(evidence_pack.get("bad_semantic_value_line_count") or 0)
+    bad_aggregate = int(evidence_pack.get("bad_aggregate_precision_row_count") or 0)
+    check_rows = [
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "evidence_pack_status_acceptable",
+            passed=pack_status in {"passed", "warning"},
+            message=f"Evidence pack status is {pack_status or 'missing'}.",
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "evidence_pack_ready_for_manual_review",
+            passed=pack_ready_for_manual_review,
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "controlled_value_extraction_ready",
+            passed=extraction_ready,
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "evidence_pack_not_ready_for_direct_import",
+            passed=not pack_direct_import_ready,
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "evidence_row_count_positive",
+            passed=len(evidence_rows) > 0,
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "required_aggregate_metrics_present",
+            passed=not missing_required_metrics,
+            message=f"{len(missing_required_metrics)} required aggregate metrics are missing.",
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "sofp_minimum_aggregate_coverage",
+            passed=all(("statement_of_financial_position", metric) in accepted_aggregate_keys for _target, metric in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS if _target == "statement_of_financial_position"),
+            target_type="statement_of_financial_position",
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "profit_or_loss_minimum_aggregate_coverage",
+            passed=all(("profit_or_loss", metric) in accepted_aggregate_keys for _target, metric in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS if _target == "profit_or_loss"),
+            target_type="profit_or_loss",
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "oci_minimum_coverage",
+            passed=all(("other_comprehensive_income", metric) in accepted_aggregate_keys for _target, metric in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS if _target == "other_comprehensive_income"),
+            target_type="other_comprehensive_income",
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+            "cash_flows_minimum_coverage",
+            passed=all(("cash_flows", metric) in accepted_aggregate_keys for _target, metric in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS if _target == "cash_flows"),
+            target_type="cash_flows",
+        ),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row("no_pack_blockers", passed=pack_blocker_count == 0),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row("no_bad_required_count", passed=bad_required == 0),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row("no_bad_safety_count", passed=bad_safety == 0),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row("no_bad_semantic_count", passed=bad_semantic == 0),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row("no_bad_aggregate_precision_count", passed=bad_aggregate == 0),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row("safety_flags_false", passed=not evidence_pack_safety_leaks),
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row("review_only_import_not_executed", passed=not _as_bool(evidence_pack.get("import_executed"))),
+    ]
+    human_review_required = _as_bool(evidence_pack.get("human_review_required")) or bool(evidence_pack.get("human_review_reason_codes"))
+    if human_review_required:
+        check_rows.append(
+            _rzd_manual_official_pdf_controlled_values_manual_review_gate_check_row(
+                "human_review_required_acknowledged",
+                passed=False,
+                warning=True,
+                message="Human review remains required before any future controlled import plan.",
+            )
+        )
+    blocker_rows: list[dict[str, Any]] = []
+    for check in check_rows:
+        if check["status"] == "blocked":
+            blocker_rows.append(
+                _rzd_manual_official_pdf_controlled_values_manual_review_gate_blocker_row(
+                    str(check["code"]),
+                    message=str(check["message"]),
+                    target_type=str(check.get("target_type") or ""),
+                    metric_key=str(check.get("metric_key") or ""),
+                    severity=str(check.get("severity") or "error"),
+                )
+            )
+    for target_type, metric_key in missing_required_metrics:
+        blocker_rows.append(
+            _rzd_manual_official_pdf_controlled_values_manual_review_gate_blocker_row(
+                "required_aggregate_metric_missing",
+                message=f"Missing required aggregate metric {target_type}.{metric_key}.",
+                target_type=target_type,
+                metric_key=metric_key,
+            )
+        )
+    ready_for_plan = not blocker_rows
+    status = "blocked" if blocker_rows else ("warning" if human_review_required else "passed")
+    warning_rows = [row for row in check_rows if row["status"] == "warning"]
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-manual-review-gate",
+        "status": status,
+        "manual_review_gate_status": status,
+        "task173_evidence_pack_input_path": str(inputs.get("evidence_pack") or ""),
+        "task173_evidence_pack_rows_input_path": str(inputs.get("evidence_pack_rows") or ""),
+        "task173_evidence_pack_blockers_input_path": str(inputs.get("evidence_pack_blockers") or ""),
+        "ready_for_manual_review": pack_ready_for_manual_review,
+        "ready_for_controlled_import_plan": ready_for_plan,
+        "ready_for_controlled_import": False,
+        "controlled_value_extraction_ready": extraction_ready,
+        "company_id": str(evidence_pack.get("company_id") or ""),
+        "company_name": str(evidence_pack.get("company_name") or ""),
+        "report_year": int(evidence_pack.get("report_year") or 0),
+        "report_standard": str(evidence_pack.get("report_standard") or ""),
+        "document_language": str(evidence_pack.get("document_language") or ""),
+        "document_kind": str(evidence_pack.get("document_kind") or ""),
+        "source_pdf_sha256": str(evidence_pack.get("source_pdf_sha256") or ""),
+        "source_pdf_page_count": int(evidence_pack.get("source_pdf_page_count") or 0),
+        "source_pdf_controlled_copy_path": str(evidence_pack.get("source_pdf_controlled_copy_path") or ""),
+        "input_evidence_value_row_count": int(evidence_pack.get("evidence_value_row_count") or len(evidence_rows)),
+        "accepted_evidence_row_count": len(accepted_rows),
+        "aggregate_value_row_count": sum(1 for row in accepted_rows if _as_bool(row.get("is_aggregate")) or row.get("metric_role") == "aggregate"),
+        "component_value_row_count": sum(1 for row in accepted_rows if _as_bool(row.get("is_component")) or row.get("metric_role") == "component"),
+        "statement_of_financial_position_value_count": sum(1 for row in accepted_rows if row.get("target_type") == "statement_of_financial_position"),
+        "profit_or_loss_value_count": sum(1 for row in accepted_rows if row.get("target_type") == "profit_or_loss"),
+        "other_comprehensive_income_value_count": sum(1 for row in accepted_rows if row.get("target_type") == "other_comprehensive_income"),
+        "cash_flows_value_count": sum(1 for row in accepted_rows if row.get("target_type") == "cash_flows"),
+        "required_aggregate_metric_count": len(RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS),
+        "required_aggregate_metric_present_count": len(RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS) - len(missing_required_metrics),
+        "required_aggregate_metric_missing_count": len(missing_required_metrics),
+        "manual_review_check_count": len(check_rows),
+        "manual_review_passed_check_count": sum(1 for row in check_rows if row["status"] == "passed"),
+        "manual_review_warning_check_count": sum(1 for row in check_rows if row["status"] == "warning"),
+        "manual_review_blocked_check_count": sum(1 for row in check_rows if row["status"] == "blocked"),
+        "bad_required_count": bad_required,
+        "bad_safety_count": bad_safety,
+        "bad_evidence_pack_count": sum(
+            1
+            for value in (
+                pack_status in {"blocked", "failed"},
+                not pack_ready_for_manual_review,
+                not extraction_ready,
+                pack_direct_import_ready,
+                pack_blocker_count > 0,
+                bad_required > 0,
+                bad_safety > 0,
+                bad_semantic > 0,
+                bad_aggregate > 0,
+            )
+            if value
+        ),
+        "bad_manual_review_gate_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows),
+        "warning_count": len(warning_rows),
+        "human_review_required": human_review_required,
+        "human_review_reason_codes": list(evidence_pack.get("human_review_reason_codes") or []),
+        "warning_code_counts": _count_by_key(warning_rows, "code"),
+        "warnings": warning_rows,
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_manual_review_gate_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_manual_review_gate_safety_flags(),
+        "manual_review_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. This gate only allows preparing a future controlled import plan.",
+        "next_step": "Prepare a future controlled import plan only after manual review; direct import remains disabled.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-manual-review-gate", status),
+        "errors": [],
+    }
+    _rzd_manual_official_pdf_controlled_values_manual_review_gate_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in (
+        "mode",
+        "status",
+        "manual_review_gate_status",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "document_language",
+        "document_kind",
+        "source_pdf_sha256",
+        "source_pdf_controlled_copy_path",
+        "safe_hint",
+        "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["human_review_reason_codes"] = list(report.get("human_review_reason_codes") or [])
+    report["warning_code_counts"] = dict(report.get("warning_code_counts") or {})
+    report["warnings"] = list(report.get("warnings") or [])
+    report["manual_review_check_rows"] = list(report.get("manual_review_check_rows") or [])
+    report["blocker_rows"] = list(report.get("blocker_rows") or [])
+    report["safety_flags"] = dict(report.get("safety_flags") or {})
+    report["blocker_count"] = len(report["blocker_rows"])
+    report["bad_manual_review_gate_count"] = int(report.get("bad_manual_review_gate_count") or report["blocker_count"])
+    if report["blocker_count"]:
+        report["status"] = "blocked" if report.get("status") != "failed" else "failed"
+        report["manual_review_gate_status"] = report["status"]
+        report["ready_for_controlled_import_plan"] = False
+    report["ready_for_controlled_import"] = False
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_manual_review_gate_blocker_row(
+            str(error.get("message") or "controlled_values_manual_review_gate_failed"),
+            message=str(error.get("message") or "controlled values manual review gate failed"),
+        )
+        for error in errors
+    ]
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-manual-review-gate",
+        "status": "failed",
+        "manual_review_gate_status": "failed",
+        "ready_for_manual_review": False,
+        "ready_for_controlled_import_plan": False,
+        "ready_for_controlled_import": False,
+        "controlled_value_extraction_ready": False,
+        "company_id": "",
+        "company_name": "",
+        "report_year": 0,
+        "report_standard": "",
+        "document_language": "",
+        "document_kind": "",
+        "source_pdf_sha256": "",
+        "source_pdf_page_count": 0,
+        "source_pdf_controlled_copy_path": "",
+        "input_evidence_value_row_count": 0,
+        "accepted_evidence_row_count": 0,
+        "aggregate_value_row_count": 0,
+        "component_value_row_count": 0,
+        "statement_of_financial_position_value_count": 0,
+        "profit_or_loss_value_count": 0,
+        "other_comprehensive_income_value_count": 0,
+        "cash_flows_value_count": 0,
+        "required_aggregate_metric_count": len(RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS),
+        "required_aggregate_metric_present_count": 0,
+        "required_aggregate_metric_missing_count": len(RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_REQUIRED_AGGREGATE_METRICS),
+        "manual_review_check_count": 0,
+        "manual_review_passed_check_count": 0,
+        "manual_review_warning_check_count": 0,
+        "manual_review_blocked_check_count": 0,
+        "bad_required_count": 1,
+        "bad_safety_count": 0,
+        "bad_evidence_pack_count": 1,
+        "bad_manual_review_gate_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows),
+        "warning_count": 0,
+        "human_review_required": True,
+        "human_review_reason_codes": ["controlled_values_manual_review_gate_input_review_required"],
+        "warning_code_counts": {},
+        "warnings": [],
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_manual_review_gate_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_manual_review_gate_safety_flags(),
+        "manual_review_check_rows": [],
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. This gate only allows preparing a future controlled import plan.",
+        "next_step": "Fix the evidence pack input before manual-review gating.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-manual-review-gate", "failed"),
+        "errors": errors,
+        "artifacts": {key: str(path or "") for key, path in artifacts.items()},
+        "task173_evidence_pack_input_path": str(inputs.get("evidence_pack") or ""),
+    }
+    _rzd_manual_official_pdf_controlled_values_manual_review_gate_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_values_manual_review_gate_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_manual_review_gate_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_manual_review_gate_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    _write_optional_json_report(report, artifacts["gate_json"])
+    _write_optional_flat_csv([report], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_FIELDS, artifacts["gate_csv"])
+    if artifacts["gate_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report, artifacts["gate_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "check_count": len(report.get("manual_review_check_rows") or []),
+            "manual_review_check_rows": report.get("manual_review_check_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["checks_json"],
+    )
+    _write_optional_flat_csv(
+        report.get("manual_review_check_rows") or [],
+        RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_CHECK_FIELDS,
+        artifacts["checks_csv"],
+    )
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "blocker_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(
+        report.get("blocker_rows") or [],
+        RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_BLOCKER_FIELDS,
+        artifacts["blockers_csv"],
+    )
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -57100,6 +57817,11 @@ def write_rzd_manual_official_pdf_controlled_values_evidence_pack_markdown(repor
     path.write_text(render_rzd_manual_official_pdf_controlled_values_evidence_pack_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -57371,6 +58093,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_value_extraction_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-evidence-pack":
         return render_rzd_manual_official_pdf_controlled_values_evidence_pack_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-manual-review-gate":
+        return render_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -62435,6 +63159,80 @@ def render_rzd_manual_official_pdf_controlled_values_evidence_pack_markdown(repo
         lines.append("- none")
     lines.extend(["", "## Next step", ""])
     lines.extend(f"- {step}" for step in report.get("next_steps") or [])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report: dict[str, Any]) -> str:
+    decision = (
+        "Decision: ready for controlled import planning, but not for direct import."
+        if _as_bool(report.get("ready_for_controlled_import_plan"))
+        else "Decision: not ready for controlled import planning."
+    )
+    lines = [
+        "# RZD Controlled Values Manual Review Gate",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- manual_review_gate_status: `{report.get('manual_review_gate_status')}`",
+        f"- ready_for_controlled_import_plan: `{report.get('ready_for_controlled_import_plan')}`",
+        f"- ready_for_controlled_import: `{report.get('ready_for_controlled_import')}`",
+        f"- manual review checks: {report.get('manual_review_check_count', 0)}",
+        f"- blockers: {report.get('blocker_count', 0)}",
+        "",
+        "## Evidence pack input",
+        "",
+        f"- evidence pack: `{report.get('task173_evidence_pack_input_path') or ''}`",
+        f"- evidence value rows: {report.get('input_evidence_value_row_count', 0)}",
+        f"- accepted rows: {report.get('accepted_evidence_row_count', 0)}",
+        f"- aggregate rows: {report.get('aggregate_value_row_count', 0)}",
+        f"- component rows: {report.get('component_value_row_count', 0)}",
+        "",
+        "## Required aggregate metric coverage",
+        "",
+        f"- required: {report.get('required_aggregate_metric_count', 0)}",
+        f"- present: {report.get('required_aggregate_metric_present_count', 0)}",
+        f"- missing: {report.get('required_aggregate_metric_missing_count', 0)}",
+        "",
+        "## Safety status",
+        "",
+        "- No database import was executed.",
+        "- This gate only allows preparing a future controlled import plan.",
+        f"- bad_safety_count: {report.get('bad_safety_count', 0)}",
+        f"- would_import_report: `{report.get('would_import_report')}`",
+        f"- database_mutated: `{report.get('database_mutated')}`",
+        f"- issuer_scores_mutated: `{report.get('issuer_scores_mutated')}`",
+        "",
+        "## Manual review checks",
+        "",
+        "| Code | Status | Severity | Message |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in report.get("manual_review_check_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (row.get("code"), row.get("status"), row.get("severity"), row.get("message"))
+            )
+            + " |"
+        )
+    if not report.get("manual_review_check_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(["", "## Warnings", ""])
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(f"- `{warning.get('code') or warning.get('message') or warning}`" for warning in warnings)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Blockers", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Decision", "", decision, "", "## Next step", ""])
+    lines.append(str(report.get("next_step") or "Prepare a future controlled import plan only after manual review."))
     return "\n".join(lines) + "\n"
 
 
@@ -73421,6 +74219,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task170 candidate values manually; future import, DB mutation, scoring, and trading remain separate controlled tasks."]
     if mode == "rzd-manual-official-pdf-controlled-values-evidence-pack":
         return ["Review the Task173 evidence pack manually; any controlled import remains a separate future task and is not enabled here."]
+    if mode == "rzd-manual-official-pdf-controlled-values-manual-review-gate":
+        return ["Use this Task174 gate result only to prepare a future controlled import plan; no direct import is enabled here."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -73679,6 +74479,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_controlled_values_evidence_pack_inputs(args),
             artifacts=_rzd_manual_official_pdf_controlled_values_evidence_pack_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-manual-review-gate":
+        return not _rzd_manual_official_pdf_controlled_values_manual_review_gate_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_values_manual_review_gate_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_values_manual_review_gate_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
