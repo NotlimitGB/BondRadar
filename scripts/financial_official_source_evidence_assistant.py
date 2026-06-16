@@ -7017,6 +7017,9 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_FIELDS = [
     "bad_semantic_value_line_count",
     "bad_aggregate_precision_row_count",
     "component_row_mapped_to_aggregate_rejected_count",
+    "sofp_asset_rows_extracted_count",
+    "sofp_asset_rows_missing_count",
+    "sofp_split_pages_merged_count",
     "toc_primary_pages_detected",
     "toc_primary_page_override_used",
     "toc_primary_page_order_valid",
@@ -7411,6 +7414,9 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_REQUIRED_COUNT_FIELDS = (
     "bad_semantic_value_line_count",
     "bad_aggregate_precision_row_count",
     "component_row_mapped_to_aggregate_rejected_count",
+    "sofp_asset_rows_extracted_count",
+    "sofp_asset_rows_missing_count",
+    "sofp_split_pages_merged_count",
     "toc_source_candidate_page_count",
     "toc_source_text_detected_count",
     "toc_source_flag_detected_count",
@@ -45641,21 +45647,44 @@ def _rzd_manual_official_pdf_controlled_value_extraction_finalize_selected_pages
         accepted_groups = [group for group in evaluated_groups if _as_bool((group.get("row") or {}).get("primary_statement_group_accepted"))]
         selected_group = None
         if accepted_groups:
+            def _accepted_group_sort_key(group: dict[str, Any]) -> tuple[Any, ...]:
+                row = group.get("row") or {}
+                pages = group.get("pages") or [9999]
+                missing_row_pages = sum(
+                    1
+                    for page in pages
+                    if not (candidate_rows_by_page.get(int(page)) or [])
+                )
+                if target_type == "statement_of_financial_position":
+                    metric_keys = {str(key or "") for key in (row.get("metric_keys") or [])}
+                    asset_keys = {"non_current_assets", "current_assets", "total_assets", "cash_and_cash_equivalents"}
+                    equity_liability_keys = {
+                        "total_equity",
+                        "non_current_liabilities",
+                        "current_liabilities",
+                        "total_liabilities",
+                        "total_equity_and_liabilities",
+                    }
+                    return (
+                        missing_row_pages,
+                        -len(metric_keys & asset_keys),
+                        -len(metric_keys & equity_liability_keys),
+                        -len(metric_keys),
+                        min(int(by_page.get(page, {}).get("selection_priority_rank") or 99) for page in pages),
+                        -int(row.get("row_score") or 0),
+                        len(pages),
+                        min(pages),
+                    )
+                return (
+                    missing_row_pages if target_type != "cash_flows" else 0,
+                    min(int(by_page.get(page, {}).get("selection_priority_rank") or 99) for page in pages),
+                    len(pages),
+                    -int(row.get("row_score") or 0),
+                    min(pages),
+                )
             selected_group = sorted(
                 accepted_groups,
-                key=lambda group: (
-                    sum(
-                        1
-                        for page in (group.get("pages") or [])
-                        if not (candidate_rows_by_page.get(int(page)) or [])
-                    )
-                    if target_type != "cash_flows"
-                    else 0,
-                    min(int(by_page.get(page, {}).get("selection_priority_rank") or 99) for page in (group.get("pages") or [9999])),
-                    len(group.get("pages") or []),
-                    -int((group.get("row") or {}).get("row_score") or 0),
-                    min(group.get("pages") or [9999]),
-                ),
+                key=_accepted_group_sort_key,
             )[0]
             target_group_rows.append(selected_group["row"])
         rejected_groups = [group for group in evaluated_groups if group is not selected_group and not _as_bool((group.get("row") or {}).get("primary_statement_group_accepted"))]
@@ -47305,6 +47334,26 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         and int(row.get("primary_statement_table_row_parser_value_count") or 0) == 0
     )
     snapshot_parser_failed_count = max(0, snapshot_parser_attempt_count - snapshot_parser_success_count)
+    sofp_asset_keys = {"non_current_assets", "current_assets", "total_assets", "cash_and_cash_equivalents"}
+    sofp_liability_equity_keys = {
+        "total_equity",
+        "non_current_liabilities",
+        "current_liabilities",
+        "total_liabilities",
+        "total_equity_and_liabilities",
+    }
+    sofp_metric_keys = {
+        str(row.get("metric_key") or "")
+        for row in value_rows
+        if row.get("target_type") == "statement_of_financial_position"
+    }
+    sofp_pages = {
+        int(row.get("statement_page") or row.get("page_number") or 0)
+        for row in value_rows
+        if row.get("target_type") == "statement_of_financial_position"
+        and int(row.get("statement_page") or row.get("page_number") or 0) > 0
+    }
+    sofp_asset_rows_extracted_count = len(sofp_metric_keys & sofp_asset_keys)
     return {
         "input_registration_count": 1,
         "input_parse_plan_count": 1,
@@ -47411,6 +47460,11 @@ def _rzd_manual_official_pdf_controlled_value_extraction_count_fields(
         "component_row_mapped_to_aggregate_rejected_count": int(
             discovery_stats.get("component_row_mapped_to_aggregate_rejected_count") or 0
         ),
+        "sofp_asset_rows_extracted_count": sofp_asset_rows_extracted_count,
+        "sofp_asset_rows_missing_count": max(0, len(sofp_asset_keys) - sofp_asset_rows_extracted_count),
+        "sofp_split_pages_merged_count": 1
+        if len(sofp_pages) >= 2 and bool(sofp_metric_keys & sofp_asset_keys) and bool(sofp_metric_keys & sofp_liability_equity_keys)
+        else 0,
         "toc_source_candidate_page_count": int(discovery_stats.get("toc_source_candidate_page_count") or 0),
         "toc_source_text_detected_count": int(discovery_stats.get("toc_source_text_detected_count") or 0),
         "toc_source_flag_detected_count": int(discovery_stats.get("toc_source_flag_detected_count") or 0),

@@ -14090,6 +14090,30 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_aggregate_precision
     assert diagnostics["bad_aggregate_precision_row_count"] == 0
 
 
+def test_rzd_manual_official_pdf_controlled_value_extraction_sofp_total_assets_does_not_collide_with_equity_liabilities() -> None:
+    text = "\n".join(
+        [
+            "Consolidated statement of financial position 2025 2024 RUB million",
+            "Итого активы 10 476 853 9 660 835",
+            "Итого капитал и обязательства 10 476 853 9 660 835",
+        ]
+    )
+    rows, diagnostics = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="statement_of_financial_position",
+        page_number=9,
+        page_text=text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    by_key = {row["metric_key"]: row for row in rows}
+    assert diagnostics["bad_aggregate_precision_row_count"] == 0
+    assert by_key["total_assets"]["value_2025"] == 10476853
+    assert "Итого активы" in by_key["total_assets"]["raw_line"]
+    assert "капитал" not in by_key["total_assets"]["raw_line"].casefold()
+    assert by_key["total_equity_and_liabilities"]["value_2025"] == 10476853
+    assert "Итого капитал и обязательства" in by_key["total_equity_and_liabilities"]["raw_line"]
+
+
 def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_component_only_aggregate_keys() -> None:
     component_only_text = "\n".join(
         [
@@ -14246,6 +14270,129 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     assert toc_diagnostics["toc_source_candidate_row_count"] >= 1
     assert toc_diagnostics["toc_source_candidate_rows"][0]["accepted"] is True
     assert all(row["accepted"] is True for row in toc_diagnostics["toc_diagnostic_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_merges_split_sofp_asset_and_liability_pages(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    page10_row = {
+        "page_map_id": "page:10",
+        "page_number": 10,
+        "page_text_sample": "SOFP continuation equity and liabilities 2025 2024 million rubles",
+        "detected_section_type": "statement_of_financial_position",
+        "detected_section_title": "statement_of_financial_position_continuation",
+        "is_financial_statement_page": True,
+        "is_statement_of_financial_position_page": True,
+        "is_profit_or_loss_page": False,
+        "is_other_comprehensive_income_page": False,
+        "is_changes_in_equity_page": False,
+        "is_cash_flows_page": False,
+        "is_notes_page": False,
+        "is_auditor_report_page": False,
+        "is_contents_page": False,
+        "has_table_like_text": True,
+        "has_rub_million_unit": True,
+        "has_2025_column": True,
+        "has_2024_column": True,
+        "future_value_extraction_candidate": True,
+    }
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.append(page10_row)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    for row in targets_payload["target_rows"]:
+        if row["target_type"] == "statement_of_financial_position":
+            row["start_page"] = 9
+            row["end_page"] = 10
+            row["candidate_pages"] = [9, 10]
+            row["confidence"] = "high"
+        if row["target_type"] == "profit_or_loss":
+            row["candidate_pages"] = [11]
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    page_texts = _task170_page_texts()
+    page_texts[9] = {
+        "backend": "synthetic",
+        "text": "\n".join(
+            [
+                "Consolidated statement of financial position 2025 2024 million rubles",
+                "Итого внеоборотные активы 9 621 481 8 955 339",
+                "Денежные средства и их эквиваленты и 275 591 279 130",
+                "Итого оборотные активы 855 372 705 496",
+                "Итого активы 10 476 853 9 660 835",
+            ]
+        ),
+    }
+    page_texts[10] = {
+        "backend": "synthetic",
+        "text": "\n".join(
+            [
+                "Итого капитал 4 634 272 4 644 889",
+                "Итого долгосрочные обязательства 3368 142 2 176 298",
+                "Итого краткосрочные обязательства 2474 439 2839 648",
+                "Итого капитал и обязательства 10 476 853 9 660 835",
+            ]
+        ),
+    }
+    page_texts[11] = {
+        "backend": "synthetic",
+        "text": "\n".join(
+            [
+                "Statement of profit or loss 2025 2024 million rubles",
+                "Total revenue 3 637 906 3 296 301",
+                "Total operating expenses (3 093 260) (2 838 891)",
+                "Operating profit 544 646 457 410",
+                "Total income tax (31 898) (77 631)",
+                "Profit for the year 2 309 50 695",
+            ]
+        ),
+    }
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    by_key = {
+        row["metric_key"]: row
+        for row in report["value_rows"]
+        if row["target_type"] == "statement_of_financial_position"
+    }
+    expected_keys = {
+        "non_current_assets",
+        "current_assets",
+        "total_assets",
+        "cash_and_cash_equivalents",
+        "total_equity",
+        "non_current_liabilities",
+        "current_liabilities",
+        "total_equity_and_liabilities",
+    }
+    assert expected_keys <= set(by_key)
+    assert report["statement_of_financial_position_value_count"] >= 7
+    assert report["sofp_asset_rows_extracted_count"] >= 4
+    assert report["sofp_asset_rows_missing_count"] == 0
+    assert report["sofp_split_pages_merged_count"] == 1
+    assert {by_key[key]["statement_page"] for key in expected_keys} == {9, 10}
+    assert by_key["non_current_assets"]["value_2025"] == 9621481
+    assert by_key["current_assets"]["value_2024"] == 705496
+    assert by_key["total_assets"]["value_2025"] == 10476853
+    assert by_key["cash_and_cash_equivalents"]["value_2025"] == 275591
+    assert by_key["total_equity"]["value_2025"] == 4634272
+    assert by_key["non_current_liabilities"]["value_2025"] == 3368142
+    assert by_key["current_liabilities"]["value_2024"] == 2839648
+    assert by_key["total_equity_and_liabilities"]["value_2025"] == 10476853
+    assert report["bad_semantic_value_line_count"] == 0
+    assert report["bad_aggregate_precision_row_count"] == 0
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
