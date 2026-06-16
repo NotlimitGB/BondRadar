@@ -39600,7 +39600,10 @@ def _normalize_pdf_preview_text_for_signal_detection(text: str) -> dict[str, str
 
 def _rzd_manual_official_pdf_phrase_found(phrase: str, normalized: str, compact: str) -> bool:
     prepared = _normalize_pdf_preview_text_for_signal_detection(phrase)
-    return prepared["normalized_text"] in normalized or prepared["compact_text"] in compact
+    return bool(
+        (prepared["normalized_text"] and prepared["normalized_text"] in normalized)
+        or (prepared["compact_text"] and prepared["compact_text"] in compact)
+    )
 
 
 def _rzd_manual_official_pdf_signal_matches(
@@ -41377,7 +41380,22 @@ def _rzd_controlled_value_extraction_is_false_generic_statement_row(
     compact = prepared["compact_text"]
     codes: list[str] = []
     percent_terms = ("percent", "discount", "maximum discount", "РїСЂРѕС†РµРЅС‚", "СЃРєРёРґРєР°", "РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ СЃРєРёРґРєР°", "СЃРѕСЃС‚Р°РІРёС‚ 0%")
-    if any(term in text for term in ("%",)) or _rzd_controlled_value_extraction_phrase_count(percent_terms, normalized, compact):
+    percent_word_hit = False
+    for text_form in _rzd_controlled_value_extraction_text_forms(text):
+        lowered_form = text_form.casefold()
+        if re.search(r"\b(?:percent|discount)\b", lowered_form):
+            percent_word_hit = True
+            break
+        if re.search(r"(?<![а-яё])(?:процент|скидк[аиуы]?)(?![а-яё])", lowered_form):
+            percent_word_hit = True
+            break
+    long_percent_terms = tuple(
+        term
+        for term in percent_terms
+        if str(term).casefold() not in {"percent", "discount"}
+        and len(_normalize_pdf_preview_text_for_signal_detection(str(term))["compact_text"]) >= 8
+    )
+    if any(term in text for term in ("%",)) or percent_word_hit or _rzd_controlled_value_extraction_phrase_count(long_percent_terms, normalized, compact):
         codes.append("generic_row_percent_or_discount_rejected")
     reference_terms = (
         "notes",
@@ -41407,7 +41425,22 @@ def _rzd_controlled_value_extraction_is_false_generic_statement_row(
         "РєСѓСЂСЃ",
     )
     comma_decimal_count = len(re.findall(r"\d+,\d{3,4}", text))
-    if _rzd_controlled_value_extraction_phrase_count(fx_terms, normalized, compact) or comma_decimal_count >= 2:
+    fx_word_hit = False
+    for text_form in _rzd_controlled_value_extraction_text_forms(text):
+        lowered_form = text_form.casefold()
+        if re.search(r"\b(?:dollar|euro|franc)\b", lowered_form):
+            fx_word_hit = True
+            break
+        if re.search(r"(?<![а-яё])(?:доллар|евро|франк)(?![а-яё])", lowered_form):
+            fx_word_hit = True
+            break
+    long_fx_terms = tuple(
+        term
+        for term in fx_terms
+        if str(term).casefold() not in {"dollar", "euro", "franc"}
+        and len(_normalize_pdf_preview_text_for_signal_detection(str(term))["compact_text"]) >= 5
+    )
+    if fx_word_hit or _rzd_controlled_value_extraction_phrase_count(long_fx_terms, normalized, compact) or comma_decimal_count >= 2:
         codes.append("generic_row_fx_rate_rejected")
     value_2025 = values.get("value_2025")
     value_2024 = values.get("value_2024")
@@ -41620,6 +41653,44 @@ def _rzd_controlled_value_extraction_combine_numeric_groups(groups: Sequence[tup
     return raw, -value if negative else value
 
 
+def _rzd_controlled_value_extraction_split_ocr_money_columns(
+    groups: Sequence[tuple[str, int | None]],
+) -> tuple[str, int | None, str, int | None, str] | None:
+    usable = [(str(raw).strip(), value) for raw, value in groups if value is not None and str(raw).strip()]
+    if len(usable) < 3:
+        return None
+    note_reference = ""
+    if len(usable) >= 4 and usable[0][1] is not None and 0 < abs(int(usable[0][1])) <= 99:
+        note_reference = usable[0][0]
+        usable = usable[1:]
+    if len(usable) < 3:
+        return None
+    best: tuple[int, int, str, int | None, str, int | None] | None = None
+    for split_index in range(1, len(usable)):
+        raw_2025, value_2025 = _rzd_controlled_value_extraction_combine_numeric_groups(usable[:split_index])
+        raw_2024, value_2024 = _rzd_controlled_value_extraction_combine_numeric_groups(usable[split_index:])
+        if value_2025 is None or value_2024 is None:
+            continue
+        abs_2025 = abs(int(value_2025))
+        abs_2024 = abs(int(value_2024))
+        if abs_2025 < 1000 or abs_2024 < 1000:
+            continue
+        digits_2025 = len(re.sub(r"\D", "", raw_2025))
+        digits_2024 = len(re.sub(r"\D", "", raw_2024))
+        if not (4 <= digits_2025 <= 9 and 4 <= digits_2024 <= 9):
+            continue
+        balance_penalty = abs(digits_2025 - digits_2024)
+        compact_penalty = 0 if split_index in {1, 2, 3} else 2
+        score = balance_penalty + compact_penalty + abs(len(usable) - (split_index * 2))
+        candidate = (score, split_index, raw_2025, value_2025, raw_2024, value_2024)
+        if best is None or candidate[:2] < best[:2]:
+            best = candidate
+    if best is None:
+        return None
+    _score, _split_index, raw_2025, value_2025, raw_2024, value_2024 = best
+    return raw_2025, value_2025, raw_2024, value_2024, note_reference
+
+
 def _rzd_controlled_value_extraction_value_columns(line: str) -> dict[str, Any]:
     grouped_numbers = _rzd_manual_official_pdf_controlled_value_extraction_line_numbers(line)
     simple_groups = _rzd_controlled_value_extraction_numeric_groups(line)
@@ -41654,6 +41725,20 @@ def _rzd_controlled_value_extraction_value_columns(line: str) -> dict[str, Any]:
         note_reference = ""
         if len(grouped_numbers) >= 3 and grouped_numbers[0][1] is not None and 0 < abs(int(grouped_numbers[0][1])) <= 99:
             note_reference = grouped_numbers[0][0]
+        if len(simple_groups) >= 3 and (value_2025 is None or value_2024 is None or abs(int(value_2025)) < 1000 or abs(int(value_2024)) < 1000):
+            split = _rzd_controlled_value_extraction_split_ocr_money_columns(simple_groups)
+            if split is not None:
+                raw_2025, value_2025, raw_2024, value_2024, split_note_reference = split
+                note_reference = note_reference or split_note_reference
+        elif len(simple_groups) >= 4:
+            split = _rzd_controlled_value_extraction_split_ocr_money_columns(simple_groups)
+            if split is not None:
+                split_raw_2025, split_value_2025, split_raw_2024, split_value_2024, split_note_reference = split
+                split_digits = len(re.sub(r"\D", "", split_raw_2025)) + len(re.sub(r"\D", "", split_raw_2024))
+                grouped_digits = len(re.sub(r"\D", "", str(raw_2025))) + len(re.sub(r"\D", "", str(raw_2024)))
+                if split_digits > grouped_digits:
+                    raw_2025, value_2025, raw_2024, value_2024 = split_raw_2025, split_value_2025, split_raw_2024, split_value_2024
+                    note_reference = note_reference or split_note_reference
         return {"raw_2025": raw_2025, "value_2025": value_2025, "raw_2024": raw_2024, "value_2024": value_2024, "note_reference": note_reference}
     if len(grouped_numbers) == 1:
         raw_2025, value_2025 = grouped_numbers[0]
@@ -41874,18 +41959,76 @@ def _rzd_controlled_value_extraction_primary_statement_table_specs() -> dict[str
     }
 
 
+def _rzd_controlled_value_extraction_repair_cp1251_mojibake(value: Any) -> str:
+    text = str(value or "")
+    if not text:
+        return ""
+    raw = bytearray()
+    changed = False
+    for char in text:
+        codepoint = ord(char)
+        if codepoint < 256:
+            raw.append(codepoint)
+            changed = True
+            continue
+        try:
+            encoded = char.encode("cp1251")
+        except UnicodeEncodeError:
+            return ""
+        raw.extend(encoded)
+        if char in {"Р", "С"} or "\u0400" <= char <= "\u052f":
+            changed = True
+    if not changed:
+        return ""
+    try:
+        repaired = bytes(raw).decode("utf-8")
+    except UnicodeDecodeError:
+        return ""
+    if repaired == text:
+        return ""
+    if not re.search(r"[А-Яа-яЁёA-Za-z]", repaired):
+        return ""
+    return repaired
+
+
+def _rzd_controlled_value_extraction_text_forms(value: Any) -> list[str]:
+    forms: list[str] = []
+    for candidate in (str(value or ""), _rzd_controlled_value_extraction_repair_cp1251_mojibake(value)):
+        candidate = str(candidate or "")
+        if candidate and candidate not in forms:
+            forms.append(candidate)
+    return forms
+
+
+def _rzd_controlled_value_extraction_phrase_found_in_text(phrase: str, text: str) -> bool:
+    prepared_text = _normalize_pdf_preview_text_for_signal_detection(text)
+    normalized = prepared_text["normalized_text"]
+    compact = prepared_text["compact_text"]
+    prepared_phrase = _normalize_pdf_preview_text_for_signal_detection(phrase)
+    phrase_normalized = prepared_phrase["normalized_text"]
+    phrase_compact = prepared_phrase["compact_text"]
+    return bool(
+        (phrase_normalized and phrase_normalized in normalized)
+        or (phrase_compact and phrase_compact in compact)
+    )
+
+
 def _rzd_controlled_value_extraction_line_matches_table_metric(line: str, spec: dict[str, Any]) -> bool:
-    prepared = _normalize_pdf_preview_text_for_signal_detection(line)
-    normalized = prepared["normalized_text"]
-    compact = prepared["compact_text"]
-    return any(_rzd_manual_official_pdf_phrase_found(str(term), normalized, compact) for term in spec.get("terms") or [])
+    line_forms = _rzd_controlled_value_extraction_text_forms(line)
+    for term in spec.get("terms") or []:
+        for term_form in _rzd_controlled_value_extraction_text_forms(term):
+            if any(_rzd_controlled_value_extraction_phrase_found_in_text(term_form, line_form) for line_form in line_forms):
+                return True
+    return False
 
 
 def _rzd_controlled_value_extraction_phrase_in_line(line: str, terms: Sequence[str]) -> bool:
-    prepared = _normalize_pdf_preview_text_for_signal_detection(line)
-    normalized = prepared["normalized_text"]
-    compact = prepared["compact_text"]
-    return any(_rzd_manual_official_pdf_phrase_found(str(term), normalized, compact) for term in terms)
+    line_forms = _rzd_controlled_value_extraction_text_forms(line)
+    for term in terms:
+        for term_form in _rzd_controlled_value_extraction_text_forms(term):
+            if any(_rzd_controlled_value_extraction_phrase_found_in_text(term_form, line_form) for line_form in line_forms):
+                return True
+    return False
 
 
 def _rzd_controlled_value_extraction_is_oci_component_row(line: str) -> bool:
@@ -41907,6 +42050,8 @@ def _rzd_controlled_value_extraction_is_cash_flow_component_row(metric_key: str,
         "net_cash_used_in_investing_activities": (
             "net cash used in investing activities",
             "net cash from investing activities",
+            "чистые денежные средства от инвестиционной деятельности",
+            "чистые денежные средства, использованные в инвестиционной деятельности",
             "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР° РѕС‚ РёРЅРІРµСЃС‚РёС†РёРѕРЅРЅРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
             "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР°, РёСЃРїРѕР»СЊР·РѕРІР°РЅРЅС‹Рµ РІ РёРЅРІРµСЃС‚РёС†РёРѕРЅРЅРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
         ),
@@ -41914,6 +42059,8 @@ def _rzd_controlled_value_extraction_is_cash_flow_component_row(metric_key: str,
             "net cash from financing activities",
             "net cash generated from financing activities",
             "net cash provided by financing activities",
+            "чистые денежные средства от финансовой деятельности",
+            "чистые денежные средства, полученные от финансовой деятельности",
             "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР° РѕС‚ С„РёРЅР°РЅСЃРѕРІРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
             "С‡РёСЃС‚С‹Рµ РґРµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР°, РїРѕР»СѓС‡РµРЅРЅС‹Рµ РѕС‚ С„РёРЅР°РЅСЃРѕРІРѕР№ РґРµСЏС‚РµР»СЊРЅРѕСЃС‚Рё",
         ),
@@ -41928,6 +42075,9 @@ def _rzd_controlled_value_extraction_is_cash_flow_component_row(metric_key: str,
             "acquisition of intangible assets",
             "purchase of investment property",
             "acquisition of investment property",
+            "приобретение основных средств",
+            "приобретение нематериальных активов",
+            "приобретение инвестиционной недвижимости",
             "РїСЂРёРѕР±СЂРµС‚РµРЅРёРµ РѕСЃРЅРѕРІРЅС‹С… СЃСЂРµРґСЃС‚РІ",
             "РїСЂРёРѕР±СЂРµС‚РµРЅРёРµ РЅРµРјР°С‚РµСЂРёР°Р»СЊРЅС‹С… Р°РєС‚РёРІРѕРІ",
             "РїСЂРёРѕР±СЂРµС‚РµРЅРёРµ РёРЅРІРµСЃС‚РёС†РёРѕРЅРЅРѕР№ РЅРµРґРІРёР¶РёРјРѕСЃС‚Рё",
@@ -41938,6 +42088,10 @@ def _rzd_controlled_value_extraction_is_cash_flow_component_row(metric_key: str,
             "repayment of loans",
             "lease payments",
             "interest paid",
+            "поступления по заемным средствам",
+            "погашение заемных средств",
+            "выплаты по аренде",
+            "проценты уплаченные",
             "РїРѕСЃС‚СѓРїР»РµРЅРёСЏ РїРѕ Р·Р°РµРјРЅС‹Рј СЃСЂРµРґСЃС‚РІР°Рј",
             "РїРѕРіР°С€РµРЅРёРµ Р·Р°РµРјРЅС‹С… СЃСЂРµРґСЃС‚РІ",
             "РІС‹РїР»Р°С‚С‹ РїРѕ Р°СЂРµРЅРґРµ",
@@ -41951,6 +42105,30 @@ def _rzd_controlled_value_extraction_is_cash_flow_component_row(metric_key: str,
     if _rzd_controlled_value_extraction_phrase_in_line(line, aggregate_terms_by_metric.get(metric_key, ())):
         return False
     return _rzd_controlled_value_extraction_phrase_in_line(line, component_terms)
+
+
+def _rzd_controlled_value_extraction_is_any_cash_flow_component_row(line: str) -> bool:
+    return _rzd_controlled_value_extraction_phrase_in_line(
+        line,
+        (
+            "acquisition of property",
+            "purchase of property",
+            "proceeds from borrowings",
+            "repayment of borrowings",
+            "repayment of loans",
+            "lease payments",
+            "interest paid",
+            "приобретение основных средств",
+            "приобретение нематериальных активов",
+            "приобретение инвестиционной недвижимости",
+            "поступления по заемным средствам",
+            "погашение заемных средств",
+            "выплаты по аренде",
+            "проценты уплаченные",
+            "РїСЂРёРѕР±СЂРµС‚РµРЅРёРµ РѕСЃРЅРѕРІРЅС‹С… СЃСЂРµРґСЃС‚РІ",
+            "РїРѕСЃС‚СѓРїР»РµРЅРёСЏ РїРѕ Р·Р°РµРјРЅС‹Рј СЃСЂРµРґСЃС‚РІР°Рј",
+        ),
+    )
 
 
 def _rzd_controlled_value_extraction_semantic_reject_metric(target_type: str, metric_key: str, line: str) -> list[str]:
@@ -42091,6 +42269,12 @@ def _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
             ("profit before tax", "прибыль до налогообложения", "РїСЂРёР±С‹Р»СЊ РґРѕ РЅР°Р»РѕРіРѕРѕР±Р»РѕР¶РµРЅРёСЏ"),
         ):
             diagnostics["semantic_cash_flow_starting_profit_row_rejected_count"] += 1
+            diagnostics["candidate_line_rejected_count"] += 1
+            pending_label = ""
+            pending_line_number = 0
+            continue
+        if target_type == "cash_flows" and _rzd_controlled_value_extraction_is_any_cash_flow_component_row(candidate_line):
+            diagnostics["semantic_cash_flow_component_row_rejected_count"] += 1
             diagnostics["candidate_line_rejected_count"] += 1
             pending_label = ""
             pending_line_number = 0
@@ -43223,6 +43407,142 @@ def _rzd_controlled_value_extraction_finalize_toc_enforced_plan_rows(
             }
         )
     return finalized
+
+
+def _rzd_controlled_value_extraction_post_ocr_toc_parser_pass(
+    rows: Sequence[dict[str, Any]],
+    *,
+    text_by_page: dict[int, dict[str, Any]],
+    discovery_by_target: dict[str, dict[str, Any]],
+) -> dict[str, int]:
+    stats = {
+        "candidate_discovery_row_count": 0,
+        "primary_statement_table_row_parser_attempt_count": 0,
+        "primary_statement_table_row_parser_success_count": 0,
+        "primary_statement_table_row_parser_failed_count": 0,
+        "primary_statement_table_row_value_count": 0,
+        "primary_statement_table_row_parser_zero_value_page_count": 0,
+        "candidate_discovery_rejected_line_count": 0,
+        "semantic_component_oci_row_rejected_count": 0,
+        "semantic_wrong_aggregate_row_rejected_count": 0,
+        "semantic_cash_flow_starting_profit_row_rejected_count": 0,
+        "semantic_cash_flow_component_row_rejected_count": 0,
+    }
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        target_type = str(row.get("target_type") or "")
+        page_number = int(row.get("page_number") or 0)
+        if not target_type or page_number <= 0:
+            continue
+        text_info = text_by_page.get(page_number) or {}
+        text = str(text_info.get("text") or "")
+        if not text.strip():
+            continue
+        discovery = discovery_by_target.setdefault(target_type, {"target_type": target_type})
+        page_scores = discovery.setdefault("page_scores", {})
+        page_score = page_scores.get(page_number) if isinstance(page_scores, dict) else {}
+        if _as_bool((page_score or {}).get("primary_statement_table_row_parser_attempted")):
+            continue
+        parser_rows, diagnostics = _rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+            target_type=target_type,
+            page_number=page_number,
+            page_text=text,
+            text_source=str(text_info.get("effective_page_text_source") or text_info.get("backend") or "toc_enforced_effective_page_text"),
+            text_backend=str(text_info.get("effective_page_text_backend") or text_info.get("backend") or ""),
+            is_contents_page=False,
+        )
+        candidate_rows_by_page = discovery.setdefault("candidate_rows_by_page", {})
+        existing_rows = list(candidate_rows_by_page.get(page_number) or [])
+        existing_hashes = {str(candidate.get("raw_line_sha256") or "") for candidate in existing_rows}
+        merged_rows = [*existing_rows]
+        for parser_row in parser_rows:
+            line_hash = str(parser_row.get("raw_line_sha256") or "")
+            if line_hash and line_hash in existing_hashes:
+                continue
+            merged_rows.append(parser_row)
+            if line_hash:
+                existing_hashes.add(line_hash)
+        candidate_rows_by_page[page_number] = merged_rows
+        metric_keys = {str(candidate.get("metric_key") or "") for candidate in merged_rows if candidate.get("metric_key")}
+        broad_metric_keys = metric_keys & _rzd_controlled_value_extraction_profit_or_loss_broad_metric_keys()
+        base_score = dict(page_score or {})
+        base_score.update(
+            {
+                "page_value_row_count": len(merged_rows),
+                "page_required_metric_hit_count": len(metric_keys),
+                "page_broad_metric_hit_count": len(broad_metric_keys),
+                "page_table_score": max(int(base_score.get("page_table_score") or 0), len(metric_keys) * 50 + len(merged_rows) * 10),
+                "page_total_discovery_score": max(
+                    int(base_score.get("page_total_discovery_score") or 0),
+                    len(metric_keys) * 50 + len(merged_rows) * 10 + 100,
+                ),
+                "candidate_line_scanned_count": int(diagnostics.get("candidate_line_scanned_count") or 0),
+                "candidate_line_matched_count": int(diagnostics.get("candidate_line_matched_count") or 0),
+                "candidate_line_rejected_count": int(diagnostics.get("candidate_line_rejected_count") or 0),
+                "contents_navigation_line_rejected_count": int(diagnostics.get("contents_navigation_line_rejected_count") or 0),
+                "page_number_value_rejected_count": int(diagnostics.get("page_number_value_rejected_count") or 0),
+                "date_period_line_rejected_count": int(diagnostics.get("date_period_line_rejected_count") or 0),
+                "date_number_value_rejected_count": int(diagnostics.get("date_number_value_rejected_count") or 0),
+                "small_page_or_note_number_value_rejected_count": int(diagnostics.get("small_page_or_note_number_value_rejected_count") or 0),
+                "wide_equity_movement_line_rejected_count": int(diagnostics.get("wide_equity_movement_line_rejected_count") or 0),
+                "wide_equity_movement_value_rejected_count": int(diagnostics.get("wide_equity_movement_value_rejected_count") or 0),
+                "false_generic_statement_row_rejected_count": int(diagnostics.get("false_generic_statement_row_rejected_count") or 0),
+                "generic_row_fx_rate_rejected_count": int(diagnostics.get("generic_row_fx_rate_rejected_count") or 0),
+                "generic_row_percent_or_discount_rejected_count": int(diagnostics.get("generic_row_percent_or_discount_rejected_count") or 0),
+                "generic_row_statement_reference_rejected_count": int(diagnostics.get("generic_row_statement_reference_rejected_count") or 0),
+                "generic_row_date_or_period_rejected_count": int(diagnostics.get("generic_row_date_or_period_rejected_count") or 0),
+                "body_reference_title_value_rejected_count": int(diagnostics.get("body_reference_title_value_rejected_count") or 0),
+                "semantic_component_oci_row_rejected_count": int(diagnostics.get("semantic_component_oci_row_rejected_count") or 0),
+                "semantic_wrong_aggregate_row_rejected_count": int(diagnostics.get("semantic_wrong_aggregate_row_rejected_count") or 0),
+                "semantic_cash_flow_starting_profit_row_rejected_count": int(
+                    diagnostics.get("semantic_cash_flow_starting_profit_row_rejected_count") or 0
+                ),
+                "semantic_cash_flow_component_row_rejected_count": int(diagnostics.get("semantic_cash_flow_component_row_rejected_count") or 0),
+                "primary_statement_table_row_parser_attempted": _as_bool(diagnostics.get("primary_statement_table_row_parser_attempted")),
+                "primary_statement_table_row_parser_success": _as_bool(diagnostics.get("primary_statement_table_row_parser_success")),
+                "primary_statement_table_row_parser_value_count": int(diagnostics.get("primary_statement_table_row_parser_value_count") or 0),
+                "primary_statement_table_row_parser_failure_reason_codes": list(
+                    diagnostics.get("primary_statement_table_row_parser_failure_reason_codes") or []
+                ),
+                "toc_primary_page_enforced_extraction": True,
+                "toc_primary_page_candidate": True,
+            }
+        )
+        page_scores[page_number] = base_score
+        discovery.setdefault("page_reject_reason_codes", {})[page_number] = []
+        title_matches = discovery.setdefault("title_matches_by_page", {})
+        title_matches.setdefault(
+            page_number,
+            {
+                "target_title_matched": True,
+                "matched_title": "toc_enforced_effective_page_text",
+                "matched_title_line_number": 0,
+                "cross_target_title_detected": False,
+                "cross_target_title_type": "",
+                "title_match_reason_codes": ["toc_primary_page_enforced_extraction"],
+                "title_reject_reason_codes": [],
+            },
+        )
+        stats["candidate_discovery_row_count"] += len(parser_rows)
+        stats["primary_statement_table_row_parser_attempt_count"] += 1
+        if _as_bool(diagnostics.get("primary_statement_table_row_parser_success")):
+            stats["primary_statement_table_row_parser_success_count"] += 1
+        else:
+            stats["primary_statement_table_row_parser_failed_count"] += 1
+        parser_value_count = int(diagnostics.get("primary_statement_table_row_parser_value_count") or 0)
+        stats["primary_statement_table_row_value_count"] += parser_value_count
+        if parser_value_count == 0:
+            stats["primary_statement_table_row_parser_zero_value_page_count"] += 1
+        stats["candidate_discovery_rejected_line_count"] += int(diagnostics.get("candidate_line_rejected_count") or 0)
+        for key in (
+            "semantic_component_oci_row_rejected_count",
+            "semantic_wrong_aggregate_row_rejected_count",
+            "semantic_cash_flow_starting_profit_row_rejected_count",
+            "semantic_cash_flow_component_row_rejected_count",
+        ):
+            stats[key] += int(diagnostics.get(key) or 0)
+    return stats
 
 
 def _rzd_controlled_value_extraction_verify_table_bearing_primary_page(
@@ -46203,6 +46523,13 @@ def _rzd_manual_official_pdf_controlled_value_extraction_rows(
         discovery_stats["toc_notes_range_value_rejected_count"] += int(diagnostics.get("toc_notes_range_value_rejected_count") or 0)
         discovery_stats["page_map_false_statement_flag_rejected_count"] += int(diagnostics.get("page_map_false_statement_flag_rejected_count") or 0)
         discovery_stats["contents_page_primary_rejected_count"] += int(diagnostics.get("contents_page_primary_rejected_count") or 0)
+    post_ocr_toc_parser_stats = _rzd_controlled_value_extraction_post_ocr_toc_parser_pass(
+        toc_enforced_plan_rows,
+        text_by_page=text_by_page,
+        discovery_by_target=discovery_by_target,
+    )
+    for key, value in post_ocr_toc_parser_stats.items():
+        discovery_stats[key] = int(discovery_stats.get(key) or 0) + int(value or 0)
     toc_enforced_plan_rows = _rzd_controlled_value_extraction_finalize_toc_enforced_plan_rows(
         toc_enforced_plan_rows,
         text_by_page=text_by_page,

@@ -14421,6 +14421,8 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_cash_flow_c
             "Statement of cash flows 2025 2024 million rubles",
             "Investing activities Acquisition of property (1 093 961) (1 394 914)",
             "Financing activities Proceeds from borrowings 3 404 519 2 302 826",
+            "Инвестиционная деятельность Приобретение основных средств (1 093 961) (1 394 914)",
+            "Финансовая деятельность Поступления по заемным средствам 3 404 519 2 302 826",
             "Net cash used in investing activities (200) (180)",
             "Net cash from financing activities 100 90",
         ]
@@ -14438,7 +14440,85 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_cash_flow_c
     assert by_metric["net_cash_from_financing_activities"]["raw_line"] == "Net cash from financing activities 100 90"
     assert all("Acquisition of property" not in row["raw_line"] for row in rows)
     assert all("Proceeds from borrowings" not in row["raw_line"] for row in rows)
-    assert diagnostics["semantic_cash_flow_component_row_rejected_count"] >= 2
+    assert all("Приобретение основных средств" not in row["raw_line"] for row in rows)
+    assert all("Поступления по заемным средствам" not in row["raw_line"] for row in rows)
+    assert diagnostics["semantic_cash_flow_component_row_rejected_count"] >= 4
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_parses_russian_ocr_sofp_values() -> None:
+    text = "\n".join(
+        [
+            "РС‚РѕРіРѕ РІРЅРµРѕР±РѕСЂРѕС‚РЅС‹Рµ Р°РєС‚РёРІС‹ 9 621 481 8 955 339",
+            "Р”РµРЅРµР¶РЅС‹Рµ СЃСЂРµРґСЃС‚РІР° Рё РёС… СЌРєРІРёРІР°Р»РµРЅС‚С‹ Рё 275 591 279 130",
+            "РС‚РѕРіРѕ РѕР±РѕСЂРѕС‚РЅС‹Рµ Р°РєС‚РёРІС‹ 855 372 705 496",
+            "РС‚РѕРіРѕ Р°РєС‚РёРІС‹ 10 476 853 9 660 835",
+            "РС‚РѕРіРѕ РєР°РїРёС‚Р°Р» 4 634 272 4 644 889",
+            "РС‚РѕРіРѕ РґРѕР»РіРѕСЃСЂРѕС‡РЅС‹Рµ РѕР±СЏР·Р°С‚РµР»СЊСЃС‚РІР° 3368 142 2 176 298",
+            "РС‚РѕРіРѕ РєСЂР°С‚РєРѕСЃСЂРѕС‡РЅС‹Рµ РѕР±СЏР·Р°С‚РµР»СЊСЃС‚РІР° 2474 439 2839 648",
+        ]
+    )
+    rows, diagnostics = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="statement_of_financial_position",
+        page_number=9,
+        page_text=text,
+        text_source="ocr_tesseract",
+        text_backend="ocr_tesseract",
+        is_contents_page=False,
+    )
+    by_metric = {row["metric_key"]: row for row in rows}
+    assert by_metric["non_current_assets"]["value_2025"] == 9621481
+    assert by_metric["non_current_assets"]["value_2024"] == 8955339
+    assert by_metric["cash_and_cash_equivalents"]["value_2025"] == 275591
+    assert by_metric["cash_and_cash_equivalents"]["value_2024"] == 279130
+    assert by_metric["current_assets"]["value_2025"] == 855372
+    assert by_metric["current_assets"]["value_2024"] == 705496
+    assert by_metric["total_assets"]["value_2025"] == 10476853
+    assert by_metric["total_assets"]["value_2024"] == 9660835
+    assert by_metric["total_equity"]["value_2025"] == 4634272
+    assert by_metric["non_current_liabilities"]["value_2025"] == 3368142
+    assert by_metric["non_current_liabilities"]["value_2024"] == 2176298
+    assert by_metric["current_liabilities"]["value_2025"] == 2474439
+    assert by_metric["current_liabilities"]["value_2024"] == 2839648
+    assert diagnostics["primary_statement_table_row_parser_success"] is True
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_parses_russian_ocr_profit_or_loss_values() -> None:
+    text = "\n".join(
+        [
+            "РС‚РѕРіРѕ РґРѕС…РѕРґС‹ 3,21 3 637 906 3 296 301",
+            "РС‚РѕРіРѕ РѕРїРµСЂР°С†РёРѕРЅРЅС‹Рµ СЂР°СЃС…РѕРґС‹ (3 093 260) (2 838 891)",
+            "РћРїРµСЂР°С†РёРѕРЅРЅР°СЏ РїСЂРёР±С‹Р»СЊ (РґРѕ РїСЂРѕС‡РёС… РґРѕС…РѕРґРѕРІ Рё СЂР°СЃС…РѕРґРѕРІ) 544 646 457 410.",
+            "Р¤РёРЅР°РЅСЃРѕРІС‹Рµ СЂР°СЃС…РѕРґС‹ Рё РїСЂРѕС‡РёРµ Р°РЅР°Р»РѕРіРёС‡РЅС‹Рµ СЂР°СЃС…РѕРґС‹, РЅРµС‚С‚Рѕ. (519 414) (278 683)",
+            "РџСЂРёР±С‹Р»СЊ РґРѕ РЅР°Р»РѕРіРѕРѕР±Р»РѕР¶РµРЅРёСЏ 34207 128 326",
+            "РС‚РѕРіРѕ РЅР°Р»РѕРі РЅР° РїСЂРёР±С‹Р»СЊ 27 (31898) (77 631)",
+            "Р§РёСЃС‚Р°СЏ РїСЂРёР±С‹Р»СЊ Р·Р° РіРѕРґ 2309 50 695",
+        ]
+    )
+    rows, diagnostics = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="profit_or_loss",
+        page_number=11,
+        page_text=text,
+        text_source="ocr_tesseract",
+        text_backend="ocr_tesseract",
+        is_contents_page=False,
+    )
+    by_metric = {row["metric_key"]: row for row in rows}
+    assert by_metric["total_revenue"]["value_2025"] == 3637906
+    assert by_metric["total_revenue"]["value_2024"] == 3296301
+    assert by_metric["total_operating_expenses"]["value_2025"] == -3093260
+    assert by_metric["total_operating_expenses"]["value_2024"] == -2838891
+    assert by_metric["operating_profit"]["value_2025"] == 544646
+    assert by_metric["operating_profit"]["value_2024"] == 457410
+    assert by_metric["net_finance_costs"]["value_2025"] == -519414
+    assert by_metric["net_finance_costs"]["value_2024"] == -278683
+    assert by_metric["profit_before_tax"]["value_2025"] == 34207
+    assert by_metric["profit_before_tax"]["value_2024"] == 128326
+    assert by_metric["income_tax_expense"]["note_reference"] == "27"
+    assert by_metric["income_tax_expense"]["value_2025"] == -31898
+    assert by_metric["income_tax_expense"]["value_2024"] == -77631
+    assert by_metric["profit_for_the_year"]["value_2025"] == 2309
+    assert by_metric["profit_for_the_year"]["value_2024"] == 50695
+    assert diagnostics["primary_statement_table_row_parser_success"] is True
 
 
 def test_rzd_manual_official_pdf_controlled_value_extraction_uses_ocr_when_table_like_primary_parser_finds_zero_rows(
