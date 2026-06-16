@@ -16283,6 +16283,104 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_collision_and_input
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(drift)
 
 
+def test_rzd_manual_official_pdf_controlled_values_evidence_pack_consumes_task170_output(tmp_path: Path) -> None:
+    _write_task173_controlled_value_extraction_report(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_evidence_pack(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "warning"
+    assert report["ready_for_manual_review"] is True
+    assert report["ready_for_controlled_import"] is False
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["company_id"] == "18"
+    assert report["report_year"] == 2025
+    assert report["aggregate_value_row_count"] >= 4
+    assert report["statement_of_financial_position_value_count"] >= 2
+    assert report["profit_or_loss_value_count"] >= 2
+    assert report["bad_safety_count"] == 0
+    assert report["blocker_count"] == 0
+    _assert_rzd_controlled_values_evidence_pack_fields(report)
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_task173.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_task173.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_task173.md").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_rows_task173.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_rows_task173.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_blockers_task173.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_blockers_task173.csv").is_file()
+
+
+def test_rzd_manual_official_pdf_controlled_values_evidence_pack_markdown_sections(tmp_path: Path) -> None:
+    _write_task173_controlled_value_extraction_report(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_evidence_pack(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    markdown = (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_task173.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Financial Values Evidence Pack",
+        "## Summary",
+        "## Source document",
+        "## Safety status",
+        "## Human review status",
+        "## Statement of financial position",
+        "## Profit or loss",
+        "## Other comprehensive income",
+        "## Cash flows",
+        "## Warnings",
+        "## Blockers",
+        "## Next step",
+    ):
+        assert section in markdown
+    assert "metric_key | role | page | 2025 | 2024 | raw_line" in markdown
+    assert "This pack is review evidence only. No database import was executed." in markdown
+    _assert_rzd_controlled_values_evidence_pack_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_evidence_pack_blocks_safety_flags(tmp_path: Path) -> None:
+    _write_task173_controlled_value_extraction_report(tmp_path, safety_leak=True)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_evidence_pack(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_manual_review"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["bad_safety_count"] > 0
+    assert "safety_flag_violation" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_evidence_pack_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_evidence_pack_blocks_bad_aggregate_precision(tmp_path: Path) -> None:
+    _write_task173_controlled_value_extraction_report(tmp_path, bad_aggregate_precision_count=1)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_evidence_pack(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_manual_review"] is False
+    assert report["bad_aggregate_precision_row_count"] == 1
+    assert "bad_aggregate_precision_rows" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_evidence_pack_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_evidence_pack_required_input_failure(tmp_path: Path) -> None:
+    report = _run_rzd_manual_official_pdf_controlled_values_evidence_pack(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "failed"
+    assert {"message": "controlled_value_extraction_input_required"} in report["errors"]
+    assert report["ready_for_manual_review"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["evidence_row_count"] == 0
+    _assert_rzd_controlled_values_evidence_pack_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -24285,6 +24383,19 @@ def _run_rzd_manual_official_pdf_controlled_value_extraction(extra_args: list[st
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_evidence_pack(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-evidence-pack",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -25617,6 +25728,133 @@ def _task170_toc_page_map_row(
         "is_auditor_report_page": is_auditor_report_page,
         "is_contents_page": is_contents_page,
     }
+
+
+def _task173_value_row(
+    target_type: str,
+    metric_key: str,
+    *,
+    page: int,
+    raw_line: str,
+    value_2025: int = 100,
+    value_2024: int = 90,
+    metric_role: str = "aggregate",
+    aggregate_match_priority: int = 100,
+) -> dict[str, object]:
+    return {
+        "value_id": f"value:{target_type}:{metric_key}:{page}",
+        "company_id": "18",
+        "company_name": "RZD",
+        "report_year": 2025,
+        "report_standard": "IFRS",
+        "target_type": target_type,
+        "metric_key": metric_key,
+        "metric_role": metric_role,
+        "aggregate_match_priority": aggregate_match_priority,
+        "metric_name_ru": metric_key.replace("_", " "),
+        "metric_name_en": metric_key.replace("_", " "),
+        "page_number": page,
+        "statement_page": page,
+        "line_number": 1,
+        "line_number_on_page": 1,
+        "raw_line": raw_line,
+        "raw_value_2025": str(value_2025),
+        "value_2025": value_2025,
+        "value_2025_present": True,
+        "raw_value_2024": str(value_2024),
+        "value_2024": value_2024,
+        "value_2024_present": True,
+        "note_reference": "",
+        "value_extraction_method": "primary_statement_table_row_parser",
+        "value_text_source": "pdftotext",
+        "value_text_backend": "pdftotext",
+        "extraction_confidence": "high",
+        "extraction_status": "extracted_preview_candidate",
+        "reason_codes": ["metric_label_matched", "controlled_value_extraction_preview_only"],
+        "warning_codes": [],
+        "blocker_codes": [],
+        "future_import_candidate": False,
+        "future_human_review_required": True,
+        "safe_hint": "preview only",
+    }
+
+
+def _write_task173_controlled_value_extraction_report(
+    tmp_path: Path,
+    *,
+    value_rows: list[dict[str, object]] | None = None,
+    ready: bool = True,
+    safety_leak: bool = False,
+    bad_aggregate_precision_count: int = 0,
+) -> Path:
+    rows = value_rows or [
+        _task173_value_row("statement_of_financial_position", "total_assets", page=9, raw_line="Total assets 1000 900"),
+        _task173_value_row("statement_of_financial_position", "total_equity_and_liabilities", page=9, raw_line="Total equity and liabilities 1000 900"),
+        _task173_value_row("profit_or_loss", "total_revenue", page=11, raw_line="Total revenue 2000 1800"),
+        _task173_value_row("profit_or_loss", "profit_for_the_year", page=11, raw_line="Profit for the year 300 280"),
+        _task173_value_row("other_comprehensive_income", "total_comprehensive_income", page=12, raw_line="Total comprehensive income 320 290"),
+        _task173_value_row("cash_flows", "net_cash_from_operating_activities", page=15, raw_line="Net cash from operating activities 600 550"),
+    ]
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
+        "status": "passed" if ready else "warning",
+        "controlled_value_extraction_ready": ready,
+        "company_id": "18",
+        "company_name": "RZD",
+        "report_year": 2025,
+        "report_standard": "IFRS",
+        "document_language": "ru",
+        "document_kind": "annual_ifrs_consolidated_financial_statements",
+        "controlled_pdf_input_path": str(tmp_path / "rzd-2025.pdf"),
+        "controlled_pdf_input_sha256": "a" * 64,
+        "pdf_page_count": 115,
+        "value_rows": rows,
+        "sofp_asset_rows_extracted_count": 2,
+        "sofp_asset_rows_missing_count": 2,
+        "sofp_split_pages_merged_count": 1,
+        "bad_value_line_count": 0,
+        "bad_semantic_value_line_count": 0,
+        "bad_aggregate_precision_row_count": bad_aggregate_precision_count,
+        "bad_safety_count": 1 if safety_leak else 0,
+        "warning_code_counts": {"controlled_value_extraction_human_review_required": 1},
+        "warnings": [{"message": "controlled_value_extraction_human_review_required"}],
+        "would_download_documents": safety_leak,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "files_deleted": False,
+    }
+    path = tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_task170.json"
+    path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _assert_rzd_controlled_values_evidence_pack_fields(report: dict) -> None:
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    assert isinstance(report.get("safety_flags"), dict)
+    assert isinstance(report.get("human_review_reason_codes"), list)
+    assert isinstance(report.get("warning_code_counts"), dict)
+    for row in report.get("evidence_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_ROW_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["is_aggregate"], bool)
+        assert isinstance(row["is_component"], bool)
+        assert isinstance(row["is_required_for_review"], bool)
+        assert row["quality_status"] in {"accepted", "warning", "rejected"}
+        assert isinstance(row["quality_reason_codes"], list)
+    for blocker in report.get("blocker_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_BLOCKER_FIELDS:
+            assert field in blocker
+            assert blocker[field] is not None
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:
