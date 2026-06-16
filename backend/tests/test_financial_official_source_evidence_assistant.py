@@ -16296,6 +16296,9 @@ def test_rzd_manual_official_pdf_controlled_values_evidence_pack_consumes_task17
     assert report["controlled_value_extraction_ready"] is True
     assert report["company_id"] == "18"
     assert report["report_year"] == 2025
+    assert isinstance(report["evidence_value_row_count"], int)
+    assert report["evidence_value_row_count"] == len(report["evidence_rows"])
+    assert report["evidence_value_row_count"] > 0
     assert report["aggregate_value_row_count"] >= 4
     assert report["statement_of_financial_position_value_count"] >= 2
     assert report["profit_or_loss_value_count"] >= 2
@@ -16309,6 +16312,20 @@ def test_rzd_manual_official_pdf_controlled_values_evidence_pack_consumes_task17
     assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_rows_task173.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_blockers_task173.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_blockers_task173.csv").is_file()
+    rows_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_rows_task173.json").read_text(encoding="utf-8"))
+    assert isinstance(rows_payload, dict)
+    assert isinstance(rows_payload["row_count"], int)
+    assert isinstance(rows_payload["evidence_value_row_count"], int)
+    assert isinstance(rows_payload["evidence_rows"], list)
+    assert isinstance(rows_payload["safe_hint"], str)
+    assert rows_payload["row_count"] == len(rows_payload["evidence_rows"])
+    assert rows_payload["evidence_value_row_count"] == len(rows_payload["evidence_rows"])
+    blockers_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_evidence_pack_blockers_task173.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers_payload, dict)
+    assert isinstance(blockers_payload["blocker_count"], int)
+    assert isinstance(blockers_payload["blocker_rows"], list)
+    assert isinstance(blockers_payload["safe_hint"], str)
+    assert blockers_payload["blocker_count"] == len(blockers_payload["blocker_rows"])
 
 
 def test_rzd_manual_official_pdf_controlled_values_evidence_pack_markdown_sections(tmp_path: Path) -> None:
@@ -16378,6 +16395,74 @@ def test_rzd_manual_official_pdf_controlled_values_evidence_pack_required_input_
     assert report["ready_for_manual_review"] is False
     assert report["ready_for_controlled_import"] is False
     assert report["evidence_row_count"] == 0
+    _assert_rzd_controlled_values_evidence_pack_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_evidence_pack_vds_like_counts(tmp_path: Path) -> None:
+    value_rows: list[dict[str, object]] = []
+    for index in range(9):
+        value_rows.append(
+            _task173_value_row(
+                "statement_of_financial_position",
+                f"aggregate_sofp_metric_{index}",
+                page=9,
+                raw_line=f"SOFP aggregate row {index} 1000 900",
+            )
+        )
+    for index in range(8):
+        value_rows.append(
+            _task173_value_row(
+                "profit_or_loss",
+                f"aggregate_profit_loss_metric_{index}",
+                page=11,
+                raw_line=f"P&L aggregate row {index} 2000 1800",
+            )
+        )
+    for index in range(3):
+        value_rows.append(
+            _task173_value_row(
+                "other_comprehensive_income",
+                f"aggregate_oci_metric_{index}",
+                page=12,
+                raw_line=f"OCI aggregate row {index} 300 280",
+            )
+        )
+    value_rows.append(
+        _task173_value_row(
+            "cash_flows",
+            "aggregate_cash_flow_metric_0",
+            page=15,
+            raw_line="Cash flow aggregate row 600 550",
+        )
+    )
+    for index in range(3):
+        value_rows.append(
+            _task173_value_row(
+                "cash_flows",
+                f"cash_flow_component_metric_{index}",
+                page=15,
+                raw_line=f"Cash flow component row {index} 60 55",
+                metric_role="component",
+                aggregate_match_priority=10,
+            )
+        )
+    _write_task173_controlled_value_extraction_report(tmp_path, value_rows=value_rows)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_evidence_pack(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "warning"
+    assert report["ready_for_manual_review"] is True
+    assert report["ready_for_controlled_import"] is False
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["blocker_count"] == 0
+    assert report["bad_required_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert report["evidence_value_row_count"] >= 20
+    assert report["evidence_value_row_count"] == len(report["evidence_rows"])
+    assert report["aggregate_value_row_count"] >= 15
+    assert report["component_value_row_count"] >= 1
     _assert_rzd_controlled_values_evidence_pack_fields(report)
 
 
