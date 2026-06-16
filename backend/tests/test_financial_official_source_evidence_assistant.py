@@ -13874,6 +13874,8 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_synthetic_statement
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_snapshots_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_page_diagnostics_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_enforced_plan_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_enforced_plan_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_ocr_diagnostics_task170.csv").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_rerun_task170.md").is_file()
@@ -13932,8 +13934,8 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_primary_statement_t
     )
     pl_by_key = {row["metric_key"]: row for row in pl_rows}
     assert pl_diag["primary_statement_table_row_parser_success"] is True
-    assert pl_by_key["revenue"]["value_2025"] == 3637906
-    assert pl_by_key["operating_expenses"]["value_2025"] == -3093260
+    assert pl_by_key["total_revenue"]["value_2025"] == 3637906
+    assert pl_by_key["total_operating_expenses"]["value_2025"] == -3093260
     assert pl_by_key["operating_profit"]["value_2024"] == 457410
     assert pl_by_key["net_finance_costs"]["value_2025"] == -510439
     assert pl_by_key["profit_before_tax"]["value_2025"] == 34207
@@ -13960,6 +13962,28 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_primary_statement_t
     )
     assert oci_diag["primary_statement_table_row_parser_value_count"] >= 2
     assert {row["metric_key"] for row in oci_rows} >= {"profit_for_the_year", "total_comprehensive_income"}
+    assert assistant._rzd_controlled_value_extraction_semantic_reject_metric(
+        "other_comprehensive_income",
+        "other_comprehensive_income",
+        "Other comprehensive income component 20 10",
+    ) == ["semantic_wrong_aggregate_row_rejected"]
+    cash_text = "\n".join(
+        [
+            "Statement of cash flows 2025 2024 million rubles",
+            "Profit before tax 400 370",
+            "Net cash from operating activities 600 550",
+            "Net cash used in investing activities (200) (180)",
+        ]
+    )
+    cash_rows, cash_diag = assistant._rzd_controlled_value_extraction_parse_primary_statement_table_rows(
+        target_type="cash_flows",
+        page_number=15,
+        page_text=cash_text,
+        text_source="controlled_pdf_selected_page_text",
+        text_backend="pdftotext",
+    )
+    assert cash_diag["semantic_cash_flow_starting_profit_row_rejected_count"] >= 1
+    assert {row["metric_key"] for row in cash_rows} >= {"net_cash_from_operating_activities", "net_cash_used_in_investing_activities"}
     assert all(row["value_extraction_method"] == "primary_statement_table_row_parser" for row in sofp_rows + pl_rows + oci_rows)
 
 
@@ -14068,21 +14092,90 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_toc_primary_pa
     assert report["toc_notes_range_value_rejected_count"] >= 1
     assert report["page_map_false_statement_flag_rejected_count"] >= 1
     assert report["contents_page_primary_rejected_count"] >= 1
+    assert report["toc_primary_page_enforced_extraction_count"] >= 5
+    assert report["toc_primary_page_enforced_extraction_target_count"] == 4
+    assert report["toc_primary_page_enforced_extraction_parser_attempt_count"] >= 5
+    assert report["toc_primary_page_enforced_extraction_parser_value_count"] >= report["value_candidate_row_count"]
+    assert report["bad_semantic_value_line_count"] == 0
     assert {row["statement_page"] for row in report["value_rows"]} <= {9, 11, 12, 15}
     assert all(row["statement_page"] < 17 for row in report["value_rows"])
     snapshots_by_target = {row["target_type"]: row for row in report["page_snapshot_rows"]}
     assert snapshots_by_target["statement_of_financial_position"]["selection_source"] == "toc_primary_page"
     assert snapshots_by_target["statement_of_financial_position"]["toc_primary_page_anchor_used"] is True
+    assert snapshots_by_target["statement_of_financial_position"]["toc_primary_page_enforced_extraction"] is True
     assert snapshots_by_target["profit_or_loss"]["selection_source"] == "toc_primary_page"
     assert snapshots_by_target["profit_or_loss"]["page_number"] == 11
-    assert any("toc_primary_page_anchor_used" in (row.get("reason_codes") or []) for row in report["target_group_rows"])
+    assert any("toc_primary_page_enforced_extraction" in (row.get("reason_codes") or []) for row in report["target_group_rows"])
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.json").is_file()
     assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.csv").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_enforced_plan_task170.json").is_file()
+    assert (tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_enforced_plan_task170.csv").is_file()
+    toc_enforced = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_enforced_plan_task170.json").read_text(encoding="utf-8"))
+    assert toc_enforced["row_count"] >= 5
+    assert {row["page_number"] for row in toc_enforced["toc_enforced_plan_rows"]} >= {9, 11, 12, 15, 16}
+    assert all(isinstance(row["parser_attempted"], bool) for row in toc_enforced["toc_enforced_plan_rows"])
     toc_diagnostics = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_value_extraction_toc_diagnostics_task170.json").read_text(encoding="utf-8"))
     assert toc_diagnostics["row_count"] >= 7
     assert toc_diagnostics["toc_source_candidate_row_count"] >= 1
     assert toc_diagnostics["toc_source_candidate_rows"][0]["accepted"] is True
     assert all(row["accepted"] is True for row in toc_diagnostics["toc_diagnostic_rows"])
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
+    _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_value_extraction_toc_page_zero_parser_rows_warns_without_target_missing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    _registration, parse_plan_path, page_map_path, targets_path, _pdf_path = _write_task170_controlled_value_extraction_inputs(tmp_path)
+    toc_text = _task170_strict_toc_text()
+    contents_row = _task170_toc_page_map_row(toc_text)
+    for path in (parse_plan_path, page_map_path):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        rows = payload.get("page_map_rows") or []
+        rows.insert(0, contents_row)
+        payload["page_map_rows"] = rows
+        payload["row_count"] = len(rows)
+        payload["page_map_row_count"] = len(rows)
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    targets_payload = json.loads(targets_path.read_text(encoding="utf-8"))
+    targets_payload["target_rows"] = [
+        {
+            **row,
+            "start_page": 2,
+            "candidate_pages": [2, 9],
+        }
+        for row in targets_payload["target_rows"]
+        if row["target_type"] == "statement_of_financial_position"
+    ]
+    targets_payload["row_count"] = len(targets_payload["target_rows"])
+    targets_path.write_text(json.dumps(targets_payload, ensure_ascii=False), encoding="utf-8")
+    page_texts = {
+        2: {"backend": "synthetic", "text": toc_text},
+        9: {"backend": "synthetic", "text": "Statement of financial position 2025 2024 million rubles\nNo usable table values here"},
+    }
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_manual_official_pdf_controlled_value_extraction_extract_page_texts",
+        lambda path, pages, backend="auto": {page: page_texts[page] for page in pages if page in page_texts},
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_value_extraction(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-value-extraction-target-types",
+            "statement_of_financial_position",
+        ]
+    )
+
+    warning_messages = {row.get("message") for row in report["warnings"]}
+    assert "controlled_value_extraction_primary_statement_parser_zero_values" in warning_messages
+    assert "controlled_value_extraction_target_missing_selected_pages" not in warning_messages
+    enforced_page_9 = next(row for row in report["toc_enforced_plan_rows"] if row["page_number"] == 9)
+    assert enforced_page_9["parser_attempted"] is True
+    assert enforced_page_9["parser_value_count"] == 0
+    assert "primary_statement_table_parser_zero_value_rows" in enforced_page_9["reject_reason_codes"]
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
 
@@ -14123,11 +14216,11 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_uses_ocr_for_textle
     )
     normal_oci = "\n".join(
         [
-            "Other comprehensive income 2025 2024 million rubles",
-            "Profit for the year 300 280",
-            "Other comprehensive income 20 10",
-            "Total comprehensive income 320 290",
-            "Text line to keep normal extraction strong",
+                "Other comprehensive income 2025 2024 million rubles",
+                "Profit for the year 300 280",
+                "Other comprehensive income for the year 20 10",
+                "Total comprehensive income for the year 320 290",
+                "Text line to keep normal extraction strong",
             "Another context line with 2025 and 2024",
         ]
     )
@@ -14760,7 +14853,7 @@ def test_rzd_manual_official_pdf_controlled_value_extraction_rejects_date_and_pa
     assert report["date_number_value_rejected_count"] >= 1
     assert all(row["raw_value_2025"] != "31" for row in report["value_rows"])
     assert all(row["raw_value_2024"] != "2025" for row in report["value_rows"])
-    assert {row["metric_key"] for row in report["value_rows"]} >= {"revenue", "operating_profit"}
+    assert {row["metric_key"] for row in report["value_rows"]} >= {"total_revenue", "operating_profit"}
     assert "profit_for_the_year" not in {row["metric_key"] for row in report["value_rows"]}
     _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report)
     _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(report)
@@ -24968,8 +25061,8 @@ def _task170_page_texts() -> dict[int, dict[str, object]]:
                 [
                     "Other comprehensive income 2025 2024 million rubles",
                     "Profit for the year 300 280",
-                    "Other comprehensive income 20 10",
-                    "Total comprehensive income 320 290",
+                    "Other comprehensive income for the year 20 10",
+                    "Total comprehensive income for the year 320 290",
                 ]
             ),
         },
@@ -25056,6 +25149,7 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(re
     assert isinstance(report.get("toc_notes_start_page_inference_reason_codes"), list)
     assert isinstance(report.get("toc_source_candidate_rows"), list)
     assert isinstance(report.get("toc_diagnostic_rows"), list)
+    assert isinstance(report.get("toc_enforced_plan_rows"), list)
     assert isinstance(report.get("ocr_diagnostic_rows"), list)
 
 
@@ -25089,6 +25183,9 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
             "generic_row_date_or_period_rejected_count",
             "body_reference_title_rejected_count",
             "body_reference_title_value_rejected_count",
+            "semantic_component_oci_row_rejected_count",
+            "semantic_wrong_aggregate_row_rejected_count",
+            "semantic_cash_flow_starting_profit_row_rejected_count",
             "toc_notes_range_page_rejected_count",
             "toc_notes_range_value_rejected_count",
             "page_map_false_statement_flag_rejected_count",
@@ -25164,6 +25261,8 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("toc_primary_page_candidate"), bool)
         assert isinstance(row.get("toc_primary_page_target_type"), str)
         assert isinstance(row.get("toc_primary_page_anchor_used"), bool)
+        assert isinstance(row.get("toc_primary_page_enforced_extraction"), bool)
+        assert isinstance(row.get("toc_primary_page_enforced_extraction_reason_codes"), list)
         assert isinstance(row.get("toc_notes_range_rejected"), bool)
         assert isinstance(row.get("page_map_false_statement_flag_rejected"), bool)
         assert isinstance(row.get("contents_page_rejected_as_primary"), bool)
@@ -25189,7 +25288,24 @@ def _assert_rzd_manual_official_pdf_controlled_value_extraction_row_fields(repor
         assert isinstance(row.get("primary_statement_table_row_parser_value_count"), int)
         assert isinstance(row.get("primary_statement_table_row_parser_failure_reason_codes"), list)
         assert isinstance(row.get("false_generic_row_rejected_count"), int)
+        assert isinstance(row.get("semantic_component_oci_row_rejected_count"), int)
+        assert isinstance(row.get("semantic_wrong_aggregate_row_rejected_count"), int)
+        assert isinstance(row.get("semantic_cash_flow_starting_profit_row_rejected_count"), int)
         assert isinstance(row.get("false_generic_reject_reason_counts"), dict)
+    for row in report.get("toc_enforced_plan_rows") or []:
+        assert isinstance(row.get("target_type"), str)
+        assert isinstance(row.get("page_number"), int)
+        assert isinstance(row.get("from_toc"), bool)
+        assert isinstance(row.get("is_continuation"), bool)
+        assert isinstance(row.get("effective_page_text_char_count"), int)
+        assert isinstance(row.get("effective_page_text_backend"), str)
+        assert isinstance(row.get("effective_page_text_source"), str)
+        assert isinstance(row.get("parser_attempted"), bool)
+        assert isinstance(row.get("parser_value_count"), int)
+        assert isinstance(row.get("accepted"), bool)
+        assert isinstance(row.get("reject_reason_codes"), list)
+        assert isinstance(row.get("reason_codes"), list)
+        assert isinstance(row.get("safe_hint"), str)
     for row in report.get("toc_diagnostic_rows") or []:
         assert isinstance(row.get("row_type"), str)
         assert isinstance(row.get("toc_diagnostic_id"), str)
