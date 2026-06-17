@@ -16896,6 +16896,184 @@ def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_wrapper
     _assert_rzd_controlled_values_import_readiness_gate_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_no_candidate_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["schema_discovery_status"] == "blocked"
+    assert report["candidate_target_count"] == 0
+    assert report["recommended_target_count"] == 0
+    assert report["ready_for_schema_mapping_review"] is False
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_suitable_target_warns(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=True)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    plan = _write_task177_import_plan(chain)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] in {"warning", "passed"}
+    assert report["schema_discovery_status"] in {"warning", "passed"}
+    assert report["candidate_target_count"] >= 1
+    assert report["recommended_target_count"] == 1
+    assert report["mapping_row_count"] == plan["planned_import_row_count"]
+    assert report["unmapped_import_plan_row_count"] == 0
+    assert report["ready_for_schema_mapping_review"] is True
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_missing_natural_key_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=False)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["missing_unique_key_field_count"] > 0
+    assert "unique_key_not_supported" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_import_plan_missing_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=True)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    chain.mkdir(parents=True, exist_ok=True)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert "import_plan_input_missing" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_unsafe_flag_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=True)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain, mutate={"database_mutated": True})
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["bad_safety_count"] > 0
+    assert "safety_flag_true" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_readiness_gate_if_present_must_be_ready(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=True)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain)
+    (chain / "rzd_manual_official_pdf_controlled_values_import_readiness_gate_task176.json").write_text(
+        json.dumps(
+            {
+                "status": "blocked",
+                "import_readiness_gate_status": "blocked",
+                "ready_for_controlled_import_apply": False,
+                "blocker_count": 1,
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert "import_readiness_gate_not_ready" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_wrappers_and_markdown(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=True)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    targets_payload = json.loads((chain / "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_targets_task177.json").read_text(encoding="utf-8"))
+    assert isinstance(targets_payload["target_count"], int)
+    assert isinstance(targets_payload["discovered_targets"], list)
+    assert isinstance(targets_payload["safe_hint"], str)
+    mapping_payload = json.loads((chain / "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_mapping_task177.json").read_text(encoding="utf-8"))
+    assert isinstance(mapping_payload["mapping_row_count"], int)
+    assert isinstance(mapping_payload["mapping_rows"], list)
+    assert isinstance(mapping_payload["safe_hint"], str)
+    checks_payload = json.loads((chain / "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_checks_task177.json").read_text(encoding="utf-8"))
+    assert isinstance(checks_payload["check_count"], int)
+    assert isinstance(checks_payload["schema_discovery_check_rows"], list)
+    blockers_payload = json.loads((chain / "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_blockers_task177.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers_payload["blocker_count"], int)
+    assert isinstance(blockers_payload["blocker_rows"], list)
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_task177.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values DB Import Target Schema Discovery",
+        "## Discovered targets",
+        "## Required field coverage",
+        "## Unique key readiness",
+    ):
+        assert section in markdown
+    assert "No database import was executed" in markdown
+    assert "No migration was executed" in markdown
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -24950,6 +25128,19 @@ def _run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(extra_a
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -26578,6 +26769,153 @@ def _run_task176_with_plan_expectations(
     )
 
 
+def _task177_repo_root(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    (repo / "backend" / "app" / "models").mkdir(parents=True, exist_ok=True)
+    (repo / "backend" / "app" / "schemas").mkdir(parents=True, exist_ok=True)
+    return repo
+
+
+def _write_task177_model(repo: Path, *, include_natural_key: bool) -> None:
+    natural_key_field = '    natural_key_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)\n' if include_natural_key else ""
+    model_text = f"""from __future__ import annotations
+
+from datetime import datetime
+from sqlalchemy import DateTime, Numeric, String, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column
+from app.db.base import Base
+
+
+class ControlledFinancialStatementValue(Base):
+    __tablename__ = "controlled_financial_statement_values"
+    __table_args__ = (
+        UniqueConstraint("natural_key_sha256", name="controlled_values_natural_key_unique"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    company_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    report_year: Mapped[int] = mapped_column(nullable=False)
+    report_standard: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    metric_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    metric_role: Mapped[str] = mapped_column(String(32), nullable=False)
+    metric_name_ru: Mapped[str] = mapped_column(String(255), nullable=False)
+    metric_name_en: Mapped[str] = mapped_column(String(255), nullable=False)
+    statement_page: Mapped[int] = mapped_column(nullable=False)
+    page_number: Mapped[int] = mapped_column(nullable=False)
+    value_2025: Mapped[int] = mapped_column(nullable=False)
+    value_2024: Mapped[int] = mapped_column(nullable=False)
+    raw_value_2025: Mapped[str] = mapped_column(String(64), nullable=False)
+    raw_value_2024: Mapped[str] = mapped_column(String(64), nullable=False)
+    raw_line: Mapped[str] = mapped_column(String(4096), nullable=False)
+    note_reference: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_pdf_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    plan_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    plan_rows_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    natural_key: Mapped[str] = mapped_column(String(1024), nullable=False)
+{natural_key_field}    row_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+"""
+    (repo / "backend" / "app" / "models" / "controlled_financial_statement_value.py").write_text(model_text, encoding="utf-8")
+
+
+def _task177_import_plan_rows() -> list[dict]:
+    rows: list[dict] = []
+    for index, (target_type, metric_key, metric_role) in enumerate(
+        [
+            ("statement_of_financial_position", "total_assets", "aggregate"),
+            ("profit_or_loss", "total_revenue", "aggregate"),
+            ("profit_or_loss", "freight_revenue", "component"),
+        ],
+        start=1,
+    ):
+        natural_key = (
+            "company_id=18|report_year=2025|standard=IFRS|"
+            f"target_type={target_type}|metric_key={metric_key}|metric_role={metric_role}|statement_page={index + 8}"
+        )
+        rows.append(
+            {
+                "import_plan_row_id": f"task177-row-{index}",
+                "row_index": index,
+                "target_logical_entity": "financial_statement_value",
+                "company_id": "18",
+                "company_name": "RZD",
+                "report_year": 2025,
+                "report_standard": "IFRS",
+                "target_type": target_type,
+                "metric_key": metric_key,
+                "metric_role": metric_role,
+                "metric_name_ru": metric_key,
+                "metric_name_en": metric_key,
+                "statement_page": index + 8,
+                "page_number": index + 8,
+                "value_2025": 1000 + index,
+                "value_2024": 900 + index,
+                "value_2025_raw": str(1000 + index),
+                "value_2024_raw": str(900 + index),
+                "raw_line": f"{metric_key} {1000 + index} {900 + index}",
+                "note_reference": "",
+                "natural_key": natural_key,
+                "natural_key_sha256": hashlib.sha256(natural_key.encode("utf-8")).hexdigest(),
+                "row_checksum_sha256": hashlib.sha256(f"row-{index}".encode("utf-8")).hexdigest(),
+            }
+        )
+    return rows
+
+
+def _write_task177_import_plan(chain: Path, *, mutate: dict[str, object] | None = None) -> dict:
+    chain.mkdir(parents=True, exist_ok=True)
+    rows = _task177_import_plan_rows()
+    plan = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-plan-preview",
+        "status": "warning",
+        "import_plan_preview_status": "warning",
+        "ready_for_controlled_import_plan": True,
+        "ready_for_controlled_import": False,
+        "import_plan_preview_ready": True,
+        "manual_review_gate_ready": True,
+        "controlled_value_extraction_ready": True,
+        "company_id": "18",
+        "company_name": "RZD",
+        "report_year": 2025,
+        "report_standard": "IFRS",
+        "source_pdf_sha256": "a" * 64,
+        "planned_import_row_count": len(rows),
+        "planned_aggregate_row_count": sum(1 for row in rows if row["metric_role"] == "aggregate"),
+        "planned_component_row_count": sum(1 for row in rows if row["metric_role"] == "component"),
+        "bad_required_count": 0,
+        "bad_safety_count": 0,
+        "bad_import_plan_count": 0,
+        "blocker_count": 0,
+        "import_executed": False,
+        "database_mutated": False,
+        "safety_flags": {},
+        "import_plan_rows": rows,
+    }
+    if mutate:
+        plan.update(mutate)
+    (chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.json").write_text(
+        json.dumps(plan, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_task175.json").write_text(
+        json.dumps(
+            {
+                "status": plan["status"],
+                "row_count": len(rows),
+                "planned_import_row_count": len(rows),
+                "import_plan_rows": rows,
+                "safe_hint": "No database import was executed.",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    return plan
+
+
 def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -26683,6 +27021,67 @@ def _assert_rzd_controlled_values_import_readiness_gate_fields(report: dict) -> 
             assert row[field] is not None
     for row in report.get("blocker_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+
+
+def _assert_rzd_controlled_values_db_schema_discovery_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "schema_discovery_status",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("warning_code_counts"), dict)
+    assert isinstance(report.get("warnings"), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert isinstance(report.get("discovered_targets"), list)
+    assert isinstance(report.get("mapping_rows"), list)
+    assert isinstance(report.get("schema_discovery_check_rows"), list)
+    assert isinstance(report.get("blocker_rows"), list)
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["import_executed"] is False
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    for target in report.get("discovered_targets") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_TARGET_FIELDS:
+            assert field in target
+            assert target[field] is not None
+        assert isinstance(target["reason_codes"], list)
+        assert isinstance(target["available_fields"], list)
+        assert isinstance(target["required_fields_present"], list)
+        assert isinstance(target["required_fields_missing"], list)
+        assert isinstance(target["unique_key_candidates"], list)
+    for row in report.get("mapping_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["mapping_reason_codes"], list)
+        assert isinstance(row["mapped_fields"], dict)
+        assert isinstance(row["missing_fields"], list)
+        assert isinstance(row["type_warnings"], list)
+    for row in report.get("schema_discovery_check_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_BLOCKER_FIELDS:
             assert field in row
             assert row[field] is not None
 

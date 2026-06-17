@@ -89,6 +89,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-manual-review-gate",
     "rzd-manual-official-pdf-controlled-values-import-plan-preview",
     "rzd-manual-official-pdf-controlled-values-import-readiness-gate",
+    "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -7982,6 +7983,100 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_REQUIRED_COUNT_F
     "bad_required_count", "bad_safety_count", "bad_import_plan_count", "bad_readiness_gate_count",
     "blocker_count", "warning_count",
 )
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_ARTIFACT_NAMES = {
+    "discovery_json": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_task177.json",
+    "discovery_csv": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_task177.csv",
+    "discovery_markdown": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_task177.md",
+    "targets_json": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_targets_task177.json",
+    "targets_csv": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_targets_task177.csv",
+    "mapping_json": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_mapping_task177.json",
+    "mapping_csv": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_mapping_task177.csv",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_blockers_task177.json",
+    "blockers_csv": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_blockers_task177.csv",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_checks_task177.json",
+    "checks_csv": "rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_checks_task177.csv",
+}
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS = (
+    "company_id", "company_name", "report_year", "report_standard", "target_type", "metric_key",
+    "metric_role", "metric_name_ru", "metric_name_en", "statement_page", "page_number",
+    "value_2025", "value_2024", "raw_value_2025", "raw_value_2024", "raw_line",
+    "note_reference", "source_pdf_sha256", "plan_checksum_sha256", "plan_rows_checksum_sha256",
+    "natural_key", "natural_key_sha256", "row_checksum_sha256", "created_at", "updated_at",
+)
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FIELD_EQUIVALENTS = {
+    "report_year": ("report_year", "period_year"),
+    "report_standard": ("report_standard", "accounting_standard", "standard"),
+    "raw_value_2025": ("raw_value_2025", "value_2025_raw"),
+    "raw_value_2024": ("raw_value_2024", "value_2024_raw"),
+}
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_RECOMMENDED_UNIQUE_KEY_FIELDS = (
+    "natural_key_sha256",
+)
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FIELDS = [
+    "mode", "status", "schema_discovery_status",
+    "ready_for_schema_mapping_review", "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "import_executed", "database_mutated", "import_plan_preview_ready", "import_readiness_gate_ready",
+    "company_id", "company_name", "report_year", "report_standard",
+    "input_import_plan_row_count", "input_planned_aggregate_row_count", "input_planned_component_row_count",
+    "discovered_target_count", "candidate_target_count", "recommended_target_count",
+    "mapping_row_count", "mapped_import_plan_row_count", "unmapped_import_plan_row_count",
+    "required_field_count", "required_field_present_count", "required_field_missing_count",
+    "unique_key_candidate_count", "recommended_unique_key_field_count", "missing_unique_key_field_count",
+    "migration_required", "model_required", "repository_required", "schema_required",
+    "schema_discovery_check_count", "schema_discovery_passed_check_count",
+    "schema_discovery_warning_check_count", "schema_discovery_blocked_check_count",
+    "bad_required_count", "bad_safety_count", "bad_import_plan_count", "bad_readiness_gate_count",
+    "bad_schema_discovery_count", "blocker_count", "warning_count", "safe_hint", "next_step",
+]
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_TARGET_FIELDS = [
+    "target_id", "target_name", "target_type", "source_file", "source_line_start", "source_line_end",
+    "table_name", "model_name", "class_name", "is_candidate", "is_recommended", "reason_codes",
+    "available_fields", "required_fields_present", "required_fields_missing", "unique_key_candidates", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_FIELDS = [
+    "mapping_row_id", "import_plan_row_id", "row_index", "target_logical_entity",
+    "recommended_physical_target", "recommended_model_name", "recommended_table_name",
+    "target_type", "metric_key", "metric_role", "natural_key_sha256", "row_checksum_sha256",
+    "mapping_status", "mapping_reason_codes", "mapped_fields", "missing_fields", "type_warnings", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_CSV_FIELDS = [
+    "mapping_row_id", "import_plan_row_id", "row_index", "target_logical_entity",
+    "recommended_physical_target", "recommended_model_name", "recommended_table_name",
+    "target_type", "metric_key", "metric_role", "natural_key_sha256", "row_checksum_sha256",
+    "mapping_status", "mapping_reason_codes", "missing_fields", "type_warnings", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_CHECK_FIELDS = [
+    "check_id", "severity", "status", "code", "message", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_BOOL_FIELDS = (
+    "ready_for_schema_mapping_review", "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "import_executed", "database_mutated", "import_plan_preview_ready", "import_readiness_gate_ready",
+    "migration_required", "model_required", "repository_required", "schema_required",
+    "read_only", "dry_run_only", "would_fetch_source_page", "would_fetch_document_url",
+    "would_download_document", "would_import_report", "would_mutate_database", "would_run_migration",
+    "would_score_issuers", "would_trigger_paper_trading", "source_page_fetched", "document_url_fetched",
+    "documents_downloaded", "migration_executed", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_COUNT_FIELDS = (
+    "report_year", "input_import_plan_row_count", "input_planned_aggregate_row_count",
+    "input_planned_component_row_count", "discovered_target_count", "candidate_target_count",
+    "recommended_target_count", "mapping_row_count", "mapped_import_plan_row_count",
+    "unmapped_import_plan_row_count", "required_field_count", "required_field_present_count",
+    "required_field_missing_count", "unique_key_candidate_count", "recommended_unique_key_field_count",
+    "missing_unique_key_field_count", "schema_discovery_check_count", "schema_discovery_passed_check_count",
+    "schema_discovery_warning_check_count", "schema_discovery_blocked_check_count",
+    "bad_required_count", "bad_safety_count", "bad_import_plan_count", "bad_readiness_gate_count",
+    "bad_schema_discovery_count", "blocker_count", "warning_count",
+)
+RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FORBIDDEN_SAFETY_FLAGS = (
+    "would_fetch_source_page", "would_fetch_document_url", "would_download_document", "would_import_report",
+    "would_mutate_database", "would_run_migration", "would_score_issuers", "would_trigger_paper_trading",
+    "source_page_fetched", "document_url_fetched", "documents_downloaded", "import_executed",
+    "database_mutated", "migration_executed", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -9571,6 +9666,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-checks-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-blockers-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-targets-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-targets-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-mapping-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-mapping-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-checks-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -9824,6 +9931,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_import_plan_preview(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-import-readiness-gate":
         report = run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery":
+        report = run_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -50672,6 +50781,687 @@ def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_write_outpu
     _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_BLOCKER_FIELDS, artifacts["blockers_csv"])
 
 
+def run_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_values_db_schema_discovery_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_values_db_schema_discovery_artifacts(args)
+    output_errors = _rzd_manual_official_pdf_controlled_values_db_schema_discovery_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_manual_official_pdf_controlled_values_db_schema_discovery_failed_report(
+            output_errors,
+            artifacts=artifacts,
+            write_outputs=False,
+        )
+    plan_path = inputs["import_plan_preview"]
+    if plan_path is None or not plan_path.is_file():
+        report = _build_rzd_manual_official_pdf_controlled_values_db_schema_discovery_report(
+            {},
+            rows_payload={},
+            readiness_gate={},
+            inputs=inputs,
+            import_plan_input_available=False,
+        )
+    else:
+        try:
+            plan = _load_json_object(plan_path)
+            rows_payload = (
+                _load_json_object(inputs["import_plan_rows"])
+                if inputs.get("import_plan_rows") is not None and inputs["import_plan_rows"].is_file()
+                else {}
+            )
+            readiness_gate = (
+                _load_json_object(inputs["import_readiness_gate"])
+                if inputs.get("import_readiness_gate") is not None and inputs["import_readiness_gate"].is_file()
+                else {}
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return _rzd_manual_official_pdf_controlled_values_db_schema_discovery_failed_report(
+                [{"message": "controlled_values_db_schema_discovery_input_required", "error": str(exc)}],
+                artifacts=artifacts,
+            )
+        report = _build_rzd_manual_official_pdf_controlled_values_db_schema_discovery_report(
+            plan,
+            rows_payload=rows_payload,
+            readiness_gate=readiness_gate,
+            inputs=inputs,
+            import_plan_input_available=True,
+        )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["schema_discovery_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_db_schema_discovery_write_failed", "error": str(exc)}]
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            "import_plan_preview": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["plan_json"],
+            "import_plan_rows": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["rows_json"],
+            "import_readiness_gate": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_ARTIFACT_NAMES["gate_json"],
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "import_plan_preview": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_input or defaults.get("import_plan_preview"),
+        "import_plan_rows": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_input or defaults.get("import_plan_rows"),
+        "import_readiness_gate": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_input or defaults.get("import_readiness_gate"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_ARTIFACT_NAMES.items()}
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "discovery_json": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_output or defaults.get("discovery_json"),
+        "discovery_csv": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_csv_output or defaults.get("discovery_csv"),
+        "discovery_markdown": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_markdown_output or defaults.get("discovery_markdown"),
+        "targets_json": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_targets_output or defaults.get("targets_json"),
+        "targets_csv": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_targets_csv_output or defaults.get("targets_csv"),
+        "mapping_json": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_mapping_output or defaults.get("mapping_json"),
+        "mapping_csv": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_mapping_csv_output or defaults.get("mapping_csv"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_blockers_output or defaults.get("blockers_json"),
+        "blockers_csv": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_blockers_csv_output or defaults.get("blockers_csv"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_checks_output or defaults.get("checks_json"),
+        "checks_csv": args.rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_checks_csv_output or defaults.get("checks_csv"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in artifacts.values() if path is not None]
+    for generic_output in (args.json_output, args.markdown_output):
+        if generic_output is not None:
+            outputs.append(generic_output)
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output in outputs:
+        if any(_paths_equal(output, input_path) for input_path in input_paths):
+            return [{"message": "rzd_controlled_values_db_schema_discovery_output_must_not_equal_input"}]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_controlled_values_db_schema_discovery_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_safety_flags() -> dict[str, bool]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_run_migration": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "migration_executed": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row(
+    code: str,
+    *,
+    passed: bool,
+    warning: bool = False,
+    message: str = "",
+) -> dict[str, Any]:
+    status = "passed" if passed else ("warning" if warning else "blocked")
+    return {
+        "check_id": f"rzd_controlled_values_db_schema_discovery:global:{code}",
+        "severity": "info" if passed else ("warning" if warning else "error"),
+        "status": status,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "safe_hint": "This is schema discovery only. No database import or migration was executed.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_blocker_row(
+    code: str,
+    *,
+    message: str = "",
+    severity: str = "error",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_db_schema_discovery:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "safe_hint": "Resolve this schema discovery blocker before a future controlled import apply step.",
+    }
+
+
+def _rzd_db_schema_discovery_repo_root() -> Path:
+    return Path.cwd()
+
+
+def _rzd_db_schema_discovery_scope_paths(repo_root: Path) -> list[Path]:
+    return [
+        repo_root / "backend" / "app",
+        repo_root / "backend" / "app" / "models",
+        repo_root / "backend" / "app" / "db",
+        repo_root / "backend" / "app" / "schemas",
+        repo_root / "backend" / "app" / "repositories",
+        repo_root / "backend" / "app" / "services",
+        repo_root / "backend" / "alembic",
+        repo_root / "backend" / "alembic" / "versions",
+        repo_root / "backend" / "migrations",
+        repo_root / "backend" / "tests",
+        repo_root / "backend" / "app" / "crud",
+    ]
+
+
+def _rzd_db_schema_discovery_relevant(text: str, path: Path) -> bool:
+    haystack = f"{path.as_posix().lower()} {text.lower()}"
+    return any(keyword in haystack for keyword in ("financial", "statement", "report", "metric", "value", "issuer", "company", "fundamental"))
+
+
+def _rzd_db_schema_discovery_fields_present(available_fields: list[str]) -> tuple[list[str], list[str], dict[str, str]]:
+    available = set(available_fields)
+    present: list[str] = []
+    missing: list[str] = []
+    mapped: dict[str, str] = {}
+    for required in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS:
+        options = RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FIELD_EQUIVALENTS.get(required, (required,))
+        match = next((field for field in options if field in available), "")
+        if match:
+            present.append(required)
+            mapped[required] = match
+        else:
+            missing.append(required)
+    return present, missing, mapped
+
+
+def _rzd_db_schema_discovery_target_from_file(path: Path, repo_root: Path) -> dict[str, Any] | None:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    if not _rzd_db_schema_discovery_relevant(text, path):
+        return None
+    rel = str(path.relative_to(repo_root)) if path.is_relative_to(repo_root) else str(path)
+    lines = text.splitlines()
+    table_match = re.search(r"__tablename__\s*=\s*[\"']([^\"']+)[\"']", text)
+    class_matches = list(re.finditer(r"^class\s+([A-Za-z_]\w*)\(([^)]*)\):", text, flags=re.MULTILINE))
+    class_name = class_matches[0].group(1) if class_matches else ""
+    source_line_start = 1
+    source_line_end = len(lines)
+    if class_matches:
+        source_line_start = text[: class_matches[0].start()].count("\n") + 1
+        source_line_end = len(lines)
+    target_type = "unknown"
+    if table_match and ("mapped_column" in text or "Base" in text):
+        target_type = "sqlalchemy_model"
+    elif "BaseModel" in text:
+        target_type = "pydantic_schema"
+    elif "op.create_table" in text or "op.add_column" in text:
+        target_type = "migration"
+    elif "\\services\\" in str(path) or "/services/" in path.as_posix():
+        target_type = "service"
+    elif "\\repositories\\" in str(path) or "/repositories/" in path.as_posix() or "\\crud\\" in str(path) or "/crud/" in path.as_posix():
+        target_type = "repository"
+    table_name = table_match.group(1) if table_match else ""
+    fields: set[str] = set()
+    for match in re.finditer(r"^\s+([A-Za-z_]\w*)\s*:\s*Mapped\[[^\n=]+\]\s*=\s*mapped_column", text, flags=re.MULTILINE):
+        fields.add(match.group(1))
+    for match in re.finditer(r"^\s+([A-Za-z_]\w*)\s*=\s*mapped_column", text, flags=re.MULTILINE):
+        fields.add(match.group(1))
+    for match in re.finditer(r"^\s+([A-Za-z_]\w*)\s*:\s*[^=\n]+(?:=|$)", text, flags=re.MULTILINE):
+        if class_name:
+            fields.add(match.group(1))
+    for match in re.finditer(r"(?:sa\.)?Column\([\"']([^\"']+)[\"']", text):
+        fields.add(match.group(1))
+    available_fields = sorted(field for field in fields if not field.startswith("_"))
+    present, missing, _mapped = _rzd_db_schema_discovery_fields_present(available_fields)
+    unique_key_candidates: list[str] = []
+    for match in re.finditer(r"UniqueConstraint\(([^)]*)\)", text, flags=re.DOTALL):
+        unique_key_candidates.append(" ".join(re.findall(r"[\"']([^\"']+)[\"']", match.group(1))))
+    if "natural_key_sha256" in available_fields:
+        unique_key_candidates.append("natural_key_sha256")
+    reason_codes: list[str] = []
+    name_blob = f"{rel} {table_name} {class_name} {' '.join(available_fields)}".lower()
+    is_candidate = target_type in {"sqlalchemy_model", "pydantic_schema", "repository", "service", "migration"} and any(
+        keyword in name_blob for keyword in ("financial", "statement", "report", "metric", "value", "fundamental")
+    )
+    if is_candidate:
+        reason_codes.append("name_or_field_matches_financial_value_context")
+    if target_type == "sqlalchemy_model":
+        reason_codes.append("sqlalchemy_model_discovered")
+    if present:
+        reason_codes.append("required_field_overlap_detected")
+    return {
+        "target_id": hashlib.sha256(rel.encode("utf-8")).hexdigest()[:16],
+        "target_name": table_name or class_name or path.stem,
+        "target_type": target_type,
+        "source_file": rel,
+        "source_line_start": source_line_start,
+        "source_line_end": source_line_end,
+        "table_name": table_name,
+        "model_name": class_name if target_type == "sqlalchemy_model" else "",
+        "class_name": class_name,
+        "is_candidate": bool(is_candidate),
+        "is_recommended": False,
+        "reason_codes": reason_codes,
+        "available_fields": available_fields,
+        "required_fields_present": present,
+        "required_fields_missing": missing,
+        "unique_key_candidates": [item for item in unique_key_candidates if item],
+        "safe_hint": "Static repository discovery only. No database connection, import, or migration was executed.",
+    }
+
+
+def _rzd_db_schema_discovery_scan_targets(repo_root: Path) -> list[dict[str, Any]]:
+    seen: set[Path] = set()
+    targets: list[dict[str, Any]] = []
+    for scope in _rzd_db_schema_discovery_scope_paths(repo_root):
+        if not scope.exists():
+            continue
+        for path in scope.rglob("*.py"):
+            resolved = path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            target = _rzd_db_schema_discovery_target_from_file(path, repo_root)
+            if target is not None:
+                targets.append(target)
+    return targets
+
+
+def _rzd_db_schema_discovery_choose_recommended(targets: list[dict[str, Any]]) -> dict[str, Any] | None:
+    candidates = [target for target in targets if _as_bool(target.get("is_candidate"))]
+    if not candidates:
+        return None
+    def score(target: dict[str, Any]) -> tuple[int, int, int, str]:
+        return (
+            len(target.get("required_fields_present") or []),
+            20 if "natural_key_sha256" in (target.get("available_fields") or []) else 0,
+            10 if target.get("target_type") == "sqlalchemy_model" else 0,
+            str(target.get("target_name") or ""),
+        )
+    recommended = sorted(candidates, key=score, reverse=True)[0]
+    recommended["is_recommended"] = True
+    if "recommended_best_static_field_coverage" not in recommended["reason_codes"]:
+        recommended["reason_codes"].append("recommended_best_static_field_coverage")
+    return recommended
+
+
+def _rzd_db_schema_discovery_plan_rows(plan: dict[str, Any], rows_payload: Any) -> list[dict[str, Any]]:
+    rows = plan.get("import_plan_rows")
+    if isinstance(rows, list):
+        return [row for row in rows if isinstance(row, dict)]
+    if isinstance(rows_payload, dict) and isinstance(rows_payload.get("import_plan_rows"), list):
+        return [row for row in rows_payload["import_plan_rows"] if isinstance(row, dict)]
+    if isinstance(rows_payload, list):
+        return [row for row in rows_payload if isinstance(row, dict)]
+    return []
+
+
+def _rzd_db_schema_discovery_mapping_rows(
+    plan_rows: list[dict[str, Any]],
+    recommended: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    if recommended is None:
+        return [
+            {
+                "mapping_row_id": f"rzd_db_schema_mapping:{index}",
+                "import_plan_row_id": str(row.get("import_plan_row_id") or ""),
+                "row_index": int(row.get("row_index") or index),
+                "target_logical_entity": str(row.get("target_logical_entity") or ""),
+                "recommended_physical_target": "",
+                "recommended_model_name": "",
+                "recommended_table_name": "",
+                "target_type": str(row.get("target_type") or ""),
+                "metric_key": str(row.get("metric_key") or ""),
+                "metric_role": str(row.get("metric_role") or ""),
+                "natural_key_sha256": str(row.get("natural_key_sha256") or ""),
+                "row_checksum_sha256": str(row.get("row_checksum_sha256") or ""),
+                "mapping_status": "unmapped",
+                "mapping_reason_codes": ["no_recommended_db_target"],
+                "mapped_fields": {},
+                "missing_fields": list(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS),
+                "type_warnings": [],
+                "safe_hint": "Mapping preview only. No database import was executed.",
+            }
+            for index, row in enumerate(plan_rows, start=1)
+        ]
+    _present, missing, mapped_fields = _rzd_db_schema_discovery_fields_present(list(recommended.get("available_fields") or []))
+    status = "mapped" if not missing and "natural_key_sha256" in (recommended.get("available_fields") or []) else "blocked"
+    reasons = ["recommended_target_field_mapping_available"] if status == "mapped" else ["recommended_target_missing_required_fields"]
+    return [
+        {
+            "mapping_row_id": f"rzd_db_schema_mapping:{index}",
+            "import_plan_row_id": str(row.get("import_plan_row_id") or ""),
+            "row_index": int(row.get("row_index") or index),
+            "target_logical_entity": str(row.get("target_logical_entity") or ""),
+            "recommended_physical_target": str(recommended.get("target_name") or ""),
+            "recommended_model_name": str(recommended.get("model_name") or ""),
+            "recommended_table_name": str(recommended.get("table_name") or ""),
+            "target_type": str(row.get("target_type") or ""),
+            "metric_key": str(row.get("metric_key") or ""),
+            "metric_role": str(row.get("metric_role") or ""),
+            "natural_key_sha256": str(row.get("natural_key_sha256") or ""),
+            "row_checksum_sha256": str(row.get("row_checksum_sha256") or ""),
+            "mapping_status": status,
+            "mapping_reason_codes": reasons,
+            "mapped_fields": dict(mapped_fields),
+            "missing_fields": list(missing),
+            "type_warnings": [],
+            "safe_hint": "Mapping preview only. No database import was executed.",
+        }
+        for index, row in enumerate(plan_rows, start=1)
+    ]
+
+
+def _build_rzd_manual_official_pdf_controlled_values_db_schema_discovery_report(
+    plan: dict[str, Any],
+    *,
+    rows_payload: Any,
+    readiness_gate: dict[str, Any],
+    inputs: dict[str, Path | None],
+    import_plan_input_available: bool,
+) -> dict[str, Any]:
+    repo_root = _rzd_db_schema_discovery_repo_root()
+    targets = _rzd_db_schema_discovery_scan_targets(repo_root)
+    recommended = _rzd_db_schema_discovery_choose_recommended(targets)
+    plan_rows = _rzd_db_schema_discovery_plan_rows(plan, rows_payload)
+    mapping_rows = _rzd_db_schema_discovery_mapping_rows(plan_rows, recommended)
+    candidate_targets = [target for target in targets if _as_bool(target.get("is_candidate"))]
+    recommended_targets = [target for target in targets if _as_bool(target.get("is_recommended"))]
+    recommended_missing = list((recommended or {}).get("required_fields_missing") or [])
+    recommended_fields = list((recommended or {}).get("available_fields") or [])
+    missing_unique = [field for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_RECOMMENDED_UNIQUE_KEY_FIELDS if field not in recommended_fields]
+    plan_safety_leaks = [
+        flag
+        for flag in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FORBIDDEN_SAFETY_FLAGS
+        if _as_bool(plan.get(flag)) or _as_bool((plan.get("safety_flags") or {}).get(flag))
+    ]
+    readiness_gate_present = bool(readiness_gate)
+    readiness_gate_ready = (
+        not readiness_gate_present
+        or (
+            _as_bool(readiness_gate.get("ready_for_controlled_import_apply"))
+            and int(readiness_gate.get("blocker_count") or 0) == 0
+            and str(readiness_gate.get("import_readiness_gate_status") or readiness_gate.get("status") or "") in {"passed", "warning"}
+        )
+    )
+    checks = [
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("import_plan_input_available", passed=import_plan_input_available),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("import_plan_preview_ready", passed=_as_bool(plan.get("import_plan_preview_ready"))),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("import_plan_not_direct_import", passed=not _as_bool(plan.get("ready_for_controlled_import"))),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("readiness_gate_input_optional_or_ready", passed=readiness_gate_ready),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("import_plan_rows_available", passed=bool(plan_rows)),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("repository_schema_files_scanned", passed=bool(targets) or any(path.exists() for path in _rzd_db_schema_discovery_scope_paths(repo_root))),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("candidate_targets_found", passed=bool(candidate_targets)),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("recommended_target_found", passed=bool(recommended_targets)),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("required_fields_covered", passed=bool(recommended) and not recommended_missing),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("unique_key_supported", passed=bool(recommended) and not missing_unique),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("plan_rows_mappable", passed=bool(plan_rows) and bool(mapping_rows) and all(row.get("mapping_status") == "mapped" for row in mapping_rows)),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("safety_flags_false", passed=not plan_safety_leaks),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("read_only_no_import_executed", passed=not _as_bool(plan.get("import_executed"))),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("read_only_no_database_mutation", passed=not _as_bool(plan.get("database_mutated"))),
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_check_row("read_only_no_migration_executed", passed=True),
+    ]
+    blocker_code_by_check = {
+        "import_plan_input_available": "import_plan_input_missing",
+        "import_plan_preview_ready": "import_plan_preview_not_ready",
+        "import_plan_not_direct_import": "import_plan_unexpected_direct_import_readiness",
+        "readiness_gate_input_optional_or_ready": "import_readiness_gate_not_ready",
+        "import_plan_rows_available": "import_plan_rows_missing",
+        "repository_schema_files_scanned": "repository_schema_files_not_scanned",
+        "candidate_targets_found": "candidate_db_target_not_found",
+        "recommended_target_found": "recommended_db_target_not_found",
+        "required_fields_covered": "required_fields_missing",
+        "unique_key_supported": "unique_key_not_supported",
+        "plan_rows_mappable": "import_plan_rows_not_mappable",
+        "safety_flags_false": "safety_flag_true",
+        "read_only_no_import_executed": "import_already_executed",
+        "read_only_no_database_mutation": "database_already_mutated",
+        "read_only_no_migration_executed": "migration_already_executed",
+    }
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_blocker_row(
+            blocker_code_by_check.get(str(row["code"]), str(row["code"])),
+            message=str(row["message"]),
+        )
+        for row in checks
+        if row["status"] == "blocked"
+    ]
+    warning_rows = [row for row in checks if row["status"] == "warning"]
+    status = "blocked" if blocker_rows else "warning"
+    required_present = list((recommended or {}).get("required_fields_present") or [])
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery",
+        "status": status,
+        "schema_discovery_status": status,
+        "ready_for_schema_mapping_review": not blocker_rows,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "import_plan_preview_ready": _as_bool(plan.get("import_plan_preview_ready")),
+        "import_readiness_gate_ready": readiness_gate_ready,
+        "company_id": str(plan.get("company_id") or ""),
+        "company_name": str(plan.get("company_name") or ""),
+        "report_year": int(plan.get("report_year") or 0),
+        "report_standard": str(plan.get("report_standard") or ""),
+        "input_import_plan_row_count": len(plan_rows),
+        "input_planned_aggregate_row_count": int(plan.get("planned_aggregate_row_count") or 0),
+        "input_planned_component_row_count": int(plan.get("planned_component_row_count") or 0),
+        "discovered_target_count": len(targets),
+        "candidate_target_count": len(candidate_targets),
+        "recommended_target_count": len(recommended_targets),
+        "mapping_row_count": len(mapping_rows),
+        "mapped_import_plan_row_count": sum(1 for row in mapping_rows if row.get("mapping_status") == "mapped"),
+        "unmapped_import_plan_row_count": sum(1 for row in mapping_rows if row.get("mapping_status") != "mapped"),
+        "required_field_count": len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS),
+        "required_field_present_count": len(required_present),
+        "required_field_missing_count": len(recommended_missing) if recommended else len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS),
+        "unique_key_candidate_count": len((recommended or {}).get("unique_key_candidates") or []),
+        "recommended_unique_key_field_count": len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_RECOMMENDED_UNIQUE_KEY_FIELDS),
+        "missing_unique_key_field_count": len(missing_unique) if recommended else len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_RECOMMENDED_UNIQUE_KEY_FIELDS),
+        "migration_required": bool(blocker_rows),
+        "model_required": not bool(recommended),
+        "repository_required": bool(blocker_rows),
+        "schema_required": bool(blocker_rows),
+        "schema_discovery_check_count": len(checks),
+        "schema_discovery_passed_check_count": sum(1 for row in checks if row["status"] == "passed"),
+        "schema_discovery_warning_check_count": len(warning_rows),
+        "schema_discovery_blocked_check_count": sum(1 for row in checks if row["status"] == "blocked"),
+        "bad_required_count": int(plan.get("bad_required_count") or 0),
+        "bad_safety_count": int(plan.get("bad_safety_count") or 0) + len(plan_safety_leaks),
+        "bad_import_plan_count": int(plan.get("bad_import_plan_count") or 0),
+        "bad_readiness_gate_count": 0 if readiness_gate_ready else 1,
+        "bad_schema_discovery_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows),
+        "warning_count": len(warning_rows),
+        "warning_code_counts": _count_by_key(warning_rows, "code"),
+        "warnings": warning_rows,
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_db_schema_discovery_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_db_schema_discovery_safety_flags(),
+        "discovered_targets": targets,
+        "mapping_rows": mapping_rows,
+        "schema_discovery_check_rows": checks,
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. No migration was executed. This is schema discovery only.",
+        "next_step": "Add or verify a dedicated controlled statement-value target schema before any future controlled import apply task.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery", status),
+        "errors": [],
+    }
+    _rzd_manual_official_pdf_controlled_values_db_schema_discovery_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in (
+        "mode", "status", "schema_discovery_status", "company_id", "company_name",
+        "report_standard", "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["ready_for_controlled_import_apply"] = False
+    report["ready_for_controlled_import"] = False
+    report["import_executed"] = False
+    report["database_mutated"] = False
+    report["warning_code_counts"] = dict(report.get("warning_code_counts") or {})
+    report["warnings"] = list(report.get("warnings") or [])
+    report["safety_flags"] = dict(report.get("safety_flags") or {})
+    report["discovered_targets"] = list(report.get("discovered_targets") or [])
+    report["mapping_rows"] = list(report.get("mapping_rows") or [])
+    report["schema_discovery_check_rows"] = list(report.get("schema_discovery_check_rows") or [])
+    report["blocker_rows"] = list(report.get("blocker_rows") or [])
+    report["blocker_count"] = len(report["blocker_rows"])
+    report["bad_schema_discovery_count"] = report["blocker_count"]
+    if report["blocker_count"] and report.get("status") != "failed":
+        report["status"] = "blocked"
+        report["schema_discovery_status"] = "blocked"
+        report["ready_for_schema_mapping_review"] = False
+    if not report["blocker_count"] and report.get("status") != "failed":
+        report["status"] = "warning"
+        report["schema_discovery_status"] = "warning"
+        report["ready_for_schema_mapping_review"] = True
+    for target in report["discovered_targets"]:
+        for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_TARGET_FIELDS:
+            if field not in target or target[field] is None:
+                target[field] = [] if field in {"reason_codes", "available_fields", "required_fields_present", "required_fields_missing", "unique_key_candidates"} else False if field in {"is_candidate", "is_recommended"} else 0 if field.startswith("source_line") else ""
+    for row in report["mapping_rows"]:
+        for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_FIELDS:
+            if field not in row or row[field] is None:
+                row[field] = {} if field == "mapped_fields" else [] if field in {"mapping_reason_codes", "missing_fields", "type_warnings"} else 0 if field == "row_index" else ""
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_db_schema_discovery_blocker_row(
+            str(error.get("message") or "controlled_values_db_schema_discovery_failed")
+        )
+        for error in errors
+    ]
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery",
+        "status": "failed",
+        "schema_discovery_status": "failed",
+        "ready_for_schema_mapping_review": False,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "import_plan_preview_ready": False,
+        "import_readiness_gate_ready": False,
+        "company_id": "", "company_name": "", "report_year": 0, "report_standard": "",
+        "input_import_plan_row_count": 0, "input_planned_aggregate_row_count": 0, "input_planned_component_row_count": 0,
+        "discovered_target_count": 0, "candidate_target_count": 0, "recommended_target_count": 0,
+        "mapping_row_count": 0, "mapped_import_plan_row_count": 0, "unmapped_import_plan_row_count": 0,
+        "required_field_count": len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS),
+        "required_field_present_count": 0, "required_field_missing_count": len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS),
+        "unique_key_candidate_count": 0, "recommended_unique_key_field_count": 1, "missing_unique_key_field_count": 1,
+        "migration_required": True, "model_required": True, "repository_required": True, "schema_required": True,
+        "schema_discovery_check_count": 0, "schema_discovery_passed_check_count": 0,
+        "schema_discovery_warning_check_count": 0, "schema_discovery_blocked_check_count": 0,
+        "bad_required_count": 1, "bad_safety_count": 0, "bad_import_plan_count": 0,
+        "bad_readiness_gate_count": 0, "bad_schema_discovery_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows), "warning_count": 0,
+        "warning_code_counts": {}, "warnings": [],
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_db_schema_discovery_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_db_schema_discovery_safety_flags(),
+        "discovered_targets": [], "mapping_rows": [], "schema_discovery_check_rows": [],
+        "blocker_rows": blocker_rows, "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. No migration was executed. This is schema discovery only.",
+        "next_step": "Fix required inputs before schema discovery can run.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery", "failed"),
+        "errors": errors,
+        "artifacts": {key: str(path or "") for key, path in artifacts.items()},
+    }
+    _rzd_manual_official_pdf_controlled_values_db_schema_discovery_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_values_db_schema_discovery_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_db_schema_discovery_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_write_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    _write_optional_json_report(report, artifacts["discovery_json"])
+    _write_optional_flat_csv([report], RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FIELDS, artifacts["discovery_csv"])
+    if artifacts["discovery_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_values_db_schema_discovery_markdown(report, artifacts["discovery_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "target_count": len(report.get("discovered_targets") or []),
+            "discovered_targets": report.get("discovered_targets") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["targets_json"],
+    )
+    _write_optional_flat_csv(report.get("discovered_targets") or [], RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_TARGET_FIELDS, artifacts["targets_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "mapping_row_count": len(report.get("mapping_rows") or []),
+            "mapping_rows": report.get("mapping_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["mapping_json"],
+    )
+    _write_optional_flat_csv(report.get("mapping_rows") or [], RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_CSV_FIELDS, artifacts["mapping_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "check_count": len(report.get("schema_discovery_check_rows") or []),
+            "schema_discovery_check_rows": report.get("schema_discovery_check_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["checks_json"],
+    )
+    _write_optional_flat_csv(report.get("schema_discovery_check_rows") or [], RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_CHECK_FIELDS, artifacts["checks_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "blocker_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_BLOCKER_FIELDS, artifacts["blockers_csv"])
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -58925,6 +59715,11 @@ def write_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdo
     path.write_text(render_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_db_schema_discovery_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -59202,6 +59997,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-import-readiness-gate":
         return render_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery":
+        return render_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -64520,6 +65317,125 @@ def render_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markd
             + " |"
         )
     if not report.get("readiness_check_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(["", "## Warnings", ""])
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(f"- `{warning.get('code') or warning.get('message') or warning}`" for warning in warnings)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Blockers", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Decision", "", decision, "", "## Next step", "", str(report.get("next_step") or "")])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_markdown(report: dict[str, Any]) -> str:
+    decision = (
+        "Decision: DB target schema appears ready for controlled import apply planning, but no import was executed."
+        if _as_bool(report.get("ready_for_schema_mapping_review")) and not report.get("blocker_rows")
+        else "Decision: blocked until DB target schema/migration gaps are resolved."
+    )
+    lines = [
+        "# RZD Controlled Values DB Import Target Schema Discovery",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- schema_discovery_status: `{report.get('schema_discovery_status')}`",
+        f"- ready_for_schema_mapping_review: `{report.get('ready_for_schema_mapping_review')}`",
+        f"- ready_for_controlled_import_apply: `{report.get('ready_for_controlled_import_apply')}`",
+        "",
+        "## Inputs",
+        "",
+        f"- company: `{report.get('company_id')}` {report.get('company_name')}",
+        f"- report_year: `{report.get('report_year')}`",
+        f"- import plan rows: {report.get('input_import_plan_row_count', 0)}",
+        f"- readiness gate ready: `{report.get('import_readiness_gate_ready')}`",
+        "",
+        "## Discovered targets",
+        "",
+        f"- discovered targets: {report.get('discovered_target_count', 0)}",
+        f"- candidate targets: {report.get('candidate_target_count', 0)}",
+        f"- recommended targets: {report.get('recommended_target_count', 0)}",
+        "",
+        "| Target | Type | Table | Model | Candidate | Recommended | Missing fields |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for target in report.get("discovered_targets") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    target.get("target_name"),
+                    target.get("target_type"),
+                    target.get("table_name"),
+                    target.get("model_name"),
+                    target.get("is_candidate"),
+                    target.get("is_recommended"),
+                    ", ".join(target.get("required_fields_missing") or []),
+                )
+            )
+            + " |"
+        )
+    if not report.get("discovered_targets"):
+        lines.append("| none |  |  |  |  |  |  |")
+    recommended = next((target for target in report.get("discovered_targets") or [] if target.get("is_recommended")), {})
+    lines.extend(
+        [
+            "",
+            "## Recommended target",
+            "",
+            f"- target: `{recommended.get('target_name', '')}`",
+            f"- model: `{recommended.get('model_name', '')}`",
+            f"- table: `{recommended.get('table_name', '')}`",
+            "",
+            "## Required field coverage",
+            "",
+            f"- required fields: {report.get('required_field_count', 0)}",
+            f"- present: {report.get('required_field_present_count', 0)}",
+            f"- missing: {report.get('required_field_missing_count', 0)}",
+            "",
+            "## Unique key readiness",
+            "",
+            f"- unique key candidates: {report.get('unique_key_candidate_count', 0)}",
+            f"- missing unique key fields: {report.get('missing_unique_key_field_count', 0)}",
+            "",
+            "## Import plan row mapping",
+            "",
+            f"- mapping rows: {report.get('mapping_row_count', 0)}",
+            f"- mapped rows: {report.get('mapped_import_plan_row_count', 0)}",
+            f"- unmapped rows: {report.get('unmapped_import_plan_row_count', 0)}",
+            "",
+            "## Safety status",
+            "",
+            "- No database import was executed.",
+            "- No migration was executed.",
+            "- This is schema discovery only.",
+            f"- database_mutated: `{report.get('database_mutated')}`",
+            f"- migration_executed: `{report.get('migration_executed')}`",
+            "",
+            "## Checks",
+            "",
+            "| Code | Status | Severity | Message |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("schema_discovery_check_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (row.get("code"), row.get("status"), row.get("severity"), row.get("message"))
+            )
+            + " |"
+        )
+    if not report.get("schema_discovery_check_rows"):
         lines.append("| none |  |  |  |")
     lines.extend(["", "## Warnings", ""])
     warnings = report.get("warnings") or []
@@ -75526,6 +76442,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review this Task175 import plan preview; actual database import remains a separate controlled execution task."]
     if mode == "rzd-manual-official-pdf-controlled-values-import-readiness-gate":
         return ["Use this Task176 readiness gate only to prepare a future controlled apply step; no database import is executed here."]
+    if mode == "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery":
+        return ["Review the discovered DB target schema gaps before building any future controlled import apply task; this mode is read-only."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -75802,6 +76720,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_controlled_values_import_readiness_gate_inputs(args),
             artifacts=_rzd_manual_official_pdf_controlled_values_import_readiness_gate_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery":
+        return not _rzd_manual_official_pdf_controlled_values_db_schema_discovery_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_values_db_schema_discovery_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_values_db_schema_discovery_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
