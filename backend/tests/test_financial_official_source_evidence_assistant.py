@@ -16755,6 +16755,147 @@ def test_rzd_manual_official_pdf_controlled_values_import_plan_markdown_sections
     _assert_rzd_controlled_values_import_plan_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_missing_token_blocks(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert plan["import_plan_preview_ready"] is True
+    assert report["status"] == "blocked"
+    assert report["import_readiness_gate_status"] == "blocked"
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["operator_confirmation_token_present"] is False
+    assert report["operator_confirmation_token_valid"] is False
+    assert report["blocker_count"] > 0
+    assert "operator_confirmation_token_missing" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_valid_token_and_checksums(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-confirmation-token",
+            assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_CONFIRMATION_TOKEN,
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-expected-plan-sha256",
+            plan["plan_checksum_sha256"],
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-expected-plan-rows-sha256",
+            plan["plan_rows_checksum_sha256"],
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-expected-row-count",
+            str(plan["planned_import_row_count"]),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert report["import_readiness_gate_status"] == "warning"
+    assert report["ready_for_controlled_import_plan"] is True
+    assert report["ready_for_controlled_import_apply"] is True
+    assert report["ready_for_controlled_import"] is False
+    assert report["checksum_match"] is True
+    assert report["plan_rows_checksum_match"] is True
+    assert report["row_count_match"] is True
+    assert report["operator_confirmation_token_present"] is True
+    assert report["operator_confirmation_token_valid"] is True
+    assert report["actual_planned_import_row_count"] == 24
+    assert report["planned_aggregate_row_count"] == 21
+    assert report["planned_component_row_count"] == 3
+    assert report["bad_required_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert report["bad_import_plan_count"] == 0
+    assert report["bad_readiness_gate_count"] == 0
+    assert report["blocker_count"] == 0
+    assert report["readiness_blocked_check_count"] == 0
+    assert report["readiness_warning_check_count"] >= 1
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_wrong_plan_checksum_blocks(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path)
+
+    report = _run_task176_with_plan_expectations(tmp_path, plan, expected_plan_sha="0" * 64)
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["checksum_match"] is False
+    assert "plan_checksum_mismatch" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_wrong_rows_checksum_blocks(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path)
+
+    report = _run_task176_with_plan_expectations(tmp_path, plan, expected_rows_sha="1" * 64)
+
+    assert report["status"] == "blocked"
+    assert report["plan_rows_checksum_match"] is False
+    assert "plan_rows_checksum_mismatch" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_wrong_row_count_blocks(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path)
+
+    report = _run_task176_with_plan_expectations(tmp_path, plan, expected_row_count=plan["planned_import_row_count"] + 1)
+
+    assert report["status"] == "blocked"
+    assert report["row_count_match"] is False
+    assert "row_count_mismatch" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_direct_import_readiness_blocks(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path, mutate_plan={"ready_for_controlled_import": True})
+
+    report = _run_task176_with_plan_expectations(tmp_path, plan)
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_controlled_import_apply"] is False
+    assert "import_plan_unexpected_direct_import_readiness" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_safety_flag_blocks(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path, mutate_plan={"database_mutated": True})
+
+    report = _run_task176_with_plan_expectations(tmp_path, plan)
+
+    assert report["status"] == "blocked"
+    assert report["bad_safety_count"] > 0
+    assert "safety_flag_true" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_readiness_gate_wrappers_and_markdown(tmp_path: Path) -> None:
+    plan = _write_task176_ready_inputs(tmp_path)
+
+    report = _run_task176_with_plan_expectations(tmp_path, plan)
+
+    checks_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_import_readiness_gate_checks_task176.json").read_text(encoding="utf-8"))
+    assert isinstance(checks_payload["check_count"], int)
+    assert checks_payload["check_count"] == len(checks_payload["readiness_check_rows"])
+    assert isinstance(checks_payload["safe_hint"], str)
+    blockers_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_import_readiness_gate_blockers_task176.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers_payload["blocker_count"], int)
+    assert blockers_payload["blocker_count"] == len(blockers_payload["blocker_rows"])
+    assert isinstance(blockers_payload["safe_hint"], str)
+    markdown = (tmp_path / "rzd_manual_official_pdf_controlled_values_import_readiness_gate_task176.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values Import Readiness Gate",
+        "## Checksum verification",
+        "## Operator confirmation",
+        "## Decision",
+    ):
+        assert section in markdown
+    assert "No database import was executed" in markdown
+    assert "Decision: ready for future controlled apply step, but no import was executed." in markdown
+    _assert_rzd_controlled_values_import_readiness_gate_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -24796,6 +24937,19 @@ def _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(extra_arg
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-import-readiness-gate",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -26386,6 +26540,44 @@ def _write_task175_ready_inputs(
     return gate
 
 
+def _write_task176_ready_inputs(tmp_path: Path, *, mutate_plan: dict[str, object] | None = None) -> dict:
+    _write_task175_ready_inputs(tmp_path)
+    plan = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+    if mutate_plan:
+        plan.update(mutate_plan)
+        (tmp_path / "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.json").write_text(
+            json.dumps(plan, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    return plan
+
+
+def _run_task176_with_plan_expectations(
+    tmp_path: Path,
+    plan: dict,
+    *,
+    expected_plan_sha: str | None = None,
+    expected_rows_sha: str | None = None,
+    expected_row_count: int | None = None,
+) -> dict:
+    return _run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(tmp_path),
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-confirmation-token",
+            assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_CONFIRMATION_TOKEN,
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-expected-plan-sha256",
+            expected_plan_sha if expected_plan_sha is not None else plan["plan_checksum_sha256"],
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-expected-plan-rows-sha256",
+            expected_rows_sha if expected_rows_sha is not None else plan["plan_rows_checksum_sha256"],
+            "--rzd-manual-official-pdf-controlled-values-import-readiness-expected-row-count",
+            str(expected_row_count if expected_row_count is not None else plan["planned_import_row_count"]),
+        ]
+    )
+
+
 def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -26442,6 +26634,55 @@ def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
             assert row[field] is not None
     for row in report.get("blocker_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+
+
+def _assert_rzd_controlled_values_import_readiness_gate_fields(report: dict) -> None:
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "import_readiness_gate_status",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "document_language",
+        "document_kind",
+        "source_pdf_sha256",
+        "source_pdf_controlled_copy_path",
+        "expected_plan_checksum_sha256",
+        "actual_plan_checksum_sha256",
+        "expected_plan_rows_checksum_sha256",
+        "actual_plan_rows_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("human_review_reason_codes"), list)
+    assert isinstance(report.get("warning_code_counts"), dict)
+    assert isinstance(report.get("warnings"), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert isinstance(report.get("readiness_check_rows"), list)
+    assert isinstance(report.get("blocker_rows"), list)
+    assert report["ready_for_controlled_import"] is False
+    assert report["import_executed"] is False
+    assert report["database_mutated"] is False
+    for row in report.get("readiness_check_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_BLOCKER_FIELDS:
             assert field in row
             assert row[field] is not None
 

@@ -88,6 +88,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-evidence-pack",
     "rzd-manual-official-pdf-controlled-values-manual-review-gate",
     "rzd-manual-official-pdf-controlled-values-import-plan-preview",
+    "rzd-manual-official-pdf-controlled-values-import-readiness-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -7932,6 +7933,55 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_FORBIDDEN_SAFETY_FLAGS = (
     "source_page_fetched", "document_url_fetched", "documents_downloaded", "import_executed",
     "database_mutated", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
 )
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_CONFIRMATION_TOKEN = "CONFIRM_RZD_CONTROLLED_VALUES_IMPORT_READINESS_ONLY"
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_ARTIFACT_NAMES = {
+    "gate_json": "rzd_manual_official_pdf_controlled_values_import_readiness_gate_task176.json",
+    "gate_csv": "rzd_manual_official_pdf_controlled_values_import_readiness_gate_task176.csv",
+    "gate_markdown": "rzd_manual_official_pdf_controlled_values_import_readiness_gate_task176.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_import_readiness_gate_checks_task176.json",
+    "checks_csv": "rzd_manual_official_pdf_controlled_values_import_readiness_gate_checks_task176.csv",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_import_readiness_gate_blockers_task176.json",
+    "blockers_csv": "rzd_manual_official_pdf_controlled_values_import_readiness_gate_blockers_task176.csv",
+}
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_FIELDS = [
+    "mode", "status", "import_readiness_gate_status",
+    "ready_for_controlled_import_plan", "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "import_plan_preview_ready", "manual_review_gate_ready", "controlled_value_extraction_ready",
+    "company_id", "company_name", "report_year", "report_standard", "document_language", "document_kind",
+    "source_pdf_sha256", "source_pdf_page_count", "source_pdf_controlled_copy_path",
+    "expected_plan_checksum_sha256", "actual_plan_checksum_sha256",
+    "expected_plan_rows_checksum_sha256", "actual_plan_rows_checksum_sha256",
+    "expected_row_count", "actual_planned_import_row_count", "planned_aggregate_row_count", "planned_component_row_count",
+    "checksum_match", "plan_rows_checksum_match", "row_count_match",
+    "operator_confirmation_token_present", "operator_confirmation_token_valid",
+    "readiness_check_count", "readiness_passed_check_count", "readiness_warning_check_count", "readiness_blocked_check_count",
+    "bad_required_count", "bad_safety_count", "bad_import_plan_count", "bad_readiness_gate_count",
+    "blocker_count", "warning_count", "human_review_required", "human_review_reason_codes", "safe_hint", "next_step",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_CHECK_FIELDS = [
+    "check_id", "severity", "status", "code", "message", "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_REQUIRED_BOOL_FIELDS = (
+    "ready_for_controlled_import_plan", "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "import_plan_preview_ready", "manual_review_gate_ready", "controlled_value_extraction_ready",
+    "checksum_match", "plan_rows_checksum_match", "row_count_match",
+    "operator_confirmation_token_present", "operator_confirmation_token_valid",
+    "human_review_required", "read_only", "dry_run_only",
+    "would_fetch_source_page", "would_fetch_document_url", "would_download_document",
+    "would_import_report", "would_mutate_database", "would_score_issuers", "would_trigger_paper_trading",
+    "source_page_fetched", "document_url_fetched", "documents_downloaded", "import_executed",
+    "database_mutated", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_REQUIRED_COUNT_FIELDS = (
+    "report_year", "source_pdf_page_count", "expected_row_count", "actual_planned_import_row_count",
+    "planned_aggregate_row_count", "planned_component_row_count",
+    "readiness_check_count", "readiness_passed_check_count", "readiness_warning_check_count", "readiness_blocked_check_count",
+    "bad_required_count", "bad_safety_count", "bad_import_plan_count", "bad_readiness_gate_count",
+    "blocker_count", "warning_count",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -9506,6 +9556,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-checks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-checks-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-rows-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-checks-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-blockers-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-confirmation-token", default="")
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-expected-plan-sha256", default="")
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-expected-plan-rows-sha256", default="")
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-expected-row-count", type=int, default=0)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-checks-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-readiness-gate-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -9757,6 +9822,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_manual_review_gate(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-import-plan-preview":
         report = run_rzd_manual_official_pdf_controlled_values_import_plan_preview(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-import-readiness-gate":
+        report = run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -50176,6 +50243,435 @@ def _rzd_manual_official_pdf_controlled_values_import_plan_write_outputs(report:
     _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_BLOCKER_FIELDS, artifacts["blockers_csv"])
 
 
+def run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_values_import_readiness_gate_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_values_import_readiness_gate_artifacts(args)
+    output_errors = _rzd_manual_official_pdf_controlled_values_import_readiness_gate_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_manual_official_pdf_controlled_values_import_readiness_gate_failed_report(
+            output_errors,
+            artifacts=artifacts,
+            write_outputs=False,
+        )
+    plan_path = inputs["import_plan_preview"]
+    if plan_path is None or not plan_path.is_file():
+        report = _build_rzd_manual_official_pdf_controlled_values_import_readiness_gate_report(
+            {},
+            args=args,
+            inputs=inputs,
+            input_available=False,
+        )
+    else:
+        try:
+            plan = _load_json_object(plan_path)
+            for optional_key in ("import_plan_rows", "import_plan_checks", "import_plan_blockers"):
+                optional_path = inputs.get(optional_key)
+                if optional_path is not None and optional_path.is_file():
+                    _load_json_object(optional_path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return _rzd_manual_official_pdf_controlled_values_import_readiness_gate_failed_report(
+                [{"message": "controlled_values_import_readiness_gate_input_required", "error": str(exc)}],
+                artifacts=artifacts,
+            )
+        report = _build_rzd_manual_official_pdf_controlled_values_import_readiness_gate_report(
+            plan,
+            args=args,
+            inputs=inputs,
+            input_available=True,
+        )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["import_readiness_gate_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_import_readiness_gate_write_failed", "error": str(exc)}]
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            "import_plan_preview": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["plan_json"],
+            "import_plan_rows": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["rows_json"],
+            "import_plan_checks": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["checks_json"],
+            "import_plan_blockers": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["blockers_json"],
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "import_plan_preview": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_input or defaults.get("import_plan_preview"),
+        "import_plan_rows": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_input or defaults.get("import_plan_rows"),
+        "import_plan_checks": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_checks_input or defaults.get("import_plan_checks"),
+        "import_plan_blockers": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_blockers_input or defaults.get("import_plan_blockers"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_ARTIFACT_NAMES.items()}
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "gate_json": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_output or defaults.get("gate_json"),
+        "gate_csv": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_csv_output or defaults.get("gate_csv"),
+        "gate_markdown": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown_output or defaults.get("gate_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_checks_output or defaults.get("checks_json"),
+        "checks_csv": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_checks_csv_output or defaults.get("checks_csv"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_blockers_output or defaults.get("blockers_json"),
+        "blockers_csv": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_blockers_csv_output or defaults.get("blockers_csv"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in artifacts.values() if path is not None]
+    for generic_output in (args.json_output, args.markdown_output):
+        if generic_output is not None:
+            outputs.append(generic_output)
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output in outputs:
+        if any(_paths_equal(output, input_path) for input_path in input_paths):
+            return [{"message": "rzd_controlled_values_import_readiness_gate_output_must_not_equal_input"}]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_controlled_values_import_readiness_gate_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_safety_flags() -> dict[str, bool]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row(
+    code: str,
+    *,
+    passed: bool,
+    warning: bool = False,
+    message: str = "",
+) -> dict[str, Any]:
+    status = "passed" if passed else ("warning" if warning else "blocked")
+    return {
+        "check_id": f"rzd_controlled_values_import_readiness_gate:global:{code}",
+        "severity": "info" if passed else ("warning" if warning else "error"),
+        "status": status,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "safe_hint": "This gate only confirms readiness for a future controlled apply step. No database import was executed.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_blocker_row(
+    code: str,
+    *,
+    message: str = "",
+    severity: str = "error",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_import_readiness_gate:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "safe_hint": "Resolve this blocker before any future controlled values import apply step.",
+    }
+
+
+def _build_rzd_manual_official_pdf_controlled_values_import_readiness_gate_report(
+    plan: dict[str, Any],
+    *,
+    args: argparse.Namespace,
+    inputs: dict[str, Path | None],
+    input_available: bool,
+) -> dict[str, Any]:
+    expected_plan_sha = str(args.rzd_manual_official_pdf_controlled_values_import_readiness_expected_plan_sha256 or "").strip().lower()
+    expected_rows_sha = str(args.rzd_manual_official_pdf_controlled_values_import_readiness_expected_plan_rows_sha256 or "").strip().lower()
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_readiness_expected_row_count or 0)
+    token = str(args.rzd_manual_official_pdf_controlled_values_import_readiness_confirmation_token or "")
+    token_present = bool(token)
+    token_valid = token == RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_CONFIRMATION_TOKEN
+    actual_plan_sha = str(plan.get("plan_checksum_sha256") or "").strip().lower()
+    actual_rows_sha = str(plan.get("plan_rows_checksum_sha256") or "").strip().lower()
+    actual_row_count = int(plan.get("planned_import_row_count") or 0)
+    checksum_match = bool(expected_plan_sha) and expected_plan_sha == actual_plan_sha
+    rows_checksum_match = bool(expected_rows_sha) and expected_rows_sha == actual_rows_sha
+    row_count_match = expected_row_count > 0 and expected_row_count == actual_row_count
+    plan_safety_leaks = [
+        flag
+        for flag in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_FORBIDDEN_SAFETY_FLAGS
+        if _as_bool(plan.get(flag)) or _as_bool((plan.get("safety_flags") or {}).get(flag))
+    ]
+    check_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("import_plan_preview_input_available", passed=input_available),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row(
+            "import_plan_preview_status_acceptable",
+            passed=str(plan.get("import_plan_preview_status") or plan.get("status") or "") in {"passed", "warning"},
+        ),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("import_plan_preview_ready", passed=_as_bool(plan.get("import_plan_preview_ready"))),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("import_plan_ready_for_import_plan", passed=_as_bool(plan.get("ready_for_controlled_import_plan"))),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("import_plan_not_ready_for_direct_import", passed=not _as_bool(plan.get("ready_for_controlled_import"))),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("manual_review_gate_ready", passed=_as_bool(plan.get("manual_review_gate_ready"))),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("controlled_value_extraction_ready", passed=_as_bool(plan.get("controlled_value_extraction_ready"))),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("no_import_plan_blockers", passed=int(plan.get("blocker_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("no_bad_required_count", passed=int(plan.get("bad_required_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("no_bad_safety_count", passed=int(plan.get("bad_safety_count") or 0) == 0 and not plan_safety_leaks),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("no_bad_import_plan_count", passed=int(plan.get("bad_import_plan_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("safety_flags_false", passed=not plan_safety_leaks),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("expected_plan_checksum_present", passed=bool(expected_plan_sha)),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("expected_plan_rows_checksum_present", passed=bool(expected_rows_sha)),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("expected_row_count_present", passed=expected_row_count > 0),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("plan_checksum_matches", passed=checksum_match),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("plan_rows_checksum_matches", passed=rows_checksum_match),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("row_count_matches", passed=row_count_match),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("operator_confirmation_token_present", passed=token_present),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("operator_confirmation_token_valid", passed=token_valid),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row("readiness_only_import_not_executed", passed=not _as_bool(plan.get("import_executed"))),
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_check_row(
+            "human_review_required_acknowledged",
+            passed=not _as_bool(plan.get("human_review_required")),
+            warning=_as_bool(plan.get("human_review_required")),
+            message="Human review remains acknowledged; this gate is readiness-only.",
+        ),
+    ]
+    blocker_code_by_check = {
+        "import_plan_preview_input_available": "import_plan_preview_input_required",
+        "import_plan_preview_status_acceptable": "import_plan_preview_not_acceptable",
+        "import_plan_preview_ready": "import_plan_preview_not_ready",
+        "import_plan_ready_for_import_plan": "import_plan_not_ready_for_import_plan",
+        "import_plan_not_ready_for_direct_import": "import_plan_unexpected_direct_import_readiness",
+        "manual_review_gate_ready": "manual_review_gate_not_ready",
+        "controlled_value_extraction_ready": "controlled_value_extraction_not_ready",
+        "no_import_plan_blockers": "import_plan_blockers_present",
+        "no_bad_required_count": "bad_required_count_present",
+        "no_bad_safety_count": "bad_safety_count_present",
+        "no_bad_import_plan_count": "bad_import_plan_count_present",
+        "safety_flags_false": "safety_flag_true",
+        "expected_plan_checksum_present": "expected_plan_checksum_missing",
+        "expected_plan_rows_checksum_present": "expected_plan_rows_checksum_missing",
+        "expected_row_count_present": "expected_row_count_missing",
+        "plan_checksum_matches": "plan_checksum_mismatch",
+        "plan_rows_checksum_matches": "plan_rows_checksum_mismatch",
+        "row_count_matches": "row_count_mismatch",
+        "operator_confirmation_token_present": "operator_confirmation_token_missing",
+        "operator_confirmation_token_valid": "operator_confirmation_token_invalid",
+        "readiness_only_import_not_executed": "import_already_executed",
+    }
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_blocker_row(
+            blocker_code_by_check.get(str(row["code"]), str(row["code"])),
+            message=str(row["message"]),
+        )
+        for row in check_rows
+        if row["status"] == "blocked"
+    ]
+    warning_rows = [row for row in check_rows if row["status"] == "warning"]
+    ready = not blocker_rows
+    status = "blocked" if blocker_rows else "warning"
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-readiness-gate",
+        "status": status,
+        "import_readiness_gate_status": status,
+        "ready_for_controlled_import_plan": ready,
+        "ready_for_controlled_import_apply": ready,
+        "ready_for_controlled_import": False,
+        "import_plan_preview_ready": _as_bool(plan.get("import_plan_preview_ready")),
+        "manual_review_gate_ready": _as_bool(plan.get("manual_review_gate_ready")),
+        "controlled_value_extraction_ready": _as_bool(plan.get("controlled_value_extraction_ready")),
+        "company_id": str(plan.get("company_id") or ""),
+        "company_name": str(plan.get("company_name") or ""),
+        "report_year": int(plan.get("report_year") or 0),
+        "report_standard": str(plan.get("report_standard") or ""),
+        "document_language": str(plan.get("document_language") or ""),
+        "document_kind": str(plan.get("document_kind") or ""),
+        "source_pdf_sha256": str(plan.get("source_pdf_sha256") or ""),
+        "source_pdf_page_count": int(plan.get("source_pdf_page_count") or 0),
+        "source_pdf_controlled_copy_path": str(plan.get("source_pdf_controlled_copy_path") or ""),
+        "expected_plan_checksum_sha256": expected_plan_sha,
+        "actual_plan_checksum_sha256": actual_plan_sha,
+        "expected_plan_rows_checksum_sha256": expected_rows_sha,
+        "actual_plan_rows_checksum_sha256": actual_rows_sha,
+        "expected_row_count": expected_row_count,
+        "actual_planned_import_row_count": actual_row_count,
+        "planned_aggregate_row_count": int(plan.get("planned_aggregate_row_count") or 0),
+        "planned_component_row_count": int(plan.get("planned_component_row_count") or 0),
+        "checksum_match": checksum_match,
+        "plan_rows_checksum_match": rows_checksum_match,
+        "row_count_match": row_count_match,
+        "operator_confirmation_token_present": token_present,
+        "operator_confirmation_token_valid": token_valid,
+        "readiness_check_count": len(check_rows),
+        "readiness_passed_check_count": sum(1 for row in check_rows if row["status"] == "passed"),
+        "readiness_warning_check_count": len(warning_rows),
+        "readiness_blocked_check_count": sum(1 for row in check_rows if row["status"] == "blocked"),
+        "bad_required_count": int(plan.get("bad_required_count") or 0),
+        "bad_safety_count": int(plan.get("bad_safety_count") or 0) + len(plan_safety_leaks),
+        "bad_import_plan_count": int(plan.get("bad_import_plan_count") or 0),
+        "bad_readiness_gate_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows),
+        "warning_count": len(warning_rows),
+        "human_review_required": _as_bool(plan.get("human_review_required")),
+        "human_review_reason_codes": list(plan.get("human_review_reason_codes") or []),
+        "warning_code_counts": _count_by_key(warning_rows, "code"),
+        "warnings": warning_rows,
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_import_readiness_gate_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_import_readiness_gate_safety_flags(),
+        "readiness_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. This gate only confirms readiness for a future controlled apply step.",
+        "next_step": "Future controlled apply step may be prepared only after this gate is ready; Task176 does not import anything.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-import-readiness-gate", status),
+        "errors": [],
+    }
+    _rzd_manual_official_pdf_controlled_values_import_readiness_gate_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in (
+        "mode", "status", "import_readiness_gate_status", "company_id", "company_name", "report_standard",
+        "document_language", "document_kind", "source_pdf_sha256", "source_pdf_controlled_copy_path",
+        "expected_plan_checksum_sha256", "actual_plan_checksum_sha256",
+        "expected_plan_rows_checksum_sha256", "actual_plan_rows_checksum_sha256",
+        "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["ready_for_controlled_import"] = False
+    report["import_executed"] = False
+    report["database_mutated"] = False
+    report["human_review_reason_codes"] = list(report.get("human_review_reason_codes") or [])
+    report["warning_code_counts"] = dict(report.get("warning_code_counts") or {})
+    report["warnings"] = list(report.get("warnings") or [])
+    report["safety_flags"] = dict(report.get("safety_flags") or {})
+    report["readiness_check_rows"] = list(report.get("readiness_check_rows") or [])
+    report["blocker_rows"] = list(report.get("blocker_rows") or [])
+    report["blocker_count"] = len(report["blocker_rows"])
+    report["bad_readiness_gate_count"] = report["blocker_count"]
+    if report["blocker_count"] and report.get("status") != "failed":
+        report["status"] = "blocked"
+        report["import_readiness_gate_status"] = "blocked"
+        report["ready_for_controlled_import_plan"] = False
+        report["ready_for_controlled_import_apply"] = False
+    if not report["blocker_count"] and report.get("status") != "failed":
+        report["status"] = "warning"
+        report["import_readiness_gate_status"] = "warning"
+        report["ready_for_controlled_import_plan"] = True
+        report["ready_for_controlled_import_apply"] = True
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_readiness_gate_blocker_row(
+            str(error.get("message") or "controlled_values_import_readiness_gate_failed")
+        )
+        for error in errors
+    ]
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-readiness-gate",
+        "status": "failed",
+        "import_readiness_gate_status": "failed",
+        "ready_for_controlled_import_plan": False,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "import_plan_preview_ready": False,
+        "manual_review_gate_ready": False,
+        "controlled_value_extraction_ready": False,
+        "company_id": "", "company_name": "", "report_year": 0, "report_standard": "", "document_language": "", "document_kind": "",
+        "source_pdf_sha256": "", "source_pdf_page_count": 0, "source_pdf_controlled_copy_path": "",
+        "expected_plan_checksum_sha256": "", "actual_plan_checksum_sha256": "",
+        "expected_plan_rows_checksum_sha256": "", "actual_plan_rows_checksum_sha256": "",
+        "expected_row_count": 0, "actual_planned_import_row_count": 0, "planned_aggregate_row_count": 0, "planned_component_row_count": 0,
+        "checksum_match": False, "plan_rows_checksum_match": False, "row_count_match": False,
+        "operator_confirmation_token_present": False, "operator_confirmation_token_valid": False,
+        "readiness_check_count": 0, "readiness_passed_check_count": 0, "readiness_warning_check_count": 0, "readiness_blocked_check_count": 0,
+        "bad_required_count": 1, "bad_safety_count": 0, "bad_import_plan_count": 0, "bad_readiness_gate_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows), "warning_count": 0, "human_review_required": True,
+        "human_review_reason_codes": ["controlled_values_import_readiness_gate_input_review_required"],
+        "warning_code_counts": {}, "warnings": [],
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_import_readiness_gate_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_import_readiness_gate_safety_flags(),
+        "readiness_check_rows": [], "blocker_rows": blocker_rows, "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. This gate only confirms readiness for a future controlled apply step.",
+        "next_step": "Fix required inputs before generating an import readiness gate.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-import-readiness-gate", "failed"),
+        "errors": errors,
+        "artifacts": {key: str(path or "") for key, path in artifacts.items()},
+    }
+    _rzd_manual_official_pdf_controlled_values_import_readiness_gate_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_values_import_readiness_gate_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_import_readiness_gate_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_readiness_gate_write_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    _write_optional_json_report(report, artifacts["gate_json"])
+    _write_optional_flat_csv([report], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_FIELDS, artifacts["gate_csv"])
+    if artifacts["gate_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report, artifacts["gate_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "check_count": len(report.get("readiness_check_rows") or []),
+            "readiness_check_rows": report.get("readiness_check_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["checks_json"],
+    )
+    _write_optional_flat_csv(report.get("readiness_check_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_CHECK_FIELDS, artifacts["checks_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "blocker_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_BLOCKER_FIELDS, artifacts["blockers_csv"])
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -58424,6 +58920,11 @@ def write_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report:
     path.write_text(render_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -58699,6 +59200,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-import-plan-preview":
         return render_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-import-readiness-gate":
+        return render_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -63948,6 +64451,89 @@ def render_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report
     else:
         lines.append("- none")
     lines.extend(["", "## Next step", "", str(report.get("next_step") or "Review the preview before any controlled import execution.")])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report: dict[str, Any]) -> str:
+    decision = (
+        "Decision: ready for future controlled apply step, but no import was executed."
+        if _as_bool(report.get("ready_for_controlled_import_apply")) and not report.get("blocker_rows")
+        else "Decision: blocked until operator confirmation token and expected checksums are provided."
+    )
+    lines = [
+        "# RZD Controlled Values Import Readiness Gate",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- import_readiness_gate_status: `{report.get('import_readiness_gate_status')}`",
+        f"- ready_for_controlled_import_apply: `{report.get('ready_for_controlled_import_apply')}`",
+        f"- ready_for_controlled_import: `{report.get('ready_for_controlled_import')}`",
+        "",
+        "## Inputs",
+        "",
+        f"- company: `{report.get('company_id')}` {report.get('company_name')}",
+        f"- report year: `{report.get('report_year')}`",
+        f"- source PDF SHA-256: `{report.get('source_pdf_sha256')}`",
+        f"- controlled copy: `{report.get('source_pdf_controlled_copy_path')}`",
+        "",
+        "## Checksum verification",
+        "",
+        f"- expected plan checksum: `{report.get('expected_plan_checksum_sha256')}`",
+        f"- actual plan checksum: `{report.get('actual_plan_checksum_sha256')}`",
+        f"- checksum_match: `{report.get('checksum_match')}`",
+        f"- expected rows checksum: `{report.get('expected_plan_rows_checksum_sha256')}`",
+        f"- actual rows checksum: `{report.get('actual_plan_rows_checksum_sha256')}`",
+        f"- plan_rows_checksum_match: `{report.get('plan_rows_checksum_match')}`",
+        "",
+        "## Row count verification",
+        "",
+        f"- expected row count: {report.get('expected_row_count', 0)}",
+        f"- actual planned import row count: {report.get('actual_planned_import_row_count', 0)}",
+        f"- row_count_match: `{report.get('row_count_match')}`",
+        "",
+        "## Operator confirmation",
+        "",
+        f"- token provided: `{report.get('operator_confirmation_token_present')}`",
+        f"- token valid: `{report.get('operator_confirmation_token_valid')}`",
+        "",
+        "## Safety status",
+        "",
+        "- No database import was executed.",
+        "- This gate only confirms readiness for a future controlled apply step.",
+        f"- import_executed: `{report.get('import_executed')}`",
+        f"- database_mutated: `{report.get('database_mutated')}`",
+        f"- would_import_report: `{report.get('would_import_report')}`",
+        "",
+        "## Readiness checks",
+        "",
+        "| Code | Status | Severity | Message |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in report.get("readiness_check_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (row.get("code"), row.get("status"), row.get("severity"), row.get("message"))
+            )
+            + " |"
+        )
+    if not report.get("readiness_check_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(["", "## Warnings", ""])
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(f"- `{warning.get('code') or warning.get('message') or warning}`" for warning in warnings)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Blockers", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Decision", "", decision, "", "## Next step", "", str(report.get("next_step") or "")])
     return "\n".join(lines) + "\n"
 
 
@@ -74938,6 +75524,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use this Task174 gate result only to prepare a future controlled import plan; no direct import is enabled here."]
     if mode == "rzd-manual-official-pdf-controlled-values-import-plan-preview":
         return ["Review this Task175 import plan preview; actual database import remains a separate controlled execution task."]
+    if mode == "rzd-manual-official-pdf-controlled-values-import-readiness-gate":
+        return ["Use this Task176 readiness gate only to prepare a future controlled apply step; no database import is executed here."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -75208,6 +75796,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_controlled_values_import_plan_inputs(args),
             artifacts=_rzd_manual_official_pdf_controlled_values_import_plan_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-import-readiness-gate":
+        return not _rzd_manual_official_pdf_controlled_values_import_readiness_gate_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_values_import_readiness_gate_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_values_import_readiness_gate_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
