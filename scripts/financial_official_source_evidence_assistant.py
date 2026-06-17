@@ -87,6 +87,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-value-extraction-preview-v2",
     "rzd-manual-official-pdf-controlled-values-evidence-pack",
     "rzd-manual-official-pdf-controlled-values-manual-review-gate",
+    "rzd-manual-official-pdf-controlled-values-import-plan-preview",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -7856,6 +7857,81 @@ RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_FORBIDDEN_SAFETY_FL
     "paper_trading_called",
     "files_deleted",
 )
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES = {
+    "plan_json": "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.json",
+    "plan_csv": "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.csv",
+    "plan_markdown": "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.md",
+    "rows_json": "rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_task175.json",
+    "rows_csv": "rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_task175.csv",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_import_plan_preview_blockers_task175.json",
+    "blockers_csv": "rzd_manual_official_pdf_controlled_values_import_plan_preview_blockers_task175.csv",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_import_plan_preview_checks_task175.json",
+    "checks_csv": "rzd_manual_official_pdf_controlled_values_import_plan_preview_checks_task175.csv",
+}
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_FIELDS = [
+    "mode", "status", "import_plan_preview_status",
+    "ready_for_controlled_import_plan", "ready_for_controlled_import", "import_plan_preview_ready",
+    "manual_review_gate_ready", "controlled_value_extraction_ready",
+    "company_id", "company_name", "report_year", "report_standard", "document_language", "document_kind",
+    "source_pdf_sha256", "source_pdf_page_count", "source_pdf_controlled_copy_path",
+    "input_evidence_value_row_count", "accepted_evidence_row_count", "input_manual_review_check_count",
+    "planned_import_row_count", "planned_aggregate_row_count", "planned_component_row_count",
+    "planned_statement_of_financial_position_row_count", "planned_profit_or_loss_row_count",
+    "planned_other_comprehensive_income_row_count", "planned_cash_flows_row_count",
+    "required_aggregate_metric_count", "required_aggregate_metric_present_count", "required_aggregate_metric_missing_count",
+    "duplicate_policy", "target_logical_entity", "target_operation",
+    "plan_checksum_sha256", "plan_rows_checksum_sha256", "input_evidence_pack_checksum_sha256", "input_manual_review_gate_checksum_sha256",
+    "preview_check_count", "preview_passed_check_count", "preview_warning_check_count", "preview_blocked_check_count",
+    "bad_required_count", "bad_safety_count", "bad_manual_review_gate_count", "bad_evidence_pack_count", "bad_import_plan_count",
+    "blocker_count", "warning_count", "human_review_required", "human_review_reason_codes", "safe_hint", "next_step",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ROW_FIELDS = [
+    "import_plan_row_id", "row_index", "evidence_row_id", "source_evidence_row_index",
+    "company_id", "company_name", "report_year", "report_standard",
+    "target_logical_entity", "target_operation", "duplicate_policy",
+    "natural_key", "natural_key_sha256", "row_checksum_sha256",
+    "target_type", "metric_key", "metric_role", "aggregate_match_priority",
+    "metric_name_ru", "metric_name_en", "statement_page", "page_number", "raw_line",
+    "value_2025", "value_2024", "value_2025_raw", "value_2024_raw", "note_reference",
+    "value_extraction_method", "value_text_source", "value_text_backend",
+    "planned_import_status", "planned_import_reason_codes", "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ROW_CSV_FIELDS = [
+    "import_plan_row_id", "row_index", "evidence_row_id", "company_id", "report_year", "report_standard",
+    "target_logical_entity", "target_operation", "duplicate_policy", "natural_key_sha256", "row_checksum_sha256",
+    "target_type", "metric_key", "metric_role", "statement_page", "value_2025", "value_2024",
+    "planned_import_status", "planned_import_reason_codes", "raw_line",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_CHECK_FIELDS = [
+    "check_id", "severity", "status", "code", "message", "target_type", "metric_key", "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "target_type", "metric_key", "safe_hint",
+]
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS = (
+    "ready_for_controlled_import_plan", "ready_for_controlled_import", "import_plan_preview_ready",
+    "manual_review_gate_ready", "controlled_value_extraction_ready", "human_review_required",
+    "read_only", "dry_run_only", "would_fetch_source_page", "would_fetch_document_url", "would_download_document",
+    "would_import_report", "would_mutate_database", "would_score_issuers", "would_trigger_paper_trading",
+    "source_page_fetched", "document_url_fetched", "documents_downloaded", "import_executed",
+    "database_mutated", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_COUNT_FIELDS = (
+    "source_pdf_page_count", "input_evidence_value_row_count", "accepted_evidence_row_count", "input_manual_review_check_count",
+    "planned_import_row_count", "planned_aggregate_row_count", "planned_component_row_count",
+    "planned_statement_of_financial_position_row_count", "planned_profit_or_loss_row_count",
+    "planned_other_comprehensive_income_row_count", "planned_cash_flows_row_count",
+    "required_aggregate_metric_count", "required_aggregate_metric_present_count", "required_aggregate_metric_missing_count",
+    "preview_check_count", "preview_passed_check_count", "preview_warning_check_count", "preview_blocked_check_count",
+    "bad_required_count", "bad_safety_count", "bad_manual_review_gate_count", "bad_evidence_pack_count",
+    "bad_import_plan_count", "blocker_count", "warning_count",
+)
+RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_FORBIDDEN_SAFETY_FLAGS = (
+    "would_fetch_source_page", "would_fetch_document_url", "would_download_document", "would_import_report",
+    "would_mutate_database", "would_score_issuers", "would_trigger_paper_trading",
+    "source_page_fetched", "document_url_fetched", "documents_downloaded", "import_executed",
+    "database_mutated", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -9420,6 +9496,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-checks-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-blockers-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-manual-review-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-rows-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-plan-preview-checks-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -9669,6 +9755,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_evidence_pack(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-manual-review-gate":
         report = run_rzd_manual_official_pdf_controlled_values_manual_review_gate(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-import-plan-preview":
+        report = run_rzd_manual_official_pdf_controlled_values_import_plan_preview(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -49579,6 +49667,515 @@ def _rzd_manual_official_pdf_controlled_values_manual_review_gate_write_outputs(
     )
 
 
+def run_rzd_manual_official_pdf_controlled_values_import_plan_preview(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_values_import_plan_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_values_import_plan_artifacts(args)
+    output_errors = _rzd_manual_official_pdf_controlled_values_import_plan_output_errors(args, inputs=inputs, artifacts=artifacts)
+    if output_errors:
+        return _rzd_manual_official_pdf_controlled_values_import_plan_failed_report(output_errors, inputs=inputs, artifacts=artifacts, write_outputs=False)
+    gate_path = inputs["manual_review_gate"]
+    if gate_path is None or not gate_path.is_file():
+        return _rzd_manual_official_pdf_controlled_values_import_plan_failed_report(
+            [{"message": "controlled_values_manual_review_gate_input_required"}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+    try:
+        gate = _load_json_object(gate_path)
+        pack = _load_json_object(inputs["evidence_pack"]) if inputs.get("evidence_pack") and inputs["evidence_pack"].is_file() else {}
+        rows_payload = _load_json_object(inputs["evidence_pack_rows"]) if inputs.get("evidence_pack_rows") and inputs["evidence_pack_rows"].is_file() else {}
+        blockers_payload = _load_json_object(inputs["evidence_pack_blockers"]) if inputs.get("evidence_pack_blockers") and inputs["evidence_pack_blockers"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_manual_official_pdf_controlled_values_import_plan_failed_report(
+            [{"message": "controlled_values_import_plan_input_required", "error": str(exc)}],
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+    report = _build_rzd_manual_official_pdf_controlled_values_import_plan_report(
+        gate,
+        evidence_pack=pack,
+        rows_payload=rows_payload,
+        blockers_payload=blockers_payload,
+        inputs=inputs,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_manual_official_pdf_controlled_values_import_plan_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["import_plan_preview_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_import_plan_write_failed", "error": str(exc)}]
+        _rzd_manual_official_pdf_controlled_values_import_plan_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            "manual_review_gate": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_ARTIFACT_NAMES["gate_json"],
+            "evidence_pack": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_ARTIFACT_NAMES["pack_json"],
+            "evidence_pack_rows": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_ARTIFACT_NAMES["rows_json"],
+            "evidence_pack_blockers": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_EVIDENCE_PACK_ARTIFACT_NAMES["blockers_json"],
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "manual_review_gate": args.rzd_manual_official_pdf_controlled_values_manual_review_gate_input or defaults.get("manual_review_gate"),
+        "evidence_pack": args.rzd_manual_official_pdf_controlled_values_evidence_pack_input or defaults.get("evidence_pack"),
+        "evidence_pack_rows": args.rzd_manual_official_pdf_controlled_values_evidence_pack_rows_input or defaults.get("evidence_pack_rows"),
+        "evidence_pack_blockers": args.rzd_manual_official_pdf_controlled_values_evidence_pack_blockers_input or defaults.get("evidence_pack_blockers"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES.items()}
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "plan_json": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_output or defaults.get("plan_json"),
+        "plan_csv": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_csv_output or defaults.get("plan_csv"),
+        "plan_markdown": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_markdown_output or defaults.get("plan_markdown"),
+        "rows_json": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_output or defaults.get("rows_json"),
+        "rows_csv": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_csv_output or defaults.get("rows_csv"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_blockers_output or defaults.get("blockers_json"),
+        "blockers_csv": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_blockers_csv_output or defaults.get("blockers_csv"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_checks_output or defaults.get("checks_json"),
+        "checks_csv": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_checks_csv_output or defaults.get("checks_csv"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in artifacts.values() if path is not None]
+    for generic_output in (args.json_output, args.markdown_output):
+        if generic_output is not None:
+            outputs.append(generic_output)
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output in outputs:
+        if any(_paths_equal(output, input_path) for input_path in input_paths):
+            return [{"message": "rzd_controlled_values_import_plan_output_must_not_equal_input"}]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_controlled_values_import_plan_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_controlled_values_import_plan_sha(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _rzd_controlled_values_import_plan_input_sha(path: Path | None) -> str:
+    if path is None or not path.is_file():
+        return ""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_safety_flags() -> dict[str, bool]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_check_row(
+    code: str,
+    *,
+    passed: bool,
+    warning: bool = False,
+    message: str = "",
+    target_type: str = "",
+    metric_key: str = "",
+) -> dict[str, Any]:
+    status = "passed" if passed else ("warning" if warning else "blocked")
+    return {
+        "check_id": f"rzd_controlled_values_import_plan:{target_type or 'global'}:{metric_key or 'global'}:{code}",
+        "severity": "info" if passed else ("warning" if warning else "error"),
+        "status": status,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "target_type": target_type,
+        "metric_key": metric_key,
+        "safe_hint": "This is an import plan preview only. No database import was executed.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_blocker_row(
+    code: str,
+    *,
+    message: str = "",
+    target_type: str = "",
+    metric_key: str = "",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_import_plan:{target_type or 'global'}:{metric_key or 'global'}:{code}",
+        "severity": "error",
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "target_type": target_type,
+        "metric_key": metric_key,
+        "safe_hint": "Resolve this blocker before any future controlled import execution task.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_row(
+    evidence_row: dict[str, Any],
+    *,
+    row_index: int,
+    gate: dict[str, Any],
+) -> dict[str, Any]:
+    metric_role = str(evidence_row.get("metric_role") or ("aggregate" if _as_bool(evidence_row.get("is_aggregate")) else "component"))
+    target_type = str(evidence_row.get("target_type") or "")
+    metric_key = str(evidence_row.get("metric_key") or "")
+    statement_page = int(evidence_row.get("statement_page") or evidence_row.get("page_number") or 0)
+    raw_line = str(evidence_row.get("raw_line") or "")
+    natural_key = (
+        f"company_id={gate.get('company_id') or evidence_row.get('company_id') or ''}|"
+        f"report_year={int(gate.get('report_year') or evidence_row.get('report_year') or 0)}|"
+        f"standard={gate.get('report_standard') or evidence_row.get('report_standard') or ''}|"
+        f"target_type={target_type}|metric_key={metric_key}|metric_role={metric_role}|statement_page={statement_page}"
+    )
+    if metric_role == "component":
+        natural_key += f"|raw_line_sha256={hashlib.sha256(raw_line.encode('utf-8')).hexdigest()}"
+    row = {
+        "import_plan_row_id": f"rzd_controlled_values_import_plan:{row_index}:{target_type}:{metric_key}",
+        "row_index": row_index,
+        "evidence_row_id": str(evidence_row.get("evidence_row_id") or ""),
+        "source_evidence_row_index": int(evidence_row.get("row_index") or row_index),
+        "company_id": str(gate.get("company_id") or evidence_row.get("company_id") or ""),
+        "company_name": str(gate.get("company_name") or evidence_row.get("company_name") or ""),
+        "report_year": int(gate.get("report_year") or evidence_row.get("report_year") or 0),
+        "report_standard": str(gate.get("report_standard") or evidence_row.get("report_standard") or ""),
+        "target_logical_entity": "financial_statement_value",
+        "target_operation": "upsert_preview",
+        "duplicate_policy": "natural_key_update_existing_preview",
+        "natural_key": natural_key,
+        "natural_key_sha256": hashlib.sha256(natural_key.encode("utf-8")).hexdigest(),
+        "target_type": target_type,
+        "metric_key": metric_key,
+        "metric_role": metric_role,
+        "aggregate_match_priority": int(evidence_row.get("aggregate_match_priority") or 0),
+        "metric_name_ru": str(evidence_row.get("metric_name_ru") or ""),
+        "metric_name_en": str(evidence_row.get("metric_name_en") or ""),
+        "statement_page": statement_page,
+        "page_number": int(evidence_row.get("page_number") or statement_page),
+        "raw_line": raw_line,
+        "value_2025": int(evidence_row.get("value_2025") or 0),
+        "value_2024": int(evidence_row.get("value_2024") or 0),
+        "value_2025_raw": str(evidence_row.get("value_2025_raw") or ""),
+        "value_2024_raw": str(evidence_row.get("value_2024_raw") or ""),
+        "note_reference": str(evidence_row.get("note_reference") or ""),
+        "value_extraction_method": str(evidence_row.get("value_extraction_method") or ""),
+        "value_text_source": str(evidence_row.get("value_text_source") or ""),
+        "value_text_backend": str(evidence_row.get("value_text_backend") or ""),
+        "planned_import_status": "planned",
+        "planned_import_reason_codes": ["accepted_evidence_row_planned_for_future_controlled_import"],
+        "safe_hint": "Preview plan only; no database import was executed.",
+    }
+    row["row_checksum_sha256"] = _rzd_controlled_values_import_plan_sha({k: v for k, v in row.items() if k != "row_checksum_sha256"})
+    return row
+
+
+def _build_rzd_manual_official_pdf_controlled_values_import_plan_report(
+    gate: dict[str, Any],
+    *,
+    evidence_pack: dict[str, Any],
+    rows_payload: Any,
+    blockers_payload: Any,
+    inputs: dict[str, Path | None],
+) -> dict[str, Any]:
+    evidence_rows, pack_blockers = _rzd_manual_official_pdf_controlled_values_manual_review_gate_extract_rows(
+        evidence_pack,
+        rows_payload,
+        blockers_payload,
+    )
+    accepted_rows = [row for row in evidence_rows if str(row.get("quality_status") or "accepted") == "accepted"]
+    import_plan_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_plan_row(row, row_index=index, gate=gate)
+        for index, row in enumerate(accepted_rows, start=1)
+    ]
+    natural_keys = [row["natural_key"] for row in import_plan_rows]
+    duplicate_key_count = len(natural_keys) - len(set(natural_keys))
+    plan_row_missing_required_count = sum(
+        1
+        for row in import_plan_rows
+        if any(row.get(field) in (None, "") for field in ("natural_key", "natural_key_sha256", "row_checksum_sha256", "target_type", "metric_key"))
+    )
+    gate_safety_leaks = [
+        flag
+        for flag in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_FORBIDDEN_SAFETY_FLAGS
+        if _as_bool(gate.get(flag)) or _as_bool((gate.get("safety_flags") or {}).get(flag))
+    ]
+    manual_gate_ready = (
+        str(gate.get("manual_review_gate_status") or gate.get("status") or "") in {"passed", "warning"}
+        and _as_bool(gate.get("ready_for_controlled_import_plan"))
+        and not _as_bool(gate.get("ready_for_controlled_import"))
+        and int(gate.get("blocker_count") or 0) == 0
+        and int(gate.get("bad_required_count") or 0) == 0
+        and int(gate.get("bad_safety_count") or 0) == 0
+        and int(gate.get("bad_evidence_pack_count") or 0) == 0
+        and int(gate.get("bad_manual_review_gate_count") or 0) == 0
+        and int(gate.get("required_aggregate_metric_missing_count") or 0) == 0
+    )
+    pack_available = bool(evidence_pack)
+    evidence_rows_available = bool(evidence_rows)
+    bad_safety = len(gate_safety_leaks)
+    bad_import_plan = duplicate_key_count + plan_row_missing_required_count
+    check_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("manual_review_gate_status_acceptable", passed=str(gate.get("manual_review_gate_status") or gate.get("status") or "") in {"passed", "warning"}),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("manual_review_gate_ready_for_import_plan", passed=_as_bool(gate.get("ready_for_controlled_import_plan"))),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("manual_review_gate_not_ready_for_direct_import", passed=not _as_bool(gate.get("ready_for_controlled_import"))),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("evidence_pack_available", passed=pack_available),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("evidence_rows_available", passed=evidence_rows_available),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("accepted_evidence_rows_positive", passed=bool(accepted_rows)),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("required_aggregate_metrics_complete", passed=int(gate.get("required_aggregate_metric_missing_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("no_manual_review_gate_blockers", passed=int(gate.get("blocker_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("no_bad_required_count", passed=int(gate.get("bad_required_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("no_bad_safety_count", passed=int(gate.get("bad_safety_count") or 0) == 0 and bad_safety == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("no_bad_evidence_pack_count", passed=int(gate.get("bad_evidence_pack_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("no_bad_manual_review_gate_count", passed=int(gate.get("bad_manual_review_gate_count") or 0) == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("safety_flags_false", passed=bad_safety == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("plan_row_count_matches_evidence_rows", passed=len(import_plan_rows) == len(accepted_rows)),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("plan_rows_have_required_fields", passed=plan_row_missing_required_count == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("plan_natural_keys_unique", passed=duplicate_key_count == 0),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("checksums_present", passed=all(row.get("row_checksum_sha256") and row.get("natural_key_sha256") for row in import_plan_rows)),
+        _rzd_manual_official_pdf_controlled_values_import_plan_check_row("preview_only_import_not_executed", passed=not _as_bool(gate.get("import_executed"))),
+    ]
+    if _as_bool(gate.get("human_review_required")):
+        check_rows.append(
+            _rzd_manual_official_pdf_controlled_values_import_plan_check_row(
+                "human_review_required_acknowledged",
+                passed=False,
+                warning=True,
+                message="Human review remains acknowledged; this is still preview-only.",
+            )
+        )
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_plan_blocker_row(str(row["code"]), message=str(row["message"]))
+        for row in check_rows
+        if row["status"] == "blocked"
+    ]
+    plan_rows_checksum = _rzd_controlled_values_import_plan_sha(import_plan_rows)
+    status = "blocked" if blocker_rows else ("warning" if any(row["status"] == "warning" for row in check_rows) else "passed")
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-plan-preview",
+        "status": status,
+        "import_plan_preview_status": status,
+        "ready_for_controlled_import_plan": not blocker_rows,
+        "ready_for_controlled_import": False,
+        "import_plan_preview_ready": not blocker_rows,
+        "manual_review_gate_ready": manual_gate_ready,
+        "controlled_value_extraction_ready": _as_bool(gate.get("controlled_value_extraction_ready")),
+        "company_id": str(gate.get("company_id") or evidence_pack.get("company_id") or ""),
+        "company_name": str(gate.get("company_name") or evidence_pack.get("company_name") or ""),
+        "report_year": int(gate.get("report_year") or evidence_pack.get("report_year") or 0),
+        "report_standard": str(gate.get("report_standard") or evidence_pack.get("report_standard") or ""),
+        "document_language": str(gate.get("document_language") or evidence_pack.get("document_language") or ""),
+        "document_kind": str(gate.get("document_kind") or evidence_pack.get("document_kind") or ""),
+        "source_pdf_sha256": str(gate.get("source_pdf_sha256") or evidence_pack.get("source_pdf_sha256") or ""),
+        "source_pdf_page_count": int(gate.get("source_pdf_page_count") or evidence_pack.get("source_pdf_page_count") or 0),
+        "source_pdf_controlled_copy_path": str(gate.get("source_pdf_controlled_copy_path") or evidence_pack.get("source_pdf_controlled_copy_path") or ""),
+        "input_evidence_value_row_count": int(gate.get("input_evidence_value_row_count") or evidence_pack.get("evidence_value_row_count") or len(evidence_rows)),
+        "accepted_evidence_row_count": len(accepted_rows),
+        "input_manual_review_check_count": int(gate.get("manual_review_check_count") or 0),
+        "planned_import_row_count": len(import_plan_rows),
+        "planned_aggregate_row_count": sum(1 for row in import_plan_rows if row.get("metric_role") == "aggregate"),
+        "planned_component_row_count": sum(1 for row in import_plan_rows if row.get("metric_role") == "component"),
+        "planned_statement_of_financial_position_row_count": sum(1 for row in import_plan_rows if row.get("target_type") == "statement_of_financial_position"),
+        "planned_profit_or_loss_row_count": sum(1 for row in import_plan_rows if row.get("target_type") == "profit_or_loss"),
+        "planned_other_comprehensive_income_row_count": sum(1 for row in import_plan_rows if row.get("target_type") == "other_comprehensive_income"),
+        "planned_cash_flows_row_count": sum(1 for row in import_plan_rows if row.get("target_type") == "cash_flows"),
+        "required_aggregate_metric_count": int(gate.get("required_aggregate_metric_count") or 0),
+        "required_aggregate_metric_present_count": int(gate.get("required_aggregate_metric_present_count") or 0),
+        "required_aggregate_metric_missing_count": int(gate.get("required_aggregate_metric_missing_count") or 0),
+        "duplicate_policy": "natural_key_update_existing_preview",
+        "target_logical_entity": "financial_statement_value",
+        "target_operation": "upsert_preview",
+        "plan_rows_checksum_sha256": plan_rows_checksum,
+        "input_evidence_pack_checksum_sha256": _rzd_controlled_values_import_plan_input_sha(inputs.get("evidence_pack")),
+        "input_manual_review_gate_checksum_sha256": _rzd_controlled_values_import_plan_input_sha(inputs.get("manual_review_gate")),
+        "preview_check_count": len(check_rows),
+        "preview_passed_check_count": sum(1 for row in check_rows if row["status"] == "passed"),
+        "preview_warning_check_count": sum(1 for row in check_rows if row["status"] == "warning"),
+        "preview_blocked_check_count": sum(1 for row in check_rows if row["status"] == "blocked"),
+        "bad_required_count": int(gate.get("bad_required_count") or 0),
+        "bad_safety_count": int(gate.get("bad_safety_count") or 0) + bad_safety,
+        "bad_manual_review_gate_count": int(gate.get("bad_manual_review_gate_count") or 0),
+        "bad_evidence_pack_count": int(gate.get("bad_evidence_pack_count") or 0) + (0 if pack_available else 1),
+        "bad_import_plan_count": bad_import_plan,
+        "blocker_count": len(blocker_rows),
+        "warning_count": sum(1 for row in check_rows if row["status"] == "warning"),
+        "human_review_required": _as_bool(gate.get("human_review_required")),
+        "human_review_reason_codes": list(gate.get("human_review_reason_codes") or []),
+        "warning_code_counts": _count_by_key([row for row in check_rows if row["status"] == "warning"], "code"),
+        "warnings": [row for row in check_rows if row["status"] == "warning"],
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_import_plan_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_import_plan_safety_flags(),
+        "import_plan_rows": import_plan_rows,
+        "preview_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. This is an import plan preview only.",
+        "next_step": "Use a future controlled import execution task only after explicit review and approval.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-import-plan-preview", status),
+        "errors": [],
+    }
+    report["plan_checksum_sha256"] = _rzd_controlled_values_import_plan_sha(
+        {
+            "mode": report["mode"],
+            "import_plan_rows": import_plan_rows,
+            "plan_rows_checksum_sha256": plan_rows_checksum,
+            "input_manual_review_gate_checksum_sha256": report["input_manual_review_gate_checksum_sha256"],
+            "input_evidence_pack_checksum_sha256": report["input_evidence_pack_checksum_sha256"],
+        }
+    )
+    _rzd_manual_official_pdf_controlled_values_import_plan_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in (
+        "mode", "status", "import_plan_preview_status", "company_id", "company_name", "report_standard",
+        "document_language", "document_kind", "source_pdf_sha256", "source_pdf_controlled_copy_path",
+        "duplicate_policy", "target_logical_entity", "target_operation", "plan_checksum_sha256",
+        "plan_rows_checksum_sha256", "input_evidence_pack_checksum_sha256", "input_manual_review_gate_checksum_sha256",
+        "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["human_review_reason_codes"] = list(report.get("human_review_reason_codes") or [])
+    report["warning_code_counts"] = dict(report.get("warning_code_counts") or {})
+    report["warnings"] = list(report.get("warnings") or [])
+    report["safety_flags"] = dict(report.get("safety_flags") or {})
+    report["import_plan_rows"] = list(report.get("import_plan_rows") or [])
+    report["preview_check_rows"] = list(report.get("preview_check_rows") or [])
+    report["blocker_rows"] = list(report.get("blocker_rows") or [])
+    report["blocker_count"] = len(report["blocker_rows"])
+    report["bad_import_plan_count"] = int(report.get("bad_import_plan_count") or 0)
+    if report["blocker_count"]:
+        report["status"] = "blocked" if report.get("status") != "failed" else "failed"
+        report["import_plan_preview_status"] = report["status"]
+        report["ready_for_controlled_import_plan"] = False
+        report["import_plan_preview_ready"] = False
+    report["ready_for_controlled_import"] = False
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_plan_blocker_row(str(error.get("message") or "controlled_values_import_plan_failed"))
+        for error in errors
+    ]
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-plan-preview",
+        "status": "failed",
+        "import_plan_preview_status": "failed",
+        "ready_for_controlled_import_plan": False,
+        "ready_for_controlled_import": False,
+        "import_plan_preview_ready": False,
+        "manual_review_gate_ready": False,
+        "controlled_value_extraction_ready": False,
+        "company_id": "", "company_name": "", "report_year": 0, "report_standard": "", "document_language": "", "document_kind": "",
+        "source_pdf_sha256": "", "source_pdf_page_count": 0, "source_pdf_controlled_copy_path": "",
+        "input_evidence_value_row_count": 0, "accepted_evidence_row_count": 0, "input_manual_review_check_count": 0,
+        "planned_import_row_count": 0, "planned_aggregate_row_count": 0, "planned_component_row_count": 0,
+        "planned_statement_of_financial_position_row_count": 0, "planned_profit_or_loss_row_count": 0,
+        "planned_other_comprehensive_income_row_count": 0, "planned_cash_flows_row_count": 0,
+        "required_aggregate_metric_count": 0, "required_aggregate_metric_present_count": 0, "required_aggregate_metric_missing_count": 0,
+        "duplicate_policy": "natural_key_update_existing_preview", "target_logical_entity": "financial_statement_value", "target_operation": "upsert_preview",
+        "plan_checksum_sha256": "", "plan_rows_checksum_sha256": "", "input_evidence_pack_checksum_sha256": "", "input_manual_review_gate_checksum_sha256": "",
+        "preview_check_count": 0, "preview_passed_check_count": 0, "preview_warning_check_count": 0, "preview_blocked_check_count": 0,
+        "bad_required_count": 1, "bad_safety_count": 0, "bad_manual_review_gate_count": 1, "bad_evidence_pack_count": 0, "bad_import_plan_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows), "warning_count": 0, "human_review_required": True,
+        "human_review_reason_codes": ["controlled_values_import_plan_input_review_required"],
+        "warning_code_counts": {}, "warnings": [], "safety_flags": _rzd_manual_official_pdf_controlled_values_import_plan_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_import_plan_safety_flags(),
+        "import_plan_rows": [], "preview_check_rows": [], "blocker_rows": blocker_rows, "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "safe_hint": "No database import was executed. This is an import plan preview only.",
+        "next_step": "Fix required inputs before generating an import plan preview.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-import-plan-preview", "failed"),
+        "errors": errors,
+        "artifacts": {key: str(path or "") for key, path in artifacts.items()},
+    }
+    _rzd_manual_official_pdf_controlled_values_import_plan_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_values_import_plan_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_import_plan_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_plan_write_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    _write_optional_json_report(report, artifacts["plan_json"])
+    _write_optional_flat_csv([report], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_FIELDS, artifacts["plan_csv"])
+    if artifacts["plan_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report, artifacts["plan_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "row_count": len(report.get("import_plan_rows") or []),
+            "planned_import_row_count": len(report.get("import_plan_rows") or []),
+            "import_plan_rows": report.get("import_plan_rows") or [],
+            "plan_rows_checksum_sha256": report.get("plan_rows_checksum_sha256") or "",
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["rows_json"],
+    )
+    _write_optional_flat_csv(report.get("import_plan_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ROW_CSV_FIELDS, artifacts["rows_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "check_count": len(report.get("preview_check_rows") or []),
+            "preview_check_rows": report.get("preview_check_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["checks_json"],
+    )
+    _write_optional_flat_csv(report.get("preview_check_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_CHECK_FIELDS, artifacts["checks_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "blocker_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No database import was executed.",
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_BLOCKER_FIELDS, artifacts["blockers_csv"])
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -57822,6 +58419,11 @@ def write_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(
     path.write_text(render_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -58095,6 +58697,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_evidence_pack_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-manual-review-gate":
         return render_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-import-plan-preview":
+        return render_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -63233,6 +63837,117 @@ def render_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown
         lines.append("- none")
     lines.extend(["", "## Decision", "", decision, "", "## Next step", ""])
     lines.append(str(report.get("next_step") or "Prepare a future controlled import plan only after manual review."))
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_import_plan_markdown(report: dict[str, Any]) -> str:
+    decision = (
+        "Decision: import plan preview is ready, but direct import remains disabled."
+        if _as_bool(report.get("import_plan_preview_ready"))
+        else "Decision: import plan preview is not ready."
+    )
+    lines = [
+        "# RZD Controlled Values Import Plan Preview",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- import_plan_preview_status: `{report.get('import_plan_preview_status')}`",
+        f"- import_plan_preview_ready: `{report.get('import_plan_preview_ready')}`",
+        f"- planned rows: {report.get('planned_import_row_count', 0)}",
+        f"- blockers: {report.get('blocker_count', 0)}",
+        "",
+        "## Inputs",
+        "",
+        f"- manual gate checksum: `{report.get('input_manual_review_gate_checksum_sha256')}`",
+        f"- evidence pack checksum: `{report.get('input_evidence_pack_checksum_sha256')}`",
+        "",
+        "## Import plan decision",
+        "",
+        decision,
+        "",
+        "## Planned rows",
+        "",
+        "| Row | Metric | Role | Page | 2025 | 2024 | Natural key SHA |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in (report.get("import_plan_rows") or [])[:40]:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (
+                    row.get("row_index"),
+                    row.get("metric_key"),
+                    row.get("metric_role"),
+                    row.get("statement_page"),
+                    row.get("value_2025"),
+                    row.get("value_2024"),
+                    row.get("natural_key_sha256"),
+                )
+            )
+            + " |"
+        )
+    if not report.get("import_plan_rows"):
+        lines.append("| none |  |  |  |  |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Required aggregate coverage",
+            "",
+            f"- required: {report.get('required_aggregate_metric_count', 0)}",
+            f"- present: {report.get('required_aggregate_metric_present_count', 0)}",
+            f"- missing: {report.get('required_aggregate_metric_missing_count', 0)}",
+            "",
+            "## Duplicate policy",
+            "",
+            f"- target logical entity: `{report.get('target_logical_entity')}`",
+            f"- target operation: `{report.get('target_operation')}`",
+            f"- duplicate policy: `{report.get('duplicate_policy')}`",
+            "",
+            "## Checksums",
+            "",
+            f"- plan checksum: `{report.get('plan_checksum_sha256')}`",
+            f"- plan rows checksum: `{report.get('plan_rows_checksum_sha256')}`",
+            "",
+            "## Safety status",
+            "",
+            "- No database import was executed.",
+            "- This is an import plan preview only.",
+            f"- ready_for_controlled_import: `{report.get('ready_for_controlled_import')}`",
+            f"- import_executed: `{report.get('import_executed')}`",
+            f"- database_mutated: `{report.get('database_mutated')}`",
+            "",
+            "## Preview checks",
+            "",
+            "| Code | Status | Severity | Message |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for row in report.get("preview_check_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (row.get("code"), row.get("status"), row.get("severity"), row.get("message"))
+            )
+            + " |"
+        )
+    if not report.get("preview_check_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(["", "## Warnings", ""])
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(f"- `{warning.get('code') or warning.get('message') or warning}`" for warning in warnings)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Blockers", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Next step", "", str(report.get("next_step") or "Review the preview before any controlled import execution.")])
     return "\n".join(lines) + "\n"
 
 
@@ -74221,6 +74936,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review the Task173 evidence pack manually; any controlled import remains a separate future task and is not enabled here."]
     if mode == "rzd-manual-official-pdf-controlled-values-manual-review-gate":
         return ["Use this Task174 gate result only to prepare a future controlled import plan; no direct import is enabled here."]
+    if mode == "rzd-manual-official-pdf-controlled-values-import-plan-preview":
+        return ["Review this Task175 import plan preview; actual database import remains a separate controlled execution task."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -74485,6 +75202,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_controlled_values_manual_review_gate_inputs(args),
             artifacts=_rzd_manual_official_pdf_controlled_values_manual_review_gate_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-import-plan-preview":
+        return not _rzd_manual_official_pdf_controlled_values_import_plan_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_values_import_plan_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_values_import_plan_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 import urllib.parse
@@ -16604,6 +16605,156 @@ def test_rzd_manual_official_pdf_controlled_values_manual_review_gate_markdown_s
     _assert_rzd_controlled_values_manual_review_gate_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_import_plan_preview_happy_path(tmp_path: Path) -> None:
+    _write_task175_ready_inputs(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "warning"
+    assert report["import_plan_preview_status"] == "warning"
+    assert report["import_plan_preview_ready"] is True
+    assert report["ready_for_controlled_import_plan"] is True
+    assert report["ready_for_controlled_import"] is False
+    assert report["manual_review_gate_ready"] is True
+    assert report["controlled_value_extraction_ready"] is True
+    assert report["planned_import_row_count"] == 24
+    assert report["planned_aggregate_row_count"] == 21
+    assert report["planned_component_row_count"] == 3
+    assert report["required_aggregate_metric_count"] == 21
+    assert report["required_aggregate_metric_present_count"] == 21
+    assert report["required_aggregate_metric_missing_count"] == 0
+    assert report["bad_required_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert report["bad_manual_review_gate_count"] == 0
+    assert report["bad_evidence_pack_count"] == 0
+    assert report["bad_import_plan_count"] == 0
+    assert report["blocker_count"] == 0
+    assert re.fullmatch(r"[0-9a-f]{64}", report["plan_checksum_sha256"])
+    assert re.fullmatch(r"[0-9a-f]{64}", report["plan_rows_checksum_sha256"])
+    _assert_rzd_controlled_values_import_plan_fields(report)
+
+    rows_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_task175.json").read_text(encoding="utf-8"))
+    assert isinstance(rows_payload, dict)
+    assert isinstance(rows_payload["row_count"], int)
+    assert isinstance(rows_payload["planned_import_row_count"], int)
+    assert isinstance(rows_payload["import_plan_rows"], list)
+    assert isinstance(rows_payload["plan_rows_checksum_sha256"], str)
+    assert isinstance(rows_payload["safe_hint"], str)
+    assert rows_payload["row_count"] == len(rows_payload["import_plan_rows"])
+    assert rows_payload["planned_import_row_count"] == len(rows_payload["import_plan_rows"])
+
+    checks_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_import_plan_preview_checks_task175.json").read_text(encoding="utf-8"))
+    assert isinstance(checks_payload["check_count"], int)
+    assert checks_payload["check_count"] == len(checks_payload["preview_check_rows"])
+    assert isinstance(checks_payload["safe_hint"], str)
+    blockers_payload = json.loads((tmp_path / "rzd_manual_official_pdf_controlled_values_import_plan_preview_blockers_task175.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers_payload["blocker_count"], int)
+    assert blockers_payload["blocker_count"] == len(blockers_payload["blocker_rows"])
+    assert isinstance(blockers_payload["safe_hint"], str)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_plan_blocks_direct_import_gate(tmp_path: Path) -> None:
+    _write_task175_ready_inputs(tmp_path, mutate_gate={"ready_for_controlled_import": True})
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["import_plan_preview_ready"] is False
+    assert report["ready_for_controlled_import_plan"] is False
+    assert "manual_review_gate_not_ready_for_direct_import" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_plan_blocks_missing_aggregate_metric(tmp_path: Path) -> None:
+    _write_task175_ready_inputs(tmp_path, omit=("cash_flows", "cash_and_cash_equivalents_ending"))
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["required_aggregate_metric_missing_count"] == 1
+    assert "required_aggregate_metrics_complete" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_plan_blocks_duplicate_natural_keys(tmp_path: Path) -> None:
+    _write_task175_ready_inputs(tmp_path, duplicate=True)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["bad_import_plan_count"] > 0
+    assert report["blocker_count"] > 0
+    assert "plan_natural_keys_unique" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_plan_blocks_safety_flag(tmp_path: Path) -> None:
+    _write_task175_ready_inputs(tmp_path, mutate_gate={"database_mutated": True})
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["bad_safety_count"] > 0
+    assert "safety_flags_false" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_import_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_plan_checksums_are_deterministic(tmp_path: Path) -> None:
+    _write_task175_ready_inputs(tmp_path)
+
+    first = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+    second = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    assert first["plan_checksum_sha256"] == second["plan_checksum_sha256"]
+    assert first["plan_rows_checksum_sha256"] == second["plan_rows_checksum_sha256"]
+    assert [row["row_checksum_sha256"] for row in first["import_plan_rows"]] == [
+        row["row_checksum_sha256"] for row in second["import_plan_rows"]
+    ]
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_plan_markdown_sections(tmp_path: Path) -> None:
+    _write_task175_ready_inputs(tmp_path)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(
+        ["--operator-resolution-chain-output-dir", str(tmp_path)]
+    )
+
+    markdown = (tmp_path / "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values Import Plan Preview",
+        "## Summary",
+        "## Inputs",
+        "## Import plan decision",
+        "## Planned rows",
+        "## Required aggregate coverage",
+        "## Duplicate policy",
+        "## Checksums",
+        "## Safety status",
+        "## Preview checks",
+        "## Warnings",
+        "## Blockers",
+        "## Next step",
+    ):
+        assert section in markdown
+    assert "No database import was executed" in markdown
+    assert "Decision: import plan preview is ready, but direct import remains disabled." in markdown
+    _assert_rzd_controlled_values_import_plan_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -24632,6 +24783,19 @@ def _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(extra_args
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_import_plan_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-import-plan-preview",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -26189,6 +26353,95 @@ def _assert_rzd_controlled_values_manual_review_gate_fields(report: dict) -> Non
         assert row["status"] in {"passed", "warning", "blocked"}
     for row in report.get("blocker_rows") or []:
         for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_MANUAL_REVIEW_GATE_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+
+
+def _write_task175_ready_inputs(
+    tmp_path: Path,
+    *,
+    omit: tuple[str, str] | None = None,
+    duplicate: bool = False,
+    mutate_gate: dict[str, object] | None = None,
+) -> dict:
+    rows = _task174_required_metric_rows(omit=omit)
+    if duplicate:
+        rows.append(
+            _task173_value_row(
+                "profit_or_loss",
+                "total_revenue",
+                page=11,
+                raw_line="Total revenue duplicate 2000 1800",
+            )
+        )
+    _write_task173_controlled_value_extraction_report(tmp_path, value_rows=rows)
+    _run_rzd_manual_official_pdf_controlled_values_evidence_pack(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    gate = _run_rzd_manual_official_pdf_controlled_values_manual_review_gate(["--operator-resolution-chain-output-dir", str(tmp_path)])
+    if mutate_gate:
+        gate.update(mutate_gate)
+        (tmp_path / "rzd_manual_official_pdf_controlled_values_manual_review_gate_task174.json").write_text(
+            json.dumps(gate, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    return gate
+
+
+def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "import_plan_preview_status",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "document_language",
+        "document_kind",
+        "source_pdf_sha256",
+        "source_pdf_controlled_copy_path",
+        "duplicate_policy",
+        "target_logical_entity",
+        "target_operation",
+        "plan_checksum_sha256",
+        "plan_rows_checksum_sha256",
+        "input_evidence_pack_checksum_sha256",
+        "input_manual_review_gate_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("human_review_reason_codes"), list)
+    assert isinstance(report.get("warning_code_counts"), dict)
+    assert isinstance(report.get("warnings"), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert isinstance(report.get("import_plan_rows"), list)
+    assert isinstance(report.get("preview_check_rows"), list)
+    assert isinstance(report.get("blocker_rows"), list)
+    for row in report.get("import_plan_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ROW_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert row["target_operation"] == "upsert_preview"
+        assert row["duplicate_policy"] == "natural_key_update_existing_preview"
+        assert row["planned_import_status"] in {"planned", "warning", "blocked"}
+        assert isinstance(row["planned_import_reason_codes"], list)
+        assert re.fullmatch(r"[0-9a-f]{64}", row["natural_key_sha256"])
+        assert re.fullmatch(r"[0-9a-f]{64}", row["row_checksum_sha256"])
+    for row in report.get("preview_check_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_BLOCKER_FIELDS:
             assert field in row
             assert row[field] is not None
 
