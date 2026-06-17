@@ -12,6 +12,9 @@ from app.models.company_identity_duplicate_candidate import (
 )
 from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.company_score import CompanyScore
+from app.models.controlled_financial_statement_value import (
+    ControlledFinancialStatementValue,
+)
 from app.models.data_pipeline_run import DataPipelineRun
 from app.models.data_pipeline_step_run import DataPipelineStepRun
 from app.models.dataset_build_run import DatasetBuildRun
@@ -41,6 +44,7 @@ __all__ = [
     "CompanyIdentityDuplicateCandidate",
     "CompanyIdentityProfile",
     "CompanyScore",
+    "ControlledFinancialStatementValue",
     "DataPipelineRun",
     "DataPipelineStepRun",
     "DatasetBuildRun",
