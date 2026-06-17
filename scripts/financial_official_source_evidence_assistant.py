@@ -90,6 +90,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-import-plan-preview",
     "rzd-manual-official-pdf-controlled-values-import-readiness-gate",
     "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery",
+    "rzd-manual-official-pdf-controlled-values-migration-readiness-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -8082,6 +8083,92 @@ RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FORBIDDEN_SAFETY_FLAGS = (
     "source_page_fetched", "document_url_fetched", "documents_downloaded", "import_executed",
     "database_mutated", "migration_executed", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
 )
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION = "202606170001"
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE = "controlled_financial_statement_values"
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_ARTIFACT_NAMES = {
+    "gate_json": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_task179.json",
+    "gate_csv": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_task179.csv",
+    "gate_markdown": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_task179.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_checks_task179.json",
+    "checks_csv": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_checks_task179.csv",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_blockers_task179.json",
+    "blockers_csv": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_blockers_task179.csv",
+    "columns_json": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_columns_task179.json",
+    "columns_csv": "rzd_manual_official_pdf_controlled_values_migration_readiness_gate_columns_task179.csv",
+}
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS = (
+    "id", "company_id", "company_name", "report_year", "report_standard", "target_type", "metric_key",
+    "metric_role", "metric_name_ru", "metric_name_en", "statement_page", "page_number",
+    "value_2025", "value_2024", "raw_value_2025", "raw_value_2024", "raw_line",
+    "note_reference", "source_pdf_sha256", "plan_checksum_sha256", "plan_rows_checksum_sha256",
+    "natural_key", "natural_key_sha256", "row_checksum_sha256", "created_at", "updated_at",
+)
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_FIELDS = [
+    "mode", "status", "migration_readiness_gate_status",
+    "ready_for_migration_apply_plan", "ready_for_migration_apply",
+    "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "schema_discovery_ready", "import_readiness_gate_ready", "import_plan_preview_ready",
+    "company_id", "company_name", "report_year", "report_standard",
+    "expected_migration_revision", "discovered_migration_revision",
+    "expected_table_name", "discovered_table_name",
+    "migration_file_path", "migration_file_exists", "migration_revision_found",
+    "migration_down_revision", "migration_down_revision_found",
+    "migration_upgrade_function_found", "migration_downgrade_function_found",
+    "migration_creates_expected_table", "migration_drops_expected_table_on_downgrade",
+    "migration_has_natural_key_unique_constraint", "migration_has_required_columns",
+    "migration_required_column_count", "migration_required_column_present_count",
+    "migration_required_column_missing_count", "alembic_versions_dir_found",
+    "alembic_revision_file_count", "alembic_head_count", "alembic_multiple_heads",
+    "alembic_down_revision_chain_ok", "live_db_check_requested", "live_db_check_performed",
+    "live_db_check_available", "live_db_current_revision", "live_db_target_revision_applied",
+    "live_db_expected_table_exists", "live_db_required_columns_present_count",
+    "live_db_required_columns_missing_count", "migration_pending", "migration_already_applied",
+    "migration_check_count", "migration_passed_check_count", "migration_warning_check_count",
+    "migration_blocked_check_count", "bad_required_count", "bad_safety_count",
+    "bad_schema_discovery_count", "bad_migration_readiness_count", "blocker_count",
+    "warning_count", "safe_hint", "next_step",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_CHECK_FIELDS = [
+    "check_id", "severity", "status", "code", "message", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_COLUMN_FIELDS = [
+    "column_name", "present_in_migration", "present_in_live_db", "required", "status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_BOOL_FIELDS = (
+    "ready_for_migration_apply_plan", "ready_for_migration_apply",
+    "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "schema_discovery_ready", "import_readiness_gate_ready", "import_plan_preview_ready",
+    "migration_file_exists", "migration_revision_found", "migration_down_revision_found",
+    "migration_upgrade_function_found", "migration_downgrade_function_found",
+    "migration_creates_expected_table", "migration_drops_expected_table_on_downgrade",
+    "migration_has_natural_key_unique_constraint", "migration_has_required_columns",
+    "alembic_versions_dir_found", "alembic_multiple_heads", "alembic_down_revision_chain_ok",
+    "live_db_check_requested", "live_db_check_performed", "live_db_check_available",
+    "live_db_target_revision_applied", "live_db_expected_table_exists",
+    "migration_pending", "migration_already_applied", "read_only", "dry_run_only",
+    "would_fetch_source_page", "would_fetch_document_url", "would_download_document",
+    "would_import_report", "would_mutate_database", "would_run_migration",
+    "would_score_issuers", "would_trigger_paper_trading", "source_page_fetched",
+    "document_url_fetched", "documents_downloaded", "import_executed", "database_mutated",
+    "migration_executed", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COUNT_FIELDS = (
+    "report_year", "migration_required_column_count", "migration_required_column_present_count",
+    "migration_required_column_missing_count", "alembic_revision_file_count", "alembic_head_count",
+    "live_db_required_columns_present_count", "live_db_required_columns_missing_count",
+    "migration_check_count", "migration_passed_check_count", "migration_warning_check_count",
+    "migration_blocked_check_count", "bad_required_count", "bad_safety_count",
+    "bad_schema_discovery_count", "bad_migration_readiness_count", "blocker_count", "warning_count",
+)
+RZD_CONTROLLED_VALUES_MIGRATION_READINESS_FORBIDDEN_SAFETY_FLAGS = (
+    "would_fetch_source_page", "would_fetch_document_url", "would_download_document", "would_import_report",
+    "would_mutate_database", "would_run_migration", "would_score_issuers", "would_trigger_paper_trading",
+    "source_page_fetched", "document_url_fetched", "documents_downloaded", "import_executed",
+    "database_mutated", "migration_executed", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -9683,6 +9770,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-blockers-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-checks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery-checks-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-db-schema-discovery-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-expected-revision", default=RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-expected-table", default=RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-check-live-db", action="store_true", default=False)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-checks-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-blockers-csv-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-columns-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-readiness-gate-columns-csv-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -9938,6 +10038,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_import_readiness_gate(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery":
         report = run_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-migration-readiness-gate":
+        report = run_rzd_manual_official_pdf_controlled_values_migration_readiness_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -51522,6 +51624,785 @@ def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_write_outputs
     _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_BLOCKER_FIELDS, artifacts["blockers_csv"])
 
 
+def run_rzd_manual_official_pdf_controlled_values_migration_readiness_gate(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_values_migration_readiness_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_values_migration_readiness_artifacts(args)
+    output_errors = _rzd_manual_official_pdf_controlled_values_migration_readiness_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_manual_official_pdf_controlled_values_migration_readiness_failed_report(
+            output_errors,
+            artifacts=artifacts,
+            write_outputs=False,
+        )
+    schema_path = inputs["schema_discovery"]
+    if schema_path is None or not schema_path.is_file():
+        report = _build_rzd_manual_official_pdf_controlled_values_migration_readiness_report(
+            {},
+            import_readiness_gate={},
+            import_plan_preview={},
+            inputs=inputs,
+            args=args,
+            input_errors=[{"message": "schema_discovery_input_missing"}],
+        )
+    else:
+        try:
+            schema_discovery = _load_json_object(schema_path)
+            readiness_gate = (
+                _load_json_object(inputs["import_readiness_gate"])
+                if inputs.get("import_readiness_gate") is not None and inputs["import_readiness_gate"].is_file()
+                else {}
+            )
+            import_plan = (
+                _load_json_object(inputs["import_plan_preview"])
+                if inputs.get("import_plan_preview") is not None and inputs["import_plan_preview"].is_file()
+                else {}
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return _rzd_manual_official_pdf_controlled_values_migration_readiness_failed_report(
+                [{"message": "controlled_values_migration_readiness_gate_input_required", "error": str(exc)}],
+                artifacts=artifacts,
+            )
+        report = _build_rzd_manual_official_pdf_controlled_values_migration_readiness_report(
+            schema_discovery,
+            import_readiness_gate=readiness_gate,
+            import_plan_preview=import_plan,
+            inputs=inputs,
+            args=args,
+            input_errors=[],
+        )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["migration_readiness_gate_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_migration_readiness_gate_write_failed", "error": str(exc)}]
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            "schema_discovery": chain_dir / RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_ARTIFACT_NAMES["discovery_json"],
+            "import_readiness_gate": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_ARTIFACT_NAMES["gate_json"],
+            "import_plan_preview": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["plan_json"],
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "schema_discovery": args.rzd_manual_official_pdf_controlled_values_db_schema_discovery_input or defaults.get("schema_discovery"),
+        "import_readiness_gate": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_input or defaults.get("import_readiness_gate"),
+        "import_plan_preview": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_input or defaults.get("import_plan_preview"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_ARTIFACT_NAMES.items()}
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "gate_json": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_output or defaults.get("gate_json"),
+        "gate_csv": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_csv_output or defaults.get("gate_csv"),
+        "gate_markdown": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_markdown_output or defaults.get("gate_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_checks_output or defaults.get("checks_json"),
+        "checks_csv": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_checks_csv_output or defaults.get("checks_csv"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_blockers_output or defaults.get("blockers_json"),
+        "blockers_csv": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_blockers_csv_output or defaults.get("blockers_csv"),
+        "columns_json": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_columns_output or defaults.get("columns_json"),
+        "columns_csv": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_columns_csv_output or defaults.get("columns_csv"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in artifacts.values() if path is not None]
+    for generic_output in (args.json_output, args.markdown_output):
+        if generic_output is not None:
+            outputs.append(generic_output)
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output in outputs:
+        if any(_paths_equal(output, input_path) for input_path in input_paths):
+            return [{"message": "rzd_controlled_values_migration_readiness_gate_output_must_not_equal_input"}]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_controlled_values_migration_readiness_gate_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_safety_flags() -> dict[str, bool]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_run_migration": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "import_executed": False,
+        "database_mutated": False,
+        "migration_executed": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row(
+    code: str,
+    *,
+    passed: bool,
+    warning: bool = False,
+    message: str = "",
+) -> dict[str, Any]:
+    status = "passed" if passed else ("warning" if warning else "blocked")
+    return {
+        "check_id": f"rzd_controlled_values_migration_readiness_gate:global:{code}",
+        "severity": "info" if passed else ("warning" if warning else "error"),
+        "status": status,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "safe_hint": "Read-only migration readiness gate. No migration, database mutation, or financial-value import was executed.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_blocker_row(
+    code: str,
+    *,
+    message: str = "",
+    severity: str = "error",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_migration_readiness_gate:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "safe_hint": "Resolve this migration readiness issue before any future explicit migration apply step.",
+    }
+
+
+def _rzd_controlled_values_migration_readiness_revision_value(text: str, name: str) -> str:
+    match = re.search(rf"^\s*{re.escape(name)}\s*:\s*[^=]+=\s*([^\n#]+)", text, flags=re.MULTILINE)
+    if not match:
+        match = re.search(rf"^\s*{re.escape(name)}\s*=\s*([^\n#]+)", text, flags=re.MULTILINE)
+    if not match:
+        return ""
+    raw = match.group(1).strip().rstrip(",")
+    if raw in {"None", "null"}:
+        return ""
+    string_match = re.search(r"[\"']([^\"']+)[\"']", raw)
+    return string_match.group(1) if string_match else raw.strip("\"'")
+
+
+def _rzd_controlled_values_migration_readiness_revision_map(versions_dir: Path) -> dict[str, str]:
+    revisions: dict[str, str] = {}
+    if not versions_dir.is_dir():
+        return revisions
+    for path in versions_dir.glob("*.py"):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        revision = _rzd_controlled_values_migration_readiness_revision_value(text, "revision")
+        down_revision = _rzd_controlled_values_migration_readiness_revision_value(text, "down_revision")
+        if revision:
+            revisions[revision] = down_revision
+    return revisions
+
+
+def _rzd_controlled_values_migration_readiness_heads(revisions: dict[str, str]) -> list[str]:
+    down_revisions = {down for down in revisions.values() if down}
+    return sorted(revision for revision in revisions if revision not in down_revisions)
+
+
+def _rzd_controlled_values_migration_readiness_chain_ok(revisions: dict[str, str], target_revision: str) -> bool:
+    if not target_revision or target_revision not in revisions:
+        return False
+    seen: set[str] = set()
+    current = target_revision
+    while current:
+        if current in seen:
+            return False
+        seen.add(current)
+        down = revisions.get(current, "")
+        if not down:
+            return True
+        if down not in revisions:
+            return False
+        current = down
+    return True
+
+
+def _rzd_controlled_values_migration_readiness_migration_file(
+    versions_dir: Path,
+    expected_revision: str,
+) -> tuple[Path | None, str]:
+    if not versions_dir.is_dir():
+        return None, ""
+    for path in sorted(versions_dir.glob(f"{expected_revision}*.py")):
+        try:
+            return path, path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return path, ""
+    for path in sorted(versions_dir.glob("*.py")):
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if _rzd_controlled_values_migration_readiness_revision_value(text, "revision") == expected_revision:
+            return path, text
+    return None, ""
+
+
+def _rzd_controlled_values_migration_readiness_static_inspection(
+    repo_root: Path,
+    *,
+    expected_revision: str,
+    expected_table: str,
+) -> dict[str, Any]:
+    versions_dir = repo_root / "backend" / "alembic" / "versions"
+    revisions = _rzd_controlled_values_migration_readiness_revision_map(versions_dir)
+    heads = _rzd_controlled_values_migration_readiness_heads(revisions)
+    migration_path, migration_text = _rzd_controlled_values_migration_readiness_migration_file(versions_dir, expected_revision)
+    discovered_revision = _rzd_controlled_values_migration_readiness_revision_value(migration_text, "revision")
+    down_revision = _rzd_controlled_values_migration_readiness_revision_value(migration_text, "down_revision")
+    columns = set(re.findall(r"(?:sa\.)?Column\(\s*[\"']([^\"']+)[\"']", migration_text))
+    missing_columns = [column for column in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS if column not in columns]
+    create_match = re.search(rf"op\.create_table\(\s*[\"']{re.escape(expected_table)}[\"']", migration_text)
+    drop_match = re.search(rf"op\.drop_table\(\s*[\"']{re.escape(expected_table)}[\"']", migration_text)
+    unique_match = (
+        re.search(r"UniqueConstraint\([^)]*[\"']natural_key_sha256[\"'][^)]*\)", migration_text, flags=re.DOTALL)
+        or re.search(r"create_index\([^)]*[\"']natural_key_sha256[\"'][^)]*unique\s*=\s*True", migration_text, flags=re.DOTALL)
+    )
+    return {
+        "versions_dir": versions_dir,
+        "alembic_versions_dir_found": versions_dir.is_dir(),
+        "alembic_revision_file_count": len(revisions),
+        "alembic_heads": heads,
+        "alembic_head_count": len(heads),
+        "alembic_multiple_heads": len(heads) > 1,
+        "alembic_down_revision_chain_ok": _rzd_controlled_values_migration_readiness_chain_ok(revisions, expected_revision),
+        "migration_file_path": str(migration_path or ""),
+        "migration_file_exists": bool(migration_path and migration_text),
+        "discovered_migration_revision": discovered_revision,
+        "migration_revision_found": discovered_revision == expected_revision,
+        "migration_down_revision": down_revision,
+        "migration_down_revision_found": bool(down_revision and down_revision in revisions),
+        "migration_upgrade_function_found": bool(re.search(r"^def\s+upgrade\s*\(", migration_text, flags=re.MULTILINE)),
+        "migration_downgrade_function_found": bool(re.search(r"^def\s+downgrade\s*\(", migration_text, flags=re.MULTILINE)),
+        "migration_creates_expected_table": bool(create_match),
+        "migration_drops_expected_table_on_downgrade": bool(drop_match),
+        "migration_has_natural_key_unique_constraint": bool(unique_match),
+        "migration_required_columns_missing": missing_columns,
+        "migration_required_column_count": len(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS),
+        "migration_required_column_present_count": len(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS) - len(missing_columns),
+        "migration_required_column_missing_count": len(missing_columns),
+        "migration_has_required_columns": not missing_columns,
+        "discovered_table_name": expected_table if create_match else "",
+    }
+
+
+def _rzd_controlled_values_migration_readiness_live_db_check(
+    expected_table: str,
+    required_columns: Sequence[str],
+) -> dict[str, Any]:
+    try:
+        from sqlalchemy import create_engine, text
+        from app.core.config import settings
+    except Exception as exc:  # pragma: no cover - host dependency guard
+        return {"available": False, "error": str(exc), "current_revision": "", "table_exists": False, "columns": []}
+    engine = None
+    try:
+        engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 2})
+        with engine.connect() as connection:
+            revisions = [
+                str(row[0])
+                for row in connection.execute(text("SELECT version_num FROM alembic_version"))
+            ]
+            table_exists = bool(
+                connection.execute(
+                    text(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_name = :table_name LIMIT 1"
+                    ),
+                    {"table_name": expected_table},
+                ).first()
+            )
+            columns = [
+                str(row[0])
+                for row in connection.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = :table_name"
+                    ),
+                    {"table_name": expected_table},
+                )
+            ]
+        return {
+            "available": True,
+            "error": "",
+            "current_revision": ",".join(revisions),
+            "table_exists": table_exists,
+            "columns": columns,
+        }
+    except Exception as exc:
+        return {"available": False, "error": str(exc), "current_revision": "", "table_exists": False, "columns": []}
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
+def _build_rzd_manual_official_pdf_controlled_values_migration_readiness_report(
+    schema_discovery: dict[str, Any],
+    *,
+    import_readiness_gate: dict[str, Any],
+    import_plan_preview: dict[str, Any],
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+    input_errors: list[dict[str, Any]],
+) -> dict[str, Any]:
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    static = _rzd_controlled_values_migration_readiness_static_inspection(
+        _rzd_db_schema_discovery_repo_root(),
+        expected_revision=expected_revision,
+        expected_table=expected_table,
+    )
+    live_requested = bool(args.rzd_manual_official_pdf_controlled_values_migration_readiness_check_live_db)
+    live = (
+        _rzd_controlled_values_migration_readiness_live_db_check(
+            expected_table,
+            RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS,
+        )
+        if live_requested
+        else {"available": False, "error": "", "current_revision": "", "table_exists": False, "columns": []}
+    )
+    live_columns = set(live.get("columns") or [])
+    live_missing = [
+        column for column in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS if column not in live_columns
+    ]
+    recommended_targets = [
+        target
+        for target in schema_discovery.get("discovered_targets", []) or []
+        if _as_bool(target.get("is_recommended"))
+        and str(target.get("source_environment") or "") == "production"
+        and not _as_bool(target.get("is_test_fixture"))
+    ]
+    recommended = recommended_targets[0] if recommended_targets else {}
+    schema_discovery_ready = (
+        not input_errors
+        and str(schema_discovery.get("schema_discovery_status") or schema_discovery.get("status") or "") in {"passed", "warning"}
+        and _as_bool(schema_discovery.get("ready_for_schema_mapping_review"))
+    )
+    import_readiness_gate_ready = (
+        not import_readiness_gate
+        or (
+            str(import_readiness_gate.get("import_readiness_gate_status") or import_readiness_gate.get("status") or "") in {"passed", "warning"}
+            and int(import_readiness_gate.get("blocker_count") or 0) == 0
+        )
+    )
+    import_plan_preview_ready = bool(
+        _as_bool(import_plan_preview.get("import_plan_preview_ready"))
+        or _as_bool(schema_discovery.get("import_plan_preview_ready"))
+    )
+    target_revision_applied = live_requested and live.get("available") and expected_revision in str(live.get("current_revision") or "")
+    migration_already_applied = bool(target_revision_applied and live.get("table_exists") and not live_missing)
+    migration_pending = bool(not migration_already_applied)
+    safety_inputs = [schema_discovery, import_readiness_gate, import_plan_preview]
+    safety_leaks = [
+        flag
+        for flag in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_FORBIDDEN_SAFETY_FLAGS
+        if any(_as_bool(payload.get(flag)) or _as_bool((payload.get("safety_flags") or {}).get(flag)) for payload in safety_inputs)
+    ]
+    checks = [
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("schema_discovery_input_available", passed=not input_errors),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("schema_discovery_ready", passed=schema_discovery_ready),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("recommended_production_target_available", passed=bool(recommended_targets)),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row(
+            "expected_table_matches_schema_discovery",
+            passed=str(recommended.get("table_name") or "") == expected_table,
+        ),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("alembic_versions_dir_found", passed=static["alembic_versions_dir_found"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("expected_migration_file_found", passed=static["migration_file_exists"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("expected_migration_revision_found", passed=static["migration_revision_found"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("migration_down_revision_found", passed=static["migration_down_revision_found"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("migration_upgrade_function_found", passed=static["migration_upgrade_function_found"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("migration_downgrade_function_found", passed=static["migration_downgrade_function_found"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("migration_creates_expected_table", passed=static["migration_creates_expected_table"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("migration_drops_expected_table_on_downgrade", passed=static["migration_drops_expected_table_on_downgrade"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("migration_required_columns_present", passed=static["migration_has_required_columns"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("migration_natural_key_unique_constraint_present", passed=static["migration_has_natural_key_unique_constraint"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("alembic_head_count_safe", passed=not static["alembic_multiple_heads"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("alembic_down_revision_chain_ok", passed=static["alembic_down_revision_chain_ok"]),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row(
+            "live_db_check_available_if_requested",
+            passed=(not live_requested) or bool(live.get("available")),
+            warning=not live_requested,
+        ),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row(
+            "live_db_current_revision_read_if_requested",
+            passed=(not live_requested) or bool(live.get("current_revision")),
+            warning=not live_requested,
+        ),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row(
+            "live_db_target_revision_status_checked_if_requested",
+            passed=(not live_requested) or bool(live.get("available")),
+            warning=not live_requested,
+        ),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row(
+            "live_db_table_status_checked_if_requested",
+            passed=(not live_requested) or bool(live.get("available")),
+            warning=not live_requested,
+        ),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("read_only_no_migration_executed", passed=True),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("read_only_no_database_mutation", passed=True),
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_check_row("safety_flags_false", passed=not safety_leaks),
+    ]
+    blocker_code_by_check = {
+        "schema_discovery_input_available": "schema_discovery_input_missing",
+        "schema_discovery_ready": "schema_discovery_not_ready",
+        "recommended_production_target_available": "recommended_production_target_missing",
+        "expected_table_matches_schema_discovery": "expected_table_mismatch",
+        "alembic_versions_dir_found": "alembic_versions_dir_missing",
+        "expected_migration_file_found": "migration_file_missing",
+        "expected_migration_revision_found": "expected_migration_revision_not_found",
+        "migration_down_revision_found": "migration_down_revision_missing",
+        "migration_upgrade_function_found": "migration_upgrade_function_missing",
+        "migration_downgrade_function_found": "migration_downgrade_function_missing",
+        "migration_creates_expected_table": "migration_expected_table_create_missing",
+        "migration_drops_expected_table_on_downgrade": "migration_expected_table_drop_missing",
+        "migration_required_columns_present": "migration_required_columns_missing",
+        "migration_natural_key_unique_constraint_present": "natural_key_unique_constraint_missing",
+        "alembic_head_count_safe": "alembic_multiple_heads_detected",
+        "alembic_down_revision_chain_ok": "alembic_down_revision_chain_broken",
+        "live_db_check_available_if_requested": "live_db_check_unavailable",
+        "live_db_current_revision_read_if_requested": "live_db_current_revision_unreadable",
+        "live_db_target_revision_status_checked_if_requested": "live_db_target_revision_status_unchecked",
+        "live_db_table_status_checked_if_requested": "live_db_table_status_unchecked",
+        "safety_flags_false": "safety_flag_true",
+    }
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_blocker_row(
+            blocker_code_by_check.get(str(row["code"]), str(row["code"])),
+            message=str(row["message"]),
+        )
+        for row in checks
+        if row["status"] == "blocked"
+    ]
+    warning_rows = [row for row in checks if row["status"] == "warning"]
+    column_rows = [
+        {
+            "column_name": column,
+            "present_in_migration": column not in static["migration_required_columns_missing"],
+            "present_in_live_db": column in live_columns if live_requested and live.get("available") else False,
+            "required": True,
+            "status": (
+                "blocked"
+                if column in static["migration_required_columns_missing"]
+                else "passed"
+                if live_requested and live.get("available") and column in live_columns
+                else "warning"
+            ),
+            "safe_hint": "Column readiness check only. No migration or database mutation was executed.",
+        }
+        for column in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS
+    ]
+    status = "blocked" if blocker_rows else ("passed" if migration_already_applied and import_readiness_gate_ready else "warning")
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-migration-readiness-gate",
+        "status": status,
+        "migration_readiness_gate_status": status,
+        "ready_for_migration_apply_plan": bool(not blocker_rows and not migration_already_applied),
+        "ready_for_migration_apply": False,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "schema_discovery_ready": schema_discovery_ready,
+        "import_readiness_gate_ready": import_readiness_gate_ready,
+        "import_plan_preview_ready": import_plan_preview_ready,
+        "company_id": str(schema_discovery.get("company_id") or import_plan_preview.get("company_id") or ""),
+        "company_name": str(schema_discovery.get("company_name") or import_plan_preview.get("company_name") or ""),
+        "report_year": int(schema_discovery.get("report_year") or import_plan_preview.get("report_year") or 0),
+        "report_standard": str(schema_discovery.get("report_standard") or import_plan_preview.get("report_standard") or ""),
+        "expected_migration_revision": expected_revision,
+        "discovered_migration_revision": static["discovered_migration_revision"],
+        "expected_table_name": expected_table,
+        "discovered_table_name": static["discovered_table_name"],
+        "migration_file_path": static["migration_file_path"],
+        "migration_file_exists": static["migration_file_exists"],
+        "migration_revision_found": static["migration_revision_found"],
+        "migration_down_revision": static["migration_down_revision"],
+        "migration_down_revision_found": static["migration_down_revision_found"],
+        "migration_upgrade_function_found": static["migration_upgrade_function_found"],
+        "migration_downgrade_function_found": static["migration_downgrade_function_found"],
+        "migration_creates_expected_table": static["migration_creates_expected_table"],
+        "migration_drops_expected_table_on_downgrade": static["migration_drops_expected_table_on_downgrade"],
+        "migration_has_natural_key_unique_constraint": static["migration_has_natural_key_unique_constraint"],
+        "migration_has_required_columns": static["migration_has_required_columns"],
+        "migration_required_column_count": static["migration_required_column_count"],
+        "migration_required_column_present_count": static["migration_required_column_present_count"],
+        "migration_required_column_missing_count": static["migration_required_column_missing_count"],
+        "migration_required_columns_missing": list(static["migration_required_columns_missing"]),
+        "alembic_versions_dir_found": static["alembic_versions_dir_found"],
+        "alembic_revision_file_count": static["alembic_revision_file_count"],
+        "alembic_head_count": static["alembic_head_count"],
+        "alembic_heads": list(static["alembic_heads"]),
+        "alembic_multiple_heads": static["alembic_multiple_heads"],
+        "alembic_down_revision_chain_ok": static["alembic_down_revision_chain_ok"],
+        "live_db_check_requested": live_requested,
+        "live_db_check_performed": bool(live_requested and live.get("available")),
+        "live_db_check_available": bool(live.get("available")),
+        "live_db_current_revision": str(live.get("current_revision") or ""),
+        "live_db_target_revision_applied": bool(target_revision_applied),
+        "live_db_expected_table_exists": bool(live.get("table_exists")),
+        "live_db_required_columns_present_count": len(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS) - len(live_missing) if live_requested and live.get("available") else 0,
+        "live_db_required_columns_missing_count": len(live_missing) if live_requested and live.get("available") else 0,
+        "live_db_required_columns_missing": live_missing if live_requested and live.get("available") else [],
+        "migration_pending": migration_pending,
+        "migration_already_applied": migration_already_applied,
+        "migration_check_count": len(checks),
+        "migration_passed_check_count": sum(1 for row in checks if row["status"] == "passed"),
+        "migration_warning_check_count": len(warning_rows),
+        "migration_blocked_check_count": sum(1 for row in checks if row["status"] == "blocked"),
+        "bad_required_count": 1 if input_errors else 0,
+        "bad_safety_count": len(safety_leaks),
+        "bad_schema_discovery_count": 0 if schema_discovery_ready else 1,
+        "bad_migration_readiness_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows),
+        "warning_count": len(warning_rows),
+        "warning_code_counts": _count_by_key(warning_rows, "code"),
+        "warnings": warning_rows,
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_migration_readiness_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_migration_readiness_safety_flags(),
+        "migration_check_rows": checks,
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "column_check_rows": column_rows,
+        "safe_hint": "No migration was executed. No database mutation was performed. No financial values were imported.",
+        "next_step": (
+            "Prepare a future explicit migration apply step only after operator review."
+            if not migration_already_applied
+            else "Plan controlled import apply separately; this gate did not import values."
+        ),
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-migration-readiness-gate", status),
+        "errors": [],
+    }
+    if live_requested and not live.get("available") and live.get("error"):
+        report["warnings"] = [*report["warnings"], {"code": "live_db_check_error", "message": str(live.get("error"))}]
+    _rzd_manual_official_pdf_controlled_values_migration_readiness_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in (
+        "mode", "status", "migration_readiness_gate_status", "company_id", "company_name",
+        "report_standard", "expected_migration_revision", "discovered_migration_revision",
+        "expected_table_name", "discovered_table_name", "migration_file_path", "migration_down_revision",
+        "live_db_current_revision", "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["ready_for_migration_apply"] = False
+    report["ready_for_controlled_import_apply"] = False
+    report["ready_for_controlled_import"] = False
+    report["import_executed"] = False
+    report["database_mutated"] = False
+    report["migration_executed"] = False
+    report["warning_code_counts"] = dict(report.get("warning_code_counts") or {})
+    report["warnings"] = list(report.get("warnings") or [])
+    report["safety_flags"] = dict(report.get("safety_flags") or {})
+    report["migration_required_columns_missing"] = list(report.get("migration_required_columns_missing") or [])
+    report["alembic_heads"] = list(report.get("alembic_heads") or [])
+    report["live_db_required_columns_missing"] = list(report.get("live_db_required_columns_missing") or [])
+    report["migration_check_rows"] = list(report.get("migration_check_rows") or [])
+    report["blocker_rows"] = list(report.get("blocker_rows") or [])
+    report["column_check_rows"] = list(report.get("column_check_rows") or [])
+    for row in report["migration_check_rows"]:
+        for field in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_CHECK_FIELDS:
+            row[field] = str(row.get(field) or "") if field not in {"severity", "status"} else str(row.get(field) or "error")
+    for row in report["blocker_rows"]:
+        for field in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_BLOCKER_FIELDS:
+            row[field] = str(row.get(field) or "")
+    for row in report["column_check_rows"]:
+        row["column_name"] = str(row.get("column_name") or "")
+        row["present_in_migration"] = bool(row.get("present_in_migration"))
+        row["present_in_live_db"] = bool(row.get("present_in_live_db"))
+        row["required"] = bool(row.get("required"))
+        row["status"] = str(row.get("status") or "blocked")
+        row["safe_hint"] = str(row.get("safe_hint") or "")
+    report["blocker_count"] = len(report["blocker_rows"])
+    report["bad_migration_readiness_count"] = report["blocker_count"]
+    if report["status"] != "failed":
+        if report["blocker_count"]:
+            report["status"] = "blocked"
+            report["migration_readiness_gate_status"] = "blocked"
+            report["ready_for_migration_apply_plan"] = False
+        elif report["migration_already_applied"] and report["import_readiness_gate_ready"]:
+            report["status"] = "passed"
+            report["migration_readiness_gate_status"] = "passed"
+            report["ready_for_migration_apply_plan"] = False
+        else:
+            report["status"] = "warning"
+            report["migration_readiness_gate_status"] = "warning"
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_migration_readiness_blocker_row(
+            str(error.get("message") or "controlled_values_migration_readiness_gate_failed")
+        )
+        for error in errors
+    ]
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-migration-readiness-gate",
+        "status": "failed",
+        "migration_readiness_gate_status": "failed",
+        "ready_for_migration_apply_plan": False,
+        "ready_for_migration_apply": False,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "schema_discovery_ready": False,
+        "import_readiness_gate_ready": False,
+        "import_plan_preview_ready": False,
+        "company_id": "",
+        "company_name": "",
+        "report_year": 0,
+        "report_standard": "",
+        "expected_migration_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
+        "discovered_migration_revision": "",
+        "expected_table_name": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
+        "discovered_table_name": "",
+        "migration_file_path": "",
+        "migration_file_exists": False,
+        "migration_revision_found": False,
+        "migration_down_revision": "",
+        "migration_down_revision_found": False,
+        "migration_upgrade_function_found": False,
+        "migration_downgrade_function_found": False,
+        "migration_creates_expected_table": False,
+        "migration_drops_expected_table_on_downgrade": False,
+        "migration_has_natural_key_unique_constraint": False,
+        "migration_has_required_columns": False,
+        "migration_required_column_count": len(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS),
+        "migration_required_column_present_count": 0,
+        "migration_required_column_missing_count": len(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS),
+        "migration_required_columns_missing": list(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS),
+        "alembic_versions_dir_found": False,
+        "alembic_revision_file_count": 0,
+        "alembic_head_count": 0,
+        "alembic_heads": [],
+        "alembic_multiple_heads": False,
+        "alembic_down_revision_chain_ok": False,
+        "live_db_check_requested": False,
+        "live_db_check_performed": False,
+        "live_db_check_available": False,
+        "live_db_current_revision": "",
+        "live_db_target_revision_applied": False,
+        "live_db_expected_table_exists": False,
+        "live_db_required_columns_present_count": 0,
+        "live_db_required_columns_missing_count": 0,
+        "live_db_required_columns_missing": [],
+        "migration_pending": False,
+        "migration_already_applied": False,
+        "migration_check_count": 0,
+        "migration_passed_check_count": 0,
+        "migration_warning_check_count": 0,
+        "migration_blocked_check_count": 0,
+        "bad_required_count": 1,
+        "bad_safety_count": 0,
+        "bad_schema_discovery_count": 0,
+        "bad_migration_readiness_count": len(blocker_rows),
+        "blocker_count": len(blocker_rows),
+        "warning_count": 0,
+        "warning_code_counts": {},
+        "warnings": [],
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_migration_readiness_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_migration_readiness_safety_flags(),
+        "migration_check_rows": [],
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "column_check_rows": [],
+        "safe_hint": "No migration was executed. No database mutation was performed. No financial values were imported.",
+        "next_step": "Fix migration readiness gate inputs before any future migration planning.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-migration-readiness-gate", "failed"),
+        "errors": errors,
+        "artifacts": {key: str(path or "") for key, path in artifacts.items()},
+    }
+    _rzd_manual_official_pdf_controlled_values_migration_readiness_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_values_migration_readiness_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_migration_readiness_gate_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_readiness_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    _write_optional_json_report(report, artifacts["gate_json"])
+    _write_optional_flat_csv([report], RZD_CONTROLLED_VALUES_MIGRATION_READINESS_FIELDS, artifacts["gate_csv"])
+    if artifacts["gate_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_values_migration_readiness_gate_markdown(report, artifacts["gate_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "check_count": len(report.get("migration_check_rows") or []),
+            "migration_check_rows": report.get("migration_check_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No migration was executed.",
+        },
+        artifacts["checks_json"],
+    )
+    _write_optional_flat_csv(report.get("migration_check_rows") or [], RZD_CONTROLLED_VALUES_MIGRATION_READINESS_CHECK_FIELDS, artifacts["checks_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "blocker_count": len(report.get("blocker_rows") or []),
+            "blocker_rows": report.get("blocker_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No migration was executed.",
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_flat_csv(report.get("blocker_rows") or [], RZD_CONTROLLED_VALUES_MIGRATION_READINESS_BLOCKER_FIELDS, artifacts["blockers_csv"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "column_check_count": len(report.get("column_check_rows") or []),
+            "column_check_rows": report.get("column_check_rows") or [],
+            "safe_hint": report.get("safe_hint") or "No migration was executed.",
+        },
+        artifacts["columns_json"],
+    )
+    _write_optional_flat_csv(report.get("column_check_rows") or [], RZD_CONTROLLED_VALUES_MIGRATION_READINESS_COLUMN_FIELDS, artifacts["columns_csv"])
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -59780,6 +60661,11 @@ def write_rzd_manual_official_pdf_controlled_values_db_schema_discovery_markdown
     path.write_text(render_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_migration_readiness_gate_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_migration_readiness_gate_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -60059,6 +60945,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_import_readiness_gate_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery":
         return render_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-migration-readiness-gate":
+        return render_rzd_manual_official_pdf_controlled_values_migration_readiness_gate_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -65496,6 +66384,111 @@ def render_rzd_manual_official_pdf_controlled_values_db_import_target_schema_dis
             + " |"
         )
     if not report.get("schema_discovery_check_rows"):
+        lines.append("| none |  |  |  |")
+    lines.extend(["", "## Warnings", ""])
+    warnings = report.get("warnings") or []
+    if warnings:
+        lines.extend(f"- `{warning.get('code') or warning.get('message') or warning}`" for warning in warnings)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Blockers", ""])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Decision", "", decision, "", "## Next step", "", str(report.get("next_step") or "")])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_migration_readiness_gate_markdown(report: dict[str, Any]) -> str:
+    if report.get("status") == "blocked":
+        decision = "Decision: blocked until migration readiness issues are resolved."
+    elif _as_bool(report.get("migration_already_applied")):
+        decision = "Decision: migration appears already applied; controlled import apply can be planned separately."
+    elif _as_bool(report.get("live_db_check_requested")) and _as_bool(report.get("migration_pending")):
+        decision = "Decision: migration appears ready to apply in a future explicit migration step."
+    else:
+        decision = "Decision: migration file is ready for apply planning, but live DB revision was not checked."
+    lines = [
+        "# RZD Controlled Values Migration Readiness Gate",
+        "",
+        "## Summary",
+        "",
+        f"- status: `{report.get('status')}`",
+        f"- migration_readiness_gate_status: `{report.get('migration_readiness_gate_status')}`",
+        f"- ready_for_migration_apply_plan: `{report.get('ready_for_migration_apply_plan')}`",
+        f"- ready_for_migration_apply: `{report.get('ready_for_migration_apply')}`",
+        "",
+        "## Inputs",
+        "",
+        f"- company: `{report.get('company_id')}` {report.get('company_name')}",
+        f"- report_year: `{report.get('report_year')}`",
+        f"- report_standard: `{report.get('report_standard')}`",
+        f"- schema_discovery_ready: `{report.get('schema_discovery_ready')}`",
+        f"- import_readiness_gate_ready: `{report.get('import_readiness_gate_ready')}`",
+        f"- import_plan_preview_ready: `{report.get('import_plan_preview_ready')}`",
+        "",
+        "## Migration file",
+        "",
+        f"- expected revision: `{report.get('expected_migration_revision')}`",
+        f"- discovered revision: `{report.get('discovered_migration_revision')}`",
+        f"- migration file: `{report.get('migration_file_path')}`",
+        f"- migration_file_exists: `{report.get('migration_file_exists')}`",
+        f"- creates expected table: `{report.get('migration_creates_expected_table')}`",
+        f"- drops expected table on downgrade: `{report.get('migration_drops_expected_table_on_downgrade')}`",
+        "",
+        "## Alembic revision chain",
+        "",
+        f"- versions dir found: `{report.get('alembic_versions_dir_found')}`",
+        f"- revision files: {report.get('alembic_revision_file_count', 0)}",
+        f"- heads: {', '.join(report.get('alembic_heads') or []) or 'none'}",
+        f"- multiple heads: `{report.get('alembic_multiple_heads')}`",
+        f"- down-revision chain ok: `{report.get('alembic_down_revision_chain_ok')}`",
+        "",
+        "## Required columns",
+        "",
+        f"- required: {report.get('migration_required_column_count', 0)}",
+        f"- present in migration: {report.get('migration_required_column_present_count', 0)}",
+        f"- missing in migration: {report.get('migration_required_column_missing_count', 0)}",
+        f"- missing columns: {', '.join(report.get('migration_required_columns_missing') or []) or 'none'}",
+        "",
+        "## Natural key uniqueness",
+        "",
+        f"- natural_key_sha256 unique: `{report.get('migration_has_natural_key_unique_constraint')}`",
+        "",
+        "## Live DB status",
+        "",
+        f"- live DB check requested: `{report.get('live_db_check_requested')}`",
+        f"- live DB check performed: `{report.get('live_db_check_performed')}`",
+        f"- current revision: `{report.get('live_db_current_revision')}`",
+        f"- target revision applied: `{report.get('live_db_target_revision_applied')}`",
+        f"- expected table exists: `{report.get('live_db_expected_table_exists')}`",
+        "",
+        "## Safety status",
+        "",
+        "- No migration was executed.",
+        "- No database mutation was performed.",
+        "- No financial values were imported.",
+        f"- database_mutated: `{report.get('database_mutated')}`",
+        f"- migration_executed: `{report.get('migration_executed')}`",
+        f"- import_executed: `{report.get('import_executed')}`",
+        "",
+        "## Checks",
+        "",
+        "| Code | Status | Severity | Message |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in report.get("migration_check_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_table_cell(value)
+                for value in (row.get("code"), row.get("status"), row.get("severity"), row.get("message"))
+            )
+            + " |"
+        )
+    if not report.get("migration_check_rows"):
         lines.append("| none |  |  |  |")
     lines.extend(["", "## Warnings", ""])
     warnings = report.get("warnings") or []
@@ -76504,6 +77497,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use this Task176 readiness gate only to prepare a future controlled apply step; no database import is executed here."]
     if mode == "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery":
         return ["Review the discovered DB target schema gaps before building any future controlled import apply task; this mode is read-only."]
+    if mode == "rzd-manual-official-pdf-controlled-values-migration-readiness-gate":
+        return ["Review Task179 migration readiness; any Alembic apply and any controlled value import remain separate explicit future tasks."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -76786,6 +77781,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_controlled_values_db_schema_discovery_inputs(args),
             artifacts=_rzd_manual_official_pdf_controlled_values_db_schema_discovery_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-migration-readiness-gate":
+        return not _rzd_manual_official_pdf_controlled_values_migration_readiness_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_values_migration_readiness_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_values_migration_readiness_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
