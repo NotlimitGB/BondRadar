@@ -8022,6 +8022,8 @@ RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FIELDS = [
     "mapping_row_count", "mapped_import_plan_row_count", "unmapped_import_plan_row_count",
     "required_field_count", "required_field_present_count", "required_field_missing_count",
     "unique_key_candidate_count", "recommended_unique_key_field_count", "missing_unique_key_field_count",
+    "test_fixture_target_count", "production_candidate_target_count", "migration_target_count",
+    "recommended_production_target_count", "test_fixture_recommended_target_count",
     "migration_required", "model_required", "repository_required", "schema_required",
     "schema_discovery_check_count", "schema_discovery_passed_check_count",
     "schema_discovery_warning_check_count", "schema_discovery_blocked_check_count",
@@ -8031,6 +8033,7 @@ RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_FIELDS = [
 RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_TARGET_FIELDS = [
     "target_id", "target_name", "target_type", "source_file", "source_line_start", "source_line_end",
     "table_name", "model_name", "class_name", "is_candidate", "is_recommended", "reason_codes",
+    "source_environment", "is_test_fixture", "is_production_candidate",
     "available_fields", "required_fields_present", "required_fields_missing", "unique_key_candidates", "safe_hint",
 ]
 RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_FIELDS = [
@@ -8066,7 +8069,9 @@ RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_COUNT_FIELDS = (
     "recommended_target_count", "mapping_row_count", "mapped_import_plan_row_count",
     "unmapped_import_plan_row_count", "required_field_count", "required_field_present_count",
     "required_field_missing_count", "unique_key_candidate_count", "recommended_unique_key_field_count",
-    "missing_unique_key_field_count", "schema_discovery_check_count", "schema_discovery_passed_check_count",
+    "missing_unique_key_field_count", "test_fixture_target_count", "production_candidate_target_count",
+    "migration_target_count", "recommended_production_target_count", "test_fixture_recommended_target_count",
+    "schema_discovery_check_count", "schema_discovery_passed_check_count",
     "schema_discovery_warning_check_count", "schema_discovery_blocked_check_count",
     "bad_required_count", "bad_safety_count", "bad_import_plan_count", "bad_readiness_gate_count",
     "bad_schema_discovery_count", "blocker_count", "warning_count",
@@ -50982,6 +50987,28 @@ def _rzd_db_schema_discovery_relevant(text: str, path: Path) -> bool:
     return any(keyword in haystack for keyword in ("financial", "statement", "report", "metric", "value", "issuer", "company", "fundamental"))
 
 
+def _rzd_db_schema_discovery_source_environment(path: Path, repo_root: Path) -> tuple[str, bool]:
+    try:
+        rel = path.relative_to(repo_root).as_posix()
+    except ValueError:
+        rel = path.as_posix()
+    rel_lower = rel.lower()
+    name_lower = path.name.lower()
+    is_test = (
+        rel_lower.startswith("backend/tests/")
+        or rel_lower.startswith("tests/")
+        or name_lower.startswith("test_")
+        or name_lower.endswith("_test.py")
+    )
+    if is_test:
+        return "test", True
+    if rel_lower.startswith("backend/alembic/") or rel_lower.startswith("backend/migrations/"):
+        return "migration", False
+    if rel_lower.startswith("backend/app/"):
+        return "production", False
+    return "unknown", False
+
+
 def _rzd_db_schema_discovery_fields_present(available_fields: list[str]) -> tuple[list[str], list[str], dict[str, str]]:
     available = set(available_fields)
     present: list[str] = []
@@ -51006,6 +51033,7 @@ def _rzd_db_schema_discovery_target_from_file(path: Path, repo_root: Path) -> di
     if not _rzd_db_schema_discovery_relevant(text, path):
         return None
     rel = str(path.relative_to(repo_root)) if path.is_relative_to(repo_root) else str(path)
+    source_environment, is_test_fixture = _rzd_db_schema_discovery_source_environment(path, repo_root)
     lines = text.splitlines()
     table_match = re.search(r"__tablename__\s*=\s*[\"']([^\"']+)[\"']", text)
     class_matches = list(re.finditer(r"^class\s+([A-Za-z_]\w*)\(([^)]*)\):", text, flags=re.MULTILINE))
@@ -51055,6 +51083,9 @@ def _rzd_db_schema_discovery_target_from_file(path: Path, repo_root: Path) -> di
         reason_codes.append("sqlalchemy_model_discovered")
     if present:
         reason_codes.append("required_field_overlap_detected")
+    if any("natural_key_sha256" in candidate for candidate in unique_key_candidates) and "natural_key_sha256" not in available_fields:
+        reason_codes.append("unique_constraint_references_missing_declared_field")
+    is_production_candidate = bool(is_candidate and source_environment == "production" and not is_test_fixture)
     return {
         "target_id": hashlib.sha256(rel.encode("utf-8")).hexdigest()[:16],
         "target_name": table_name or class_name or path.stem,
@@ -51068,6 +51099,9 @@ def _rzd_db_schema_discovery_target_from_file(path: Path, repo_root: Path) -> di
         "is_candidate": bool(is_candidate),
         "is_recommended": False,
         "reason_codes": reason_codes,
+        "source_environment": source_environment,
+        "is_test_fixture": bool(is_test_fixture),
+        "is_production_candidate": is_production_candidate,
         "available_fields": available_fields,
         "required_fields_present": present,
         "required_fields_missing": missing,
@@ -51094,7 +51128,13 @@ def _rzd_db_schema_discovery_scan_targets(repo_root: Path) -> list[dict[str, Any
 
 
 def _rzd_db_schema_discovery_choose_recommended(targets: list[dict[str, Any]]) -> dict[str, Any] | None:
-    candidates = [target for target in targets if _as_bool(target.get("is_candidate"))]
+    candidates = [
+        target
+        for target in targets
+        if _as_bool(target.get("is_production_candidate"))
+        and not _as_bool(target.get("is_test_fixture"))
+        and str(target.get("source_environment") or "") == "production"
+    ]
     if not candidates:
         return None
     def score(target: dict[str, Any]) -> tuple[int, int, int, str]:
@@ -51142,7 +51182,7 @@ def _rzd_db_schema_discovery_mapping_rows(
                 "natural_key_sha256": str(row.get("natural_key_sha256") or ""),
                 "row_checksum_sha256": str(row.get("row_checksum_sha256") or ""),
                 "mapping_status": "unmapped",
-                "mapping_reason_codes": ["no_recommended_db_target"],
+                "mapping_reason_codes": ["production_target_not_found"],
                 "mapped_fields": {},
                 "missing_fields": list(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS),
                 "type_warnings": [],
@@ -51193,6 +51233,15 @@ def _build_rzd_manual_official_pdf_controlled_values_db_schema_discovery_report(
     mapping_rows = _rzd_db_schema_discovery_mapping_rows(plan_rows, recommended)
     candidate_targets = [target for target in targets if _as_bool(target.get("is_candidate"))]
     recommended_targets = [target for target in targets if _as_bool(target.get("is_recommended"))]
+    test_fixture_targets = [target for target in targets if _as_bool(target.get("is_test_fixture"))]
+    production_candidate_targets = [target for target in targets if _as_bool(target.get("is_production_candidate"))]
+    migration_targets = [target for target in targets if str(target.get("source_environment") or "") == "migration"]
+    recommended_production_targets = [
+        target
+        for target in recommended_targets
+        if str(target.get("source_environment") or "") == "production" and not _as_bool(target.get("is_test_fixture"))
+    ]
+    test_fixture_recommended_targets = [target for target in recommended_targets if _as_bool(target.get("is_test_fixture"))]
     recommended_missing = list((recommended or {}).get("required_fields_missing") or [])
     recommended_fields = list((recommended or {}).get("available_fields") or [])
     missing_unique = [field for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_RECOMMENDED_UNIQUE_KEY_FIELDS if field not in recommended_fields]
@@ -51235,7 +51284,7 @@ def _build_rzd_manual_official_pdf_controlled_values_db_schema_discovery_report(
         "import_plan_rows_available": "import_plan_rows_missing",
         "repository_schema_files_scanned": "repository_schema_files_not_scanned",
         "candidate_targets_found": "candidate_db_target_not_found",
-        "recommended_target_found": "recommended_db_target_not_found",
+        "recommended_target_found": "production_target_not_found",
         "required_fields_covered": "required_fields_missing",
         "unique_key_supported": "unique_key_not_supported",
         "plan_rows_mappable": "import_plan_rows_not_mappable",
@@ -51247,7 +51296,13 @@ def _build_rzd_manual_official_pdf_controlled_values_db_schema_discovery_report(
     blocker_rows = [
         _rzd_manual_official_pdf_controlled_values_db_schema_discovery_blocker_row(
             blocker_code_by_check.get(str(row["code"]), str(row["code"])),
-            message=str(row["message"]),
+            message=(
+                "Only test fixture targets were discovered; no production DB import target is available."
+                if blocker_code_by_check.get(str(row["code"]), str(row["code"])) == "production_target_not_found"
+                and test_fixture_targets
+                and not production_candidate_targets
+                else str(row["message"])
+            ),
         )
         for row in checks
         if row["status"] == "blocked"
@@ -51285,6 +51340,11 @@ def _build_rzd_manual_official_pdf_controlled_values_db_schema_discovery_report(
         "unique_key_candidate_count": len((recommended or {}).get("unique_key_candidates") or []),
         "recommended_unique_key_field_count": len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_RECOMMENDED_UNIQUE_KEY_FIELDS),
         "missing_unique_key_field_count": len(missing_unique) if recommended else len(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_RECOMMENDED_UNIQUE_KEY_FIELDS),
+        "test_fixture_target_count": len(test_fixture_targets),
+        "production_candidate_target_count": len(production_candidate_targets),
+        "migration_target_count": len(migration_targets),
+        "recommended_production_target_count": len(recommended_production_targets),
+        "test_fixture_recommended_target_count": len(test_fixture_recommended_targets),
         "migration_required": bool(blocker_rows),
         "model_required": not bool(recommended),
         "repository_required": bool(blocker_rows),
@@ -51352,7 +51412,7 @@ def _rzd_manual_official_pdf_controlled_values_db_schema_discovery_normalize_rep
     for target in report["discovered_targets"]:
         for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_TARGET_FIELDS:
             if field not in target or target[field] is None:
-                target[field] = [] if field in {"reason_codes", "available_fields", "required_fields_present", "required_fields_missing", "unique_key_candidates"} else False if field in {"is_candidate", "is_recommended"} else 0 if field.startswith("source_line") else ""
+                target[field] = [] if field in {"reason_codes", "available_fields", "required_fields_present", "required_fields_missing", "unique_key_candidates"} else False if field in {"is_candidate", "is_recommended", "is_test_fixture", "is_production_candidate"} else 0 if field.startswith("source_line") else ""
     for row in report["mapping_rows"]:
         for field in RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_FIELDS:
             if field not in row or row[field] is None:

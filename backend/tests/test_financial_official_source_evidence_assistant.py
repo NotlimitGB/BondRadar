@@ -16919,6 +16919,32 @@ def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_disco
     _assert_rzd_controlled_values_db_schema_discovery_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_test_fixture_not_recommended(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=True, test_fixture=True)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["recommended_target_count"] == 0
+    assert report["recommended_production_target_count"] == 0
+    assert report["test_fixture_target_count"] >= 1
+    assert report["test_fixture_recommended_target_count"] == 0
+    assert "production_target_not_found" in {row["code"] for row in report["blocker_rows"]}
+    assert report["mapped_import_plan_row_count"] == 0
+    assert report["unmapped_import_plan_row_count"] == report["input_import_plan_row_count"]
+    assert all(row["recommended_physical_target"] == "" for row in report["mapping_rows"])
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
 def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_suitable_target_warns(
     tmp_path: Path,
     monkeypatch,
@@ -16936,10 +16962,37 @@ def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_disco
     assert report["status"] in {"warning", "passed"}
     assert report["schema_discovery_status"] in {"warning", "passed"}
     assert report["candidate_target_count"] >= 1
+    assert report["production_candidate_target_count"] >= 1
     assert report["recommended_target_count"] == 1
+    assert report["recommended_production_target_count"] == 1
+    assert report["test_fixture_recommended_target_count"] == 0
     assert report["mapping_row_count"] == plan["planned_import_row_count"]
     assert report["unmapped_import_plan_row_count"] == 0
     assert report["ready_for_schema_mapping_review"] is True
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_production_wins_over_test(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=True, test_fixture=True)
+    _write_task177_model(repo, include_natural_key=True, test_fixture=False)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    recommended = [target for target in report["discovered_targets"] if target["is_recommended"]]
+    assert len(recommended) == 1
+    assert recommended[0]["source_file"].replace("\\", "/").startswith("backend/app/")
+    assert not recommended[0]["source_file"].replace("\\", "/").startswith("backend/tests/")
+    assert report["recommended_target_count"] == 1
+    assert report["test_fixture_recommended_target_count"] == 0
     _assert_rzd_controlled_values_db_schema_discovery_fields(report)
 
 
@@ -16960,6 +17013,30 @@ def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_disco
     assert report["status"] == "blocked"
     assert report["missing_unique_key_field_count"] > 0
     assert "unique_key_not_supported" in {row["code"] for row in report["blocker_rows"]}
+    _assert_rzd_controlled_values_db_schema_discovery_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_db_import_target_schema_discovery_unique_constraint_without_declared_field_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    _write_task177_model(repo, include_natural_key=False, unique_constraint_only=True)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task177_import_plan(chain)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_db_schema_discovery(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["missing_unique_key_field_count"] > 0
+    assert "unique_key_not_supported" in {row["code"] for row in report["blocker_rows"]}
+    assert any(
+        "unique_constraint_references_missing_declared_field" in target["reason_codes"]
+        for target in report["discovered_targets"]
+    )
     _assert_rzd_controlled_values_db_schema_discovery_fields(report)
 
 
@@ -26776,8 +26853,15 @@ def _task177_repo_root(tmp_path: Path) -> Path:
     return repo
 
 
-def _write_task177_model(repo: Path, *, include_natural_key: bool) -> None:
+def _write_task177_model(
+    repo: Path,
+    *,
+    include_natural_key: bool,
+    test_fixture: bool = False,
+    unique_constraint_only: bool = False,
+) -> None:
     natural_key_field = '    natural_key_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)\n' if include_natural_key else ""
+    unique_constraint = '        UniqueConstraint("natural_key_sha256", name="controlled_values_natural_key_unique"),\n' if (include_natural_key or unique_constraint_only) else ""
     model_text = f"""from __future__ import annotations
 
 from datetime import datetime
@@ -26789,7 +26873,7 @@ from app.db.base import Base
 class ControlledFinancialStatementValue(Base):
     __tablename__ = "controlled_financial_statement_values"
     __table_args__ = (
-        UniqueConstraint("natural_key_sha256", name="controlled_values_natural_key_unique"),
+{unique_constraint}
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -26818,7 +26902,12 @@ class ControlledFinancialStatementValue(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 """
-    (repo / "backend" / "app" / "models" / "controlled_financial_statement_value.py").write_text(model_text, encoding="utf-8")
+    if test_fixture:
+        path = repo / "backend" / "tests" / "test_financial_official_source_evidence_assistant.py"
+    else:
+        path = repo / "backend" / "app" / "models" / "controlled_financial_statement_value.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(model_text, encoding="utf-8")
 
 
 def _task177_import_plan_rows() -> list[dict]:
@@ -27068,6 +27157,9 @@ def _assert_rzd_controlled_values_db_schema_discovery_fields(report: dict) -> No
         assert isinstance(target["required_fields_present"], list)
         assert isinstance(target["required_fields_missing"], list)
         assert isinstance(target["unique_key_candidates"], list)
+        assert target["source_environment"] in {"production", "test", "migration", "unknown"}
+        assert isinstance(target["is_test_fixture"], bool)
+        assert isinstance(target["is_production_candidate"], bool)
     for row in report.get("mapping_rows") or []:
         for field in assistant.RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_MAPPING_FIELDS:
             assert field in row
