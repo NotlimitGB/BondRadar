@@ -18456,6 +18456,244 @@ def test_rzd_manual_official_pdf_controlled_values_post_migration_verification_g
     _assert_rzd_controlled_values_post_migration_verification_gate_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_passes_static_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task183_ready_task182(chain, repo, monkeypatch)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_import_apply_plan_live_db_check",
+        lambda expected_table, required_columns, planned_key_sha256s: _task183_live_state(),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "warning"
+    assert report["import_apply_plan_gate_status"] == "warning"
+    assert report["ready_for_controlled_import_apply_plan"] is True
+    assert report["ready_for_task184_controlled_import_apply"] is True
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["planned_import_row_count"] == 24
+    assert report["planned_insert_row_count"] == 24
+    assert report["planned_existing_db_conflict_count"] == 0
+    assert report["live_db_target_revision_applied"] is True
+    assert report["live_db_expected_table_row_count"] == 0
+    assert report["blocker_count"] == 0
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    assert report["import_executed"] is False
+    assert report["import_apply_command_safe_to_run_now"] is False
+    assert report["import_apply_command_token_name"] == "CONTROLLED_VALUES_IMPORT_APPLY_APPROVED"
+    _assert_rzd_controlled_values_import_apply_plan_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_upstream_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task183_ready_task182(chain, repo, monkeypatch)
+    task182_path = chain / "rzd_manual_official_pdf_controlled_values_post_migration_verification_gate_task182.json"
+    task182 = json.loads(task182_path.read_text(encoding="utf-8"))
+    task182.update({"status": "blocked", "ready_for_controlled_import_apply_plan": False, "blocker_count": 1, "bad_safety_count": 1})
+    task182_path.write_text(json.dumps(task182, ensure_ascii=False), encoding="utf-8")
+    task181_path = chain / "rzd_manual_official_pdf_controlled_values_migration_apply_task181.json"
+    task181 = json.loads(task181_path.read_text(encoding="utf-8"))
+    task181.update({"import_executed": True})
+    task181_path.write_text(json.dumps(task181, ensure_ascii=False), encoding="utf-8")
+    task176_path = chain / "rzd_manual_official_pdf_controlled_values_import_readiness_gate_task176.json"
+    task176 = json.loads(task176_path.read_text(encoding="utf-8"))
+    task176.update({"status": "blocked", "ready_for_controlled_import_apply": False, "blocker_count": 1, "bad_safety_count": 1})
+    task176_path.write_text(json.dumps(task176, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_import_apply_plan_live_db_check",
+        lambda expected_table, required_columns, planned_key_sha256s: _task183_live_state(),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    for expected_code in (
+        "task182_status_not_passed",
+        "task182_not_ready_for_controlled_import_apply_plan",
+        "task182_blockers_present",
+        "task182_safety_blockers_present",
+        "task181_import_executed",
+        "task176_status_not_ready",
+        "task176_not_ready_for_controlled_import_apply",
+        "task176_blockers_present",
+        "task176_safety_blockers_present",
+    ):
+        assert expected_code in codes
+    assert report["status"] == "blocked"
+    assert report["ready_for_task184_controlled_import_apply"] is False
+    assert report["database_mutated"] is False
+    assert report["import_executed"] is False
+    _assert_rzd_controlled_values_import_apply_plan_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_row_and_expected_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task183_ready_task182(chain, repo, monkeypatch)
+    task175_path = chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.json"
+    task175 = json.loads(task175_path.read_text(encoding="utf-8"))
+    rows = task175["import_plan_rows"]
+    rows.pop()
+    rows[0]["natural_key"] = rows[1]["natural_key"]
+    rows[0]["natural_key_sha256"] = rows[1]["natural_key_sha256"]
+    rows[2]["row_checksum_sha256"] = ""
+    rows[3]["metric_key"] = ""
+    rows[4]["target_operation"] = "delete_preview"
+    task175["planned_import_row_count"] = len(rows)
+    task175_path.write_text(json.dumps(task175, ensure_ascii=False), encoding="utf-8")
+    rows_path = chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_task175.json"
+    rows_payload = json.loads(rows_path.read_text(encoding="utf-8"))
+    rows_payload["import_plan_rows"] = rows
+    rows_path.write_text(json.dumps(rows_payload, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_import_apply_plan_live_db_check",
+        lambda expected_table, required_columns, planned_key_sha256s: _task183_live_state(),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-migration-expected-table",
+            "wrong_table",
+        ]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    for expected_code in (
+        "expected_table_mismatch",
+        "planned_import_row_count_mismatch",
+        "planned_duplicate_natural_keys",
+        "planned_duplicate_natural_key_sha256",
+        "planned_required_fields_missing",
+        "planned_checksums_missing_or_invalid",
+        "planned_non_insert_actions_present",
+    ):
+        assert expected_code in codes
+    assert report["status"] == "blocked"
+    assert report["ready_for_controlled_import_apply_plan"] is False
+    _assert_rzd_controlled_values_import_apply_plan_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_live_db_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task183_ready_task182(chain, repo, monkeypatch)
+    first_key = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.json").read_text(encoding="utf-8"))["import_plan_rows"][0]["natural_key_sha256"]
+    cases = [
+        (_task183_live_state(available=False, error="no db"), "live_db_unavailable"),
+        (_task183_live_state(revision="202605140017"), "live_db_revision_mismatch"),
+        (_task183_live_state(table_exists=False), "live_db_expected_table_missing"),
+        (_task183_live_state(row_count=1), "live_db_expected_table_row_count_not_zero"),
+        (_task183_live_state(columns=["id"]), "live_db_required_columns_missing"),
+        (_task183_live_state(unique=False), "live_db_natural_key_unique_constraint_missing"),
+        (_task183_live_state(conflicts=[{"id": "1", "natural_key_sha256": first_key}]), "live_db_existing_planned_natural_key_conflict"),
+    ]
+    for live_state, expected_code in cases:
+        monkeypatch.setattr(
+            assistant,
+            "_rzd_controlled_values_import_apply_plan_live_db_check",
+            lambda expected_table, required_columns, planned_key_sha256s, live_state=live_state: live_state,
+        )
+        report = _run_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate(
+            ["--operator-resolution-chain-output-dir", str(chain)]
+        )
+        assert report["status"] == "blocked"
+        assert expected_code in {row["code"] for row in report["blocker_rows"]}
+        assert report["ready_for_task184_controlled_import_apply"] is False
+        assert report["database_mutated"] is False
+        assert report["import_executed"] is False
+        _assert_rzd_controlled_values_import_apply_plan_gate_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_wrappers_markdown_and_safety(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task183_ready_task182(chain, repo, monkeypatch)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_import_apply_plan_live_db_check",
+        lambda expected_table, required_columns, planned_key_sha256s: _task183_live_state(),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_checks_task183.json").read_text(encoding="utf-8"))
+    assert isinstance(checks["check_count"], int)
+    assert isinstance(checks["check_rows"], list)
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_blockers_task183.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers["blocker_count"], int)
+    assert isinstance(blockers["blocker_rows"], list)
+    live_db = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_live_db_task183.json").read_text(encoding="utf-8"))
+    assert live_db["live_db_existing_planned_key_conflict_count"] == 0
+    rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_rows_task183.json").read_text(encoding="utf-8"))
+    assert rows["planned_import_row_count"] == 24
+    commands = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_commands_task183.json").read_text(encoding="utf-8"))
+    assert commands["command_rows"][0]["safe_to_run_now"] is False
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_safety_task183.json").read_text(encoding="utf-8"))
+    assert safety["database_mutated"] is False
+    assert safety["migration_executed"] is False
+    assert safety["import_executed"] is False
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_task183.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values Import Apply Plan Gate",
+        "## Input chain",
+        "## Task182 summary",
+        "## Import plan source",
+        "## Planned rows",
+        "## Live DB verification",
+        "## Conflict checks",
+        "## Future apply command",
+        "## Rollback strategy",
+        "## Safety",
+        "## Decision",
+        "## Next step",
+    ):
+        assert section in markdown
+    for phrase in (
+        "No migration was executed by Task183.",
+        "No database mutation was performed by Task183.",
+        "No financial values were imported by Task183.",
+        "Controlled import execution remains blocked.",
+        "A future explicit operator-approved Task184 is required before import.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_import_apply_plan_gate_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -26575,6 +26813,19 @@ def _run_rzd_manual_official_pdf_controlled_values_post_migration_verification_g
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-import-apply-plan-gate",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -28544,6 +28795,110 @@ def _write_task182_ready_task181(
     return report
 
 
+def _task183_live_state(
+    *,
+    available: bool = True,
+    revision: str = "202606170001",
+    table_exists: bool = True,
+    columns: list[str] | None = None,
+    row_count: int = 0,
+    unique: bool = True,
+    conflicts: list[dict] | None = None,
+    error: str = "",
+) -> dict:
+    return {
+        **_task181_live_state(
+            available=available,
+            revision=revision,
+            table_exists=table_exists,
+            columns=columns if columns is not None else list(assistant.RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS),
+            row_count=row_count,
+            unique=unique,
+            error=error,
+        ),
+        "existing_planned_key_rows": conflicts or [],
+        "existing_planned_key_count": len(conflicts or []),
+    }
+
+
+def _write_task183_ready_task182(chain: Path, repo: Path, monkeypatch) -> dict:
+    _write_task182_ready_task181(chain, repo)
+    task175_path = chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.json"
+    task175 = json.loads(task175_path.read_text(encoding="utf-8"))
+    base_rows = list(task175.get("import_plan_rows") or [])
+    expanded_rows = []
+    for index in range(1, 25):
+        base = dict(base_rows[(index - 1) % len(base_rows)])
+        base["row_index"] = index
+        base["metric_key"] = f"{base.get('metric_key')}_{index}"
+        base["import_plan_row_id"] = f"rzd_controlled_values_import_plan:{index}:{base.get('target_type')}:{base.get('metric_key')}"
+        base["natural_key"] = (
+            f"company_id={base.get('company_id')}|report_year={base.get('report_year')}|"
+            f"standard={base.get('report_standard')}|target_type={base.get('target_type')}|"
+            f"metric_key={base.get('metric_key')}|metric_role={base.get('metric_role')}|"
+            f"statement_page={base.get('statement_page')}|fixture_index={index}"
+        )
+        base["natural_key_sha256"] = hashlib.sha256(str(base["natural_key"]).encode("utf-8")).hexdigest()
+        base["source_pdf_sha256"] = task175.get("source_pdf_sha256") or "a" * 64
+        base["plan_checksum_sha256"] = "b" * 64
+        base["plan_rows_checksum_sha256"] = "c" * 64
+        base["row_checksum_sha256"] = hashlib.sha256(json.dumps(base, sort_keys=True).encode("utf-8")).hexdigest()
+        expanded_rows.append(base)
+    task175.update(
+        {
+            "planned_import_row_count": len(expanded_rows),
+            "planned_aggregate_row_count": sum(1 for row in expanded_rows if row.get("metric_role") == "aggregate"),
+            "planned_component_row_count": sum(1 for row in expanded_rows if row.get("metric_role") == "component"),
+            "plan_checksum_sha256": "b" * 64,
+            "plan_rows_checksum_sha256": "c" * 64,
+            "import_plan_rows": expanded_rows,
+        }
+    )
+    task175_path.write_text(json.dumps(task175, ensure_ascii=False), encoding="utf-8")
+    (chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_rows_task175.json").write_text(
+        json.dumps(
+            {
+                "status": task175["status"],
+                "row_count": len(expanded_rows),
+                "planned_import_row_count": len(expanded_rows),
+                "import_plan_rows": expanded_rows,
+                "safe_hint": "No database import was executed.",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    task176 = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-readiness-gate",
+        "status": "warning",
+        "import_readiness_gate_status": "warning",
+        "ready_for_controlled_import_plan": True,
+        "ready_for_controlled_import_apply": True,
+        "ready_for_controlled_import": False,
+        "actual_planned_import_row_count": len(expanded_rows),
+        "blocker_count": 0,
+        "bad_safety_count": 0,
+        "bad_readiness_gate_count": 0,
+        "import_executed": False,
+        "database_mutated": False,
+        "safety_flags": {},
+    }
+    (chain / "rzd_manual_official_pdf_controlled_values_import_readiness_gate_task176.json").write_text(
+        json.dumps(task176, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_applied_live_state(),
+    )
+    report = _run_rzd_manual_official_pdf_controlled_values_post_migration_verification_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["ready_for_controlled_import_apply_plan"] is True
+    return report
+
+
 def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -28977,6 +29332,91 @@ def _assert_rzd_controlled_values_post_migration_verification_gate_fields(report
             assert field in row
             assert row[field] is not None
         assert isinstance(row["details"], dict)
+
+
+def _assert_rzd_controlled_values_import_apply_plan_gate_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "import_apply_plan_gate_status",
+        "expected_revision",
+        "expected_table",
+        "task182_input_path",
+        "task182_status",
+        "task182_post_migration_verification_gate_status",
+        "task181_input_path",
+        "task181_status",
+        "task181_migration_apply_status",
+        "task176_input_path",
+        "task176_status",
+        "task176_import_readiness_gate_status",
+        "task175_input_path",
+        "task175_status",
+        "task175_import_plan_preview_status",
+        "task175_plan_checksum_sha256",
+        "task175_plan_rows_checksum_sha256",
+        "live_db_current_revision",
+        "live_db_error",
+        "future_import_apply_mode",
+        "import_apply_command_token_name",
+        "import_apply_command_expected_token_value",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("planned_import_rows"), list)
+    assert isinstance(report.get("check_rows"), list)
+    assert isinstance(report.get("command_rows"), list)
+    assert isinstance(report.get("blocker_rows"), list)
+    assert isinstance(report.get("live_db_existing_planned_key_rows"), list)
+    assert isinstance(report.get("live_db_required_column_missing_rows"), list)
+    assert isinstance(report.get("live_db_columns"), list)
+    assert isinstance(report.get("warning_code_counts"), dict)
+    assert isinstance(report.get("warnings"), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["ready_for_post_migration_verification"] is False
+    assert report["ready_for_migration_apply"] is False
+    assert report["ready_for_migration_apply_plan"] is False
+    assert report["import_apply_command_safe_to_run_now"] is False
+    assert report["rollback_command_safe_to_run_now"] is False
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    assert report["import_executed"] is False
+    for row in report.get("planned_import_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_ROW_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["insert_action"], bool)
+        assert isinstance(row["existing_db_row_found"], bool)
+    for row in report.get("check_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["passed"], bool)
+        assert isinstance(row["details"], dict)
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["details"], dict)
+    for row in report.get("command_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_COMMAND_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert row["safe_to_run_now"] is False
+        assert isinstance(row["requires_explicit_operator_token"], bool)
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:
