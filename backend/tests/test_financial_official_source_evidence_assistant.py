@@ -17703,6 +17703,482 @@ def test_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_wra
     _assert_rzd_controlled_values_migration_apply_plan_gate_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_missing_token_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    monkeypatch.delenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", raising=False)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_live_state(),
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_execute",
+        lambda expected_revision: (_ for _ in ()).throw(AssertionError("migration must not execute without token")),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["approval_token_provided"] is False
+    assert report["approval_token_valid"] is False
+    assert report["migration_command_executed"] is False
+    assert "approval_token_missing_or_invalid" in {row["code"] for row in report["blocker_rows"]}
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    assert report["import_executed"] is False
+    assert report["ready_for_post_migration_verification"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_invalid_token_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "approved")
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_live_state(),
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_execute",
+        lambda expected_revision: (_ for _ in ()).throw(AssertionError("migration must not execute with invalid token")),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-migration-apply-approval-token-value",
+            "true",
+        ]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["approval_token_provided"] is True
+    assert report["approval_token_valid"] is False
+    assert "approval_token_missing_or_invalid" in {row["code"] for row in report["blocker_rows"]}
+    assert report["migration_command_executed"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_missing_task180_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    chain.mkdir(parents=True)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_live_state(),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert "task180_input_missing" in {row["code"] for row in report["blocker_rows"]}
+    assert "task179_input_missing" in {row["code"] for row in report["blocker_rows"]}
+    assert report["migration_command_executed"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_task180_contract_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    task180 = _write_task181_ready_task180(chain, repo)
+    task180.update(
+        {
+            "status": "blocked",
+            "migration_apply_plan_gate_status": "blocked",
+            "blocker_count": 1,
+            "bad_safety_count": 1,
+            "ready_for_task181_migration_apply": False,
+            "ready_for_migration_apply": True,
+            "ready_for_controlled_import_apply": True,
+            "ready_for_controlled_import": True,
+            "database_mutated": True,
+            "migration_executed": True,
+            "import_executed": True,
+            "expected_revision": "bad",
+            "expected_table": "bad_table",
+            "apply_command": "alembic upgrade head",
+            "apply_command_safe_to_run_now": True,
+            "apply_command_requires_explicit_operator_token": False,
+            "apply_command_token_name": "WRONG",
+        }
+    )
+    (chain / "rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_task180.json").write_text(
+        json.dumps(task180, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_live_state(),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    for expected_code in (
+        "task180_status_blocked_or_failed",
+        "task180_blockers_present",
+        "task180_safety_blockers_present",
+        "task180_not_ready_for_task181_migration_apply",
+        "task180_ready_for_migration_apply_must_be_false",
+        "task180_ready_for_controlled_import_apply_must_be_false",
+        "task180_ready_for_controlled_import_must_be_false",
+        "task180_database_mutated",
+        "task180_migration_executed",
+        "task180_import_executed",
+        "task180_expected_revision_mismatch",
+        "task180_expected_table_mismatch",
+        "task180_apply_command_mismatch",
+        "task180_apply_command_safe_to_run_now_true",
+        "task180_apply_command_token_requirement_missing",
+        "task180_apply_command_token_name_mismatch",
+    ):
+        assert expected_code in codes
+    assert report["migration_command_executed"] is False
+    assert report["database_mutated"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_live_unavailable_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_live_state(available=False, error="unavailable"),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["live_db_precheck_performed"] is True
+    assert report["live_db_precheck_available"] is False
+    assert "live_db_unavailable" in {row["code"] for row in report["blocker_rows"]}
+    assert report["migration_command_executed"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_already_applied_consistent_noops(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_applied_live_state(),
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_execute",
+        lambda expected_revision: (_ for _ in ()).throw(AssertionError("already-applied state must not execute migration")),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "passed"
+    assert report["migration_apply_status"] == "already_applied"
+    assert report["migration_command_executed"] is False
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    assert report["import_executed"] is False
+    assert report["ready_for_post_migration_verification"] is True
+    assert report["blocker_count"] == 0
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_already_applied_inconsistent_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_live_state(
+            revision="202606170001",
+            table_exists=True,
+            columns=["id"],
+            row_count=3,
+            unique=False,
+        ),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    assert report["status"] == "blocked"
+    assert "migration_already_applied_required_columns_missing" in codes
+    assert "migration_already_applied_natural_key_unique_constraint_missing" in codes
+    assert "controlled_values_already_imported_before_migration" in codes
+    assert report["migration_command_executed"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_success_executes_fixed_command(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    states = iter([_task181_live_state(), _task181_applied_live_state()])
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: next(states),
+    )
+    executed: list[str] = []
+
+    def fake_execute(expected_revision: str) -> dict:
+        executed.append(expected_revision)
+        return {
+            "executed": True,
+            "exit_code": 0,
+            "stdout": "ok",
+            "stderr": "",
+            "argv": ["alembic", "-c", "alembic.ini", "upgrade", expected_revision],
+            "cwd": str(repo / "backend"),
+        }
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_migration_apply_execute", fake_execute)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert executed == ["202606170001"]
+    assert report["status"] == "passed"
+    assert report["migration_apply_status"] == "passed"
+    assert report["migration_command"] == "alembic upgrade 202606170001"
+    assert report["migration_command_argv"] == ["alembic", "-c", "alembic.ini", "upgrade", "202606170001"]
+    assert report["migration_command_executed"] is True
+    assert report["migration_command_exit_code"] == 0
+    assert report["database_mutated"] is True
+    assert report["migration_executed"] is True
+    assert report["import_executed"] is False
+    assert report["ready_for_post_migration_verification"] is True
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["live_db_expected_table_row_count_after"] == 0
+    assert report["live_db_required_columns_exist_after"] is True
+    assert report["live_db_natural_key_unique_constraint_exists_after"] is True
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_failed_command_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: _task181_live_state(),
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_execute",
+        lambda expected_revision: {
+            "executed": True,
+            "exit_code": 7,
+            "stdout": "stdout failure",
+            "stderr": "stderr failure",
+            "argv": ["alembic", "-c", "alembic.ini", "upgrade", expected_revision],
+            "cwd": str(repo / "backend"),
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["migration_command_executed"] is True
+    assert report["migration_command_exit_code"] == 7
+    assert "migration_command_failed" in {row["code"] for row in report["blocker_rows"]}
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_postcheck_blocks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    states = iter([
+        _task181_live_state(),
+        _task181_live_state(revision="202605140017", table_exists=False, columns=["id"], row_count=2, unique=False),
+    ])
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: next(states),
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_execute",
+        lambda expected_revision: {
+            "executed": True,
+            "exit_code": 0,
+            "stdout": "ok",
+            "stderr": "",
+            "argv": ["alembic", "-c", "alembic.ini", "upgrade", expected_revision],
+            "cwd": str(repo / "backend"),
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    assert report["status"] == "blocked"
+    assert "post_check_revision_mismatch" in codes
+    assert "post_check_expected_table_missing" in codes
+    assert "post_check_required_columns_missing" in codes
+    assert "post_check_natural_key_unique_constraint_missing" in codes
+    assert "post_check_row_count_not_zero" in codes
+    assert report["migration_command_executed"] is True
+    assert report["ready_for_post_migration_verification"] is False
+    assert report["import_executed"] is False
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_migration_apply_wrappers_markdown_and_safety(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task181_ready_task180(chain, repo)
+    monkeypatch.setenv("CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED", "APPLY_202606170001_CONTROLLED_VALUES")
+    states = iter([_task181_live_state(), _task181_applied_live_state()])
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_live_db_check",
+        lambda expected_table, required_columns: next(states),
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_migration_apply_execute",
+        lambda expected_revision: {
+            "executed": True,
+            "exit_code": 0,
+            "stdout": "ok",
+            "stderr": "",
+            "argv": ["alembic", "-c", "alembic.ini", "upgrade", expected_revision],
+            "cwd": str(repo / "backend"),
+        },
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    prechecks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_migration_apply_prechecks_task181.json").read_text(encoding="utf-8"))
+    assert isinstance(prechecks["precheck_count"], int)
+    assert isinstance(prechecks["precheck_rows"], list)
+    postchecks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_migration_apply_postchecks_task181.json").read_text(encoding="utf-8"))
+    assert isinstance(postchecks["postcheck_count"], int)
+    assert isinstance(postchecks["postcheck_rows"], list)
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_migration_apply_blockers_task181.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers["blocker_count"], int)
+    assert isinstance(blockers["blocker_rows"], list)
+    execution = json.loads((chain / "rzd_manual_official_pdf_controlled_values_migration_apply_execution_task181.json").read_text(encoding="utf-8"))
+    assert execution["migration_command"] == "alembic upgrade 202606170001"
+    assert execution["migration_command_executed"] is True
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_migration_apply_safety_task181.json").read_text(encoding="utf-8"))
+    assert safety["import_executed"] is False
+    assert safety["ready_for_controlled_import_apply"] is False
+    assert safety["ready_for_controlled_import"] is False
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_migration_apply_task181.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values Migration Apply",
+        "## Input chain",
+        "## Approval token",
+        "## Pre-checks",
+        "## Migration execution",
+        "## Post-checks",
+        "## Safety",
+        "## Decision",
+        "## Next step",
+    ):
+        assert section in markdown
+    for phrase in (
+        "Migration was executed only after explicit operator approval.",
+        "No financial values were imported.",
+        "Controlled import remains blocked.",
+        "Next required step is post-migration verification.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_migration_apply_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -25796,6 +26272,19 @@ def _run_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate(ext
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_migration_apply(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-migration-apply",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -27666,6 +28155,47 @@ def _write_task180_ready_task179(chain: Path, repo: Path) -> dict:
     return report
 
 
+def _write_task181_ready_task180(chain: Path, repo: Path) -> dict:
+    _write_task180_ready_task179(chain, repo)
+    report = _run_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["ready_for_task181_migration_apply"] is True
+    assert report["blocker_count"] == 0
+    return report
+
+
+def _task181_live_state(
+    *,
+    available: bool = True,
+    revision: str = "202605140017",
+    table_exists: bool = False,
+    columns: list[str] | None = None,
+    row_count: int = -1,
+    unique: bool = False,
+    error: str = "",
+) -> dict:
+    return {
+        "available": available,
+        "error": error,
+        "current_revision": revision,
+        "table_exists": table_exists,
+        "columns": columns if columns is not None else [],
+        "row_count": row_count,
+        "natural_key_unique_constraint_exists": unique,
+    }
+
+
+def _task181_applied_live_state(*, row_count: int = 0, unique: bool = True, columns: list[str] | None = None) -> dict:
+    return _task181_live_state(
+        revision="202606170001",
+        table_exists=True,
+        columns=columns if columns is not None else list(assistant.RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS),
+        row_count=row_count,
+        unique=unique,
+    )
+
+
 def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -27969,6 +28499,74 @@ def _assert_rzd_controlled_values_migration_apply_plan_gate_fields(report: dict)
             assert field in row
             assert row[field] is not None
         assert isinstance(row["details"], dict)
+
+
+def _assert_rzd_controlled_values_migration_apply_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_MIGRATION_APPLY_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_MIGRATION_APPLY_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "migration_apply_status",
+        "expected_revision",
+        "expected_table",
+        "task180_input_path",
+        "task180_status",
+        "task180_migration_apply_plan_gate_status",
+        "task179_input_path",
+        "task179_status",
+        "task179_migration_readiness_gate_status",
+        "approval_token_name",
+        "approval_token_expected_value",
+        "approval_token_source",
+        "live_db_revision_before",
+        "migration_command",
+        "migration_command_stdout_tail",
+        "migration_command_stderr_tail",
+        "migration_command_cwd",
+        "live_db_revision_after",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("precheck_rows"), list)
+    assert isinstance(report.get("postcheck_rows"), list)
+    assert isinstance(report.get("blocker_rows"), list)
+    assert isinstance(report.get("execution_rows"), list)
+    assert isinstance(report.get("migration_command_argv"), list)
+    assert isinstance(report.get("warning_code_counts"), dict)
+    assert isinstance(report.get("warnings"), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert report["ready_for_migration_apply"] is False
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["import_executed"] is False
+    for row in [*(report.get("precheck_rows") or []), *(report.get("postcheck_rows") or [])]:
+        for field in assistant.RZD_CONTROLLED_VALUES_MIGRATION_APPLY_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["passed"], bool)
+        assert isinstance(row["details"], dict)
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_MIGRATION_APPLY_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["details"], dict)
+    for row in report.get("execution_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_MIGRATION_APPLY_EXECUTION_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["command_argv"], list)
+        assert isinstance(row["executed"], bool)
+        assert isinstance(row["exit_code"], int)
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:

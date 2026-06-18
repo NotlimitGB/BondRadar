@@ -92,6 +92,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-db-import-target-schema-discovery",
     "rzd-manual-official-pdf-controlled-values-migration-readiness-gate",
     "rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate",
+    "rzd-manual-official-pdf-controlled-values-migration-apply",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -8236,6 +8237,69 @@ RZD_CONTROLLED_VALUES_MIGRATION_APPLY_PLAN_REQUIRED_COUNT_FIELDS = (
     "precheck_count", "postcheck_count", "check_count", "command_count", "rollback_count",
     "bad_safety_count", "blocker_count", "warning_count",
 )
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_NAME = "CONTROLLED_VALUES_MIGRATION_APPLY_APPROVED"
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_VALUE = "APPLY_202606170001_CONTROLLED_VALUES"
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_ARTIFACT_NAMES = {
+    "apply_json": "rzd_manual_official_pdf_controlled_values_migration_apply_task181.json",
+    "apply_markdown": "rzd_manual_official_pdf_controlled_values_migration_apply_task181.md",
+    "prechecks_json": "rzd_manual_official_pdf_controlled_values_migration_apply_prechecks_task181.json",
+    "postchecks_json": "rzd_manual_official_pdf_controlled_values_migration_apply_postchecks_task181.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_migration_apply_blockers_task181.json",
+    "execution_json": "rzd_manual_official_pdf_controlled_values_migration_apply_execution_task181.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_migration_apply_safety_task181.json",
+}
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_FIELDS = [
+    "mode", "status", "migration_apply_status",
+    "ready_for_migration_apply", "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "ready_for_post_migration_verification", "expected_revision", "expected_table",
+    "task180_input_path", "task180_status", "task180_migration_apply_plan_gate_status",
+    "task180_ready_for_migration_apply_plan", "task180_ready_for_task181_migration_apply",
+    "task180_ready_for_migration_apply", "task180_blocker_count", "task180_bad_safety_count",
+    "task179_input_path", "task179_status", "task179_migration_readiness_gate_status",
+    "task179_blocker_count", "task179_bad_safety_count",
+    "approval_token_name", "approval_token_expected_value", "approval_token_provided", "approval_token_valid",
+    "precheck_count", "live_db_precheck_performed", "live_db_precheck_available",
+    "live_db_revision_before", "live_db_target_revision_already_applied_before",
+    "live_db_expected_table_exists_before", "migration_command", "migration_command_executed",
+    "migration_command_exit_code", "migration_command_stdout_tail", "migration_command_stderr_tail",
+    "postcheck_count", "live_db_postcheck_performed", "live_db_revision_after",
+    "live_db_target_revision_applied_after", "live_db_expected_table_exists_after",
+    "live_db_expected_table_row_count_after", "live_db_required_columns_exist_after",
+    "live_db_natural_key_unique_constraint_exists_after", "database_mutated", "migration_executed",
+    "import_executed", "bad_safety_count", "blocker_count", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_CHECK_FIELDS = [
+    "check_id", "phase", "status", "code", "message", "passed", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_EXECUTION_FIELDS = [
+    "execution_id", "migration_command", "command_argv", "cwd", "executed", "exit_code",
+    "stdout_tail", "stderr_tail", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_REQUIRED_BOOL_FIELDS = (
+    "ready_for_migration_apply", "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "ready_for_post_migration_verification", "task180_ready_for_migration_apply_plan",
+    "task180_ready_for_task181_migration_apply", "task180_ready_for_migration_apply",
+    "approval_token_provided", "approval_token_valid", "live_db_precheck_performed",
+    "live_db_precheck_available", "live_db_target_revision_already_applied_before",
+    "live_db_expected_table_exists_before", "migration_command_executed",
+    "live_db_postcheck_performed", "live_db_target_revision_applied_after",
+    "live_db_expected_table_exists_after", "live_db_required_columns_exist_after",
+    "live_db_natural_key_unique_constraint_exists_after", "database_mutated", "migration_executed",
+    "import_executed", "read_only", "dry_run_only", "would_fetch_source_page",
+    "would_fetch_document_url", "would_download_document", "would_import_report",
+    "would_mutate_database", "would_run_migration", "would_score_issuers",
+    "would_trigger_paper_trading", "source_page_fetched", "document_url_fetched",
+    "documents_downloaded", "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
+RZD_CONTROLLED_VALUES_MIGRATION_APPLY_REQUIRED_COUNT_FIELDS = (
+    "task180_blocker_count", "task180_bad_safety_count", "task179_blocker_count",
+    "task179_bad_safety_count", "precheck_count", "postcheck_count",
+    "migration_command_exit_code", "live_db_expected_table_row_count_after",
+    "bad_safety_count", "blocker_count", "warning_count",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -9858,6 +9922,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate-blockers-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate-commands-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate-rollback-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-approval-token", default=RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_NAME)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-approval-token-value", default="")
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-prechecks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-postchecks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-execution-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-migration-apply-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -10117,6 +10191,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_migration_readiness_gate(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate":
         report = run_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-migration-apply":
+        report = run_rzd_manual_official_pdf_controlled_values_migration_apply(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -53161,6 +53237,844 @@ def _rzd_manual_official_pdf_controlled_values_migration_apply_plan_write_output
     )
 
 
+def run_rzd_manual_official_pdf_controlled_values_migration_apply(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_values_migration_apply_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_values_migration_apply_artifacts(args)
+    output_errors = _rzd_manual_official_pdf_controlled_values_migration_apply_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_manual_official_pdf_controlled_values_migration_apply_failed_report(
+            output_errors,
+            artifacts=artifacts,
+            write_outputs=False,
+        )
+    try:
+        task180 = _load_json_object(inputs["task180"]) if inputs.get("task180") is not None and inputs["task180"].is_file() else {}
+        task179 = _load_json_object(inputs["task179"]) if inputs.get("task179") is not None and inputs["task179"].is_file() else {}
+        task177 = _load_json_object(inputs["task177"]) if inputs.get("task177") is not None and inputs["task177"].is_file() else {}
+        task176 = _load_json_object(inputs["task176"]) if inputs.get("task176") is not None and inputs["task176"].is_file() else {}
+        task175 = _load_json_object(inputs["task175"]) if inputs.get("task175") is not None and inputs["task175"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_manual_official_pdf_controlled_values_migration_apply_failed_report(
+            [{"message": "controlled_values_migration_apply_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_manual_official_pdf_controlled_values_migration_apply_report(
+        task180,
+        task179=task179,
+        task177=task177,
+        task176=task176,
+        task175=task175,
+        inputs=inputs,
+        args=args,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_manual_official_pdf_controlled_values_migration_apply_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["migration_apply_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_migration_apply_write_failed", "error": str(exc)}]
+        _rzd_manual_official_pdf_controlled_values_migration_apply_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            "task180": chain_dir / RZD_CONTROLLED_VALUES_MIGRATION_APPLY_PLAN_ARTIFACT_NAMES["gate_json"],
+            "task179": chain_dir / RZD_CONTROLLED_VALUES_MIGRATION_READINESS_ARTIFACT_NAMES["gate_json"],
+            "task177": chain_dir / RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_ARTIFACT_NAMES["discovery_json"],
+            "task176": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_ARTIFACT_NAMES["gate_json"],
+            "task175": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["plan_json"],
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "task180": args.rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_input or defaults.get("task180"),
+        "task179": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_input or defaults.get("task179"),
+        "task177": args.rzd_manual_official_pdf_controlled_values_db_schema_discovery_input or defaults.get("task177"),
+        "task176": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_input or defaults.get("task176"),
+        "task175": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_input or defaults.get("task175"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_MIGRATION_APPLY_ARTIFACT_NAMES.items()}
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "apply_json": args.rzd_manual_official_pdf_controlled_values_migration_apply_output or defaults.get("apply_json"),
+        "apply_markdown": args.rzd_manual_official_pdf_controlled_values_migration_apply_markdown_output or defaults.get("apply_markdown"),
+        "prechecks_json": args.rzd_manual_official_pdf_controlled_values_migration_apply_prechecks_output or defaults.get("prechecks_json"),
+        "postchecks_json": args.rzd_manual_official_pdf_controlled_values_migration_apply_postchecks_output or defaults.get("postchecks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_migration_apply_blockers_output or defaults.get("blockers_json"),
+        "execution_json": args.rzd_manual_official_pdf_controlled_values_migration_apply_execution_output or defaults.get("execution_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_migration_apply_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in artifacts.values() if path is not None]
+    for generic_output in (args.json_output, args.markdown_output):
+        if generic_output is not None:
+            outputs.append(generic_output)
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output in outputs:
+        if any(_paths_equal(output, input_path) for input_path in input_paths):
+            return [{"message": "rzd_controlled_values_migration_apply_output_must_not_equal_input"}]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_controlled_values_migration_apply_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_safety_flags(
+    *,
+    migration_executed: bool = False,
+    database_mutated: bool = False,
+) -> dict[str, bool]:
+    return {
+        "read_only": False,
+        "dry_run_only": False,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": False,
+        "would_mutate_database": bool(database_mutated),
+        "would_run_migration": bool(migration_executed),
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_blocker_row(
+    code: str,
+    *,
+    message: str = "",
+    details: dict[str, Any] | None = None,
+    severity: str = "error",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_migration_apply:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task181 blocks before execution unless every controlled migration apply pre-check passes.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_check_row(
+    phase: str,
+    code: str,
+    *,
+    passed: bool,
+    message: str = "",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "check_id": f"rzd_controlled_values_migration_apply:{phase}:{code}",
+        "phase": phase,
+        "status": "passed" if passed else "blocked",
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "passed": bool(passed),
+        "details": details or {},
+        "safe_hint": "Check row only. Financial values are never imported by Task181.",
+    }
+
+
+def _rzd_controlled_values_migration_apply_token(args: argparse.Namespace) -> tuple[bool, bool, str, str]:
+    token_name = str(args.rzd_manual_official_pdf_controlled_values_migration_apply_approval_token or "")
+    cli_value = str(args.rzd_manual_official_pdf_controlled_values_migration_apply_approval_token_value or "")
+    env_value = str(os.environ.get(RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_NAME) or "")
+    selected_value = cli_value if cli_value else env_value
+    provided = bool(selected_value)
+    both_valid = True
+    if cli_value and cli_value != RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_VALUE:
+        both_valid = False
+    if env_value and env_value != RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_VALUE:
+        both_valid = False
+    valid = (
+        token_name == RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_NAME
+        and provided
+        and selected_value == RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_VALUE
+        and both_valid
+    )
+    source = "cli" if cli_value else ("environment" if env_value else "")
+    return provided, valid, source, selected_value
+
+
+def _rzd_controlled_values_migration_apply_live_db_check(
+    expected_table: str,
+    required_columns: Sequence[str],
+) -> dict[str, Any]:
+    base = {
+        "available": False,
+        "error": "",
+        "current_revision": "",
+        "table_exists": False,
+        "columns": [],
+        "row_count": -1,
+        "natural_key_unique_constraint_exists": False,
+    }
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", expected_table or ""):
+        return {**base, "error": "unsafe_table_name"}
+    try:
+        from sqlalchemy import create_engine, text
+        from app.core.config import settings
+    except Exception as exc:  # pragma: no cover - host dependency guard
+        return {**base, "error": str(exc)}
+    engine = None
+    try:
+        engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 2})
+        with engine.connect() as connection:
+            revisions = [
+                str(row[0])
+                for row in connection.execute(text("SELECT version_num FROM alembic_version"))
+            ]
+            table_exists = bool(
+                connection.execute(
+                    text(
+                        "SELECT table_name FROM information_schema.tables "
+                        "WHERE table_name = :table_name LIMIT 1"
+                    ),
+                    {"table_name": expected_table},
+                ).first()
+            )
+            columns = [
+                str(row[0])
+                for row in connection.execute(
+                    text(
+                        "SELECT column_name FROM information_schema.columns "
+                        "WHERE table_name = :table_name"
+                    ),
+                    {"table_name": expected_table},
+                )
+            ]
+            unique_exists = bool(
+                connection.execute(
+                    text(
+                        "SELECT tc.constraint_name "
+                        "FROM information_schema.table_constraints tc "
+                        "JOIN information_schema.key_column_usage kcu "
+                        "ON tc.constraint_name = kcu.constraint_name "
+                        "AND tc.table_name = kcu.table_name "
+                        "WHERE tc.table_name = :table_name "
+                        "AND tc.constraint_type = 'UNIQUE' "
+                        "AND kcu.column_name = 'natural_key_sha256' "
+                        "LIMIT 1"
+                    ),
+                    {"table_name": expected_table},
+                ).first()
+            )
+            row_count = -1
+            if table_exists:
+                row_count = int(connection.execute(text(f'SELECT COUNT(*) FROM "{expected_table}"')).scalar_one())
+        return {
+            "available": True,
+            "error": "",
+            "current_revision": ",".join(revisions),
+            "table_exists": table_exists,
+            "columns": columns,
+            "row_count": row_count,
+            "natural_key_unique_constraint_exists": unique_exists,
+        }
+    except Exception as exc:
+        return {**base, "error": str(exc)}
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
+def _rzd_controlled_values_migration_apply_execute(expected_revision: str) -> dict[str, Any]:
+    repo_root = _rzd_db_schema_discovery_repo_root()
+    backend_dir = repo_root / "backend"
+    argv = ["alembic", "-c", "alembic.ini", "upgrade", expected_revision]
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=backend_dir,
+            shell=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        return {
+            "executed": True,
+            "exit_code": int(completed.returncode),
+            "stdout": str(completed.stdout or ""),
+            "stderr": str(completed.stderr or ""),
+            "argv": argv,
+            "cwd": str(backend_dir),
+        }
+    except Exception as exc:
+        return {
+            "executed": False,
+            "exit_code": -1,
+            "stdout": "",
+            "stderr": str(exc),
+            "argv": argv,
+            "cwd": str(backend_dir),
+        }
+
+
+def _rzd_migration_apply_tail(text_value: Any, limit: int = 4000) -> str:
+    text_value = str(text_value or "")
+    return text_value[-limit:]
+
+
+def _rzd_migration_apply_revision_contains(current_revision: str, expected_revision: str) -> bool:
+    return expected_revision in {part.strip() for part in str(current_revision or "").split(",") if part.strip()}
+
+
+def _build_rzd_manual_official_pdf_controlled_values_migration_apply_report(
+    task180: dict[str, Any],
+    *,
+    task179: dict[str, Any],
+    task177: dict[str, Any],
+    task176: dict[str, Any],
+    task175: dict[str, Any],
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    migration_command = f"alembic upgrade {expected_revision}"
+    approval_provided, approval_valid, approval_source, _approval_value = _rzd_controlled_values_migration_apply_token(args)
+    task180_path = inputs.get("task180")
+    task179_path = inputs.get("task179")
+    task180_status = str(task180.get("status") or "")
+    task179_status = str(task179.get("status") or "")
+    task180_gate_status = str(task180.get("migration_apply_plan_gate_status") or task180_status or "")
+    task179_gate_status = str(task179.get("migration_readiness_gate_status") or task179_status or "")
+    task180_expected_revision = str(task180.get("expected_revision") or "")
+    task180_expected_table = str(task180.get("expected_table") or "")
+    task180_apply_command = str(task180.get("apply_command") or "")
+    task179_down_revision = str(task179.get("migration_down_revision") or task180.get("migration_down_revision") or "")
+
+    blocker_rows: list[dict[str, Any]] = []
+    precheck_rows: list[dict[str, Any]] = []
+    postcheck_rows: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+
+    def add_pre(code: str, passed: bool, message: str = "", details: dict[str, Any] | None = None) -> None:
+        precheck_rows.append(_rzd_manual_official_pdf_controlled_values_migration_apply_check_row("precheck", code, passed=passed, message=message, details=details))
+
+    def add_post(code: str, passed: bool, message: str = "", details: dict[str, Any] | None = None) -> None:
+        postcheck_rows.append(_rzd_manual_official_pdf_controlled_values_migration_apply_check_row("postcheck", code, passed=passed, message=message, details=details))
+
+    def add_blocker(code: str, message: str = "", details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(_rzd_manual_official_pdf_controlled_values_migration_apply_blocker_row(code, message=message, details=details))
+
+    task180_exists = bool(task180_path is not None and task180_path.is_file() and task180)
+    task179_exists = bool(task179_path is not None and task179_path.is_file() and task179)
+    add_pre("task180_input_available", task180_exists, details={"path": str(task180_path or "")})
+    add_pre("task179_input_available", task179_exists, details={"path": str(task179_path or "")})
+    if not task180_exists:
+        add_blocker("task180_input_missing")
+    if not task179_exists:
+        add_blocker("task179_input_missing")
+
+    if task180 and task180_status in {"blocked", "failed"}:
+        add_blocker("task180_status_blocked_or_failed", details={"status": task180_status})
+    if int(task180.get("blocker_count") or 0) > 0:
+        add_blocker("task180_blockers_present", details={"blocker_count": int(task180.get("blocker_count") or 0)})
+    if int(task180.get("bad_safety_count") or 0) > 0:
+        add_blocker("task180_safety_blockers_present", details={"bad_safety_count": int(task180.get("bad_safety_count") or 0)})
+    if not _as_bool(task180.get("ready_for_task181_migration_apply")):
+        add_blocker("task180_not_ready_for_task181_migration_apply")
+    if _as_bool(task180.get("ready_for_migration_apply")):
+        add_blocker("task180_ready_for_migration_apply_must_be_false")
+    if _as_bool(task180.get("ready_for_controlled_import_apply")):
+        add_blocker("task180_ready_for_controlled_import_apply_must_be_false")
+    if _as_bool(task180.get("ready_for_controlled_import")):
+        add_blocker("task180_ready_for_controlled_import_must_be_false")
+    for flag, code in (
+        ("database_mutated", "task180_database_mutated"),
+        ("migration_executed", "task180_migration_executed"),
+        ("import_executed", "task180_import_executed"),
+    ):
+        if _as_bool(task180.get(flag)):
+            add_blocker(code, details={flag: True})
+    if task180_expected_revision and task180_expected_revision != expected_revision:
+        add_blocker("task180_expected_revision_mismatch", details={"task180": task180_expected_revision, "expected": expected_revision})
+    if task180_expected_table and task180_expected_table != expected_table:
+        add_blocker("task180_expected_table_mismatch", details={"task180": task180_expected_table, "expected": expected_table})
+    if task180_apply_command and task180_apply_command != migration_command:
+        add_blocker("task180_apply_command_mismatch", details={"task180_apply_command": task180_apply_command, "expected": migration_command})
+    if _as_bool(task180.get("apply_command_safe_to_run_now")):
+        add_blocker("task180_apply_command_safe_to_run_now_true")
+    if not _as_bool(task180.get("apply_command_requires_explicit_operator_token")):
+        add_blocker("task180_apply_command_token_requirement_missing")
+    if str(task180.get("apply_command_token_name") or "") not in {"", RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_NAME}:
+        add_blocker("task180_apply_command_token_name_mismatch")
+
+    if int(task179.get("blocker_count") or 0) > 0:
+        add_blocker("task179_blockers_present", details={"blocker_count": int(task179.get("blocker_count") or 0)})
+    if int(task179.get("bad_safety_count") or 0) > 0:
+        add_blocker("task179_safety_blockers_present", details={"bad_safety_count": int(task179.get("bad_safety_count") or 0)})
+    for flag, code in (
+        ("database_mutated", "task179_database_mutated"),
+        ("migration_executed", "task179_migration_executed"),
+        ("import_executed", "task179_import_executed"),
+    ):
+        if _as_bool(task179.get(flag)):
+            add_blocker(code, details={flag: True})
+
+    add_pre("approval_token_provided", approval_provided, details={"source": approval_source})
+    add_pre("approval_token_valid", approval_valid, details={"token_name": str(args.rzd_manual_official_pdf_controlled_values_migration_apply_approval_token or "")})
+    if not approval_valid:
+        add_blocker("approval_token_missing_or_invalid")
+
+    live_before = _rzd_controlled_values_migration_apply_live_db_check(
+        expected_table,
+        RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS,
+    )
+    live_available_before = bool(live_before.get("available"))
+    revision_before = str(live_before.get("current_revision") or "")
+    target_applied_before = bool(live_available_before and _rzd_migration_apply_revision_contains(revision_before, expected_revision))
+    table_exists_before = bool(live_before.get("table_exists"))
+    columns_exist_before = bool(set(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS).issubset(set(live_before.get("columns") or [])))
+    unique_exists_before = bool(live_before.get("natural_key_unique_constraint_exists"))
+    row_count_before = int(live_before.get("row_count") if live_before.get("row_count") is not None else -1)
+    add_pre("live_db_available", live_available_before, details={"error": str(live_before.get("error") or "")})
+    if not live_available_before:
+        add_blocker("live_db_unavailable", details={"error": str(live_before.get("error") or "")})
+    expected_chain_revisions = {expected_revision}
+    if task179_down_revision:
+        expected_chain_revisions.add(task179_down_revision)
+    if live_available_before and revision_before and not any(_rzd_migration_apply_revision_contains(revision_before, revision) for revision in expected_chain_revisions):
+        add_blocker("live_db_revision_unexpected", details={"current_revision": revision_before, "expected_chain": sorted(expected_chain_revisions)})
+    if live_available_before and target_applied_before:
+        if not table_exists_before:
+            add_blocker("migration_already_applied_expected_table_missing")
+        if not columns_exist_before:
+            add_blocker("migration_already_applied_required_columns_missing")
+        if not unique_exists_before:
+            add_blocker("migration_already_applied_natural_key_unique_constraint_missing")
+        if row_count_before not in {-1, 0}:
+            add_blocker("controlled_values_already_imported_before_migration", details={"row_count": row_count_before})
+    elif live_available_before and table_exists_before:
+        add_blocker("expected_table_exists_before_migration")
+
+    add_pre("target_revision_not_already_applied_or_consistent", live_available_before and (not target_applied_before or (table_exists_before and columns_exist_before and unique_exists_before and row_count_before in {-1, 0})))
+    add_pre("expected_table_absent_before_apply_unless_already_applied", live_available_before and (not table_exists_before or target_applied_before))
+    if task177:
+        warnings.append({"code": "task177_cross_check_loaded", "message": "Task177 schema discovery artifact was loaded for audit context."})
+    if task176:
+        warnings.append({"code": "task176_cross_check_loaded", "message": "Task176 import readiness artifact was loaded for audit context."})
+    if task175:
+        warnings.append({"code": "task175_cross_check_loaded", "message": "Task175 import plan artifact was loaded for audit context."})
+
+    execution = {
+        "executed": False,
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "",
+        "argv": ["alembic", "-c", "alembic.ini", "upgrade", expected_revision],
+        "cwd": str(_rzd_db_schema_discovery_repo_root() / "backend"),
+    }
+    migration_command_executed = False
+    database_mutated = False
+    migration_executed = False
+    live_after = {
+        "available": False,
+        "error": "",
+        "current_revision": "",
+        "table_exists": False,
+        "columns": [],
+        "row_count": -1,
+        "natural_key_unique_constraint_exists": False,
+    }
+    migration_apply_status = "blocked" if blocker_rows else "pending"
+    if not blocker_rows and target_applied_before:
+        migration_apply_status = "already_applied"
+        live_after = dict(live_before)
+    elif not blocker_rows:
+        execution = _rzd_controlled_values_migration_apply_execute(expected_revision)
+        migration_command_executed = bool(execution.get("executed"))
+        if int(execution.get("exit_code") or 0) != 0 or not migration_command_executed:
+            add_blocker(
+                "migration_command_failed",
+                details={
+                    "exit_code": int(execution.get("exit_code") or -1),
+                    "stdout_tail": _rzd_migration_apply_tail(execution.get("stdout")),
+                    "stderr_tail": _rzd_migration_apply_tail(execution.get("stderr")),
+                },
+            )
+            migration_apply_status = "blocked"
+        else:
+            live_after = _rzd_controlled_values_migration_apply_live_db_check(
+                expected_table,
+                RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS,
+            )
+            database_mutated = True
+            migration_executed = True
+            migration_apply_status = "passed"
+
+    live_after_available = bool(live_after.get("available"))
+    revision_after = str(live_after.get("current_revision") or "")
+    target_applied_after = bool(live_after_available and _rzd_migration_apply_revision_contains(revision_after, expected_revision))
+    table_exists_after = bool(live_after.get("table_exists"))
+    columns_exist_after = bool(set(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS).issubset(set(live_after.get("columns") or [])))
+    unique_exists_after = bool(live_after.get("natural_key_unique_constraint_exists"))
+    row_count_after = int(live_after.get("row_count") if live_after.get("row_count") is not None else -1)
+    postcheck_performed = bool(migration_apply_status in {"passed", "already_applied"})
+    if postcheck_performed:
+        add_post("live_db_postcheck_available", live_after_available, details={"error": str(live_after.get("error") or "")})
+        add_post("target_revision_applied_after", target_applied_after, details={"revision_after": revision_after})
+        add_post("expected_table_exists_after", table_exists_after)
+        add_post("required_columns_exist_after", columns_exist_after)
+        add_post("natural_key_unique_constraint_exists_after", unique_exists_after)
+        add_post("row_count_zero_after", row_count_after == 0, details={"row_count": row_count_after})
+        if not live_after_available:
+            add_blocker("post_check_live_db_unavailable", details={"error": str(live_after.get("error") or "")})
+        if not target_applied_after:
+            add_blocker("post_check_revision_mismatch", details={"revision_after": revision_after})
+        if not table_exists_after:
+            add_blocker("post_check_expected_table_missing")
+        if not columns_exist_after:
+            add_blocker("post_check_required_columns_missing", details={"columns": live_after.get("columns") or []})
+        if not unique_exists_after:
+            add_blocker("post_check_natural_key_unique_constraint_missing")
+        if row_count_after != 0:
+            add_blocker("post_check_row_count_not_zero", details={"row_count": row_count_after})
+    if blocker_rows and migration_apply_status in {"passed", "already_applied"}:
+        migration_apply_status = "blocked"
+    status = "passed" if migration_apply_status in {"passed", "already_applied"} and not blocker_rows else "blocked"
+    ready_for_post = bool(status == "passed")
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-migration-apply",
+        "status": status,
+        "migration_apply_status": migration_apply_status,
+        "ready_for_migration_apply": False,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "ready_for_post_migration_verification": ready_for_post,
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "task180_input_path": str(inputs.get("task180") or ""),
+        "task180_status": task180_status,
+        "task180_migration_apply_plan_gate_status": task180_gate_status,
+        "task180_ready_for_migration_apply_plan": _as_bool(task180.get("ready_for_migration_apply_plan")),
+        "task180_ready_for_task181_migration_apply": _as_bool(task180.get("ready_for_task181_migration_apply")),
+        "task180_ready_for_migration_apply": _as_bool(task180.get("ready_for_migration_apply")),
+        "task180_blocker_count": int(task180.get("blocker_count") or 0),
+        "task180_bad_safety_count": int(task180.get("bad_safety_count") or 0),
+        "task179_input_path": str(inputs.get("task179") or ""),
+        "task179_status": task179_status,
+        "task179_migration_readiness_gate_status": task179_gate_status,
+        "task179_blocker_count": int(task179.get("blocker_count") or 0),
+        "task179_bad_safety_count": int(task179.get("bad_safety_count") or 0),
+        "task177_input_path": str(inputs.get("task177") or ""),
+        "task176_input_path": str(inputs.get("task176") or ""),
+        "task175_input_path": str(inputs.get("task175") or ""),
+        "approval_token_name": RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_NAME,
+        "approval_token_expected_value": RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_VALUE,
+        "approval_token_provided": approval_provided,
+        "approval_token_valid": approval_valid,
+        "approval_token_source": approval_source,
+        "precheck_count": len(precheck_rows),
+        "precheck_rows": precheck_rows,
+        "live_db_precheck_performed": True,
+        "live_db_precheck_available": live_available_before,
+        "live_db_revision_before": revision_before,
+        "live_db_target_revision_already_applied_before": target_applied_before,
+        "live_db_expected_table_exists_before": table_exists_before,
+        "migration_command": migration_command,
+        "migration_command_executed": migration_command_executed,
+        "migration_command_exit_code": int(execution.get("exit_code") or 0),
+        "migration_command_stdout_tail": _rzd_migration_apply_tail(execution.get("stdout")),
+        "migration_command_stderr_tail": _rzd_migration_apply_tail(execution.get("stderr")),
+        "migration_command_argv": list(execution.get("argv") or []),
+        "migration_command_cwd": str(execution.get("cwd") or ""),
+        "postcheck_count": len(postcheck_rows),
+        "postcheck_rows": postcheck_rows,
+        "live_db_postcheck_performed": postcheck_performed,
+        "live_db_revision_after": revision_after,
+        "live_db_target_revision_applied_after": target_applied_after,
+        "live_db_expected_table_exists_after": table_exists_after,
+        "live_db_expected_table_row_count_after": row_count_after if row_count_after >= 0 else 0,
+        "live_db_required_columns_exist_after": columns_exist_after,
+        "live_db_natural_key_unique_constraint_exists_after": unique_exists_after,
+        "database_mutated": database_mutated,
+        "migration_executed": migration_executed,
+        "import_executed": False,
+        "bad_safety_count": 0,
+        "blocker_count": len(blocker_rows),
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "warning_count": len(warnings),
+        "warnings": warnings,
+        "warning_code_counts": _count_by_key(warnings, "code"),
+        "execution_rows": [
+            {
+                "execution_id": "rzd_controlled_values_migration_apply:execution:alembic_upgrade",
+                "migration_command": migration_command,
+                "command_argv": list(execution.get("argv") or []),
+                "cwd": str(execution.get("cwd") or ""),
+                "executed": migration_command_executed,
+                "exit_code": int(execution.get("exit_code") or 0),
+                "stdout_tail": _rzd_migration_apply_tail(execution.get("stdout")),
+                "stderr_tail": _rzd_migration_apply_tail(execution.get("stderr")),
+                "safe_hint": "Fixed Alembic migration command only. No financial values were imported.",
+            }
+        ],
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_migration_apply_safety_flags(
+            migration_executed=migration_executed,
+            database_mutated=database_mutated,
+        ),
+        **_rzd_manual_official_pdf_controlled_values_migration_apply_safety_flags(
+            migration_executed=migration_executed,
+            database_mutated=database_mutated,
+        ),
+        "safe_hint": "Task181 applies only the exact controlled migration revision and never imports financial values.",
+        "next_step": "Run post-migration verification before preparing any controlled import apply task." if ready_for_post else "Resolve blockers before any controlled migration apply retry.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-migration-apply", status),
+        "errors": [],
+    }
+    _rzd_manual_official_pdf_controlled_values_migration_apply_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_MIGRATION_APPLY_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_MIGRATION_APPLY_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in (
+        "mode", "status", "migration_apply_status", "expected_revision", "expected_table",
+        "task180_input_path", "task180_status", "task180_migration_apply_plan_gate_status",
+        "task179_input_path", "task179_status", "task179_migration_readiness_gate_status",
+        "approval_token_name", "approval_token_expected_value", "approval_token_source",
+        "live_db_revision_before", "migration_command", "migration_command_stdout_tail",
+        "migration_command_stderr_tail", "migration_command_cwd", "live_db_revision_after",
+        "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["ready_for_migration_apply"] = False
+    report["ready_for_controlled_import_apply"] = False
+    report["ready_for_controlled_import"] = False
+    report["import_executed"] = False
+    report["precheck_rows"] = list(report.get("precheck_rows") or [])
+    report["postcheck_rows"] = list(report.get("postcheck_rows") or [])
+    report["blocker_rows"] = list(report.get("blocker_rows") or [])
+    report["execution_rows"] = list(report.get("execution_rows") or [])
+    report["warnings"] = list(report.get("warnings") or [])
+    report["warning_code_counts"] = dict(report.get("warning_code_counts") or {})
+    report["blocker_code_counts"] = dict(report.get("blocker_code_counts") or {})
+    report["safety_flags"] = dict(report.get("safety_flags") or {})
+    report["migration_command_argv"] = list(report.get("migration_command_argv") or [])
+    for row in [*report["precheck_rows"], *report["postcheck_rows"]]:
+        for field in RZD_CONTROLLED_VALUES_MIGRATION_APPLY_CHECK_FIELDS:
+            if field == "passed":
+                row[field] = bool(row.get(field))
+            elif field == "details":
+                row[field] = dict(row.get(field) or {})
+            else:
+                row[field] = str(row.get(field) or "")
+    for row in report["blocker_rows"]:
+        row["blocker_id"] = str(row.get("blocker_id") or "")
+        row["severity"] = str(row.get("severity") or "error")
+        row["code"] = str(row.get("code") or "")
+        row["message"] = str(row.get("message") or "")
+        row["details"] = dict(row.get("details") or {})
+        row["safe_hint"] = str(row.get("safe_hint") or "")
+    for row in report["execution_rows"]:
+        row["execution_id"] = str(row.get("execution_id") or "")
+        row["migration_command"] = str(row.get("migration_command") or "")
+        row["command_argv"] = list(row.get("command_argv") or [])
+        row["cwd"] = str(row.get("cwd") or "")
+        row["executed"] = bool(row.get("executed"))
+        row["exit_code"] = int(row.get("exit_code") or 0)
+        row["stdout_tail"] = str(row.get("stdout_tail") or "")
+        row["stderr_tail"] = str(row.get("stderr_tail") or "")
+        row["safe_hint"] = str(row.get("safe_hint") or "")
+    report["precheck_count"] = len(report["precheck_rows"])
+    report["postcheck_count"] = len(report["postcheck_rows"])
+    report["blocker_count"] = len(report["blocker_rows"])
+    if report["blocker_count"] and report["status"] != "failed":
+        report["status"] = "blocked"
+        report["migration_apply_status"] = "blocked"
+        report["ready_for_post_migration_verification"] = False
+        if not report["migration_command_executed"]:
+            report["database_mutated"] = False
+            report["migration_executed"] = False
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_migration_apply_blocker_row(
+            str(error.get("message") or "controlled_values_migration_apply_failed"),
+            details={"error": str(error.get("error") or "")},
+        )
+        for error in errors
+    ]
+    expected_revision = RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION
+    expected_table = RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-migration-apply",
+        "status": "failed",
+        "migration_apply_status": "failed",
+        "ready_for_migration_apply": False,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "ready_for_post_migration_verification": False,
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "task180_input_path": "",
+        "task180_status": "",
+        "task180_migration_apply_plan_gate_status": "",
+        "task180_ready_for_migration_apply_plan": False,
+        "task180_ready_for_task181_migration_apply": False,
+        "task180_ready_for_migration_apply": False,
+        "task180_blocker_count": 0,
+        "task180_bad_safety_count": 0,
+        "task179_input_path": "",
+        "task179_status": "",
+        "task179_migration_readiness_gate_status": "",
+        "task179_blocker_count": 0,
+        "task179_bad_safety_count": 0,
+        "approval_token_name": RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_NAME,
+        "approval_token_expected_value": RZD_CONTROLLED_VALUES_MIGRATION_APPLY_APPROVAL_TOKEN_VALUE,
+        "approval_token_provided": False,
+        "approval_token_valid": False,
+        "approval_token_source": "",
+        "precheck_rows": [],
+        "live_db_precheck_performed": False,
+        "live_db_precheck_available": False,
+        "live_db_revision_before": "",
+        "live_db_target_revision_already_applied_before": False,
+        "live_db_expected_table_exists_before": False,
+        "migration_command": f"alembic upgrade {expected_revision}",
+        "migration_command_executed": False,
+        "migration_command_exit_code": 0,
+        "migration_command_stdout_tail": "",
+        "migration_command_stderr_tail": "",
+        "migration_command_argv": ["alembic", "-c", "alembic.ini", "upgrade", expected_revision],
+        "migration_command_cwd": "",
+        "postcheck_rows": [],
+        "live_db_postcheck_performed": False,
+        "live_db_revision_after": "",
+        "live_db_target_revision_applied_after": False,
+        "live_db_expected_table_exists_after": False,
+        "live_db_expected_table_row_count_after": 0,
+        "live_db_required_columns_exist_after": False,
+        "live_db_natural_key_unique_constraint_exists_after": False,
+        "database_mutated": False,
+        "migration_executed": False,
+        "import_executed": False,
+        "bad_safety_count": 0,
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "warning_count": 0,
+        "warnings": [],
+        "warning_code_counts": {},
+        "execution_rows": [],
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_migration_apply_safety_flags(),
+        **_rzd_manual_official_pdf_controlled_values_migration_apply_safety_flags(),
+        "safe_hint": "Task181 failed before any controlled migration execution.",
+        "next_step": "Fix Task181 input/output errors before retrying.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-migration-apply", "failed"),
+        "errors": errors,
+        "artifacts": {key: str(path or "") for key, path in artifacts.items()},
+    }
+    _rzd_manual_official_pdf_controlled_values_migration_apply_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_values_migration_apply_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_migration_apply_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_migration_apply_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    _write_optional_json_report(report, artifacts["apply_json"])
+    if artifacts["apply_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_values_migration_apply_markdown(report, artifacts["apply_markdown"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "precheck_count": report.get("precheck_count", 0),
+            "precheck_rows": report.get("precheck_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["prechecks_json"],
+    )
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "postcheck_count": report.get("postcheck_count", 0),
+            "postcheck_rows": report.get("postcheck_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["postchecks_json"],
+    )
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "blocker_count": report.get("blocker_count", 0),
+            "blocker_rows": report.get("blocker_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["blockers_json"],
+    )
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "migration_command": report.get("migration_command") or "",
+            "migration_command_executed": bool(report.get("migration_command_executed")),
+            "migration_command_exit_code": int(report.get("migration_command_exit_code") or 0),
+            "execution_rows": report.get("execution_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["execution_json"],
+    )
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "database_mutated": bool(report.get("database_mutated")),
+            "migration_executed": bool(report.get("migration_executed")),
+            "import_executed": False,
+            "ready_for_controlled_import_apply": False,
+            "ready_for_controlled_import": False,
+            "safety_flags": report.get("safety_flags") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["safety_json"],
+    )
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -61429,6 +62343,11 @@ def write_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_ma
     path.write_text(render_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_migration_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_migration_apply_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -61712,6 +62631,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_migration_readiness_gate_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate":
         return render_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-migration-apply":
+        return render_rzd_manual_official_pdf_controlled_values_migration_apply_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -67369,6 +68290,115 @@ def render_rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_m
     else:
         lines.append("- none")
     lines.extend(["", "## Next step", "", str(report.get("next_step") or "")])
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_migration_apply_markdown(report: dict[str, Any]) -> str:
+    if report.get("migration_apply_status") == "already_applied":
+        decision = "Decision: migration was already applied before this run; run post-migration verification next."
+        safety_lines = [
+            "Migration was already applied before this run.",
+            "No migration command was executed.",
+            "No financial values were imported.",
+            "Next required step is post-migration verification.",
+        ]
+    elif report.get("status") == "passed":
+        decision = "Decision: migration apply passed; run post-migration verification before any controlled import."
+        safety_lines = [
+            "Migration was executed only after explicit operator approval.",
+            "No financial values were imported.",
+            "Controlled import remains blocked.",
+            "Next required step is post-migration verification.",
+        ]
+    else:
+        decision = "Decision: blocked before controlled migration execution."
+        safety_lines = [
+            "No migration was executed.",
+            "No database mutation was performed.",
+            "No financial values were imported.",
+        ]
+    lines = [
+        "# RZD Controlled Values Migration Apply",
+        "",
+        "## Input chain",
+        "",
+        f"- Task180 input: `{report.get('task180_input_path')}`",
+        f"- Task179 input: `{report.get('task179_input_path')}`",
+        f"- Task177 input: `{report.get('task177_input_path')}`",
+        f"- Task176 input: `{report.get('task176_input_path')}`",
+        f"- Task175 input: `{report.get('task175_input_path')}`",
+        "",
+        "## Approval token",
+        "",
+        f"- token name: `{report.get('approval_token_name')}`",
+        f"- token provided: `{report.get('approval_token_provided')}`",
+        f"- token valid: `{report.get('approval_token_valid')}`",
+        f"- token source: `{report.get('approval_token_source')}`",
+        "",
+        "## Pre-checks",
+        "",
+        "| Code | Status | Message |",
+        "| --- | --- | --- |",
+    ]
+    for row in report.get("precheck_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(_markdown_table_cell(value) for value in (row.get("code"), row.get("status"), row.get("message")))
+            + " |"
+        )
+    if not report.get("precheck_rows"):
+        lines.append("| none |  |  |")
+    lines.extend(
+        [
+            "",
+            "## Migration execution",
+            "",
+            f"- command: `{report.get('migration_command')}`",
+            f"- executed: `{report.get('migration_command_executed')}`",
+            f"- exit code: `{report.get('migration_command_exit_code')}`",
+            f"- cwd: `{report.get('migration_command_cwd')}`",
+            "",
+            "## Post-checks",
+            "",
+            "| Code | Status | Message |",
+            "| --- | --- | --- |",
+        ]
+    )
+    for row in report.get("postcheck_rows") or []:
+        lines.append(
+            "| "
+            + " | ".join(_markdown_table_cell(value) for value in (row.get("code"), row.get("status"), row.get("message")))
+            + " |"
+        )
+    if not report.get("postcheck_rows"):
+        lines.append("| none |  |  |")
+    lines.extend(["", "## Safety", ""])
+    lines.extend(f"- {line}" for line in safety_lines)
+    lines.extend(
+        [
+            f"- ready_for_controlled_import_apply: `{report.get('ready_for_controlled_import_apply')}`",
+            f"- ready_for_controlled_import: `{report.get('ready_for_controlled_import')}`",
+            f"- database_mutated: `{report.get('database_mutated')}`",
+            f"- migration_executed: `{report.get('migration_executed')}`",
+            f"- import_executed: `{report.get('import_executed')}`",
+            "",
+            "## Decision",
+            "",
+            decision,
+            "",
+            "## Next step",
+            "",
+            str(report.get("next_step") or ""),
+            "",
+            "## Blockers",
+            "",
+        ]
+    )
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
     return "\n".join(lines) + "\n"
 
 
@@ -78367,6 +79397,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Review Task179 migration readiness; any Alembic apply and any controlled value import remain separate explicit future tasks."]
     if mode == "rzd-manual-official-pdf-controlled-values-migration-apply-plan-gate":
         return ["Review Task180 apply plan; any Alembic apply remains a separate explicit operator-approved Task181 execution task."]
+    if mode == "rzd-manual-official-pdf-controlled-values-migration-apply":
+        return ["Run post-migration verification before any controlled import apply; Task181 never imports financial values."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -78661,6 +79693,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_controlled_values_migration_apply_plan_inputs(args),
             artifacts=_rzd_manual_official_pdf_controlled_values_migration_apply_plan_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-migration-apply":
+        return not _rzd_manual_official_pdf_controlled_values_migration_apply_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_values_migration_apply_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_values_migration_apply_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
