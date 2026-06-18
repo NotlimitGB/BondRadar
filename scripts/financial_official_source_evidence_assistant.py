@@ -95,6 +95,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-migration-apply",
     "rzd-manual-official-pdf-controlled-values-post-migration-verification-gate",
     "rzd-manual-official-pdf-controlled-values-import-apply-plan-gate",
+    "rzd-manual-official-pdf-controlled-values-import-apply",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -8475,6 +8476,87 @@ RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_REQUIRED_COUNT_FIELDS = (
     "check_count", "command_count",
     "rollback_count", "bad_safety_count", "blocker_count", "warning_count",
 )
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_NAME = "CONTROLLED_VALUES_IMPORT_APPLY_APPROVED"
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_VALUE = "APPLY_RZD_2025_CONTROLLED_VALUES_IMPORT_24_ROWS"
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_ARTIFACT_NAMES = {
+    "apply_json": "rzd_manual_official_pdf_controlled_values_import_apply_task184.json",
+    "apply_markdown": "rzd_manual_official_pdf_controlled_values_import_apply_task184.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_import_apply_checks_task184.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_import_apply_blockers_task184.json",
+    "live_db_json": "rzd_manual_official_pdf_controlled_values_import_apply_live_db_task184.json",
+    "rows_json": "rzd_manual_official_pdf_controlled_values_import_apply_rows_task184.json",
+    "transaction_json": "rzd_manual_official_pdf_controlled_values_import_apply_transaction_task184.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_import_apply_safety_task184.json",
+}
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_DB_FIELDS = (
+    "company_id", "company_name", "report_year", "report_standard", "target_type", "metric_key",
+    "metric_role", "metric_name_ru", "metric_name_en", "statement_page", "page_number",
+    "value_2025", "value_2024", "raw_value_2025", "raw_value_2024", "raw_line",
+    "note_reference", "source_pdf_sha256", "plan_checksum_sha256", "plan_rows_checksum_sha256",
+    "natural_key", "natural_key_sha256", "row_checksum_sha256",
+)
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_DB_FIELDS = tuple(
+    field for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_DB_FIELDS if field != "note_reference"
+)
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_CHECK_FIELDS = [
+    "check_id", "status", "severity", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_ROW_FIELDS = [
+    "row_index", *RZD_CONTROLLED_VALUES_IMPORT_APPLY_DB_FIELDS,
+    "insert_action", "inserted", "existing_db_row_found", "existing_db_row_id",
+    "conflict_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_BOOL_FIELDS = (
+    "approval_token_provided", "approval_token_valid", "ready_for_post_import_verification",
+    "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "ready_for_task185_post_import_verification", "ready_for_task184_controlled_import_apply",
+    "ready_for_controlled_import_apply_plan", "ready_for_post_migration_verification",
+    "ready_for_migration_apply", "ready_for_migration_apply_plan",
+    "task183_ready_for_task184_controlled_import_apply",
+    "task183_ready_for_controlled_import_apply_plan", "task183_ready_for_controlled_import_apply",
+    "task183_ready_for_controlled_import", "task183_database_mutated",
+    "task183_migration_executed", "task183_import_executed",
+    "task182_ready_for_controlled_import_apply_plan", "task182_import_executed",
+    "task182_database_mutated", "task182_migration_executed", "task181_import_executed",
+    "task176_import_executed", "live_db_precheck_performed", "live_db_precheck_available",
+    "live_db_target_revision_applied_before", "live_db_expected_table_exists_before",
+    "live_db_required_columns_exist_before", "live_db_natural_key_unique_constraint_exists_before",
+    "insert_attempted", "insert_transaction_started", "insert_transaction_committed",
+    "insert_transaction_rolled_back", "live_db_postcheck_performed", "live_db_postcheck_available",
+    "live_db_target_revision_applied_after", "live_db_expected_table_exists_after",
+    "live_db_required_columns_exist_after", "live_db_natural_key_unique_constraint_exists_after",
+    "database_mutated", "migration_executed", "import_executed", "read_only", "dry_run_only",
+    "would_fetch_source_page", "would_fetch_document_url", "would_download_document",
+    "would_import_report", "would_mutate_database", "would_run_migration",
+    "would_score_issuers", "would_trigger_paper_trading", "source_page_fetched",
+    "document_url_fetched", "documents_downloaded", "issuer_scores_mutated",
+    "paper_trading_called", "files_deleted",
+)
+RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_COUNT_FIELDS = (
+    "expected_import_row_count", "task183_expected_import_row_count",
+    "task183_planned_import_row_count", "task183_planned_insert_count",
+    "task183_planned_update_count", "task183_planned_delete_count",
+    "task183_planned_noop_count", "task183_planned_natural_key_count",
+    "task183_planned_natural_key_unique_count", "task183_planned_natural_key_duplicate_count",
+    "task183_planned_natural_key_sha256_count", "task183_planned_natural_key_sha256_unique_count",
+    "task183_planned_natural_key_sha256_duplicate_count", "task183_planned_row_checksum_sha256_count",
+    "task183_planned_row_checksum_sha256_missing_count", "task183_planned_required_field_missing_count",
+    "task183_live_db_existing_planned_natural_key_count", "task183_bad_safety_count",
+    "task183_blocker_count", "task182_bad_safety_count", "task182_blocker_count",
+    "task181_bad_safety_count", "task181_blocker_count", "task176_bad_safety_count",
+    "task176_blocker_count", "task175_row_count", "live_db_expected_table_row_count_before",
+    "live_db_required_column_missing_count_before", "live_db_existing_planned_natural_key_count_before",
+    "planned_import_row_count", "planned_insert_count", "planned_update_count",
+    "planned_delete_count", "planned_noop_count", "inserted_row_count",
+    "inserted_natural_key_sha256_count", "inserted_row_checksum_sha256_count",
+    "live_db_expected_table_row_count_after", "live_db_inserted_planned_natural_key_count_after",
+    "live_db_inserted_planned_row_checksum_count_after",
+    "live_db_required_column_missing_count_after", "verification_check_count",
+    "bad_safety_count", "blocker_count", "warning_count",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -10124,6 +10206,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-plan-gate-rows-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-plan-gate-commands-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-plan-gate-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-plan-gate-input", type=Path, default=None)
+    parser.add_argument("--controlled-values-import-apply-approved-token", default="")
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-live-db-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-transaction-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-import-apply-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -10389,6 +10481,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_post_migration_verification_gate(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-import-apply-plan-gate":
         report = run_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-import-apply":
+        report = run_rzd_manual_official_pdf_controlled_values_import_apply(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -55866,6 +55960,922 @@ def _rzd_manual_official_pdf_controlled_values_import_apply_plan_write_outputs(
     )
 
 
+def _rzd_manual_official_pdf_controlled_values_import_apply_safety_flags(
+    *,
+    database_mutated: bool = False,
+    import_executed: bool = False,
+) -> dict[str, bool]:
+    return {
+        "read_only": False,
+        "dry_run_only": False,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": bool(import_executed),
+        "would_mutate_database": bool(database_mutated),
+        "would_run_migration": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_blocker_row(
+    code: str,
+    *,
+    message: str = "",
+    details: dict[str, Any] | None = None,
+    severity: str = "error",
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_import_apply:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task184 must block unless every upstream, token, DB, and planned-row check passes.",
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_check_row(
+    code: str,
+    *,
+    passed: bool,
+    message: str = "",
+    details: dict[str, Any] | None = None,
+    severity: str = "error",
+) -> dict[str, Any]:
+    return {
+        "check_id": f"rzd_controlled_values_import_apply:verification:{code}",
+        "status": "passed" if passed else "blocked",
+        "severity": severity,
+        "message": message or code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task184 verification check. No Alembic command is executed.",
+    }
+
+
+def _rzd_controlled_values_import_apply_token(args: argparse.Namespace) -> tuple[bool, bool, str]:
+    cli_value = str(args.controlled_values_import_apply_approved_token or "")
+    env_value = str(os.environ.get(RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_NAME) or "")
+    selected = cli_value if cli_value else env_value
+    provided = bool(selected)
+    valid = provided and selected == RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_VALUE
+    source = "cli" if cli_value else ("environment" if env_value else "")
+    return provided, valid, source
+
+
+def _rzd_controlled_values_import_apply_planned_rows(task183: dict[str, Any], task175: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = task183.get("planned_import_rows") if isinstance(task183.get("planned_import_rows"), list) else []
+    if not rows and isinstance(task175.get("import_plan_rows"), list):
+        rows = task175.get("import_plan_rows") or []
+    planned_rows: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, start=1):
+        if not isinstance(row, dict):
+            continue
+        planned = {"row_index": int(row.get("row_index") or index)}
+        for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_DB_FIELDS:
+            value = row.get(field)
+            if field in {"report_year", "statement_page", "page_number"}:
+                planned[field] = int(value or 0)
+            elif field in {"value_2025", "value_2024"}:
+                planned[field] = value if value not in (None, "") else 0
+            else:
+                planned[field] = str(value or "")
+        planned["insert_action"] = True
+        planned["inserted"] = False
+        planned["existing_db_row_found"] = False
+        planned["existing_db_row_id"] = ""
+        planned["conflict_status"] = "insert_pending"
+        planned["safe_hint"] = "Task184 planned row; insert requires exact token and all DB checks."
+        planned_rows.append(planned)
+    return planned_rows
+
+
+def _rzd_controlled_values_import_apply_live_db_check(
+    expected_table: str,
+    required_columns: Sequence[str],
+    planned_rows: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    base = _rzd_controlled_values_migration_apply_live_db_check(expected_table, required_columns)
+    base.setdefault("existing_planned_natural_key_rows", [])
+    base.setdefault("existing_planned_natural_key_count", 0)
+    base.setdefault("inserted_planned_natural_key_rows", [])
+    base.setdefault("inserted_planned_natural_key_count", 0)
+    base.setdefault("inserted_planned_row_checksum_rows", [])
+    base.setdefault("inserted_planned_row_checksum_count", 0)
+    if not base.get("available") or not planned_rows:
+        return base
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", expected_table or ""):
+        return {**base, "available": False, "error": "unsafe_table_name"}
+    try:
+        from sqlalchemy import create_engine, text
+        from app.core.config import settings
+    except Exception as exc:  # pragma: no cover - host dependency guard
+        return {**base, "available": False, "error": str(exc)}
+    engine = None
+    try:
+        engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 2})
+        existing_rows: list[dict[str, Any]] = []
+        checksum_rows: list[dict[str, Any]] = []
+        key_rows: list[dict[str, Any]] = []
+        with engine.connect() as connection:
+            for row in planned_rows:
+                key = str(row.get("natural_key_sha256") or "")
+                if not key:
+                    continue
+                found = connection.execute(
+                    text(
+                        f'SELECT id, natural_key_sha256, row_checksum_sha256, plan_checksum_sha256, '
+                        f'plan_rows_checksum_sha256, source_pdf_sha256, metric_key, metric_role, '
+                        f'target_type, value_2025, value_2024 FROM "{expected_table}" '
+                        "WHERE natural_key_sha256 = :key LIMIT 1"
+                    ),
+                    {"key": key},
+                ).first()
+                if found is None:
+                    continue
+                found_row = {
+                    "id": str(found[0]),
+                    "natural_key_sha256": str(found[1]),
+                    "row_checksum_sha256": str(found[2]),
+                    "plan_checksum_sha256": str(found[3]),
+                    "plan_rows_checksum_sha256": str(found[4]),
+                    "source_pdf_sha256": str(found[5]),
+                    "metric_key": str(found[6]),
+                    "metric_role": str(found[7]),
+                    "target_type": str(found[8]),
+                    "value_2025": str(found[9]),
+                    "value_2024": str(found[10]),
+                }
+                existing_rows.append(found_row)
+                key_rows.append(found_row)
+                if (
+                    found_row["row_checksum_sha256"] == str(row.get("row_checksum_sha256") or "")
+                    and found_row["plan_checksum_sha256"] == str(row.get("plan_checksum_sha256") or "")
+                    and found_row["plan_rows_checksum_sha256"] == str(row.get("plan_rows_checksum_sha256") or "")
+                    and found_row["source_pdf_sha256"] == str(row.get("source_pdf_sha256") or "")
+                    and found_row["metric_key"] == str(row.get("metric_key") or "")
+                    and found_row["metric_role"] == str(row.get("metric_role") or "")
+                    and found_row["target_type"] == str(row.get("target_type") or "")
+                    and str(found_row["value_2025"]).rstrip("0").rstrip(".") == str(row.get("value_2025") or "0")
+                    and str(found_row["value_2024"]).rstrip("0").rstrip(".") == str(row.get("value_2024") or "0")
+                ):
+                    checksum_rows.append(found_row)
+        return {
+            **base,
+            "existing_planned_natural_key_rows": existing_rows,
+            "existing_planned_natural_key_count": len(existing_rows),
+            "inserted_planned_natural_key_rows": key_rows,
+            "inserted_planned_natural_key_count": len(key_rows),
+            "inserted_planned_row_checksum_rows": checksum_rows,
+            "inserted_planned_row_checksum_count": len(checksum_rows),
+        }
+    except Exception as exc:
+        return {
+            **base,
+            "available": False,
+            "error": str(exc),
+            "existing_planned_natural_key_rows": [],
+            "existing_planned_natural_key_count": 0,
+            "inserted_planned_natural_key_rows": [],
+            "inserted_planned_natural_key_count": 0,
+            "inserted_planned_row_checksum_rows": [],
+            "inserted_planned_row_checksum_count": 0,
+        }
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
+def _rzd_controlled_values_import_apply_exact_already_applied(
+    live: dict[str, Any],
+    *,
+    expected_row_count: int,
+) -> bool:
+    return bool(
+        live.get("available")
+        and int(live.get("row_count") if live.get("row_count") is not None else -1) == expected_row_count
+        and int(live.get("inserted_planned_natural_key_count") or 0) == expected_row_count
+        and int(live.get("inserted_planned_row_checksum_count") or 0) == expected_row_count
+    )
+
+
+def _rzd_controlled_values_import_apply_insert_rows(
+    expected_table: str,
+    planned_rows: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    result = {
+        "insert_attempted": True,
+        "insert_transaction_started": False,
+        "insert_transaction_committed": False,
+        "insert_transaction_rolled_back": False,
+        "inserted_row_count": 0,
+        "inserted_rows": [],
+        "insert_error": False,
+        "insert_error_message": "",
+    }
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", expected_table or ""):
+        return {**result, "insert_error": True, "insert_error_message": "unsafe_table_name"}
+    try:
+        from sqlalchemy import create_engine
+        from app.core.config import settings
+        from app.models.controlled_financial_statement_value import ControlledFinancialStatementValue
+    except Exception as exc:  # pragma: no cover - host dependency guard
+        return {**result, "insert_error": True, "insert_error_message": str(exc)}
+    engine = None
+    try:
+        engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args={"connect_timeout": 2})
+        insert_rows = [
+            {field: row.get(field) for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_DB_FIELDS}
+            for row in planned_rows
+        ]
+        with engine.begin() as connection:
+            result["insert_transaction_started"] = True
+            connection.execute(ControlledFinancialStatementValue.__table__.insert(), insert_rows)
+            result["inserted_row_count"] = len(insert_rows)
+            result["inserted_rows"] = [
+                {
+                    "row_index": int(row.get("row_index") or index),
+                    "natural_key_sha256": str(row.get("natural_key_sha256") or ""),
+                    "row_checksum_sha256": str(row.get("row_checksum_sha256") or ""),
+                    "inserted": True,
+                }
+                for index, row in enumerate(planned_rows, start=1)
+            ]
+        result["insert_transaction_committed"] = True
+        return result
+    except Exception as exc:
+        result["insert_error"] = True
+        result["insert_error_message"] = str(exc)
+        result["insert_transaction_rolled_back"] = bool(result["insert_transaction_started"])
+        return result
+    finally:
+        if engine is not None:
+            engine.dispose()
+
+
+def _build_rzd_manual_official_pdf_controlled_values_import_apply_report(
+    task183: dict[str, Any],
+    *,
+    task182: dict[str, Any],
+    task181: dict[str, Any],
+    task180: dict[str, Any],
+    task179: dict[str, Any],
+    task177: dict[str, Any],
+    task176: dict[str, Any],
+    task175: dict[str, Any],
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_expected_row_count or RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT)
+    approval_provided, approval_valid, approval_source = _rzd_controlled_values_import_apply_token(args)
+    planned_rows = _rzd_controlled_values_import_apply_planned_rows(task183, task175)
+    action_counts = _rzd_controlled_values_import_apply_plan_action_counts(planned_rows)
+    natural_keys = [str(row.get("natural_key") or "") for row in planned_rows]
+    natural_key_shas = [str(row.get("natural_key_sha256") or "") for row in planned_rows]
+    duplicate_key_rows = _rzd_controlled_values_import_apply_plan_duplicate_rows(planned_rows, "natural_key")
+    duplicate_sha_rows = _rzd_controlled_values_import_apply_plan_duplicate_rows(planned_rows, "natural_key_sha256")
+    missing_checksum_rows = _rzd_controlled_values_import_apply_plan_missing_row_checksum_rows(planned_rows)
+    required_missing_count = sum(
+        1
+        for row in planned_rows
+        if any(row.get(field) in (None, "", 0) for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_DB_FIELDS)
+    )
+
+    blocker_rows: list[dict[str, Any]] = []
+    check_rows: list[dict[str, Any]] = []
+
+    def add_blocker(code: str, details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(_rzd_manual_official_pdf_controlled_values_import_apply_blocker_row(code, details=details))
+
+    def add_check(code: str, passed: bool, details: dict[str, Any] | None = None) -> None:
+        check_rows.append(_rzd_manual_official_pdf_controlled_values_import_apply_check_row(code, passed=passed, details=details))
+
+    task183_exists = bool(inputs.get("task183") is not None and inputs["task183"].is_file() and task183)
+    add_check("approval_token_valid", approval_valid, {"source": approval_source})
+    add_check("task183_input_exists", task183_exists, {"path": str(inputs.get("task183") or "")})
+    if not approval_valid:
+        add_blocker("approval_token_missing_or_invalid", {"approval_token_provided": approval_provided})
+    if not task183_exists:
+        add_blocker("task183_input_missing")
+    if task183 and str(task183.get("status") or "") not in {"warning", "passed"}:
+        add_blocker("upstream_task183_not_ready", {"status": str(task183.get("status") or "")})
+    if task183 and str(task183.get("import_apply_plan_gate_status") or "") not in {"warning", "passed"}:
+        add_blocker("upstream_task183_not_ready", {"gate_status": str(task183.get("import_apply_plan_gate_status") or "")})
+    if not _as_bool(task183.get("ready_for_task184_controlled_import_apply")):
+        add_blocker("upstream_task183_not_ready")
+    if not _as_bool(task183.get("ready_for_controlled_import_apply_plan")):
+        add_blocker("upstream_task183_not_ready")
+    if _as_bool(task183.get("ready_for_controlled_import_apply")) or _as_bool(task183.get("ready_for_controlled_import")):
+        add_blocker("upstream_task183_not_ready", {"direct_import_flag": True})
+    task183_expected = int(task183.get("expected_import_row_count") or task183.get("expected_row_count") or 0)
+    task183_planned = int(task183.get("planned_import_row_count") or 0)
+    task183_insert = int(task183.get("planned_insert_count") or task183.get("planned_insert_row_count") or 0)
+    task183_update = int(task183.get("planned_update_count") or task183.get("planned_update_row_count") or 0)
+    task183_delete = int(task183.get("planned_delete_count") or task183.get("planned_delete_row_count") or 0)
+    task183_noop = int(task183.get("planned_noop_count") or task183.get("planned_noop_row_count") or 0)
+    if task183_expected != expected_row_count or task183_planned != expected_row_count or len(planned_rows) != expected_row_count:
+        add_blocker("planned_row_count_mismatch", {"task183_expected": task183_expected, "task183_planned": task183_planned, "loaded": len(planned_rows), "expected": expected_row_count})
+    if task183_insert != expected_row_count or task183_update or task183_delete or task183_noop:
+        add_blocker("unexpected_update_or_delete_plan", {"insert": task183_insert, "update": task183_update, "delete": task183_delete, "noop": task183_noop})
+    if int(task183.get("planned_natural_key_count") or 0) != expected_row_count or int(task183.get("planned_natural_key_unique_count") or 0) != expected_row_count:
+        add_blocker("planned_key_duplicate")
+    if int(task183.get("planned_natural_key_duplicate_count") or 0) > 0 or duplicate_key_rows:
+        add_blocker("planned_key_duplicate")
+    if int(task183.get("planned_natural_key_sha256_count") or 0) != expected_row_count or int(task183.get("planned_natural_key_sha256_unique_count") or 0) != expected_row_count:
+        add_blocker("planned_key_sha256_duplicate")
+    if int(task183.get("planned_natural_key_sha256_duplicate_count") or 0) > 0 or duplicate_sha_rows:
+        add_blocker("planned_key_sha256_duplicate")
+    if int(task183.get("planned_row_checksum_sha256_count") or 0) != expected_row_count or int(task183.get("planned_row_checksum_sha256_missing_count") or 0) > 0 or missing_checksum_rows:
+        add_blocker("planned_checksum_missing")
+    if int(task183.get("planned_required_field_missing_count") or 0) > 0 or required_missing_count:
+        add_blocker("planned_required_field_missing", {"missing_row_count": required_missing_count})
+    if int(task183.get("live_db_existing_planned_natural_key_count") or 0) > 0:
+        add_blocker("live_db_precheck_existing_planned_keys")
+    for source, payload in (("task183", task183), ("task182", task182), ("task181", task181), ("task176", task176)):
+        if int(payload.get("blocker_count") or 0) > 0 or int(payload.get("bad_safety_count") or 0) > 0:
+            add_blocker(f"upstream_{source}_not_clean")
+        if _as_bool(payload.get("import_executed")):
+            add_blocker(f"{source}_import_executed")
+    if _as_bool(task183.get("database_mutated")) or _as_bool(task183.get("migration_executed")):
+        add_blocker("upstream_task183_not_ready")
+    if task182 and str(task182.get("status") or "") != "passed":
+        add_blocker("upstream_task182_not_clean")
+    if _as_bool(task182.get("database_mutated")) or _as_bool(task182.get("migration_executed")):
+        add_blocker("upstream_task182_not_clean")
+    if task181 and str(task181.get("status") or "") != "passed":
+        add_blocker("upstream_task181_not_clean")
+    if task176 and str(task176.get("status") or "") in {"blocked", "failed"}:
+        add_blocker("upstream_task176_not_clean")
+    task175_row_count = int(task175.get("row_count") or task175.get("planned_import_row_count") or len(task175.get("import_plan_rows") or []) or 0)
+    if task175_row_count != expected_row_count or not str(task175.get("plan_checksum_sha256") or "") or not str(task175.get("plan_rows_checksum_sha256") or ""):
+        add_blocker("upstream_task175_not_clean", {"task175_row_count": task175_row_count})
+
+    live_before = _rzd_controlled_values_import_apply_live_db_check(
+        expected_table,
+        RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS,
+        planned_rows,
+    )
+    live_available_before = bool(live_before.get("available"))
+    revision_before = str(live_before.get("current_revision") or "")
+    target_revision_before = bool(live_available_before and _rzd_migration_apply_revision_contains(revision_before, expected_revision))
+    table_exists_before = bool(live_before.get("table_exists"))
+    columns_before = set(live_before.get("columns") or [])
+    required_columns_before = set(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS).issubset(columns_before)
+    missing_columns_before = [
+        column for column in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS if column not in columns_before
+    ]
+    unique_before = bool(live_before.get("natural_key_unique_constraint_exists"))
+    row_count_before = int(live_before.get("row_count") if live_before.get("row_count") is not None else -1)
+    existing_key_count_before = int(live_before.get("existing_planned_natural_key_count") or 0)
+    exact_already_applied = _rzd_controlled_values_import_apply_exact_already_applied(live_before, expected_row_count=expected_row_count)
+    add_check("live_db_precheck_available", live_available_before, {"error": str(live_before.get("error") or "")})
+    add_check("live_db_precheck_revision_matches", target_revision_before, {"revision": revision_before})
+    add_check("live_db_precheck_table_exists", table_exists_before)
+    add_check("live_db_precheck_row_count_zero_or_exact_already_applied", row_count_before == 0 or exact_already_applied, {"row_count": row_count_before})
+    add_check("live_db_precheck_no_conflicts_for_first_apply", existing_key_count_before == 0 or exact_already_applied, {"existing_key_count": existing_key_count_before})
+    if not live_available_before:
+        add_blocker("live_db_unavailable", {"error": str(live_before.get("error") or "")})
+    if live_available_before and not target_revision_before:
+        add_blocker("live_db_revision_mismatch", {"revision": revision_before})
+    if live_available_before and not table_exists_before:
+        add_blocker("live_db_expected_table_missing")
+    if live_available_before and not required_columns_before:
+        add_blocker("live_db_required_columns_missing", {"missing_columns": missing_columns_before})
+    if live_available_before and not unique_before:
+        add_blocker("live_db_natural_key_unique_constraint_missing")
+    if live_available_before and row_count_before not in {0, expected_row_count}:
+        add_blocker("live_db_precheck_table_not_empty", {"row_count": row_count_before})
+    if live_available_before and row_count_before == expected_row_count and not exact_already_applied:
+        add_blocker("live_db_precheck_non_exact_already_applied_state")
+    if live_available_before and existing_key_count_before and not exact_already_applied:
+        add_blocker("live_db_precheck_existing_planned_keys", {"existing_key_count": existing_key_count_before})
+
+    insert_result = {
+        "insert_attempted": False,
+        "insert_transaction_started": False,
+        "insert_transaction_committed": False,
+        "insert_transaction_rolled_back": False,
+        "inserted_row_count": 0,
+        "inserted_rows": [],
+        "insert_error": False,
+        "insert_error_message": "",
+    }
+    live_after = dict(live_before)
+    import_apply_status = "blocked" if blocker_rows else "pending"
+    status = "blocked" if blocker_rows else "pending"
+    database_mutated = False
+    import_executed = False
+    if not blocker_rows and exact_already_applied:
+        import_apply_status = "already_applied"
+        status = "warning"
+    elif not blocker_rows:
+        insert_result = _rzd_controlled_values_import_apply_insert_rows(expected_table, planned_rows)
+        if insert_result.get("insert_error"):
+            add_blocker("insert_failed", {"error": str(insert_result.get("insert_error_message") or "")})
+            import_apply_status = "failed"
+            status = "failed"
+        else:
+            live_after = _rzd_controlled_values_import_apply_live_db_check(
+                expected_table,
+                RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS,
+                planned_rows,
+            )
+            database_mutated = True
+            import_executed = True
+            import_apply_status = "passed"
+            status = "passed"
+
+    live_after_available = bool(live_after.get("available"))
+    revision_after = str(live_after.get("current_revision") or "")
+    target_revision_after = bool(live_after_available and _rzd_migration_apply_revision_contains(revision_after, expected_revision))
+    table_exists_after = bool(live_after.get("table_exists"))
+    columns_after = set(live_after.get("columns") or [])
+    required_columns_after = set(RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS).issubset(columns_after)
+    missing_columns_after = [
+        column for column in RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS if column not in columns_after
+    ]
+    unique_after = bool(live_after.get("natural_key_unique_constraint_exists"))
+    row_count_after = int(live_after.get("row_count") if live_after.get("row_count") is not None else -1)
+    inserted_key_count_after = int(live_after.get("inserted_planned_natural_key_count") or 0)
+    inserted_checksum_count_after = int(live_after.get("inserted_planned_row_checksum_count") or 0)
+    postcheck_performed = bool(insert_result.get("insert_attempted") or exact_already_applied)
+    if import_apply_status == "passed":
+        add_check("live_db_postcheck_row_count", row_count_after == expected_row_count, {"row_count": row_count_after})
+        add_check("live_db_postcheck_planned_keys", inserted_key_count_after == expected_row_count, {"inserted_key_count": inserted_key_count_after})
+        add_check("live_db_postcheck_checksums", inserted_checksum_count_after == expected_row_count, {"inserted_checksum_count": inserted_checksum_count_after})
+        if not live_after_available:
+            add_blocker("postcheck_live_db_unavailable")
+        if not target_revision_after:
+            add_blocker("postcheck_revision_mismatch")
+        if not table_exists_after:
+            add_blocker("postcheck_table_missing")
+        if not required_columns_after:
+            add_blocker("postcheck_required_columns_missing")
+        if not unique_after:
+            add_blocker("postcheck_unique_constraint_missing")
+        if row_count_after != expected_row_count:
+            add_blocker("postcheck_row_count_mismatch", {"row_count": row_count_after})
+        if inserted_key_count_after != expected_row_count:
+            add_blocker("postcheck_planned_key_count_mismatch", {"inserted_key_count": inserted_key_count_after})
+        if inserted_checksum_count_after != expected_row_count:
+            add_blocker("postcheck_checksum_mismatch", {"inserted_checksum_count": inserted_checksum_count_after})
+        if blocker_rows:
+            status = "failed"
+            import_apply_status = "failed"
+            import_executed = False
+            database_mutated = False
+
+    add_check("task184_no_migration_safety", True)
+    add_check("task184_no_update_delete_safety", action_counts["update"] == 0 and action_counts["delete"] == 0)
+    add_check("task184_import_apply_result", status in {"passed", "warning"} and not blocker_rows, {"status": status})
+    ready_for_post_import = bool(status in {"passed", "warning"} and import_apply_status in {"passed", "already_applied"} and not blocker_rows)
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-apply",
+        "status": status,
+        "import_apply_status": import_apply_status,
+        "approval_token_provided": approval_provided,
+        "approval_token_valid": approval_valid,
+        "approval_token_name": RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_NAME,
+        "approval_token_expected_value": RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_VALUE,
+        "approval_token_source": approval_source,
+        "ready_for_post_import_verification": ready_for_post_import,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "ready_for_task185_post_import_verification": ready_for_post_import,
+        "ready_for_task184_controlled_import_apply": _as_bool(task183.get("ready_for_task184_controlled_import_apply")),
+        "ready_for_controlled_import_apply_plan": _as_bool(task183.get("ready_for_controlled_import_apply_plan")),
+        "ready_for_post_migration_verification": _as_bool(task182.get("ready_for_controlled_import_apply_plan")),
+        "ready_for_migration_apply": False,
+        "ready_for_migration_apply_plan": False,
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "expected_import_row_count": expected_row_count,
+        "task183_input_path": str(inputs.get("task183") or ""),
+        "task183_status": str(task183.get("status") or ""),
+        "task183_import_apply_plan_gate_status": str(task183.get("import_apply_plan_gate_status") or ""),
+        "task183_ready_for_task184_controlled_import_apply": _as_bool(task183.get("ready_for_task184_controlled_import_apply")),
+        "task183_ready_for_controlled_import_apply_plan": _as_bool(task183.get("ready_for_controlled_import_apply_plan")),
+        "task183_ready_for_controlled_import_apply": _as_bool(task183.get("ready_for_controlled_import_apply")),
+        "task183_ready_for_controlled_import": _as_bool(task183.get("ready_for_controlled_import")),
+        "task183_expected_import_row_count": task183_expected,
+        "task183_planned_import_row_count": task183_planned,
+        "task183_planned_insert_count": task183_insert,
+        "task183_planned_update_count": task183_update,
+        "task183_planned_delete_count": task183_delete,
+        "task183_planned_noop_count": task183_noop,
+        "task183_planned_natural_key_count": int(task183.get("planned_natural_key_count") or 0),
+        "task183_planned_natural_key_unique_count": int(task183.get("planned_natural_key_unique_count") or 0),
+        "task183_planned_natural_key_duplicate_count": int(task183.get("planned_natural_key_duplicate_count") or 0),
+        "task183_planned_natural_key_sha256_count": int(task183.get("planned_natural_key_sha256_count") or 0),
+        "task183_planned_natural_key_sha256_unique_count": int(task183.get("planned_natural_key_sha256_unique_count") or 0),
+        "task183_planned_natural_key_sha256_duplicate_count": int(task183.get("planned_natural_key_sha256_duplicate_count") or 0),
+        "task183_planned_row_checksum_sha256_count": int(task183.get("planned_row_checksum_sha256_count") or 0),
+        "task183_planned_row_checksum_sha256_missing_count": int(task183.get("planned_row_checksum_sha256_missing_count") or 0),
+        "task183_planned_required_field_missing_count": int(task183.get("planned_required_field_missing_count") or 0),
+        "task183_live_db_existing_planned_natural_key_count": int(task183.get("live_db_existing_planned_natural_key_count") or 0),
+        "task183_database_mutated": _as_bool(task183.get("database_mutated")),
+        "task183_migration_executed": _as_bool(task183.get("migration_executed")),
+        "task183_import_executed": _as_bool(task183.get("import_executed")),
+        "task183_bad_safety_count": int(task183.get("bad_safety_count") or 0),
+        "task183_blocker_count": int(task183.get("blocker_count") or 0),
+        "task182_input_path": str(inputs.get("task182") or ""),
+        "task182_status": str(task182.get("status") or ""),
+        "task182_post_migration_verification_gate_status": str(task182.get("post_migration_verification_gate_status") or ""),
+        "task182_ready_for_controlled_import_apply_plan": _as_bool(task182.get("ready_for_controlled_import_apply_plan")),
+        "task182_import_executed": _as_bool(task182.get("import_executed")),
+        "task182_database_mutated": _as_bool(task182.get("database_mutated")),
+        "task182_migration_executed": _as_bool(task182.get("migration_executed")),
+        "task182_bad_safety_count": int(task182.get("bad_safety_count") or 0),
+        "task182_blocker_count": int(task182.get("blocker_count") or 0),
+        "task181_input_path": str(inputs.get("task181") or ""),
+        "task181_status": str(task181.get("status") or ""),
+        "task181_migration_apply_status": str(task181.get("migration_apply_status") or ""),
+        "task181_import_executed": _as_bool(task181.get("import_executed")),
+        "task181_bad_safety_count": int(task181.get("bad_safety_count") or 0),
+        "task181_blocker_count": int(task181.get("blocker_count") or 0),
+        "task176_input_path": str(inputs.get("task176") or ""),
+        "task176_status": str(task176.get("status") or ""),
+        "task176_import_readiness_gate_status": str(task176.get("import_readiness_gate_status") or ""),
+        "task176_import_executed": _as_bool(task176.get("import_executed")),
+        "task176_bad_safety_count": int(task176.get("bad_safety_count") or 0),
+        "task176_blocker_count": int(task176.get("blocker_count") or 0),
+        "task175_input_path": str(inputs.get("task175") or ""),
+        "task175_status": str(task175.get("status") or ""),
+        "task175_row_count": task175_row_count,
+        "task175_plan_checksum_sha256": str(task175.get("plan_checksum_sha256") or ""),
+        "task175_plan_rows_checksum_sha256": str(task175.get("plan_rows_checksum_sha256") or ""),
+        "live_db_precheck_performed": True,
+        "live_db_precheck_available": live_available_before,
+        "live_db_revision_before": revision_before,
+        "live_db_target_revision_applied_before": target_revision_before,
+        "live_db_expected_table_exists_before": table_exists_before,
+        "live_db_expected_table_row_count_before": max(row_count_before, 0),
+        "live_db_required_columns_exist_before": required_columns_before,
+        "live_db_required_column_missing_count_before": len(missing_columns_before),
+        "live_db_required_column_missing_rows_before": [{"column_name": column, "status": "missing"} for column in missing_columns_before],
+        "live_db_natural_key_unique_constraint_exists_before": unique_before,
+        "live_db_existing_planned_natural_key_count_before": existing_key_count_before,
+        "live_db_existing_planned_natural_key_rows_before": live_before.get("existing_planned_natural_key_rows") or [],
+        "planned_import_row_count": len(planned_rows),
+        "planned_import_rows": planned_rows,
+        "planned_insert_count": action_counts["insert"],
+        "planned_update_count": action_counts["update"],
+        "planned_delete_count": action_counts["delete"],
+        "planned_noop_count": action_counts["noop"],
+        "insert_attempted": bool(insert_result.get("insert_attempted")),
+        "insert_transaction_started": bool(insert_result.get("insert_transaction_started")),
+        "insert_transaction_committed": bool(insert_result.get("insert_transaction_committed")),
+        "insert_transaction_rolled_back": bool(insert_result.get("insert_transaction_rolled_back")),
+        "inserted_row_count": int(insert_result.get("inserted_row_count") or 0),
+        "inserted_natural_key_sha256_count": len({row.get("natural_key_sha256") for row in insert_result.get("inserted_rows", []) if row.get("natural_key_sha256")}),
+        "inserted_row_checksum_sha256_count": len({row.get("row_checksum_sha256") for row in insert_result.get("inserted_rows", []) if row.get("row_checksum_sha256")}),
+        "insert_error": bool(insert_result.get("insert_error")),
+        "insert_error_message": str(insert_result.get("insert_error_message") or ""),
+        "inserted_rows": insert_result.get("inserted_rows") or [],
+        "live_db_postcheck_performed": postcheck_performed,
+        "live_db_postcheck_available": live_after_available,
+        "live_db_revision_after": revision_after,
+        "live_db_target_revision_applied_after": target_revision_after,
+        "live_db_expected_table_exists_after": table_exists_after,
+        "live_db_expected_table_row_count_after": max(row_count_after, 0),
+        "live_db_inserted_planned_natural_key_count_after": inserted_key_count_after,
+        "live_db_inserted_planned_natural_key_rows_after": live_after.get("inserted_planned_natural_key_rows") or [],
+        "live_db_inserted_planned_row_checksum_count_after": inserted_checksum_count_after,
+        "live_db_inserted_planned_row_checksum_rows_after": live_after.get("inserted_planned_row_checksum_rows") or [],
+        "live_db_required_columns_exist_after": required_columns_after,
+        "live_db_required_column_missing_count_after": len(missing_columns_after),
+        "live_db_natural_key_unique_constraint_exists_after": unique_after,
+        "database_mutated": database_mutated,
+        "migration_executed": False,
+        "import_executed": import_executed,
+        "bad_safety_count": 0,
+        "blocker_count": len(blocker_rows),
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "verification_check_count": len(check_rows),
+        "verification_check_rows": check_rows,
+        "verification_check_code_counts": _count_by_key(check_rows, "check_id"),
+        "warning_count": 0,
+        "warnings": [],
+        "warning_code_counts": {},
+        "safety_flags": _rzd_manual_official_pdf_controlled_values_import_apply_safety_flags(database_mutated=database_mutated, import_executed=import_executed),
+        **_rzd_manual_official_pdf_controlled_values_import_apply_safety_flags(database_mutated=database_mutated, import_executed=import_executed),
+        "safe_hint": "No Alembic command was executed by Task184. Only planned insert rows are eligible when the exact token is valid.",
+        "next_step": "Run a future post-import verification task." if ready_for_post_import else "Resolve Task184 blockers before retrying controlled import apply.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-import-apply", status),
+        "errors": [],
+    }
+    _rzd_manual_official_pdf_controlled_values_import_apply_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in (
+        "mode", "status", "import_apply_status", "approval_token_name",
+        "approval_token_expected_value", "approval_token_source", "expected_revision", "expected_table",
+        "task183_input_path", "task183_status", "task183_import_apply_plan_gate_status",
+        "task182_input_path", "task182_status", "task182_post_migration_verification_gate_status",
+        "task181_input_path", "task181_status", "task181_migration_apply_status",
+        "task176_input_path", "task176_status", "task176_import_readiness_gate_status",
+        "task175_input_path", "task175_status", "task175_plan_checksum_sha256",
+        "task175_plan_rows_checksum_sha256", "live_db_revision_before", "insert_error_message",
+        "live_db_revision_after", "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["ready_for_controlled_import_apply"] = False
+    report["ready_for_controlled_import"] = False
+    report["ready_for_migration_apply"] = False
+    report["ready_for_migration_apply_plan"] = False
+    report["migration_executed"] = False
+    report["planned_import_rows"] = list(report.get("planned_import_rows") or [])
+    report["inserted_rows"] = list(report.get("inserted_rows") or [])
+    report["blocker_rows"] = list(report.get("blocker_rows") or [])
+    report["verification_check_rows"] = list(report.get("verification_check_rows") or [])
+    report["live_db_required_column_missing_rows_before"] = list(report.get("live_db_required_column_missing_rows_before") or [])
+    report["live_db_existing_planned_natural_key_rows_before"] = list(report.get("live_db_existing_planned_natural_key_rows_before") or [])
+    report["live_db_inserted_planned_natural_key_rows_after"] = list(report.get("live_db_inserted_planned_natural_key_rows_after") or [])
+    report["live_db_inserted_planned_row_checksum_rows_after"] = list(report.get("live_db_inserted_planned_row_checksum_rows_after") or [])
+    report["blocker_code_counts"] = dict(report.get("blocker_code_counts") or {})
+    report["verification_check_code_counts"] = dict(report.get("verification_check_code_counts") or {})
+    report["warnings"] = list(report.get("warnings") or [])
+    report["warning_code_counts"] = dict(report.get("warning_code_counts") or {})
+    report["safety_flags"] = dict(report.get("safety_flags") or {})
+    for row in report["planned_import_rows"]:
+        for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_ROW_FIELDS:
+            row.setdefault(field, False if field in {"insert_action", "inserted", "existing_db_row_found"} else (0 if field in {"row_index", "report_year", "statement_page", "page_number", "value_2025", "value_2024"} else ""))
+        row["insert_action"] = bool(row.get("insert_action"))
+        row["inserted"] = bool(row.get("inserted"))
+        row["existing_db_row_found"] = bool(row.get("existing_db_row_found"))
+    for row in report["blocker_rows"]:
+        for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_BLOCKER_FIELDS:
+            row.setdefault(field, "" if field != "details" else {})
+        row["details"] = dict(row.get("details") or {})
+    for row in report["verification_check_rows"]:
+        for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_CHECK_FIELDS:
+            row.setdefault(field, "" if field != "details" else {})
+        row["details"] = dict(row.get("details") or {})
+    report["blocker_count"] = len(report["blocker_rows"])
+    report["verification_check_count"] = len(report["verification_check_rows"])
+    if report["blocker_count"] and report["status"] not in {"failed"}:
+        report["status"] = "blocked" if report["import_apply_status"] != "failed" else "failed"
+        if report["import_apply_status"] != "failed":
+            report["import_apply_status"] = "blocked"
+        report["ready_for_post_import_verification"] = False
+        report["ready_for_task185_post_import_verification"] = False
+        if report["insert_transaction_rolled_back"] or not report["insert_transaction_committed"]:
+            report["database_mutated"] = False
+            report["import_executed"] = False
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_manual_official_pdf_controlled_values_import_apply_blocker_row(
+            str(error.get("message") or "controlled_values_import_apply_failed"),
+            details=dict(error),
+        )
+        for error in errors
+    ]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-import-apply",
+        "status": "failed",
+        "import_apply_status": "failed",
+        "approval_token_provided": False,
+        "approval_token_valid": False,
+        "approval_token_name": RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_NAME,
+        "approval_token_expected_value": RZD_CONTROLLED_VALUES_IMPORT_APPLY_TOKEN_VALUE,
+        "approval_token_source": "",
+        "ready_for_post_import_verification": False,
+        "ready_for_controlled_import_apply": False,
+        "ready_for_controlled_import": False,
+        "ready_for_task185_post_import_verification": False,
+        "ready_for_task184_controlled_import_apply": False,
+        "ready_for_controlled_import_apply_plan": False,
+        "ready_for_post_migration_verification": False,
+        "ready_for_migration_apply": False,
+        "ready_for_migration_apply_plan": False,
+        "expected_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
+        "expected_table": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
+        "expected_import_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
+        "planned_import_rows": [],
+        "inserted_rows": [],
+        "blocker_rows": blocker_rows,
+        "verification_check_rows": [],
+        "errors": errors,
+        "artifacts": {key: str(path or "") for key, path in artifacts.items()},
+    }
+    for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_COUNT_FIELDS:
+        report.setdefault(field, 0)
+    for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_REQUIRED_BOOL_FIELDS:
+        report.setdefault(field, False)
+    report.update(
+        {
+            "blocker_count": len(blocker_rows),
+            "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+            "verification_check_count": 0,
+            "verification_check_code_counts": {},
+            "warnings": [],
+            "warning_code_counts": {},
+            "safety_flags": _rzd_manual_official_pdf_controlled_values_import_apply_safety_flags(),
+            **_rzd_manual_official_pdf_controlled_values_import_apply_safety_flags(),
+            "safe_hint": "Task184 failed before controlled import apply could complete.",
+            "next_step": "Fix Task184 input/output errors before retrying.",
+            "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-import-apply", "failed"),
+        }
+    )
+    _rzd_manual_official_pdf_controlled_values_import_apply_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_manual_official_pdf_controlled_values_import_apply_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_import_apply_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    _write_optional_json_report(report, artifacts["apply_json"])
+    if artifacts["apply_markdown"] is not None:
+        write_rzd_manual_official_pdf_controlled_values_import_apply_markdown(report, artifacts["apply_markdown"])
+    _write_optional_json_report({"status": report.get("status"), "verification_check_count": report.get("verification_check_count", 0), "verification_check_rows": report.get("verification_check_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["checks_json"])
+    _write_optional_json_report({"status": report.get("status"), "blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "live_db_precheck_available": bool(report.get("live_db_precheck_available")),
+            "live_db_expected_table_row_count_before": int(report.get("live_db_expected_table_row_count_before") or 0),
+            "live_db_existing_planned_natural_key_count_before": int(report.get("live_db_existing_planned_natural_key_count_before") or 0),
+            "live_db_postcheck_available": bool(report.get("live_db_postcheck_available")),
+            "live_db_expected_table_row_count_after": int(report.get("live_db_expected_table_row_count_after") or 0),
+            "live_db_inserted_planned_natural_key_count_after": int(report.get("live_db_inserted_planned_natural_key_count_after") or 0),
+            "live_db_inserted_planned_row_checksum_count_after": int(report.get("live_db_inserted_planned_row_checksum_count_after") or 0),
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["live_db_json"],
+    )
+    _write_optional_json_report({"status": report.get("status"), "planned_import_row_count": report.get("planned_import_row_count", 0), "planned_import_rows": report.get("planned_import_rows") or [], "inserted_rows": report.get("inserted_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["rows_json"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "insert_attempted": bool(report.get("insert_attempted")),
+            "insert_transaction_started": bool(report.get("insert_transaction_started")),
+            "insert_transaction_committed": bool(report.get("insert_transaction_committed")),
+            "insert_transaction_rolled_back": bool(report.get("insert_transaction_rolled_back")),
+            "inserted_row_count": int(report.get("inserted_row_count") or 0),
+            "insert_error": bool(report.get("insert_error")),
+            "insert_error_message": report.get("insert_error_message") or "",
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["transaction_json"],
+    )
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "database_mutated": bool(report.get("database_mutated")),
+            "migration_executed": False,
+            "import_executed": bool(report.get("import_executed")),
+            "ready_for_controlled_import_apply": False,
+            "ready_for_controlled_import": False,
+            "safety_flags": report.get("safety_flags") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["safety_json"],
+    )
+
+
+def run_rzd_manual_official_pdf_controlled_values_import_apply(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_manual_official_pdf_controlled_values_import_apply_inputs(args)
+    artifacts = _rzd_manual_official_pdf_controlled_values_import_apply_artifacts(args)
+    output_errors = _rzd_manual_official_pdf_controlled_values_import_apply_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_manual_official_pdf_controlled_values_import_apply_failed_report(output_errors, artifacts=artifacts, write_outputs=False)
+    try:
+        task183 = _load_json_object(inputs["task183"]) if inputs.get("task183") is not None and inputs["task183"].is_file() else {}
+        task182 = _load_json_object(inputs["task182"]) if inputs.get("task182") is not None and inputs["task182"].is_file() else {}
+        task181 = _load_json_object(inputs["task181"]) if inputs.get("task181") is not None and inputs["task181"].is_file() else {}
+        task180 = _load_json_object(inputs["task180"]) if inputs.get("task180") is not None and inputs["task180"].is_file() else {}
+        task179 = _load_json_object(inputs["task179"]) if inputs.get("task179") is not None and inputs["task179"].is_file() else {}
+        task177 = _load_json_object(inputs["task177"]) if inputs.get("task177") is not None and inputs["task177"].is_file() else {}
+        task176 = _load_json_object(inputs["task176"]) if inputs.get("task176") is not None and inputs["task176"].is_file() else {}
+        task175 = _load_json_object(inputs["task175"]) if inputs.get("task175") is not None and inputs["task175"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_manual_official_pdf_controlled_values_import_apply_failed_report(
+            [{"message": "controlled_values_import_apply_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_manual_official_pdf_controlled_values_import_apply_report(
+        task183,
+        task182=task182,
+        task181=task181,
+        task180=task180,
+        task179=task179,
+        task177=task177,
+        task176=task176,
+        task175=task175,
+        inputs=inputs,
+        args=args,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_manual_official_pdf_controlled_values_import_apply_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["import_apply_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_import_apply_write_failed", "error": str(exc)}]
+        _rzd_manual_official_pdf_controlled_values_import_apply_normalize_report(report)
+    return report
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            "task183": chain_dir / RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_ARTIFACT_NAMES["gate_json"],
+            "task182": chain_dir / RZD_CONTROLLED_VALUES_POST_MIGRATION_VERIFICATION_ARTIFACT_NAMES["gate_json"],
+            "task181": chain_dir / RZD_CONTROLLED_VALUES_MIGRATION_APPLY_ARTIFACT_NAMES["apply_json"],
+            "task180": chain_dir / RZD_CONTROLLED_VALUES_MIGRATION_APPLY_PLAN_ARTIFACT_NAMES["gate_json"],
+            "task179": chain_dir / RZD_CONTROLLED_VALUES_MIGRATION_READINESS_ARTIFACT_NAMES["gate_json"],
+            "task177": chain_dir / RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_ARTIFACT_NAMES["discovery_json"],
+            "task176": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_READINESS_GATE_ARTIFACT_NAMES["gate_json"],
+            "task175": chain_dir / RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_ARTIFACT_NAMES["plan_json"],
+        }
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "task183": args.rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_input or defaults.get("task183"),
+        "task182": args.rzd_manual_official_pdf_controlled_values_post_migration_verification_gate_input or defaults.get("task182"),
+        "task181": args.rzd_manual_official_pdf_controlled_values_migration_apply_input or defaults.get("task181"),
+        "task180": args.rzd_manual_official_pdf_controlled_values_migration_apply_plan_gate_input or defaults.get("task180"),
+        "task179": args.rzd_manual_official_pdf_controlled_values_migration_readiness_gate_input or defaults.get("task179"),
+        "task177": args.rzd_manual_official_pdf_controlled_values_db_schema_discovery_input or defaults.get("task177"),
+        "task176": args.rzd_manual_official_pdf_controlled_values_import_readiness_gate_input or defaults.get("task176"),
+        "task175": args.rzd_manual_official_pdf_controlled_values_import_plan_preview_input or defaults.get("task175"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_IMPORT_APPLY_ARTIFACT_NAMES.items()}
+        if chain_dir is not None
+        else {}
+    )
+    return {
+        "apply_json": args.rzd_manual_official_pdf_controlled_values_import_apply_output or defaults.get("apply_json"),
+        "apply_markdown": args.rzd_manual_official_pdf_controlled_values_import_apply_markdown_output or defaults.get("apply_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_import_apply_checks_output or defaults.get("checks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_import_apply_blockers_output or defaults.get("blockers_json"),
+        "live_db_json": args.rzd_manual_official_pdf_controlled_values_import_apply_live_db_output or defaults.get("live_db_json"),
+        "rows_json": args.rzd_manual_official_pdf_controlled_values_import_apply_rows_output or defaults.get("rows_json"),
+        "transaction_json": args.rzd_manual_official_pdf_controlled_values_import_apply_transaction_output or defaults.get("transaction_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_import_apply_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_manual_official_pdf_controlled_values_import_apply_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    outputs = [path for path in artifacts.values() if path is not None]
+    for generic_output in (args.json_output, args.markdown_output):
+        if generic_output is not None:
+            outputs.append(generic_output)
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output in outputs:
+        if any(_paths_equal(output, input_path) for input_path in input_paths):
+            return [{"message": "rzd_controlled_values_import_apply_output_must_not_equal_input"}]
+    for index, output in enumerate(outputs):
+        if any(_paths_equal(output, other) for other in outputs[index + 1 :]):
+            return [{"message": "rzd_controlled_values_import_apply_output_must_not_equal_input"}]
+    return []
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -64149,6 +65159,11 @@ def write_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_markd
     path.write_text(render_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_import_apply_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_import_apply_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -64438,6 +65453,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_post_migration_verification_gate_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-import-apply-plan-gate":
         return render_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-import-apply":
+        return render_rzd_manual_official_pdf_controlled_values_import_apply_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -70351,6 +71368,99 @@ def render_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_mark
         "- No financial values were imported by Task183.",
         "- Controlled import execution remains blocked.",
         "- A future explicit operator-approved Task184 is required before import.",
+        f"- database_mutated: `{report.get('database_mutated')}`",
+        f"- migration_executed: `{report.get('migration_executed')}`",
+        f"- import_executed: `{report.get('import_executed')}`",
+        "",
+        "## Decision",
+        "",
+        decision,
+        "",
+        "## Next step",
+        "",
+        str(report.get("next_step") or ""),
+        "",
+        "## Blockers",
+        "",
+    ]
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_import_apply_markdown(report: dict[str, Any]) -> str:
+    if report.get("import_apply_status") == "passed":
+        decision = "Controlled import apply passed. Exactly 24 controlled financial statement value rows were inserted. The system is ready for a future post-import verification task."
+    elif report.get("import_apply_status") == "already_applied":
+        decision = "Controlled import was already applied exactly. No rows were inserted by this run. The system is ready for a future post-import verification task."
+    elif not report.get("approval_token_valid"):
+        decision = "Controlled import apply is blocked because the explicit operator token was missing or invalid. No rows were inserted."
+    elif report.get("status") == "failed":
+        decision = "Controlled import apply failed during insert or post-check handling. Review blockers and transaction diagnostics before retrying."
+    else:
+        decision = "Controlled import apply is blocked until upstream, token, planned-row, and live DB checks pass."
+    lines = [
+        "# RZD Controlled Values Import Apply",
+        "",
+        "## Input chain",
+        "",
+        f"- Task183 input: `{report.get('task183_input_path')}`",
+        f"- Task182 input: `{report.get('task182_input_path')}`",
+        f"- Task181 input: `{report.get('task181_input_path')}`",
+        f"- Task176 input: `{report.get('task176_input_path')}`",
+        f"- Task175 input: `{report.get('task175_input_path')}`",
+        "",
+        "## Approval token",
+        "",
+        f"- token name: `{report.get('approval_token_name')}`",
+        f"- provided: `{report.get('approval_token_provided')}`",
+        f"- valid: `{report.get('approval_token_valid')}`",
+        "",
+        "## Task183 import apply plan summary",
+        "",
+        f"- status: `{report.get('task183_status')}`",
+        f"- gate status: `{report.get('task183_import_apply_plan_gate_status')}`",
+        f"- ready for Task184: `{report.get('task183_ready_for_task184_controlled_import_apply')}`",
+        f"- planned rows: `{report.get('planned_import_row_count')}`",
+        f"- planned inserts: `{report.get('planned_insert_count')}`",
+        "",
+        "## Live DB pre-check",
+        "",
+        f"- available: `{report.get('live_db_precheck_available')}`",
+        f"- revision before: `{report.get('live_db_revision_before')}`",
+        f"- table exists before: `{report.get('live_db_expected_table_exists_before')}`",
+        f"- row count before: `{report.get('live_db_expected_table_row_count_before')}`",
+        f"- existing planned keys before: `{report.get('live_db_existing_planned_natural_key_count_before')}`",
+        "",
+        "## Insert transaction",
+        "",
+        f"- attempted: `{report.get('insert_attempted')}`",
+        f"- started: `{report.get('insert_transaction_started')}`",
+        f"- committed: `{report.get('insert_transaction_committed')}`",
+        f"- rolled back: `{report.get('insert_transaction_rolled_back')}`",
+        f"- inserted row count: `{report.get('inserted_row_count')}`",
+        "",
+        "## Live DB post-check",
+        "",
+        f"- performed: `{report.get('live_db_postcheck_performed')}`",
+        f"- available: `{report.get('live_db_postcheck_available')}`",
+        f"- revision after: `{report.get('live_db_revision_after')}`",
+        f"- row count after: `{report.get('live_db_expected_table_row_count_after')}`",
+        f"- planned keys after: `{report.get('live_db_inserted_planned_natural_key_count_after')}`",
+        f"- planned checksums after: `{report.get('live_db_inserted_planned_row_checksum_count_after')}`",
+        "",
+        "## Safety",
+        "",
+        "- No migration was executed by Task184.",
+        "- No Alembic command was executed by Task184.",
+        "- No rows were updated by Task184.",
+        "- No rows were deleted by Task184.",
+        "- Only the planned controlled financial statement values were eligible for insertion.",
+        f"- ready_for_controlled_import_apply: `{report.get('ready_for_controlled_import_apply')}`",
+        f"- ready_for_controlled_import: `{report.get('ready_for_controlled_import')}`",
         f"- database_mutated: `{report.get('database_mutated')}`",
         f"- migration_executed: `{report.get('migration_executed')}`",
         f"- import_executed: `{report.get('import_executed')}`",
@@ -81375,6 +82485,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use this Task182 gate only to prepare a future controlled import apply-plan task; direct controlled import execution remains blocked."]
     if mode == "rzd-manual-official-pdf-controlled-values-import-apply-plan-gate":
         return ["Review the Task183 import apply plan; a future explicit operator-approved Task184 is required before any controlled import."]
+    if mode == "rzd-manual-official-pdf-controlled-values-import-apply":
+        return ["Run a future post-import verification gate before enabling any downstream controlled analysis; Task184 never scores issuers or triggers trading."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -81687,6 +82799,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_manual_official_pdf_controlled_values_import_apply_plan_inputs(args),
             artifacts=_rzd_manual_official_pdf_controlled_values_import_apply_plan_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-import-apply":
+        return not _rzd_manual_official_pdf_controlled_values_import_apply_output_errors(
+            args,
+            inputs=_rzd_manual_official_pdf_controlled_values_import_apply_inputs(args),
+            artifacts=_rzd_manual_official_pdf_controlled_values_import_apply_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
