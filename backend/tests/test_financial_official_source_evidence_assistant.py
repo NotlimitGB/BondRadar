@@ -18482,6 +18482,27 @@ def test_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_passes
     assert report["ready_for_controlled_import"] is False
     assert report["planned_import_row_count"] == 24
     assert report["planned_insert_row_count"] == 24
+    assert report["expected_import_row_count"] == 24
+    assert report["task182_import_executed"] is False
+    assert report["task176_import_executed"] is False
+    assert report["task175_row_count"] == 24
+    assert report["live_db_existing_planned_natural_key_count"] == 0
+    assert report["live_db_existing_planned_natural_key_rows"] == []
+    assert report["planned_natural_key_count"] == 24
+    assert report["planned_natural_key_unique_count"] == 24
+    assert report["planned_natural_key_duplicate_count"] == 0
+    assert report["planned_natural_key_duplicate_rows"] == []
+    assert report["planned_natural_key_sha256_count"] == 24
+    assert report["planned_natural_key_sha256_unique_count"] == 24
+    assert report["planned_natural_key_sha256_duplicate_count"] == 0
+    assert report["planned_natural_key_sha256_duplicate_rows"] == []
+    assert report["planned_row_checksum_sha256_count"] == 24
+    assert report["planned_row_checksum_sha256_missing_count"] == 0
+    assert report["planned_row_checksum_sha256_missing_rows"] == []
+    assert report["planned_insert_count"] == 24
+    assert report["planned_update_count"] == 0
+    assert report["planned_delete_count"] == 0
+    assert report["planned_noop_count"] == 0
     assert report["planned_existing_db_conflict_count"] == 0
     assert report["live_db_target_revision_applied"] is True
     assert report["live_db_expected_table_row_count"] == 0
@@ -18659,8 +18680,27 @@ def test_rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_wrappe
     assert isinstance(blockers["blocker_rows"], list)
     live_db = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_live_db_task183.json").read_text(encoding="utf-8"))
     assert live_db["live_db_existing_planned_key_conflict_count"] == 0
+    assert live_db["live_db_existing_planned_natural_key_count"] == 0
+    assert live_db["live_db_existing_planned_natural_key_rows"] == []
     rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_rows_task183.json").read_text(encoding="utf-8"))
     assert rows["planned_import_row_count"] == 24
+    assert rows["expected_import_row_count"] == 24
+    assert rows["task175_row_count"] == 24
+    assert rows["planned_natural_key_count"] == 24
+    assert rows["planned_natural_key_unique_count"] == 24
+    assert rows["planned_natural_key_duplicate_count"] == 0
+    assert rows["planned_natural_key_duplicate_rows"] == []
+    assert rows["planned_natural_key_sha256_count"] == 24
+    assert rows["planned_natural_key_sha256_unique_count"] == 24
+    assert rows["planned_natural_key_sha256_duplicate_count"] == 0
+    assert rows["planned_natural_key_sha256_duplicate_rows"] == []
+    assert rows["planned_row_checksum_sha256_count"] == 24
+    assert rows["planned_row_checksum_sha256_missing_count"] == 0
+    assert rows["planned_row_checksum_sha256_missing_rows"] == []
+    assert rows["planned_insert_count"] == 24
+    assert rows["planned_update_count"] == 0
+    assert rows["planned_delete_count"] == 0
+    assert rows["planned_noop_count"] == 0
     commands = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_commands_task183.json").read_text(encoding="utf-8"))
     assert commands["command_rows"][0]["safe_to_run_now"] is False
     safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_safety_task183.json").read_text(encoding="utf-8"))
@@ -29379,6 +29419,10 @@ def _assert_rzd_controlled_values_import_apply_plan_gate_fields(report: dict) ->
     assert isinstance(report.get("command_rows"), list)
     assert isinstance(report.get("blocker_rows"), list)
     assert isinstance(report.get("live_db_existing_planned_key_rows"), list)
+    assert isinstance(report.get("live_db_existing_planned_natural_key_rows"), list)
+    assert isinstance(report.get("planned_natural_key_duplicate_rows"), list)
+    assert isinstance(report.get("planned_natural_key_sha256_duplicate_rows"), list)
+    assert isinstance(report.get("planned_row_checksum_sha256_missing_rows"), list)
     assert isinstance(report.get("live_db_required_column_missing_rows"), list)
     assert isinstance(report.get("live_db_columns"), list)
     assert isinstance(report.get("warning_code_counts"), dict)

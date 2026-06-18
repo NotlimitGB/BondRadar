@@ -8382,24 +8382,36 @@ RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_FIELDS = [
     "ready_for_controlled_import_apply_plan", "ready_for_task184_controlled_import_apply",
     "ready_for_controlled_import_apply", "ready_for_controlled_import",
     "ready_for_post_migration_verification", "ready_for_migration_apply", "ready_for_migration_apply_plan",
-    "expected_revision", "expected_table", "expected_row_count",
+    "expected_revision", "expected_table", "expected_row_count", "expected_import_row_count",
     "task182_input_path", "task182_status", "task182_post_migration_verification_gate_status",
-    "task182_ready_for_controlled_import_apply_plan", "task182_blocker_count", "task182_bad_safety_count",
+    "task182_ready_for_controlled_import_apply_plan", "task182_import_executed",
+    "task182_blocker_count", "task182_bad_safety_count",
     "task181_input_path", "task181_status", "task181_migration_apply_status",
     "task181_import_executed", "task181_blocker_count", "task181_bad_safety_count",
     "task176_input_path", "task176_status", "task176_import_readiness_gate_status",
-    "task176_ready_for_controlled_import_apply", "task176_blocker_count", "task176_bad_safety_count",
+    "task176_ready_for_controlled_import_apply", "task176_import_executed",
+    "task176_blocker_count", "task176_bad_safety_count",
     "task175_input_path", "task175_status", "task175_import_plan_preview_status",
-    "task175_planned_import_row_count", "task175_plan_checksum_sha256", "task175_plan_rows_checksum_sha256",
+    "task175_planned_import_row_count", "task175_row_count",
+    "task175_plan_checksum_sha256", "task175_plan_rows_checksum_sha256",
     "planned_import_row_count", "planned_insert_row_count", "planned_update_row_count",
     "planned_delete_row_count", "planned_noop_row_count", "planned_required_field_missing_count",
     "planned_duplicate_natural_key_count", "planned_duplicate_natural_key_sha256_count",
     "planned_missing_checksum_count", "planned_existing_db_conflict_count",
+    "planned_natural_key_count", "planned_natural_key_unique_count",
+    "planned_natural_key_duplicate_count", "planned_natural_key_duplicate_rows",
+    "planned_natural_key_sha256_count", "planned_natural_key_sha256_unique_count",
+    "planned_natural_key_sha256_duplicate_count", "planned_natural_key_sha256_duplicate_rows",
+    "planned_row_checksum_sha256_count", "planned_row_checksum_sha256_missing_count",
+    "planned_row_checksum_sha256_missing_rows",
+    "planned_insert_count", "planned_update_count", "planned_delete_count", "planned_noop_count",
     "live_db_check_performed", "live_db_check_available", "live_db_current_revision",
     "live_db_target_revision_applied", "live_db_expected_table_exists",
     "live_db_expected_table_row_count", "live_db_required_columns_exist",
     "live_db_required_column_missing_count", "live_db_natural_key_unique_constraint_exists",
-    "live_db_existing_planned_key_conflict_count", "future_import_apply_mode",
+    "live_db_existing_planned_key_conflict_count",
+    "live_db_existing_planned_natural_key_count", "live_db_existing_planned_natural_key_rows",
+    "future_import_apply_mode",
     "import_apply_command_safe_to_run_now", "import_apply_command_requires_explicit_operator_token",
     "import_apply_command_token_name", "import_apply_command_expected_token_value",
     "rollback_available", "rollback_command_safe_to_run_now", "rollback_requires_explicit_operator_token",
@@ -8430,8 +8442,9 @@ RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_REQUIRED_BOOL_FIELDS = (
     "ready_for_controlled_import_apply_plan", "ready_for_task184_controlled_import_apply",
     "ready_for_controlled_import_apply", "ready_for_controlled_import",
     "ready_for_post_migration_verification", "ready_for_migration_apply", "ready_for_migration_apply_plan",
-    "task182_ready_for_controlled_import_apply_plan", "task181_import_executed",
-    "task176_ready_for_controlled_import_apply", "live_db_check_performed",
+    "task182_ready_for_controlled_import_apply_plan", "task182_import_executed",
+    "task181_import_executed", "task176_ready_for_controlled_import_apply",
+    "task176_import_executed", "live_db_check_performed",
     "live_db_check_available", "live_db_target_revision_applied",
     "live_db_expected_table_exists", "live_db_required_columns_exist",
     "live_db_natural_key_unique_constraint_exists", "import_apply_command_safe_to_run_now",
@@ -8445,15 +8458,21 @@ RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_REQUIRED_BOOL_FIELDS = (
     "paper_trading_called", "files_deleted",
 )
 RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_REQUIRED_COUNT_FIELDS = (
-    "expected_row_count", "task182_blocker_count", "task182_bad_safety_count",
+    "expected_row_count", "expected_import_row_count", "task182_blocker_count", "task182_bad_safety_count",
     "task181_blocker_count", "task181_bad_safety_count", "task176_blocker_count",
-    "task176_bad_safety_count", "task175_planned_import_row_count",
+    "task176_bad_safety_count", "task175_planned_import_row_count", "task175_row_count",
     "planned_import_row_count", "planned_insert_row_count", "planned_update_row_count",
     "planned_delete_row_count", "planned_noop_row_count", "planned_required_field_missing_count",
     "planned_duplicate_natural_key_count", "planned_duplicate_natural_key_sha256_count",
     "planned_missing_checksum_count", "planned_existing_db_conflict_count",
+    "planned_natural_key_count", "planned_natural_key_unique_count",
+    "planned_natural_key_duplicate_count", "planned_natural_key_sha256_count",
+    "planned_natural_key_sha256_unique_count", "planned_natural_key_sha256_duplicate_count",
+    "planned_row_checksum_sha256_count", "planned_row_checksum_sha256_missing_count",
+    "planned_insert_count", "planned_update_count", "planned_delete_count", "planned_noop_count",
     "live_db_expected_table_row_count", "live_db_required_column_missing_count",
-    "live_db_existing_planned_key_conflict_count", "check_count", "command_count",
+    "live_db_existing_planned_key_conflict_count", "live_db_existing_planned_natural_key_count",
+    "check_count", "command_count",
     "rollback_count", "bad_safety_count", "blocker_count", "warning_count",
 )
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
@@ -55123,6 +55142,85 @@ def _rzd_controlled_values_import_apply_plan_rows(task175: dict[str, Any], task1
     return [dict(row) for row in rows if isinstance(row, dict)]
 
 
+def _rzd_controlled_values_import_apply_plan_task175_row_count(
+    task175: dict[str, Any],
+    task175_rows_payload: dict[str, Any],
+    planned_rows: Sequence[dict[str, Any]],
+) -> int:
+    for field in ("row_count", "planned_import_row_count", "import_plan_row_count"):
+        value = task175.get(field)
+        if value not in (None, ""):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                pass
+    if isinstance(task175.get("import_plan_rows"), list):
+        return len(task175.get("import_plan_rows") or [])
+    if isinstance(task175_rows_payload.get("import_plan_rows"), list):
+        return len(task175_rows_payload.get("import_plan_rows") or [])
+    return len(planned_rows)
+
+
+def _rzd_controlled_values_import_apply_plan_duplicate_rows(
+    rows: Sequence[dict[str, Any]],
+    field: str,
+) -> list[dict[str, Any]]:
+    seen: dict[str, int] = {}
+    duplicates: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, start=1):
+        value = str(row.get(field) or "")
+        if not value:
+            continue
+        row_index = int(row.get("row_index") or index)
+        if value in seen:
+            duplicates.append(
+                {
+                    "row_index": row_index,
+                    field: value,
+                    "duplicate_of_row_index": seen[value],
+                    "metric_key": str(row.get("metric_key") or ""),
+                    "target_type": str(row.get("target_type") or ""),
+                }
+            )
+        else:
+            seen[value] = row_index
+    return duplicates
+
+
+def _rzd_controlled_values_import_apply_plan_missing_row_checksum_rows(
+    rows: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    missing_rows: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, start=1):
+        checksum = str(row.get("row_checksum_sha256") or "")
+        if re.fullmatch(r"[0-9a-f]{64}", checksum):
+            continue
+        missing_rows.append(
+            {
+                "row_index": int(row.get("row_index") or index),
+                "missing_field": "row_checksum_sha256",
+                "metric_key": str(row.get("metric_key") or ""),
+                "target_type": str(row.get("target_type") or ""),
+            }
+        )
+    return missing_rows
+
+
+def _rzd_controlled_values_import_apply_plan_action_counts(rows: Sequence[dict[str, Any]]) -> dict[str, int]:
+    counts = {"insert": 0, "update": 0, "delete": 0, "noop": 0}
+    for row in rows:
+        action = str(row.get("target_operation") or "upsert_preview").strip().lower()
+        if action in {"upsert_preview", "insert_preview", "insert"}:
+            counts["insert"] += 1
+        elif "update" in action:
+            counts["update"] += 1
+        elif "delete" in action:
+            counts["delete"] += 1
+        else:
+            counts["noop"] += 1
+    return counts
+
+
 def _rzd_controlled_values_import_apply_plan_audit_rows(
     rows: list[dict[str, Any]],
     *,
@@ -55199,6 +55297,7 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
     task175_status = str(task175.get("status") or "")
     task175_plan_status = str(task175.get("import_plan_preview_status") or task175_status or "")
     planned_source_rows = _rzd_controlled_values_import_apply_plan_rows(task175, task175_rows_payload)
+    task175_row_count = _rzd_controlled_values_import_apply_plan_task175_row_count(task175, task175_rows_payload, planned_source_rows)
     planned_key_sha256s = [str(row.get("natural_key_sha256") or "") for row in planned_source_rows]
     live = _rzd_controlled_values_import_apply_plan_live_db_check(
         expected_table,
@@ -55218,7 +55317,23 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
     live_required_columns_exist = bool(live_available and not missing_columns)
     live_unique = bool(live.get("natural_key_unique_constraint_exists"))
     live_row_count = int(live.get("row_count") if live.get("row_count") is not None else -1)
-    existing_key_rows = [dict(row) for row in (live.get("existing_planned_key_rows") or []) if isinstance(row, dict)]
+    existing_key_rows = [
+        dict(row)
+        for row in (
+            live.get("live_db_existing_planned_natural_key_rows")
+            or live.get("existing_planned_key_rows")
+            or []
+        )
+        if isinstance(row, dict)
+    ]
+    try:
+        existing_key_count = int(
+            live.get("live_db_existing_planned_natural_key_count")
+            if live.get("live_db_existing_planned_natural_key_count") is not None
+            else live.get("existing_planned_key_count") or len(existing_key_rows)
+        )
+    except (TypeError, ValueError):
+        existing_key_count = len(existing_key_rows)
     planned_rows = _rzd_controlled_values_import_apply_plan_audit_rows(
         planned_source_rows,
         task175=task175,
@@ -55287,8 +55402,22 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
 
     natural_keys = [str(row.get("natural_key") or "") for row in planned_rows]
     natural_key_shas = [str(row.get("natural_key_sha256") or "") for row in planned_rows]
-    duplicate_natural_key_count = len([key for key in set(natural_keys) if key and natural_keys.count(key) > 1])
-    duplicate_natural_key_sha_count = len([key for key in set(natural_key_shas) if key and natural_key_shas.count(key) > 1])
+    planned_natural_key_count = sum(1 for key in natural_keys if key)
+    planned_natural_key_unique_count = len({key for key in natural_keys if key})
+    planned_natural_key_duplicate_rows = _rzd_controlled_values_import_apply_plan_duplicate_rows(planned_rows, "natural_key")
+    planned_natural_key_duplicate_count = len(planned_natural_key_duplicate_rows)
+    planned_natural_key_sha256_count = sum(1 for key in natural_key_shas if key)
+    planned_natural_key_sha256_unique_count = len({key for key in natural_key_shas if key})
+    planned_natural_key_sha256_duplicate_rows = _rzd_controlled_values_import_apply_plan_duplicate_rows(planned_rows, "natural_key_sha256")
+    planned_natural_key_sha256_duplicate_count = len(planned_natural_key_sha256_duplicate_rows)
+    planned_row_checksum_sha256_count = sum(
+        1 for row in planned_rows if re.fullmatch(r"[0-9a-f]{64}", str(row.get("row_checksum_sha256") or ""))
+    )
+    planned_row_checksum_sha256_missing_rows = _rzd_controlled_values_import_apply_plan_missing_row_checksum_rows(planned_rows)
+    planned_row_checksum_sha256_missing_count = len(planned_row_checksum_sha256_missing_rows)
+    action_counts = _rzd_controlled_values_import_apply_plan_action_counts(planned_source_rows)
+    duplicate_natural_key_count = planned_natural_key_duplicate_count
+    duplicate_natural_key_sha_count = planned_natural_key_sha256_duplicate_count
     required_row_fields = (
         "company_id", "company_name", "report_year", "report_standard", "target_type", "metric_key",
         "metric_role", "statement_page", "page_number", "natural_key", "natural_key_sha256",
@@ -55333,8 +55462,8 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
         add_blocker("live_db_required_columns_missing", {"missing_columns": missing_columns})
     if live_available and not live_unique:
         add_blocker("live_db_natural_key_unique_constraint_missing")
-    if existing_key_rows:
-        add_blocker("live_db_existing_planned_natural_key_conflict", {"conflict_count": len(existing_key_rows)})
+    if existing_key_count:
+        add_blocker("live_db_existing_planned_natural_key_conflict", {"conflict_count": existing_key_count})
 
     checks = [
         ("task182_input_exists", bool(task182_path is not None and task182_path.is_file() and task182), {"path": str(task182_path or "")}),
@@ -55354,7 +55483,7 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
         ("live_db_row_count_zero", live_row_count == 0, {"row_count": live_row_count}),
         ("live_db_required_columns_exist", live_required_columns_exist, {"missing_columns": missing_columns}),
         ("live_db_unique_constraint_exists", live_unique, {}),
-        ("live_db_no_planned_key_conflicts", not existing_key_rows, {"conflict_count": len(existing_key_rows)}),
+        ("live_db_no_planned_key_conflicts", existing_key_count == 0, {"conflict_count": existing_key_count}),
         ("task183_read_only_safety", True, {}),
     ]
     check_rows = [
@@ -55403,10 +55532,12 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
         "expected_revision": expected_revision,
         "expected_table": expected_table,
         "expected_row_count": expected_row_count,
+        "expected_import_row_count": expected_row_count,
         "task182_input_path": str(task182_path or ""),
         "task182_status": task182_status,
         "task182_post_migration_verification_gate_status": task182_gate_status,
         "task182_ready_for_controlled_import_apply_plan": _as_bool(task182.get("ready_for_controlled_import_apply_plan")),
+        "task182_import_executed": _as_bool(task182.get("import_executed")),
         "task182_blocker_count": int(task182.get("blocker_count") or 0),
         "task182_bad_safety_count": int(task182.get("bad_safety_count") or 0),
         "task181_input_path": str(task181_path or ""),
@@ -55422,24 +55553,41 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
         "task176_status": task176_status,
         "task176_import_readiness_gate_status": task176_gate_status,
         "task176_ready_for_controlled_import_apply": _as_bool(task176.get("ready_for_controlled_import_apply")),
+        "task176_import_executed": _as_bool(task176.get("import_executed")),
         "task176_blocker_count": int(task176.get("blocker_count") or 0),
         "task176_bad_safety_count": int(task176.get("bad_safety_count") or 0),
         "task175_input_path": str(task175_path or ""),
         "task175_status": task175_status,
         "task175_import_plan_preview_status": task175_plan_status,
         "task175_planned_import_row_count": int(task175.get("planned_import_row_count") or 0),
+        "task175_row_count": task175_row_count,
         "task175_plan_checksum_sha256": str(task175.get("plan_checksum_sha256") or ""),
         "task175_plan_rows_checksum_sha256": str(task175.get("plan_rows_checksum_sha256") or ""),
         "planned_import_row_count": len(planned_rows),
-        "planned_insert_row_count": len(planned_rows) - non_insert_count,
-        "planned_update_row_count": 0,
-        "planned_delete_row_count": 0,
-        "planned_noop_row_count": 0,
+        "planned_insert_row_count": action_counts["insert"],
+        "planned_update_row_count": action_counts["update"],
+        "planned_delete_row_count": action_counts["delete"],
+        "planned_noop_row_count": action_counts["noop"],
         "planned_required_field_missing_count": missing_required_count,
         "planned_duplicate_natural_key_count": duplicate_natural_key_count,
         "planned_duplicate_natural_key_sha256_count": duplicate_natural_key_sha_count,
         "planned_missing_checksum_count": missing_checksum_count,
-        "planned_existing_db_conflict_count": len(existing_key_rows),
+        "planned_existing_db_conflict_count": existing_key_count,
+        "planned_natural_key_count": planned_natural_key_count,
+        "planned_natural_key_unique_count": planned_natural_key_unique_count,
+        "planned_natural_key_duplicate_count": planned_natural_key_duplicate_count,
+        "planned_natural_key_duplicate_rows": planned_natural_key_duplicate_rows,
+        "planned_natural_key_sha256_count": planned_natural_key_sha256_count,
+        "planned_natural_key_sha256_unique_count": planned_natural_key_sha256_unique_count,
+        "planned_natural_key_sha256_duplicate_count": planned_natural_key_sha256_duplicate_count,
+        "planned_natural_key_sha256_duplicate_rows": planned_natural_key_sha256_duplicate_rows,
+        "planned_row_checksum_sha256_count": planned_row_checksum_sha256_count,
+        "planned_row_checksum_sha256_missing_count": planned_row_checksum_sha256_missing_count,
+        "planned_row_checksum_sha256_missing_rows": planned_row_checksum_sha256_missing_rows,
+        "planned_insert_count": action_counts["insert"],
+        "planned_update_count": action_counts["update"],
+        "planned_delete_count": action_counts["delete"],
+        "planned_noop_count": action_counts["noop"],
         "planned_import_rows": planned_rows,
         "live_db_check_performed": True,
         "live_db_check_available": live_available,
@@ -55451,8 +55599,10 @@ def _build_rzd_manual_official_pdf_controlled_values_import_apply_plan_report(
         "live_db_required_column_missing_count": len(missing_columns),
         "live_db_required_column_missing_rows": [{"column_name": column, "status": "missing"} for column in missing_columns],
         "live_db_natural_key_unique_constraint_exists": live_unique,
-        "live_db_existing_planned_key_conflict_count": len(existing_key_rows),
+        "live_db_existing_planned_key_conflict_count": existing_key_count,
         "live_db_existing_planned_key_rows": existing_key_rows,
+        "live_db_existing_planned_natural_key_count": existing_key_count,
+        "live_db_existing_planned_natural_key_rows": existing_key_rows,
         "live_db_error": str(live.get("error") or ""),
         "live_db_columns": live_columns,
         "future_import_apply_mode": "rzd-manual-official-pdf-controlled-values-import-apply",
@@ -55523,6 +55673,10 @@ def _rzd_manual_official_pdf_controlled_values_import_apply_plan_normalize_repor
     report["command_rows"] = list(report.get("command_rows") or [])
     report["blocker_rows"] = list(report.get("blocker_rows") or [])
     report["live_db_existing_planned_key_rows"] = list(report.get("live_db_existing_planned_key_rows") or [])
+    report["live_db_existing_planned_natural_key_rows"] = list(report.get("live_db_existing_planned_natural_key_rows") or [])
+    report["planned_natural_key_duplicate_rows"] = list(report.get("planned_natural_key_duplicate_rows") or [])
+    report["planned_natural_key_sha256_duplicate_rows"] = list(report.get("planned_natural_key_sha256_duplicate_rows") or [])
+    report["planned_row_checksum_sha256_missing_rows"] = list(report.get("planned_row_checksum_sha256_missing_rows") or [])
     report["live_db_required_column_missing_rows"] = list(report.get("live_db_required_column_missing_rows") or [])
     report["live_db_columns"] = list(report.get("live_db_columns") or [])
     report["warnings"] = list(report.get("warnings") or [])
@@ -55593,21 +55747,33 @@ def _rzd_manual_official_pdf_controlled_values_import_apply_plan_failed_report(
         "expected_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
         "expected_table": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
         "expected_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
+        "expected_import_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
         "task182_input_path": "", "task182_status": "", "task182_post_migration_verification_gate_status": "",
-        "task182_ready_for_controlled_import_apply_plan": False, "task182_blocker_count": 0, "task182_bad_safety_count": 0,
+        "task182_ready_for_controlled_import_apply_plan": False, "task182_import_executed": False,
+        "task182_blocker_count": 0, "task182_bad_safety_count": 0,
         "task181_input_path": "", "task181_status": "", "task181_migration_apply_status": "", "task181_import_executed": False,
         "task181_blocker_count": 0, "task181_bad_safety_count": 0, "task180_input_path": "", "task179_input_path": "", "task177_input_path": "",
         "task176_input_path": "", "task176_status": "", "task176_import_readiness_gate_status": "", "task176_ready_for_controlled_import_apply": False,
-        "task176_blocker_count": 0, "task176_bad_safety_count": 0, "task175_input_path": "", "task175_status": "", "task175_import_plan_preview_status": "",
-        "task175_planned_import_row_count": 0, "task175_plan_checksum_sha256": "", "task175_plan_rows_checksum_sha256": "",
+        "task176_import_executed": False, "task176_blocker_count": 0, "task176_bad_safety_count": 0,
+        "task175_input_path": "", "task175_status": "", "task175_import_plan_preview_status": "",
+        "task175_planned_import_row_count": 0, "task175_row_count": 0,
+        "task175_plan_checksum_sha256": "", "task175_plan_rows_checksum_sha256": "",
         "planned_import_row_count": 0, "planned_insert_row_count": 0, "planned_update_row_count": 0, "planned_delete_row_count": 0,
         "planned_noop_row_count": 0, "planned_required_field_missing_count": 0, "planned_duplicate_natural_key_count": 0,
         "planned_duplicate_natural_key_sha256_count": 0, "planned_missing_checksum_count": 0, "planned_existing_db_conflict_count": 0,
+        "planned_natural_key_count": 0, "planned_natural_key_unique_count": 0,
+        "planned_natural_key_duplicate_count": 0, "planned_natural_key_duplicate_rows": [],
+        "planned_natural_key_sha256_count": 0, "planned_natural_key_sha256_unique_count": 0,
+        "planned_natural_key_sha256_duplicate_count": 0, "planned_natural_key_sha256_duplicate_rows": [],
+        "planned_row_checksum_sha256_count": 0, "planned_row_checksum_sha256_missing_count": 0,
+        "planned_row_checksum_sha256_missing_rows": [],
+        "planned_insert_count": 0, "planned_update_count": 0, "planned_delete_count": 0, "planned_noop_count": 0,
         "planned_import_rows": [], "live_db_check_performed": False, "live_db_check_available": False, "live_db_current_revision": "",
         "live_db_target_revision_applied": False, "live_db_expected_table_exists": False, "live_db_expected_table_row_count": 0,
         "live_db_required_columns_exist": False, "live_db_required_column_missing_count": 0, "live_db_required_column_missing_rows": [],
         "live_db_natural_key_unique_constraint_exists": False, "live_db_existing_planned_key_conflict_count": 0,
-        "live_db_existing_planned_key_rows": [], "live_db_error": "", "live_db_columns": [],
+        "live_db_existing_planned_key_rows": [], "live_db_existing_planned_natural_key_count": 0,
+        "live_db_existing_planned_natural_key_rows": [], "live_db_error": "", "live_db_columns": [],
         "future_import_apply_mode": "rzd-manual-official-pdf-controlled-values-import-apply",
         "import_apply_command_safe_to_run_now": False, "import_apply_command_requires_explicit_operator_token": True,
         "import_apply_command_token_name": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_TOKEN_NAME,
@@ -55652,11 +55818,38 @@ def _rzd_manual_official_pdf_controlled_values_import_apply_plan_write_outputs(
             "live_db_expected_table_row_count": int(report.get("live_db_expected_table_row_count") or 0),
             "live_db_existing_planned_key_conflict_count": int(report.get("live_db_existing_planned_key_conflict_count") or 0),
             "live_db_existing_planned_key_rows": report.get("live_db_existing_planned_key_rows") or [],
+            "live_db_existing_planned_natural_key_count": int(report.get("live_db_existing_planned_natural_key_count") or 0),
+            "live_db_existing_planned_natural_key_rows": report.get("live_db_existing_planned_natural_key_rows") or [],
             "safe_hint": report.get("safe_hint") or "",
         },
         artifacts["live_db_json"],
     )
-    _write_optional_json_report({"status": report.get("status"), "planned_import_row_count": report.get("planned_import_row_count", 0), "planned_import_rows": report.get("planned_import_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["rows_json"])
+    _write_optional_json_report(
+        {
+            "status": report.get("status"),
+            "expected_import_row_count": int(report.get("expected_import_row_count") or 0),
+            "task175_row_count": int(report.get("task175_row_count") or 0),
+            "planned_import_row_count": report.get("planned_import_row_count", 0),
+            "planned_natural_key_count": int(report.get("planned_natural_key_count") or 0),
+            "planned_natural_key_unique_count": int(report.get("planned_natural_key_unique_count") or 0),
+            "planned_natural_key_duplicate_count": int(report.get("planned_natural_key_duplicate_count") or 0),
+            "planned_natural_key_duplicate_rows": report.get("planned_natural_key_duplicate_rows") or [],
+            "planned_natural_key_sha256_count": int(report.get("planned_natural_key_sha256_count") or 0),
+            "planned_natural_key_sha256_unique_count": int(report.get("planned_natural_key_sha256_unique_count") or 0),
+            "planned_natural_key_sha256_duplicate_count": int(report.get("planned_natural_key_sha256_duplicate_count") or 0),
+            "planned_natural_key_sha256_duplicate_rows": report.get("planned_natural_key_sha256_duplicate_rows") or [],
+            "planned_row_checksum_sha256_count": int(report.get("planned_row_checksum_sha256_count") or 0),
+            "planned_row_checksum_sha256_missing_count": int(report.get("planned_row_checksum_sha256_missing_count") or 0),
+            "planned_row_checksum_sha256_missing_rows": report.get("planned_row_checksum_sha256_missing_rows") or [],
+            "planned_insert_count": int(report.get("planned_insert_count") or 0),
+            "planned_update_count": int(report.get("planned_update_count") or 0),
+            "planned_delete_count": int(report.get("planned_delete_count") or 0),
+            "planned_noop_count": int(report.get("planned_noop_count") or 0),
+            "planned_import_rows": report.get("planned_import_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        },
+        artifacts["rows_json"],
+    )
     _write_optional_json_report({"status": report.get("status"), "command_count": report.get("command_count", 0), "command_rows": report.get("command_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["commands_json"])
     _write_optional_json_report(
         {
