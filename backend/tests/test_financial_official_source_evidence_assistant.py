@@ -19710,6 +19710,266 @@ def test_rzd_manual_official_pdf_controlled_values_imported_read_model_wrappers_
     _assert_rzd_controlled_values_imported_read_model_fields(missing)
 
 
+def test_rzd_manual_official_pdf_controlled_values_financial_metric_normalization_passes_or_warns(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    task186 = _write_task187_ready_task186(chain, repo, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task186["ready_for_task187_financial_metric_normalization"] is True
+    assert report["status"] in {"passed", "warning"}
+    assert report["financial_metric_normalization_status"] == report["status"]
+    assert report["ready_for_financial_ratio_preview"] is True
+    assert report["ready_for_task188_financial_ratio_preview"] is True
+    assert report["ready_for_financial_metric_normalization"] is False
+    assert report["ready_for_task187_financial_metric_normalization"] is False
+    assert report["source_imported_row_count"] == 24
+    assert report["normalized_metric_count"] == 24
+    assert report["normalized_metric_key_count"] == 24
+    assert report["normalized_statement_section_count"] >= 2
+    assert report["normalized_metric_role_count"] >= 1
+    assert report["total_value_2025_count"] == 24
+    assert report["total_value_2024_count"] == 24
+    assert report["yoy_absolute_change_count"] == 24
+    assert report["yoy_percent_change_count"] + report["yoy_percent_not_available_count"] == 24
+    assert report["dataset_fingerprint_sha256"] == task186["dataset_fingerprint_sha256"]
+    assert report["source_read_model_checksum_sha256"] == task186["read_model_checksum_sha256"]
+    assert report["normalization_checksum_sha256"]
+    assert report["database_mutated"] is False
+    assert report["scoring_executed"] is False
+    assert report["trading_executed"] is False
+    keys = [row["normalized_metric_key"] for row in report["normalized_metric_rows"]]
+    assert len(keys) == len(set(keys))
+    assert all(key.startswith(row["target_type"] + ".") for key, row in zip(keys, report["normalized_metric_rows"]))
+    _assert_rzd_controlled_values_financial_metric_normalization_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_financial_metric_normalization_yoy_and_warnings(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task187_ready_task186(chain, repo, monkeypatch)
+    task186_path = chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_task186.json"
+    task186 = json.loads(task186_path.read_text(encoding="utf-8"))
+    rows = task186["imported_value_rows"]
+    rows[0].update({"value_2025": 150, "value_2024": 100, "metric_key": "positive_base_metric"})
+    rows[1].update({"value_2025": -50, "value_2024": -100, "metric_key": "negative_base_metric"})
+    rows[2].update({"value_2025": 25, "value_2024": 0, "metric_key": "zero_base_metric"})
+    rows[3].update({"target_type": "mystery_statement", "metric_key": "mystery_metric"})
+    task186["read_model_rows"] = list(rows)
+    task186_path.write_text(json.dumps(task186, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "warning"
+    by_key = {row["metric_key"]: row for row in report["normalized_metric_rows"]}
+    assert by_key["positive_base_metric"]["yoy_absolute_change"] == 50
+    assert by_key["positive_base_metric"]["yoy_percent_change"] == 50
+    assert by_key["negative_base_metric"]["yoy_absolute_change"] == 50
+    assert by_key["negative_base_metric"]["yoy_percent_change"] == 50
+    assert by_key["zero_base_metric"]["yoy_percent_change"] is None
+    assert by_key["zero_base_metric"]["yoy_percent_change_available"] is False
+    assert "yoy_percent_base_zero" in by_key["zero_base_metric"]["normalization_warning_codes"]
+    assert by_key["mystery_metric"]["statement_section"] == "unknown"
+    assert by_key["mystery_metric"]["analytics_ready"] is False
+    warning_codes = {row["code"] for row in report["normalization_warning_rows"]}
+    assert {"yoy_percent_base_zero", "unknown_target_type"}.issubset(warning_codes)
+    assert report["ready_for_task188_financial_ratio_preview"] is True
+    _assert_rzd_controlled_values_financial_metric_normalization_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_financial_metric_normalization_upstream_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task187_ready_task186(chain, repo, monkeypatch)
+
+    task186_path = chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_task186.json"
+    task186 = json.loads(task186_path.read_text(encoding="utf-8"))
+    task186.update({
+        "status": "blocked",
+        "ready_for_task187_financial_metric_normalization": False,
+        "imported_row_count": 23,
+        "dataset_fingerprint_sha256": "",
+        "database_mutated": True,
+        "scoring_executed": True,
+        "blocker_count": 1,
+        "bad_safety_count": 1,
+    })
+    task186_path.write_text(json.dumps(task186, ensure_ascii=False), encoding="utf-8")
+    report = _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    codes = {row["code"] for row in report["blocker_rows"]}
+    for expected_code in (
+        "task186_status_invalid",
+        "task186_not_ready_for_metric_normalization",
+        "task186_counts_invalid",
+        "task186_checksum_missing",
+        "task186_unexpected_mutation_or_execution",
+        "task186_blockers_present",
+        "task186_safety_blockers_present",
+    ):
+        assert expected_code in codes
+    assert report["status"] == "blocked"
+    assert report["ready_for_task188_financial_ratio_preview"] is False
+    assert report["database_mutated"] is False
+    assert report["scoring_executed"] is False
+    _assert_rzd_controlled_values_financial_metric_normalization_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_financial_metric_normalization_chain_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task187_ready_task186(chain, repo, monkeypatch)
+    task185_path = chain / "rzd_manual_official_pdf_controlled_values_post_import_verification_gate_task185.json"
+    task185 = json.loads(task185_path.read_text(encoding="utf-8"))
+    task185.update({"status": "blocked", "verified_exact_row_match_count": 23, "verified_exact_row_mismatch_count": 1, "database_mutated": True, "blocker_count": 1, "bad_safety_count": 1})
+    task185_path.write_text(json.dumps(task185, ensure_ascii=False), encoding="utf-8")
+    task184_path = chain / "rzd_manual_official_pdf_controlled_values_import_apply_task184.json"
+    task184 = json.loads(task184_path.read_text(encoding="utf-8"))
+    task184.update({"status": "failed", "import_apply_status": "blocked", "inserted_row_count": 23, "migration_executed": True, "import_executed": False, "blocker_count": 1, "bad_safety_count": 1})
+    task184_path.write_text(json.dumps(task184, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    for expected_code in (
+        "task185_status_invalid",
+        "task185_verification_counts_invalid",
+        "task185_unexpected_mutation_or_import",
+        "task185_blockers_present",
+        "task185_safety_blockers_present",
+        "task184_status_invalid",
+        "task184_import_apply_status_invalid",
+        "task184_unexpected_migration_executed",
+        "task184_blockers_present",
+        "task184_safety_blockers_present",
+    ):
+        assert expected_code in codes
+    assert report["status"] == "blocked"
+    _assert_rzd_controlled_values_financial_metric_normalization_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_financial_metric_normalization_row_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task187_ready_task186(chain, repo, monkeypatch)
+    task186_path = chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_task186.json"
+    task186 = json.loads(task186_path.read_text(encoding="utf-8"))
+    rows = task186["imported_value_rows"]
+    rows[0]["metric_key"] = rows[1]["metric_key"]
+    rows[0]["target_type"] = rows[1]["target_type"]
+    rows[0]["metric_role"] = rows[1]["metric_role"]
+    rows[2]["metric_key"] = ""
+    rows[3]["value_2025"] = ""
+    task186_path.write_text(json.dumps(task186, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    assert "normalized_metric_key_duplicate" in codes
+    assert "normalized_metric_key_missing" in codes
+    assert "metric_value_missing" in codes
+    assert report["status"] == "blocked"
+    assert report["ready_for_task188_financial_ratio_preview"] is False
+    _assert_rzd_controlled_values_financial_metric_normalization_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_financial_metric_normalization_wrappers_markdown_and_missing_input(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task187_ready_task186(chain, repo, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_financial_metric_normalization_checks_task187.json").read_text(encoding="utf-8"))
+    assert isinstance(checks["verification_check_count"], int)
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_financial_metric_normalization_blockers_task187.json").read_text(encoding="utf-8"))
+    assert isinstance(blockers["blocker_rows"], list)
+    metrics = json.loads((chain / "rzd_manual_official_pdf_controlled_values_financial_metric_normalization_metrics_task187.json").read_text(encoding="utf-8"))
+    assert metrics["normalized_metric_count"] == report["normalized_metric_count"]
+    summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_financial_metric_normalization_summary_task187.json").read_text(encoding="utf-8"))
+    assert summary["normalization_checksum_sha256"] == report["normalization_checksum_sha256"]
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_financial_metric_normalization_safety_task187.json").read_text(encoding="utf-8"))
+    assert safety["database_mutated"] is False
+    assert safety["ready_for_scoring"] is False
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_financial_metric_normalization_task187.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values Financial Metric Normalization",
+        "## Input chain",
+        "## Task186 read model summary",
+        "## Normalized metrics",
+        "## YoY changes",
+        "## Statement section summary",
+        "## Metric role summary",
+        "## Metric category summary",
+        "## Warnings",
+        "## Checksums",
+        "## Safety",
+        "## Decision",
+        "## Next step",
+    ):
+        assert section in markdown
+    for phrase in (
+        "No migration was executed by Task187.",
+        "No Alembic command was executed by Task187.",
+        "No database mutation was performed by Task187.",
+        "No rows were inserted by Task187.",
+        "No rows were updated by Task187.",
+        "No rows were deleted by Task187.",
+        "No scoring was executed by Task187.",
+        "No trading or paper trading was executed by Task187.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_financial_metric_normalization_fields(report)
+
+    missing = _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-imported-read-model-input",
+            str(chain / "missing_task186.json"),
+        ]
+    )
+    assert missing["status"] == "blocked"
+    assert "task186_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task188_financial_ratio_preview"] is False
+    _assert_rzd_controlled_values_financial_metric_normalization_fields(missing)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -27881,6 +28141,19 @@ def _run_rzd_manual_official_pdf_controlled_values_imported_read_model(extra_arg
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-financial-metric-normalization",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -30211,6 +30484,20 @@ def _task186_live_state(
     }
 
 
+def _write_task187_ready_task186(chain: Path, repo: Path, monkeypatch) -> dict:
+    _task185, task184 = _write_task186_ready_task185(chain, repo, monkeypatch)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_imported_read_model_live_db_check",
+        lambda expected_table, required_columns: _task186_live_state(task184["planned_import_rows"]),
+    )
+    task186 = _run_rzd_manual_official_pdf_controlled_values_imported_read_model(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert task186["ready_for_task187_financial_metric_normalization"] is True
+    return task186
+
+
 def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -30936,6 +31223,109 @@ def _assert_rzd_controlled_values_imported_read_model_fields(report: dict) -> No
             assert field in row
             assert row[field] is not None
         assert isinstance(row["details"], dict)
+
+
+def _assert_rzd_controlled_values_financial_metric_normalization_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "financial_metric_normalization_status",
+        "expected_revision",
+        "expected_table",
+        "task186_input_path",
+        "task186_status",
+        "task186_imported_read_model_status",
+        "task185_input_path",
+        "task185_status",
+        "task185_post_import_verification_gate_status",
+        "task184_input_path",
+        "task184_status",
+        "task184_import_apply_status",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "currency",
+        "unit",
+        "dataset_fingerprint_sha256",
+        "source_read_model_checksum_sha256",
+        "normalization_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("report_year"), int)
+    assert isinstance(report.get("task186_report_year"), int)
+    for field in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_REQUIRED_LIST_FIELDS:
+        assert isinstance(report.get(field), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert isinstance(report.get("warning_code_counts"), dict)
+    assert isinstance(report.get("blocker_code_counts"), dict)
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    assert report["import_executed"] is False
+    assert report["scoring_executed"] is False
+    assert report["trading_executed"] is False
+    assert report["paper_trading_executed"] is False
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["ready_for_imported_values_read_model"] is False
+    assert report["ready_for_task186_imported_values_read_model"] is False
+    assert report["ready_for_financial_metric_normalization"] is False
+    assert report["ready_for_task187_financial_metric_normalization"] is False
+    assert report["ready_for_scoring"] is False
+    assert report["ready_for_trading"] is False
+    assert report["ready_for_paper_trading"] is False
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["details"], dict)
+    for row in report.get("verification_check_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["details"], dict)
+    for row in report.get("normalization_warning_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_WARNING_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["details"], dict)
+    for row in report.get("normalized_metric_rows") or []:
+        for field in (
+            "row_index",
+            "company_id",
+            "company_name",
+            "report_year",
+            "report_standard",
+            "currency",
+            "unit",
+            "statement_section",
+            "target_type",
+            "metric_key",
+            "metric_role",
+            "normalized_metric_key",
+            "normalized_metric_category",
+            "value_2025",
+            "value_2024",
+            "yoy_percent_change_available",
+            "analytics_ready",
+            "interpretation_status",
+            "normalization_warning_codes",
+        ):
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["normalization_warning_codes"], list)
+        assert isinstance(row["analytics_ready"], bool)
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:
