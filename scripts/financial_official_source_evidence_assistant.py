@@ -100,6 +100,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-imported-read-model",
     "rzd-manual-official-pdf-controlled-values-financial-metric-normalization",
     "rzd-manual-official-pdf-controlled-values-financial-ratio-preview",
+    "rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -8817,6 +8818,80 @@ RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_PREVIEW_REQUIRED_LIST_FIELDS = (
     "ratio_category_rows", "ratio_unavailable_rows", "ratio_warning_rows",
     "ratio_blocker_rows",
 )
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_ARTIFACT_NAMES = {
+    "review_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_task189.json",
+    "review_markdown": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_task189.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_checks_task189.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_blockers_task189.json",
+    "review_rows_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_review_rows_task189.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_summary_task189.json",
+    "warnings_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_warnings_task189.json",
+    "actions_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_actions_task189.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_safety_task189.json",
+}
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_CHECK_FIELDS = [
+    "check_id", "status", "severity", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_WARNING_FIELDS = [
+    "warning_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_ACTION_FIELDS = [
+    "action_index", "action_type", "severity", "ratio_key", "related_metric_keys",
+    "issue_codes", "recommended_fix", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_REQUIRED_BOOL_FIELDS = (
+    "ready_for_ratio_methodology_patch_plan", "ready_for_task190_ratio_methodology_patch_plan",
+    "ready_for_financial_ratio_review", "ready_for_task189_financial_ratio_review",
+    "ready_for_financial_ratio_preview", "ready_for_task188_financial_ratio_preview",
+    "ready_for_financial_metric_normalization", "ready_for_task187_financial_metric_normalization",
+    "ready_for_imported_values_read_model", "ready_for_task186_imported_values_read_model",
+    "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "ready_for_scoring", "ready_for_trading", "ready_for_paper_trading",
+    "task188_ready_for_financial_ratio_review", "task188_ready_for_task189_financial_ratio_review",
+    "task188_ready_for_scoring", "task188_ready_for_trading", "task188_ready_for_paper_trading",
+    "task188_database_mutated", "task188_migration_executed", "task188_import_executed",
+    "task188_scoring_executed", "task188_trading_executed", "task188_paper_trading_executed",
+    "task188_recommendation_generated",
+    "task187_database_mutated", "task187_migration_executed", "task187_import_executed",
+    "task187_scoring_executed", "task187_trading_executed", "task187_paper_trading_executed",
+    "task186_database_mutated", "task186_migration_executed", "task186_import_executed",
+    "task186_scoring_executed", "task186_trading_executed", "task186_paper_trading_executed",
+    "task185_database_mutated", "task185_migration_executed", "task185_import_executed",
+    "task184_database_mutated", "task184_migration_executed", "task184_import_executed",
+    "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+    "trading_executed", "paper_trading_executed", "recommendation_generated",
+    "read_only", "dry_run_only", "would_fetch_source_page", "would_fetch_document_url",
+    "would_download_document", "would_import_report", "would_mutate_database",
+    "would_run_migration", "would_score_issuers", "would_trigger_paper_trading",
+    "source_page_fetched", "document_url_fetched", "documents_downloaded",
+    "issuer_scores_mutated", "paper_trading_called", "files_deleted",
+)
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_REQUIRED_COUNT_FIELDS = (
+    "expected_import_row_count", "task188_source_normalized_metric_count",
+    "task188_ratio_preview_count", "task188_ratio_key_count", "task188_ratio_category_count",
+    "task188_ratio_available_count", "task188_ratio_unavailable_count",
+    "task188_ratio_warning_count", "task188_bad_safety_count", "task188_blocker_count",
+    "task187_normalized_metric_count", "task187_normalized_metric_key_count",
+    "task187_bad_safety_count", "task187_blocker_count",
+    "task186_imported_row_count", "task186_bad_safety_count", "task186_blocker_count",
+    "task185_verified_exact_row_match_count", "task185_verified_exact_row_mismatch_count",
+    "task185_verified_extra_db_row_count", "task185_bad_safety_count", "task185_blocker_count",
+    "task184_inserted_row_count", "task184_bad_safety_count", "task184_blocker_count",
+    "source_ratio_preview_count", "source_ratio_unavailable_count", "source_ratio_warning_count",
+    "reviewed_ratio_count", "clean_ratio_count", "needs_review_ratio_count",
+    "formula_source_mismatch_count", "rename_required_count",
+    "disable_pending_source_metric_count", "unavailable_ratio_review_count",
+    "methodology_action_count", "review_warning_count", "verification_check_count",
+    "bad_safety_count", "blocker_count", "warning_count",
+)
+RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_REQUIRED_LIST_FIELDS = (
+    "verification_check_rows", "blocker_rows", "reviewed_ratio_rows",
+    "unavailable_ratio_review_rows", "methodology_action_rows",
+    "review_warning_rows", "review_category_rows",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -10511,6 +10586,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-preview-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-preview-warnings-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-preview-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-preview-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-review-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-warnings-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-actions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -10786,6 +10871,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_financial_metric_normalization(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-financial-ratio-preview":
         report = run_rzd_manual_official_pdf_controlled_values_financial_ratio_preview(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review":
+        report = run_rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -60484,6 +60571,820 @@ def run_rzd_manual_official_pdf_controlled_values_financial_ratio_preview(args: 
     return report
 
 
+def _rzd_controlled_values_financial_ratio_interpretation_review_safety_flags() -> dict[str, bool]:
+    return {
+        "read_only": True,
+        "dry_run_only": True,
+        "would_fetch_source_page": False,
+        "would_fetch_document_url": False,
+        "would_download_document": False,
+        "would_import_report": False,
+        "would_mutate_database": False,
+        "would_run_migration": False,
+        "would_score_issuers": False,
+        "would_trigger_paper_trading": False,
+        "source_page_fetched": False,
+        "document_url_fetched": False,
+        "documents_downloaded": False,
+        "issuer_scores_mutated": False,
+        "paper_trading_called": False,
+        "files_deleted": False,
+    }
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_blocker_row(
+    code: str,
+    *,
+    severity: str = "blocker",
+    message: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_financial_ratio_interpretation_review:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task189 is read-only; fix upstream ratio preview or controlled-values evidence before retrying.",
+    }
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_warning_row(
+    code: str,
+    *,
+    severity: str = "warning",
+    message: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "warning_id": f"rzd_controlled_values_financial_ratio_interpretation_review:warning:{code}",
+        "severity": severity,
+        "code": code,
+        "message": message or code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Methodology warning only; scoring, recommendations, and trading remain blocked.",
+    }
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_check_row(
+    code: str,
+    *,
+    passed: bool,
+    severity: str = "info",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "check_id": f"rzd_controlled_values_financial_ratio_interpretation_review:verification:{code}",
+        "status": "passed" if passed else "blocked",
+        "severity": severity if passed else "blocker",
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Verification check only; Task189 does not read DB, mutate data, score, recommend, or trade.",
+    }
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_action_row(
+    index: int,
+    *,
+    action_type: str,
+    ratio_key: str,
+    related_metric_keys: list[str] | None = None,
+    issue_codes: list[str] | None = None,
+    recommended_fix: str,
+    severity: str = "warning",
+) -> dict[str, Any]:
+    return {
+        "action_index": index,
+        "action_type": action_type,
+        "severity": severity,
+        "ratio_key": ratio_key,
+        "related_metric_keys": related_metric_keys or [],
+        "issue_codes": issue_codes or [],
+        "recommended_fix": recommended_fix,
+        "safe_hint": "Methodology action planning only; no ratio patch, scoring, recommendation, or trading happened.",
+    }
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    return {
+        "task188": args.rzd_manual_official_pdf_controlled_values_financial_ratio_preview_input or (chain_dir / RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_PREVIEW_ARTIFACT_NAMES["ratio_json"] if chain_dir else None),
+        "task187": args.rzd_manual_official_pdf_controlled_values_financial_metric_normalization_input or (chain_dir / RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_ARTIFACT_NAMES["normalization_json"] if chain_dir else None),
+        "task186": args.rzd_manual_official_pdf_controlled_values_imported_read_model_input or (chain_dir / RZD_CONTROLLED_VALUES_IMPORTED_READ_MODEL_ARTIFACT_NAMES["read_model_json"] if chain_dir else None),
+        "task185": args.rzd_manual_official_pdf_controlled_values_post_import_verification_gate_input or (chain_dir / RZD_CONTROLLED_VALUES_POST_IMPORT_VERIFICATION_ARTIFACT_NAMES["gate_json"] if chain_dir else None),
+        "task184": args.rzd_manual_official_pdf_controlled_values_import_apply_input or (chain_dir / RZD_CONTROLLED_VALUES_IMPORT_APPLY_ARTIFACT_NAMES["apply_json"] if chain_dir else None),
+    }
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_ARTIFACT_NAMES.items()}
+        if chain_dir
+        else {}
+    )
+    return {
+        "review_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_output or defaults.get("review_json"),
+        "review_markdown": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_markdown_output or defaults.get("review_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_checks_output or defaults.get("checks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_blockers_output or defaults.get("blockers_json"),
+        "review_rows_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_review_rows_output or defaults.get("review_rows_json"),
+        "summary_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_summary_output or defaults.get("summary_json"),
+        "warnings_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_warnings_output or defaults.get("warnings_json"),
+        "actions_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_actions_output or defaults.get("actions_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    generic_outputs = [args.json_output, args.markdown_output]
+    output_paths = [path for path in [*artifacts.values(), *generic_outputs] if path is not None]
+    input_paths = [path for path in inputs.values() if path is not None]
+    for output_path in output_paths:
+        for input_path in input_paths:
+            if _paths_equal(output_path, input_path):
+                return [{"message": "rzd_controlled_values_financial_ratio_interpretation_review_output_must_not_equal_input"}]
+    for left_index, left in enumerate(output_paths):
+        for right in output_paths[left_index + 1:]:
+            if _paths_equal(left, right):
+                return [{"message": "rzd_controlled_values_financial_ratio_interpretation_review_output_must_not_equal_input"}]
+    return []
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_is_formula_mismatch(row: dict[str, Any]) -> bool:
+    ratio_key = str(row.get("ratio_key") or "")
+    formula = str(row.get("ratio_formula") or "")
+    numerator = str(row.get("numerator_metric_key") or "")
+    return (
+        ratio_key == "liabilities_to_assets"
+        and "total_liabilities" in formula
+        and "total_assets" in formula
+        and numerator == "current_liabilities"
+    )
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_build_review(
+    ratio_rows: list[dict[str, Any]],
+    unavailable_rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    reviewed_rows: list[dict[str, Any]] = []
+    unavailable_review_rows: list[dict[str, Any]] = []
+    action_rows: list[dict[str, Any]] = []
+    warning_rows: list[dict[str, Any]] = []
+    action_keys: set[tuple[str, str]] = set()
+    warning_keys: set[tuple[str, str]] = set()
+
+    def add_warning(code: str, details: dict[str, Any] | None = None) -> None:
+        key = (code, json.dumps(details or {}, sort_keys=True, ensure_ascii=False))
+        if key not in warning_keys:
+            warning_keys.add(key)
+            warning_rows.append(_rzd_controlled_values_financial_ratio_interpretation_review_warning_row(code, details=details))
+
+    def add_action(action_type: str, ratio_key: str, *, related_metric_keys: list[str] | None, issue_codes: list[str], recommended_fix: str) -> None:
+        key = (action_type, ratio_key)
+        if key not in action_keys:
+            action_keys.add(key)
+            action_rows.append(_rzd_controlled_values_financial_ratio_interpretation_review_action_row(
+                len(action_rows) + 1,
+                action_type=action_type,
+                ratio_key=ratio_key,
+                related_metric_keys=related_metric_keys,
+                issue_codes=issue_codes,
+                recommended_fix=recommended_fix,
+            ))
+
+    if ratio_rows:
+        add_action(
+            "ratio_preview_not_scoring_acknowledgement",
+            "all_ratio_preview_rows",
+            related_metric_keys=[],
+            issue_codes=["ratio_preview_not_scoring_acknowledged"],
+            recommended_fix="Keep ratio-preview outputs informational until a later methodology patch and review explicitly approves analytics use.",
+        )
+        add_warning("ratio_preview_not_scoring_acknowledged", {"ratio_count": len(ratio_rows)})
+
+    for index, row in enumerate(sorted(ratio_rows, key=lambda item: str(item.get("ratio_key") or "")), start=1):
+        ratio_key = str(row.get("ratio_key") or "")
+        warning_codes = set(str(code) for code in (row.get("ratio_warning_codes") or []))
+        issue_codes: set[str] = set()
+        requires_rename = False
+        disable_until_source_metric_fixed = False
+        formula_mismatch = _rzd_controlled_values_financial_ratio_interpretation_review_is_formula_mismatch(row)
+        if formula_mismatch:
+            issue_codes.update({"formula_source_mismatch", "total_liabilities_missing_or_not_mapped"})
+            requires_rename = True
+            add_warning("formula_source_mismatch", {"ratio_key": ratio_key})
+            add_action(
+                "formula_source_fix",
+                ratio_key,
+                related_metric_keys=[str(row.get("numerator_metric_key") or ""), str(row.get("denominator_metric_key") or "")],
+                issue_codes=["formula_source_mismatch", "total_liabilities_missing_or_not_mapped"],
+                recommended_fix="Either map total liabilities source metric, or rename ratio to current_liabilities_to_assets if intentional.",
+            )
+            add_action(
+                "ratio_rename_or_mapping_decision",
+                ratio_key,
+                related_metric_keys=[str(row.get("numerator_metric_key") or ""), str(row.get("denominator_metric_key") or "")],
+                issue_codes=["formula_source_mismatch"],
+                recommended_fix="Review whether current_liabilities numerator is intended. If yes, rename ratio to current_liabilities_to_assets. If no, fix metric matching to total_liabilities.",
+            )
+        if ratio_key in {"debt_to_assets", "debt_to_equity"} and (
+            str(row.get("numerator_metric_key") or "") == "borrowings_or_loans"
+            or {"source_metric_requires_context", "source_metric_needs_review"} & warning_codes
+        ):
+            issue_codes.add("debt_metric_requires_context")
+            add_warning("debt_metric_requires_context", {"ratio_key": ratio_key})
+            add_action(
+                "debt_metric_mapping_review",
+                ratio_key,
+                related_metric_keys=list(row.get("source_metric_keys") or []),
+                issue_codes=["debt_metric_requires_context"],
+                recommended_fix="Decide whether borrowings_or_loans represents total debt, current debt, non-current debt, or another debt component before enabling the ratio.",
+            )
+        if ratio_key == "interest_coverage_preview" and "interest_coverage_preview_requires_review" in warning_codes:
+            issue_codes.add("interest_coverage_preview_requires_review")
+            add_warning("interest_coverage_preview_requires_review", {"ratio_key": ratio_key})
+            add_action(
+                "coverage_formula_review",
+                ratio_key,
+                related_metric_keys=list(row.get("source_metric_keys") or []),
+                issue_codes=["interest_coverage_preview_requires_review"],
+                recommended_fix="Define official numerator and denominator policy for interest coverage before future analytics or scoring.",
+            )
+        if ratio_key == "cash_to_current_liabilities":
+            issue_codes.add("liquidity_source_metric_requires_context")
+            add_warning("liquidity_source_metric_requires_context", {"ratio_key": ratio_key})
+            add_action(
+                "liquidity_metric_context_review",
+                ratio_key,
+                related_metric_keys=list(row.get("source_metric_keys") or []),
+                issue_codes=["liquidity_source_metric_requires_context"],
+                recommended_fix="Confirm cash and current-liability metric mappings before using this liquidity ratio beyond preview.",
+            )
+        dirty_warning_codes = warning_codes - {"ratio_preview_not_scoring"}
+        context_sensitive = (
+            str(row.get("ratio_interpretation_status") or "") == "needs_review"
+            or not _as_bool(row.get("analytics_ready"))
+            or bool(dirty_warning_codes)
+            or bool(issue_codes)
+        )
+        if formula_mismatch:
+            review_status = "requires_patch"
+            review_decision = "formula_source_fix_required"
+        elif disable_until_source_metric_fixed:
+            review_status = "disabled_pending_source_metric"
+            review_decision = "disable_until_metric_mapping_fixed"
+        elif context_sensitive:
+            review_status = "needs_review"
+            review_decision = "keep_preview_only" if issue_codes else "approve_with_warning"
+        else:
+            review_status = "clean"
+            review_decision = "approve_for_ratio_review"
+        reviewed_rows.append({
+            "review_index": index,
+            "ratio_key": ratio_key,
+            "ratio_name_ru": str(row.get("ratio_name_ru") or ""),
+            "ratio_name_en": str(row.get("ratio_name_en") or ""),
+            "ratio_category": str(row.get("ratio_category") or ""),
+            "ratio_formula": str(row.get("ratio_formula") or ""),
+            "ratio_unit": str(row.get("ratio_unit") or ""),
+            "source_metric_keys": list(row.get("source_metric_keys") or []),
+            "source_normalized_metric_keys": list(row.get("source_normalized_metric_keys") or []),
+            "numerator_metric_key": str(row.get("numerator_metric_key") or ""),
+            "denominator_metric_key": str(row.get("denominator_metric_key") or ""),
+            "ratio_value_2025": row.get("ratio_value_2025"),
+            "ratio_value_2024": row.get("ratio_value_2024"),
+            "available": _as_bool(row.get("available")),
+            "analytics_ready": _as_bool(row.get("analytics_ready")),
+            "safe_for_future_review": _as_bool(row.get("safe_for_future_review")),
+            "ratio_interpretation_status": str(row.get("ratio_interpretation_status") or ""),
+            "ratio_warning_codes": sorted(warning_codes),
+            "review_status": review_status,
+            "review_decision": review_decision,
+            "review_issue_codes": sorted(issue_codes),
+            "review_notes": "Task189 methodology review only; no recommendation, scoring, or trading signal was generated.",
+            "approved_for_future_analytics": review_status == "clean",
+            "requires_methodology_patch": review_status != "clean",
+            "requires_rename": bool(requires_rename),
+            "disable_until_source_metric_fixed": bool(disable_until_source_metric_fixed),
+        })
+
+    for index, row in enumerate(sorted(unavailable_rows, key=lambda item: str(item.get("ratio_key") or "")), start=1):
+        ratio_key = str(row.get("ratio_key") or "")
+        missing_aliases = list(row.get("missing_metric_aliases") or [])
+        issue_codes = ["operating_cash_flow_missing"] if "operating_cash_flow" in missing_aliases or ratio_key.startswith("operating_cash_flow") else [str(row.get("reason_code") or "ratio_unavailable")]
+        recommended_action = "Add or map operating cash flow metric before enabling cash-flow ratios." if "operating_cash_flow_missing" in issue_codes else "Fix missing source metric mapping before enabling this ratio."
+        unavailable_review_rows.append({
+            "review_index": index,
+            "ratio_key": ratio_key,
+            "ratio_category": str(row.get("ratio_category") or ""),
+            "reason_code": str(row.get("reason_code") or ""),
+            "message": str(row.get("message") or ""),
+            "missing_metric_aliases": missing_aliases,
+            "available_source_metric_keys": list(row.get("available_source_metric_keys") or []),
+            "review_status": "disabled_pending_source_metric",
+            "review_decision": "disable_until_metric_mapping_fixed",
+            "review_issue_codes": issue_codes,
+            "recommended_action": recommended_action,
+            "safe_hint": "Unavailable ratio remains disabled until upstream metric mapping is fixed.",
+        })
+        add_warning(issue_codes[0], {"ratio_key": ratio_key})
+        add_action(
+            "cash_flow_metric_mapping_required" if "operating_cash_flow_missing" in issue_codes else "ratio_source_metric_mapping_required",
+            ratio_key,
+            related_metric_keys=missing_aliases,
+            issue_codes=issue_codes,
+            recommended_fix=recommended_action,
+        )
+
+    category_names = sorted({row["ratio_category"] for row in reviewed_rows if row["ratio_category"]} | {row["ratio_category"] for row in unavailable_review_rows if row["ratio_category"]})
+    category_rows = []
+    for category in category_names:
+        reviewed = [row for row in reviewed_rows if row.get("ratio_category") == category]
+        unavailable = [row for row in unavailable_review_rows if row.get("ratio_category") == category]
+        actions = [row for row in action_rows if row.get("ratio_key") in {item.get("ratio_key") for item in [*reviewed, *unavailable]}]
+        category_rows.append({
+            "ratio_category": category,
+            "reviewed_ratio_count": len(reviewed),
+            "clean_ratio_count": sum(1 for row in reviewed if row.get("review_status") == "clean"),
+            "needs_review_ratio_count": sum(1 for row in reviewed if row.get("review_status") == "needs_review"),
+            "requires_patch_count": sum(1 for row in reviewed if row.get("review_status") == "requires_patch"),
+            "disabled_pending_source_metric_count": len(unavailable) + sum(1 for row in reviewed if row.get("review_status") == "disabled_pending_source_metric"),
+            "methodology_action_count": len(actions),
+        })
+    if any(row.get("review_status") != "clean" for row in reviewed_rows) or unavailable_review_rows:
+        add_warning("ratio_review_has_methodology_issues", {"reviewed_ratio_count": len(reviewed_rows)})
+        add_warning("ratio_review_contains_preview_only_items", {"action_count": len(action_rows)})
+    return reviewed_rows, unavailable_review_rows, action_rows, warning_rows, category_rows
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_REQUIRED_LIST_FIELDS:
+        if not isinstance(report.get(field), list):
+            report[field] = []
+    for field in (
+        "mode", "status", "financial_ratio_interpretation_review_status", "expected_revision", "expected_table",
+        "task188_input_path", "task188_status", "task188_financial_ratio_preview_status",
+        "task187_input_path", "task187_status", "task187_financial_metric_normalization_status",
+        "task186_input_path", "task186_status", "task186_imported_read_model_status",
+        "task185_input_path", "task185_status", "task185_post_import_verification_gate_status",
+        "task184_input_path", "task184_status", "task184_import_apply_status",
+        "company_id", "company_name", "report_standard", "currency", "unit",
+        "dataset_fingerprint_sha256", "source_read_model_checksum_sha256",
+        "source_normalization_checksum_sha256", "source_ratio_preview_checksum_sha256",
+        "interpretation_review_checksum_sha256", "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["report_year"] = int(report.get("report_year") or 0)
+    report["bad_safety_count"] = 0
+    report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["review_warning_count"] = len(report.get("review_warning_rows") or [])
+    report["warning_count"] = report["review_warning_count"]
+    report["methodology_action_count"] = len(report.get("methodology_action_rows") or [])
+    report["reviewed_ratio_count"] = len(report.get("reviewed_ratio_rows") or [])
+    report["unavailable_ratio_review_count"] = len(report.get("unavailable_ratio_review_rows") or [])
+    report["clean_ratio_count"] = sum(1 for row in report.get("reviewed_ratio_rows") or [] if row.get("review_status") == "clean")
+    report["needs_review_ratio_count"] = sum(1 for row in report.get("reviewed_ratio_rows") or [] if row.get("review_status") == "needs_review")
+    report["formula_source_mismatch_count"] = sum(1 for row in report.get("reviewed_ratio_rows") or [] if "formula_source_mismatch" in (row.get("review_issue_codes") or []))
+    report["rename_required_count"] = sum(1 for row in report.get("reviewed_ratio_rows") or [] if row.get("requires_rename") is True)
+    report["disable_pending_source_metric_count"] = len(report.get("unavailable_ratio_review_rows") or []) + sum(1 for row in report.get("reviewed_ratio_rows") or [] if row.get("disable_until_source_metric_fixed") is True)
+    report.update(_rzd_controlled_values_financial_ratio_interpretation_review_safety_flags())
+    report["safety_flags"] = _rzd_controlled_values_financial_ratio_interpretation_review_safety_flags()
+    for field in (
+        "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+        "trading_executed", "paper_trading_executed", "recommendation_generated",
+        "ready_for_financial_ratio_review", "ready_for_task189_financial_ratio_review",
+        "ready_for_financial_ratio_preview", "ready_for_task188_financial_ratio_preview",
+        "ready_for_financial_metric_normalization", "ready_for_task187_financial_metric_normalization",
+        "ready_for_imported_values_read_model", "ready_for_task186_imported_values_read_model",
+        "ready_for_controlled_import_apply", "ready_for_controlled_import",
+        "ready_for_scoring", "ready_for_trading", "ready_for_paper_trading",
+    ):
+        report[field] = False
+    if report["blocker_count"]:
+        report["status"] = "blocked" if report.get("status") != "failed" else "failed"
+        report["financial_ratio_interpretation_review_status"] = report["status"]
+        report["ready_for_ratio_methodology_patch_plan"] = False
+        report["ready_for_task190_ratio_methodology_patch_plan"] = False
+    elif report.get("status") != "failed":
+        report["status"] = "warning" if report["review_warning_count"] or report["methodology_action_count"] or report["unavailable_ratio_review_count"] else "passed"
+        report["financial_ratio_interpretation_review_status"] = report["status"]
+        report["ready_for_ratio_methodology_patch_plan"] = True
+        report["ready_for_task190_ratio_methodology_patch_plan"] = True
+
+
+def _build_rzd_controlled_values_financial_ratio_interpretation_review_report(
+    task188: dict[str, Any],
+    *,
+    task187: dict[str, Any],
+    task186: dict[str, Any],
+    task185: dict[str, Any],
+    task184: dict[str, Any],
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_expected_row_count or RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT)
+    blocker_rows: list[dict[str, Any]] = []
+    check_rows: list[dict[str, Any]] = []
+
+    def add_block(code: str, details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(_rzd_controlled_values_financial_ratio_interpretation_review_blocker_row(code, details=details))
+
+    def add_check(code: str, passed: bool, details: dict[str, Any] | None = None) -> None:
+        check_rows.append(_rzd_controlled_values_financial_ratio_interpretation_review_check_row(code, passed=passed, details=details))
+
+    for key, code in (
+        ("task188", "task188_input_missing"),
+        ("task187", "task187_input_missing"),
+        ("task186", "task186_input_missing"),
+        ("task185", "task185_input_missing"),
+        ("task184", "task184_input_missing"),
+    ):
+        exists = bool(inputs.get(key) and inputs[key].is_file())
+        add_check(f"{key}_input_exists", exists, {"path": str(inputs.get(key) or "")})
+        if not exists:
+            add_block(code)
+
+    task188_ready = _as_bool(task188.get("ready_for_financial_ratio_review")) and _as_bool(task188.get("ready_for_task189_financial_ratio_review"))
+    task188_counts_valid = (
+        int(task188.get("ratio_preview_count") or 0) > 0
+        and int(task188.get("ratio_key_count") or 0) == int(task188.get("ratio_preview_count") or 0)
+        and int(task188.get("ratio_available_count") or 0) > 0
+    )
+    add_check("task188_passed_or_warning", str(task188.get("status") or "") in {"passed", "warning"})
+    add_check("task188_ready_for_task189", task188_ready)
+    add_check("task188_counts_valid", task188_counts_valid)
+    add_check("task188_checksums_present", bool(task188.get("ratio_preview_checksum_sha256")))
+    add_check("task188_safety_valid", not any(_as_bool(task188.get(field)) for field in ("database_mutated", "migration_executed", "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed", "recommendation_generated")))
+    if str(task188.get("status") or "") not in {"passed", "warning"}:
+        add_block("task188_status_invalid")
+    if str(task188.get("financial_ratio_preview_status") or "") not in {"passed", "warning"}:
+        add_block("task188_status_invalid")
+    if not task188_ready:
+        add_block("task188_not_ready_for_ratio_review")
+    if not task188_counts_valid:
+        add_block("task188_counts_invalid")
+    if not task188.get("ratio_preview_checksum_sha256"):
+        add_block("task188_checksum_missing")
+    if any(_as_bool(task188.get(field)) for field in ("database_mutated", "migration_executed", "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed")):
+        add_block("task188_unexpected_mutation_or_execution")
+    if _as_bool(task188.get("recommendation_generated")):
+        add_block("task188_unexpected_recommendation_generation")
+    if int(task188.get("blocker_count") or 0) > 0:
+        add_block("task188_blockers_present")
+    if int(task188.get("bad_safety_count") or 0) > 0:
+        add_block("task188_safety_blockers_present")
+
+    task187_counts_valid = int(task187.get("normalized_metric_count") or 0) == expected_row_count and int(task187.get("normalized_metric_key_count") or 0) == expected_row_count
+    add_check("task187_valid", str(task187.get("status") or "") in {"passed", "warning"} and task187_counts_valid and bool(task187.get("normalization_checksum_sha256")))
+    if str(task187.get("status") or "") not in {"passed", "warning"} or str(task187.get("financial_metric_normalization_status") or "") not in {"passed", "warning"}:
+        add_block("task187_status_invalid")
+    if not task187_counts_valid:
+        add_block("task187_counts_invalid")
+    if not task187.get("normalization_checksum_sha256"):
+        add_block("task187_checksum_missing")
+    if any(_as_bool(task187.get(field)) for field in ("database_mutated", "migration_executed", "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed")):
+        add_block("task187_unexpected_mutation_or_execution")
+    if int(task187.get("blocker_count") or 0) > 0:
+        add_block("task187_blockers_present")
+    if int(task187.get("bad_safety_count") or 0) > 0:
+        add_block("task187_safety_blockers_present")
+
+    task186_valid = str(task186.get("status") or "") == "passed" and str(task186.get("imported_read_model_status") or "") == "passed" and int(task186.get("imported_row_count") or 0) == expected_row_count
+    add_check("task186_valid", task186_valid)
+    if not task186_valid:
+        add_block("task186_status_invalid" if str(task186.get("status") or "") != "passed" else "task186_counts_invalid")
+    if not task186.get("dataset_fingerprint_sha256") or not task186.get("read_model_checksum_sha256"):
+        add_block("task186_checksum_missing")
+    if any(_as_bool(task186.get(field)) for field in ("database_mutated", "migration_executed", "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed")):
+        add_block("task186_unexpected_mutation_or_execution")
+    if int(task186.get("blocker_count") or 0) > 0:
+        add_block("task186_blockers_present")
+    if int(task186.get("bad_safety_count") or 0) > 0:
+        add_block("task186_safety_blockers_present")
+
+    task185_valid = str(task185.get("status") or "") == "passed" and str(task185.get("post_import_verification_gate_status") or "") == "passed"
+    add_check("task185_valid", task185_valid and int(task185.get("verified_exact_row_match_count") or 0) == expected_row_count and int(task185.get("verified_exact_row_mismatch_count") or 0) == 0 and int(task185.get("verified_extra_db_row_count") or 0) == 0)
+    if not task185_valid:
+        add_block("task185_status_invalid")
+    if int(task185.get("verified_exact_row_match_count") or 0) != expected_row_count or int(task185.get("verified_exact_row_mismatch_count") or 0) != 0 or int(task185.get("verified_extra_db_row_count") or 0) != 0:
+        add_block("task185_verification_counts_invalid")
+    if any(_as_bool(task185.get(field)) for field in ("database_mutated", "migration_executed", "import_executed")):
+        add_block("task185_unexpected_mutation_or_import")
+    if int(task185.get("blocker_count") or 0) > 0:
+        add_block("task185_blockers_present")
+    if int(task185.get("bad_safety_count") or 0) > 0:
+        add_block("task185_safety_blockers_present")
+
+    task184_apply_status = str(task184.get("import_apply_status") or "")
+    task184_valid = str(task184.get("status") or "") in {"passed", "warning"} and task184_apply_status in {"passed", "already_applied"}
+    add_check("task184_valid", task184_valid)
+    if str(task184.get("status") or "") not in {"passed", "warning"}:
+        add_block("task184_status_invalid")
+    if task184_apply_status not in {"passed", "already_applied"}:
+        add_block("task184_import_apply_status_invalid")
+    if task184_apply_status == "passed" and int(task184.get("inserted_row_count") or 0) != expected_row_count:
+        add_block("task184_insert_count_mismatch")
+    if _as_bool(task184.get("migration_executed")):
+        add_block("task184_unexpected_migration_executed")
+    if task184_apply_status == "passed" and not _as_bool(task184.get("import_executed")):
+        add_block("task184_expected_import_execution_missing")
+    if int(task184.get("blocker_count") or 0) > 0:
+        add_block("task184_blockers_present")
+    if int(task184.get("bad_safety_count") or 0) > 0:
+        add_block("task184_safety_blockers_present")
+
+    ratio_rows = [dict(row) for row in (task188.get("ratio_preview_rows") or []) if isinstance(row, dict)]
+    unavailable_rows = [dict(row) for row in (task188.get("ratio_unavailable_rows") or []) if isinstance(row, dict)]
+    reviewed_rows, unavailable_review_rows, action_rows, review_warning_rows, category_rows = _rzd_controlled_values_financial_ratio_interpretation_review_build_review(ratio_rows, unavailable_rows)
+    checksum = _rzd_controlled_values_imported_read_model_canonical_sha256({
+        "reviewed_ratio_rows": reviewed_rows,
+        "unavailable_ratio_review_rows": unavailable_review_rows,
+        "methodology_action_rows": action_rows,
+        "review_warning_rows": review_warning_rows,
+        "review_category_rows": category_rows,
+    }) if reviewed_rows else ""
+    add_check("ratio_preview_rows_loaded", bool(ratio_rows))
+    add_check("reviewed_ratio_rows_built", bool(reviewed_rows))
+    add_check("reviewed_ratio_count_matches_source", len(reviewed_rows) == len(ratio_rows))
+    add_check("unavailable_ratio_review_rows_built", isinstance(unavailable_review_rows, list))
+    add_check("methodology_action_rows_built", isinstance(action_rows, list))
+    add_check("formula_source_mismatch_detected", any("formula_source_mismatch" in (row.get("review_issue_codes") or []) for row in reviewed_rows))
+    add_check("interpretation_review_checksum_built", bool(checksum))
+    add_check("task189_read_only_safety", True)
+    add_check("task189_no_scoring_or_trading_safety", True)
+    add_check("task189_no_recommendation_safety", True)
+    if not ratio_rows:
+        add_block("ratio_preview_rows_missing")
+    if ratio_rows and len(reviewed_rows) != len(ratio_rows):
+        add_block("reviewed_ratio_count_mismatch")
+    if not reviewed_rows:
+        add_block("reviewed_ratio_empty")
+    if reviewed_rows and not checksum:
+        add_block("interpretation_review_checksum_missing")
+
+    report = {
+        "mode": "rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review",
+        "status": "blocked" if blocker_rows else ("warning" if review_warning_rows or action_rows or unavailable_review_rows else "passed"),
+        "financial_ratio_interpretation_review_status": "blocked" if blocker_rows else ("warning" if review_warning_rows or action_rows or unavailable_review_rows else "passed"),
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "expected_import_row_count": expected_row_count,
+        "task188_input_path": str(inputs.get("task188") or ""),
+        "task188_status": str(task188.get("status") or ""),
+        "task188_financial_ratio_preview_status": str(task188.get("financial_ratio_preview_status") or ""),
+        "task188_ready_for_financial_ratio_review": _as_bool(task188.get("ready_for_financial_ratio_review")),
+        "task188_ready_for_task189_financial_ratio_review": _as_bool(task188.get("ready_for_task189_financial_ratio_review")),
+        "task188_ready_for_scoring": _as_bool(task188.get("ready_for_scoring")),
+        "task188_ready_for_trading": _as_bool(task188.get("ready_for_trading")),
+        "task188_ready_for_paper_trading": _as_bool(task188.get("ready_for_paper_trading")),
+        "task188_company_id": str(task188.get("company_id") or ""),
+        "task188_company_name": str(task188.get("company_name") or ""),
+        "task188_report_year": int(task188.get("report_year") or 0),
+        "task188_report_standard": str(task188.get("report_standard") or ""),
+        "task188_currency": str(task188.get("currency") or ""),
+        "task188_unit": str(task188.get("unit") or ""),
+        "task188_source_normalized_metric_count": int(task188.get("source_normalized_metric_count") or 0),
+        "task188_ratio_preview_count": int(task188.get("ratio_preview_count") or 0),
+        "task188_ratio_key_count": int(task188.get("ratio_key_count") or 0),
+        "task188_ratio_category_count": int(task188.get("ratio_category_count") or 0),
+        "task188_ratio_available_count": int(task188.get("ratio_available_count") or 0),
+        "task188_ratio_unavailable_count": int(task188.get("ratio_unavailable_count") or 0),
+        "task188_ratio_warning_count": int(task188.get("ratio_warning_count") or 0),
+        "task188_dataset_fingerprint_sha256": str(task188.get("dataset_fingerprint_sha256") or ""),
+        "task188_source_read_model_checksum_sha256": str(task188.get("source_read_model_checksum_sha256") or ""),
+        "task188_source_normalization_checksum_sha256": str(task188.get("source_normalization_checksum_sha256") or ""),
+        "task188_ratio_preview_checksum_sha256": str(task188.get("ratio_preview_checksum_sha256") or ""),
+        "task188_database_mutated": _as_bool(task188.get("database_mutated")),
+        "task188_migration_executed": _as_bool(task188.get("migration_executed")),
+        "task188_import_executed": _as_bool(task188.get("import_executed")),
+        "task188_scoring_executed": _as_bool(task188.get("scoring_executed")),
+        "task188_trading_executed": _as_bool(task188.get("trading_executed")),
+        "task188_paper_trading_executed": _as_bool(task188.get("paper_trading_executed")),
+        "task188_recommendation_generated": _as_bool(task188.get("recommendation_generated")),
+        "task188_bad_safety_count": int(task188.get("bad_safety_count") or 0),
+        "task188_blocker_count": int(task188.get("blocker_count") or 0),
+        "task187_input_path": str(inputs.get("task187") or ""),
+        "task187_status": str(task187.get("status") or ""),
+        "task187_financial_metric_normalization_status": str(task187.get("financial_metric_normalization_status") or ""),
+        "task187_normalized_metric_count": int(task187.get("normalized_metric_count") or 0),
+        "task187_normalized_metric_key_count": int(task187.get("normalized_metric_key_count") or 0),
+        "task187_normalization_checksum_sha256": str(task187.get("normalization_checksum_sha256") or ""),
+        "task187_database_mutated": _as_bool(task187.get("database_mutated")),
+        "task187_migration_executed": _as_bool(task187.get("migration_executed")),
+        "task187_import_executed": _as_bool(task187.get("import_executed")),
+        "task187_scoring_executed": _as_bool(task187.get("scoring_executed")),
+        "task187_trading_executed": _as_bool(task187.get("trading_executed")),
+        "task187_paper_trading_executed": _as_bool(task187.get("paper_trading_executed")),
+        "task187_bad_safety_count": int(task187.get("bad_safety_count") or 0),
+        "task187_blocker_count": int(task187.get("blocker_count") or 0),
+        "task186_input_path": str(inputs.get("task186") or ""),
+        "task186_status": str(task186.get("status") or ""),
+        "task186_imported_read_model_status": str(task186.get("imported_read_model_status") or ""),
+        "task186_imported_row_count": int(task186.get("imported_row_count") or 0),
+        "task186_dataset_fingerprint_sha256": str(task186.get("dataset_fingerprint_sha256") or ""),
+        "task186_read_model_checksum_sha256": str(task186.get("read_model_checksum_sha256") or ""),
+        "task186_database_mutated": _as_bool(task186.get("database_mutated")),
+        "task186_migration_executed": _as_bool(task186.get("migration_executed")),
+        "task186_import_executed": _as_bool(task186.get("import_executed")),
+        "task186_scoring_executed": _as_bool(task186.get("scoring_executed")),
+        "task186_trading_executed": _as_bool(task186.get("trading_executed")),
+        "task186_paper_trading_executed": _as_bool(task186.get("paper_trading_executed")),
+        "task186_bad_safety_count": int(task186.get("bad_safety_count") or 0),
+        "task186_blocker_count": int(task186.get("blocker_count") or 0),
+        "task185_input_path": str(inputs.get("task185") or ""),
+        "task185_status": str(task185.get("status") or ""),
+        "task185_post_import_verification_gate_status": str(task185.get("post_import_verification_gate_status") or ""),
+        "task185_verified_exact_row_match_count": int(task185.get("verified_exact_row_match_count") or 0),
+        "task185_verified_exact_row_mismatch_count": int(task185.get("verified_exact_row_mismatch_count") or 0),
+        "task185_verified_extra_db_row_count": int(task185.get("verified_extra_db_row_count") or 0),
+        "task185_database_mutated": _as_bool(task185.get("database_mutated")),
+        "task185_migration_executed": _as_bool(task185.get("migration_executed")),
+        "task185_import_executed": _as_bool(task185.get("import_executed")),
+        "task185_bad_safety_count": int(task185.get("bad_safety_count") or 0),
+        "task185_blocker_count": int(task185.get("blocker_count") or 0),
+        "task184_input_path": str(inputs.get("task184") or ""),
+        "task184_status": str(task184.get("status") or ""),
+        "task184_import_apply_status": task184_apply_status,
+        "task184_inserted_row_count": int(task184.get("inserted_row_count") or 0),
+        "task184_database_mutated": _as_bool(task184.get("database_mutated")),
+        "task184_migration_executed": _as_bool(task184.get("migration_executed")),
+        "task184_import_executed": _as_bool(task184.get("import_executed")),
+        "task184_bad_safety_count": int(task184.get("bad_safety_count") or 0),
+        "task184_blocker_count": int(task184.get("blocker_count") or 0),
+        "company_id": str(task188.get("company_id") or ""),
+        "company_name": str(task188.get("company_name") or ""),
+        "report_year": int(task188.get("report_year") or 0),
+        "report_standard": str(task188.get("report_standard") or ""),
+        "currency": str(task188.get("currency") or "RUB"),
+        "unit": str(task188.get("unit") or "million"),
+        "source_ratio_preview_count": int(task188.get("ratio_preview_count") or 0),
+        "source_ratio_unavailable_count": int(task188.get("ratio_unavailable_count") or 0),
+        "source_ratio_warning_count": int(task188.get("ratio_warning_count") or 0),
+        "reviewed_ratio_rows": reviewed_rows,
+        "unavailable_ratio_review_rows": unavailable_review_rows,
+        "methodology_action_rows": action_rows,
+        "review_warning_rows": review_warning_rows,
+        "review_category_rows": category_rows,
+        "dataset_fingerprint_sha256": str(task188.get("dataset_fingerprint_sha256") or ""),
+        "source_read_model_checksum_sha256": str(task188.get("source_read_model_checksum_sha256") or ""),
+        "source_normalization_checksum_sha256": str(task188.get("source_normalization_checksum_sha256") or ""),
+        "source_ratio_preview_checksum_sha256": str(task188.get("ratio_preview_checksum_sha256") or ""),
+        "interpretation_review_checksum_sha256": checksum,
+        "verification_check_count": len(check_rows),
+        "verification_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "blocker_code_counts": _count_by_key(blocker_rows, "code"),
+        "warnings": review_warning_rows,
+        "warning_code_counts": _count_by_key(review_warning_rows, "code"),
+        "check_code_counts": _count_by_key(check_rows, "status"),
+        "safety_flags": _rzd_controlled_values_financial_ratio_interpretation_review_safety_flags(),
+        **_rzd_controlled_values_financial_ratio_interpretation_review_safety_flags(),
+        "recommendation_generated": False,
+        "safe_hint": "Task189 reviewed ratio methodology only; no scoring, recommendation, trading, DB read, or DB mutation occurred.",
+        "next_step": "Run a future read-only Task190 ratio methodology patch plan before changing ratio mappings or names.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review", "blocked" if blocker_rows else ("warning" if review_warning_rows or action_rows or unavailable_review_rows else "passed")),
+        "errors": [],
+    }
+    _rzd_controlled_values_financial_ratio_interpretation_review_normalize_report(report)
+    return report
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_controlled_values_financial_ratio_interpretation_review_blocker_row(
+            str(error.get("message") or "controlled_values_financial_ratio_interpretation_review_failed"),
+            details=dict(error),
+        )
+        for error in errors
+    ]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review",
+        "status": "failed",
+        "financial_ratio_interpretation_review_status": "failed",
+        "expected_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
+        "expected_table": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
+        "expected_import_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
+        "blocker_rows": blocker_rows,
+        "verification_check_rows": [],
+        "reviewed_ratio_rows": [],
+        "unavailable_ratio_review_rows": [],
+        "methodology_action_rows": [],
+        "review_warning_rows": [],
+        "review_category_rows": [],
+        "safety_flags": _rzd_controlled_values_financial_ratio_interpretation_review_safety_flags(),
+        **_rzd_controlled_values_financial_ratio_interpretation_review_safety_flags(),
+        "recommendation_generated": False,
+        "safe_hint": "Task189 failed before read-only financial ratio interpretation review completed.",
+        "next_step": "Fix Task189 input/output errors before retrying.",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review", "failed"),
+        "errors": errors,
+    }
+    _rzd_controlled_values_financial_ratio_interpretation_review_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_controlled_values_financial_ratio_interpretation_review_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_financial_ratio_interpretation_review_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_controlled_values_financial_ratio_interpretation_review_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("review_json"):
+        write_json_report(report, artifacts["review_json"])
+    if artifacts.get("review_markdown"):
+        write_rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_markdown(report, artifacts["review_markdown"])
+    if artifacts.get("checks_json"):
+        write_json_report({"verification_check_count": report.get("verification_check_count", 0), "verification_check_rows": report.get("verification_check_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["checks_json"])
+    if artifacts.get("blockers_json"):
+        write_json_report({"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
+    if artifacts.get("review_rows_json"):
+        write_json_report({"reviewed_ratio_count": report.get("reviewed_ratio_count", 0), "reviewed_ratio_rows": report.get("reviewed_ratio_rows") or [], "unavailable_ratio_review_rows": report.get("unavailable_ratio_review_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["review_rows_json"])
+    if artifacts.get("summary_json"):
+        write_json_report({"review_category_rows": report.get("review_category_rows") or [], "interpretation_review_checksum_sha256": report.get("interpretation_review_checksum_sha256", ""), "safe_hint": report.get("safe_hint") or ""}, artifacts["summary_json"])
+    if artifacts.get("warnings_json"):
+        write_json_report({"review_warning_count": report.get("review_warning_count", 0), "review_warning_rows": report.get("review_warning_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["warnings_json"])
+    if artifacts.get("actions_json"):
+        write_json_report({"methodology_action_count": report.get("methodology_action_count", 0), "methodology_action_rows": report.get("methodology_action_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["actions_json"])
+    if artifacts.get("safety_json"):
+        write_json_report({
+            "database_mutated": False,
+            "migration_executed": False,
+            "import_executed": False,
+            "scoring_executed": False,
+            "trading_executed": False,
+            "paper_trading_executed": False,
+            "recommendation_generated": False,
+            "ready_for_controlled_import_apply": False,
+            "ready_for_controlled_import": False,
+            "ready_for_scoring": False,
+            "ready_for_trading": False,
+            "ready_for_paper_trading": False,
+            "safety_flags": report.get("safety_flags") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["safety_json"])
+
+
+def run_rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_controlled_values_financial_ratio_interpretation_review_inputs(args)
+    artifacts = _rzd_controlled_values_financial_ratio_interpretation_review_artifacts(args)
+    output_errors = _rzd_controlled_values_financial_ratio_interpretation_review_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_controlled_values_financial_ratio_interpretation_review_failed_report(output_errors, artifacts=artifacts, write_outputs=False)
+    try:
+        task188 = _load_json_object(inputs["task188"]) if inputs.get("task188") and inputs["task188"].is_file() else {}
+        task187 = _load_json_object(inputs["task187"]) if inputs.get("task187") and inputs["task187"].is_file() else {}
+        task186 = _load_json_object(inputs["task186"]) if inputs.get("task186") and inputs["task186"].is_file() else {}
+        task185 = _load_json_object(inputs["task185"]) if inputs.get("task185") and inputs["task185"].is_file() else {}
+        task184 = _load_json_object(inputs["task184"]) if inputs.get("task184") and inputs["task184"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_controlled_values_financial_ratio_interpretation_review_failed_report(
+            [{"message": "controlled_values_financial_ratio_interpretation_review_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_controlled_values_financial_ratio_interpretation_review_report(
+        task188,
+        task187=task187,
+        task186=task186,
+        task185=task185,
+        task184=task184,
+        inputs=inputs,
+        args=args,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_controlled_values_financial_ratio_interpretation_review_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["financial_ratio_interpretation_review_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_financial_ratio_interpretation_review_write_failed", "error": str(exc)}]
+        _rzd_controlled_values_financial_ratio_interpretation_review_normalize_report(report)
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -68792,6 +69693,11 @@ def write_rzd_manual_official_pdf_controlled_values_financial_ratio_preview_mark
     path.write_text(render_rzd_manual_official_pdf_controlled_values_financial_ratio_preview_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -69091,6 +69997,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_financial_metric_normalization_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-financial-ratio-preview":
         return render_rzd_manual_official_pdf_controlled_values_financial_ratio_preview_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review":
+        return render_rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -75484,6 +76392,125 @@ def render_rzd_manual_official_pdf_controlled_values_financial_ratio_preview_mar
         "- No scoring was executed by Task188.",
         "- No trading or paper trading was executed by Task188.",
         "- No investment recommendation was generated by Task188.",
+        f"- ready_for_scoring: `{report.get('ready_for_scoring')}`",
+        f"- ready_for_trading: `{report.get('ready_for_trading')}`",
+        f"- ready_for_paper_trading: `{report.get('ready_for_paper_trading')}`",
+        "",
+        "## Decision",
+        "",
+        decision,
+        "",
+        "## Next step",
+        "",
+        str(report.get("next_step") or ""),
+        "",
+        "## Blockers",
+        "",
+    ])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_markdown(report: dict[str, Any]) -> str:
+    if report.get("blocker_rows"):
+        decision = "Financial ratio interpretation review is blocked. Resolve upstream blockers before methodology patch planning."
+    elif report.get("status") == "warning":
+        decision = (
+            "Financial ratio interpretation review completed with methodology warnings. "
+            "The ratio preview was reviewed and methodology action rows were generated. "
+            "The system is ready for a future ratio methodology patch planning task. "
+            "Direct scoring, investment recommendations, trading, and paper trading remain blocked."
+        )
+    else:
+        decision = (
+            "Financial ratio interpretation review completed without blockers. "
+            "The system is ready for a future ratio methodology patch planning task. "
+            "Direct scoring, investment recommendations, trading, and paper trading remain blocked."
+        )
+    lines = [
+        "# RZD Controlled Values Financial Ratio Interpretation Review",
+        "",
+        "## Input chain",
+        "",
+        f"- Task188 input: `{report.get('task188_input_path')}`",
+        f"- Task187 input: `{report.get('task187_input_path')}`",
+        f"- Task186 input: `{report.get('task186_input_path')}`",
+        f"- Task185 input: `{report.get('task185_input_path')}`",
+        f"- Task184 input: `{report.get('task184_input_path')}`",
+        "",
+        "## Task188 ratio preview summary",
+        "",
+        f"- status: `{report.get('task188_status')}`",
+        f"- ratio preview status: `{report.get('task188_financial_ratio_preview_status')}`",
+        f"- source ratio rows: `{report.get('source_ratio_preview_count')}`",
+        f"- unavailable ratios: `{report.get('source_ratio_unavailable_count')}`",
+        f"- source warnings: `{report.get('source_ratio_warning_count')}`",
+        f"- ratio preview checksum: `{report.get('source_ratio_preview_checksum_sha256')}`",
+        "",
+        "## Reviewed ratios",
+        "",
+        f"- reviewed ratios: `{report.get('reviewed_ratio_count')}`",
+        f"- clean ratios: `{report.get('clean_ratio_count')}`",
+        f"- needs review: `{report.get('needs_review_ratio_count')}`",
+        f"- formula/source mismatches: `{report.get('formula_source_mismatch_count')}`",
+        "",
+        "## Methodology issues",
+        "",
+    ]
+    issue_rows = [row for row in report.get("reviewed_ratio_rows") or [] if row.get("review_issue_codes")]
+    if issue_rows:
+        lines.extend(f"- `{row.get('ratio_key')}` `{row.get('review_status')}` issues `{', '.join(row.get('review_issue_codes') or [])}`" for row in issue_rows)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Unavailable ratios", ""])
+    unavailable_rows = report.get("unavailable_ratio_review_rows") or []
+    if unavailable_rows:
+        lines.extend(f"- `{row.get('ratio_key')}` `{row.get('review_status')}` action `{row.get('recommended_action')}`" for row in unavailable_rows)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Methodology actions", ""])
+    action_rows = report.get("methodology_action_rows") or []
+    if action_rows:
+        lines.extend(f"- `{row.get('action_type')}` `{row.get('ratio_key')}` {row.get('recommended_fix')}" for row in action_rows)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Category summary", ""])
+    category_rows = report.get("review_category_rows") or []
+    if category_rows:
+        lines.extend(f"- `{row.get('ratio_category')}` reviewed `{row.get('reviewed_ratio_count')}` clean `{row.get('clean_ratio_count')}` review `{row.get('needs_review_ratio_count')}` disabled `{row.get('disabled_pending_source_metric_count')}`" for row in category_rows)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Warnings", ""])
+    warning_rows = report.get("review_warning_rows") or []
+    if warning_rows:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in warning_rows)
+    else:
+        lines.append("- none")
+    lines.extend([
+        "",
+        "## Checksums",
+        "",
+        f"- dataset fingerprint: `{report.get('dataset_fingerprint_sha256')}`",
+        f"- source read model checksum: `{report.get('source_read_model_checksum_sha256')}`",
+        f"- source normalization checksum: `{report.get('source_normalization_checksum_sha256')}`",
+        f"- source ratio preview checksum: `{report.get('source_ratio_preview_checksum_sha256')}`",
+        f"- interpretation review checksum: `{report.get('interpretation_review_checksum_sha256')}`",
+        "",
+        "## Safety",
+        "",
+        "- No migration was executed by Task189.",
+        "- No Alembic command was executed by Task189.",
+        "- No database mutation was performed by Task189.",
+        "- No rows were inserted by Task189.",
+        "- No rows were updated by Task189.",
+        "- No rows were deleted by Task189.",
+        "- No scoring was executed by Task189.",
+        "- No trading or paper trading was executed by Task189.",
+        "- No investment recommendation was generated by Task189.",
         f"- ready_for_scoring: `{report.get('ready_for_scoring')}`",
         f"- ready_for_trading: `{report.get('ready_for_trading')}`",
         f"- ready_for_paper_trading: `{report.get('ready_for_paper_trading')}`",
@@ -86518,6 +87545,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use Task187 normalized metrics only for a future read-only ratio preview; scoring, trading, and paper trading remain blocked."]
     if mode == "rzd-manual-official-pdf-controlled-values-financial-ratio-preview":
         return ["Use Task188 ratio previews only for a future read-only ratio interpretation review; scoring, recommendations, trading, and paper trading remain blocked."]
+    if mode == "rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review":
+        return ["Use Task189 review output only for a future ratio methodology patch plan; scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -86860,6 +87889,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_controlled_values_financial_ratio_preview_inputs(args),
             artifacts=_rzd_controlled_values_financial_ratio_preview_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-financial-ratio-interpretation-review":
+        return not _rzd_controlled_values_financial_ratio_interpretation_review_output_errors(
+            args,
+            inputs=_rzd_controlled_values_financial_ratio_interpretation_review_inputs(args),
+            artifacts=_rzd_controlled_values_financial_ratio_interpretation_review_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
