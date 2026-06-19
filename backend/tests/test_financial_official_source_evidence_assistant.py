@@ -19451,6 +19451,265 @@ def test_rzd_manual_official_pdf_controlled_values_post_import_verification_gate
     _assert_rzd_controlled_values_post_import_verification_fields(missing)
 
 
+def test_rzd_manual_official_pdf_controlled_values_imported_read_model_passes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    task185, task184 = _write_task186_ready_task185(chain, repo, monkeypatch)
+    rows = list(reversed(task184["planned_import_rows"]))
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_imported_read_model_live_db_check",
+        lambda expected_table, required_columns: _task186_live_state(rows),
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_imported_read_model(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task185["ready_for_task186_imported_values_read_model"] is True
+    assert report["status"] == "passed"
+    assert report["imported_read_model_status"] == "passed"
+    assert report["ready_for_financial_metric_normalization"] is True
+    assert report["ready_for_task187_financial_metric_normalization"] is True
+    assert report["ready_for_imported_values_read_model"] is False
+    assert report["ready_for_task186_imported_values_read_model"] is False
+    assert report["ready_for_scoring"] is False
+    assert report["ready_for_trading"] is False
+    assert report["ready_for_paper_trading"] is False
+    assert report["imported_row_count"] == 24
+    assert report["imported_metric_count"] == 24
+    assert report["source_pdf_sha256_count"] == 1
+    assert report["plan_checksum_sha256_count"] == 1
+    assert report["plan_rows_checksum_sha256_count"] == 1
+    assert report["row_checksum_sha256_count"] == 24
+    assert report["natural_key_sha256_count"] == 24
+    sorted_rows = sorted(report["imported_value_rows"], key=assistant._rzd_controlled_values_imported_read_model_sort_key)
+    assert report["imported_value_rows"] == sorted_rows
+    assert report["dataset_fingerprint_sha256"] == assistant._rzd_controlled_values_imported_read_model_canonical_sha256(report["imported_value_rows"])
+    assert report["read_model_checksum_sha256"] == assistant._rzd_controlled_values_imported_read_model_canonical_sha256(report["read_model_rows"])
+    assert report["blocker_count"] == 0
+    _assert_rzd_controlled_values_imported_read_model_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_imported_read_model_upstream_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task186_ready_task185(chain, repo, monkeypatch)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_imported_read_model_live_db_check",
+        lambda expected_table, required_columns: _task186_live_state(_task185_planned_rows(chain)),
+    )
+
+    task185_path = chain / "rzd_manual_official_pdf_controlled_values_post_import_verification_gate_task185.json"
+    task185_dirty = json.loads(task185_path.read_text(encoding="utf-8"))
+    task185_dirty.update(
+        {
+            "status": "blocked",
+            "ready_for_task186_imported_values_read_model": False,
+            "verified_exact_row_match_count": 23,
+            "verified_exact_row_mismatch_count": 1,
+            "database_mutated": True,
+            "blocker_count": 1,
+            "bad_safety_count": 1,
+        }
+    )
+    task185_path.write_text(json.dumps(task185_dirty, ensure_ascii=False), encoding="utf-8")
+    report = _run_rzd_manual_official_pdf_controlled_values_imported_read_model(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    codes = {row["code"] for row in report["blocker_rows"]}
+    for expected_code in (
+        "task185_status_invalid",
+        "task185_not_ready_for_read_model",
+        "task185_verification_counts_invalid",
+        "task185_unexpected_mutation_or_import",
+        "task185_blockers_present",
+        "task185_safety_blockers_present",
+    ):
+        assert expected_code in codes
+    assert report["status"] == "blocked"
+    assert report["ready_for_task187_financial_metric_normalization"] is False
+    assert report["database_mutated"] is False
+    assert report["import_executed"] is False
+    _assert_rzd_controlled_values_imported_read_model_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_imported_read_model_chain_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task186_ready_task185(chain, repo, monkeypatch)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_imported_read_model_live_db_check",
+        lambda expected_table, required_columns: _task186_live_state(_task185_planned_rows(chain)),
+    )
+
+    task184_path = chain / "rzd_manual_official_pdf_controlled_values_import_apply_task184.json"
+    task184_dirty = json.loads(task184_path.read_text(encoding="utf-8"))
+    task184_dirty.update({"status": "failed", "inserted_row_count": 23, "migration_executed": True, "import_executed": False, "blocker_count": 1, "bad_safety_count": 1})
+    task184_path.write_text(json.dumps(task184_dirty, ensure_ascii=False), encoding="utf-8")
+    task183_path = chain / "rzd_manual_official_pdf_controlled_values_import_apply_plan_gate_task183.json"
+    task183_dirty = json.loads(task183_path.read_text(encoding="utf-8"))
+    task183_dirty.update({"planned_import_row_count": 23, "planned_update_count": 1, "database_mutated": True, "blocker_count": 1, "bad_safety_count": 1})
+    task183_path.write_text(json.dumps(task183_dirty, ensure_ascii=False), encoding="utf-8")
+    task175_path = chain / "rzd_manual_official_pdf_controlled_values_import_plan_preview_task175.json"
+    task175_dirty = json.loads(task175_path.read_text(encoding="utf-8"))
+    task175_dirty.update({"plan_checksum_sha256": "", "plan_rows_checksum_sha256": "", "planned_import_row_count": 23})
+    task175_dirty["import_plan_rows"] = task175_dirty.get("import_plan_rows", [])[:23]
+    task175_path.write_text(json.dumps(task175_dirty, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_imported_read_model(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    codes = {row["code"] for row in report["blocker_rows"]}
+    for expected_code in (
+        "task184_status_invalid",
+        "task184_insert_count_mismatch",
+        "task184_unexpected_migration_executed",
+        "task184_expected_import_execution_missing",
+        "task184_blockers_present",
+        "task184_safety_blockers_present",
+        "task183_plan_counts_invalid",
+        "task183_unexpected_mutation_or_import",
+        "task183_blockers_present",
+        "task183_safety_blockers_present",
+        "task175_row_count_mismatch",
+        "task175_checksum_missing",
+    ):
+        assert expected_code in codes
+    assert report["status"] == "blocked"
+    _assert_rzd_controlled_values_imported_read_model_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_imported_read_model_live_db_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task186_ready_task185(chain, repo, monkeypatch)
+    rows = _task185_planned_rows(chain)
+    cases = [
+        (_task186_live_state(rows, available=False, error="no db"), "live_db_unavailable"),
+        (_task186_live_state(rows, revision="202605140017"), "live_db_revision_mismatch"),
+        (_task186_live_state(rows, table_exists=False), "live_db_expected_table_missing"),
+        (_task186_live_state(rows, columns=["id"]), "live_db_required_columns_missing"),
+        (_task186_live_state(rows, unique=False), "live_db_natural_key_unique_constraint_missing"),
+        (_task186_live_state(rows, row_count=23), "live_db_row_count_mismatch"),
+        (_task186_live_state(rows[:-1], row_count=24), "imported_rows_count_mismatch"),
+        (_task186_live_state([], row_count=24), "imported_rows_empty"),
+        (_task186_live_state([*rows[:23], {**rows[23], "company_id": "other"}]), "imported_company_ambiguous"),
+        (_task186_live_state([*rows[:23], {**rows[23], "report_year": 2024}]), "imported_report_year_ambiguous"),
+        (_task186_live_state([*rows[:23], {**rows[23], "report_standard": "RAS"}]), "imported_report_standard_ambiguous"),
+        (_task186_live_state([{**row, "row_checksum_sha256": ""} for row in rows]), "checksum_count_mismatch"),
+    ]
+    for live_state, expected_code in cases:
+        monkeypatch.setattr(
+            assistant,
+            "_rzd_controlled_values_imported_read_model_live_db_check",
+            lambda expected_table, required_columns, live_state=live_state: live_state,
+        )
+        report = _run_rzd_manual_official_pdf_controlled_values_imported_read_model(
+            ["--operator-resolution-chain-output-dir", str(chain)]
+        )
+        assert report["status"] == "blocked"
+        assert expected_code in {row["code"] for row in report["blocker_rows"]}
+        assert report["ready_for_task187_financial_metric_normalization"] is False
+        assert report["database_mutated"] is False
+        assert report["scoring_executed"] is False
+        assert report["trading_executed"] is False
+        _assert_rzd_controlled_values_imported_read_model_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_imported_read_model_wrappers_markdown_and_missing_input(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task186_ready_task185(chain, repo, monkeypatch)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_imported_read_model_live_db_check",
+        lambda expected_table, required_columns: _task186_live_state(_task185_planned_rows(chain)),
+    )
+    report = _run_rzd_manual_official_pdf_controlled_values_imported_read_model(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_checks_task186.json").read_text(encoding="utf-8"))
+    assert isinstance(checks["verification_check_count"], int)
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_blockers_task186.json").read_text(encoding="utf-8"))
+    assert blockers["blocker_count"] == 0
+    live_db = json.loads((chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_live_db_task186.json").read_text(encoding="utf-8"))
+    assert live_db["live_db_expected_table_row_count"] == 24
+    rows_wrapper = json.loads((chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_rows_task186.json").read_text(encoding="utf-8"))
+    assert rows_wrapper["imported_row_count"] == 24
+    metrics = json.loads((chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_metrics_task186.json").read_text(encoding="utf-8"))
+    assert metrics["imported_metric_count"] == 24
+    summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_summary_task186.json").read_text(encoding="utf-8"))
+    assert summary["dataset_fingerprint_sha256"] == report["dataset_fingerprint_sha256"]
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_safety_task186.json").read_text(encoding="utf-8"))
+    assert safety["database_mutated"] is False
+    assert safety["ready_for_scoring"] is False
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_imported_read_model_task186.md").read_text(encoding="utf-8")
+    for section in (
+        "# RZD Controlled Values Imported Read Model",
+        "## Input chain",
+        "## Task185 verification summary",
+        "## Live DB read",
+        "## Dataset identity",
+        "## Imported metrics",
+        "## Target type summary",
+        "## Metric role summary",
+        "## Statement page summary",
+        "## Checksums",
+        "## Safety",
+        "## Decision",
+        "## Next step",
+    ):
+        assert section in markdown
+    for phrase in (
+        "No migration was executed by Task186.",
+        "No Alembic command was executed by Task186.",
+        "No database mutation was performed by Task186.",
+        "No rows were inserted by Task186.",
+        "No rows were updated by Task186.",
+        "No rows were deleted by Task186.",
+        "No scoring was executed by Task186.",
+        "No trading or paper trading was executed by Task186.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_imported_read_model_fields(report)
+
+    missing = _run_rzd_manual_official_pdf_controlled_values_imported_read_model(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-post-import-verification-gate-input",
+            str(chain / "missing_task185.json"),
+        ]
+    )
+    assert missing["status"] == "blocked"
+    assert "task185_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task187_financial_metric_normalization"] is False
+    _assert_rzd_controlled_values_imported_read_model_fields(missing)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -27609,6 +27868,19 @@ def _run_rzd_manual_official_pdf_controlled_values_post_import_verification_gate
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_imported_read_model(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-imported-read-model",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -29893,6 +30165,52 @@ def _task185_live_state(
     }
 
 
+def _task185_planned_rows(chain: Path) -> list[dict]:
+    task184 = json.loads((chain / "rzd_manual_official_pdf_controlled_values_import_apply_task184.json").read_text(encoding="utf-8"))
+    return list(task184.get("planned_import_rows") or [])
+
+
+def _write_task186_ready_task185(chain: Path, repo: Path, monkeypatch) -> tuple[dict, dict]:
+    task184 = _write_task185_ready_task184(chain, repo, monkeypatch)
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_post_import_verification_live_db_check",
+        lambda expected_table, required_columns, planned_rows: _task185_live_state(list(planned_rows), row_count=24),
+    )
+    task185 = _run_rzd_manual_official_pdf_controlled_values_post_import_verification_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert task185["ready_for_task186_imported_values_read_model"] is True
+    return task185, task184
+
+
+def _task186_live_state(
+    imported_rows: list[dict],
+    *,
+    available: bool = True,
+    revision: str = "202606170001",
+    table_exists: bool = True,
+    columns: list[str] | None = None,
+    row_count: int | None = None,
+    unique: bool = True,
+    error: str = "",
+) -> dict:
+    if row_count is None:
+        row_count = len(imported_rows)
+    return {
+        **_task181_live_state(
+            available=available,
+            revision=revision,
+            table_exists=table_exists,
+            columns=columns if columns is not None else list(assistant.RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS),
+            row_count=row_count,
+            unique=unique,
+            error=error,
+        ),
+        "imported_rows": imported_rows,
+    }
+
+
 def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -30548,6 +30866,73 @@ def _assert_rzd_controlled_values_post_import_verification_fields(report: dict) 
         assert isinstance(row["details"], dict)
     for row in report.get("verification_check_rows") or []:
         for field in assistant.RZD_CONTROLLED_VALUES_POST_IMPORT_VERIFICATION_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["details"], dict)
+
+
+def _assert_rzd_controlled_values_imported_read_model_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_IMPORTED_READ_MODEL_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_IMPORTED_READ_MODEL_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in (
+        "mode",
+        "status",
+        "imported_read_model_status",
+        "expected_revision",
+        "expected_table",
+        "task185_input_path",
+        "task185_status",
+        "task185_post_import_verification_gate_status",
+        "task184_input_path",
+        "task184_status",
+        "task184_import_apply_status",
+        "task183_input_path",
+        "task183_status",
+        "task183_import_apply_plan_gate_status",
+        "task175_input_path",
+        "task175_status",
+        "task175_plan_checksum_sha256",
+        "task175_plan_rows_checksum_sha256",
+        "live_db_current_revision",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "dataset_fingerprint_sha256",
+        "read_model_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    assert isinstance(report.get("report_year"), int)
+    for field in assistant.RZD_CONTROLLED_VALUES_IMPORTED_READ_MODEL_REQUIRED_LIST_FIELDS:
+        assert isinstance(report.get(field), list)
+    assert isinstance(report.get("safety_flags"), dict)
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    assert report["import_executed"] is False
+    assert report["scoring_executed"] is False
+    assert report["trading_executed"] is False
+    assert report["paper_trading_executed"] is False
+    assert report["ready_for_controlled_import_apply"] is False
+    assert report["ready_for_controlled_import"] is False
+    assert report["ready_for_scoring"] is False
+    assert report["ready_for_trading"] is False
+    assert report["ready_for_paper_trading"] is False
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_IMPORTED_READ_MODEL_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["details"], dict)
+    for row in report.get("verification_check_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_IMPORTED_READ_MODEL_CHECK_FIELDS:
             assert field in row
             assert row[field] is not None
         assert isinstance(row["details"], dict)
