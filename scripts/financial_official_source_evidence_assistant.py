@@ -57012,21 +57012,82 @@ def _rzd_manual_official_pdf_controlled_values_post_import_verification_check_ro
     }
 
 
-def _rzd_controlled_values_post_import_decimal_equal(expected: Any, actual: Any) -> bool:
+RZD_CONTROLLED_VALUES_POST_IMPORT_NUMERIC_COMPARE_FIELDS = {"value_2025", "value_2024"}
+RZD_CONTROLLED_VALUES_POST_IMPORT_INTEGER_COMPARE_FIELDS = {"report_year", "statement_page", "page_number"}
+
+
+def _rzd_controlled_values_post_import_normalize_string(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _rzd_controlled_values_post_import_normalize_integral(value: Any) -> tuple[int | None, str]:
     from decimal import Decimal, InvalidOperation
 
+    if value is None or str(value).strip() == "":
+        return 0, ""
     try:
-        return Decimal(str(expected)).normalize() == Decimal(str(actual)).normalize()
-    except (InvalidOperation, ValueError):
-        return str(expected) == str(actual)
+        decimal_value = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError) as exc:
+        return None, f"invalid_integer:{exc}"
+    if decimal_value != decimal_value.to_integral_value():
+        return None, "non_integral_integer"
+    return int(decimal_value), ""
+
+
+def _rzd_controlled_values_post_import_normalize_decimal(value: Any) -> tuple[Any, str]:
+    from decimal import Decimal, InvalidOperation
+
+    if value is None or str(value).strip() == "":
+        return None, "missing_numeric"
+    try:
+        return Decimal(str(value).strip()).normalize(), ""
+    except (InvalidOperation, ValueError) as exc:
+        return None, f"invalid_numeric:{exc}"
+
+
+def _rzd_controlled_values_post_import_decimal_equal(expected: Any, actual: Any) -> bool:
+    expected_value, expected_error = _rzd_controlled_values_post_import_normalize_decimal(expected)
+    actual_value, actual_error = _rzd_controlled_values_post_import_normalize_decimal(actual)
+    if expected_error or actual_error:
+        return _rzd_controlled_values_post_import_normalize_string(expected) == _rzd_controlled_values_post_import_normalize_string(actual)
+    return expected_value == actual_value
+
+
+def _rzd_controlled_values_post_import_field_compare(field: str, expected: Any, actual: Any) -> tuple[bool, str]:
+    if field in RZD_CONTROLLED_VALUES_POST_IMPORT_NUMERIC_COMPARE_FIELDS:
+        expected_value, expected_error = _rzd_controlled_values_post_import_normalize_decimal(expected)
+        actual_value, actual_error = _rzd_controlled_values_post_import_normalize_decimal(actual)
+        errors = []
+        if expected_error:
+            errors.append(f"expected_{expected_error}")
+        if actual_error:
+            errors.append(f"actual_{actual_error}")
+        if errors:
+            return False, ";".join(errors)
+        return expected_value == actual_value, ""
+    if field in RZD_CONTROLLED_VALUES_POST_IMPORT_INTEGER_COMPARE_FIELDS:
+        expected_value, expected_error = _rzd_controlled_values_post_import_normalize_integral(expected)
+        actual_value, actual_error = _rzd_controlled_values_post_import_normalize_integral(actual)
+        errors = []
+        if expected_error:
+            errors.append(f"expected_{expected_error}")
+        if actual_error:
+            errors.append(f"actual_{actual_error}")
+        if errors:
+            return False, ";".join(errors)
+        return expected_value == actual_value, ""
+    return (
+        _rzd_controlled_values_post_import_normalize_string(expected)
+        == _rzd_controlled_values_post_import_normalize_string(actual),
+        "",
+    )
 
 
 def _rzd_controlled_values_post_import_field_equal(field: str, expected: Any, actual: Any) -> bool:
-    if field in {"value_2025", "value_2024"}:
-        return _rzd_controlled_values_post_import_decimal_equal(expected, actual)
-    if field in {"company_id", "report_year", "statement_page", "page_number"}:
-        return str(int(expected or 0)) == str(int(actual or 0))
-    return str(expected or "").strip() == str(actual or "").strip()
+    equal, _normalization_error = _rzd_controlled_values_post_import_field_compare(field, expected, actual)
+    return equal
 
 
 def _rzd_controlled_values_post_import_verification_live_db_check(
@@ -57104,15 +57165,21 @@ def _rzd_controlled_values_post_import_verification_live_db_check(
             for field in RZD_CONTROLLED_VALUES_IMPORT_APPLY_DB_FIELDS:
                 expected_value = planned.get(field)
                 actual_value = actual.get(field)
-                if not _rzd_controlled_values_post_import_field_equal(field, expected_value, actual_value):
-                    mismatches.append(
-                        {
-                            **row_identity,
-                            "field": field,
-                            "expected_value": str(expected_value or ""),
-                            "actual_value": str(actual_value or ""),
-                        }
-                    )
+                field_equal, normalization_error = _rzd_controlled_values_post_import_field_compare(
+                    field,
+                    expected_value,
+                    actual_value,
+                )
+                if not field_equal:
+                    mismatch = {
+                        **row_identity,
+                        "field": field,
+                        "expected_value": str(expected_value or ""),
+                        "actual_value": str(actual_value or ""),
+                    }
+                    if normalization_error:
+                        mismatch["normalization_error"] = normalization_error
+                    mismatches.append(mismatch)
             if mismatches:
                 exact_mismatch_rows.extend(mismatches)
             else:
@@ -57288,11 +57355,14 @@ def _build_rzd_manual_official_pdf_controlled_values_post_import_verification_re
     if len(planned_rows) != expected_row_count:
         add_block("planned_row_count_mismatch", {"planned_import_row_count": len(planned_rows)})
 
-    live = _rzd_controlled_values_post_import_verification_live_db_check(
-        expected_table,
-        RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS,
-        planned_rows,
-    )
+    try:
+        live = _rzd_controlled_values_post_import_verification_live_db_check(
+            expected_table,
+            RZD_CONTROLLED_VALUES_MIGRATION_READINESS_REQUIRED_COLUMNS,
+            planned_rows,
+        )
+    except Exception as exc:  # pragma: no cover - defensive guard around host DB helpers
+        live = {"available": False, "error": str(exc)}
     live_available = _as_bool(live.get("available"))
     live_row_count = int(live.get("row_count") if live.get("row_count") is not None else 0)
     live_table_exists = _as_bool(live.get("expected_table_exists")) or _as_bool(live.get("table_exists"))

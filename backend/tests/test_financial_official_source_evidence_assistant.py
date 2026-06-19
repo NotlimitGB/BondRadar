@@ -19189,6 +19189,58 @@ def test_rzd_manual_official_pdf_controlled_values_post_import_verification_gate
     _assert_rzd_controlled_values_post_import_verification_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_post_import_verification_gate_field_normalization(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from decimal import Decimal
+
+    equal, error = assistant._rzd_controlled_values_post_import_field_compare("company_id", "rzd", "rzd")
+    assert equal is True
+    assert error == ""
+
+    equal, error = assistant._rzd_controlled_values_post_import_field_compare("value_2025", 123, Decimal("123.00"))
+    assert equal is True
+    assert error == ""
+
+    equal, error = assistant._rzd_controlled_values_post_import_field_compare("raw_value_2025", "123.00", "123")
+    assert equal is False
+    assert error == ""
+
+    equal, error = assistant._rzd_controlled_values_post_import_field_compare("page_number", "abc", 9)
+    assert equal is False
+    assert "invalid_integer" in error
+
+    equal, error = assistant._rzd_controlled_values_post_import_field_compare("value_2025", "not-a-number", 9)
+    assert equal is False
+    assert "invalid_numeric" in error
+
+    repo = _task177_repo_root(tmp_path)
+    monkeypatch.chdir(repo)
+    chain = repo / "logs" / "financial_reports" / "task124_chain_preview"
+    _write_task185_ready_task184(chain, repo, monkeypatch)
+
+    def _raise_live_db_error(expected_table, required_columns, planned_rows):
+        raise RuntimeError("db helper failed")
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_post_import_verification_live_db_check",
+        _raise_live_db_error,
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_post_import_verification_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert "live_db_unavailable" in {row["code"] for row in report["blocker_rows"]}
+    assert report["database_mutated"] is False
+    assert report["migration_executed"] is False
+    assert report["import_executed"] is False
+    _assert_rzd_controlled_values_post_import_verification_fields(report)
+
+
 def test_rzd_manual_official_pdf_controlled_values_post_import_verification_gate_upstream_blockers(
     tmp_path: Path,
     monkeypatch,
