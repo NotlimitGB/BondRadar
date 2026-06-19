@@ -20517,6 +20517,21 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_plan_
     assert report["critical_patch_count"] >= 2
     assert report["methodology_decision_count"] >= 4
     assert report["test_plan_row_count"] >= 10
+    assert report["source_methodology_action_count"] == 10
+    assert report["source_review_warning_count"] == 11
+    assert report["source_formula_source_mismatch_count"] == 1
+    assert report["source_rename_required_count"] == 1
+    assert report["source_disable_pending_source_metric_count"] == 3
+    assert report["patch_plan_row_count"] == 7
+    assert report["patch_plan_required_count"] == 7
+    assert report["patch_plan_optional_count"] == 0
+    assert report["patch_plan_deferred_count"] == 0
+    assert report["patch_plan_priority_critical_count"] == 2
+    assert report["patch_plan_priority_high_count"] == 3
+    assert report["patch_plan_priority_medium_count"] == 1
+    assert report["patch_plan_priority_low_count"] == 1
+    assert report["test_plan_row_count"] == 10
+    assert report["methodology_decision_row_count"] == 4
     assert report["patch_plan_checksum_sha256"]
     assert report["blocker_count"] == 0
     _assert_rzd_controlled_values_ratio_methodology_patch_plan_fields(report)
@@ -20701,12 +20716,56 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_plan_
     assert isinstance(blockers["blocker_rows"], list)
     patch_rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_plan_patch_rows_task190.json").read_text(encoding="utf-8"))
     assert patch_rows["patch_plan_row_count"] == report["patch_plan_row_count"]
+    assert patch_rows["patch_plan_required_count"] == report["patch_plan_required_count"]
+    assert patch_rows["patch_plan_optional_count"] == report["patch_plan_optional_count"]
+    assert patch_rows["patch_plan_deferred_count"] == report["patch_plan_deferred_count"]
+    assert patch_rows["patch_plan_priority_critical_count"] == report["patch_plan_priority_critical_count"]
+    assert patch_rows["patch_plan_priority_high_count"] == report["patch_plan_priority_high_count"]
+    assert patch_rows["patch_plan_priority_medium_count"] == report["patch_plan_priority_medium_count"]
+    assert patch_rows["patch_plan_priority_low_count"] == report["patch_plan_priority_low_count"]
+    assert patch_rows["methodology_decision_row_count"] == report["methodology_decision_row_count"]
+    for field in (
+        "patch_plan_required_count",
+        "patch_plan_optional_count",
+        "patch_plan_deferred_count",
+        "patch_plan_priority_critical_count",
+        "patch_plan_priority_high_count",
+        "patch_plan_priority_medium_count",
+        "patch_plan_priority_low_count",
+        "methodology_decision_row_count",
+    ):
+        assert isinstance(patch_rows[field], int)
     assert isinstance(patch_rows["methodology_decision_rows"], list)
     test_rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_plan_test_rows_task190.json").read_text(encoding="utf-8"))
     assert test_rows["test_plan_row_count"] == report["test_plan_row_count"]
+    assert isinstance(test_rows["test_plan_row_count"], int)
     summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_plan_summary_task190.json").read_text(encoding="utf-8"))
     assert summary["patch_plan_checksum_sha256"] == report["patch_plan_checksum_sha256"]
+    for field in (
+        "source_methodology_action_count",
+        "source_review_warning_count",
+        "source_formula_source_mismatch_count",
+        "source_rename_required_count",
+        "source_disable_pending_source_metric_count",
+        "patch_plan_row_count",
+        "patch_plan_required_count",
+        "patch_plan_optional_count",
+        "patch_plan_deferred_count",
+        "patch_plan_priority_critical_count",
+        "patch_plan_priority_high_count",
+        "patch_plan_priority_medium_count",
+        "patch_plan_priority_low_count",
+        "methodology_decision_row_count",
+        "test_plan_row_count",
+    ):
+        assert summary[field] == report[field]
+        assert isinstance(summary[field], int)
     safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_plan_safety_task190.json").read_text(encoding="utf-8"))
+    assert isinstance(safety["source_review_warning_count"], int)
+    assert isinstance(safety["patch_plan_required_count"], int)
+    assert isinstance(safety["patch_plan_optional_count"], int)
+    assert isinstance(safety["patch_plan_deferred_count"], int)
+    assert isinstance(safety["methodology_decision_row_count"], int)
     assert safety["database_mutated"] is False
     assert safety["recommendation_generated"] is False
     assert safety["patch_executed"] is False

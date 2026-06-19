@@ -8965,9 +8965,15 @@ RZD_CONTROLLED_VALUES_RATIO_METHODOLOGY_PATCH_PLAN_REQUIRED_COUNT_FIELDS = (
     "task185_verified_extra_db_row_count", "task185_bad_safety_count", "task185_blocker_count",
     "task184_inserted_row_count", "task184_bad_safety_count", "task184_blocker_count",
     "source_methodology_action_count", "source_reviewed_ratio_count",
-    "source_unavailable_ratio_review_count", "patch_plan_row_count",
+    "source_unavailable_ratio_review_count", "source_review_warning_count",
+    "source_formula_source_mismatch_count", "source_rename_required_count",
+    "source_disable_pending_source_metric_count", "patch_plan_row_count",
+    "patch_plan_required_count", "patch_plan_optional_count", "patch_plan_deferred_count",
+    "patch_plan_priority_critical_count", "patch_plan_priority_high_count",
+    "patch_plan_priority_medium_count", "patch_plan_priority_low_count",
     "critical_patch_count", "required_patch_count", "methodology_decision_count",
-    "test_plan_row_count", "patch_scope_summary_count", "verification_check_count",
+    "methodology_decision_row_count", "test_plan_row_count",
+    "patch_scope_summary_count", "verification_check_count",
     "bad_safety_count", "blocker_count", "warning_count",
 )
 RZD_CONTROLLED_VALUES_RATIO_METHODOLOGY_PATCH_PLAN_REQUIRED_LIST_FIELDS = (
@@ -61876,13 +61882,25 @@ def _rzd_controlled_values_ratio_methodology_patch_plan_normalize_report(report:
     report["report_year"] = int(report.get("report_year") or 0)
     report["bad_safety_count"] = 0
     report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["source_review_warning_count"] = int(report.get("source_review_warning_count") or 0)
+    report["source_formula_source_mismatch_count"] = int(report.get("source_formula_source_mismatch_count") or 0)
+    report["source_rename_required_count"] = int(report.get("source_rename_required_count") or 0)
+    report["source_disable_pending_source_metric_count"] = int(report.get("source_disable_pending_source_metric_count") or 0)
     report["patch_plan_row_count"] = len(report.get("patch_plan_rows") or [])
-    report["required_patch_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if row.get("required") is True)
-    report["critical_patch_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if row.get("severity") == "critical")
-    report["methodology_decision_count"] = len(report.get("methodology_decision_rows") or [])
+    report["patch_plan_required_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if row.get("required") is True)
+    report["patch_plan_optional_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if str(row.get("patch_status") or row.get("status") or "").casefold() == "optional")
+    report["patch_plan_deferred_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if str(row.get("patch_status") or row.get("status") or "").casefold() == "deferred")
+    report["patch_plan_priority_critical_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if str(row.get("severity") or row.get("priority") or "").casefold() == "critical")
+    report["patch_plan_priority_high_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if str(row.get("severity") or row.get("priority") or "").casefold() == "high")
+    report["patch_plan_priority_medium_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if str(row.get("severity") or row.get("priority") or "").casefold() == "medium")
+    report["patch_plan_priority_low_count"] = sum(1 for row in report.get("patch_plan_rows") or [] if str(row.get("severity") or row.get("priority") or "").casefold() == "low")
+    report["required_patch_count"] = report["patch_plan_required_count"]
+    report["critical_patch_count"] = report["patch_plan_priority_critical_count"]
+    report["methodology_decision_row_count"] = len(report.get("methodology_decision_rows") or [])
+    report["methodology_decision_count"] = report["methodology_decision_row_count"]
     report["test_plan_row_count"] = len(report.get("test_plan_rows") or [])
     report["patch_scope_summary_count"] = len(report.get("patch_scope_summary_rows") or [])
-    report["warning_count"] = report["required_patch_count"] if not report["blocker_count"] else 0
+    report["warning_count"] = report["patch_plan_required_count"] if not report["blocker_count"] else 0
     report.update(_rzd_controlled_values_ratio_methodology_patch_plan_safety_flags())
     report["database_mutated"] = False
     report["migration_executed"] = False
@@ -62005,6 +62023,7 @@ def _build_rzd_controlled_values_ratio_methodology_patch_plan_report(
     action_rows = [dict(row) for row in (task189.get("methodology_action_rows") or []) if isinstance(row, dict)]
     reviewed_rows = [dict(row) for row in (task189.get("reviewed_ratio_rows") or []) if isinstance(row, dict)]
     unavailable_rows = [dict(row) for row in (task189.get("unavailable_ratio_review_rows") or []) if isinstance(row, dict)]
+    review_warning_rows = [dict(row) for row in (task189.get("review_warning_rows") or []) if isinstance(row, dict)]
     patch_rows, decision_rows, test_rows, scope_rows = _rzd_controlled_values_ratio_methodology_patch_plan_build_rows(action_rows, reviewed_rows, unavailable_rows)
     required_patch_types = {
         "ratio_formula_source_fix",
@@ -62137,6 +62156,10 @@ def _build_rzd_controlled_values_ratio_methodology_patch_plan_report(
         "source_methodology_action_count": len(action_rows),
         "source_reviewed_ratio_count": len(reviewed_rows),
         "source_unavailable_ratio_review_count": len(unavailable_rows),
+        "source_review_warning_count": len(review_warning_rows) if review_warning_rows else int(task189.get("review_warning_count") or 0),
+        "source_formula_source_mismatch_count": int(task189.get("formula_source_mismatch_count") or 0),
+        "source_rename_required_count": int(task189.get("rename_required_count") or 0),
+        "source_disable_pending_source_metric_count": int(task189.get("disable_pending_source_metric_count") or 0),
         "patch_plan_rows": patch_rows,
         "methodology_decision_rows": decision_rows,
         "test_plan_rows": test_rows,
@@ -62220,13 +62243,55 @@ def _rzd_controlled_values_ratio_methodology_patch_plan_write_outputs(
     if artifacts.get("blockers_json"):
         write_json_report({"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
     if artifacts.get("patch_rows_json"):
-        write_json_report({"patch_plan_row_count": report.get("patch_plan_row_count", 0), "patch_plan_rows": report.get("patch_plan_rows") or [], "methodology_decision_rows": report.get("methodology_decision_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["patch_rows_json"])
+        write_json_report({
+            "patch_plan_row_count": report.get("patch_plan_row_count", 0),
+            "patch_plan_required_count": report.get("patch_plan_required_count", 0),
+            "patch_plan_optional_count": report.get("patch_plan_optional_count", 0),
+            "patch_plan_deferred_count": report.get("patch_plan_deferred_count", 0),
+            "patch_plan_priority_critical_count": report.get("patch_plan_priority_critical_count", 0),
+            "patch_plan_priority_high_count": report.get("patch_plan_priority_high_count", 0),
+            "patch_plan_priority_medium_count": report.get("patch_plan_priority_medium_count", 0),
+            "patch_plan_priority_low_count": report.get("patch_plan_priority_low_count", 0),
+            "methodology_decision_row_count": report.get("methodology_decision_row_count", 0),
+            "patch_plan_rows": report.get("patch_plan_rows") or [],
+            "methodology_decision_rows": report.get("methodology_decision_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["patch_rows_json"])
     if artifacts.get("test_rows_json"):
-        write_json_report({"test_plan_row_count": report.get("test_plan_row_count", 0), "test_plan_rows": report.get("test_plan_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["test_rows_json"])
+        write_json_report({
+            "test_plan_row_count": report.get("test_plan_row_count", 0),
+            "test_plan_rows": report.get("test_plan_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["test_rows_json"])
     if artifacts.get("summary_json"):
-        write_json_report({"patch_scope_summary_count": report.get("patch_scope_summary_count", 0), "patch_scope_summary_rows": report.get("patch_scope_summary_rows") or [], "patch_plan_checksum_sha256": report.get("patch_plan_checksum_sha256", ""), "safe_hint": report.get("safe_hint") or ""}, artifacts["summary_json"])
+        write_json_report({
+            "source_methodology_action_count": report.get("source_methodology_action_count", 0),
+            "source_review_warning_count": report.get("source_review_warning_count", 0),
+            "source_formula_source_mismatch_count": report.get("source_formula_source_mismatch_count", 0),
+            "source_rename_required_count": report.get("source_rename_required_count", 0),
+            "source_disable_pending_source_metric_count": report.get("source_disable_pending_source_metric_count", 0),
+            "patch_plan_row_count": report.get("patch_plan_row_count", 0),
+            "patch_plan_required_count": report.get("patch_plan_required_count", 0),
+            "patch_plan_optional_count": report.get("patch_plan_optional_count", 0),
+            "patch_plan_deferred_count": report.get("patch_plan_deferred_count", 0),
+            "patch_plan_priority_critical_count": report.get("patch_plan_priority_critical_count", 0),
+            "patch_plan_priority_high_count": report.get("patch_plan_priority_high_count", 0),
+            "patch_plan_priority_medium_count": report.get("patch_plan_priority_medium_count", 0),
+            "patch_plan_priority_low_count": report.get("patch_plan_priority_low_count", 0),
+            "methodology_decision_row_count": report.get("methodology_decision_row_count", 0),
+            "test_plan_row_count": report.get("test_plan_row_count", 0),
+            "patch_scope_summary_count": report.get("patch_scope_summary_count", 0),
+            "patch_scope_summary_rows": report.get("patch_scope_summary_rows") or [],
+            "patch_plan_checksum_sha256": report.get("patch_plan_checksum_sha256", ""),
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["summary_json"])
     if artifacts.get("safety_json"):
         write_json_report({
+            "source_review_warning_count": report.get("source_review_warning_count", 0),
+            "patch_plan_required_count": report.get("patch_plan_required_count", 0),
+            "patch_plan_optional_count": report.get("patch_plan_optional_count", 0),
+            "patch_plan_deferred_count": report.get("patch_plan_deferred_count", 0),
+            "methodology_decision_row_count": report.get("methodology_decision_row_count", 0),
             "database_mutated": False,
             "migration_executed": False,
             "import_executed": False,
