@@ -9168,7 +9168,9 @@ RZD_CONTROLLED_VALUES_PATCHED_RATIO_PREVIEW_VERIFICATION_REQUIRED_COUNT_FIELDS =
     "patched_ratio_unavailable_count", "patched_ratio_warning_count",
     "ratio_delta_count", "delta_row_count", "ratio_check_count",
     "verification_check_count", "ratio_check_passed_count", "ratio_check_warning_count",
-    "ratio_check_blocked_count", "bad_safety_count", "blocker_count", "warning_count",
+    "ratio_check_blocked_count", "ratio_added_count", "ratio_removed_count",
+    "ratio_changed_count", "ratio_unchanged_count", "ratio_status_changed_count",
+    "bad_safety_count", "blocker_count", "warning_count",
 )
 RZD_CONTROLLED_VALUES_PATCHED_RATIO_PREVIEW_VERIFICATION_REQUIRED_LIST_FIELDS = (
     "verification_check_rows", "blocker_rows", "ratio_delta_rows", "ratio_verification_rows",
@@ -63538,6 +63540,17 @@ def _rzd_controlled_values_patched_ratio_preview_verification_normalize_report(r
     report["ratio_check_count"] = len(report.get("ratio_verification_rows") or [])
     report["ratio_delta_count"] = len(report.get("ratio_delta_rows") or [])
     report["delta_row_count"] = report["ratio_delta_count"]
+    delta_rows = report.get("ratio_delta_rows") or []
+    report["ratio_added_count"] = sum(1 for row in delta_rows if row.get("delta_type") == "added")
+    report["ratio_removed_count"] = sum(1 for row in delta_rows if row.get("delta_type") == "removed")
+    report["ratio_changed_count"] = sum(1 for row in delta_rows if row.get("delta_type") == "changed")
+    report["ratio_unchanged_count"] = sum(1 for row in delta_rows if row.get("delta_type") == "unchanged")
+    report["ratio_status_changed_count"] = sum(
+        1
+        for row in delta_rows
+        if row.get("original_state") != row.get("patched_state")
+        or row.get("original_ratio_interpretation_status") != row.get("patched_ratio_interpretation_status")
+    )
     report["original_ratio_preview_count"] = len(report.get("original_ratio_preview_rows") or [])
     report["original_ratio_key_count"] = len({str(row.get("ratio_key") or "") for row in report.get("original_ratio_preview_rows") or []})
     report["original_ratio_available_count"] = sum(1 for row in report.get("original_ratio_preview_rows") or [] if row.get("available") is True)
@@ -64001,7 +64014,17 @@ def _rzd_controlled_values_patched_ratio_preview_verification_write_outputs(
     if artifacts.get("blockers_json"):
         write_json_report({"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
     if artifacts.get("delta_rows_json"):
-        write_json_report({"delta_row_count": report.get("delta_row_count", 0), "ratio_delta_rows": report.get("ratio_delta_rows") or [], "delta_type_counts": report.get("delta_type_counts") or {}, "safe_hint": report.get("safe_hint") or ""}, artifacts["delta_rows_json"])
+        write_json_report({
+            "delta_row_count": report.get("delta_row_count", 0),
+            "ratio_added_count": report.get("ratio_added_count", 0),
+            "ratio_removed_count": report.get("ratio_removed_count", 0),
+            "ratio_changed_count": report.get("ratio_changed_count", 0),
+            "ratio_unchanged_count": report.get("ratio_unchanged_count", 0),
+            "ratio_status_changed_count": report.get("ratio_status_changed_count", 0),
+            "ratio_delta_rows": report.get("ratio_delta_rows") or [],
+            "delta_type_counts": report.get("delta_type_counts") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["delta_rows_json"])
     if artifacts.get("ratio_checks_json"):
         write_json_report({"ratio_check_count": report.get("ratio_check_count", 0), "ratio_verification_rows": report.get("ratio_verification_rows") or [], "ratio_check_status_counts": report.get("ratio_check_status_counts") or {}, "safe_hint": report.get("safe_hint") or ""}, artifacts["ratio_checks_json"])
     if artifacts.get("summary_json"):
@@ -64009,6 +64032,12 @@ def _rzd_controlled_values_patched_ratio_preview_verification_write_outputs(
             "original_ratio_preview_count": report.get("original_ratio_preview_count", 0),
             "patched_ratio_preview_count": report.get("patched_ratio_preview_count", 0),
             "patched_ratio_unavailable_count": report.get("patched_ratio_unavailable_count", 0),
+            "delta_row_count": report.get("delta_row_count", 0),
+            "ratio_added_count": report.get("ratio_added_count", 0),
+            "ratio_removed_count": report.get("ratio_removed_count", 0),
+            "ratio_changed_count": report.get("ratio_changed_count", 0),
+            "ratio_unchanged_count": report.get("ratio_unchanged_count", 0),
+            "ratio_status_changed_count": report.get("ratio_status_changed_count", 0),
             "liabilities_to_assets_originally_used_current_liabilities": report.get("liabilities_to_assets_originally_used_current_liabilities", False),
             "liabilities_to_assets_no_longer_uses_current_liabilities": report.get("liabilities_to_assets_no_longer_uses_current_liabilities", False),
             "current_liabilities_to_assets_added_and_valid": report.get("current_liabilities_to_assets_added_and_valid", False),

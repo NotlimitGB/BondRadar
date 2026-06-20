@@ -21024,6 +21024,24 @@ def test_rzd_manual_official_pdf_controlled_values_patched_ratio_preview_verific
     assert report["patched_preview_contract_valid"] is True
     assert report["blocker_count"] == 0
     assert report["patched_ratio_preview_verification_checksum_sha256"]
+    delta_rows = report["ratio_delta_rows"]
+    expected_added = sum(1 for row in delta_rows if row["delta_type"] == "added")
+    expected_removed = sum(1 for row in delta_rows if row["delta_type"] == "removed")
+    expected_changed = sum(1 for row in delta_rows if row["delta_type"] == "changed")
+    expected_unchanged = sum(1 for row in delta_rows if row["delta_type"] == "unchanged")
+    expected_status_changed = sum(
+        1
+        for row in delta_rows
+        if row.get("original_state") != row.get("patched_state")
+        or row.get("original_ratio_interpretation_status") != row.get("patched_ratio_interpretation_status")
+    )
+    assert report["ratio_added_count"] == expected_added
+    assert report["ratio_removed_count"] == expected_removed
+    assert report["ratio_changed_count"] == expected_changed
+    assert report["ratio_unchanged_count"] == expected_unchanged
+    assert report["ratio_status_changed_count"] == expected_status_changed
+    assert report["ratio_added_count"] >= 1
+    assert report["ratio_status_changed_count"] >= 1
     deltas = {row["ratio_key"]: row for row in report["ratio_delta_rows"]}
     assert deltas["liabilities_to_assets"]["original_numerator_metric_key"] == "current_liabilities"
     assert deltas["liabilities_to_assets"]["patched_numerator_metric_key"] == "total_liabilities"
@@ -21060,6 +21078,17 @@ def test_rzd_manual_official_pdf_controlled_values_patched_ratio_preview_verific
     assert deltas["delta_row_count"] == report["delta_row_count"]
     assert ratio_checks["ratio_check_count"] == report["ratio_check_count"]
     assert summary["patched_ratio_preview_verification_checksum_sha256"] == report["patched_ratio_preview_verification_checksum_sha256"]
+    for field in (
+        "ratio_added_count",
+        "ratio_removed_count",
+        "ratio_changed_count",
+        "ratio_unchanged_count",
+        "ratio_status_changed_count",
+    ):
+        assert deltas[field] == report[field]
+        assert summary[field] == report[field]
+        assert isinstance(deltas[field], int)
+        assert isinstance(summary[field], int)
     assert safety["database_mutated"] is False
     assert safety["migration_executed"] is False
     assert safety["import_executed"] is False
