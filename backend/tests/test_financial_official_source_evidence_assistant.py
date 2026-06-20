@@ -21998,6 +21998,17 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_revie
     accepted_keys = {row["ratio_key"] for row in report["dataset_review_rows"]}
     excluded_keys = {row["ratio_key"] for row in report["excluded_review_rows"]}
     assert "current_liabilities_to_assets" in accepted_keys
+    lineage_by_key = {row["ratio_key"]: row for row in report["dataset_review_rows"]}
+    expected_lineage = {
+        "current_liabilities_to_assets": ("current_liabilities", "total_assets"),
+        "equity_to_assets": ("total_equity", "total_assets"),
+        "net_profit_margin": ("net_profit", "total_revenue"),
+        "operating_profit_margin": ("operating_profit", "total_revenue"),
+        "profit_before_tax_margin": ("profit_before_tax", "total_revenue"),
+    }
+    for ratio_key, (numerator, denominator) in expected_lineage.items():
+        assert lineage_by_key[ratio_key]["numerator_metric_key"] == numerator
+        assert lineage_by_key[ratio_key]["denominator_metric_key"] == denominator
     for key in ("debt_to_assets", "interest_coverage_preview", "liabilities_to_assets", "operating_cash_flow_margin"):
         assert key in excluded_keys
         assert key not in accepted_keys
@@ -22224,6 +22235,17 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_expor
     exportable_keys = {row["ratio_key"] for row in report["exportable_dataset_rows"]}
     excluded_keys = {row["ratio_key"] for row in report["export_excluded_rows"]}
     assert "current_liabilities_to_assets" in exportable_keys
+    lineage_by_key = {row["ratio_key"]: row for row in report["exportable_dataset_rows"]}
+    expected_lineage = {
+        "current_liabilities_to_assets": ("current_liabilities", "total_assets"),
+        "equity_to_assets": ("total_equity", "total_assets"),
+        "net_profit_margin": ("net_profit", "total_revenue"),
+        "operating_profit_margin": ("operating_profit", "total_revenue"),
+        "profit_before_tax_margin": ("profit_before_tax", "total_revenue"),
+    }
+    for ratio_key, (numerator, denominator) in expected_lineage.items():
+        assert lineage_by_key[ratio_key]["numerator_metric_key"] == numerator
+        assert lineage_by_key[ratio_key]["denominator_metric_key"] == denominator
     assert "liabilities_to_assets" in excluded_keys
     assert exportable_keys.isdisjoint(excluded_keys)
     assert {row["action_type"] for row in report["analytics_methodology_action_rows"]} >= {"scoring_safety_gate_required"}
@@ -22377,6 +22399,11 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_expor
     task196 = json.loads(task196_path.read_text(encoding="utf-8"))
     task196["dataset_review_rows"][0]["review_status"] = "blocked"
     task196["dataset_review_rows"][1]["scoring_allowed"] = True
+    for row in task196["dataset_review_rows"]:
+        if row["ratio_key"] == "equity_to_assets":
+            row["lineage_status"] = "present"
+            row["numerator_metric_key"] = ""
+            row["denominator_metric_key"] = ""
     task196["excluded_review_rows"][0]["ratio_key"] = task196["dataset_review_rows"][2]["ratio_key"]
     task196["analytics_methodology_action_rows"] = []
     task196_path.write_text(json.dumps(task196, ensure_ascii=False), encoding="utf-8")
@@ -22392,6 +22419,7 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_expor
     assert "source_dataset_row_unexpectedly_allowed" in blocker_codes
     assert "excluded_row_appears_in_exportable_rows" in blocker_codes
     assert "exportable_rows_source_count_mismatch" in blocker_codes
+    assert "metric_lineage_lost" in blocker_codes
     assert report["ready_for_task198_ratio_analytics_dataset_export_preview"] is False
     _assert_rzd_controlled_values_ratio_analytics_dataset_export_plan_fields(report)
 

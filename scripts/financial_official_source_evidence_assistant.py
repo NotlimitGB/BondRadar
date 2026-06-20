@@ -9520,6 +9520,7 @@ RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_REVIEW_GATE_DATASET_ROW_FIELDS = [
     "interpretation_status", "available", "analytics_ready", "ratio_value_2025",
     "ratio_value_2024", "ratio_value_2025_numeric", "ratio_value_2024_numeric",
     "ratio_value_delta", "ratio_value_delta_available", "ratio_value_direction",
+    "numerator_metric_key", "denominator_metric_key",
     "numeric_parse_status", "delta_status", "lineage_status", "safety_status",
     "review_reason_codes", "source_warning_codes", "scoring_allowed", "recommendation_allowed",
     "trading_allowed", "paper_trading_allowed", "safe_hint",
@@ -67516,6 +67517,8 @@ def _build_rzd_controlled_values_ratio_analytics_dataset_review_gate_report(
             "ratio_value_delta": row.get("ratio_value_delta"),
             "ratio_value_delta_available": bool(row.get("ratio_value_delta_available")),
             "ratio_value_direction": str(row.get("ratio_value_direction") or ""),
+            "numerator_metric_key": str(row.get("numerator_metric_key") or ""),
+            "denominator_metric_key": str(row.get("denominator_metric_key") or ""),
             "numeric_parse_status": "parsed_or_not_applicable" if numeric_ok else "invalid",
             "delta_status": "computed_or_not_available" if delta_ok else "invalid",
             "lineage_status": "present" if lineage_present else "missing",
@@ -68326,12 +68329,42 @@ def _build_rzd_controlled_values_ratio_analytics_dataset_export_plan_report(
 
     artifact_plan_valid = bool(export_artifact_plan_rows) and len(export_artifact_plan_rows) == 6
     schema_contract_valid = bool(export_schema_field_rows) and all(row.get("non_scoring_only") is True for row in export_schema_field_rows)
-    exportable_rows_source_match = {row.get("ratio_key") for row in exportable_dataset_rows} == {row.get("ratio_key") for row in source_dataset_rows if row.get("review_status") == "accepted_for_non_scoring_analytics" and not any(_as_bool(row.get(field)) for field in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed"))}
+    source_exportable_rows = [
+        row for row in source_dataset_rows
+        if row.get("review_status") == "accepted_for_non_scoring_analytics"
+        and not any(_as_bool(row.get(field)) for field in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed"))
+    ]
+    exportable_rows_source_match = {row.get("ratio_key") for row in exportable_dataset_rows} == {row.get("ratio_key") for row in source_exportable_rows}
     excluded_rows_source_match = {row.get("ratio_key") for row in export_excluded_rows} == {row.get("ratio_key") for row in source_excluded_rows}
     overlap_keys = {row.get("ratio_key") for row in exportable_dataset_rows} & {row.get("ratio_key") for row in export_excluded_rows}
     exportable_rows_safe = all(not any(_as_bool(row.get(field)) for field in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed")) for row in exportable_dataset_rows)
     excluded_rows_safe = all(not any(_as_bool(row.get(field)) for field in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed")) for row in export_excluded_rows)
-    lineage_plan_valid = bool(source_checksum) and all(str(row.get("lineage_checksum") or "") for row in exportable_dataset_rows)
+    export_rows_by_source_review_index = {int(row.get("source_review_index") or 0): row for row in exportable_dataset_rows}
+    lineage_loss_rows: list[dict[str, Any]] = []
+    for source_row in source_exportable_rows:
+        source_review_index = int(source_row.get("review_index") or 0)
+        export_row = export_rows_by_source_review_index.get(source_review_index)
+        source_numerator = str(source_row.get("numerator_metric_key") or "")
+        source_denominator = str(source_row.get("denominator_metric_key") or "")
+        export_numerator = str((export_row or {}).get("numerator_metric_key") or "")
+        export_denominator = str((export_row or {}).get("denominator_metric_key") or "")
+        source_lineage_present = str(source_row.get("lineage_status") or "") == "present"
+        lineage_fields_present = bool(source_numerator or source_denominator)
+        if (lineage_fields_present and (not export_row or export_numerator != source_numerator or export_denominator != source_denominator)) or (source_lineage_present and not lineage_fields_present):
+            lineage_loss_rows.append({
+                "ratio_key": str(source_row.get("ratio_key") or ""),
+                "source_review_index": source_review_index,
+                "source_numerator_metric_key": source_numerator,
+                "source_denominator_metric_key": source_denominator,
+                "export_numerator_metric_key": export_numerator,
+                "export_denominator_metric_key": export_denominator,
+                "lineage_status": str(source_row.get("lineage_status") or ""),
+            })
+    lineage_plan_valid = (
+        bool(source_checksum)
+        and all(str(row.get("lineage_checksum") or "") for row in exportable_dataset_rows)
+        and not lineage_loss_rows
+    )
     export_plan_non_scoring = all(row.get("non_scoring_only") is True for row in [*export_artifact_plan_rows, *export_schema_field_rows, *exportable_dataset_rows, *export_excluded_rows])
     export_plan_recommendations_disabled = all(row.get("recommendations_allowed") is False for row in export_artifact_plan_rows) and all(row.get("recommendation_allowed") is False for row in [*exportable_dataset_rows, *export_excluded_rows])
     export_plan_trading_disabled = all(row.get("trading_allowed") is False for row in [*export_artifact_plan_rows, *exportable_dataset_rows, *export_excluded_rows])
@@ -68355,6 +68388,8 @@ def _build_rzd_controlled_values_ratio_analytics_dataset_export_plan_report(
         add_block("exportable_rows_source_count_mismatch")
     if len(export_excluded_rows) != int(task196.get("reviewed_excluded_row_count") or 0):
         add_block("excluded_rows_source_count_mismatch")
+    if lineage_loss_rows:
+        add_block("metric_lineage_lost", {"rows": lineage_loss_rows})
 
     check_inputs = (
         ("task196_ready_for_task197", task196_ready),
