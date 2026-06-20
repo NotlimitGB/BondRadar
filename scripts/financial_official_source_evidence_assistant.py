@@ -9208,7 +9208,10 @@ RZD_CONTROLLED_VALUES_PATCHED_RATIO_INTERPRETATION_REVIEW_UNAVAILABLE_ROW_FIELDS
     "paper_trading_allowed", "details", "safe_hint",
 ]
 RZD_CONTROLLED_VALUES_PATCHED_RATIO_INTERPRETATION_REVIEW_ACTION_FIELDS = [
-    "action_index", "action_type", "severity", "ratio_key", "message", "details", "safe_hint",
+    "action_index", "action_type", "severity", "required", "ratio_keys", "related_metric_keys",
+    "problem_summary", "required_decision", "recommended_default", "blocks_future_analytics",
+    "blocks_future_scoring", "blocks_recommendation", "blocks_trading", "safe_hint",
+    "ratio_key", "message", "details",
 ]
 RZD_CONTROLLED_VALUES_PATCHED_RATIO_INTERPRETATION_REVIEW_WARNING_FIELDS = [
     "warning_index", "warning_type", "severity", "ratio_key", "message", "details", "safe_hint",
@@ -64364,6 +64367,47 @@ def _rzd_controlled_values_patched_ratio_interpretation_review_warning_codes(row
     return []
 
 
+def _rzd_controlled_values_patched_ratio_interpretation_review_list_value(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    if isinstance(value, tuple):
+        return [str(item) for item in value if str(item)]
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if value is None:
+        return []
+    return [str(value)]
+
+
+def _rzd_controlled_values_patched_ratio_interpretation_review_normalize_action_row(
+    row: dict[str, Any],
+    *,
+    index: int,
+) -> None:
+    row["action_index"] = int(row.get("action_index") or index)
+    row["action_type"] = str(row.get("action_type") or "")
+    row["severity"] = str(row.get("severity") or "medium")
+    row["required"] = bool(row.get("required"))
+    row["ratio_keys"] = _rzd_controlled_values_patched_ratio_interpretation_review_list_value(
+        row.get("ratio_keys") if "ratio_keys" in row else row.get("ratio_key")
+    )
+    row["related_metric_keys"] = _rzd_controlled_values_patched_ratio_interpretation_review_list_value(
+        row.get("related_metric_keys")
+    )
+    row["problem_summary"] = str(row.get("problem_summary") or row.get("message") or "")
+    row["required_decision"] = str(row.get("required_decision") or "")
+    row["recommended_default"] = str(row.get("recommended_default") or "")
+    row["blocks_future_analytics"] = bool(row.get("blocks_future_analytics"))
+    row["blocks_future_scoring"] = bool(row.get("blocks_future_scoring"))
+    row["blocks_recommendation"] = bool(row.get("blocks_recommendation"))
+    row["blocks_trading"] = bool(row.get("blocks_trading"))
+    row["safe_hint"] = str(row.get("safe_hint") or "Methodology action is planning-only; Task193 does not patch code, score, recommend, or trade.")
+    row["ratio_key"] = str(row.get("ratio_key") or ",".join(row["ratio_keys"]))
+    row["message"] = str(row.get("message") or row["problem_summary"])
+    if not isinstance(row.get("details"), dict):
+        row["details"] = {}
+
+
 def _rzd_controlled_values_patched_ratio_interpretation_review_normalize_report(report: dict[str, Any]) -> None:
     for field in RZD_CONTROLLED_VALUES_PATCHED_RATIO_INTERPRETATION_REVIEW_REQUIRED_BOOL_FIELDS:
         report[field] = bool(report.get(field))
@@ -64397,6 +64441,9 @@ def _rzd_controlled_values_patched_ratio_interpretation_review_normalize_report(
     warning_rows = report.get("review_warning_rows") or []
     check_rows = report.get("review_check_rows") or []
     blocker_rows = report.get("blocker_rows") or []
+    for index, row in enumerate(action_rows, start=1):
+        if isinstance(row, dict):
+            _rzd_controlled_values_patched_ratio_interpretation_review_normalize_action_row(row, index=index)
     report["reviewed_patched_ratio_count"] = len(ratio_rows)
     report["clean_ratio_count"] = sum(1 for row in ratio_rows if row.get("interpretation_status") == "clean")
     report["needs_review_ratio_count"] = sum(1 for row in ratio_rows if row.get("interpretation_status") == "needs_review")
@@ -64682,30 +64729,108 @@ def _build_rzd_controlled_values_patched_ratio_interpretation_review_report(
 
     methodology_action_rows: list[dict[str, Any]] = []
 
-    def add_action(action_type: str, ratio_key: str, message: str, *, severity: str = "medium", details: dict[str, Any] | None = None) -> None:
+    def add_action(
+        action_type: str,
+        *,
+        severity: str,
+        ratio_keys: list[str],
+        related_metric_keys: list[str],
+        problem_summary: str,
+        required_decision: str,
+        recommended_default: str,
+        blocks_future_analytics: bool,
+        details: dict[str, Any] | None = None,
+    ) -> None:
         methodology_action_rows.append({
             "action_index": len(methodology_action_rows) + 1,
             "action_type": action_type,
             "severity": severity,
-            "ratio_key": ratio_key,
-            "message": message,
+            "required": True,
+            "ratio_keys": ratio_keys,
+            "related_metric_keys": related_metric_keys,
+            "problem_summary": problem_summary,
+            "required_decision": required_decision,
+            "recommended_default": recommended_default,
+            "blocks_future_analytics": blocks_future_analytics,
+            "blocks_future_scoring": True,
+            "blocks_recommendation": True,
+            "blocks_trading": True,
+            "ratio_key": ",".join(ratio_keys),
+            "message": problem_summary,
             "details": details or {},
             "safe_hint": "Methodology action is planning-only; Task193 does not patch code, score, recommend, or trade.",
         })
 
-    if liabilities_unavailable_confirmed:
-        add_action("total_liabilities_source_mapping_required", "liabilities_to_assets", "Keep liabilities_to_assets unavailable until a true total_liabilities source is controlled.", severity="high")
-    if total_liabilities_growth_unavailable:
-        add_action("total_liabilities_growth_source_mapping_required", "total_liabilities_growth_pct", "Keep total liabilities growth unavailable until true total liabilities exists.", severity="high")
+    if liabilities_unavailable_confirmed or total_liabilities_growth_unavailable:
+        add_action(
+            "total_liabilities_mapping_required",
+            severity="high",
+            ratio_keys=["liabilities_to_assets", "total_liabilities_growth_pct"],
+            related_metric_keys=["total_liabilities"],
+            problem_summary="true total_liabilities is not mapped, so total-liabilities ratios must remain unavailable",
+            required_decision="map true total_liabilities from a controlled source or keep ratios unavailable",
+            recommended_default="keep unavailable until true controlled total_liabilities source exists",
+            blocks_future_analytics=True,
+            details={
+                "liabilities_to_assets_unavailable_confirmed": liabilities_unavailable_confirmed,
+                "total_liabilities_growth_unavailable_confirmed": total_liabilities_growth_unavailable,
+            },
+        )
     if operating_unavailable_confirmed:
-        add_action("operating_cash_flow_source_mapping_required", "operating_cash_flow", "Keep operating cash-flow ratios unavailable until a controlled operating cash-flow metric exists.", severity="high", details={"unavailable_ratio_keys": operating_unavailable})
+        add_action(
+            "operating_cash_flow_mapping_required",
+            severity="high",
+            ratio_keys=["operating_cash_flow_growth_pct", "operating_cash_flow_margin", "operating_cash_flow_to_net_profit"],
+            related_metric_keys=["operating_cash_flow"],
+            problem_summary="controlled operating_cash_flow source is missing",
+            required_decision="map controlled operating cash flow source or keep cash-flow ratios unavailable",
+            recommended_default="keep unavailable until controlled operating_cash_flow source exists",
+            blocks_future_analytics=True,
+            details={"unavailable_ratio_keys": operating_unavailable},
+        )
     if debt_review_only:
-        add_action("debt_metric_context_review", "debt_to_assets,debt_to_equity", "Debt ratios remain review-only because borrowings context is still methodology-sensitive.", severity="medium")
+        add_action(
+            "debt_semantics_review_required",
+            severity="high",
+            ratio_keys=["debt_to_assets", "debt_to_equity"],
+            related_metric_keys=["borrowings_or_loans"],
+            problem_summary="borrowings_or_loans semantics are component-sensitive and not approved as total debt",
+            required_decision="define whether borrowings_or_loans means total debt, debt component, current debt, or another controlled debt concept",
+            recommended_default="component_only until confirmed",
+            blocks_future_analytics=True,
+        )
     if coverage_review_only:
-        add_action("coverage_formula_review", "interest_coverage_preview", "Interest coverage remains review-only pending formula policy decisions.", severity="medium")
+        add_action(
+            "interest_coverage_policy_required",
+            severity="high",
+            ratio_keys=["interest_coverage_preview"],
+            related_metric_keys=["operating_profit", "net_finance_costs"],
+            problem_summary="interest coverage formula policy and denominator handling are not approved for analytics",
+            required_decision="approve coverage formula policy and denominator treatment",
+            recommended_default="keep needs_review until policy is approved",
+            blocks_future_analytics=True,
+        )
     if liquidity_review_only:
-        add_action("liquidity_metric_context_review", "cash_to_current_liabilities", "Liquidity ratio remains review-only pending current-liability context review.", severity="medium")
-    add_action("ratio_preview_not_scoring_acknowledgement", "", "Patched ratio interpretation remains non-scoring and non-recommendation.", severity="low")
+        add_action(
+            "liquidity_context_review_required",
+            severity="medium",
+            ratio_keys=["cash_to_current_liabilities"],
+            related_metric_keys=["cash_and_cash_equivalents", "current_liabilities"],
+            problem_summary="cash/current-liability context needs controlled review",
+            required_decision="confirm cash and current-liabilities context before analytics use",
+            recommended_default="keep needs_review until context is approved",
+            blocks_future_analytics=True,
+        )
+    add_action(
+        "scoring_safety_gate_required",
+        severity="high",
+        ratio_keys=["all_clean_ratio_rows"],
+        related_metric_keys=[],
+        problem_summary="clean ratios are analytics candidates only and are not scoring/recommendation/trading inputs",
+        required_decision="design and approve separate controlled scoring gate before any scoring",
+        recommended_default="scoring disabled",
+        blocks_future_analytics=False,
+    )
     if not methodology_action_rows:
         add_block("methodology_action_rows_missing")
 

@@ -21287,14 +21287,48 @@ def test_rzd_manual_official_pdf_controlled_values_patched_ratio_interpretation_
     assert unavailable["total_liabilities_growth_pct"]["unavailable_review_status"] == "unavailable_expected"
     action_types = {row["action_type"] for row in report["methodology_action_rows"]}
     for expected in {
-        "total_liabilities_source_mapping_required",
-        "operating_cash_flow_source_mapping_required",
-        "debt_metric_context_review",
-        "coverage_formula_review",
-        "liquidity_metric_context_review",
-        "ratio_preview_not_scoring_acknowledgement",
+        "total_liabilities_mapping_required",
+        "operating_cash_flow_mapping_required",
+        "debt_semantics_review_required",
+        "interest_coverage_policy_required",
+        "liquidity_context_review_required",
+        "scoring_safety_gate_required",
     }:
         assert expected in action_types
+    actions = {row["action_type"]: row for row in report["methodology_action_rows"]}
+    assert actions["total_liabilities_mapping_required"]["ratio_keys"] == [
+        "liabilities_to_assets",
+        "total_liabilities_growth_pct",
+    ]
+    assert actions["total_liabilities_mapping_required"]["related_metric_keys"] == ["total_liabilities"]
+    assert actions["total_liabilities_mapping_required"]["blocks_future_analytics"] is True
+    assert actions["total_liabilities_mapping_required"]["blocks_future_scoring"] is True
+    assert set(actions["operating_cash_flow_mapping_required"]["ratio_keys"]) == {
+        "operating_cash_flow_growth_pct",
+        "operating_cash_flow_margin",
+        "operating_cash_flow_to_net_profit",
+    }
+    assert actions["operating_cash_flow_mapping_required"]["related_metric_keys"] == ["operating_cash_flow"]
+    assert set(actions["debt_semantics_review_required"]["ratio_keys"]) == {
+        "debt_to_assets",
+        "debt_to_equity",
+    }
+    assert actions["debt_semantics_review_required"]["related_metric_keys"] == ["borrowings_or_loans"]
+    assert actions["interest_coverage_policy_required"]["ratio_keys"] == ["interest_coverage_preview"]
+    assert set(actions["interest_coverage_policy_required"]["related_metric_keys"]) == {
+        "operating_profit",
+        "net_finance_costs",
+    }
+    assert actions["liquidity_context_review_required"]["ratio_keys"] == ["cash_to_current_liabilities"]
+    assert set(actions["liquidity_context_review_required"]["related_metric_keys"]) == {
+        "cash_and_cash_equivalents",
+        "current_liabilities",
+    }
+    assert actions["scoring_safety_gate_required"]["ratio_keys"] == ["all_clean_ratio_rows"]
+    assert actions["scoring_safety_gate_required"]["blocks_future_analytics"] is False
+    assert actions["scoring_safety_gate_required"]["blocks_future_scoring"] is True
+    assert actions["scoring_safety_gate_required"]["blocks_recommendation"] is True
+    assert actions["scoring_safety_gate_required"]["blocks_trading"] is True
     warning_types = {row["warning_type"] for row in report["review_warning_rows"]}
     for expected in {
         "ratio_preview_not_scoring_acknowledged",
@@ -21350,6 +21384,7 @@ def test_rzd_manual_official_pdf_controlled_values_patched_ratio_interpretation_
     assert ratio_rows["reviewed_patched_ratio_count"] == report["reviewed_patched_ratio_count"]
     assert unavailable_rows["unavailable_ratio_count"] == report["unavailable_ratio_count"]
     assert actions["methodology_action_count"] == report["methodology_action_count"]
+    assert actions["methodology_action_rows"] == report["methodology_action_rows"]
     assert summary["patched_ratio_interpretation_review_checksum_sha256"] == report["patched_ratio_interpretation_review_checksum_sha256"]
     assert safety["database_mutated"] is False
     assert safety["migration_executed"] is False
@@ -33771,6 +33806,23 @@ def _assert_rzd_controlled_values_patched_ratio_interpretation_review_fields(rep
         for field in assistant.RZD_CONTROLLED_VALUES_PATCHED_RATIO_INTERPRETATION_REVIEW_ACTION_FIELDS:
             assert field in row
             assert row[field] is not None
+        assert isinstance(row["action_index"], int)
+        assert isinstance(row["action_type"], str)
+        assert isinstance(row["severity"], str)
+        assert isinstance(row["required"], bool)
+        assert isinstance(row["ratio_keys"], list)
+        assert all(isinstance(item, str) for item in row["ratio_keys"])
+        assert isinstance(row["related_metric_keys"], list)
+        assert all(isinstance(item, str) for item in row["related_metric_keys"])
+        assert isinstance(row["problem_summary"], str)
+        assert isinstance(row["required_decision"], str)
+        assert isinstance(row["recommended_default"], str)
+        assert isinstance(row["blocks_future_analytics"], bool)
+        assert isinstance(row["blocks_future_scoring"], bool)
+        assert isinstance(row["blocks_recommendation"], bool)
+        assert isinstance(row["blocks_trading"], bool)
+        assert isinstance(row["safe_hint"], str)
+        assert isinstance(row["details"], dict)
     for row in report.get("review_warning_rows") or []:
         for field in assistant.RZD_CONTROLLED_VALUES_PATCHED_RATIO_INTERPRETATION_REVIEW_WARNING_FIELDS:
             assert field in row
