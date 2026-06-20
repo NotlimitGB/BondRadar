@@ -21737,6 +21737,232 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gat
     _assert_rzd_controlled_values_ratio_analytics_readiness_gate_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task194 = _write_task195_ready_task194(chain, repo, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task194["ready_for_task195_ratio_analytics_dataset_preview"] is True
+    assert report["status"] == "warning"
+    assert report["ratio_analytics_dataset_preview_status"] == "warning"
+    assert report["ready_for_task196_ratio_analytics_dataset_review_gate"] is True
+    assert report["ready_for_ratio_analytics_dataset_review_gate"] is True
+    assert report["ready_for_task195_ratio_analytics_dataset_preview"] is False
+    assert report["blocker_count"] == 0
+    assert report["analytics_dataset_preview_executed"] is True
+    assert report["analytics_readiness_gate_executed"] is False
+    assert report["dataset_preview_row_count"] == 9
+    assert report["dataset_preview_ratio_key_count"] == 9
+    assert report["excluded_ratio_count"] == 10
+    assert report["excluded_review_blocked_count"] == 5
+    assert report["excluded_source_blocked_count"] == 5
+    assert report["methodology_action_count"] == 6
+    dataset_keys = {row["ratio_key"] for row in report["analytics_dataset_rows"]}
+    excluded_keys = {row["ratio_key"] for row in report["analytics_excluded_rows"]}
+    assert "current_liabilities_to_assets" in dataset_keys
+    for key in ("debt_to_assets", "interest_coverage_preview", "liabilities_to_assets", "operating_cash_flow_margin"):
+        assert key in excluded_keys
+        assert key not in dataset_keys
+    assert report["dataset_candidate_source_match"] is True
+    assert report["excluded_rows_source_match"] is True
+    assert report["methodology_actions_source_match"] is True
+    assert report["dataset_preview_contract_valid"] is True
+    assert report["dataset_preview_non_scoring"] is True
+    assert report["dataset_preview_recommendations_disabled"] is True
+    assert report["dataset_preview_trading_disabled"] is True
+    assert report["dataset_preview_paper_trading_disabled"] is True
+    action_types = {row["action_type"] for row in report["analytics_methodology_action_rows"]}
+    assert assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_READINESS_GATE_CANONICAL_ACTION_TYPES <= action_types
+    first_row = report["analytics_dataset_rows"][0]
+    assert isinstance(first_row["ratio_value_2025_numeric"], float)
+    assert first_row["ratio_value_delta_available"] is True
+    assert first_row["ratio_value_direction"] in {"increase", "decrease", "flat"}
+    for field in (
+        "database_mutated",
+        "migration_executed",
+        "import_executed",
+        "scoring_executed",
+        "trading_executed",
+        "paper_trading_executed",
+        "recommendation_generated",
+        "methodology_patch_executed",
+        "verification_executed",
+        "interpretation_review_executed",
+    ):
+        assert report[field] is False
+    assert report["ready_for_scoring"] is False
+    assert report["ready_for_trading"] is False
+    assert report["ready_for_paper_trading"] is False
+    _assert_rzd_controlled_values_ratio_analytics_dataset_preview_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_wrappers_and_markdown(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task195_ready_task194(chain, repo, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_checks_task195.json").read_text(encoding="utf-8"))
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_blockers_task195.json").read_text(encoding="utf-8"))
+    dataset_rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_dataset_rows_task195.json").read_text(encoding="utf-8"))
+    excluded_rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_excluded_rows_task195.json").read_text(encoding="utf-8"))
+    actions = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_methodology_actions_task195.json").read_text(encoding="utf-8"))
+    summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_summary_task195.json").read_text(encoding="utf-8"))
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_safety_task195.json").read_text(encoding="utf-8"))
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_task195.md").read_text(encoding="utf-8")
+
+    assert checks["dataset_preview_check_count"] == len(report["dataset_preview_check_rows"])
+    assert blockers["blocker_count"] == 0
+    assert dataset_rows["analytics_dataset_rows"] == report["analytics_dataset_rows"]
+    assert excluded_rows["analytics_excluded_rows"] == report["analytics_excluded_rows"]
+    assert actions["analytics_methodology_action_rows"] == report["analytics_methodology_action_rows"]
+    assert summary["ratio_analytics_dataset_preview_checksum_sha256"] == report["ratio_analytics_dataset_preview_checksum_sha256"]
+    assert safety["analytics_dataset_preview_executed"] is True
+    assert safety["analytics_readiness_gate_executed"] is False
+    assert safety["scoring_executed"] is False
+    for heading in (
+        "# RZD Controlled Values Ratio Analytics Dataset Preview",
+        "## Input chain",
+        "## Task194 readiness summary",
+        "## Dataset rows",
+        "## Excluded rows",
+        "## Methodology actions",
+        "## Numeric parsing and deltas",
+        "## Safety",
+        "## Checksums",
+        "## Decision",
+        "## Next step",
+    ):
+        assert heading in markdown
+    for phrase in (
+        "No migration was executed by Task195.",
+        "No Alembic command was executed by Task195.",
+        "No database mutation was performed by Task195.",
+        "No rows were inserted by Task195.",
+        "No rows were updated by Task195.",
+        "No rows were deleted by Task195.",
+        "No scoring was executed by Task195.",
+        "No trading or paper trading was executed by Task195.",
+        "No investment recommendation was generated by Task195.",
+        "No methodology patch was executed by Task195.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_ratio_analytics_dataset_preview_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_upstream_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task195_ready_task194(chain, repo, monkeypatch)
+
+    missing = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate-input",
+            str(chain / "missing_task194.json"),
+        ]
+    )
+    assert missing["status"] == "blocked"
+    assert "task194_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task196_ratio_analytics_dataset_review_gate"] is False
+    _assert_rzd_controlled_values_ratio_analytics_dataset_preview_fields(missing)
+
+    task194_path = chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate_task194.json"
+    task194 = json.loads(task194_path.read_text(encoding="utf-8"))
+    task194.update({
+        "status": "blocked",
+        "ratio_analytics_readiness_gate_status": "blocked",
+        "ready_for_ratio_analytics_dataset_preview": False,
+        "ready_for_task195_ratio_analytics_dataset_preview": False,
+        "ratio_analytics_readiness_contract_valid": False,
+        "scoring_allowed": True,
+        "recommendations_allowed": True,
+        "methodology_patch_executed": True,
+        "interpretation_review_executed": True,
+    })
+    task194_path.write_text(json.dumps(task194, ensure_ascii=False), encoding="utf-8")
+    dirty = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    blocker_codes = {row["code"] for row in dirty["blocker_rows"]}
+    assert "task194_status_invalid" in blocker_codes
+    assert "task194_not_ready_for_dataset_preview" in blocker_codes
+    assert "task194_contract_invalid" in blocker_codes
+    assert "task194_scoring_safety_invalid" in blocker_codes
+    assert "task194_unexpected_methodology_patch_or_review_execution" in blocker_codes
+    assert dirty["ready_for_task196_ratio_analytics_dataset_review_gate"] is False
+    _assert_rzd_controlled_values_ratio_analytics_dataset_preview_fields(dirty)
+
+
+def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_row_and_numeric_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task195_ready_task194(chain, repo, monkeypatch)
+    task194_path = chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate_task194.json"
+    task194 = json.loads(task194_path.read_text(encoding="utf-8"))
+    task194["analytics_candidate_rows"][0]["ratio_value_2025"] = ""
+    task194["analytics_candidate_rows"][0]["ratio_value_2024"] = ""
+    task194["analytics_candidate_rows"][1]["ratio_value_2025"] = "100"
+    task194["analytics_candidate_rows"][1]["ratio_value_2024"] = "100"
+    task194_path.write_text(json.dumps(task194, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == "warning"
+    empty_row = report["analytics_dataset_rows"][0]
+    assert empty_row["ratio_value_2025_numeric"] is None
+    assert empty_row["ratio_value_2024_numeric"] is None
+    assert empty_row["ratio_value_delta"] is None
+    assert empty_row["ratio_value_delta_available"] is False
+    assert empty_row["ratio_value_direction"] == "not_available"
+    flat_row = report["analytics_dataset_rows"][1]
+    assert flat_row["ratio_value_delta"] == 0
+    assert flat_row["ratio_value_direction"] == "flat"
+    assert report["dataset_candidate_source_match"] is True
+    assert report["excluded_rows_source_match"] is True
+    _assert_rzd_controlled_values_ratio_analytics_dataset_preview_fields(report)
+
+    task194["analytics_candidate_rows"] = []
+    task194["analytics_blocked_rows"] = []
+    task194["analytics_methodology_action_rows"] = []
+    task194_path.write_text(json.dumps(task194, ensure_ascii=False), encoding="utf-8")
+    broken = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    blocker_codes = {row["code"] for row in broken["blocker_rows"]}
+    assert "analytics_candidate_rows_missing" in blocker_codes
+    assert "analytics_blocked_rows_missing" in blocker_codes
+    assert "analytics_methodology_action_rows_missing" in blocker_codes
+    assert "scoring_safety_gate_missing" in blocker_codes
+    assert broken["ready_for_task196_ratio_analytics_dataset_review_gate"] is False
+    _assert_rzd_controlled_values_ratio_analytics_dataset_preview_fields(broken)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -30012,6 +30238,19 @@ def _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gat
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -32632,6 +32871,17 @@ def _write_task194_ready_task193(chain: Path, repo: Path, monkeypatch) -> dict:
     return task193
 
 
+def _write_task195_ready_task194(chain: Path, repo: Path, monkeypatch) -> dict:
+    task193 = _write_task194_ready_task193(chain, repo, monkeypatch)
+    task194 = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert task193["ready_for_task194_ratio_analytics_readiness_gate"] is True
+    assert task194["ready_for_task195_ratio_analytics_dataset_preview"] is True
+    assert task194["ratio_analytics_readiness_contract_valid"] is True
+    return task194
+
+
 def _assert_rzd_controlled_values_import_plan_fields(report: dict) -> None:
     for field in assistant.RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUES_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
         assert field in report
@@ -34131,6 +34381,81 @@ def _assert_rzd_controlled_values_ratio_analytics_readiness_gate_fields(report: 
             assert row[field] is not None
         assert isinstance(row["ratio_keys"], list)
         assert isinstance(row["related_metric_keys"], list)
+
+
+def _assert_rzd_controlled_values_ratio_analytics_dataset_preview_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_LIST_FIELDS:
+        assert field in report
+        assert isinstance(report[field], list)
+        assert report[field] is not None
+    for field in (
+        "status",
+        "ratio_analytics_dataset_preview_status",
+        "expected_revision",
+        "expected_table",
+        "task194_input_path",
+        "task194_status",
+        "task194_ratio_analytics_readiness_gate_status",
+        "task194_ratio_analytics_readiness_gate_checksum_sha256",
+        "task193_input_path",
+        "task193_status",
+        "task193_patched_ratio_interpretation_review_status",
+        "task193_patched_ratio_interpretation_review_checksum_sha256",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "currency",
+        "unit",
+        "dataset_preview_standard",
+        "dataset_preview_currency",
+        "dataset_preview_unit",
+        "ratio_analytics_dataset_preview_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("dataset_preview_check_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    nullable_numeric_fields = {"ratio_value_2025_numeric", "ratio_value_2024_numeric", "ratio_value_delta"}
+    for row in report.get("analytics_dataset_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_DATASET_ROW_FIELDS:
+            assert field in row
+            if field not in nullable_numeric_fields:
+                assert row[field] is not None
+        assert isinstance(row["dataset_row_index"], int)
+        assert isinstance(row["source_warning_codes"], list)
+        assert isinstance(row["readiness_reason_codes"], list)
+        assert row["scoring_allowed"] is False
+        assert row["recommendation_allowed"] is False
+        assert row["trading_allowed"] is False
+        assert row["paper_trading_allowed"] is False
+    for row in report.get("analytics_excluded_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_EXCLUDED_ROW_FIELDS:
+            assert field in row
+            assert row[field] is not None
+        assert isinstance(row["excluded_row_index"], int)
+        assert isinstance(row["exclusion_reason_codes"], list)
+        assert isinstance(row["related_methodology_action_types"], list)
+        assert row["scoring_allowed"] is False
+        assert row["recommendation_allowed"] is False
+        assert row["trading_allowed"] is False
+        assert row["paper_trading_allowed"] is False
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:

@@ -106,6 +106,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-patched-ratio-preview-verification",
     "rzd-manual-official-pdf-controlled-values-patched-ratio-interpretation-review",
     "rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate",
+    "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -9400,6 +9401,96 @@ RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_READINESS_GATE_CANONICAL_ACTION_TYPES = {
     "liquidity_context_review_required",
     "scoring_safety_gate_required",
 }
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_ARTIFACT_NAMES = {
+    "preview_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_task195.json",
+    "preview_markdown": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_task195.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_checks_task195.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_blockers_task195.json",
+    "dataset_rows_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_dataset_rows_task195.json",
+    "excluded_rows_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_excluded_rows_task195.json",
+    "methodology_actions_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_methodology_actions_task195.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_summary_task195.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_safety_task195.json",
+}
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_CHECK_FIELDS = [
+    "check_index", "check_key", "status", "severity", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_DATASET_ROW_FIELDS = [
+    "dataset_row_index", "company_id", "company_name", "report_year", "report_standard",
+    "currency", "unit", "ratio_key", "ratio_category", "analytics_dataset_allowed",
+    "analytics_dataset_role", "analytics_readiness_status", "interpretation_status",
+    "available", "analytics_ready", "ratio_value_2025", "ratio_value_2024",
+    "ratio_value_2025_numeric", "ratio_value_2024_numeric", "ratio_value_delta",
+    "ratio_value_delta_available", "ratio_value_direction", "numerator_metric_key",
+    "denominator_metric_key", "source_warning_codes", "readiness_reason_codes",
+    "scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed",
+    "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_EXCLUDED_ROW_FIELDS = [
+    "excluded_row_index", "company_id", "company_name", "report_year", "report_standard",
+    "ratio_key", "ratio_category", "analytics_readiness_status", "analytics_dataset_allowed",
+    "exclusion_reason_codes", "related_methodology_action_types", "scoring_allowed",
+    "recommendation_allowed", "trading_allowed", "paper_trading_allowed", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_BOOL_FIELDS = (
+    "ready_for_ratio_analytics_dataset_review_gate", "ready_for_task196_ratio_analytics_dataset_review_gate",
+    "ready_for_ratio_analytics_dataset_preview", "ready_for_task195_ratio_analytics_dataset_preview",
+    "ready_for_ratio_analytics_readiness_gate", "ready_for_task194_ratio_analytics_readiness_gate",
+    "ready_for_patched_ratio_interpretation_review", "ready_for_task193_patched_ratio_interpretation_review",
+    "ready_for_patched_ratio_preview_verification", "ready_for_task192_patched_ratio_preview_verification",
+    "ready_for_ratio_methodology_patch_apply", "ready_for_task191_ratio_methodology_patch_apply",
+    "ready_for_ratio_methodology_patch_plan", "ready_for_task190_ratio_methodology_patch_plan",
+    "ready_for_ratio_methodology_review", "ready_for_task189_financial_ratio_review",
+    "ready_for_financial_ratio_preview", "ready_for_task188_financial_ratio_preview",
+    "ready_for_financial_metric_normalization", "ready_for_task187_financial_metric_normalization",
+    "ready_for_imported_values_read_model", "ready_for_task186_imported_values_read_model",
+    "ready_for_controlled_import_apply", "ready_for_controlled_import",
+    "ready_for_scoring", "ready_for_trading", "ready_for_paper_trading",
+    "task194_ready_for_ratio_analytics_dataset_preview", "task194_ready_for_task195_ratio_analytics_dataset_preview",
+    "task194_clean_candidates_allowed_for_analytics", "task194_review_only_ratios_blocked_from_analytics",
+    "task194_unavailable_ratios_blocked_from_analytics", "task194_methodology_actions_preserved",
+    "task194_scoring_safety_gate_present", "task194_scoring_allowed", "task194_recommendations_allowed",
+    "task194_trading_allowed", "task194_paper_trading_allowed",
+    "task194_ratio_analytics_readiness_contract_valid", "task194_database_mutated",
+    "task194_migration_executed", "task194_import_executed", "task194_scoring_executed",
+    "task194_trading_executed", "task194_paper_trading_executed", "task194_recommendation_generated",
+    "task194_methodology_patch_executed", "task194_verification_executed",
+    "task194_interpretation_review_executed", "task194_analytics_readiness_gate_executed",
+    "task193_database_mutated", "task193_migration_executed", "task193_import_executed",
+    "task193_scoring_executed", "task193_trading_executed", "task193_paper_trading_executed",
+    "task193_recommendation_generated", "task193_methodology_patch_executed",
+    "task193_verification_executed", "dataset_candidate_source_match", "excluded_rows_source_match",
+    "methodology_actions_source_match", "dataset_preview_contract_valid", "dataset_preview_non_scoring",
+    "dataset_preview_recommendations_disabled", "dataset_preview_trading_disabled",
+    "dataset_preview_paper_trading_disabled", "database_mutated", "migration_executed",
+    "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed",
+    "recommendation_generated", "methodology_patch_executed", "verification_executed",
+    "interpretation_review_executed", "analytics_readiness_gate_executed",
+    "analytics_dataset_preview_executed",
+)
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_COUNT_FIELDS = (
+    "expected_import_row_count", "report_year", "dataset_preview_year",
+    "task194_source_interpreted_ratio_count", "task194_source_unavailable_review_count",
+    "task194_source_methodology_action_count", "task194_source_review_warning_count",
+    "task194_analytics_candidate_count", "task194_analytics_candidate_key_count",
+    "task194_analytics_blocked_count", "task194_analytics_blocked_key_count",
+    "task194_analytics_ready_clean_count", "task194_analytics_ready_review_blocked_count",
+    "task194_analytics_ready_source_blocked_count", "task194_analytics_ready_policy_blocked_count",
+    "task194_bad_safety_count", "task194_blocker_count", "task193_bad_safety_count",
+    "task193_blocker_count", "source_analytics_candidate_count", "source_analytics_blocked_count",
+    "source_methodology_action_count", "dataset_preview_row_count", "dataset_preview_ratio_key_count",
+    "dataset_preview_category_count", "dataset_preview_company_count", "excluded_ratio_count",
+    "excluded_ratio_key_count", "excluded_review_blocked_count", "excluded_source_blocked_count",
+    "excluded_policy_blocked_count", "methodology_action_count", "methodology_action_key_count",
+    "dataset_preview_check_count", "bad_safety_count", "blocker_count", "warning_count",
+)
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_LIST_FIELDS = (
+    "analytics_dataset_rows", "analytics_excluded_rows", "analytics_methodology_action_rows",
+    "dataset_preview_check_rows", "blocker_rows",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -11151,6 +11242,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate-methodology-actions-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-dataset-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-excluded-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-methodology-actions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -11438,6 +11539,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_patched_ratio_interpretation_review(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate":
         report = run_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview":
+        report = run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -66089,6 +66192,739 @@ def run_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate
     return report
 
 
+def _rzd_controlled_values_ratio_analytics_dataset_preview_safety_flags() -> dict[str, bool]:
+    return _rzd_controlled_values_ratio_analytics_readiness_gate_safety_flags()
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_blocker_row(
+    code: str,
+    *,
+    severity: str = "high",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_ratio_analytics_dataset_preview:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Resolve this blocker before using Task195 output for any analytics dataset review.",
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_check_row(
+    code: str,
+    *,
+    passed: bool,
+    severity: str = "info",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "check_index": 0,
+        "check_key": code,
+        "status": "passed" if passed else "failed",
+        "severity": severity if passed else "high",
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task195 checks are read-only and never enable scoring, recommendations, or trading.",
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    return {
+        "task194": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate_input or (chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_READINESS_GATE_ARTIFACT_NAMES["gate_json"] if chain_dir else None),
+        "task193": args.rzd_manual_official_pdf_controlled_values_patched_ratio_interpretation_review_input or (chain_dir / RZD_CONTROLLED_VALUES_PATCHED_RATIO_INTERPRETATION_REVIEW_ARTIFACT_NAMES["review_json"] if chain_dir else None),
+        "task192": args.rzd_manual_official_pdf_controlled_values_patched_ratio_preview_verification_input or (chain_dir / RZD_CONTROLLED_VALUES_PATCHED_RATIO_PREVIEW_VERIFICATION_ARTIFACT_NAMES["verification_json"] if chain_dir else None),
+        "task191": args.rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_apply_input or (chain_dir / RZD_CONTROLLED_VALUES_RATIO_METHODOLOGY_PATCH_APPLY_ARTIFACT_NAMES["patch_apply_json"] if chain_dir else None),
+        "task190": args.rzd_manual_official_pdf_controlled_values_ratio_methodology_patch_plan_input or (chain_dir / RZD_CONTROLLED_VALUES_RATIO_METHODOLOGY_PATCH_PLAN_ARTIFACT_NAMES["patch_plan_json"] if chain_dir else None),
+        "task189": args.rzd_manual_official_pdf_controlled_values_financial_ratio_interpretation_review_input or (chain_dir / RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_INTERPRETATION_REVIEW_ARTIFACT_NAMES["review_json"] if chain_dir else None),
+        "task188": args.rzd_manual_official_pdf_controlled_values_financial_ratio_preview_input or (chain_dir / RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_PREVIEW_ARTIFACT_NAMES["ratio_json"] if chain_dir else None),
+        "task187": args.rzd_manual_official_pdf_controlled_values_financial_metric_normalization_input or (chain_dir / RZD_CONTROLLED_VALUES_FINANCIAL_METRIC_NORMALIZATION_ARTIFACT_NAMES["normalization_json"] if chain_dir else None),
+        "task186": args.rzd_manual_official_pdf_controlled_values_imported_read_model_input or (chain_dir / RZD_CONTROLLED_VALUES_IMPORTED_READ_MODEL_ARTIFACT_NAMES["read_model_json"] if chain_dir else None),
+        "task185": args.rzd_manual_official_pdf_controlled_values_post_import_verification_gate_input or (chain_dir / RZD_CONTROLLED_VALUES_POST_IMPORT_VERIFICATION_ARTIFACT_NAMES["gate_json"] if chain_dir else None),
+        "task184": args.rzd_manual_official_pdf_controlled_values_import_apply_input or (chain_dir / RZD_CONTROLLED_VALUES_IMPORT_APPLY_ARTIFACT_NAMES["apply_json"] if chain_dir else None),
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_ARTIFACT_NAMES.items()}
+        if chain_dir else {}
+    )
+    return {
+        "preview_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_output or defaults.get("preview_json"),
+        "preview_markdown": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_markdown_output or defaults.get("preview_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_checks_output or defaults.get("checks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_blockers_output or defaults.get("blockers_json"),
+        "dataset_rows_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_dataset_rows_output or defaults.get("dataset_rows_json"),
+        "excluded_rows_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_excluded_rows_output or defaults.get("excluded_rows_json"),
+        "methodology_actions_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_methodology_actions_output or defaults.get("methodology_actions_json"),
+        "summary_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_summary_output or defaults.get("summary_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    del args
+    outputs = [(key, path.resolve()) for key, path in artifacts.items() if path]
+    input_paths = [(key, path.resolve()) for key, path in inputs.items() if path]
+    seen: dict[Path, str] = {}
+    for key, path in outputs:
+        for input_key, input_path in input_paths:
+            if path == input_path:
+                return [{"message": "rzd_controlled_values_ratio_analytics_dataset_preview_output_must_not_equal_input", "output": key, "input": input_key}]
+        if path in seen:
+            return [{"message": "rzd_controlled_values_ratio_analytics_dataset_preview_output_must_not_equal_input", "output": key, "duplicate_output": seen[path]}]
+        seen[path] = key
+    return []
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_numeric(value: Any) -> float | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return float(text.replace(" ", "").replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_delta(
+    value_2025: float | None,
+    value_2024: float | None,
+) -> tuple[float | None, bool, str]:
+    if value_2025 is None or value_2024 is None:
+        return None, False, "not_available"
+    delta = value_2025 - value_2024
+    if delta > 0:
+        direction = "increase"
+    elif delta < 0:
+        direction = "decrease"
+    else:
+        direction = "flat"
+    return delta, True, direction
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_PREVIEW_REQUIRED_LIST_FIELDS:
+        if not isinstance(report.get(field), list):
+            report[field] = []
+    for field in (
+        "mode", "status", "ratio_analytics_dataset_preview_status",
+        "expected_revision", "expected_table", "task194_input_path", "task194_status",
+        "task194_ratio_analytics_readiness_gate_status", "task194_ratio_analytics_readiness_gate_checksum_sha256",
+        "task193_input_path", "task193_status", "task193_patched_ratio_interpretation_review_status",
+        "task193_patched_ratio_interpretation_review_checksum_sha256",
+        "company_id", "company_name", "report_standard", "currency", "unit",
+        "dataset_preview_standard", "dataset_preview_currency", "dataset_preview_unit",
+        "dataset_fingerprint_sha256", "source_read_model_checksum_sha256",
+        "source_normalization_checksum_sha256", "source_original_ratio_preview_checksum_sha256",
+        "source_interpretation_review_checksum_sha256", "source_patch_plan_checksum_sha256",
+        "source_patch_apply_checksum_sha256", "source_patched_ratio_preview_verification_checksum_sha256",
+        "source_patched_ratio_interpretation_review_checksum_sha256",
+        "source_ratio_analytics_readiness_gate_checksum_sha256",
+        "ratio_analytics_dataset_preview_checksum_sha256", "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["dataset_preview_row_count"] = len(report.get("analytics_dataset_rows") or [])
+    report["dataset_preview_ratio_key_count"] = len({str(row.get("ratio_key") or "") for row in report.get("analytics_dataset_rows") or []})
+    report["dataset_preview_category_count"] = len({str(row.get("ratio_category") or "") for row in report.get("analytics_dataset_rows") or [] if str(row.get("ratio_category") or "")})
+    report["dataset_preview_company_count"] = len({str(row.get("company_id") or "") for row in report.get("analytics_dataset_rows") or [] if str(row.get("company_id") or "")})
+    report["excluded_ratio_count"] = len(report.get("analytics_excluded_rows") or [])
+    report["excluded_ratio_key_count"] = len({str(row.get("ratio_key") or "") for row in report.get("analytics_excluded_rows") or []})
+    report["excluded_review_blocked_count"] = sum(1 for row in report.get("analytics_excluded_rows") or [] if row.get("analytics_readiness_status") == "blocked_review_required")
+    report["excluded_source_blocked_count"] = sum(1 for row in report.get("analytics_excluded_rows") or [] if row.get("analytics_readiness_status") == "blocked_source_missing")
+    report["excluded_policy_blocked_count"] = sum(1 for row in report.get("analytics_excluded_rows") or [] if row.get("analytics_readiness_status") == "blocked_policy")
+    report["methodology_action_count"] = len(report.get("analytics_methodology_action_rows") or [])
+    report["methodology_action_key_count"] = len({str(row.get("action_type") or "") for row in report.get("analytics_methodology_action_rows") or []})
+    report["source_analytics_candidate_count"] = int(report.get("source_analytics_candidate_count") or report.get("task194_analytics_candidate_count") or 0)
+    report["source_analytics_blocked_count"] = int(report.get("source_analytics_blocked_count") or report.get("task194_analytics_blocked_count") or 0)
+    report["source_methodology_action_count"] = int(report.get("source_methodology_action_count") or report.get("task194_source_methodology_action_count") or 0)
+    report["dataset_preview_check_count"] = len(report.get("dataset_preview_check_rows") or [])
+    report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["warning_count"] = 0
+    report["bad_safety_count"] = 0
+    report.update(_rzd_controlled_values_ratio_analytics_dataset_preview_safety_flags())
+    for field in (
+        "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+        "trading_executed", "paper_trading_executed", "recommendation_generated",
+        "methodology_patch_executed", "verification_executed", "interpretation_review_executed",
+        "analytics_readiness_gate_executed",
+    ):
+        report[field] = False
+    for field in (
+        "ready_for_ratio_analytics_dataset_preview", "ready_for_task195_ratio_analytics_dataset_preview",
+        "ready_for_ratio_analytics_readiness_gate", "ready_for_task194_ratio_analytics_readiness_gate",
+        "ready_for_patched_ratio_interpretation_review", "ready_for_task193_patched_ratio_interpretation_review",
+        "ready_for_patched_ratio_preview_verification", "ready_for_task192_patched_ratio_preview_verification",
+        "ready_for_ratio_methodology_patch_apply", "ready_for_task191_ratio_methodology_patch_apply",
+        "ready_for_ratio_methodology_patch_plan", "ready_for_task190_ratio_methodology_patch_plan",
+        "ready_for_ratio_methodology_review", "ready_for_task189_financial_ratio_review",
+        "ready_for_financial_ratio_preview", "ready_for_task188_financial_ratio_preview",
+        "ready_for_financial_metric_normalization", "ready_for_task187_financial_metric_normalization",
+        "ready_for_imported_values_read_model", "ready_for_task186_imported_values_read_model",
+        "ready_for_controlled_import_apply", "ready_for_controlled_import",
+        "ready_for_scoring", "ready_for_trading", "ready_for_paper_trading",
+    ):
+        report[field] = False
+    report["analytics_dataset_preview_executed"] = True
+    if report.get("status") == "warning" and report["blocker_count"] == 0:
+        report["ready_for_ratio_analytics_dataset_review_gate"] = True
+        report["ready_for_task196_ratio_analytics_dataset_review_gate"] = True
+    else:
+        report["ready_for_ratio_analytics_dataset_review_gate"] = False
+        report["ready_for_task196_ratio_analytics_dataset_review_gate"] = False
+
+
+def _build_rzd_controlled_values_ratio_analytics_dataset_preview_report(
+    task194: dict[str, Any],
+    *,
+    task193: dict[str, Any],
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_expected_row_count or RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT)
+    blocker_rows: list[dict[str, Any]] = []
+    check_rows: list[dict[str, Any]] = []
+
+    def add_block(code: str, details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(_rzd_controlled_values_ratio_analytics_dataset_preview_blocker_row(code, details=details))
+
+    def add_check(code: str, passed: bool, details: dict[str, Any] | None = None) -> None:
+        check_rows.append(_rzd_controlled_values_ratio_analytics_dataset_preview_check_row(code, passed=passed, details=details))
+
+    task194_path = inputs.get("task194")
+    task193_path = inputs.get("task193")
+    if not task194_path or not task194_path.is_file():
+        add_block("task194_input_missing", {"path": str(task194_path or "")})
+    if not task193_path or not task193_path.is_file():
+        add_block("task193_input_missing", {"path": str(task193_path or "")})
+
+    task194_status_valid = str(task194.get("status") or "") in {"warning", "passed"} and str(task194.get("ratio_analytics_readiness_gate_status") or "") in {"warning", "passed"}
+    task194_ready = _as_bool(task194.get("ready_for_ratio_analytics_dataset_preview")) and _as_bool(task194.get("ready_for_task195_ratio_analytics_dataset_preview"))
+    task194_contract = _as_bool(task194.get("ratio_analytics_readiness_contract_valid"))
+    task194_checksum = bool(str(task194.get("ratio_analytics_readiness_gate_checksum_sha256") or ""))
+    task194_counts_valid = (
+        int(task194.get("analytics_candidate_count") or 0) > 0
+        and int(task194.get("analytics_blocked_count") or 0) > 0
+        and int(task194.get("analytics_candidate_key_count") or 0) == int(task194.get("analytics_candidate_count") or 0)
+        and int(task194.get("analytics_blocked_key_count") or 0) == int(task194.get("analytics_blocked_count") or 0)
+    )
+    task194_mutation = any(_as_bool(task194.get(field)) for field in ("database_mutated", "migration_executed", "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed"))
+    task194_review_or_patch = any(_as_bool(task194.get(field)) for field in ("methodology_patch_executed", "verification_executed", "interpretation_review_executed"))
+    task194_scoring_flags = any(_as_bool(task194.get(field)) for field in ("scoring_allowed", "recommendations_allowed", "trading_allowed", "paper_trading_allowed", "recommendation_generated"))
+    if task194 and not task194_status_valid:
+        add_block("task194_status_invalid", {"status": task194.get("status"), "ratio_analytics_readiness_gate_status": task194.get("ratio_analytics_readiness_gate_status")})
+    if task194 and not task194_ready:
+        add_block("task194_not_ready_for_dataset_preview")
+    if task194 and not task194_contract:
+        add_block("task194_contract_invalid")
+    if task194 and not task194_checksum:
+        add_block("task194_checksum_missing")
+    if task194 and not task194_counts_valid:
+        add_block("task194_counts_invalid")
+    if task194_mutation:
+        add_block("task194_unexpected_mutation_or_execution")
+    if task194_review_or_patch:
+        add_block("task194_unexpected_methodology_patch_or_review_execution")
+    if task194_scoring_flags:
+        add_block("task194_scoring_safety_invalid")
+    if int(task194.get("blocker_count") or 0) > 0:
+        add_block("task194_blockers_present")
+    if int(task194.get("bad_safety_count") or 0) > 0:
+        add_block("task194_safety_blockers_present")
+    for field, code in (
+        ("clean_candidates_allowed_for_analytics", "task194_contract_invalid"),
+        ("review_only_ratios_blocked_from_analytics", "task194_contract_invalid"),
+        ("unavailable_ratios_blocked_from_analytics", "task194_contract_invalid"),
+        ("methodology_actions_preserved", "task194_contract_invalid"),
+        ("scoring_safety_gate_present", "scoring_safety_gate_missing"),
+    ):
+        if task194 and not _as_bool(task194.get(field)):
+            add_block(code, {"field": field})
+
+    task193_status_valid = str(task193.get("status") or "") in {"warning", "passed"} and str(task193.get("patched_ratio_interpretation_review_status") or "") in {"warning", "passed"}
+    task193_checksum = bool(str(task193.get("patched_ratio_interpretation_review_checksum_sha256") or ""))
+    task193_mutation = any(_as_bool(task193.get(field)) for field in ("database_mutated", "migration_executed", "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed"))
+    if task193 and not task193_status_valid:
+        add_block("task193_status_invalid", {"status": task193.get("status"), "patched_ratio_interpretation_review_status": task193.get("patched_ratio_interpretation_review_status")})
+    if task193 and not task193_checksum:
+        add_block("task193_checksum_missing")
+    if task193_mutation:
+        add_block("task193_unexpected_mutation_or_execution")
+    if _as_bool(task193.get("recommendation_generated")):
+        add_block("task193_unexpected_recommendation_generation")
+    if _as_bool(task193.get("methodology_patch_executed")) or _as_bool(task193.get("verification_executed")):
+        add_block("task193_unexpected_mutation_or_execution")
+    if int(task193.get("blocker_count") or 0) > 0:
+        add_block("task193_blockers_present")
+    if int(task193.get("bad_safety_count") or 0) > 0:
+        add_block("task193_safety_blockers_present")
+
+    source_candidates = [row for row in task194.get("analytics_candidate_rows") or [] if isinstance(row, dict)]
+    source_blocked = [row for row in task194.get("analytics_blocked_rows") or [] if isinstance(row, dict)]
+    source_actions = [copy.deepcopy(row) for row in task194.get("analytics_methodology_action_rows") or [] if isinstance(row, dict)]
+    if not source_candidates:
+        add_block("analytics_candidate_rows_missing")
+    if not source_blocked:
+        add_block("analytics_blocked_rows_missing")
+    if not source_actions:
+        add_block("analytics_methodology_action_rows_missing")
+    action_contract_valid = _rzd_controlled_values_ratio_analytics_readiness_gate_action_contract_valid(source_actions)
+    if not action_contract_valid:
+        add_block("methodology_actions_source_mismatch")
+    scoring_safety_gate_present = any(row.get("action_type") == "scoring_safety_gate_required" for row in source_actions)
+    if not scoring_safety_gate_present:
+        add_block("scoring_safety_gate_missing")
+
+    company_id = str(task194.get("company_id") or "rzd")
+    company_name = str(task194.get("company_name") or "")
+    report_year = int(task194.get("report_year") or 0)
+    report_standard = str(task194.get("report_standard") or "")
+    currency = str(task194.get("currency") or "RUB")
+    unit = str(task194.get("unit") or "million")
+
+    analytics_dataset_rows: list[dict[str, Any]] = []
+    for row in source_candidates:
+        value_2025 = str(row.get("ratio_value_2025") or "")
+        value_2024 = str(row.get("ratio_value_2024") or "")
+        numeric_2025 = _rzd_controlled_values_ratio_analytics_dataset_preview_numeric(value_2025)
+        numeric_2024 = _rzd_controlled_values_ratio_analytics_dataset_preview_numeric(value_2024)
+        delta, delta_available, direction = _rzd_controlled_values_ratio_analytics_dataset_preview_delta(numeric_2025, numeric_2024)
+        analytics_dataset_rows.append({
+            "dataset_row_index": len(analytics_dataset_rows) + 1,
+            "company_id": company_id,
+            "company_name": company_name,
+            "report_year": report_year,
+            "report_standard": report_standard,
+            "currency": currency,
+            "unit": unit,
+            "ratio_key": str(row.get("ratio_key") or ""),
+            "ratio_category": str(row.get("ratio_category") or ""),
+            "analytics_dataset_allowed": True,
+            "analytics_dataset_role": "non_scoring_ratio_analytics_candidate",
+            "analytics_readiness_status": str(row.get("analytics_readiness_status") or "analytics_candidate"),
+            "interpretation_status": str(row.get("interpretation_status") or ""),
+            "available": bool(row.get("available")),
+            "analytics_ready": bool(row.get("analytics_ready")),
+            "ratio_value_2025": value_2025,
+            "ratio_value_2024": value_2024,
+            "ratio_value_2025_numeric": numeric_2025,
+            "ratio_value_2024_numeric": numeric_2024,
+            "ratio_value_delta": delta,
+            "ratio_value_delta_available": delta_available,
+            "ratio_value_direction": direction,
+            "numerator_metric_key": str(row.get("numerator_metric_key") or ""),
+            "denominator_metric_key": str(row.get("denominator_metric_key") or ""),
+            "source_warning_codes": _rzd_controlled_values_ratio_analytics_dataset_preview_list(row.get("source_warning_codes")),
+            "readiness_reason_codes": _rzd_controlled_values_ratio_analytics_dataset_preview_list(row.get("readiness_reason_codes")),
+            "scoring_allowed": False,
+            "recommendation_allowed": False,
+            "trading_allowed": False,
+            "paper_trading_allowed": False,
+            "safe_hint": "Allowed only for a future non-scoring analytics dataset review.",
+        })
+
+    analytics_excluded_rows: list[dict[str, Any]] = []
+    action_types_by_metric = {
+        metric: row.get("action_type")
+        for row in source_actions
+        for metric in _rzd_controlled_values_ratio_analytics_dataset_preview_list(row.get("related_metric_keys"))
+    }
+    for row in source_blocked:
+        ratio_key = str(row.get("ratio_key") or "")
+        related_actions = [
+            str(action.get("action_type") or "")
+            for action in source_actions
+            if ratio_key in _rzd_controlled_values_ratio_analytics_dataset_preview_list(action.get("ratio_keys"))
+        ]
+        for metric_key in (str(row.get("numerator_metric_key") or ""), str(row.get("denominator_metric_key") or "")):
+            if metric_key and action_types_by_metric.get(metric_key) and action_types_by_metric[metric_key] not in related_actions:
+                related_actions.append(str(action_types_by_metric[metric_key]))
+        analytics_excluded_rows.append({
+            "excluded_row_index": len(analytics_excluded_rows) + 1,
+            "company_id": company_id,
+            "company_name": company_name,
+            "report_year": report_year,
+            "report_standard": report_standard,
+            "ratio_key": ratio_key,
+            "ratio_category": str(row.get("ratio_category") or ""),
+            "analytics_readiness_status": str(row.get("analytics_readiness_status") or ""),
+            "analytics_dataset_allowed": False,
+            "exclusion_reason_codes": _rzd_controlled_values_ratio_analytics_dataset_preview_list(row.get("readiness_reason_codes")) or [str(row.get("analytics_readiness_status") or "blocked")],
+            "related_methodology_action_types": related_actions,
+            "scoring_allowed": False,
+            "recommendation_allowed": False,
+            "trading_allowed": False,
+            "paper_trading_allowed": False,
+            "safe_hint": "Excluded from Task195 dataset preview exactly as Task194 blocked it.",
+        })
+
+    candidate_keys = {str(row.get("ratio_key") or "") for row in source_candidates}
+    blocked_keys = {str(row.get("ratio_key") or "") for row in source_blocked}
+    dataset_keys = {str(row.get("ratio_key") or "") for row in analytics_dataset_rows}
+    excluded_keys = {str(row.get("ratio_key") or "") for row in analytics_excluded_rows}
+    dataset_candidate_source_match = dataset_keys == candidate_keys and len(analytics_dataset_rows) == len(source_candidates)
+    excluded_rows_source_match = excluded_keys == blocked_keys and len(analytics_excluded_rows) == len(source_blocked)
+    methodology_actions_source_match = action_contract_valid and len(source_actions) == int(task194.get("source_methodology_action_count") or len(source_actions))
+    dataset_safety = all(row.get("analytics_dataset_allowed") is True and not any(_as_bool(row.get(flag)) for flag in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed")) for row in analytics_dataset_rows)
+    excluded_safety = all(row.get("analytics_dataset_allowed") is False and not any(_as_bool(row.get(flag)) for flag in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed")) for row in analytics_excluded_rows)
+    source_candidate_safety = all(not any(_as_bool(row.get(flag)) for flag in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed")) for row in source_candidates)
+    source_blocked_safety = all(not any(_as_bool(row.get(flag)) for flag in ("scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed")) for row in source_blocked)
+
+    if not analytics_dataset_rows:
+        add_block("analytics_dataset_rows_missing")
+    if not analytics_excluded_rows:
+        add_block("analytics_excluded_rows_missing")
+    if not dataset_candidate_source_match:
+        add_block("dataset_candidate_source_mismatch", {"source": sorted(candidate_keys), "dataset": sorted(dataset_keys)})
+    if not excluded_rows_source_match:
+        add_block("excluded_rows_source_mismatch", {"source": sorted(blocked_keys), "excluded": sorted(excluded_keys)})
+    if not methodology_actions_source_match:
+        add_block("methodology_actions_source_mismatch")
+    if candidate_keys & excluded_keys:
+        add_block("dataset_row_from_blocked_ratio", {"overlap": sorted(candidate_keys & excluded_keys)})
+    if not dataset_safety or not source_candidate_safety:
+        add_block("scoring_unexpectedly_allowed")
+    if not excluded_safety or not source_blocked_safety:
+        add_block("excluded_row_wrongly_allows_analytics")
+
+    add_check("task194_ready_for_task195", task194_ready)
+    add_check("task194_contract_valid", task194_contract)
+    add_check("task194_safety_valid", not task194_mutation and not task194_scoring_flags and int(task194.get("bad_safety_count") or 0) == 0)
+    add_check("task193_safety_valid", not task193_mutation and not _as_bool(task193.get("recommendation_generated")) and int(task193.get("bad_safety_count") or 0) == 0)
+    add_check("analytics_candidate_rows_loaded", bool(source_candidates))
+    add_check("analytics_blocked_rows_loaded", bool(source_blocked))
+    add_check("methodology_action_rows_loaded", bool(source_actions))
+    add_check("dataset_rows_built_from_candidates_only", dataset_candidate_source_match)
+    add_check("excluded_rows_built_from_blocked_only", excluded_rows_source_match)
+    add_check("dataset_candidate_source_match", dataset_candidate_source_match)
+    add_check("excluded_rows_source_match", excluded_rows_source_match)
+    add_check("methodology_actions_source_match", methodology_actions_source_match)
+    add_check("numeric_values_parsed", all(row.get("ratio_value_2025_numeric") is not None or not row.get("ratio_value_2025") for row in analytics_dataset_rows))
+    add_check("ratio_deltas_computed", all(row.get("ratio_value_delta_available") is True for row in analytics_dataset_rows if row.get("ratio_value_2025_numeric") is not None and row.get("ratio_value_2024_numeric") is not None))
+    add_check("dataset_preview_non_scoring", dataset_safety and excluded_safety)
+    add_check("dataset_preview_recommendations_disabled", dataset_safety and excluded_safety)
+    add_check("dataset_preview_trading_disabled", dataset_safety and excluded_safety)
+    add_check("dataset_preview_paper_trading_disabled", dataset_safety and excluded_safety)
+    add_check("dataset_preview_checksum_built", True)
+    add_check("task195_read_only_safety", True)
+    for index, row in enumerate(check_rows, start=1):
+        row["check_index"] = index
+
+    checksum_payload = {
+        "analytics_dataset_rows": analytics_dataset_rows,
+        "analytics_excluded_rows": analytics_excluded_rows,
+        "analytics_methodology_action_rows": source_actions,
+        "dataset_preview_check_rows": check_rows,
+    }
+    checksum = _rzd_controlled_values_import_plan_sha(checksum_payload)
+    status = "blocked" if blocker_rows else "warning"
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview",
+        "status": status,
+        "ratio_analytics_dataset_preview_status": status,
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "expected_import_row_count": expected_row_count,
+        "task194_input_path": str(inputs.get("task194") or ""),
+        "task194_status": str(task194.get("status") or ""),
+        "task194_ratio_analytics_readiness_gate_status": str(task194.get("ratio_analytics_readiness_gate_status") or ""),
+        "task194_ready_for_ratio_analytics_dataset_preview": _as_bool(task194.get("ready_for_ratio_analytics_dataset_preview")),
+        "task194_ready_for_task195_ratio_analytics_dataset_preview": _as_bool(task194.get("ready_for_task195_ratio_analytics_dataset_preview")),
+        "task194_source_interpreted_ratio_count": int(task194.get("source_interpreted_ratio_count") or 0),
+        "task194_source_unavailable_review_count": int(task194.get("source_unavailable_review_count") or 0),
+        "task194_source_methodology_action_count": int(task194.get("source_methodology_action_count") or 0),
+        "task194_source_review_warning_count": int(task194.get("source_review_warning_count") or 0),
+        "task194_analytics_candidate_count": int(task194.get("analytics_candidate_count") or 0),
+        "task194_analytics_candidate_key_count": int(task194.get("analytics_candidate_key_count") or 0),
+        "task194_analytics_blocked_count": int(task194.get("analytics_blocked_count") or 0),
+        "task194_analytics_blocked_key_count": int(task194.get("analytics_blocked_key_count") or 0),
+        "task194_analytics_ready_clean_count": int(task194.get("analytics_ready_clean_count") or 0),
+        "task194_analytics_ready_review_blocked_count": int(task194.get("analytics_ready_review_blocked_count") or 0),
+        "task194_analytics_ready_source_blocked_count": int(task194.get("analytics_ready_source_blocked_count") or 0),
+        "task194_analytics_ready_policy_blocked_count": int(task194.get("analytics_ready_policy_blocked_count") or 0),
+        "task194_clean_candidates_allowed_for_analytics": _as_bool(task194.get("clean_candidates_allowed_for_analytics")),
+        "task194_review_only_ratios_blocked_from_analytics": _as_bool(task194.get("review_only_ratios_blocked_from_analytics")),
+        "task194_unavailable_ratios_blocked_from_analytics": _as_bool(task194.get("unavailable_ratios_blocked_from_analytics")),
+        "task194_methodology_actions_preserved": _as_bool(task194.get("methodology_actions_preserved")),
+        "task194_scoring_safety_gate_present": _as_bool(task194.get("scoring_safety_gate_present")),
+        "task194_scoring_allowed": _as_bool(task194.get("scoring_allowed")),
+        "task194_recommendations_allowed": _as_bool(task194.get("recommendations_allowed")),
+        "task194_trading_allowed": _as_bool(task194.get("trading_allowed")),
+        "task194_paper_trading_allowed": _as_bool(task194.get("paper_trading_allowed")),
+        "task194_ratio_analytics_readiness_contract_valid": task194_contract,
+        "task194_ratio_analytics_readiness_gate_checksum_sha256": str(task194.get("ratio_analytics_readiness_gate_checksum_sha256") or ""),
+        "task194_database_mutated": _as_bool(task194.get("database_mutated")),
+        "task194_migration_executed": _as_bool(task194.get("migration_executed")),
+        "task194_import_executed": _as_bool(task194.get("import_executed")),
+        "task194_scoring_executed": _as_bool(task194.get("scoring_executed")),
+        "task194_trading_executed": _as_bool(task194.get("trading_executed")),
+        "task194_paper_trading_executed": _as_bool(task194.get("paper_trading_executed")),
+        "task194_recommendation_generated": _as_bool(task194.get("recommendation_generated")),
+        "task194_methodology_patch_executed": _as_bool(task194.get("methodology_patch_executed")),
+        "task194_verification_executed": _as_bool(task194.get("verification_executed")),
+        "task194_interpretation_review_executed": _as_bool(task194.get("interpretation_review_executed")),
+        "task194_analytics_readiness_gate_executed": _as_bool(task194.get("analytics_readiness_gate_executed")),
+        "task194_bad_safety_count": int(task194.get("bad_safety_count") or 0),
+        "task194_blocker_count": int(task194.get("blocker_count") or 0),
+        "task193_input_path": str(inputs.get("task193") or ""),
+        "task193_status": str(task193.get("status") or ""),
+        "task193_patched_ratio_interpretation_review_status": str(task193.get("patched_ratio_interpretation_review_status") or ""),
+        "task193_patched_ratio_interpretation_review_checksum_sha256": str(task193.get("patched_ratio_interpretation_review_checksum_sha256") or ""),
+        "task193_database_mutated": _as_bool(task193.get("database_mutated")),
+        "task193_migration_executed": _as_bool(task193.get("migration_executed")),
+        "task193_import_executed": _as_bool(task193.get("import_executed")),
+        "task193_scoring_executed": _as_bool(task193.get("scoring_executed")),
+        "task193_trading_executed": _as_bool(task193.get("trading_executed")),
+        "task193_paper_trading_executed": _as_bool(task193.get("paper_trading_executed")),
+        "task193_recommendation_generated": _as_bool(task193.get("recommendation_generated")),
+        "task193_methodology_patch_executed": _as_bool(task193.get("methodology_patch_executed")),
+        "task193_verification_executed": _as_bool(task193.get("verification_executed")),
+        "task193_bad_safety_count": int(task193.get("bad_safety_count") or 0),
+        "task193_blocker_count": int(task193.get("blocker_count") or 0),
+        "company_id": company_id,
+        "company_name": company_name,
+        "report_year": report_year,
+        "report_standard": report_standard,
+        "currency": currency,
+        "unit": unit,
+        "source_analytics_candidate_count": len(source_candidates),
+        "source_analytics_blocked_count": len(source_blocked),
+        "source_methodology_action_count": len(source_actions),
+        "dataset_preview_year": report_year,
+        "dataset_preview_standard": report_standard,
+        "dataset_preview_currency": currency,
+        "dataset_preview_unit": unit,
+        "analytics_dataset_rows": analytics_dataset_rows,
+        "analytics_excluded_rows": analytics_excluded_rows,
+        "analytics_methodology_action_rows": source_actions,
+        "dataset_preview_check_rows": check_rows,
+        "dataset_candidate_source_match": dataset_candidate_source_match,
+        "excluded_rows_source_match": excluded_rows_source_match,
+        "methodology_actions_source_match": methodology_actions_source_match,
+        "dataset_preview_contract_valid": not blocker_rows and bool(checksum),
+        "dataset_preview_non_scoring": dataset_safety and excluded_safety,
+        "dataset_preview_recommendations_disabled": dataset_safety and excluded_safety,
+        "dataset_preview_trading_disabled": dataset_safety and excluded_safety,
+        "dataset_preview_paper_trading_disabled": dataset_safety and excluded_safety,
+        "dataset_fingerprint_sha256": str(task194.get("dataset_fingerprint_sha256") or ""),
+        "source_read_model_checksum_sha256": str(task194.get("source_read_model_checksum_sha256") or ""),
+        "source_normalization_checksum_sha256": str(task194.get("source_normalization_checksum_sha256") or ""),
+        "source_original_ratio_preview_checksum_sha256": str(task194.get("source_original_ratio_preview_checksum_sha256") or ""),
+        "source_interpretation_review_checksum_sha256": str(task194.get("source_interpretation_review_checksum_sha256") or ""),
+        "source_patch_plan_checksum_sha256": str(task194.get("source_patch_plan_checksum_sha256") or ""),
+        "source_patch_apply_checksum_sha256": str(task194.get("source_patch_apply_checksum_sha256") or ""),
+        "source_patched_ratio_preview_verification_checksum_sha256": str(task194.get("source_patched_ratio_preview_verification_checksum_sha256") or ""),
+        "source_patched_ratio_interpretation_review_checksum_sha256": str(task194.get("source_patched_ratio_interpretation_review_checksum_sha256") or ""),
+        "source_ratio_analytics_readiness_gate_checksum_sha256": str(task194.get("ratio_analytics_readiness_gate_checksum_sha256") or ""),
+        "ratio_analytics_dataset_preview_checksum_sha256": checksum,
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_ratio_analytics_dataset_preview_safety_flags(),
+        **_rzd_controlled_values_ratio_analytics_dataset_preview_safety_flags(),
+        "database_mutated": False,
+        "migration_executed": False,
+        "import_executed": False,
+        "scoring_executed": False,
+        "trading_executed": False,
+        "paper_trading_executed": False,
+        "recommendation_generated": False,
+        "methodology_patch_executed": False,
+        "verification_executed": False,
+        "interpretation_review_executed": False,
+        "analytics_readiness_gate_executed": False,
+        "analytics_dataset_preview_executed": True,
+        "safe_hint": "Task195 is read-only and creates only a non-scoring ratio analytics dataset preview.",
+        "next_step": "Task196 вЂ” Ratio Analytics Dataset Review Gate",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview", status),
+        "errors": [],
+    }
+    _rzd_controlled_values_ratio_analytics_dataset_preview_normalize_report(report)
+    return report
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_controlled_values_ratio_analytics_dataset_preview_blocker_row(
+            str(error.get("message") or "controlled_values_ratio_analytics_dataset_preview_failed"),
+            details=dict(error),
+        )
+        for error in errors
+    ]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview",
+        "status": "failed",
+        "ratio_analytics_dataset_preview_status": "failed",
+        "expected_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
+        "expected_table": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
+        "expected_import_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
+        "analytics_dataset_rows": [],
+        "analytics_excluded_rows": [],
+        "analytics_methodology_action_rows": [],
+        "dataset_preview_check_rows": [],
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_ratio_analytics_dataset_preview_safety_flags(),
+        **_rzd_controlled_values_ratio_analytics_dataset_preview_safety_flags(),
+        "database_mutated": False,
+        "migration_executed": False,
+        "import_executed": False,
+        "scoring_executed": False,
+        "trading_executed": False,
+        "paper_trading_executed": False,
+        "recommendation_generated": False,
+        "methodology_patch_executed": False,
+        "verification_executed": False,
+        "interpretation_review_executed": False,
+        "analytics_readiness_gate_executed": False,
+        "analytics_dataset_preview_executed": True,
+        "safe_hint": "Task195 failed before producing a usable dataset preview; no mutation, scoring, recommendation, or trading occurred.",
+        "next_step": "Task196 вЂ” Ratio Analytics Dataset Review Gate",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview", "failed"),
+        "errors": errors,
+    }
+    _rzd_controlled_values_ratio_analytics_dataset_preview_normalize_report(report)
+    if write_outputs:
+        try:
+            _rzd_controlled_values_ratio_analytics_dataset_preview_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_ratio_analytics_dataset_preview_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_preview_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("preview_json"):
+        write_json_report(report, artifacts["preview_json"])
+    if artifacts.get("preview_markdown"):
+        write_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_markdown(report, artifacts["preview_markdown"])
+    if artifacts.get("checks_json"):
+        write_json_report({"dataset_preview_check_count": len(report.get("dataset_preview_check_rows") or []), "dataset_preview_check_rows": report.get("dataset_preview_check_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["checks_json"])
+    if artifacts.get("blockers_json"):
+        write_json_report({"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
+    if artifacts.get("dataset_rows_json"):
+        write_json_report({
+            "dataset_preview_row_count": report.get("dataset_preview_row_count", 0),
+            "dataset_preview_ratio_key_count": report.get("dataset_preview_ratio_key_count", 0),
+            "dataset_preview_category_count": report.get("dataset_preview_category_count", 0),
+            "analytics_dataset_rows": report.get("analytics_dataset_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["dataset_rows_json"])
+    if artifacts.get("excluded_rows_json"):
+        write_json_report({
+            "excluded_ratio_count": report.get("excluded_ratio_count", 0),
+            "excluded_ratio_key_count": report.get("excluded_ratio_key_count", 0),
+            "excluded_review_blocked_count": report.get("excluded_review_blocked_count", 0),
+            "excluded_source_blocked_count": report.get("excluded_source_blocked_count", 0),
+            "excluded_policy_blocked_count": report.get("excluded_policy_blocked_count", 0),
+            "analytics_excluded_rows": report.get("analytics_excluded_rows") or [],
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["excluded_rows_json"])
+    if artifacts.get("methodology_actions_json"):
+        write_json_report({
+            "methodology_action_count": report.get("methodology_action_count", 0),
+            "methodology_action_key_count": report.get("methodology_action_key_count", 0),
+            "analytics_methodology_action_rows": report.get("analytics_methodology_action_rows") or [],
+            "methodology_actions_source_match": report.get("methodology_actions_source_match", False),
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["methodology_actions_json"])
+    if artifacts.get("summary_json"):
+        write_json_report({
+            "source_analytics_candidate_count": report.get("source_analytics_candidate_count", 0),
+            "source_analytics_blocked_count": report.get("source_analytics_blocked_count", 0),
+            "source_methodology_action_count": report.get("source_methodology_action_count", 0),
+            "dataset_preview_row_count": report.get("dataset_preview_row_count", 0),
+            "dataset_preview_ratio_key_count": report.get("dataset_preview_ratio_key_count", 0),
+            "excluded_ratio_count": report.get("excluded_ratio_count", 0),
+            "methodology_action_count": report.get("methodology_action_count", 0),
+            "dataset_candidate_source_match": report.get("dataset_candidate_source_match", False),
+            "excluded_rows_source_match": report.get("excluded_rows_source_match", False),
+            "dataset_preview_contract_valid": report.get("dataset_preview_contract_valid", False),
+            "ratio_analytics_dataset_preview_checksum_sha256": report.get("ratio_analytics_dataset_preview_checksum_sha256", ""),
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["summary_json"])
+    if artifacts.get("safety_json"):
+        write_json_report({
+            "database_mutated": False,
+            "migration_executed": False,
+            "import_executed": False,
+            "scoring_executed": False,
+            "trading_executed": False,
+            "paper_trading_executed": False,
+            "recommendation_generated": False,
+            "methodology_patch_executed": False,
+            "verification_executed": False,
+            "interpretation_review_executed": False,
+            "analytics_readiness_gate_executed": False,
+            "analytics_dataset_preview_executed": report.get("analytics_dataset_preview_executed", False),
+            "ready_for_ratio_analytics_dataset_review_gate": report.get("ready_for_ratio_analytics_dataset_review_gate", False),
+            "ready_for_task196_ratio_analytics_dataset_review_gate": report.get("ready_for_task196_ratio_analytics_dataset_review_gate", False),
+            "ready_for_scoring": False,
+            "ready_for_trading": False,
+            "ready_for_paper_trading": False,
+            "safety_flags": report.get("safety_flags") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["safety_json"])
+
+
+def run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_controlled_values_ratio_analytics_dataset_preview_inputs(args)
+    artifacts = _rzd_controlled_values_ratio_analytics_dataset_preview_artifacts(args)
+    output_errors = _rzd_controlled_values_ratio_analytics_dataset_preview_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_controlled_values_ratio_analytics_dataset_preview_failed_report(output_errors, artifacts=artifacts, write_outputs=False)
+    try:
+        task194 = _load_json_object(inputs["task194"]) if inputs.get("task194") and inputs["task194"].is_file() else {}
+        task193 = _load_json_object(inputs["task193"]) if inputs.get("task193") and inputs["task193"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_controlled_values_ratio_analytics_dataset_preview_failed_report(
+            [{"message": "controlled_values_ratio_analytics_dataset_preview_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_controlled_values_ratio_analytics_dataset_preview_report(
+        task194,
+        task193=task193,
+        inputs=inputs,
+        args=args,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_controlled_values_ratio_analytics_dataset_preview_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["ratio_analytics_dataset_preview_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_ratio_analytics_dataset_preview_write_failed", "error": str(exc)}]
+        _rzd_controlled_values_ratio_analytics_dataset_preview_normalize_report(report)
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -74427,6 +75263,11 @@ def write_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_ga
     path.write_text(render_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -74738,6 +75579,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_patched_ratio_interpretation_review_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate":
         return render_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_gate_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview":
+        return render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -81810,6 +82653,99 @@ def render_rzd_manual_official_pdf_controlled_values_ratio_analytics_readiness_g
         "## Blockers",
         "",
     ])
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_preview_markdown(report: dict[str, Any]) -> str:
+    if report.get("blocker_rows"):
+        decision = "Ratio analytics dataset preview is blocked. Resolve upstream, row-contract, or safety blockers before Task196."
+    else:
+        decision = (
+            "Ratio analytics dataset preview completed using only Task194 analytics candidate rows.\n\n"
+            "Excluded ratios remain blocked exactly as Task194 decided.\n\n"
+            "The preview dataset is allowed only for future non-scoring analytics review.\n\n"
+            "Scoring, investment recommendations, trading, and paper trading remain blocked."
+        )
+    dataset_keys = ", ".join(str(row.get("ratio_key") or "") for row in report.get("analytics_dataset_rows") or [])
+    excluded_keys = ", ".join(str(row.get("ratio_key") or "") for row in report.get("analytics_excluded_rows") or [])
+    action_types = ", ".join(str(row.get("action_type") or "") for row in report.get("analytics_methodology_action_rows") or [])
+    lines = [
+        "# RZD Controlled Values Ratio Analytics Dataset Preview",
+        "",
+        "## Input chain",
+        "",
+        f"- Task194 input: `{report.get('task194_input_path')}`",
+        f"- Task193 input: `{report.get('task193_input_path')}`",
+        f"- expected revision: `{report.get('expected_revision')}`",
+        f"- expected table: `{report.get('expected_table')}`",
+        f"- expected imported row count: `{report.get('expected_import_row_count')}`",
+        "",
+        "## Task194 readiness summary",
+        "",
+        f"- Task194 status: `{report.get('task194_status')}` / `{report.get('task194_ratio_analytics_readiness_gate_status')}`",
+        f"- Task194 candidate rows: `{report.get('task194_analytics_candidate_count')}`",
+        f"- Task194 blocked rows: `{report.get('task194_analytics_blocked_count')}`",
+        f"- Task194 methodology actions: `{report.get('task194_source_methodology_action_count')}`",
+        f"- Task194 contract valid: `{report.get('task194_ratio_analytics_readiness_contract_valid')}`",
+        "",
+        "## Dataset rows",
+        "",
+        f"- dataset row count: `{report.get('dataset_preview_row_count')}`",
+        f"- ratio key count: `{report.get('dataset_preview_ratio_key_count')}`",
+        f"- ratio keys: {dataset_keys or 'none'}",
+        "",
+        "## Excluded rows",
+        "",
+        f"- excluded ratio count: `{report.get('excluded_ratio_count')}`",
+        f"- review-blocked count: `{report.get('excluded_review_blocked_count')}`",
+        f"- source-blocked count: `{report.get('excluded_source_blocked_count')}`",
+        f"- ratio keys: {excluded_keys or 'none'}",
+        "",
+        "## Methodology actions",
+        "",
+        f"- methodology action count: `{report.get('methodology_action_count')}`",
+        f"- action types: {action_types or 'none'}",
+        "",
+        "## Numeric parsing and deltas",
+        "",
+        f"- dataset preview currency: `{report.get('dataset_preview_currency')}`",
+        f"- dataset preview unit: `{report.get('dataset_preview_unit')}`",
+        "- Numeric values are parsed only for descriptive preview deltas; no score, rank, recommendation, or trade signal is generated.",
+        "",
+        "## Safety",
+        "",
+        "No migration was executed by Task195.",
+        "No Alembic command was executed by Task195.",
+        "No database mutation was performed by Task195.",
+        "No rows were inserted by Task195.",
+        "No rows were updated by Task195.",
+        "No rows were deleted by Task195.",
+        "No scoring was executed by Task195.",
+        "No trading or paper trading was executed by Task195.",
+        "No investment recommendation was generated by Task195.",
+        "No methodology patch was executed by Task195.",
+        "",
+        "## Checksums",
+        "",
+        f"- source readiness checksum: `{report.get('source_ratio_analytics_readiness_gate_checksum_sha256')}`",
+        f"- dataset preview checksum: `{report.get('ratio_analytics_dataset_preview_checksum_sha256')}`",
+        "",
+        "## Decision",
+        "",
+        decision,
+        "",
+        "## Next step",
+        "",
+        str(report.get("next_step") or ""),
+        "",
+        "## Blockers",
+        "",
+    ]
     blockers = report.get("blocker_rows") or []
     if blockers:
         lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
@@ -92841,6 +93777,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use Task193 output only for a future ratio analytics readiness gate; scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-readiness-gate":
         return ["Use Task194 output only for a future non-scoring ratio analytics dataset preview; scoring, recommendations, trading, and paper trading remain blocked."]
+    if mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview":
+        return ["Use Task195 output only for a future non-scoring ratio analytics dataset review gate; scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -93219,6 +94157,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_controlled_values_ratio_analytics_readiness_gate_inputs(args),
             artifacts=_rzd_controlled_values_ratio_analytics_readiness_gate_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-preview":
+        return not _rzd_controlled_values_ratio_analytics_dataset_preview_output_errors(
+            args,
+            inputs=_rzd_controlled_values_ratio_analytics_dataset_preview_inputs(args),
+            artifacts=_rzd_controlled_values_ratio_analytics_dataset_preview_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
