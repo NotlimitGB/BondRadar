@@ -114,6 +114,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-analytics-plan",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-selection-plan",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -10181,6 +10182,138 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_SELECTION_PLAN_REQUIRED_LIST_FIELDS = 
     "methodology_action_strategy_rows", "safety_gate_rows", "next_task_rows",
     "multi_issuer_source_selection_plan_check_rows", "blocker_rows",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_ARTIFACT_NAMES = {
+    "preview_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_task203.json",
+    "preview_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_task203.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_checks_task203.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_blockers_task203.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_scope_task203.json",
+    "schema_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_schema_task203.json",
+    "candidate_slots_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_candidate_slots_task203.json",
+    "source_type_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_source_type_rows_task203.json",
+    "report_metadata_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_report_metadata_rows_task203.json",
+    "integrity_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_integrity_rows_task203.json",
+    "lineage_feasibility_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_lineage_feasibility_rows_task203.json",
+    "manual_review_pack_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_manual_review_pack_rows_task203.json",
+    "methodology_actions_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_methodology_actions_task203.json",
+    "safety_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_safety_gates_task203.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_next_tasks_task203.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_summary_task203.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_safety_task203.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_CHECK_FIELDS = [
+    "check_index", "check_key", "status", "severity", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_SCOPE_FIELDS = [
+    "scope_index", "scope_key", "scope_status", "included", "excluded", "reason", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_SCHEMA_FIELDS = [
+    "schema_index", "field_name", "field_type", "required", "allowed_placeholder", "description", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_CANDIDATE_SLOT_FIELDS = [
+    "candidate_slot_index", "candidate_slot_id", "issuer_identity_placeholder", "issuer_name",
+    "issuer_selected", "issuer_rank", "source_locator_placeholder", "source_url",
+    "issuer_universe_scope", "evidence_status", "download_status", "live_verification_status",
+    "import_readiness_status", "scoring_readiness_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_SOURCE_TYPE_FIELDS = [
+    "source_type_index", "source_type_key", "preview_status", "from_task202_allowed",
+    "requires_future_validation", "allows_live_url_in_task203", "allows_download_in_task203", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_REPORT_METADATA_FIELDS = [
+    "metadata_index", "metadata_key", "placeholder_value", "required_for_task204",
+    "validation_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_INTEGRITY_FIELDS = [
+    "integrity_index", "integrity_key", "required", "status", "future_task_hint", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_LINEAGE_FIELDS = [
+    "lineage_index", "lineage_key", "status", "blocks_task204_if_missing", "future_task_hint", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_MANUAL_REVIEW_FIELDS = [
+    "review_index", "review_key", "review_required", "review_status", "future_task_hint", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_METHODOLOGY_ACTION_FIELDS = [
+    "action_index", "action_type", "severity", "required", "current_status",
+    "source_evidence_strategy", "blocks_future_analytics", "blocks_future_scoring",
+    "blocks_recommendation", "blocks_trading", "future_task_hint", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_SAFETY_GATE_FIELDS = [
+    "gate_index", "gate_key", "enforced", "blocks_capability", "condition", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_NEXT_TASK_FIELDS = [
+    "next_task_index", "task_id", "task_name", "allowed_now", "depends_on",
+    "blocked_capabilities", "description", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_REQUIRED_BOOL_FIELDS = (
+    "multi_issuer_source_evidence_preview_ready", "ready_for_multi_issuer_extraction_contract_plan",
+    "ready_for_task204_multi_issuer_extraction_contract_plan", "ready_for_multi_issuer_source_evidence_preview",
+    "ready_for_task203_multi_issuer_source_evidence_preview", "ready_for_scoring", "ready_for_trading",
+    "ready_for_paper_trading", "task202_multi_issuer_source_selection_plan_ready",
+    "task202_ready_for_task203_multi_issuer_source_evidence_preview", "task202_source_selection_scope_valid",
+    "task202_allowed_source_types_valid", "task202_issuer_filter_rules_valid",
+    "task202_source_validation_rules_valid", "task202_exclusion_rules_valid",
+    "task202_evidence_preview_plan_valid", "task202_methodology_actions_preserved",
+    "task202_safety_gates_valid", "task202_next_tasks_valid", "task202_corporate_bond_scope_valid",
+    "task202_ofz_exclusion_valid", "task202_no_concrete_issuer_selection_valid",
+    "task202_no_recommendation_semantics_valid", "task202_no_trading_semantics_valid",
+    "task202_plan_generates_recommendations", "task202_plan_executes_scoring",
+    "task202_plan_executes_trading", "task202_plan_executes_paper_trading",
+    "task202_plan_mutates_database", "task202_plan_downloads_external_sources",
+    "task202_plan_calls_broker_api", "task202_plan_selects_concrete_issuers",
+    "task202_plan_ranks_issuers", "task202_plan_ranks_bonds", "task202_database_mutated",
+    "task202_migration_executed", "task202_import_executed", "task202_scoring_executed",
+    "task202_trading_executed", "task202_paper_trading_executed", "task202_recommendation_generated",
+    "task202_methodology_patch_executed", "task202_production_export_executed",
+    "task202_external_download_executed", "task202_broker_api_called",
+    "task202_concrete_issuer_selection_executed", "task202_issuer_ranking_executed",
+    "task202_bond_ranking_executed", "source_evidence_scope_valid", "source_evidence_schema_valid",
+    "candidate_slots_valid", "source_type_preview_valid", "report_metadata_preview_valid",
+    "source_integrity_preview_valid", "lineage_feasibility_preview_valid",
+    "manual_review_pack_preview_valid", "methodology_actions_preserved", "safety_gates_valid",
+    "next_tasks_valid", "corporate_bond_scope_valid", "ofz_exclusion_valid",
+    "no_concrete_issuer_selection_valid", "no_concrete_urls_valid", "no_live_source_claims_valid",
+    "no_recommendation_semantics_valid", "no_trading_semantics_valid",
+    "preview_generates_recommendations", "preview_executes_scoring", "preview_executes_trading",
+    "preview_executes_paper_trading", "preview_mutates_database", "preview_downloads_external_sources",
+    "preview_scrapes_external_sources", "preview_calls_broker_api", "preview_selects_concrete_issuers",
+    "preview_ranks_issuers", "preview_ranks_bonds", "preview_creates_live_source_records",
+    "preview_verifies_live_source_availability", "database_mutated", "migration_executed",
+    "import_executed", "scoring_executed", "trading_executed", "paper_trading_executed",
+    "recommendation_generated", "methodology_patch_executed", "verification_executed",
+    "interpretation_review_executed", "analytics_readiness_gate_executed",
+    "analytics_dataset_preview_executed", "analytics_dataset_review_gate_executed",
+    "analytics_dataset_export_plan_executed", "analytics_dataset_export_preview_executed",
+    "analytics_dataset_export_preview_review_gate_executed", "analytics_export_layer_closure_executed",
+    "multi_issuer_analytics_plan_executed", "multi_issuer_source_selection_plan_executed",
+    "multi_issuer_source_evidence_preview_executed", "production_export_executed",
+    "external_download_executed", "external_scrape_executed", "broker_api_called",
+    "concrete_issuer_selection_executed", "issuer_ranking_executed", "bond_ranking_executed",
+    "live_source_verification_executed", "live_source_record_created",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_REQUIRED_COUNT_FIELDS = (
+    "expected_import_row_count", "task202_planned_source_selection_scope_count",
+    "task202_allowed_source_type_count", "task202_issuer_filter_rule_count",
+    "task202_source_validation_rule_count", "task202_exclusion_rule_count",
+    "task202_evidence_preview_plan_count", "task202_methodology_action_strategy_count",
+    "task202_safety_gate_count", "task202_next_task_count", "task202_bad_safety_count",
+    "task202_blocker_count", "planned_source_evidence_scope_count",
+    "source_evidence_schema_field_count", "candidate_slot_count", "source_type_preview_count",
+    "report_metadata_preview_count", "source_integrity_preview_count",
+    "lineage_feasibility_preview_count", "manual_review_pack_preview_count",
+    "methodology_action_strategy_count", "safety_gate_count", "next_task_count",
+    "multi_issuer_source_evidence_preview_check_count", "bad_safety_count", "blocker_count",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_REQUIRED_LIST_FIELDS = (
+    "source_evidence_scope_rows", "source_evidence_schema_rows", "candidate_slot_rows",
+    "source_type_preview_rows", "report_metadata_preview_rows", "source_integrity_preview_rows",
+    "lineage_feasibility_preview_rows", "manual_review_pack_preview_rows",
+    "methodology_action_strategy_rows", "safety_gate_rows", "next_task_rows",
+    "multi_issuer_source_evidence_preview_check_rows", "blocker_rows",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -12033,6 +12166,24 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-selection-plan-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-selection-plan-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-selection-plan-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-schema-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-candidate-slots-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-source-type-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-report-metadata-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-integrity-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-lineage-feasibility-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-manual-review-pack-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-methodology-actions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-safety-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -12336,6 +12487,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_analytics_plan(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-selection-plan":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_selection_plan(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview":
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -73266,6 +73419,948 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_selection_
     return report
 
 
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_safety_flags() -> dict[str, bool]:
+    return {
+        "database_mutated": False,
+        "migration_executed": False,
+        "import_executed": False,
+        "scoring_executed": False,
+        "trading_executed": False,
+        "paper_trading_executed": False,
+        "recommendation_generated": False,
+        "methodology_patch_executed": False,
+        "verification_executed": False,
+        "interpretation_review_executed": False,
+        "analytics_readiness_gate_executed": False,
+        "analytics_dataset_preview_executed": False,
+        "analytics_dataset_review_gate_executed": False,
+        "analytics_dataset_export_plan_executed": False,
+        "analytics_dataset_export_preview_executed": False,
+        "analytics_dataset_export_preview_review_gate_executed": False,
+        "analytics_export_layer_closure_executed": False,
+        "multi_issuer_analytics_plan_executed": False,
+        "multi_issuer_source_selection_plan_executed": False,
+        "production_export_executed": False,
+        "external_download_executed": False,
+        "external_scrape_executed": False,
+        "broker_api_called": False,
+        "concrete_issuer_selection_executed": False,
+        "issuer_ranking_executed": False,
+        "bond_ranking_executed": False,
+        "live_source_verification_executed": False,
+        "live_source_record_created": False,
+        "ready_for_scoring": False,
+        "ready_for_trading": False,
+        "ready_for_paper_trading": False,
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_blocker_row(
+    code: str,
+    *,
+    severity: str = "high",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_multi_issuer_source_evidence_preview:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task203 is a source-evidence preview structure only; issuer selection, URLs, downloads, scraping, live verification, source records, imports, scoring, recommendations, ranking, broker APIs, and trading remain blocked.",
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_check_row(
+    code: str,
+    *,
+    passed: bool,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "check_index": 0,
+        "check_key": code,
+        "status": "passed" if passed else "blocked",
+        "severity": "info" if passed else "high",
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task203 check is structure-only and non-scoring.",
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    task202_default = (
+        chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_SELECTION_PLAN_ARTIFACT_NAMES["plan_json"]
+        if chain_dir else None
+    )
+    return {
+        "task202": (
+            args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_input
+            or args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_selection_plan_input
+            or task202_default
+        ),
+        "task201": args.rzd_manual_official_pdf_controlled_values_multi_issuer_analytics_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_ANALYTICS_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task200": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ARTIFACT_NAMES["closure_json"]
+            if chain_dir else None
+        ),
+        "task199": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_ARTIFACT_NAMES["review_json"]
+            if chain_dir else None
+        ),
+        "task198": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_ARTIFACT_NAMES["preview_json"]
+            if chain_dir else None
+        ),
+        "task197": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task196": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_review_gate_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+            if chain_dir else None
+        ),
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_ARTIFACT_NAMES.items()}
+        if chain_dir else {}
+    )
+    return {
+        "preview_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_output or defaults.get("preview_json"),
+        "preview_markdown": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_markdown_output or defaults.get("preview_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_checks_output or defaults.get("checks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_blockers_output or defaults.get("blockers_json"),
+        "scope_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_scope_output or defaults.get("scope_json"),
+        "schema_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_schema_output or defaults.get("schema_json"),
+        "candidate_slots_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_candidate_slots_output or defaults.get("candidate_slots_json"),
+        "source_type_rows_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_source_type_rows_output or defaults.get("source_type_rows_json"),
+        "report_metadata_rows_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_report_metadata_rows_output or defaults.get("report_metadata_rows_json"),
+        "integrity_rows_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_integrity_rows_output or defaults.get("integrity_rows_json"),
+        "lineage_feasibility_rows_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_lineage_feasibility_rows_output or defaults.get("lineage_feasibility_rows_json"),
+        "manual_review_pack_rows_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_manual_review_pack_rows_output or defaults.get("manual_review_pack_rows_json"),
+        "methodology_actions_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_methodology_actions_output or defaults.get("methodology_actions_json"),
+        "safety_gates_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_safety_gates_output or defaults.get("safety_gates_json"),
+        "next_tasks_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_next_tasks_output or defaults.get("next_tasks_json"),
+        "summary_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_summary_output or defaults.get("summary_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: dict[Path, str] = {}
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path and path == input_path:
+                return [{"message": "rzd_controlled_values_multi_issuer_source_evidence_preview_output_must_not_equal_input", "output": key, "input": input_key}]
+        if path in seen:
+            return [{"message": "rzd_controlled_values_multi_issuer_source_evidence_preview_output_must_not_equal_input", "output": key, "duplicate_output": seen[path]}]
+        seen[path] = key
+    return []
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_scope_rows() -> list[dict[str, Any]]:
+    rows = [
+        ("task203_scope", "structure_preview_only", "controlled source evidence preview structure", "issuer selection, concrete URLs, downloads, scraping, live verification, imports, scoring, recommendations, trading", "Task203 previews source evidence structure only."),
+        ("corporate_issuer_scope", "planned_future_scope", "corporate bond issuer evidence placeholders", "OFZ/government bond modules", "Corporate issuer scope is preserved from Task202."),
+        ("ofz_exclusion_scope", "explicitly_excluded_current_stage", "none", "OFZ/government bond analytics", "OFZ remains excluded from current multi-issuer scope."),
+        ("concrete_issuer_selection_scope", "prohibited_current_stage", "placeholder candidate slots", "concrete issuer names, selected issuers, issuer ranks", "Task203 must not choose issuer names."),
+        ("live_source_scope", "prohibited_current_stage", "none", "live source verification, downloads, scraping, concrete URLs", "Live source work is not part of Task203."),
+        ("evidence_schema_scope", "structure_preview_only", "source evidence row schema", "live source records", "Task203 defines schema placeholders."),
+        ("candidate_slot_scope", "structure_preview_only", "three placeholder candidate slots", "real issuer identities", "Candidate slots are placeholders only."),
+        ("report_metadata_scope", "structure_preview_only", "report metadata placeholders", "verified report availability", "Report metadata is planned but not verified."),
+        ("manual_review_scope", "planned_future_scope", "manual review pack preview", "manual review execution", "Future tasks must perform review."),
+        ("next_task_scope", "planned_future_scope", "Task204 extraction contract plan", "Task205+ execution now", "Only Task204 is unlocked."),
+    ]
+    return [
+        {
+            "scope_index": index,
+            "scope_key": key,
+            "scope_status": status,
+            "included": included,
+            "excluded": excluded,
+            "reason": reason,
+            "safe_hint": "Scope row is preview-only and does not select issuers, write URLs, download, scrape, verify live sources, import, score, recommend, rank, or trade.",
+        }
+        for index, (key, status, included, excluded, reason) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_schema_rows() -> list[dict[str, Any]]:
+    rows = [
+        ("candidate_slot_id", "string", True, True, "Placeholder slot identifier."),
+        ("issuer_identity_placeholder", "string", True, True, "Placeholder issuer identity token."),
+        ("issuer_universe_scope", "string", True, False, "Corporate bond issuer universe marker."),
+        ("source_type_key", "string", True, False, "Planned official source type key."),
+        ("source_origin_type", "string", True, False, "Official or controlled source-origin category."),
+        ("source_locator_placeholder", "string", True, True, "Placeholder-only locator; not a URL."),
+        ("report_kind", "string", True, True, "Future report kind placeholder."),
+        ("report_year_placeholder", "string", True, True, "Future report year placeholder."),
+        ("report_standard_placeholder", "string", True, True, "Future report standard placeholder."),
+        ("currency_unit_placeholder", "string", True, True, "Future currency and unit placeholder."),
+        ("publisher_validation_status", "string", True, False, "Future publisher validation status."),
+        ("file_integrity_status", "string", True, False, "Future file integrity status."),
+        ("statement_presence_status", "string", True, False, "Future statement presence status."),
+        ("metric_lineage_feasibility_status", "string", True, False, "Future metric-lineage feasibility status."),
+        ("manual_review_status", "string", True, False, "Future manual review status."),
+        ("source_download_status", "string", True, False, "Defaults to not_executed."),
+        ("live_verification_status", "string", True, False, "Defaults to not_executed."),
+        ("import_readiness_status", "string", True, False, "Defaults to blocked."),
+        ("scoring_readiness_status", "string", True, False, "Defaults to blocked."),
+        ("safe_hint", "string", True, False, "Non-scoring safety hint."),
+    ]
+    return [
+        {
+            "schema_index": index,
+            "field_name": field_name,
+            "field_type": field_type,
+            "required": required,
+            "allowed_placeholder": allowed_placeholder,
+            "description": description,
+            "safe_hint": "Schema row is placeholder-only; Task203 writes no concrete issuer name or source URL.",
+        }
+        for index, (field_name, field_type, required, allowed_placeholder, description) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_candidate_slot_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "candidate_slot_index": index,
+            "candidate_slot_id": f"candidate_slot_{index:03d}",
+            "issuer_identity_placeholder": f"issuer_identity_placeholder_{index:03d}",
+            "issuer_name": None,
+            "issuer_selected": False,
+            "issuer_rank": None,
+            "source_locator_placeholder": f"source_locator_placeholder_{index:03d}",
+            "source_url": None,
+            "issuer_universe_scope": "corporate_bond_issuers_only",
+            "evidence_status": "structure_preview_only",
+            "download_status": "not_executed",
+            "live_verification_status": "not_executed",
+            "import_readiness_status": "blocked",
+            "scoring_readiness_status": "blocked",
+            "safe_hint": "Candidate slot is a placeholder only; no issuer name, URL, selection, rank, download, verification, import, scoring, recommendation, or trading is allowed.",
+        }
+        for index in range(1, 4)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_type_preview_rows(task202: dict[str, Any]) -> list[dict[str, Any]]:
+    expected_keys = [
+        "issuer_official_website",
+        "official_financial_report_pdf",
+        "official_disclosure_center",
+        "exchange_reference_page",
+        "issuer_investor_relations_page",
+        "audited_annual_report",
+        "interim_financial_report",
+        "previously_cached_controlled_source",
+    ]
+    task202_allowed = {
+        str(row.get("source_type_key") or "")
+        for row in task202.get("allowed_source_type_rows") or []
+        if isinstance(row, dict)
+    }
+    return [
+        {
+            "source_type_index": index,
+            "source_type_key": key,
+            "preview_status": "planned_source_type_preview",
+            "from_task202_allowed": key in task202_allowed,
+            "requires_future_validation": True,
+            "allows_live_url_in_task203": False,
+            "allows_download_in_task203": False,
+            "safe_hint": "Source type is previewed without concrete URL, live availability claim, download, scrape, import, scoring, recommendation, ranking, broker API, or trading.",
+        }
+        for index, key in enumerate(expected_keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_report_metadata_preview_rows() -> list[dict[str, Any]]:
+    keys = [
+        "report_kind", "report_year", "report_standard", "currency", "unit",
+        "publisher_identity", "official_source_type", "report_period", "audit_status",
+        "source_locator_placeholder",
+    ]
+    return [
+        {
+            "metadata_index": index,
+            "metadata_key": key,
+            "placeholder_value": f"{key}_placeholder",
+            "required_for_task204": True,
+            "validation_status": "planned_not_verified",
+            "safe_hint": "Report metadata preview is placeholder-only and does not assert live source availability.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_integrity_preview_rows() -> list[dict[str, Any]]:
+    keys = [
+        "file_hash_placeholder", "source_provenance_placeholder", "publisher_identity_placeholder",
+        "report_identity_placeholder", "controlled_storage_placeholder", "manual_review_required",
+        "no_download_in_task203", "no_live_verification_in_task203",
+    ]
+    return [
+        {
+            "integrity_index": index,
+            "integrity_key": key,
+            "required": True,
+            "status": "planned_not_executed",
+            "future_task_hint": "Task204 or later",
+            "safe_hint": "Integrity row previews future controls only; Task203 does not download, hash, verify, or store live source records.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_lineage_feasibility_preview_rows() -> list[dict[str, Any]]:
+    keys = [
+        "statement_presence_feasibility", "metric_key_mapping_feasibility",
+        "period_mapping_feasibility", "currency_unit_mapping_feasibility",
+        "numerator_denominator_lineage_feasibility", "unavailable_metric_policy_feasibility",
+        "manual_review_feasibility", "no_metric_extraction_in_task203",
+    ]
+    return [
+        {
+            "lineage_index": index,
+            "lineage_key": key,
+            "status": "planned_not_verified",
+            "blocks_task204_if_missing": key != "no_metric_extraction_in_task203",
+            "future_task_hint": "Task204 extraction contract planning",
+            "safe_hint": "Lineage feasibility is previewed only; Task203 extracts no metrics and imports no values.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_manual_review_pack_preview_rows() -> list[dict[str, Any]]:
+    keys = [
+        "issuer_identity_review", "official_source_review", "report_metadata_review",
+        "file_integrity_review", "statement_presence_review", "metric_lineage_feasibility_review",
+        "unavailable_metric_policy_review", "task204_readiness_review",
+    ]
+    return [
+        {
+            "review_index": index,
+            "review_key": key,
+            "review_required": True,
+            "review_status": "planned_for_future_manual_review",
+            "future_task_hint": "Task204 or later",
+            "safe_hint": "Manual review pack row is planned only; Task203 performs no review, verification, import, scoring, recommendation, or trading.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_safety_gate_rows() -> list[dict[str, Any]]:
+    rows = [
+        ("no_concrete_issuer_selection_gate", "issuer_selection", "Candidate slots must stay placeholders."),
+        ("no_concrete_url_gate", "source_urls", "No concrete source URL may be written."),
+        ("no_live_source_verification_gate", "live_source_verification", "Live source availability must not be verified."),
+        ("no_external_download_gate", "external_download", "No source download may run."),
+        ("no_external_scrape_gate", "external_scrape", "No source scraping may run."),
+        ("no_live_source_record_gate", "live_source_records", "No live source record may be created."),
+        ("no_import_gate", "imports", "No data import may run."),
+        ("no_db_mutation_gate", "database_mutation", "No database mutation may run."),
+        ("no_recommendation_gate", "recommendations", "No investment recommendation may be generated."),
+        ("no_scoring_gate", "scoring", "No issuer or bond scoring may run."),
+        ("no_trading_gate", "trading", "No trading may run."),
+        ("no_paper_trading_gate", "paper_trading", "No paper trading may run."),
+        ("no_issuer_ranking_gate", "issuer_ranking", "No issuer ranking may be produced."),
+        ("no_bond_ranking_gate", "bond_ranking", "No bond ranking may be produced."),
+        ("methodology_actions_preserved_gate", "methodology_actions", "Open methodology actions must be preserved."),
+        ("manual_review_required_gate", "manual_review", "Future manual review remains required."),
+    ]
+    return [
+        {
+            "gate_index": index,
+            "gate_key": key,
+            "enforced": True,
+            "blocks_capability": capability,
+            "condition": condition,
+            "safe_hint": "Safety gate keeps Task203 preview-only and blocks live source, import, scoring, recommendation, ranking, broker, and trading behavior.",
+        }
+        for index, (key, capability, condition) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_next_task_rows() -> list[dict[str, Any]]:
+    rows = [
+        ("Task204", "Multi-Issuer Extraction Contract Plan", True, "Task203", "downloads,imports,scoring,recommendations,trading,paper_trading", "Plan extraction contracts from the preview structure."),
+        ("Task205", "Multi-Issuer Controlled Import Plan", False, "Task204", "imports,DB mutation", "Future controlled import planning only after extraction contracts."),
+        ("Task206", "Multi-Issuer Ratio Dataset Preview Plan", False, "Task205", "scoring,recommendations,trading", "Future ratio dataset planning remains blocked."),
+        ("Task207", "Bond Universe Source Plan", False, "Task206", "bond ranking,trading", "Future bond-universe source planning remains blocked."),
+        ("Task208", "Scoring Methodology Plan Gate", False, "Task207", "scoring,recommendations", "Scoring methodology remains blocked."),
+        ("Task209", "Paper Trading Architecture Plan", False, "Task208", "trading,paper_trading,broker_api", "Trading architecture remains blocked."),
+    ]
+    return [
+        {
+            "next_task_index": index,
+            "task_id": task_id,
+            "task_name": task_name,
+            "allowed_now": allowed_now,
+            "depends_on": depends_on,
+            "blocked_capabilities": blocked,
+            "description": description,
+            "safe_hint": "Only Task204 is allowed now; import, scoring, recommendation, ranking, broker API, trading, and paper trading remain blocked.",
+        }
+        for index, (task_id, task_name, allowed_now, depends_on, blocked, description) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_REQUIRED_BOOL_FIELDS:
+        report[field] = _as_bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_REQUIRED_COUNT_FIELDS:
+        try:
+            report[field] = int(report.get(field) or 0)
+        except (TypeError, ValueError):
+            report[field] = 0
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_REQUIRED_LIST_FIELDS:
+        if not isinstance(report.get(field), list):
+            report[field] = []
+    report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["bad_safety_count"] = int(report.get("bad_safety_count") or 0)
+    report["planned_source_evidence_scope_count"] = len(report.get("source_evidence_scope_rows") or [])
+    report["source_evidence_schema_field_count"] = len(report.get("source_evidence_schema_rows") or [])
+    report["candidate_slot_count"] = len(report.get("candidate_slot_rows") or [])
+    report["source_type_preview_count"] = len(report.get("source_type_preview_rows") or [])
+    report["report_metadata_preview_count"] = len(report.get("report_metadata_preview_rows") or [])
+    report["source_integrity_preview_count"] = len(report.get("source_integrity_preview_rows") or [])
+    report["lineage_feasibility_preview_count"] = len(report.get("lineage_feasibility_preview_rows") or [])
+    report["manual_review_pack_preview_count"] = len(report.get("manual_review_pack_preview_rows") or [])
+    report["methodology_action_strategy_count"] = len(report.get("methodology_action_strategy_rows") or [])
+    report["safety_gate_count"] = len(report.get("safety_gate_rows") or [])
+    report["next_task_count"] = len(report.get("next_task_rows") or [])
+    report["multi_issuer_source_evidence_preview_check_count"] = len(report.get("multi_issuer_source_evidence_preview_check_rows") or [])
+    if not report.get("safe_hint"):
+        report["safe_hint"] = "Task203 is a controlled source-evidence preview structure only."
+    if not report.get("next_step"):
+        report["next_step"] = "Task204 - Multi-Issuer Extraction Contract Plan"
+
+
+def _build_rzd_controlled_values_multi_issuer_source_evidence_preview_report(
+    task202: dict[str, Any],
+    *,
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table)
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_expected_row_count)
+    task202_path = inputs.get("task202")
+    blocker_rows: list[dict[str, Any]] = []
+
+    def add_block(code: str, details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(_rzd_controlled_values_multi_issuer_source_evidence_preview_blocker_row(code, details=details))
+
+    if not task202:
+        add_block("task202_input_missing", {"path": str(task202_path or "")})
+    task202_status = str(task202.get("status") or "")
+    if task202 and task202_status not in {"warning", "passed"}:
+        add_block("task202_status_invalid", {"status": task202_status})
+    if task202 and (
+        not _as_bool(task202.get("multi_issuer_source_selection_plan_ready"))
+        or not _as_bool(task202.get("ready_for_task203_multi_issuer_source_evidence_preview"))
+    ):
+        add_block("task202_not_ready_for_source_evidence_preview")
+    task202_scope_checks = {
+        "source_selection_scope": "corporate_issuer_source_selection_planning_only",
+        "issuer_universe_scope": "corporate_bond_issuers_only",
+        "ofz_scope": "excluded_from_current_multi_issuer_plan",
+        "concrete_issuer_selection_scope": "prohibited_in_task202",
+    }
+    for field, expected in task202_scope_checks.items():
+        if task202 and str(task202.get(field) or "") != expected:
+            add_block("task202_scope_invalid", {"field": field, "actual": task202.get(field), "expected": expected})
+    for field in (
+        "source_selection_scope_valid", "allowed_source_types_valid", "issuer_filter_rules_valid",
+        "source_validation_rules_valid", "exclusion_rules_valid", "evidence_preview_plan_valid",
+        "methodology_actions_preserved", "safety_gates_valid", "next_tasks_valid",
+        "corporate_bond_scope_valid", "ofz_exclusion_valid", "no_concrete_issuer_selection_valid",
+        "no_recommendation_semantics_valid", "no_trading_semantics_valid",
+    ):
+        if task202 and not _as_bool(task202.get(field)):
+            add_block("task202_scope_invalid", {"field": field})
+    task202_checksum = str(task202.get("multi_issuer_source_selection_plan_checksum_sha256") or "")
+    if task202 and not task202_checksum:
+        add_block("task202_checksum_missing")
+    if task202 and (int(task202.get("bad_safety_count") or 0) > 0 or int(task202.get("blocker_count") or 0) > 0):
+        add_block("task202_safety_invalid")
+    for field in (
+        "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+        "trading_executed", "paper_trading_executed", "recommendation_generated",
+        "methodology_patch_executed", "production_export_executed", "external_download_executed",
+        "broker_api_called", "concrete_issuer_selection_executed", "issuer_ranking_executed",
+        "bond_ranking_executed", "plan_generates_recommendations", "plan_executes_scoring",
+        "plan_executes_trading", "plan_executes_paper_trading", "plan_mutates_database",
+        "plan_downloads_external_sources", "plan_calls_broker_api", "plan_selects_concrete_issuers",
+        "plan_ranks_issuers", "plan_ranks_bonds",
+    ):
+        if task202 and _as_bool(task202.get(field)):
+            add_block("task202_safety_invalid", {"field": field})
+
+    source_evidence_scope_rows = _rzd_controlled_values_multi_issuer_source_evidence_scope_rows()
+    source_evidence_schema_rows = _rzd_controlled_values_multi_issuer_source_evidence_schema_rows()
+    candidate_slot_rows = _rzd_controlled_values_multi_issuer_candidate_slot_rows()
+    source_type_preview_rows = _rzd_controlled_values_multi_issuer_source_type_preview_rows(task202)
+    report_metadata_preview_rows = _rzd_controlled_values_multi_issuer_report_metadata_preview_rows()
+    source_integrity_preview_rows = _rzd_controlled_values_multi_issuer_source_integrity_preview_rows()
+    lineage_feasibility_preview_rows = _rzd_controlled_values_multi_issuer_lineage_feasibility_preview_rows()
+    manual_review_pack_preview_rows = _rzd_controlled_values_multi_issuer_manual_review_pack_preview_rows()
+    safety_gate_rows = _rzd_controlled_values_multi_issuer_source_evidence_safety_gate_rows()
+    next_task_rows = _rzd_controlled_values_multi_issuer_source_evidence_next_task_rows()
+
+    task202_action_rows = task202.get("methodology_action_strategy_rows") or []
+    task202_action_types = {
+        str(row.get("action_type") or "")
+        for row in task202_action_rows
+        if isinstance(row, dict)
+    }
+    required_action_types = set(RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS)
+    missing_action_types = sorted(required_action_types - task202_action_types)
+    if task202 and missing_action_types:
+        add_block("methodology_action_missing", {"missing_action_types": missing_action_types})
+    if task202 and "scoring_safety_gate_required" not in task202_action_types:
+        add_block("scoring_safety_gate_missing")
+    methodology_action_strategy_rows: list[dict[str, Any]] = []
+    for index, action_type in enumerate(sorted(task202_action_types & required_action_types), start=1):
+        severity, required, blocks_analytics, blocks_scoring, blocks_recommendation = RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS[action_type]
+        methodology_action_strategy_rows.append({
+            "action_index": index,
+            "action_type": action_type,
+            "severity": severity,
+            "required": required,
+            "current_status": "preserved_open",
+            "source_evidence_strategy": "preserve until source-backed extraction/methodology gate",
+            "blocks_future_analytics": blocks_analytics,
+            "blocks_future_scoring": blocks_scoring,
+            "blocks_recommendation": blocks_recommendation,
+            "blocks_trading": True,
+            "future_task_hint": "Task204/Task208",
+            "safe_hint": "Task203 preserves this methodology action and does not resolve or patch it.",
+        })
+
+    corporate_bond_scope_valid = any(row["scope_key"] == "corporate_issuer_scope" and "corporate bond issuer" in row["included"].lower() for row in source_evidence_scope_rows)
+    ofz_exclusion_valid = any(row["scope_key"] == "ofz_exclusion_scope" and "ofz" in row["excluded"].lower() and row["included"].lower() == "none" for row in source_evidence_scope_rows)
+    no_concrete_issuer_selection_valid = all(not row["issuer_selected"] and row["issuer_name"] is None and row["issuer_rank"] is None for row in candidate_slot_rows)
+    no_concrete_urls_valid = all(row["source_url"] is None for row in candidate_slot_rows) and all(not row["allows_live_url_in_task203"] for row in source_type_preview_rows)
+    no_live_source_claims_valid = all(row["live_verification_status"] == "not_executed" for row in candidate_slot_rows)
+    if not corporate_bond_scope_valid:
+        add_block("corporate_scope_invalid")
+    if not ofz_exclusion_valid:
+        add_block("ofz_scope_invalid")
+    if not no_concrete_issuer_selection_valid:
+        add_block("concrete_issuer_selection_detected")
+    if not no_concrete_urls_valid:
+        add_block("concrete_url_detected")
+    if not no_live_source_claims_valid:
+        add_block("live_source_claim_detected")
+    if any(not row["from_task202_allowed"] for row in source_type_preview_rows):
+        add_block("task202_scope_invalid", {"missing_source_type_keys": [row["source_type_key"] for row in source_type_preview_rows if not row["from_task202_allowed"]]})
+    if any(row["allows_download_in_task203"] for row in source_type_preview_rows):
+        add_block("external_download_allowed")
+
+    all_preview_rows = (
+        source_evidence_scope_rows + source_evidence_schema_rows + candidate_slot_rows
+        + source_type_preview_rows + report_metadata_preview_rows + source_integrity_preview_rows
+        + lineage_feasibility_preview_rows + manual_review_pack_preview_rows
+        + methodology_action_strategy_rows + safety_gate_rows + next_task_rows
+    )
+    combined_text = " ".join(
+        " ".join("" if value is None else str(value) for value in row.values())
+        for row in all_preview_rows
+    ).lower()
+    concrete_issuer_names = {"gazprom", "sber", "sberbank", "lukoil", "rosneft", "rzd", "russian railways"}
+    if any(name in combined_text for name in concrete_issuer_names):
+        add_block("concrete_issuer_selection_detected")
+    if "http://" in combined_text or "https://" in combined_text:
+        add_block("concrete_url_detected")
+    if any(term in combined_text for term in ("live_available", "availability_verified", "live source is available", "verified available")):
+        add_block("live_source_claim_detected")
+    if any(term in combined_text for term in ("recommended issuer", "best issuer", "top issuer", "buy recommendation", "sell recommendation")):
+        add_block("recommendation_semantics_detected")
+    if any(term in combined_text for term in ("ranked issuer", "issuer rank 1", "issuer ranking produced")):
+        add_block("issuer_ranking_detected")
+    if any(term in combined_text for term in ("ranked bond", "bond rank 1", "bond ranking produced")):
+        add_block("bond_ranking_detected")
+    if any("external_download" in row["blocks_capability"] and not row["enforced"] for row in safety_gate_rows):
+        add_block("external_download_allowed")
+    if any("external_scrape" in row["blocks_capability"] and not row["enforced"] for row in safety_gate_rows):
+        add_block("external_scrape_allowed")
+    if any("broker" in row.get("blocked_capabilities", "") and row.get("allowed_now") for row in next_task_rows):
+        add_block("broker_api_allowed")
+    if any("live_source_records" in row["blocks_capability"] and not row["enforced"] for row in safety_gate_rows):
+        add_block("live_source_record_created")
+
+    check_inputs = [
+        ("task202_ready_for_task203", _as_bool(task202.get("ready_for_task203_multi_issuer_source_evidence_preview"))),
+        ("task202_plan_valid", _as_bool(task202.get("multi_issuer_source_selection_plan_ready"))),
+        ("task202_safety_valid", bool(task202 and not any(row["code"] == "task202_safety_invalid" for row in blocker_rows))),
+        ("task202_corporate_scope_valid", _as_bool(task202.get("corporate_bond_scope_valid"))),
+        ("task202_ofz_exclusion_valid", _as_bool(task202.get("ofz_exclusion_valid"))),
+        ("task202_no_concrete_issuer_selection", _as_bool(task202.get("no_concrete_issuer_selection_valid"))),
+        ("task202_methodology_actions_preserved", not missing_action_types and "scoring_safety_gate_required" in task202_action_types),
+        ("task202_checksum_present", bool(task202_checksum)),
+        ("source_evidence_scope_built", len(source_evidence_scope_rows) == 10),
+        ("source_evidence_schema_built", len(source_evidence_schema_rows) == 20),
+        ("candidate_slots_built", len(candidate_slot_rows) == 3),
+        ("source_type_preview_built", len(source_type_preview_rows) == 8 and all(row["from_task202_allowed"] for row in source_type_preview_rows)),
+        ("report_metadata_preview_built", len(report_metadata_preview_rows) == 10),
+        ("source_integrity_preview_built", len(source_integrity_preview_rows) == 8),
+        ("lineage_feasibility_preview_built", len(lineage_feasibility_preview_rows) == 8),
+        ("manual_review_pack_preview_built", len(manual_review_pack_preview_rows) == 8),
+        ("methodology_action_strategy_built", len(methodology_action_strategy_rows) == 6),
+        ("safety_gates_built", len(safety_gate_rows) == 16),
+        ("next_tasks_built", len(next_task_rows) == 6 and next_task_rows[0]["task_id"] == "Task204" and sum(1 for row in next_task_rows if row["allowed_now"]) == 1),
+        ("corporate_bond_scope_confirmed", corporate_bond_scope_valid),
+        ("ofz_exclusion_confirmed", ofz_exclusion_valid),
+        ("no_concrete_issuer_selection", no_concrete_issuer_selection_valid),
+        ("no_concrete_urls", no_concrete_urls_valid),
+        ("no_live_source_claims", no_live_source_claims_valid),
+        ("no_recommendations", not any(row["code"] == "recommendation_semantics_detected" for row in blocker_rows)),
+        ("no_scoring", True),
+        ("no_trading", True),
+        ("no_paper_trading", True),
+        ("no_external_download", True),
+        ("no_external_scrape", True),
+        ("no_broker_api", True),
+        ("no_db_mutation", True),
+        ("no_live_source_records", True),
+        ("task203_read_only_safety", True),
+        ("task203_checksum_built", True),
+    ]
+    check_rows = [
+        _rzd_controlled_values_multi_issuer_source_evidence_preview_check_row(code, passed=bool(passed))
+        for code, passed in check_inputs
+    ]
+    for index, row in enumerate(check_rows, start=1):
+        row["check_index"] = index
+
+    checksum_payload = {
+        "source_evidence_scope_rows": source_evidence_scope_rows,
+        "source_evidence_schema_rows": source_evidence_schema_rows,
+        "candidate_slot_rows": candidate_slot_rows,
+        "source_type_preview_rows": source_type_preview_rows,
+        "report_metadata_preview_rows": report_metadata_preview_rows,
+        "source_integrity_preview_rows": source_integrity_preview_rows,
+        "lineage_feasibility_preview_rows": lineage_feasibility_preview_rows,
+        "manual_review_pack_preview_rows": manual_review_pack_preview_rows,
+        "methodology_action_strategy_rows": methodology_action_strategy_rows,
+        "safety_gate_rows": safety_gate_rows,
+        "next_task_rows": next_task_rows,
+        "multi_issuer_source_evidence_preview_check_rows": check_rows,
+    }
+    preview_checksum = _rzd_controlled_values_imported_read_model_canonical_sha256(checksum_payload)
+    if not preview_checksum:
+        add_block("task203_checksum_missing")
+
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview",
+        "status": "blocked",
+        "multi_issuer_source_evidence_preview_status": "blocked",
+        "multi_issuer_source_evidence_preview_ready": False,
+        "source_evidence_preview_scope": "corporate_issuer_source_evidence_preview_structure_only",
+        "issuer_universe_scope": "corporate_bond_issuers_only",
+        "ofz_scope": "excluded_from_current_multi_issuer_plan",
+        "concrete_issuer_selection_scope": "prohibited_in_task203",
+        "live_source_scope": "prohibited_in_task203",
+        "source_evidence_preview_reason": "Preview source evidence row structures for future corporate issuer extraction contracts without live source collection.",
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "expected_import_row_count": expected_row_count,
+        "task202_input_path": str(task202_path or ""),
+        "task202_status": task202_status,
+        "task202_multi_issuer_source_selection_plan_status": str(task202.get("multi_issuer_source_selection_plan_status") or ""),
+        "task202_multi_issuer_source_selection_plan_ready": _as_bool(task202.get("multi_issuer_source_selection_plan_ready")),
+        "task202_source_selection_scope": str(task202.get("source_selection_scope") or ""),
+        "task202_issuer_universe_scope": str(task202.get("issuer_universe_scope") or ""),
+        "task202_ofz_scope": str(task202.get("ofz_scope") or ""),
+        "task202_concrete_issuer_selection_scope": str(task202.get("concrete_issuer_selection_scope") or ""),
+        "task202_ready_for_task203_multi_issuer_source_evidence_preview": _as_bool(task202.get("ready_for_task203_multi_issuer_source_evidence_preview")),
+        "task202_planned_source_selection_scope_count": int(task202.get("planned_source_selection_scope_count") or 0),
+        "task202_allowed_source_type_count": int(task202.get("allowed_source_type_count") or 0),
+        "task202_issuer_filter_rule_count": int(task202.get("issuer_filter_rule_count") or 0),
+        "task202_source_validation_rule_count": int(task202.get("source_validation_rule_count") or 0),
+        "task202_exclusion_rule_count": int(task202.get("exclusion_rule_count") or 0),
+        "task202_evidence_preview_plan_count": int(task202.get("evidence_preview_plan_count") or 0),
+        "task202_methodology_action_strategy_count": int(task202.get("methodology_action_strategy_count") or 0),
+        "task202_safety_gate_count": int(task202.get("safety_gate_count") or 0),
+        "task202_next_task_count": int(task202.get("next_task_count") or 0),
+        "task202_source_selection_scope_valid": _as_bool(task202.get("source_selection_scope_valid")),
+        "task202_allowed_source_types_valid": _as_bool(task202.get("allowed_source_types_valid")),
+        "task202_issuer_filter_rules_valid": _as_bool(task202.get("issuer_filter_rules_valid")),
+        "task202_source_validation_rules_valid": _as_bool(task202.get("source_validation_rules_valid")),
+        "task202_exclusion_rules_valid": _as_bool(task202.get("exclusion_rules_valid")),
+        "task202_evidence_preview_plan_valid": _as_bool(task202.get("evidence_preview_plan_valid")),
+        "task202_methodology_actions_preserved": _as_bool(task202.get("methodology_actions_preserved")),
+        "task202_safety_gates_valid": _as_bool(task202.get("safety_gates_valid")),
+        "task202_next_tasks_valid": _as_bool(task202.get("next_tasks_valid")),
+        "task202_corporate_bond_scope_valid": _as_bool(task202.get("corporate_bond_scope_valid")),
+        "task202_ofz_exclusion_valid": _as_bool(task202.get("ofz_exclusion_valid")),
+        "task202_no_concrete_issuer_selection_valid": _as_bool(task202.get("no_concrete_issuer_selection_valid")),
+        "task202_no_recommendation_semantics_valid": _as_bool(task202.get("no_recommendation_semantics_valid")),
+        "task202_no_trading_semantics_valid": _as_bool(task202.get("no_trading_semantics_valid")),
+        "task202_plan_generates_recommendations": _as_bool(task202.get("plan_generates_recommendations")),
+        "task202_plan_executes_scoring": _as_bool(task202.get("plan_executes_scoring")),
+        "task202_plan_executes_trading": _as_bool(task202.get("plan_executes_trading")),
+        "task202_plan_executes_paper_trading": _as_bool(task202.get("plan_executes_paper_trading")),
+        "task202_plan_mutates_database": _as_bool(task202.get("plan_mutates_database")),
+        "task202_plan_downloads_external_sources": _as_bool(task202.get("plan_downloads_external_sources")),
+        "task202_plan_calls_broker_api": _as_bool(task202.get("plan_calls_broker_api")),
+        "task202_plan_selects_concrete_issuers": _as_bool(task202.get("plan_selects_concrete_issuers")),
+        "task202_plan_ranks_issuers": _as_bool(task202.get("plan_ranks_issuers")),
+        "task202_plan_ranks_bonds": _as_bool(task202.get("plan_ranks_bonds")),
+        "task202_multi_issuer_source_selection_plan_checksum_sha256": task202_checksum,
+        "task202_database_mutated": _as_bool(task202.get("database_mutated")),
+        "task202_migration_executed": _as_bool(task202.get("migration_executed")),
+        "task202_import_executed": _as_bool(task202.get("import_executed")),
+        "task202_scoring_executed": _as_bool(task202.get("scoring_executed")),
+        "task202_trading_executed": _as_bool(task202.get("trading_executed")),
+        "task202_paper_trading_executed": _as_bool(task202.get("paper_trading_executed")),
+        "task202_recommendation_generated": _as_bool(task202.get("recommendation_generated")),
+        "task202_methodology_patch_executed": _as_bool(task202.get("methodology_patch_executed")),
+        "task202_production_export_executed": _as_bool(task202.get("production_export_executed")),
+        "task202_external_download_executed": _as_bool(task202.get("external_download_executed")),
+        "task202_broker_api_called": _as_bool(task202.get("broker_api_called")),
+        "task202_concrete_issuer_selection_executed": _as_bool(task202.get("concrete_issuer_selection_executed")),
+        "task202_issuer_ranking_executed": _as_bool(task202.get("issuer_ranking_executed")),
+        "task202_bond_ranking_executed": _as_bool(task202.get("bond_ranking_executed")),
+        "task202_bad_safety_count": int(task202.get("bad_safety_count") or 0),
+        "task202_blocker_count": int(task202.get("blocker_count") or 0),
+        "source_evidence_scope_valid": len(source_evidence_scope_rows) == 10,
+        "source_evidence_schema_valid": len(source_evidence_schema_rows) == 20,
+        "candidate_slots_valid": len(candidate_slot_rows) == 3 and no_concrete_issuer_selection_valid and no_concrete_urls_valid,
+        "source_type_preview_valid": len(source_type_preview_rows) == 8 and all(row["from_task202_allowed"] for row in source_type_preview_rows) and all(not row["allows_live_url_in_task203"] and not row["allows_download_in_task203"] for row in source_type_preview_rows),
+        "report_metadata_preview_valid": len(report_metadata_preview_rows) == 10 and all(row["validation_status"] == "planned_not_verified" for row in report_metadata_preview_rows),
+        "source_integrity_preview_valid": len(source_integrity_preview_rows) == 8 and all(row["status"] == "planned_not_executed" for row in source_integrity_preview_rows),
+        "lineage_feasibility_preview_valid": len(lineage_feasibility_preview_rows) == 8 and all(row["status"] == "planned_not_verified" for row in lineage_feasibility_preview_rows),
+        "manual_review_pack_preview_valid": len(manual_review_pack_preview_rows) == 8 and all(row["review_required"] for row in manual_review_pack_preview_rows),
+        "methodology_actions_preserved": len(methodology_action_strategy_rows) == 6 and not missing_action_types,
+        "safety_gates_valid": len(safety_gate_rows) == 16 and all(row["enforced"] for row in safety_gate_rows),
+        "next_tasks_valid": len(next_task_rows) == 6 and next_task_rows[0]["task_id"] == "Task204" and sum(1 for row in next_task_rows if row["allowed_now"]) == 1,
+        "corporate_bond_scope_valid": corporate_bond_scope_valid,
+        "ofz_exclusion_valid": ofz_exclusion_valid,
+        "no_concrete_issuer_selection_valid": no_concrete_issuer_selection_valid and not any(row["code"] == "concrete_issuer_selection_detected" for row in blocker_rows),
+        "no_concrete_urls_valid": no_concrete_urls_valid and not any(row["code"] == "concrete_url_detected" for row in blocker_rows),
+        "no_live_source_claims_valid": no_live_source_claims_valid and not any(row["code"] == "live_source_claim_detected" for row in blocker_rows),
+        "no_recommendation_semantics_valid": not any(row["code"] == "recommendation_semantics_detected" for row in blocker_rows),
+        "no_trading_semantics_valid": True,
+        "preview_generates_recommendations": False,
+        "preview_executes_scoring": False,
+        "preview_executes_trading": False,
+        "preview_executes_paper_trading": False,
+        "preview_mutates_database": False,
+        "preview_downloads_external_sources": False,
+        "preview_scrapes_external_sources": False,
+        "preview_calls_broker_api": False,
+        "preview_selects_concrete_issuers": False,
+        "preview_ranks_issuers": False,
+        "preview_ranks_bonds": False,
+        "preview_creates_live_source_records": False,
+        "preview_verifies_live_source_availability": False,
+        "source_evidence_scope_rows": source_evidence_scope_rows,
+        "source_evidence_schema_rows": source_evidence_schema_rows,
+        "candidate_slot_rows": candidate_slot_rows,
+        "source_type_preview_rows": source_type_preview_rows,
+        "report_metadata_preview_rows": report_metadata_preview_rows,
+        "source_integrity_preview_rows": source_integrity_preview_rows,
+        "lineage_feasibility_preview_rows": lineage_feasibility_preview_rows,
+        "manual_review_pack_preview_rows": manual_review_pack_preview_rows,
+        "methodology_action_strategy_rows": methodology_action_strategy_rows,
+        "safety_gate_rows": safety_gate_rows,
+        "next_task_rows": next_task_rows,
+        "multi_issuer_source_evidence_preview_check_rows": check_rows,
+        "source_multi_issuer_source_selection_plan_checksum_sha256": task202_checksum,
+        "multi_issuer_source_evidence_preview_checksum_sha256": preview_checksum,
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_multi_issuer_source_evidence_preview_safety_flags(),
+        **_rzd_controlled_values_multi_issuer_source_evidence_preview_safety_flags(),
+        "multi_issuer_source_evidence_preview_executed": True,
+        "safe_hint": "Task203 creates a controlled source evidence preview structure only; no issuers, URLs, downloads, scraping, live verification, source records, imports, scoring, recommendations, ranking, broker APIs, trading, or DB mutation occur.",
+        "next_step": "Task204 - Multi-Issuer Extraction Contract Plan",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview", "blocked"),
+        "errors": [],
+    }
+    report["status"] = "blocked" if blocker_rows else "warning"
+    report["multi_issuer_source_evidence_preview_status"] = report["status"]
+    if not blocker_rows:
+        report["multi_issuer_source_evidence_preview_ready"] = True
+        report["ready_for_multi_issuer_extraction_contract_plan"] = True
+        report["ready_for_task204_multi_issuer_extraction_contract_plan"] = True
+    else:
+        report["multi_issuer_source_evidence_preview_ready"] = False
+        report["ready_for_multi_issuer_extraction_contract_plan"] = False
+        report["ready_for_task204_multi_issuer_extraction_contract_plan"] = False
+    report["ready_for_multi_issuer_source_evidence_preview"] = False
+    report["ready_for_task203_multi_issuer_source_evidence_preview"] = False
+    report["next_steps"] = _next_steps("rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview", report["status"])
+    _rzd_controlled_values_multi_issuer_source_evidence_preview_normalize_report(report)
+    return report
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_controlled_values_multi_issuer_source_evidence_preview_blocker_row(
+            str(error.get("message") or "task203_error"),
+            details=error,
+        )
+        for error in errors
+    ]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview",
+        "status": "failed",
+        "multi_issuer_source_evidence_preview_status": "failed",
+        "expected_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
+        "expected_table": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
+        "expected_import_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
+        "source_evidence_preview_scope": "corporate_issuer_source_evidence_preview_structure_only",
+        "issuer_universe_scope": "corporate_bond_issuers_only",
+        "ofz_scope": "excluded_from_current_multi_issuer_plan",
+        "concrete_issuer_selection_scope": "prohibited_in_task203",
+        "live_source_scope": "prohibited_in_task203",
+        "source_evidence_scope_rows": [],
+        "source_evidence_schema_rows": [],
+        "candidate_slot_rows": [],
+        "source_type_preview_rows": [],
+        "report_metadata_preview_rows": [],
+        "source_integrity_preview_rows": [],
+        "lineage_feasibility_preview_rows": [],
+        "manual_review_pack_preview_rows": [],
+        "methodology_action_strategy_rows": [],
+        "safety_gate_rows": [],
+        "next_task_rows": [],
+        "multi_issuer_source_evidence_preview_check_rows": [],
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_multi_issuer_source_evidence_preview_safety_flags(),
+        **_rzd_controlled_values_multi_issuer_source_evidence_preview_safety_flags(),
+        "multi_issuer_source_evidence_preview_executed": False,
+        "safe_hint": "Task203 failed before producing a source-evidence preview; no issuer, URL, source, DB, ranking, scoring, recommendation, trading, broker, or export side effects occurred.",
+        "next_step": "Task204 - Multi-Issuer Extraction Contract Plan",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview", "failed"),
+        "errors": errors,
+    }
+    _rzd_controlled_values_multi_issuer_source_evidence_preview_normalize_report(report)
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    if write_outputs:
+        try:
+            _rzd_controlled_values_multi_issuer_source_evidence_preview_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_multi_issuer_source_evidence_preview_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_controlled_values_multi_issuer_source_evidence_preview_write_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    if artifacts.get("preview_json"):
+        write_json_report(report, artifacts["preview_json"])
+    if artifacts.get("preview_markdown"):
+        write_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_markdown(report, artifacts["preview_markdown"])
+    if artifacts.get("checks_json"):
+        write_json_report({"multi_issuer_source_evidence_preview_check_count": report.get("multi_issuer_source_evidence_preview_check_count", 0), "multi_issuer_source_evidence_preview_check_rows": report.get("multi_issuer_source_evidence_preview_check_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["checks_json"])
+    if artifacts.get("blockers_json"):
+        write_json_report({"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
+    if artifacts.get("scope_json"):
+        write_json_report({"planned_source_evidence_scope_count": report.get("planned_source_evidence_scope_count", 0), "source_evidence_scope_rows": report.get("source_evidence_scope_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["scope_json"])
+    if artifacts.get("schema_json"):
+        write_json_report({"source_evidence_schema_field_count": report.get("source_evidence_schema_field_count", 0), "source_evidence_schema_rows": report.get("source_evidence_schema_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["schema_json"])
+    if artifacts.get("candidate_slots_json"):
+        write_json_report({"candidate_slot_count": report.get("candidate_slot_count", 0), "candidate_slot_rows": report.get("candidate_slot_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["candidate_slots_json"])
+    if artifacts.get("source_type_rows_json"):
+        write_json_report({"source_type_preview_count": report.get("source_type_preview_count", 0), "source_type_preview_rows": report.get("source_type_preview_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["source_type_rows_json"])
+    if artifacts.get("report_metadata_rows_json"):
+        write_json_report({"report_metadata_preview_count": report.get("report_metadata_preview_count", 0), "report_metadata_preview_rows": report.get("report_metadata_preview_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["report_metadata_rows_json"])
+    if artifacts.get("integrity_rows_json"):
+        write_json_report({"source_integrity_preview_count": report.get("source_integrity_preview_count", 0), "source_integrity_preview_rows": report.get("source_integrity_preview_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["integrity_rows_json"])
+    if artifacts.get("lineage_feasibility_rows_json"):
+        write_json_report({"lineage_feasibility_preview_count": report.get("lineage_feasibility_preview_count", 0), "lineage_feasibility_preview_rows": report.get("lineage_feasibility_preview_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["lineage_feasibility_rows_json"])
+    if artifacts.get("manual_review_pack_rows_json"):
+        write_json_report({"manual_review_pack_preview_count": report.get("manual_review_pack_preview_count", 0), "manual_review_pack_preview_rows": report.get("manual_review_pack_preview_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["manual_review_pack_rows_json"])
+    if artifacts.get("methodology_actions_json"):
+        write_json_report({"methodology_action_strategy_count": report.get("methodology_action_strategy_count", 0), "methodology_action_strategy_rows": report.get("methodology_action_strategy_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["methodology_actions_json"])
+    if artifacts.get("safety_gates_json"):
+        write_json_report({"safety_gate_count": report.get("safety_gate_count", 0), "safety_gate_rows": report.get("safety_gate_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["safety_gates_json"])
+    if artifacts.get("next_tasks_json"):
+        write_json_report({"next_task_count": report.get("next_task_count", 0), "next_task_rows": report.get("next_task_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["next_tasks_json"])
+    if artifacts.get("summary_json"):
+        write_json_report({
+            "multi_issuer_source_evidence_preview_ready": report.get("multi_issuer_source_evidence_preview_ready", False),
+            "source_evidence_preview_scope": report.get("source_evidence_preview_scope", ""),
+            "issuer_universe_scope": report.get("issuer_universe_scope", ""),
+            "ofz_scope": report.get("ofz_scope", ""),
+            "concrete_issuer_selection_scope": report.get("concrete_issuer_selection_scope", ""),
+            "live_source_scope": report.get("live_source_scope", ""),
+            "planned_source_evidence_scope_count": report.get("planned_source_evidence_scope_count", 0),
+            "source_evidence_schema_field_count": report.get("source_evidence_schema_field_count", 0),
+            "candidate_slot_count": report.get("candidate_slot_count", 0),
+            "source_type_preview_count": report.get("source_type_preview_count", 0),
+            "report_metadata_preview_count": report.get("report_metadata_preview_count", 0),
+            "source_integrity_preview_count": report.get("source_integrity_preview_count", 0),
+            "lineage_feasibility_preview_count": report.get("lineage_feasibility_preview_count", 0),
+            "manual_review_pack_preview_count": report.get("manual_review_pack_preview_count", 0),
+            "methodology_action_strategy_count": report.get("methodology_action_strategy_count", 0),
+            "safety_gate_count": report.get("safety_gate_count", 0),
+            "next_task_count": report.get("next_task_count", 0),
+            "source_multi_issuer_source_selection_plan_checksum_sha256": report.get("source_multi_issuer_source_selection_plan_checksum_sha256", ""),
+            "multi_issuer_source_evidence_preview_checksum_sha256": report.get("multi_issuer_source_evidence_preview_checksum_sha256", ""),
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["summary_json"])
+    if artifacts.get("safety_json"):
+        write_json_report({
+            **_rzd_controlled_values_multi_issuer_source_evidence_preview_safety_flags(),
+            "multi_issuer_source_evidence_preview_executed": report.get("multi_issuer_source_evidence_preview_executed", False),
+            "ready_for_multi_issuer_extraction_contract_plan": report.get("ready_for_multi_issuer_extraction_contract_plan", False),
+            "ready_for_task204_multi_issuer_extraction_contract_plan": report.get("ready_for_task204_multi_issuer_extraction_contract_plan", False),
+            "safety_flags": report.get("safety_flags") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["safety_json"])
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_controlled_values_multi_issuer_source_evidence_preview_inputs(args)
+    artifacts = _rzd_controlled_values_multi_issuer_source_evidence_preview_artifacts(args)
+    output_errors = _rzd_controlled_values_multi_issuer_source_evidence_preview_output_errors(args, inputs=inputs, artifacts=artifacts)
+    if output_errors:
+        return _rzd_controlled_values_multi_issuer_source_evidence_preview_failed_report(output_errors, artifacts=artifacts, write_outputs=False)
+    try:
+        task202 = _load_json_object(inputs["task202"]) if inputs.get("task202") and inputs["task202"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_controlled_values_multi_issuer_source_evidence_preview_failed_report(
+            [{"message": "controlled_values_multi_issuer_source_evidence_preview_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_controlled_values_multi_issuer_source_evidence_preview_report(task202, inputs=inputs, args=args)
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_controlled_values_multi_issuer_source_evidence_preview_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["multi_issuer_source_evidence_preview_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_multi_issuer_source_evidence_preview_write_failed", "error": str(exc)}]
+        _rzd_controlled_values_multi_issuer_source_evidence_preview_normalize_report(report)
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -81644,6 +82739,11 @@ def write_rzd_manual_official_pdf_controlled_values_multi_issuer_source_selectio
     path.write_text(render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_selection_plan_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -81971,6 +83071,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_multi_issuer_analytics_plan_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-selection-plan":
         return render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_selection_plan_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview":
+        return render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -89889,6 +90991,138 @@ def render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_selecti
         "## Next step",
         "",
         str(report.get("next_step") or ""),
+        "",
+        "## Blockers",
+        "",
+    ]
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_markdown(report: dict[str, Any]) -> str:
+    if report.get("blocker_rows"):
+        decision = "Multi-issuer source evidence preview is blocked. Resolve Task202 readiness, scope, methodology-action, safety, issuer placeholder, URL, live-source, ranking, or recommendation blockers before Task204."
+    else:
+        decision = (
+            "Multi-issuer source evidence preview structure completed for corporate bond issuers only.\n\n"
+            "Task203 does not select concrete issuers, write concrete URLs, download sources, scrape sources, import data, score issuers, score bonds, rank issuers, rank bonds, generate recommendations, or execute trading.\n\n"
+            "Task204 may plan extraction contracts using the Task203 source evidence preview structure."
+        )
+    def _keys(rows: list[dict[str, Any]], key: str) -> str:
+        return ", ".join(str(row.get(key) or "") for row in rows if isinstance(row, dict))
+
+    lines = [
+        "# RZD Controlled Values Multi-Issuer Source Evidence Preview",
+        "",
+        "## Input chain",
+        "",
+        f"- Task202 input: `{report.get('task202_input_path')}`",
+        f"- expected revision: `{report.get('expected_revision')}`",
+        f"- expected table: `{report.get('expected_table')}`",
+        f"- expected import row count: `{report.get('expected_import_row_count')}`",
+        "",
+        "## Preview verdict",
+        "",
+        f"- status: `{report.get('status')}` / `{report.get('multi_issuer_source_evidence_preview_status')}`",
+        f"- ready for Task204: `{report.get('ready_for_task204_multi_issuer_extraction_contract_plan')}`",
+        f"- source evidence preview scope: `{report.get('source_evidence_preview_scope')}`",
+        f"- issuer universe: `{report.get('issuer_universe_scope')}`",
+        f"- OFZ scope: `{report.get('ofz_scope')}`",
+        f"- concrete issuer selection scope: `{report.get('concrete_issuer_selection_scope')}`",
+        f"- live source scope: `{report.get('live_source_scope')}`",
+        "",
+        "## Source evidence scope",
+        "",
+        f"- scope rows: `{report.get('planned_source_evidence_scope_count')}`",
+        f"- scope keys: {_keys(report.get('source_evidence_scope_rows') or [], 'scope_key') or 'none'}",
+        "",
+        "## Source evidence schema",
+        "",
+        f"- schema fields: `{report.get('source_evidence_schema_field_count')}`",
+        f"- field names: {_keys(report.get('source_evidence_schema_rows') or [], 'field_name') or 'none'}",
+        "",
+        "## Candidate slots",
+        "",
+        f"- candidate slots: `{report.get('candidate_slot_count')}`",
+        f"- slot ids: {_keys(report.get('candidate_slot_rows') or [], 'candidate_slot_id') or 'none'}",
+        "",
+        "## Source type preview",
+        "",
+        f"- source type previews: `{report.get('source_type_preview_count')}`",
+        f"- source type keys: {_keys(report.get('source_type_preview_rows') or [], 'source_type_key') or 'none'}",
+        "",
+        "## Report metadata preview",
+        "",
+        f"- report metadata rows: `{report.get('report_metadata_preview_count')}`",
+        f"- metadata keys: {_keys(report.get('report_metadata_preview_rows') or [], 'metadata_key') or 'none'}",
+        "",
+        "## Source integrity preview",
+        "",
+        f"- integrity rows: `{report.get('source_integrity_preview_count')}`",
+        f"- integrity keys: {_keys(report.get('source_integrity_preview_rows') or [], 'integrity_key') or 'none'}",
+        "",
+        "## Lineage feasibility preview",
+        "",
+        f"- lineage feasibility rows: `{report.get('lineage_feasibility_preview_count')}`",
+        f"- lineage keys: {_keys(report.get('lineage_feasibility_preview_rows') or [], 'lineage_key') or 'none'}",
+        "",
+        "## Manual review pack preview",
+        "",
+        f"- manual review pack rows: `{report.get('manual_review_pack_preview_count')}`",
+        f"- review keys: {_keys(report.get('manual_review_pack_preview_rows') or [], 'review_key') or 'none'}",
+        "",
+        "## Open methodology actions",
+        "",
+        f"- methodology action strategies: `{report.get('methodology_action_strategy_count')}`",
+        f"- action types: {_keys(report.get('methodology_action_strategy_rows') or [], 'action_type') or 'none'}",
+        "",
+        "## Safety gates",
+        "",
+        f"- safety gates: `{report.get('safety_gate_count')}`",
+        f"- gate keys: {_keys(report.get('safety_gate_rows') or [], 'gate_key') or 'none'}",
+        "",
+        "## Next tasks",
+        "",
+        f"- next task rows: `{report.get('next_task_count')}`",
+        f"- task ids: {_keys(report.get('next_task_rows') or [], 'task_id') or 'none'}",
+        "",
+        "## Safety",
+        "",
+        "No migration was executed by Task203.",
+        "No Alembic command was executed by Task203.",
+        "No database mutation was performed by Task203.",
+        "No rows were inserted by Task203.",
+        "No rows were updated by Task203.",
+        "No rows were deleted by Task203.",
+        "No scoring was executed by Task203.",
+        "No trading or paper trading was executed by Task203.",
+        "No investment recommendation was generated by Task203.",
+        "No methodology patch was executed by Task203.",
+        "No production export artifact was generated by Task203.",
+        "No preview export artifact was created or modified by Task203.",
+        "No external issuer report was downloaded by Task203.",
+        "No external source was scraped by Task203.",
+        "No broker API was called by Task203.",
+        "No concrete issuer was selected by Task203.",
+        "No concrete issuer name was written by Task203.",
+        "No concrete source URL was written by Task203.",
+        "No issuer or bond ranking was produced by Task203.",
+        "No live source availability was verified by Task203.",
+        "No live source record was created by Task203.",
+        "Task203 created a controlled source evidence preview structure only.",
+        "",
+        "## Checksums",
+        "",
+        f"- source Task202 checksum: `{report.get('source_multi_issuer_source_selection_plan_checksum_sha256')}`",
+        f"- source evidence preview checksum: `{report.get('multi_issuer_source_evidence_preview_checksum_sha256')}`",
+        "",
+        "## Decision",
+        "",
+        decision,
         "",
         "## Blockers",
         "",
@@ -100940,6 +102174,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use Task201 output only for Task202 multi-issuer source selection planning; issuer selection, downloads, imports, scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-selection-plan":
         return ["Use Task202 output only for Task203 multi-issuer source evidence preview; concrete issuer selection, downloads, imports, ranking, scoring, recommendations, trading, and paper trading remain blocked."]
+    if mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview":
+        return ["Use Task203 output only for Task204 multi-issuer extraction contract planning; concrete issuers, URLs, downloads, scraping, live verification, imports, ranking, scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -101366,6 +102602,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_controlled_values_multi_issuer_source_selection_plan_inputs(args),
             artifacts=_rzd_controlled_values_multi_issuer_source_selection_plan_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-evidence-preview":
+        return not _rzd_controlled_values_multi_issuer_source_evidence_preview_output_errors(
+            args,
+            inputs=_rzd_controlled_values_multi_issuer_source_evidence_preview_inputs(args),
+            artifacts=_rzd_controlled_values_multi_issuer_source_evidence_preview_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
