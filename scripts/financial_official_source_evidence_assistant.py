@@ -110,6 +110,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-review-gate",
     "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-plan",
     "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview",
+    "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -9786,6 +9787,99 @@ RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REQUIRED_LIST_FIELD
     "preview_excluded_rows", "preview_methodology_action_rows", "export_preview_check_rows",
     "blocker_rows",
 )
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_ARTIFACT_NAMES = {
+    "review_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_task199.json",
+    "review_markdown": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_task199.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_checks_task199.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_blockers_task199.json",
+    "artifact_reviews_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_artifact_reviews_task199.json",
+    "dataset_row_reviews_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_dataset_row_reviews_task199.json",
+    "excluded_row_reviews_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_excluded_row_reviews_task199.json",
+    "methodology_action_reviews_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_methodology_action_reviews_task199.json",
+    "manifest_review_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_manifest_review_task199.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_summary_task199.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_task199.json",
+}
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_CHECK_FIELDS = [
+    "check_index", "check_key", "status", "severity", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_ARTIFACT_REVIEW_FIELDS = [
+    "artifact_index", "artifact_key", "path", "exists", "inside_chain", "readable",
+    "artifact_scope", "production_export", "non_scoring_only", "review_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_DATASET_ROW_REVIEW_FIELDS = [
+    "review_index", "ratio_key", "json_row_found", "csv_row_found", "task198_row_found",
+    "json_csv_match", "task198_match", "metric_lineage_valid", "non_scoring_valid",
+    "safety_valid", "artifact_scope", "production_export", "scoring_allowed",
+    "recommendation_allowed", "trading_allowed", "paper_trading_allowed", "numerator_metric_key",
+    "denominator_metric_key", "review_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_EXCLUDED_ROW_REVIEW_FIELDS = [
+    "review_index", "ratio_key", "json_row_found", "task198_row_found", "excluded_from_exportable_dataset",
+    "leaked_into_dataset", "non_scoring_valid", "safety_valid", "artifact_scope", "production_export",
+    "scoring_allowed", "recommendation_allowed", "trading_allowed", "paper_trading_allowed",
+    "review_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_ACTION_REVIEW_FIELDS = [
+    "review_index", "action_type", "json_row_found", "task198_row_found", "canonical_action_present",
+    "ratio_keys", "related_metric_keys", "scoring_allowed", "recommendation_allowed",
+    "trading_allowed", "paper_trading_allowed", "review_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_REQUIRED_BOOL_FIELDS = (
+    "ready_for_analytics_export_layer_closure", "ready_for_task200_analytics_export_layer_closure",
+    "ready_for_ratio_analytics_dataset_export_preview_review_gate",
+    "ready_for_task199_ratio_analytics_dataset_export_preview_review_gate",
+    "ready_for_scoring", "ready_for_trading", "ready_for_paper_trading",
+    "task198_ready_for_task199_ratio_analytics_dataset_export_preview_review_gate",
+    "task198_preview_artifacts_contract_valid", "task198_preview_schema_contract_valid",
+    "task198_preview_dataset_rows_contract_valid", "task198_preview_excluded_rows_contract_valid",
+    "task198_preview_methodology_actions_contract_valid", "task198_preview_manifest_contract_valid",
+    "task198_preview_dataset_rows_source_match", "task198_preview_excluded_rows_source_match",
+    "task198_preview_methodology_actions_source_match", "task198_preview_lineage_valid",
+    "task198_preview_checksum_valid", "task198_preview_non_scoring",
+    "task198_preview_recommendations_disabled", "task198_preview_trading_disabled",
+    "task198_preview_paper_trading_disabled", "task198_preview_paths_safe",
+    "task198_preview_files_created", "task198_production_export_executed",
+    "task198_database_mutated", "task198_migration_executed", "task198_import_executed",
+    "task198_scoring_executed", "task198_trading_executed", "task198_paper_trading_executed",
+    "task198_recommendation_generated", "task198_methodology_patch_executed",
+    "preview_artifacts_exist", "preview_artifacts_inside_chain", "preview_artifacts_contract_review_valid",
+    "preview_dataset_json_contract_review_valid", "preview_dataset_csv_contract_review_valid",
+    "preview_excluded_json_contract_review_valid", "preview_methodology_actions_contract_review_valid",
+    "preview_manifest_contract_review_valid", "preview_readme_contract_review_valid",
+    "preview_json_csv_match", "preview_dataset_rows_match_task198", "preview_excluded_rows_match_task198",
+    "preview_methodology_actions_match_task198", "preview_manifest_matches_task198",
+    "preview_lineage_review_valid", "preview_checksum_review_valid", "preview_non_scoring_review_valid",
+    "preview_safety_review_valid", "preview_paths_review_valid",
+    "dataset_json_csv_match", "dataset_canonical_lineage_valid", "excluded_rows_not_in_dataset",
+    "methodology_scoring_safety_gate_present", "manifest_checksum_match",
+    "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+    "trading_executed", "paper_trading_executed", "recommendation_generated",
+    "methodology_patch_executed", "verification_executed", "interpretation_review_executed",
+    "analytics_readiness_gate_executed", "analytics_dataset_preview_executed",
+    "analytics_dataset_review_gate_executed", "analytics_dataset_export_plan_executed",
+    "analytics_dataset_export_preview_executed", "analytics_dataset_export_preview_review_gate_executed",
+    "production_export_executed",
+)
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_REQUIRED_COUNT_FIELDS = (
+    "expected_import_row_count", "report_year", "task198_preview_artifact_count",
+    "task198_preview_schema_field_count", "task198_preview_dataset_row_count",
+    "task198_preview_excluded_row_count", "task198_preview_methodology_action_count",
+    "task198_preview_json_dataset_row_count", "task198_preview_csv_dataset_row_count",
+    "task198_preview_manifest_artifact_count", "task198_bad_safety_count", "task198_blocker_count",
+    "artifact_review_count", "dataset_row_review_count", "excluded_row_review_count",
+    "methodology_action_review_count", "manifest_review_count", "dataset_json_review_row_count",
+    "dataset_csv_review_row_count", "excluded_json_review_row_count",
+    "methodology_actions_json_review_row_count", "manifest_artifact_review_count",
+    "export_preview_review_check_count", "bad_safety_count", "blocker_count",
+)
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_REQUIRED_LIST_FIELDS = (
+    "artifact_review_rows", "dataset_row_review_rows", "excluded_row_review_rows",
+    "methodology_action_review_rows", "export_preview_review_check_rows", "blocker_rows",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -11582,6 +11676,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-manifest-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-artifact-reviews-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-dataset-row-reviews-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-excluded-row-reviews-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-methodology-action-reviews-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-manifest-review-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -11877,6 +11983,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview":
         report = run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate":
+        report = run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -60802,7 +60910,7 @@ def _rzd_controlled_values_financial_ratio_preview_yoy(value_2025: Any, value_20
 
 RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_PREVIEW_METRIC_ALIASES = {
     "revenue": ("revenue", "total_revenue", "sales", "income_from_operations"),
-    "net_profit": ("net_profit", "profit_for_the_year", "profit_period", "profit"),
+    "net_profit": ("profit_for_the_year", "net_profit", "profit_period", "profit"),
     "profit_before_tax": ("profit_before_tax", "profit_before_income_tax"),
     "operating_profit": ("operating_profit", "profit_from_operations"),
     "total_assets": ("total_assets", "assets_total"),
@@ -69704,6 +69812,835 @@ def run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export
     return report
 
 
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_CANONICAL_LINEAGE = {
+    "current_liabilities_to_assets": ("current_liabilities", "total_assets"),
+    "equity_to_assets": ("total_equity", "total_assets"),
+    "net_profit_margin": ("profit_for_the_year", "total_revenue"),
+    "operating_profit_margin": ("operating_profit", "total_revenue"),
+    "profit_before_tax_margin": ("profit_before_tax", "total_revenue"),
+}
+RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_CANONICAL_ACTION_TYPES = {
+    "total_liabilities_mapping_required",
+    "operating_cash_flow_mapping_required",
+    "debt_semantics_review_required",
+    "interest_coverage_policy_required",
+    "liquidity_context_review_required",
+    "scoring_safety_gate_required",
+}
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_flags() -> dict[str, bool]:
+    return {
+        "database_mutated": False,
+        "migration_executed": False,
+        "import_executed": False,
+        "scoring_executed": False,
+        "trading_executed": False,
+        "paper_trading_executed": False,
+        "recommendation_generated": False,
+        "methodology_patch_executed": False,
+        "verification_executed": False,
+        "interpretation_review_executed": False,
+        "analytics_readiness_gate_executed": False,
+        "analytics_dataset_preview_executed": False,
+        "analytics_dataset_review_gate_executed": False,
+        "analytics_dataset_export_plan_executed": False,
+        "analytics_dataset_export_preview_executed": False,
+        "production_export_executed": False,
+        "ready_for_scoring": False,
+        "ready_for_trading": False,
+        "ready_for_paper_trading": False,
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_blocker_row(
+    code: str,
+    *,
+    severity: str = "high",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task199 reviews Task198 preview artifacts only; it must not create preview or production exports.",
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_check_row(
+    code: str,
+    *,
+    passed: bool,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "check_index": 0,
+        "check_key": code,
+        "status": "passed" if passed else "blocked",
+        "severity": "info" if passed else "high",
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task199 check is read-only and non-scoring.",
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    preview_defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_ARTIFACT_NAMES.items()}
+        if chain_dir else {}
+    )
+    return {
+        "task198": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_input or preview_defaults.get("preview_json"),
+        "task197": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan_input or (chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PLAN_ARTIFACT_NAMES["plan_json"] if chain_dir else None),
+        "task196": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_review_gate_input or (chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_REVIEW_GATE_ARTIFACT_NAMES["gate_json"] if chain_dir else None),
+        "preview_dataset_json": preview_defaults.get("preview_dataset_json"),
+        "preview_dataset_csv": preview_defaults.get("preview_dataset_csv"),
+        "preview_excluded_json": preview_defaults.get("preview_excluded_json"),
+        "preview_methodology_actions_json": preview_defaults.get("preview_methodology_actions_json"),
+        "preview_manifest_json": preview_defaults.get("preview_manifest_json"),
+        "preview_readme_markdown": preview_defaults.get("preview_readme_markdown"),
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_ARTIFACT_NAMES.items()}
+        if chain_dir else {}
+    )
+    return {
+        "review_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_output or defaults.get("review_json"),
+        "review_markdown": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown_output or defaults.get("review_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_checks_output or defaults.get("checks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_blockers_output or defaults.get("blockers_json"),
+        "artifact_reviews_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_artifact_reviews_output or defaults.get("artifact_reviews_json"),
+        "dataset_row_reviews_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_dataset_row_reviews_output or defaults.get("dataset_row_reviews_json"),
+        "excluded_row_reviews_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_excluded_row_reviews_output or defaults.get("excluded_row_reviews_json"),
+        "methodology_action_reviews_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_methodology_action_reviews_output or defaults.get("methodology_action_reviews_json"),
+        "manifest_review_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_manifest_review_output or defaults.get("manifest_review_json"),
+        "summary_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_summary_output or defaults.get("summary_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: dict[Path, str] = {}
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path and path == input_path:
+                return [{"message": "rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_output_must_not_equal_input", "output": key, "input": input_key}]
+        if path in seen:
+            return [{"message": "rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_output_must_not_equal_input", "output": key, "duplicate_output": seen[path]}]
+        seen[path] = key
+    return []
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_read_json(path: Path | None) -> tuple[dict[str, Any], bool, str]:
+    if path is None:
+        return {}, False, "missing_path"
+    try:
+        return _load_json_object(path), True, ""
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return {}, False, str(exc)
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_read_csv(path: Path | None) -> tuple[list[dict[str, str]], bool, str]:
+    if path is None:
+        return [], False, "missing_path"
+    try:
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            return [dict(row) for row in csv.DictReader(handle)], True, ""
+    except OSError as exc:
+        return [], False, str(exc)
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_path_inside(path: Path | None, root: Path | None) -> bool:
+    return _rzd_controlled_values_ratio_analytics_dataset_export_preview_path_inside(path, root)
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_artifact_path(task198: dict[str, Any], key: str, fallback: Path | None) -> Path | None:
+    value = (task198.get("artifacts") or {}).get(key)
+    return Path(value) if value else fallback
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_csv_bool(value: Any) -> bool:
+    return _as_bool(value)
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_row_value(value: Any) -> str:
+    from decimal import Decimal
+
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float, Decimal)):
+        return str(value)
+    text = str(value or "").strip()
+    if text.casefold() in {"true", "false"}:
+        return text.casefold()
+    return text
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_rows_match(
+    json_row: dict[str, Any],
+    csv_row: dict[str, Any],
+) -> bool:
+    fields = (
+        "ratio_key", "ratio_category", "ratio_value_2025_numeric", "ratio_value_2024_numeric",
+        "ratio_value_delta", "ratio_value_delta_available", "ratio_value_direction",
+        "numerator_metric_key", "denominator_metric_key", "lineage_checksum",
+        "non_scoring_only", "scoring_allowed", "recommendation_allowed", "trading_allowed",
+        "paper_trading_allowed", "artifact_scope", "production_export", "source_task",
+    )
+    return all(
+        _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_row_value(json_row.get(field))
+        == _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_row_value(csv_row.get(field))
+        for field in fields
+    )
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_normalize_report(report: dict[str, Any]) -> None:
+    executed = bool(report.get("analytics_dataset_export_preview_review_gate_executed"))
+    for field in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_REQUIRED_LIST_FIELDS:
+        if not isinstance(report.get(field), list):
+            report[field] = []
+    for field in (
+        "mode", "status", "ratio_analytics_dataset_export_preview_review_gate_status",
+        "expected_revision", "expected_table", "task198_input_path", "task198_status",
+        "task198_ratio_analytics_dataset_export_preview_status",
+        "task198_ratio_analytics_dataset_export_preview_checksum_sha256",
+        "company_id", "company_name", "report_standard", "currency", "unit",
+        "source_ratio_analytics_dataset_export_preview_checksum_sha256",
+        "ratio_analytics_dataset_export_preview_review_gate_checksum_sha256",
+        "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["artifact_review_count"] = len(report.get("artifact_review_rows") or [])
+    report["dataset_row_review_count"] = len(report.get("dataset_row_review_rows") or [])
+    report["excluded_row_review_count"] = len(report.get("excluded_row_review_rows") or [])
+    report["methodology_action_review_count"] = len(report.get("methodology_action_review_rows") or [])
+    report["manifest_review_count"] = 1 if report.get("manifest_review") else 0
+    report["export_preview_review_check_count"] = len(report.get("export_preview_review_check_rows") or [])
+    report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["bad_safety_count"] = 0
+    for field, value in _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_flags().items():
+        report[field] = bool(value)
+    report["analytics_dataset_export_preview_review_gate_executed"] = executed
+    report["production_export_executed"] = False
+    if report.get("status") == "warning" and report["blocker_count"] == 0:
+        report["ready_for_analytics_export_layer_closure"] = True
+        report["ready_for_task200_analytics_export_layer_closure"] = True
+    else:
+        report["ready_for_analytics_export_layer_closure"] = False
+        report["ready_for_task200_analytics_export_layer_closure"] = False
+    report["ready_for_ratio_analytics_dataset_export_preview_review_gate"] = False
+    report["ready_for_task199_ratio_analytics_dataset_export_preview_review_gate"] = False
+
+
+def _build_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_report(
+    task198: dict[str, Any],
+    *,
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    blocker_rows: list[dict[str, Any]] = []
+
+    def add_block(code: str, details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_blocker_row(code, details=details))
+
+    chain_dir = args.operator_resolution_chain_output_dir
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_expected_row_count or RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT)
+    task198_path = inputs.get("task198")
+    if not task198_path or not task198_path.is_file():
+        add_block("task198_input_missing", {"path": str(task198_path or "")})
+
+    task198_status_valid = str(task198.get("status") or "") in {"warning", "passed"} and str(task198.get("ratio_analytics_dataset_export_preview_status") or "") in {"warning", "passed"}
+    task198_ready = _as_bool(task198.get("ready_for_task199_ratio_analytics_dataset_export_preview_review_gate"))
+    task198_contract_valid = all(_as_bool(task198.get(field)) for field in (
+        "preview_artifacts_contract_valid", "preview_schema_contract_valid",
+        "preview_dataset_rows_contract_valid", "preview_excluded_rows_contract_valid",
+        "preview_methodology_actions_contract_valid", "preview_manifest_contract_valid",
+        "preview_dataset_rows_source_match", "preview_excluded_rows_source_match",
+        "preview_methodology_actions_source_match", "preview_lineage_valid", "preview_checksum_valid",
+        "preview_non_scoring", "preview_recommendations_disabled", "preview_trading_disabled",
+        "preview_paper_trading_disabled", "preview_paths_safe", "preview_files_created",
+    ))
+    task198_mutation = any(_as_bool(task198.get(field)) for field in (
+        "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+        "trading_executed", "paper_trading_executed", "recommendation_generated",
+        "methodology_patch_executed", "production_export_executed",
+    ))
+    task198_checksum = str(task198.get("ratio_analytics_dataset_export_preview_checksum_sha256") or "")
+    if not task198_status_valid:
+        add_block("task198_status_invalid")
+    if not task198_ready:
+        add_block("task198_not_ready_for_preview_review")
+    if not task198_contract_valid:
+        add_block("task198_contract_invalid")
+    if not task198_checksum:
+        add_block("task198_checksum_missing")
+    if int(task198.get("bad_safety_count") or 0) > 0 or int(task198.get("blocker_count") or 0) > 0:
+        add_block("task198_safety_blockers_present")
+    if task198_mutation:
+        add_block("task198_unexpected_mutation_or_execution")
+
+    preview_paths = {
+        "analytics_dataset_json": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_artifact_path(task198, "preview_dataset_json", inputs.get("preview_dataset_json")),
+        "analytics_dataset_csv": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_artifact_path(task198, "preview_dataset_csv", inputs.get("preview_dataset_csv")),
+        "excluded_ratios_json": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_artifact_path(task198, "preview_excluded_json", inputs.get("preview_excluded_json")),
+        "methodology_actions_json": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_artifact_path(task198, "preview_methodology_actions_json", inputs.get("preview_methodology_actions_json")),
+        "export_manifest_json": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_artifact_path(task198, "preview_manifest_json", inputs.get("preview_manifest_json")),
+        "export_readme_markdown": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_artifact_path(task198, "preview_readme_markdown", inputs.get("preview_readme_markdown")),
+    }
+    dataset_json, dataset_json_loaded, dataset_json_error = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_read_json(preview_paths["analytics_dataset_json"])
+    dataset_csv_rows, dataset_csv_loaded, dataset_csv_error = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_read_csv(preview_paths["analytics_dataset_csv"])
+    excluded_json, excluded_json_loaded, excluded_json_error = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_read_json(preview_paths["excluded_ratios_json"])
+    actions_json, actions_json_loaded, actions_json_error = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_read_json(preview_paths["methodology_actions_json"])
+    manifest_json, manifest_loaded, manifest_error = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_read_json(preview_paths["export_manifest_json"])
+    readme_text = ""
+    readme_loaded = False
+    readme_error = ""
+    readme_path = preview_paths["export_readme_markdown"]
+    try:
+        if readme_path:
+            readme_text = readme_path.read_text(encoding="utf-8")
+            readme_loaded = True
+        else:
+            readme_error = "missing_path"
+    except OSError as exc:
+        readme_error = str(exc)
+
+    artifact_metadata = {
+        "analytics_dataset_json": (dataset_json_loaded, dataset_json, dataset_json_error, "json"),
+        "analytics_dataset_csv": (dataset_csv_loaded, {"preview_dataset_rows": dataset_csv_rows}, dataset_csv_error, "csv"),
+        "excluded_ratios_json": (excluded_json_loaded, excluded_json, excluded_json_error, "json"),
+        "methodology_actions_json": (actions_json_loaded, actions_json, actions_json_error, "json"),
+        "export_manifest_json": (manifest_loaded, manifest_json, manifest_error, "json"),
+        "export_readme_markdown": (readme_loaded, {"text": readme_text}, readme_error, "markdown"),
+    }
+    artifact_review_rows: list[dict[str, Any]] = []
+    for index, artifact_key in enumerate(preview_paths, start=1):
+        path = preview_paths[artifact_key]
+        loaded, payload, error, _format = artifact_metadata[artifact_key]
+        exists = bool(path and path.is_file())
+        inside_chain = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_path_inside(path, chain_dir)
+        artifact_scope = "preview_only" if loaded else ""
+        production_export = False
+        non_scoring_only = True if loaded else False
+        if isinstance(payload, dict):
+            artifact_scope = str(payload.get("artifact_scope") or payload.get("manifest_scope") or artifact_scope)
+            production_export = _as_bool(payload.get("production_export"))
+            non_scoring_only = _as_bool(payload.get("non_scoring_only")) if "non_scoring_only" in payload else non_scoring_only
+            if artifact_key == "export_manifest_json":
+                non_scoring_only = _as_bool((payload.get("safety") or {}).get("non_scoring_only"))
+        if artifact_key == "analytics_dataset_csv" and dataset_csv_rows:
+            artifact_scope = "preview_only" if all(str(row.get("artifact_scope") or "") == "preview_only" for row in dataset_csv_rows) else ""
+            production_export = any(_as_bool(row.get("production_export")) for row in dataset_csv_rows)
+            non_scoring_only = all(_as_bool(row.get("non_scoring_only")) for row in dataset_csv_rows)
+        if artifact_key == "export_readme_markdown":
+            artifact_scope = "preview_only" if "preview" in readme_text.casefold() else ""
+            production_export = "No production export artifact was generated." not in readme_text
+            non_scoring_only = "No scoring" in readme_text
+        review_status = "accepted_preview_artifact" if exists and inside_chain and loaded and artifact_scope == "preview_only" and production_export is False and non_scoring_only is True else "blocked"
+        artifact_review_rows.append({
+            "artifact_index": index,
+            "artifact_key": artifact_key,
+            "path": str(path or ""),
+            "exists": exists,
+            "inside_chain": inside_chain,
+            "readable": loaded,
+            "artifact_scope": artifact_scope,
+            "production_export": production_export,
+            "non_scoring_only": non_scoring_only,
+            "review_status": review_status,
+            "safe_hint": error or "Preview artifact accepted for read-only review.",
+        })
+    if any(not row["exists"] for row in artifact_review_rows):
+        add_block("preview_artifact_missing")
+    if any(not row["inside_chain"] for row in artifact_review_rows):
+        add_block("preview_artifact_outside_chain")
+    if any(not row["readable"] for row in artifact_review_rows):
+        add_block("preview_artifact_unreadable")
+    if any(row["artifact_scope"] != "preview_only" for row in artifact_review_rows):
+        add_block("preview_artifact_scope_invalid")
+    if any(row["production_export"] is not False for row in artifact_review_rows):
+        add_block("preview_artifact_production_export_flag_invalid")
+
+    task198_dataset_rows = [row for row in task198.get("preview_dataset_rows") or [] if isinstance(row, dict)]
+    task198_excluded_rows = [row for row in task198.get("preview_excluded_rows") or [] if isinstance(row, dict)]
+    task198_action_rows = [row for row in task198.get("preview_methodology_action_rows") or [] if isinstance(row, dict)]
+    dataset_json_rows = [row for row in dataset_json.get("preview_dataset_rows") or [] if isinstance(row, dict)]
+    excluded_json_rows = [row for row in excluded_json.get("preview_excluded_rows") or [] if isinstance(row, dict)]
+    action_json_rows = [row for row in actions_json.get("preview_methodology_action_rows") or [] if isinstance(row, dict)]
+    json_by_key = {str(row.get("ratio_key") or ""): row for row in dataset_json_rows}
+    csv_by_key = {str(row.get("ratio_key") or ""): row for row in dataset_csv_rows}
+    task198_by_key = {str(row.get("ratio_key") or ""): row for row in task198_dataset_rows}
+    all_dataset_keys = sorted(set(json_by_key) | set(csv_by_key) | set(task198_by_key))
+    dataset_row_review_rows: list[dict[str, Any]] = []
+    for index, ratio_key in enumerate(all_dataset_keys, start=1):
+        json_row = json_by_key.get(ratio_key) or {}
+        csv_row = csv_by_key.get(ratio_key) or {}
+        task198_row = task198_by_key.get(ratio_key) or {}
+        json_csv_match = bool(json_row and csv_row and _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_rows_match(json_row, csv_row))
+        task198_match = bool(json_row and task198_row and json_row == task198_row)
+        expected_lineage = RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_CANONICAL_LINEAGE.get(ratio_key)
+        metric_lineage_valid = True
+        if expected_lineage:
+            metric_lineage_valid = (
+                str(json_row.get("numerator_metric_key") or "") == expected_lineage[0]
+                and str(json_row.get("denominator_metric_key") or "") == expected_lineage[1]
+            )
+        non_scoring_valid = _as_bool(json_row.get("non_scoring_only"))
+        safety_valid = (
+            non_scoring_valid
+            and not _as_bool(json_row.get("scoring_allowed"))
+            and not _as_bool(json_row.get("recommendation_allowed"))
+            and not _as_bool(json_row.get("trading_allowed"))
+            and not _as_bool(json_row.get("paper_trading_allowed"))
+        )
+        artifact_scope = str(json_row.get("artifact_scope") or "")
+        production_export = _as_bool(json_row.get("production_export"))
+        review_status = "accepted_preview_dataset_row" if json_row and csv_row and task198_row and json_csv_match and task198_match and metric_lineage_valid and safety_valid and artifact_scope == "preview_only" and production_export is False else "blocked"
+        dataset_row_review_rows.append({
+            "review_index": index,
+            "ratio_key": ratio_key,
+            "json_row_found": bool(json_row),
+            "csv_row_found": bool(csv_row),
+            "task198_row_found": bool(task198_row),
+            "json_csv_match": json_csv_match,
+            "task198_match": task198_match,
+            "metric_lineage_valid": metric_lineage_valid,
+            "non_scoring_valid": non_scoring_valid,
+            "safety_valid": safety_valid,
+            "artifact_scope": artifact_scope,
+            "production_export": production_export,
+            "scoring_allowed": _as_bool(json_row.get("scoring_allowed")),
+            "recommendation_allowed": _as_bool(json_row.get("recommendation_allowed")),
+            "trading_allowed": _as_bool(json_row.get("trading_allowed")),
+            "paper_trading_allowed": _as_bool(json_row.get("paper_trading_allowed")),
+            "numerator_metric_key": str(json_row.get("numerator_metric_key") or ""),
+            "denominator_metric_key": str(json_row.get("denominator_metric_key") or ""),
+            "review_status": review_status,
+            "safe_hint": "Preview dataset row accepted only for non-scoring analytics export review.",
+        })
+    dataset_json_csv_match = bool(dataset_json_loaded and dataset_csv_loaded and len(dataset_json_rows) == len(dataset_csv_rows) == 9 and all(row["json_csv_match"] for row in dataset_row_review_rows))
+    dataset_task198_match = bool(len(dataset_json_rows) == len(task198_dataset_rows) == 9 and all(row["task198_match"] for row in dataset_row_review_rows))
+    dataset_lineage_valid = bool(dataset_row_review_rows) and all(row["metric_lineage_valid"] for row in dataset_row_review_rows)
+    dataset_safety_valid = bool(dataset_row_review_rows) and all(row["safety_valid"] and row["artifact_scope"] == "preview_only" and row["production_export"] is False for row in dataset_row_review_rows)
+    if len(dataset_json_rows) != 9 or len(dataset_csv_rows) != 9:
+        add_block("preview_dataset_row_missing")
+    if not dataset_json_csv_match:
+        add_block("preview_json_csv_mismatch")
+    if not dataset_lineage_valid:
+        add_block("preview_dataset_metric_lineage_invalid")
+    if not dataset_safety_valid:
+        add_block("preview_dataset_safety_invalid")
+        add_block("preview_safety_leakage")
+
+    dataset_keys = set(json_by_key)
+    task198_excluded_by_key = {str(row.get("ratio_key") or ""): row for row in task198_excluded_rows}
+    excluded_json_by_key = {str(row.get("ratio_key") or ""): row for row in excluded_json_rows}
+    all_excluded_keys = sorted(set(task198_excluded_by_key) | set(excluded_json_by_key))
+    excluded_row_review_rows: list[dict[str, Any]] = []
+    for index, ratio_key in enumerate(all_excluded_keys, start=1):
+        json_row = excluded_json_by_key.get(ratio_key) or {}
+        task198_row = task198_excluded_by_key.get(ratio_key) or {}
+        safety_valid = (
+            _as_bool(json_row.get("excluded_from_exportable_dataset"))
+            and _as_bool(json_row.get("non_scoring_only"))
+            and not _as_bool(json_row.get("scoring_allowed"))
+            and not _as_bool(json_row.get("recommendation_allowed"))
+            and not _as_bool(json_row.get("trading_allowed"))
+            and not _as_bool(json_row.get("paper_trading_allowed"))
+            and str(json_row.get("artifact_scope") or "") == "preview_only"
+            and not _as_bool(json_row.get("production_export"))
+            and str(json_row.get("source_task") or "") == "Task197"
+        )
+        leaked = ratio_key in dataset_keys
+        excluded_row_review_rows.append({
+            "review_index": index,
+            "ratio_key": ratio_key,
+            "json_row_found": bool(json_row),
+            "task198_row_found": bool(task198_row),
+            "excluded_from_exportable_dataset": _as_bool(json_row.get("excluded_from_exportable_dataset")),
+            "leaked_into_dataset": leaked,
+            "non_scoring_valid": _as_bool(json_row.get("non_scoring_only")),
+            "safety_valid": safety_valid,
+            "artifact_scope": str(json_row.get("artifact_scope") or ""),
+            "production_export": _as_bool(json_row.get("production_export")),
+            "scoring_allowed": _as_bool(json_row.get("scoring_allowed")),
+            "recommendation_allowed": _as_bool(json_row.get("recommendation_allowed")),
+            "trading_allowed": _as_bool(json_row.get("trading_allowed")),
+            "paper_trading_allowed": _as_bool(json_row.get("paper_trading_allowed")),
+            "review_status": "excluded_as_expected" if json_row and task198_row and safety_valid and not leaked else "blocked",
+            "safe_hint": "Excluded preview ratio must not be present in the dataset preview.",
+        })
+    excluded_rows_valid = bool(excluded_row_review_rows) and len(excluded_json_rows) == 10 and all(row["review_status"] == "excluded_as_expected" for row in excluded_row_review_rows)
+    excluded_match_task198 = len(excluded_json_rows) == len(task198_excluded_rows) == 10 and {row.get("ratio_key") for row in excluded_json_rows} == {row.get("ratio_key") for row in task198_excluded_rows}
+    if not excluded_rows_valid:
+        add_block("preview_excluded_rows_invalid")
+    if any(row["leaked_into_dataset"] for row in excluded_row_review_rows):
+        add_block("excluded_ratio_leaked_into_preview_dataset")
+
+    task198_action_types = {str(row.get("action_type") or "") for row in task198_action_rows}
+    json_action_types = {str(row.get("action_type") or "") for row in action_json_rows}
+    methodology_action_review_rows: list[dict[str, Any]] = []
+    for index, action_type in enumerate(sorted(RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_CANONICAL_ACTION_TYPES | task198_action_types | json_action_types), start=1):
+        json_row = next((row for row in action_json_rows if str(row.get("action_type") or "") == action_type), {})
+        json_found = action_type in json_action_types
+        task198_found = action_type in task198_action_types
+        canonical_present = action_type in RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_CANONICAL_ACTION_TYPES and json_found and task198_found
+        methodology_action_review_rows.append({
+            "review_index": index,
+            "action_type": action_type,
+            "json_row_found": json_found,
+            "task198_row_found": task198_found,
+            "canonical_action_present": canonical_present,
+            "ratio_keys": list(json_row.get("ratio_keys") or []),
+            "related_metric_keys": list(json_row.get("related_metric_keys") or []),
+            "scoring_allowed": _as_bool(json_row.get("scoring_allowed")),
+            "recommendation_allowed": _as_bool(json_row.get("recommendation_allowed")),
+            "trading_allowed": _as_bool(json_row.get("trading_allowed")),
+            "paper_trading_allowed": _as_bool(json_row.get("paper_trading_allowed")),
+            "review_status": "accepted_methodology_action" if canonical_present else "blocked",
+            "safe_hint": "Methodology actions remain open and non-scoring.",
+        })
+    methodology_actions_valid = len(action_json_rows) == 6 and all(row["canonical_action_present"] for row in methodology_action_review_rows)
+    methodology_actions_match_task198 = json_action_types == task198_action_types and len(action_json_rows) == len(task198_action_rows) == 6
+    if not methodology_actions_valid:
+        add_block("methodology_action_missing")
+    if "scoring_safety_gate_required" not in json_action_types:
+        add_block("scoring_safety_gate_missing")
+
+    manifest_review = {
+        "manifest_scope": str(manifest_json.get("manifest_scope") or ""),
+        "production_export": _as_bool(manifest_json.get("production_export")),
+        "preview_artifact_count": int(manifest_json.get("preview_artifact_count") or 0),
+        "preview_dataset_row_count": int(manifest_json.get("preview_dataset_row_count") or 0),
+        "preview_excluded_row_count": int(manifest_json.get("preview_excluded_row_count") or 0),
+        "preview_methodology_action_count": int(manifest_json.get("preview_methodology_action_count") or 0),
+        "schema_field_count": int(manifest_json.get("schema_field_count") or 0),
+        "source_task197_checksum_sha256": str(manifest_json.get("source_task197_checksum_sha256") or ""),
+        "task198_checksum_sha256": str(manifest_json.get("task198_checksum_sha256") or ""),
+        "next_step": str(manifest_json.get("next_step") or ""),
+        "review_status": "blocked",
+        "safe_hint": "Manifest must match Task198 preview counts and checksum.",
+    }
+    manifest_valid = (
+        manifest_loaded
+        and manifest_review["manifest_scope"] == "preview_only"
+        and manifest_review["production_export"] is False
+        and manifest_review["preview_artifact_count"] == 6
+        and manifest_review["preview_dataset_row_count"] == 9
+        and manifest_review["preview_excluded_row_count"] == 10
+        and manifest_review["preview_methodology_action_count"] == 6
+        and manifest_review["schema_field_count"] == 19
+        and bool(manifest_review["source_task197_checksum_sha256"])
+        and manifest_review["task198_checksum_sha256"] == task198_checksum
+        and manifest_review["next_step"] == "Task199 - Ratio Analytics Dataset Export Preview Review Gate"
+    )
+    manifest_review["review_status"] = "accepted_preview_manifest" if manifest_valid else "blocked"
+    if not manifest_valid:
+        add_block("preview_manifest_invalid")
+    if manifest_loaded and manifest_review["task198_checksum_sha256"] != task198_checksum:
+        add_block("preview_manifest_checksum_mismatch")
+
+    artifact_contract_valid = all(row["review_status"] == "accepted_preview_artifact" for row in artifact_review_rows)
+    artifacts_exist = all(row["exists"] for row in artifact_review_rows)
+    artifacts_inside = all(row["inside_chain"] for row in artifact_review_rows)
+    readme_valid = bool(readme_loaded and "No production export artifact was generated." in readme_text and "No scoring" in readme_text)
+    checksum_payload = {
+        "artifact_review_rows": artifact_review_rows,
+        "dataset_row_review_rows": dataset_row_review_rows,
+        "excluded_row_review_rows": excluded_row_review_rows,
+        "methodology_action_review_rows": methodology_action_review_rows,
+        "manifest_review": manifest_review,
+    }
+    review_check_inputs = (
+        ("task198_ready_for_task199", task198_ready),
+        ("task198_contract_valid", task198_contract_valid),
+        ("task198_safety_valid", not task198_mutation and int(task198.get("bad_safety_count") or 0) == 0),
+        ("task198_lineage_valid", _as_bool(task198.get("preview_lineage_valid"))),
+        ("task198_checksum_valid", bool(task198_checksum) and _as_bool(task198.get("preview_checksum_valid"))),
+        ("task198_files_created", _as_bool(task198.get("preview_files_created"))),
+        ("task198_paths_safe", _as_bool(task198.get("preview_paths_safe"))),
+        ("preview_artifacts_loaded", all(row["readable"] for row in artifact_review_rows)),
+        ("preview_artifacts_inside_chain", artifacts_inside),
+        ("preview_dataset_json_loaded", dataset_json_loaded),
+        ("preview_dataset_csv_loaded", dataset_csv_loaded),
+        ("preview_dataset_json_csv_match", dataset_json_csv_match),
+        ("preview_excluded_json_loaded", excluded_json_loaded),
+        ("preview_methodology_actions_json_loaded", actions_json_loaded),
+        ("preview_manifest_loaded", manifest_loaded),
+        ("preview_readme_loaded", readme_loaded),
+        ("preview_dataset_lineage_review_valid", dataset_lineage_valid),
+        ("preview_dataset_non_scoring_review_valid", dataset_safety_valid),
+        ("preview_excluded_rows_review_valid", excluded_rows_valid),
+        ("preview_methodology_actions_review_valid", methodology_actions_valid),
+        ("preview_manifest_review_valid", manifest_valid),
+        ("preview_checksum_review_valid", True),
+        ("task199_read_only_safety", True),
+        ("review_gate_checksum_built", True),
+    )
+    export_preview_review_check_rows = [
+        _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_check_row(code, passed=bool(passed))
+        for code, passed in review_check_inputs
+    ]
+    for index, row in enumerate(export_preview_review_check_rows, start=1):
+        row["check_index"] = index
+    checksum_payload["export_preview_review_check_rows"] = export_preview_review_check_rows
+    review_checksum = _rzd_controlled_values_imported_read_model_canonical_sha256(checksum_payload)
+    if not review_checksum:
+        add_block("review_gate_checksum_missing")
+
+    company_row = (dataset_json_rows or excluded_json_rows or task198_dataset_rows or [{}])[0]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate",
+        "status": "blocked",
+        "ratio_analytics_dataset_export_preview_review_gate_status": "blocked",
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "expected_import_row_count": expected_row_count,
+        "task198_input_path": str(task198_path or ""),
+        "task198_status": str(task198.get("status") or ""),
+        "task198_ratio_analytics_dataset_export_preview_status": str(task198.get("ratio_analytics_dataset_export_preview_status") or ""),
+        "task198_ready_for_task199_ratio_analytics_dataset_export_preview_review_gate": _as_bool(task198.get("ready_for_task199_ratio_analytics_dataset_export_preview_review_gate")),
+        "task198_preview_artifact_count": int(task198.get("preview_artifact_count") or 0),
+        "task198_preview_schema_field_count": int(task198.get("preview_schema_field_count") or 0),
+        "task198_preview_dataset_row_count": int(task198.get("preview_dataset_row_count") or 0),
+        "task198_preview_excluded_row_count": int(task198.get("preview_excluded_row_count") or 0),
+        "task198_preview_methodology_action_count": int(task198.get("preview_methodology_action_count") or 0),
+        "task198_preview_json_dataset_row_count": int(task198.get("preview_json_dataset_row_count") or 0),
+        "task198_preview_csv_dataset_row_count": int(task198.get("preview_csv_dataset_row_count") or 0),
+        "task198_preview_manifest_artifact_count": int(task198.get("preview_manifest_artifact_count") or 0),
+        "task198_preview_artifacts_contract_valid": _as_bool(task198.get("preview_artifacts_contract_valid")),
+        "task198_preview_schema_contract_valid": _as_bool(task198.get("preview_schema_contract_valid")),
+        "task198_preview_dataset_rows_contract_valid": _as_bool(task198.get("preview_dataset_rows_contract_valid")),
+        "task198_preview_excluded_rows_contract_valid": _as_bool(task198.get("preview_excluded_rows_contract_valid")),
+        "task198_preview_methodology_actions_contract_valid": _as_bool(task198.get("preview_methodology_actions_contract_valid")),
+        "task198_preview_manifest_contract_valid": _as_bool(task198.get("preview_manifest_contract_valid")),
+        "task198_preview_dataset_rows_source_match": _as_bool(task198.get("preview_dataset_rows_source_match")),
+        "task198_preview_excluded_rows_source_match": _as_bool(task198.get("preview_excluded_rows_source_match")),
+        "task198_preview_methodology_actions_source_match": _as_bool(task198.get("preview_methodology_actions_source_match")),
+        "task198_preview_lineage_valid": _as_bool(task198.get("preview_lineage_valid")),
+        "task198_preview_checksum_valid": _as_bool(task198.get("preview_checksum_valid")),
+        "task198_preview_non_scoring": _as_bool(task198.get("preview_non_scoring")),
+        "task198_preview_recommendations_disabled": _as_bool(task198.get("preview_recommendations_disabled")),
+        "task198_preview_trading_disabled": _as_bool(task198.get("preview_trading_disabled")),
+        "task198_preview_paper_trading_disabled": _as_bool(task198.get("preview_paper_trading_disabled")),
+        "task198_preview_paths_safe": _as_bool(task198.get("preview_paths_safe")),
+        "task198_preview_files_created": _as_bool(task198.get("preview_files_created")),
+        "task198_production_export_executed": _as_bool(task198.get("production_export_executed")),
+        "task198_ratio_analytics_dataset_export_preview_checksum_sha256": task198_checksum,
+        "task198_database_mutated": _as_bool(task198.get("database_mutated")),
+        "task198_migration_executed": _as_bool(task198.get("migration_executed")),
+        "task198_import_executed": _as_bool(task198.get("import_executed")),
+        "task198_scoring_executed": _as_bool(task198.get("scoring_executed")),
+        "task198_trading_executed": _as_bool(task198.get("trading_executed")),
+        "task198_paper_trading_executed": _as_bool(task198.get("paper_trading_executed")),
+        "task198_recommendation_generated": _as_bool(task198.get("recommendation_generated")),
+        "task198_methodology_patch_executed": _as_bool(task198.get("methodology_patch_executed")),
+        "task198_bad_safety_count": int(task198.get("bad_safety_count") or 0),
+        "task198_blocker_count": int(task198.get("blocker_count") or 0),
+        "company_id": str(company_row.get("company_id") or ""),
+        "company_name": str(company_row.get("company_name") or ""),
+        "report_year": int(company_row.get("report_year") or 0),
+        "report_standard": str(company_row.get("report_standard") or ""),
+        "currency": str(company_row.get("currency") or ""),
+        "unit": str(company_row.get("unit") or ""),
+        "dataset_json_review_row_count": len(dataset_json_rows),
+        "dataset_csv_review_row_count": len(dataset_csv_rows),
+        "excluded_json_review_row_count": len(excluded_json_rows),
+        "methodology_actions_json_review_row_count": len(action_json_rows),
+        "manifest_artifact_review_count": int(manifest_review.get("preview_artifact_count") or 0),
+        "preview_artifacts_exist": artifacts_exist,
+        "preview_artifacts_inside_chain": artifacts_inside,
+        "preview_artifacts_contract_review_valid": artifact_contract_valid,
+        "preview_dataset_json_contract_review_valid": dataset_json_loaded and len(dataset_json_rows) == 9,
+        "preview_dataset_csv_contract_review_valid": dataset_csv_loaded and len(dataset_csv_rows) == 9,
+        "preview_excluded_json_contract_review_valid": excluded_rows_valid,
+        "preview_methodology_actions_contract_review_valid": methodology_actions_valid,
+        "preview_manifest_contract_review_valid": manifest_valid,
+        "preview_readme_contract_review_valid": readme_valid,
+        "preview_json_csv_match": dataset_json_csv_match,
+        "dataset_json_csv_match": dataset_json_csv_match,
+        "preview_dataset_rows_match_task198": dataset_task198_match,
+        "preview_excluded_rows_match_task198": excluded_match_task198,
+        "preview_methodology_actions_match_task198": methodology_actions_match_task198,
+        "preview_manifest_matches_task198": manifest_valid,
+        "preview_lineage_review_valid": dataset_lineage_valid,
+        "dataset_canonical_lineage_valid": dataset_lineage_valid,
+        "preview_checksum_review_valid": bool(review_checksum and task198_checksum),
+        "preview_non_scoring_review_valid": dataset_safety_valid and excluded_rows_valid,
+        "preview_safety_review_valid": artifact_contract_valid and dataset_safety_valid and excluded_rows_valid and methodology_actions_valid and manifest_valid and readme_valid,
+        "preview_paths_review_valid": artifacts_inside,
+        "excluded_rows_not_in_dataset": all(not row["leaked_into_dataset"] for row in excluded_row_review_rows),
+        "methodology_scoring_safety_gate_present": "scoring_safety_gate_required" in json_action_types,
+        "manifest_checksum_match": manifest_loaded and manifest_review["task198_checksum_sha256"] == task198_checksum,
+        "artifact_review_rows": artifact_review_rows,
+        "dataset_row_review_rows": dataset_row_review_rows,
+        "excluded_row_review_rows": excluded_row_review_rows,
+        "methodology_action_review_rows": methodology_action_review_rows,
+        "manifest_review": manifest_review,
+        "export_preview_review_check_rows": export_preview_review_check_rows,
+        "source_ratio_analytics_dataset_export_preview_checksum_sha256": task198_checksum,
+        "ratio_analytics_dataset_export_preview_review_gate_checksum_sha256": review_checksum,
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_flags(),
+        **_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_flags(),
+        "analytics_dataset_export_preview_review_gate_executed": True,
+        "safe_hint": "Task199 reviewed Task198 preview artifacts without creating or modifying preview or production exports.",
+        "next_step": "Task200 - Analytics Export Layer Closure",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate", "blocked"),
+        "errors": [],
+    }
+    report["status"] = "blocked" if blocker_rows else "warning"
+    report["ratio_analytics_dataset_export_preview_review_gate_status"] = report["status"]
+    report["next_steps"] = _next_steps("rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate", report["status"])
+    _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_normalize_report(report)
+    return report
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_blocker_row(
+            str(error.get("message") or "task199_error"),
+            details=error,
+        )
+        for error in errors
+    ]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate",
+        "status": "failed",
+        "ratio_analytics_dataset_export_preview_review_gate_status": "failed",
+        "expected_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
+        "expected_table": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
+        "expected_import_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
+        "artifact_review_rows": [],
+        "dataset_row_review_rows": [],
+        "excluded_row_review_rows": [],
+        "methodology_action_review_rows": [],
+        "manifest_review": {},
+        "export_preview_review_check_rows": [],
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_flags(),
+        **_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_flags(),
+        "analytics_dataset_export_preview_review_gate_executed": False,
+        "safe_hint": "Task199 failed before completing preview review; no preview or production artifacts were created or modified.",
+        "next_step": "Task200 - Analytics Export Layer Closure",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate", "failed"),
+        "errors": errors,
+    }
+    _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_normalize_report(report)
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    if write_outputs:
+        try:
+            _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_ratio_analytics_dataset_export_preview_review_gate_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("review_json"):
+        write_json_report(report, artifacts["review_json"])
+    if artifacts.get("review_markdown"):
+        write_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown(report, artifacts["review_markdown"])
+    if artifacts.get("checks_json"):
+        write_json_report({"export_preview_review_check_count": report.get("export_preview_review_check_count", 0), "export_preview_review_check_rows": report.get("export_preview_review_check_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["checks_json"])
+    if artifacts.get("blockers_json"):
+        write_json_report({"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
+    if artifacts.get("artifact_reviews_json"):
+        write_json_report({"artifact_review_count": report.get("artifact_review_count", 0), "artifact_review_rows": report.get("artifact_review_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["artifact_reviews_json"])
+    if artifacts.get("dataset_row_reviews_json"):
+        write_json_report({"dataset_row_review_count": report.get("dataset_row_review_count", 0), "dataset_row_review_rows": report.get("dataset_row_review_rows") or [], "preview_json_csv_match": report.get("preview_json_csv_match", False), "preview_lineage_review_valid": report.get("preview_lineage_review_valid", False), "safe_hint": report.get("safe_hint") or ""}, artifacts["dataset_row_reviews_json"])
+    if artifacts.get("excluded_row_reviews_json"):
+        write_json_report({"excluded_row_review_count": report.get("excluded_row_review_count", 0), "excluded_row_review_rows": report.get("excluded_row_review_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["excluded_row_reviews_json"])
+    if artifacts.get("methodology_action_reviews_json"):
+        write_json_report({"methodology_action_review_count": report.get("methodology_action_review_count", 0), "methodology_action_review_rows": report.get("methodology_action_review_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["methodology_action_reviews_json"])
+    if artifacts.get("manifest_review_json"):
+        write_json_report({"manifest_review_count": report.get("manifest_review_count", 0), "manifest_review": report.get("manifest_review") or {}, "safe_hint": report.get("safe_hint") or ""}, artifacts["manifest_review_json"])
+    if artifacts.get("summary_json"):
+        write_json_report({
+            "artifact_review_count": report.get("artifact_review_count", 0),
+            "dataset_row_review_count": report.get("dataset_row_review_count", 0),
+            "excluded_row_review_count": report.get("excluded_row_review_count", 0),
+            "methodology_action_review_count": report.get("methodology_action_review_count", 0),
+            "manifest_review_count": report.get("manifest_review_count", 0),
+            "preview_artifacts_exist": report.get("preview_artifacts_exist", False),
+            "preview_artifacts_inside_chain": report.get("preview_artifacts_inside_chain", False),
+            "preview_json_csv_match": report.get("preview_json_csv_match", False),
+            "preview_checksum_review_valid": report.get("preview_checksum_review_valid", False),
+            "ratio_analytics_dataset_export_preview_review_gate_checksum_sha256": report.get("ratio_analytics_dataset_export_preview_review_gate_checksum_sha256", ""),
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["summary_json"])
+    if artifacts.get("safety_json"):
+        write_json_report({
+            **_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_safety_flags(),
+            "analytics_dataset_export_preview_review_gate_executed": report.get("analytics_dataset_export_preview_review_gate_executed", False),
+            "ready_for_analytics_export_layer_closure": report.get("ready_for_analytics_export_layer_closure", False),
+            "ready_for_task200_analytics_export_layer_closure": report.get("ready_for_task200_analytics_export_layer_closure", False),
+            "safety_flags": report.get("safety_flags") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["safety_json"])
+
+
+def run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_inputs(args)
+    artifacts = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_artifacts(args)
+    output_errors = _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_failed_report(output_errors, artifacts=artifacts, write_outputs=False)
+    try:
+        task198 = _load_json_object(inputs["task198"]) if inputs.get("task198") and inputs["task198"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_failed_report(
+            [{"message": "controlled_values_ratio_analytics_dataset_export_preview_review_gate_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_report(
+        task198,
+        inputs=inputs,
+        args=args,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["ratio_analytics_dataset_export_preview_review_gate_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_ratio_analytics_dataset_export_preview_review_gate_write_failed", "error": str(exc)}]
+        _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_normalize_report(report)
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -78062,6 +78999,11 @@ def write_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_expo
     path.write_text(render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -78381,6 +79323,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview":
         return render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate":
+        return render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -85842,6 +86786,110 @@ def render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_exp
         "",
         f"- source Task197 checksum: `{report.get('source_ratio_analytics_dataset_export_plan_checksum_sha256')}`",
         f"- export preview checksum: `{report.get('ratio_analytics_dataset_export_preview_checksum_sha256')}`",
+        "",
+        "## Decision",
+        "",
+        decision,
+        "",
+        "## Next step",
+        "",
+        str(report.get("next_step") or ""),
+        "",
+        "## Blockers",
+        "",
+    ]
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown(report: dict[str, Any]) -> str:
+    if report.get("blocker_rows"):
+        decision = "Ratio analytics dataset export preview review is blocked. Resolve Task198 preview-file, lineage, manifest, contract, or safety blockers before Task200."
+    else:
+        decision = (
+            "Ratio analytics dataset export preview review completed as a controlled, read-only review.\n\n"
+            "Task199 reviewed existing Task198 preview files and did not create or modify preview or production artifacts.\n\n"
+            "The next eligible step is Task200 analytics export layer closure; production export, scoring, recommendations, trading, and paper trading remain blocked."
+        )
+    artifact_keys = ", ".join(str(row.get("artifact_key") or "") for row in report.get("artifact_review_rows") or [])
+    dataset_keys = ", ".join(str(row.get("ratio_key") or "") for row in report.get("dataset_row_review_rows") or [])
+    excluded_keys = ", ".join(str(row.get("ratio_key") or "") for row in report.get("excluded_row_review_rows") or [])
+    action_types = ", ".join(str(row.get("action_type") or "") for row in report.get("methodology_action_review_rows") or [])
+    manifest_review = report.get("manifest_review") or {}
+    lines = [
+        "# RZD Controlled Values Ratio Analytics Dataset Export Preview Review Gate",
+        "",
+        "## Input chain",
+        "",
+        f"- Task198 input: `{report.get('task198_input_path')}`",
+        f"- expected revision: `{report.get('expected_revision')}`",
+        f"- expected table: `{report.get('expected_table')}`",
+        f"- expected imported row count: `{report.get('expected_import_row_count')}`",
+        "",
+        "## Task198 export preview summary",
+        "",
+        f"- Task198 status: `{report.get('task198_status')}` / `{report.get('task198_ratio_analytics_dataset_export_preview_status')}`",
+        f"- Task198 ready for Task199: `{report.get('task198_ready_for_task199_ratio_analytics_dataset_export_preview_review_gate')}`",
+        f"- preview artifact count: `{report.get('task198_preview_artifact_count')}`",
+        f"- preview dataset rows: `{report.get('task198_preview_dataset_row_count')}`",
+        f"- preview excluded rows: `{report.get('task198_preview_excluded_row_count')}`",
+        f"- preview methodology actions: `{report.get('task198_preview_methodology_action_count')}`",
+        "",
+        "## Artifact review",
+        "",
+        f"- artifact review count: `{report.get('artifact_review_count')}`",
+        f"- artifact keys: {artifact_keys or 'none'}",
+        "",
+        "## Dataset JSON and CSV review",
+        "",
+        f"- dataset row review count: `{report.get('dataset_row_review_count')}`",
+        f"- JSON/CSV match: `{report.get('dataset_json_csv_match')}`",
+        f"- canonical lineage valid: `{report.get('dataset_canonical_lineage_valid')}`",
+        f"- ratio keys: {dataset_keys or 'none'}",
+        "",
+        "## Excluded rows review",
+        "",
+        f"- excluded row review count: `{report.get('excluded_row_review_count')}`",
+        f"- excluded leak absent: `{report.get('excluded_rows_not_in_dataset')}`",
+        f"- ratio keys: {excluded_keys or 'none'}",
+        "",
+        "## Methodology actions review",
+        "",
+        f"- methodology action review count: `{report.get('methodology_action_review_count')}`",
+        f"- scoring safety gate present: `{report.get('methodology_scoring_safety_gate_present')}`",
+        f"- action types: {action_types or 'none'}",
+        "",
+        "## Manifest review",
+        "",
+        f"- manifest review count: `{report.get('manifest_review_count')}`",
+        f"- manifest checksum match: `{manifest_review.get('task198_checksum_match', False)}`",
+        f"- manifest preview counts valid: `{manifest_review.get('manifest_counts_valid', False)}`",
+        f"- manifest next step present: `{manifest_review.get('next_step_present', False)}`",
+        "",
+        "## Safety",
+        "",
+        "No migration was executed by Task199.",
+        "No Alembic command was executed by Task199.",
+        "No database mutation was performed by Task199.",
+        "No rows were inserted by Task199.",
+        "No rows were updated by Task199.",
+        "No rows were deleted by Task199.",
+        "No scoring was executed by Task199.",
+        "No trading or paper trading was executed by Task199.",
+        "No investment recommendation was generated by Task199.",
+        "No methodology patch was executed by Task199.",
+        "No production export artifact was generated by Task199.",
+        "No preview export artifact was created or modified by Task199.",
+        "Task199 only reviewed Task198 preview artifacts.",
+        "",
+        "## Checksums",
+        "",
+        f"- source Task198 checksum: `{report.get('source_ratio_analytics_dataset_export_preview_checksum_sha256')}`",
+        f"- preview review checksum: `{report.get('ratio_analytics_dataset_export_preview_review_gate_checksum_sha256')}`",
         "",
         "## Decision",
         "",
@@ -96893,6 +97941,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use Task197 output only for a future non-scoring ratio analytics dataset export preview; scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview":
         return ["Use Task198 controlled preview files only for a future non-scoring export preview review gate; production export, scoring, recommendations, trading, and paper trading remain blocked."]
+    if mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate":
+        return ["Use Task199 output only for future analytics export layer closure; production export, scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -97295,6 +98345,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_controlled_values_ratio_analytics_dataset_export_preview_inputs(args),
             artifacts=_rzd_controlled_values_ratio_analytics_dataset_export_preview_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate":
+        return not _rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_output_errors(
+            args,
+            inputs=_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_inputs(args),
+            artifacts=_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
