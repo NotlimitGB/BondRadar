@@ -111,6 +111,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-plan",
     "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview",
     "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate",
+    "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -9880,6 +9881,100 @@ RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_REQUIRE
     "artifact_review_rows", "dataset_row_review_rows", "excluded_row_review_rows",
     "methodology_action_review_rows", "export_preview_review_check_rows", "blocker_rows",
 )
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ARTIFACT_NAMES = {
+    "closure_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_task200.json",
+    "closure_markdown": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_task200.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_checks_task200.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_blockers_task200.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_summary_task200.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_scope_task200.json",
+    "artifacts_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_artifacts_task200.json",
+    "dataset_summary_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_dataset_summary_task200.json",
+    "lineage_summary_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_lineage_summary_task200.json",
+    "open_methodology_actions_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_open_methodology_actions_task200.json",
+    "next_stage_plan_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_next_stage_plan_task200.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_safety_task200.json",
+}
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CHECK_FIELDS = [
+    "check_index", "check_key", "status", "severity", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_SCOPE_FIELDS = [
+    "scope_index", "scope_key", "scope_status", "included", "excluded", "reason", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ARTIFACT_FIELDS = [
+    "artifact_index", "artifact_key", "artifact_path", "artifact_review_status", "exists",
+    "inside_chain", "preview_only", "production_export", "non_scoring_only", "closure_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_DATASET_SUMMARY_FIELDS = [
+    "summary_index", "summary_key", "count", "status", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_LINEAGE_FIELDS = [
+    "lineage_index", "ratio_key", "numerator_metric_key", "denominator_metric_key",
+    "lineage_status", "source_task", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ACTION_FIELDS = [
+    "action_index", "action_type", "severity", "required", "blocks_future_analytics",
+    "blocks_future_scoring", "blocks_recommendation", "blocks_trading", "closure_status", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_NEXT_STAGE_FIELDS = [
+    "next_stage_index", "next_stage_key", "planned_task_hint", "allowed_now",
+    "blocked_capabilities", "reason", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_BOOL_FIELDS = (
+    "analytics_export_layer_closed", "ready_for_multi_issuer_analytics_plan",
+    "ready_for_task201_multi_issuer_analytics_plan", "ready_for_analytics_export_layer_closure",
+    "ready_for_task200_analytics_export_layer_closure", "ready_for_scoring", "ready_for_trading",
+    "ready_for_paper_trading", "task199_ready_for_task200_analytics_export_layer_closure",
+    "task199_preview_artifacts_exist", "task199_preview_artifacts_inside_chain",
+    "task199_preview_artifacts_contract_review_valid", "task199_preview_dataset_json_contract_review_valid",
+    "task199_preview_dataset_csv_contract_review_valid", "task199_preview_excluded_json_contract_review_valid",
+    "task199_preview_methodology_actions_contract_review_valid", "task199_preview_manifest_contract_review_valid",
+    "task199_preview_readme_contract_review_valid", "task199_preview_json_csv_match",
+    "task199_preview_dataset_rows_match_task198", "task199_preview_excluded_rows_match_task198",
+    "task199_preview_methodology_actions_match_task198", "task199_preview_manifest_matches_task198",
+    "task199_preview_lineage_review_valid", "task199_preview_checksum_review_valid",
+    "task199_preview_non_scoring_review_valid", "task199_preview_safety_review_valid",
+    "task199_preview_paths_review_valid", "task199_database_mutated", "task199_migration_executed",
+    "task199_import_executed", "task199_scoring_executed", "task199_trading_executed",
+    "task199_paper_trading_executed", "task199_recommendation_generated",
+    "task199_methodology_patch_executed", "task199_production_export_executed",
+    "closed_layer_single_issuer", "closed_layer_preview_only", "closed_layer_non_scoring",
+    "closed_layer_non_recommendation", "closed_layer_non_trading", "closed_layer_non_paper_trading",
+    "closed_layer_production_export_disabled", "closed_layer_artifacts_reviewed",
+    "closed_layer_dataset_reviewed", "closed_layer_excluded_rows_reviewed",
+    "closed_layer_methodology_actions_reviewed", "closed_layer_manifest_reviewed",
+    "closed_layer_lineage_reviewed", "closed_layer_checksums_reviewed", "closed_layer_safety_reviewed",
+    "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+    "trading_executed", "paper_trading_executed", "recommendation_generated",
+    "methodology_patch_executed", "verification_executed", "interpretation_review_executed",
+    "analytics_readiness_gate_executed", "analytics_dataset_preview_executed",
+    "analytics_dataset_review_gate_executed", "analytics_dataset_export_plan_executed",
+    "analytics_dataset_export_preview_executed", "analytics_dataset_export_preview_review_gate_executed",
+    "analytics_export_layer_closure_executed", "production_export_executed",
+)
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_COUNT_FIELDS = (
+    "expected_import_row_count", "report_year", "task199_artifact_review_count",
+    "task199_dataset_row_review_count", "task199_excluded_row_review_count",
+    "task199_methodology_action_review_count", "task199_manifest_review_count",
+    "task199_dataset_json_review_row_count", "task199_dataset_csv_review_row_count",
+    "task199_excluded_json_review_row_count", "task199_methodology_actions_json_review_row_count",
+    "task199_manifest_artifact_review_count", "task199_bad_safety_count", "task199_blocker_count",
+    "closed_layer_company_count", "closed_layer_issuer_count", "closed_layer_dataset_row_count",
+    "closed_layer_excluded_row_count", "closed_layer_methodology_action_count",
+    "closed_layer_preview_artifact_count", "closed_layer_manifest_count", "closed_layer_schema_field_count",
+    "closure_scope_row_count", "closure_artifact_row_count", "closure_dataset_summary_row_count",
+    "closure_lineage_summary_row_count", "closure_open_methodology_action_row_count",
+    "closure_next_stage_plan_row_count", "analytics_export_layer_closure_check_count",
+    "bad_safety_count", "blocker_count",
+)
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_LIST_FIELDS = (
+    "closure_scope_rows", "closure_artifact_rows", "closure_dataset_summary_rows",
+    "closure_lineage_summary_rows", "closure_open_methodology_action_rows",
+    "closure_next_stage_plan_rows", "analytics_export_layer_closure_check_rows", "blocker_rows",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -11688,6 +11783,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-manifest-review-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-artifacts-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-dataset-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-lineage-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-open-methodology-actions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-next-stage-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -11985,6 +12094,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate":
         report = run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure":
+        report = run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -70641,6 +70752,677 @@ def run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export
     return report
 
 
+RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS = {
+    "total_liabilities_mapping_required": ("critical", True, True, True, True),
+    "operating_cash_flow_mapping_required": ("high", True, True, True, True),
+    "debt_semantics_review_required": ("high", True, True, True, True),
+    "interest_coverage_policy_required": ("high", True, True, True, True),
+    "liquidity_context_review_required": ("medium", True, True, True, True),
+    "scoring_safety_gate_required": ("low", True, False, True, True),
+}
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_safety_flags() -> dict[str, bool]:
+    return {
+        "database_mutated": False,
+        "migration_executed": False,
+        "import_executed": False,
+        "scoring_executed": False,
+        "trading_executed": False,
+        "paper_trading_executed": False,
+        "recommendation_generated": False,
+        "methodology_patch_executed": False,
+        "verification_executed": False,
+        "interpretation_review_executed": False,
+        "analytics_readiness_gate_executed": False,
+        "analytics_dataset_preview_executed": False,
+        "analytics_dataset_review_gate_executed": False,
+        "analytics_dataset_export_plan_executed": False,
+        "analytics_dataset_export_preview_executed": False,
+        "analytics_dataset_export_preview_review_gate_executed": False,
+        "production_export_executed": False,
+        "ready_for_scoring": False,
+        "ready_for_trading": False,
+        "ready_for_paper_trading": False,
+    }
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_blocker_row(
+    code: str,
+    *,
+    severity: str = "high",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_analytics_export_layer_closure:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task200 closes the current reviewed preview layer only; scoring, recommendations, trading, and production export remain blocked.",
+    }
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_check_row(
+    code: str,
+    *,
+    passed: bool,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "check_index": 0,
+        "check_key": code,
+        "status": "passed" if passed else "blocked",
+        "severity": "info" if passed else "high",
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task200 check is closure-only and non-scoring.",
+    }
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    task199_default = (
+        chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_ARTIFACT_NAMES["review_json"]
+        if chain_dir else None
+    )
+    return {
+        "task199": (
+            args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_input
+            or args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_input
+            or task199_default
+        ),
+        "task198": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_ARTIFACT_NAMES["preview_json"]
+            if chain_dir else None
+        ),
+        "task197": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task196": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_review_gate_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+            if chain_dir else None
+        ),
+    }
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ARTIFACT_NAMES.items()}
+        if chain_dir else {}
+    )
+    return {
+        "closure_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_output or defaults.get("closure_json"),
+        "closure_markdown": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_markdown_output or defaults.get("closure_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_checks_output or defaults.get("checks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_blockers_output or defaults.get("blockers_json"),
+        "summary_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_summary_output or defaults.get("summary_json"),
+        "scope_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_scope_output or defaults.get("scope_json"),
+        "artifacts_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_artifacts_output or defaults.get("artifacts_json"),
+        "dataset_summary_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_dataset_summary_output or defaults.get("dataset_summary_json"),
+        "lineage_summary_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_lineage_summary_output or defaults.get("lineage_summary_json"),
+        "open_methodology_actions_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_open_methodology_actions_output or defaults.get("open_methodology_actions_json"),
+        "next_stage_plan_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_next_stage_plan_output or defaults.get("next_stage_plan_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: dict[Path, str] = {}
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path and path == input_path:
+                return [{"message": "rzd_controlled_values_analytics_export_layer_closure_output_must_not_equal_input", "output": key, "input": input_key}]
+        if path in seen:
+            return [{"message": "rzd_controlled_values_analytics_export_layer_closure_output_must_not_equal_input", "output": key, "duplicate_output": seen[path]}]
+        seen[path] = key
+    return []
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_scope_rows(company_name: str) -> list[dict[str, Any]]:
+    rows = [
+        ("issuer_scope", "closed_current_scope", company_name or "RZD", "other issuers", "Only the current RZD issuer preview layer is closed."),
+        ("report_scope", "closed_current_scope", "IFRS 2025", "other years or reporting standards", "Task200 closes the reviewed IFRS 2025 scope only."),
+        ("data_scope", "closed_current_scope", "reviewed Task196-Task199 analytics dataset rows", "unreviewed or production datasets", "Only reviewed preview dataset rows are in scope."),
+        ("export_scope", "closed_current_scope", "preview-only export artifacts reviewed by Task199", "production export artifacts", "Task200 creates closure reports only."),
+        ("scoring_scope", "blocked_until_future_gate", "non-scoring analytics only", "scoring/recommendations/trading/paper trading", "Scoring and investment actions remain blocked."),
+        ("trading_scope", "blocked_until_future_gate", "no trading execution", "trading and paper trading", "Trading remains out of scope."),
+        ("methodology_scope", "preserved_open", "open methodology actions preserved", "methodology patch execution", "Task200 does not resolve methodology actions."),
+        ("next_stage_scope", "planned_future_scope", "Task201 multi-issuer analytics plan", "direct production export or scoring", "Next stage is technical planning only."),
+    ]
+    return [
+        {
+            "scope_index": index,
+            "scope_key": key,
+            "scope_status": status,
+            "included": included,
+            "excluded": excluded,
+            "reason": reason,
+            "safe_hint": "Closure scope is informational and does not enable scoring, recommendations, or trading.",
+        }
+        for index, (key, status, included, excluded, reason) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_next_stage_rows() -> list[dict[str, Any]]:
+    rows = [
+        ("multi_issuer_analytics_plan", "Task201 - Multi-Issuer Analytics Plan", True, "scoring,recommendations,trading,paper_trading", "Prepare a technical plan for expanding beyond the current single issuer."),
+        ("multi_issuer_source_selection", "Future multi-issuer source selection", False, "scoring,recommendations,trading,paper_trading", "Source selection needs a future gate."),
+        ("multi_issuer_financial_pipeline_reuse", "Future financial pipeline reuse plan", False, "scoring,recommendations,trading,paper_trading", "Pipeline reuse must be planned before execution."),
+        ("multi_issuer_ratio_dataset_preview", "Future multi-issuer ratio dataset preview", False, "scoring,recommendations,trading,paper_trading", "Preview generation remains future work."),
+        ("bond_universe_source_plan", "Future bond universe source plan", False, "scoring,recommendations,trading,paper_trading", "Bond universe inputs need controlled planning."),
+        ("scoring_methodology_plan", "Future scoring methodology plan", False, "scoring,recommendations,trading,paper_trading", "Scoring remains disabled until explicitly planned and gated."),
+        ("paper_trading_engine_plan", "Future paper trading engine plan", False, "scoring,recommendations,trading,paper_trading", "Paper trading remains disabled until a future controlled stage."),
+    ]
+    return [
+        {
+            "next_stage_index": index,
+            "next_stage_key": key,
+            "planned_task_hint": hint,
+            "allowed_now": allowed,
+            "blocked_capabilities": blocked,
+            "reason": reason,
+            "safe_hint": "Next-stage row is a technical project plan, not an investment recommendation.",
+        }
+        for index, (key, hint, allowed, blocked, reason) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_normalize_report(report: dict[str, Any]) -> None:
+    executed = bool(report.get("analytics_export_layer_closure_executed"))
+    for field in RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_BOOL_FIELDS:
+        report[field] = bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_LIST_FIELDS:
+        if not isinstance(report.get(field), list):
+            report[field] = []
+    for field in (
+        "mode", "status", "analytics_export_layer_closure_status",
+        "analytics_export_layer_scope", "analytics_export_layer_closure_reason",
+        "expected_revision", "expected_table", "task199_input_path", "task199_status",
+        "task199_ratio_analytics_dataset_export_preview_review_gate_status",
+        "task199_ratio_analytics_dataset_export_preview_review_gate_checksum_sha256",
+        "company_id", "company_name", "report_standard", "currency", "unit",
+        "source_ratio_analytics_dataset_export_preview_review_gate_checksum_sha256",
+        "analytics_export_layer_closure_checksum_sha256", "safe_hint", "next_step",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["closure_scope_row_count"] = len(report.get("closure_scope_rows") or [])
+    report["closure_artifact_row_count"] = len(report.get("closure_artifact_rows") or [])
+    report["closure_dataset_summary_row_count"] = len(report.get("closure_dataset_summary_rows") or [])
+    report["closure_lineage_summary_row_count"] = len(report.get("closure_lineage_summary_rows") or [])
+    report["closure_open_methodology_action_row_count"] = len(report.get("closure_open_methodology_action_rows") or [])
+    report["closure_next_stage_plan_row_count"] = len(report.get("closure_next_stage_plan_rows") or [])
+    report["analytics_export_layer_closure_check_count"] = len(report.get("analytics_export_layer_closure_check_rows") or [])
+    report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["bad_safety_count"] = 0
+    for field, value in _rzd_controlled_values_analytics_export_layer_closure_safety_flags().items():
+        report[field] = bool(value)
+    report["analytics_export_layer_closure_executed"] = executed
+    report["production_export_executed"] = False
+    if report.get("status") == "warning" and report["blocker_count"] == 0:
+        report["analytics_export_layer_closed"] = True
+        report["ready_for_multi_issuer_analytics_plan"] = True
+        report["ready_for_task201_multi_issuer_analytics_plan"] = True
+    else:
+        report["analytics_export_layer_closed"] = False
+        report["ready_for_multi_issuer_analytics_plan"] = False
+        report["ready_for_task201_multi_issuer_analytics_plan"] = False
+    report["ready_for_analytics_export_layer_closure"] = False
+    report["ready_for_task200_analytics_export_layer_closure"] = False
+
+
+def _build_rzd_controlled_values_analytics_export_layer_closure_report(
+    task199: dict[str, Any],
+    *,
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    blocker_rows: list[dict[str, Any]] = []
+
+    def add_block(code: str, details: dict[str, Any] | None = None) -> None:
+        if code not in {row["code"] for row in blocker_rows}:
+            blocker_rows.append(_rzd_controlled_values_analytics_export_layer_closure_blocker_row(code, details=details))
+
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table or RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE)
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_expected_row_count or RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT)
+    task199_path = inputs.get("task199")
+    if not task199:
+        add_block("task199_input_missing", {"path": str(task199_path or "")})
+
+    task199_status = str(task199.get("status") or "")
+    if task199 and task199_status not in {"warning", "passed"}:
+        add_block("task199_status_invalid", {"status": task199_status})
+    if task199 and not _as_bool(task199.get("ready_for_task200_analytics_export_layer_closure")):
+        add_block("task199_not_ready_for_closure")
+    task199_checksum = str(task199.get("ratio_analytics_dataset_export_preview_review_gate_checksum_sha256") or "")
+    if task199 and not task199_checksum:
+        add_block("task199_contract_invalid", {"field": "ratio_analytics_dataset_export_preview_review_gate_checksum_sha256"})
+    if int(task199.get("blocker_count") or 0) > 0 or int(task199.get("bad_safety_count") or 0) > 0:
+        add_block("task199_safety_invalid")
+
+    task199_true_fields = (
+        "preview_artifacts_exist", "preview_artifacts_inside_chain", "preview_artifacts_contract_review_valid",
+        "preview_dataset_json_contract_review_valid", "preview_dataset_csv_contract_review_valid",
+        "preview_excluded_json_contract_review_valid", "preview_methodology_actions_contract_review_valid",
+        "preview_manifest_contract_review_valid", "preview_readme_contract_review_valid",
+        "preview_json_csv_match", "preview_dataset_rows_match_task198", "preview_excluded_rows_match_task198",
+        "preview_methodology_actions_match_task198", "preview_manifest_matches_task198",
+        "preview_lineage_review_valid", "preview_checksum_review_valid", "preview_non_scoring_review_valid",
+        "preview_safety_review_valid", "preview_paths_review_valid",
+    )
+    missing_contract_fields = [field for field in task199_true_fields if task199 and not _as_bool(task199.get(field))]
+    if missing_contract_fields:
+        add_block("task199_contract_invalid", {"fields": missing_contract_fields})
+    if any(field in missing_contract_fields for field in ("preview_artifacts_exist", "preview_artifacts_inside_chain", "preview_artifacts_contract_review_valid")):
+        add_block("task199_artifact_review_invalid")
+    if any(field in missing_contract_fields for field in ("preview_dataset_json_contract_review_valid", "preview_dataset_csv_contract_review_valid", "preview_json_csv_match", "preview_dataset_rows_match_task198", "preview_excluded_rows_match_task198")):
+        add_block("task199_dataset_review_invalid")
+    if "preview_lineage_review_valid" in missing_contract_fields:
+        add_block("task199_lineage_review_invalid")
+    if any(field in missing_contract_fields for field in ("preview_safety_review_valid", "preview_non_scoring_review_valid", "preview_paths_review_valid")):
+        add_block("task199_safety_invalid")
+
+    task199_mutation_fields = (
+        "database_mutated", "migration_executed", "import_executed", "scoring_executed",
+        "trading_executed", "paper_trading_executed", "recommendation_generated",
+        "methodology_patch_executed", "production_export_executed",
+    )
+    if any(_as_bool(task199.get(field)) for field in task199_mutation_fields):
+        add_block("task199_safety_invalid", {"mutation_fields": [field for field in task199_mutation_fields if _as_bool(task199.get(field))]})
+    if _as_bool(task199.get("ready_for_scoring")) or _as_bool(task199.get("ready_for_trading")) or _as_bool(task199.get("ready_for_paper_trading")):
+        add_block("unexpected_scoring_or_trading_ready")
+
+    company_name = str(task199.get("company_name") or task199.get("company_id") or "RZD")
+    closure_scope_rows = _rzd_controlled_values_analytics_export_layer_closure_scope_rows(company_name)
+    if len(closure_scope_rows) != 8:
+        add_block("closure_scope_missing")
+
+    closure_artifact_rows: list[dict[str, Any]] = []
+    for index, row in enumerate(task199.get("artifact_review_rows") or [], start=1):
+        if not isinstance(row, dict):
+            continue
+        closure_artifact_rows.append({
+            "artifact_index": index,
+            "artifact_key": str(row.get("artifact_key") or ""),
+            "artifact_path": str(row.get("path") or ""),
+            "artifact_review_status": str(row.get("review_status") or ""),
+            "exists": _as_bool(row.get("exists")),
+            "inside_chain": _as_bool(row.get("inside_chain")),
+            "preview_only": str(row.get("artifact_scope") or "") == "preview_only",
+            "production_export": _as_bool(row.get("production_export")),
+            "non_scoring_only": _as_bool(row.get("non_scoring_only")),
+            "closure_status": "closed_for_current_preview_scope" if str(row.get("review_status") or "") == "accepted_preview_artifact" else "blocked",
+            "safe_hint": "Reviewed Task198 preview artifact is closed for the current preview-only scope.",
+        })
+    if len(closure_artifact_rows) != 6 or any(row["closure_status"] != "closed_for_current_preview_scope" for row in closure_artifact_rows):
+        add_block("closure_scope_missing", {"artifact_row_count": len(closure_artifact_rows)})
+
+    dataset_summary_specs = (
+        ("exportable_dataset_rows", int(task199.get("dataset_row_review_count") or 0), int(task199.get("dataset_row_review_count") or 0) == 9, {"expected": 9}),
+        ("excluded_rows", int(task199.get("excluded_row_review_count") or 0), int(task199.get("excluded_row_review_count") or 0) == 10, {"expected": 10}),
+        ("json_csv_match", 1 if _as_bool(task199.get("preview_json_csv_match")) else 0, _as_bool(task199.get("preview_json_csv_match")), {}),
+        ("dataset_rows_match_task198", 1 if _as_bool(task199.get("preview_dataset_rows_match_task198")) else 0, _as_bool(task199.get("preview_dataset_rows_match_task198")), {}),
+        ("excluded_rows_match_task198", 1 if _as_bool(task199.get("preview_excluded_rows_match_task198")) else 0, _as_bool(task199.get("preview_excluded_rows_match_task198")), {}),
+        ("methodology_actions_match_task198", 1 if _as_bool(task199.get("preview_methodology_actions_match_task198")) else 0, _as_bool(task199.get("preview_methodology_actions_match_task198")), {}),
+        ("manifest_matches_task198", 1 if _as_bool(task199.get("preview_manifest_matches_task198")) else 0, _as_bool(task199.get("preview_manifest_matches_task198")), {}),
+    )
+    closure_dataset_summary_rows = [
+        {
+            "summary_index": index,
+            "summary_key": key,
+            "count": count,
+            "status": "closed_for_current_preview_scope" if passed else "blocked",
+            "details": details,
+            "safe_hint": "Dataset summary is reviewed for non-scoring preview closure only.",
+        }
+        for index, (key, count, passed, details) in enumerate(dataset_summary_specs, start=1)
+    ]
+    if any(row["status"] == "blocked" for row in closure_dataset_summary_rows):
+        add_block("task199_dataset_review_invalid")
+
+    task199_lineage_by_key = {str(row.get("ratio_key") or ""): row for row in task199.get("dataset_row_review_rows") or [] if isinstance(row, dict)}
+    closure_lineage_summary_rows: list[dict[str, Any]] = []
+    for index, (ratio_key, (numerator, denominator)) in enumerate(RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_CANONICAL_LINEAGE.items(), start=1):
+        source_row = task199_lineage_by_key.get(ratio_key) or {}
+        reviewed = (
+            source_row
+            and str(source_row.get("numerator_metric_key") or "") == numerator
+            and str(source_row.get("denominator_metric_key") or "") == denominator
+            and _as_bool(source_row.get("metric_lineage_valid"))
+        )
+        closure_lineage_summary_rows.append({
+            "lineage_index": index,
+            "ratio_key": ratio_key,
+            "numerator_metric_key": numerator,
+            "denominator_metric_key": denominator,
+            "lineage_status": "reviewed_and_preserved" if reviewed else "missing_or_invalid",
+            "source_task": "Task199",
+            "safe_hint": "Canonical metric lineage is preserved for closure and does not enable scoring.",
+        })
+    if any(row["lineage_status"] != "reviewed_and_preserved" for row in closure_lineage_summary_rows):
+        add_block("closure_lineage_missing")
+
+    task199_action_types = {str(row.get("action_type") or "") for row in task199.get("methodology_action_review_rows") or [] if isinstance(row, dict)}
+    closure_open_methodology_action_rows: list[dict[str, Any]] = []
+    for index, action_type in enumerate(sorted(RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS), start=1):
+        severity, required, blocks_analytics, blocks_scoring, blocks_recommendation = RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS[action_type]
+        present = action_type in task199_action_types
+        closure_open_methodology_action_rows.append({
+            "action_index": index,
+            "action_type": action_type,
+            "severity": severity,
+            "required": required,
+            "blocks_future_analytics": blocks_analytics,
+            "blocks_future_scoring": blocks_scoring,
+            "blocks_recommendation": blocks_recommendation,
+            "blocks_trading": True,
+            "closure_status": "preserved_open_for_future_stage" if present else "missing",
+            "safe_hint": "Task200 preserves methodology action as open future work and does not resolve it.",
+        })
+    if len(closure_open_methodology_action_rows) != 6 or any(row["closure_status"] != "preserved_open_for_future_stage" for row in closure_open_methodology_action_rows):
+        add_block("closure_methodology_actions_missing")
+    if "scoring_safety_gate_required" not in task199_action_types:
+        add_block("scoring_safety_gate_missing")
+
+    closure_next_stage_plan_rows = _rzd_controlled_values_analytics_export_layer_closure_next_stage_rows()
+    if len(closure_next_stage_plan_rows) != 7:
+        add_block("closure_scope_missing", {"next_stage_count": len(closure_next_stage_plan_rows)})
+
+    closed_layer_safety_reviewed = _as_bool(task199.get("preview_safety_review_valid")) and not any(_as_bool(task199.get(field)) for field in task199_mutation_fields)
+    closure_check_inputs = (
+        ("task199_ready_for_task200", _as_bool(task199.get("ready_for_task200_analytics_export_layer_closure"))),
+        ("task199_contract_valid", not missing_contract_fields and bool(task199_checksum)),
+        ("task199_artifacts_valid", len(closure_artifact_rows) == 6 and all(row["closure_status"] == "closed_for_current_preview_scope" for row in closure_artifact_rows)),
+        ("task199_dataset_valid", all(row["status"] != "blocked" for row in closure_dataset_summary_rows)),
+        ("task199_json_csv_match", _as_bool(task199.get("preview_json_csv_match"))),
+        ("task199_lineage_valid", all(row["lineage_status"] == "reviewed_and_preserved" for row in closure_lineage_summary_rows)),
+        ("task199_manifest_valid", _as_bool(task199.get("preview_manifest_contract_review_valid")) and _as_bool(task199.get("preview_manifest_matches_task198"))),
+        ("task199_checksum_valid", bool(task199_checksum) and _as_bool(task199.get("preview_checksum_review_valid"))),
+        ("task199_safety_valid", closed_layer_safety_reviewed),
+        ("closure_scope_built", len(closure_scope_rows) == 8),
+        ("closure_artifacts_built", len(closure_artifact_rows) == 6),
+        ("closure_dataset_summary_built", len(closure_dataset_summary_rows) >= 7),
+        ("closure_lineage_summary_built", len(closure_lineage_summary_rows) == 5),
+        ("closure_open_methodology_actions_built", len(closure_open_methodology_action_rows) == 6),
+        ("closure_next_stage_plan_built", len(closure_next_stage_plan_rows) == 7),
+        ("single_issuer_scope_confirmed", True),
+        ("preview_only_scope_confirmed", True),
+        ("non_scoring_scope_confirmed", True),
+        ("recommendations_disabled", True),
+        ("trading_disabled", True),
+        ("paper_trading_disabled", True),
+        ("production_export_disabled", True),
+        ("task200_read_only_safety", True),
+        ("closure_checksum_built", True),
+    )
+    analytics_export_layer_closure_check_rows = [
+        _rzd_controlled_values_analytics_export_layer_closure_check_row(code, passed=bool(passed))
+        for code, passed in closure_check_inputs
+    ]
+    for index, row in enumerate(analytics_export_layer_closure_check_rows, start=1):
+        row["check_index"] = index
+
+    checksum_payload = {
+        "closure_scope_rows": closure_scope_rows,
+        "closure_artifact_rows": closure_artifact_rows,
+        "closure_dataset_summary_rows": closure_dataset_summary_rows,
+        "closure_lineage_summary_rows": closure_lineage_summary_rows,
+        "closure_open_methodology_action_rows": closure_open_methodology_action_rows,
+        "closure_next_stage_plan_rows": closure_next_stage_plan_rows,
+        "analytics_export_layer_closure_check_rows": analytics_export_layer_closure_check_rows,
+    }
+    closure_checksum = _rzd_controlled_values_imported_read_model_canonical_sha256(checksum_payload)
+    if not closure_checksum:
+        add_block("closure_scope_missing", {"reason": "checksum_missing"})
+
+    if any(_as_bool(value) for value in _rzd_controlled_values_analytics_export_layer_closure_safety_flags().values()):
+        add_block("task200_unexpected_mutation_or_execution")
+
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure",
+        "status": "blocked",
+        "analytics_export_layer_closure_status": "blocked",
+        "analytics_export_layer_closed": False,
+        "analytics_export_layer_scope": "single_issuer_preview_only_non_scoring",
+        "analytics_export_layer_closure_reason": "Task196-Task199 chain reviewed and closed for current single-issuer non-scoring preview scope.",
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "expected_import_row_count": expected_row_count,
+        "task199_input_path": str(task199_path or ""),
+        "task199_status": task199_status,
+        "task199_ratio_analytics_dataset_export_preview_review_gate_status": str(task199.get("ratio_analytics_dataset_export_preview_review_gate_status") or ""),
+        "task199_ready_for_task200_analytics_export_layer_closure": _as_bool(task199.get("ready_for_task200_analytics_export_layer_closure")),
+        "task199_artifact_review_count": int(task199.get("artifact_review_count") or 0),
+        "task199_dataset_row_review_count": int(task199.get("dataset_row_review_count") or 0),
+        "task199_excluded_row_review_count": int(task199.get("excluded_row_review_count") or 0),
+        "task199_methodology_action_review_count": int(task199.get("methodology_action_review_count") or 0),
+        "task199_manifest_review_count": int(task199.get("manifest_review_count") or 0),
+        "task199_dataset_json_review_row_count": int(task199.get("dataset_json_review_row_count") or 0),
+        "task199_dataset_csv_review_row_count": int(task199.get("dataset_csv_review_row_count") or 0),
+        "task199_excluded_json_review_row_count": int(task199.get("excluded_json_review_row_count") or 0),
+        "task199_methodology_actions_json_review_row_count": int(task199.get("methodology_actions_json_review_row_count") or 0),
+        "task199_manifest_artifact_review_count": int(task199.get("manifest_artifact_review_count") or 0),
+        "task199_preview_artifacts_exist": _as_bool(task199.get("preview_artifacts_exist")),
+        "task199_preview_artifacts_inside_chain": _as_bool(task199.get("preview_artifacts_inside_chain")),
+        "task199_preview_artifacts_contract_review_valid": _as_bool(task199.get("preview_artifacts_contract_review_valid")),
+        "task199_preview_dataset_json_contract_review_valid": _as_bool(task199.get("preview_dataset_json_contract_review_valid")),
+        "task199_preview_dataset_csv_contract_review_valid": _as_bool(task199.get("preview_dataset_csv_contract_review_valid")),
+        "task199_preview_excluded_json_contract_review_valid": _as_bool(task199.get("preview_excluded_json_contract_review_valid")),
+        "task199_preview_methodology_actions_contract_review_valid": _as_bool(task199.get("preview_methodology_actions_contract_review_valid")),
+        "task199_preview_manifest_contract_review_valid": _as_bool(task199.get("preview_manifest_contract_review_valid")),
+        "task199_preview_readme_contract_review_valid": _as_bool(task199.get("preview_readme_contract_review_valid")),
+        "task199_preview_json_csv_match": _as_bool(task199.get("preview_json_csv_match")),
+        "task199_preview_dataset_rows_match_task198": _as_bool(task199.get("preview_dataset_rows_match_task198")),
+        "task199_preview_excluded_rows_match_task198": _as_bool(task199.get("preview_excluded_rows_match_task198")),
+        "task199_preview_methodology_actions_match_task198": _as_bool(task199.get("preview_methodology_actions_match_task198")),
+        "task199_preview_manifest_matches_task198": _as_bool(task199.get("preview_manifest_matches_task198")),
+        "task199_preview_lineage_review_valid": _as_bool(task199.get("preview_lineage_review_valid")),
+        "task199_preview_checksum_review_valid": _as_bool(task199.get("preview_checksum_review_valid")),
+        "task199_preview_non_scoring_review_valid": _as_bool(task199.get("preview_non_scoring_review_valid")),
+        "task199_preview_safety_review_valid": _as_bool(task199.get("preview_safety_review_valid")),
+        "task199_preview_paths_review_valid": _as_bool(task199.get("preview_paths_review_valid")),
+        "task199_ratio_analytics_dataset_export_preview_review_gate_checksum_sha256": task199_checksum,
+        "task199_database_mutated": _as_bool(task199.get("database_mutated")),
+        "task199_migration_executed": _as_bool(task199.get("migration_executed")),
+        "task199_import_executed": _as_bool(task199.get("import_executed")),
+        "task199_scoring_executed": _as_bool(task199.get("scoring_executed")),
+        "task199_trading_executed": _as_bool(task199.get("trading_executed")),
+        "task199_paper_trading_executed": _as_bool(task199.get("paper_trading_executed")),
+        "task199_recommendation_generated": _as_bool(task199.get("recommendation_generated")),
+        "task199_methodology_patch_executed": _as_bool(task199.get("methodology_patch_executed")),
+        "task199_production_export_executed": _as_bool(task199.get("production_export_executed")),
+        "task199_bad_safety_count": int(task199.get("bad_safety_count") or 0),
+        "task199_blocker_count": int(task199.get("blocker_count") or 0),
+        "company_id": str(task199.get("company_id") or "rzd"),
+        "company_name": str(task199.get("company_name") or company_name),
+        "report_year": int(task199.get("report_year") or 2025),
+        "report_standard": str(task199.get("report_standard") or "IFRS"),
+        "currency": str(task199.get("currency") or "RUB"),
+        "unit": str(task199.get("unit") or "million"),
+        "closed_layer_company_count": 1,
+        "closed_layer_issuer_count": 1,
+        "closed_layer_dataset_row_count": int(task199.get("dataset_row_review_count") or 0),
+        "closed_layer_excluded_row_count": int(task199.get("excluded_row_review_count") or 0),
+        "closed_layer_methodology_action_count": int(task199.get("methodology_action_review_count") or 0),
+        "closed_layer_preview_artifact_count": int(task199.get("artifact_review_count") or 0),
+        "closed_layer_manifest_count": int(task199.get("manifest_review_count") or 0),
+        "closed_layer_schema_field_count": 19,
+        "closed_layer_single_issuer": True,
+        "closed_layer_preview_only": True,
+        "closed_layer_non_scoring": True,
+        "closed_layer_non_recommendation": True,
+        "closed_layer_non_trading": True,
+        "closed_layer_non_paper_trading": True,
+        "closed_layer_production_export_disabled": True,
+        "closed_layer_artifacts_reviewed": len(closure_artifact_rows) == 6 and all(row["closure_status"] == "closed_for_current_preview_scope" for row in closure_artifact_rows),
+        "closed_layer_dataset_reviewed": int(task199.get("dataset_row_review_count") or 0) == 9,
+        "closed_layer_excluded_rows_reviewed": int(task199.get("excluded_row_review_count") or 0) == 10,
+        "closed_layer_methodology_actions_reviewed": int(task199.get("methodology_action_review_count") or 0) == 6,
+        "closed_layer_manifest_reviewed": int(task199.get("manifest_review_count") or 0) == 1,
+        "closed_layer_lineage_reviewed": all(row["lineage_status"] == "reviewed_and_preserved" for row in closure_lineage_summary_rows),
+        "closed_layer_checksums_reviewed": bool(task199_checksum and closure_checksum),
+        "closed_layer_safety_reviewed": closed_layer_safety_reviewed,
+        "closure_scope_rows": closure_scope_rows,
+        "closure_artifact_rows": closure_artifact_rows,
+        "closure_dataset_summary_rows": closure_dataset_summary_rows,
+        "closure_lineage_summary_rows": closure_lineage_summary_rows,
+        "closure_open_methodology_action_rows": closure_open_methodology_action_rows,
+        "closure_next_stage_plan_rows": closure_next_stage_plan_rows,
+        "analytics_export_layer_closure_check_rows": analytics_export_layer_closure_check_rows,
+        "source_ratio_analytics_dataset_export_preview_review_gate_checksum_sha256": task199_checksum,
+        "analytics_export_layer_closure_checksum_sha256": closure_checksum,
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_analytics_export_layer_closure_safety_flags(),
+        **_rzd_controlled_values_analytics_export_layer_closure_safety_flags(),
+        "analytics_export_layer_closure_executed": True,
+        "safe_hint": "Task200 closed the current single-issuer preview analytics export layer without creating preview or production exports.",
+        "next_step": "Task201 - Multi-Issuer Analytics Plan",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure", "blocked"),
+        "errors": [],
+    }
+    report["status"] = "blocked" if blocker_rows else "warning"
+    report["analytics_export_layer_closure_status"] = report["status"]
+    report["next_steps"] = _next_steps("rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure", report["status"])
+    _rzd_controlled_values_analytics_export_layer_closure_normalize_report(report)
+    return report
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None],
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_controlled_values_analytics_export_layer_closure_blocker_row(
+            str(error.get("message") or "task200_error"),
+            details=error,
+        )
+        for error in errors
+    ]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure",
+        "status": "failed",
+        "analytics_export_layer_closure_status": "failed",
+        "expected_revision": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_REVISION,
+        "expected_table": RZD_CONTROLLED_VALUES_MIGRATION_READINESS_DEFAULT_TABLE,
+        "expected_import_row_count": RZD_CONTROLLED_VALUES_IMPORT_APPLY_PLAN_DEFAULT_ROW_COUNT,
+        "closure_scope_rows": [],
+        "closure_artifact_rows": [],
+        "closure_dataset_summary_rows": [],
+        "closure_lineage_summary_rows": [],
+        "closure_open_methodology_action_rows": [],
+        "closure_next_stage_plan_rows": [],
+        "analytics_export_layer_closure_check_rows": [],
+        "blocker_rows": blocker_rows,
+        "safety_flags": _rzd_controlled_values_analytics_export_layer_closure_safety_flags(),
+        **_rzd_controlled_values_analytics_export_layer_closure_safety_flags(),
+        "analytics_export_layer_closure_executed": False,
+        "safe_hint": "Task200 failed before closure; no preview or production artifacts were created or modified.",
+        "next_step": "Task201 - Multi-Issuer Analytics Plan",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure", "failed"),
+        "errors": errors,
+    }
+    _rzd_controlled_values_analytics_export_layer_closure_normalize_report(report)
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    if write_outputs:
+        try:
+            _rzd_controlled_values_analytics_export_layer_closure_write_outputs(report, artifacts)
+        except OSError as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_analytics_export_layer_closure_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_controlled_values_analytics_export_layer_closure_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("closure_json"):
+        write_json_report(report, artifacts["closure_json"])
+    if artifacts.get("closure_markdown"):
+        write_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_markdown(report, artifacts["closure_markdown"])
+    if artifacts.get("checks_json"):
+        write_json_report({"analytics_export_layer_closure_check_count": report.get("analytics_export_layer_closure_check_count", 0), "analytics_export_layer_closure_check_rows": report.get("analytics_export_layer_closure_check_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["checks_json"])
+    if artifacts.get("blockers_json"):
+        write_json_report({"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["blockers_json"])
+    if artifacts.get("summary_json"):
+        write_json_report({
+            "analytics_export_layer_closed": report.get("analytics_export_layer_closed", False),
+            "analytics_export_layer_scope": report.get("analytics_export_layer_scope", ""),
+            "closed_layer_dataset_row_count": report.get("closed_layer_dataset_row_count", 0),
+            "closed_layer_excluded_row_count": report.get("closed_layer_excluded_row_count", 0),
+            "closed_layer_methodology_action_count": report.get("closed_layer_methodology_action_count", 0),
+            "analytics_export_layer_closure_checksum_sha256": report.get("analytics_export_layer_closure_checksum_sha256", ""),
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["summary_json"])
+    if artifacts.get("scope_json"):
+        write_json_report({"closure_scope_row_count": report.get("closure_scope_row_count", 0), "closure_scope_rows": report.get("closure_scope_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["scope_json"])
+    if artifacts.get("artifacts_json"):
+        write_json_report({"closure_artifact_row_count": report.get("closure_artifact_row_count", 0), "closure_artifact_rows": report.get("closure_artifact_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["artifacts_json"])
+    if artifacts.get("dataset_summary_json"):
+        write_json_report({"closure_dataset_summary_row_count": report.get("closure_dataset_summary_row_count", 0), "closure_dataset_summary_rows": report.get("closure_dataset_summary_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["dataset_summary_json"])
+    if artifacts.get("lineage_summary_json"):
+        write_json_report({"closure_lineage_summary_row_count": report.get("closure_lineage_summary_row_count", 0), "closure_lineage_summary_rows": report.get("closure_lineage_summary_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["lineage_summary_json"])
+    if artifacts.get("open_methodology_actions_json"):
+        write_json_report({"closure_open_methodology_action_row_count": report.get("closure_open_methodology_action_row_count", 0), "closure_open_methodology_action_rows": report.get("closure_open_methodology_action_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["open_methodology_actions_json"])
+    if artifacts.get("next_stage_plan_json"):
+        write_json_report({"closure_next_stage_plan_row_count": report.get("closure_next_stage_plan_row_count", 0), "closure_next_stage_plan_rows": report.get("closure_next_stage_plan_rows") or [], "safe_hint": report.get("safe_hint") or ""}, artifacts["next_stage_plan_json"])
+    if artifacts.get("safety_json"):
+        write_json_report({
+            **_rzd_controlled_values_analytics_export_layer_closure_safety_flags(),
+            "analytics_export_layer_closure_executed": report.get("analytics_export_layer_closure_executed", False),
+            "ready_for_multi_issuer_analytics_plan": report.get("ready_for_multi_issuer_analytics_plan", False),
+            "ready_for_task201_multi_issuer_analytics_plan": report.get("ready_for_task201_multi_issuer_analytics_plan", False),
+            "safety_flags": report.get("safety_flags") or {},
+            "safe_hint": report.get("safe_hint") or "",
+        }, artifacts["safety_json"])
+
+
+def run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_controlled_values_analytics_export_layer_closure_inputs(args)
+    artifacts = _rzd_controlled_values_analytics_export_layer_closure_artifacts(args)
+    output_errors = _rzd_controlled_values_analytics_export_layer_closure_output_errors(
+        args,
+        inputs=inputs,
+        artifacts=artifacts,
+    )
+    if output_errors:
+        return _rzd_controlled_values_analytics_export_layer_closure_failed_report(output_errors, artifacts=artifacts, write_outputs=False)
+    try:
+        task199 = _load_json_object(inputs["task199"]) if inputs.get("task199") and inputs["task199"].is_file() else {}
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _rzd_controlled_values_analytics_export_layer_closure_failed_report(
+            [{"message": "controlled_values_analytics_export_layer_closure_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_controlled_values_analytics_export_layer_closure_report(
+        task199,
+        inputs=inputs,
+        args=args,
+    )
+    report["artifacts"] = {key: str(path or "") for key, path in artifacts.items()}
+    try:
+        _rzd_controlled_values_analytics_export_layer_closure_write_outputs(report, artifacts)
+    except OSError as exc:
+        report["status"] = "failed"
+        report["analytics_export_layer_closure_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_analytics_export_layer_closure_write_failed", "error": str(exc)}]
+        _rzd_controlled_values_analytics_export_layer_closure_normalize_report(report)
+    return report
+
+
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
     return {
         "would_probe_url": False,
@@ -79004,6 +79786,11 @@ def write_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_expo
     path.write_text(render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown(report), encoding="utf-8")
 
 
+def write_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_markdown(report), encoding="utf-8")
+
+
 def write_rzd_controlled_page_fetch_markdown(report: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_rzd_controlled_page_fetch_markdown(report), encoding="utf-8")
@@ -79325,6 +80112,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate":
         return render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure":
+        return render_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -86898,6 +87687,105 @@ def render_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_exp
         "## Next step",
         "",
         str(report.get("next_step") or ""),
+        "",
+        "## Blockers",
+        "",
+    ]
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def render_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_markdown(report: dict[str, Any]) -> str:
+    if report.get("blocker_rows"):
+        decision = "Analytics export layer closure is blocked. Resolve Task199 contract, lineage, methodology action, checksum, or safety blockers before Task201."
+    else:
+        decision = (
+            "Analytics export layer closure completed for the current RZD single-issuer, IFRS 2025, preview-only, non-scoring scope.\n\n"
+            "Task196 through Task199 artifacts were reviewed and the export layer is closed for the current scope.\n\n"
+            "Scoring, investment recommendations, trading, and paper trading remain blocked."
+        )
+    scope_keys = ", ".join(str(row.get("scope_key") or "") for row in report.get("closure_scope_rows") or [])
+    artifact_keys = ", ".join(str(row.get("artifact_key") or "") for row in report.get("closure_artifact_rows") or [])
+    lineage_keys = ", ".join(str(row.get("ratio_key") or "") for row in report.get("closure_lineage_summary_rows") or [])
+    action_types = ", ".join(str(row.get("action_type") or "") for row in report.get("closure_open_methodology_action_rows") or [])
+    next_stage_keys = ", ".join(str(row.get("next_stage_key") or "") for row in report.get("closure_next_stage_plan_rows") or [])
+    lines = [
+        "# RZD Controlled Values Analytics Export Layer Closure",
+        "",
+        "## Input chain",
+        "",
+        f"- Task199 input: `{report.get('task199_input_path')}`",
+        f"- expected revision: `{report.get('expected_revision')}`",
+        f"- expected table: `{report.get('expected_table')}`",
+        f"- expected imported row count: `{report.get('expected_import_row_count')}`",
+        "",
+        "## Closure verdict",
+        "",
+        f"- status: `{report.get('status')}` / `{report.get('analytics_export_layer_closure_status')}`",
+        f"- analytics export layer closed: `{report.get('analytics_export_layer_closed')}`",
+        f"- closure scope: `{report.get('analytics_export_layer_scope')}`",
+        f"- closure reason: {report.get('analytics_export_layer_closure_reason')}",
+        "",
+        "## Closure scope",
+        "",
+        f"- scope rows: `{report.get('closure_scope_row_count')}`",
+        f"- scope keys: {scope_keys or 'none'}",
+        "",
+        "## Reviewed artifacts",
+        "",
+        f"- reviewed artifacts: `{report.get('closure_artifact_row_count')}`",
+        f"- artifact keys: {artifact_keys or 'none'}",
+        "",
+        "## Dataset summary",
+        "",
+        f"- exportable rows: `{report.get('closed_layer_dataset_row_count')}`",
+        f"- excluded rows: `{report.get('closed_layer_excluded_row_count')}`",
+        f"- methodology actions: `{report.get('closed_layer_methodology_action_count')}`",
+        "",
+        "## Lineage summary",
+        "",
+        f"- lineage rows: `{report.get('closure_lineage_summary_row_count')}`",
+        f"- ratio keys: {lineage_keys or 'none'}",
+        "",
+        "## Open methodology actions",
+        "",
+        f"- open methodology actions: `{report.get('closure_open_methodology_action_row_count')}`",
+        f"- action types: {action_types or 'none'}",
+        "",
+        "## Safety",
+        "",
+        "No migration was executed by Task200.",
+        "No Alembic command was executed by Task200.",
+        "No database mutation was performed by Task200.",
+        "No rows were inserted by Task200.",
+        "No rows were updated by Task200.",
+        "No rows were deleted by Task200.",
+        "No scoring was executed by Task200.",
+        "No trading or paper trading was executed by Task200.",
+        "No investment recommendation was generated by Task200.",
+        "No methodology patch was executed by Task200.",
+        "No production export artifact was generated by Task200.",
+        "No preview export artifact was created or modified by Task200.",
+        "Task200 only closed the reviewed analytics export layer for the current single-issuer preview scope.",
+        "",
+        "## Checksums",
+        "",
+        f"- source Task199 checksum: `{report.get('source_ratio_analytics_dataset_export_preview_review_gate_checksum_sha256')}`",
+        f"- closure checksum: `{report.get('analytics_export_layer_closure_checksum_sha256')}`",
+        "",
+        "## Decision",
+        "",
+        decision,
+        "",
+        "## Next stage",
+        "",
+        f"- next stage rows: `{report.get('closure_next_stage_plan_row_count')}`",
+        f"- next stage keys: {next_stage_keys or 'none'}",
+        f"- next step: `{report.get('next_step')}`",
         "",
         "## Blockers",
         "",
@@ -97943,6 +98831,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use Task198 controlled preview files only for a future non-scoring export preview review gate; production export, scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate":
         return ["Use Task199 output only for future analytics export layer closure; production export, scoring, recommendations, trading, and paper trading remain blocked."]
+    if mode == "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure":
+        return ["Use Task200 closure only for a future multi-issuer analytics plan; production export, scoring, recommendations, trading, and paper trading remain blocked."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -98351,6 +99241,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_inputs(args),
             artifacts=_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure":
+        return not _rzd_controlled_values_analytics_export_layer_closure_output_errors(
+            args,
+            inputs=_rzd_controlled_values_analytics_export_layer_closure_inputs(args),
+            artifacts=_rzd_controlled_values_analytics_export_layer_closure_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(

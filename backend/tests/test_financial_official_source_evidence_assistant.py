@@ -22965,6 +22965,284 @@ def test_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_expor
     _assert_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_gate_fields(report)
 
 
+def test_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task197_ready_task196(chain, repo, monkeypatch)
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    task199 = _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task199["ready_for_task200_analytics_export_layer_closure"] is True
+    assert report["status"] == "warning"
+    assert report["analytics_export_layer_closure_status"] == "warning"
+    assert report["analytics_export_layer_closed"] is True
+    assert report["analytics_export_layer_scope"] == "single_issuer_preview_only_non_scoring"
+    assert report["ready_for_multi_issuer_analytics_plan"] is True
+    assert report["ready_for_task201_multi_issuer_analytics_plan"] is True
+    assert report["ready_for_analytics_export_layer_closure"] is False
+    assert report["ready_for_task200_analytics_export_layer_closure"] is False
+    assert report["blocker_count"] == 0
+    assert report["closed_layer_company_count"] == 1
+    assert report["closed_layer_issuer_count"] == 1
+    assert report["closed_layer_dataset_row_count"] == 9
+    assert report["closed_layer_excluded_row_count"] == 10
+    assert report["closed_layer_methodology_action_count"] == 6
+    assert report["closed_layer_preview_artifact_count"] == 6
+    assert report["closed_layer_manifest_count"] == 1
+    assert report["closed_layer_schema_field_count"] == 19
+    assert report["closed_layer_single_issuer"] is True
+    assert report["closed_layer_preview_only"] is True
+    assert report["closed_layer_non_scoring"] is True
+    assert report["closed_layer_non_recommendation"] is True
+    assert report["closed_layer_non_trading"] is True
+    assert report["closed_layer_non_paper_trading"] is True
+    assert report["closed_layer_production_export_disabled"] is True
+    assert report["closed_layer_artifacts_reviewed"] is True
+    assert report["closed_layer_dataset_reviewed"] is True
+    assert report["closed_layer_excluded_rows_reviewed"] is True
+    assert report["closed_layer_methodology_actions_reviewed"] is True
+    assert report["closed_layer_manifest_reviewed"] is True
+    assert report["closed_layer_lineage_reviewed"] is True
+    assert report["closed_layer_checksums_reviewed"] is True
+    assert report["closed_layer_safety_reviewed"] is True
+    assert report["closure_scope_row_count"] == 8
+    assert report["closure_artifact_row_count"] == 6
+    assert report["closure_dataset_summary_row_count"] >= 7
+    assert report["closure_lineage_summary_row_count"] == 5
+    assert report["closure_open_methodology_action_row_count"] == 6
+    assert report["closure_next_stage_plan_row_count"] == 7
+    assert report["analytics_export_layer_closure_executed"] is True
+    assert report["production_export_executed"] is False
+    assert {row["scope_key"] for row in report["closure_scope_rows"]} == {
+        "issuer_scope",
+        "report_scope",
+        "data_scope",
+        "export_scope",
+        "scoring_scope",
+        "trading_scope",
+        "methodology_scope",
+        "next_stage_scope",
+    }
+    lineage_by_key = {row["ratio_key"]: row for row in report["closure_lineage_summary_rows"]}
+    assert lineage_by_key["current_liabilities_to_assets"]["numerator_metric_key"] == "current_liabilities"
+    assert lineage_by_key["current_liabilities_to_assets"]["denominator_metric_key"] == "total_assets"
+    assert lineage_by_key["equity_to_assets"]["numerator_metric_key"] == "total_equity"
+    assert lineage_by_key["equity_to_assets"]["denominator_metric_key"] == "total_assets"
+    assert lineage_by_key["net_profit_margin"]["numerator_metric_key"] == "profit_for_the_year"
+    assert lineage_by_key["net_profit_margin"]["denominator_metric_key"] == "total_revenue"
+    assert lineage_by_key["operating_profit_margin"]["numerator_metric_key"] == "operating_profit"
+    assert lineage_by_key["operating_profit_margin"]["denominator_metric_key"] == "total_revenue"
+    assert lineage_by_key["profit_before_tax_margin"]["numerator_metric_key"] == "profit_before_tax"
+    assert lineage_by_key["profit_before_tax_margin"]["denominator_metric_key"] == "total_revenue"
+    assert {row["action_type"] for row in report["closure_open_methodology_action_rows"]} == assistant.RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_CANONICAL_ACTION_TYPES
+    assert "scoring_safety_gate_required" in {row["action_type"] for row in report["closure_open_methodology_action_rows"]}
+    next_stage_by_key = {row["next_stage_key"]: row for row in report["closure_next_stage_plan_rows"]}
+    assert next_stage_by_key["multi_issuer_analytics_plan"]["planned_task_hint"] == "Task201 - Multi-Issuer Analytics Plan"
+    assert next_stage_by_key["multi_issuer_analytics_plan"]["allowed_now"] is True
+    assert "scoring" in next_stage_by_key["multi_issuer_analytics_plan"]["blocked_capabilities"]
+    _assert_rzd_controlled_values_analytics_export_layer_closure_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_wrappers_markdown(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task197_ready_task196(chain, repo, monkeypatch)
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    report = _run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_checks_task200.json").read_text(encoding="utf-8"))
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_blockers_task200.json").read_text(encoding="utf-8"))
+    summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_summary_task200.json").read_text(encoding="utf-8"))
+    scope = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_scope_task200.json").read_text(encoding="utf-8"))
+    artifacts = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_artifacts_task200.json").read_text(encoding="utf-8"))
+    dataset_summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_dataset_summary_task200.json").read_text(encoding="utf-8"))
+    lineage_summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_lineage_summary_task200.json").read_text(encoding="utf-8"))
+    actions = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_open_methodology_actions_task200.json").read_text(encoding="utf-8"))
+    next_stage = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_next_stage_plan_task200.json").read_text(encoding="utf-8"))
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_safety_task200.json").read_text(encoding="utf-8"))
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_task200.md").read_text(encoding="utf-8")
+
+    assert checks["analytics_export_layer_closure_check_rows"] == report["analytics_export_layer_closure_check_rows"]
+    assert blockers["blocker_count"] == 0
+    assert summary["analytics_export_layer_closure_checksum_sha256"] == report["analytics_export_layer_closure_checksum_sha256"]
+    assert scope["closure_scope_rows"] == report["closure_scope_rows"]
+    assert artifacts["closure_artifact_rows"] == report["closure_artifact_rows"]
+    assert dataset_summary["closure_dataset_summary_rows"] == report["closure_dataset_summary_rows"]
+    assert lineage_summary["closure_lineage_summary_rows"] == report["closure_lineage_summary_rows"]
+    assert actions["closure_open_methodology_action_rows"] == report["closure_open_methodology_action_rows"]
+    assert next_stage["closure_next_stage_plan_rows"] == report["closure_next_stage_plan_rows"]
+    assert safety["analytics_export_layer_closure_executed"] is True
+    assert safety["production_export_executed"] is False
+    for heading in (
+        "# RZD Controlled Values Analytics Export Layer Closure",
+        "## Input chain",
+        "## Closure verdict",
+        "## Closure scope",
+        "## Reviewed artifacts",
+        "## Dataset summary",
+        "## Lineage summary",
+        "## Open methodology actions",
+        "## Safety",
+        "## Checksums",
+        "## Decision",
+        "## Next stage",
+    ):
+        assert heading in markdown
+    for phrase in (
+        "No migration was executed by Task200.",
+        "No Alembic command was executed by Task200.",
+        "No database mutation was performed by Task200.",
+        "No rows were inserted by Task200.",
+        "No rows were updated by Task200.",
+        "No rows were deleted by Task200.",
+        "No scoring was executed by Task200.",
+        "No trading or paper trading was executed by Task200.",
+        "No investment recommendation was generated by Task200.",
+        "No methodology patch was executed by Task200.",
+        "No production export artifact was generated by Task200.",
+        "No preview export artifact was created or modified by Task200.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_analytics_export_layer_closure_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_upstream_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task197_ready_task196(chain, repo, monkeypatch)
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    missing = _run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-ratio-analytics-dataset-export-preview-review-gate-input",
+            str(chain / "missing_task199.json"),
+        ]
+    )
+    assert missing["status"] == "blocked"
+    assert "task199_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task201_multi_issuer_analytics_plan"] is False
+    _assert_rzd_controlled_values_analytics_export_layer_closure_fields(missing)
+
+    task199_path = chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_task199.json"
+    task199 = json.loads(task199_path.read_text(encoding="utf-8"))
+    task199.update({
+        "status": "blocked",
+        "ratio_analytics_dataset_export_preview_review_gate_status": "blocked",
+        "ready_for_task200_analytics_export_layer_closure": False,
+        "preview_artifacts_contract_review_valid": False,
+        "preview_json_csv_match": False,
+        "preview_lineage_review_valid": False,
+        "preview_safety_review_valid": False,
+        "ratio_analytics_dataset_export_preview_review_gate_checksum_sha256": "",
+        "database_mutated": True,
+        "ready_for_scoring": True,
+        "trading_executed": True,
+        "recommendation_generated": True,
+        "production_export_executed": True,
+    })
+    task199_path.write_text(json.dumps(task199, ensure_ascii=False), encoding="utf-8")
+
+    dirty = _run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    blocker_codes = {row["code"] for row in dirty["blocker_rows"]}
+    assert "task199_status_invalid" in blocker_codes
+    assert "task199_not_ready_for_closure" in blocker_codes
+    assert "task199_contract_invalid" in blocker_codes
+    assert "task199_artifact_review_invalid" in blocker_codes
+    assert "task199_dataset_review_invalid" in blocker_codes
+    assert "task199_lineage_review_invalid" in blocker_codes
+    assert "task199_safety_invalid" in blocker_codes
+    assert "unexpected_scoring_or_trading_ready" in blocker_codes
+    assert dirty["ready_for_task201_multi_issuer_analytics_plan"] is False
+    _assert_rzd_controlled_values_analytics_export_layer_closure_fields(dirty)
+
+
+def test_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_row_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task197_ready_task196(chain, repo, monkeypatch)
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    task199_path = chain / "rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_task199.json"
+    task199 = json.loads(task199_path.read_text(encoding="utf-8"))
+    task199["dataset_row_review_rows"] = [
+        row for row in task199["dataset_row_review_rows"]
+        if row["ratio_key"] != "net_profit_margin"
+    ]
+    task199["methodology_action_review_rows"] = [
+        row for row in task199["methodology_action_review_rows"]
+        if row["action_type"] != "scoring_safety_gate_required"
+    ]
+    task199_path.write_text(json.dumps(task199, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    blocker_codes = {row["code"] for row in report["blocker_rows"]}
+    assert "closure_lineage_missing" in blocker_codes
+    assert "closure_methodology_actions_missing" in blocker_codes
+    assert "scoring_safety_gate_missing" in blocker_codes
+    assert report["ready_for_task201_multi_issuer_analytics_plan"] is False
+    _assert_rzd_controlled_values_analytics_export_layer_closure_fields(report)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -31305,6 +31583,19 @@ def _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_expor
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-analytics-export-layer-closure",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -35904,6 +36195,100 @@ def _assert_rzd_controlled_values_ratio_analytics_dataset_export_preview_review_
         "analytics_dataset_review_gate_executed",
         "analytics_dataset_export_plan_executed",
         "analytics_dataset_export_preview_executed",
+        "production_export_executed",
+        "ready_for_scoring",
+        "ready_for_trading",
+        "ready_for_paper_trading",
+    ):
+        assert report[field] is False
+
+
+def _assert_rzd_controlled_values_analytics_export_layer_closure_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_REQUIRED_LIST_FIELDS:
+        assert field in report
+        assert isinstance(report[field], list)
+        assert report[field] is not None
+    for field in (
+        "status",
+        "analytics_export_layer_closure_status",
+        "analytics_export_layer_scope",
+        "analytics_export_layer_closure_reason",
+        "expected_revision",
+        "expected_table",
+        "task199_input_path",
+        "task199_status",
+        "task199_ratio_analytics_dataset_export_preview_review_gate_status",
+        "task199_ratio_analytics_dataset_export_preview_review_gate_checksum_sha256",
+        "company_id",
+        "company_name",
+        "report_standard",
+        "currency",
+        "unit",
+        "source_ratio_analytics_dataset_export_preview_review_gate_checksum_sha256",
+        "analytics_export_layer_closure_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    for row in report.get("blocker_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_BLOCKER_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("analytics_export_layer_closure_check_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CHECK_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("closure_scope_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_SCOPE_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("closure_artifact_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ARTIFACT_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("closure_dataset_summary_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_DATASET_SUMMARY_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("closure_lineage_summary_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_LINEAGE_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("closure_open_methodology_action_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ACTION_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for row in report.get("closure_next_stage_plan_rows") or []:
+        for field in assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_NEXT_STAGE_FIELDS:
+            assert field in row
+            assert row[field] is not None
+    for field in (
+        "database_mutated",
+        "migration_executed",
+        "import_executed",
+        "scoring_executed",
+        "trading_executed",
+        "paper_trading_executed",
+        "recommendation_generated",
+        "methodology_patch_executed",
+        "verification_executed",
+        "interpretation_review_executed",
+        "analytics_readiness_gate_executed",
+        "analytics_dataset_preview_executed",
+        "analytics_dataset_review_gate_executed",
+        "analytics_dataset_export_plan_executed",
+        "analytics_dataset_export_preview_executed",
+        "analytics_dataset_export_preview_review_gate_executed",
         "production_export_executed",
         "ready_for_scoring",
         "ready_for_trading",
