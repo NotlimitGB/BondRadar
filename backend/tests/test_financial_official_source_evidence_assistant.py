@@ -25607,7 +25607,18 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extract
     assert report["controlled_import_apply_ready"] is False
     assert report["blocker_count"] == 0
     assert report["bad_safety_count"] == 0
+    assert report["planned_evidence_extraction_scope_count"] == 10
+    assert isinstance(report["planned_evidence_extraction_scope_count"], int)
     assert report["evidence_extraction_scope_count"] == 10
+    assert isinstance(report["evidence_extraction_scope_count"], int)
+    assert report["corporate_bond_scope_valid"] is True
+    assert isinstance(report["corporate_bond_scope_valid"], bool)
+    assert report["ofz_exclusion_valid"] is True
+    assert isinstance(report["ofz_exclusion_valid"], bool)
+    assert report["no_source_backed_values_claim_valid"] is True
+    assert isinstance(report["no_source_backed_values_claim_valid"], bool)
+    assert report["evidence_source_selection_plan_unlocked_valid"] is True
+    assert isinstance(report["evidence_source_selection_plan_unlocked_valid"], bool)
     assert report["upstream_validation_count"] == 6
     assert report["candidate_slot_evidence_plan_count"] == 3
     assert report["source_locator_contract_count"] == 3
@@ -25702,6 +25713,19 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extract
     assert safety["ready_for_task209_multi_issuer_evidence_source_selection_plan"] is True
     assert safety["ready_for_task210_multi_issuer_evidence_extraction_dry_run_plan"] is False
     assert safety["ready_for_task211_multi_issuer_controlled_import_apply_plan"] is False
+    for wrapper in (summary, safety):
+        assert wrapper["planned_evidence_extraction_scope_count"] == 10
+        assert isinstance(wrapper["planned_evidence_extraction_scope_count"], int)
+        assert wrapper["evidence_extraction_scope_count"] == 10
+        assert isinstance(wrapper["evidence_extraction_scope_count"], int)
+        assert wrapper["corporate_bond_scope_valid"] is True
+        assert isinstance(wrapper["corporate_bond_scope_valid"], bool)
+        assert wrapper["ofz_exclusion_valid"] is True
+        assert isinstance(wrapper["ofz_exclusion_valid"], bool)
+        assert wrapper["no_source_backed_values_claim_valid"] is True
+        assert isinstance(wrapper["no_source_backed_values_claim_valid"], bool)
+        assert wrapper["evidence_source_selection_plan_unlocked_valid"] is True
+        assert isinstance(wrapper["evidence_source_selection_plan_unlocked_valid"], bool)
     for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_PLAN_FALSE_FIELDS:
         assert summary[field] is False
         assert isinstance(summary[field], bool)
@@ -25839,6 +25863,34 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extract
     assert "ready_for_evidence_extraction_execution_leak" in codes
     assert report["ready_for_task209_multi_issuer_evidence_source_selection_plan"] is False
     _assert_rzd_controlled_values_multi_issuer_evidence_extraction_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_plan_failed_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task208_ready_task207(chain, tmp_path, monkeypatch)
+    task207_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_task207.json"
+
+    failed = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-plan-output",
+            str(task207_path),
+        ]
+    )
+
+    assert failed["status"] == "failed"
+    assert isinstance(failed["planned_evidence_extraction_scope_count"], int)
+    assert isinstance(failed["evidence_extraction_scope_count"], int)
+    assert isinstance(failed["corporate_bond_scope_valid"], bool)
+    assert isinstance(failed["ofz_exclusion_valid"], bool)
+    assert isinstance(failed["no_source_backed_values_claim_valid"], bool)
+    assert isinstance(failed["evidence_source_selection_plan_unlocked_valid"], bool)
+    _assert_rzd_controlled_values_multi_issuer_evidence_extraction_plan_fields(failed)
 
 
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(

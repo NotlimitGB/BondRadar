@@ -11176,6 +11176,9 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_PLAN_REQUIRED_BOOL_FIELDS
     "blocked_execution_policy_valid", "methodology_actions_preserved",
     "safety_gates_valid", "next_tasks_valid", "placeholder_only_contracts_valid",
     "task209_only_readiness_valid", "controlled_import_apply_blocked_valid",
+    "corporate_bond_scope_valid", "ofz_exclusion_valid",
+    "no_source_backed_values_claim_valid",
+    "evidence_source_selection_plan_unlocked_valid",
     "source_backed_values_missing_valid", "no_concrete_issuer_selection_valid",
     "no_concrete_issuer_names_valid", "no_concrete_urls_valid",
     "no_live_source_claims_valid", "no_source_download_valid", "no_source_scrape_valid",
@@ -11198,7 +11201,8 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_PLAN_REQUIRED_COUNT_FIELD
     "task207_metric_contract_readiness_count", "task207_ratio_lineage_readiness_count",
     "task207_apply_blocker_count", "task207_methodology_action_strategy_count",
     "task207_safety_gate_count", "task207_next_task_count", "task207_bad_safety_count",
-    "task207_blocker_count", "evidence_extraction_scope_count",
+    "task207_blocker_count", "planned_evidence_extraction_scope_count",
+    "evidence_extraction_scope_count",
     "upstream_validation_count", "candidate_slot_evidence_plan_count",
     "source_locator_contract_count", "source_document_contract_count",
     "metric_evidence_contract_count", "page_evidence_requirement_count",
@@ -79832,6 +79836,7 @@ def _rzd_controlled_values_multi_issuer_evidence_extraction_plan_normalize_repor
     ):
         report[field] = str(report.get(field) or "")
     report["evidence_extraction_scope_count"] = len(report.get("evidence_extraction_scope_rows") or [])
+    report["planned_evidence_extraction_scope_count"] = report["evidence_extraction_scope_count"]
     report["upstream_validation_count"] = len(report.get("upstream_validation_rows") or [])
     report["candidate_slot_evidence_plan_count"] = len(report.get("candidate_slot_evidence_plan_rows") or [])
     report["source_locator_contract_count"] = len(report.get("source_locator_contract_rows") or [])
@@ -79846,6 +79851,19 @@ def _rzd_controlled_values_multi_issuer_evidence_extraction_plan_normalize_repor
     report["next_task_count"] = len(report.get("next_task_rows") or [])
     report["multi_issuer_evidence_extraction_plan_check_count"] = len(report.get("multi_issuer_evidence_extraction_plan_check_rows") or [])
     report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["corporate_bond_scope_valid"] = report.get("issuer_universe_scope") == "corporate_bond_issuers_only"
+    report["ofz_exclusion_valid"] = report.get("ofz_scope") == "excluded_from_current_multi_issuer_plan"
+    report["no_source_backed_values_claim_valid"] = (
+        report.get("source_backed_values_scope") == "missing_not_claimed"
+        and not _as_bool(report.get("source_backed_values_available"))
+        and not _as_bool(report.get("plan_claims_source_backed_values"))
+    )
+    report["evidence_source_selection_plan_unlocked_valid"] = (
+        _as_bool(report.get("ready_for_task209_multi_issuer_evidence_source_selection_plan"))
+        and not _as_bool(report.get("ready_for_task210_multi_issuer_evidence_extraction_dry_run_plan"))
+        and not _as_bool(report.get("ready_for_task211_multi_issuer_controlled_import_apply_plan"))
+        and not _as_bool(report.get("controlled_import_apply_ready"))
+    )
 
 
 def _build_rzd_controlled_values_multi_issuer_evidence_extraction_plan_report(
@@ -80178,7 +80196,7 @@ def _rzd_controlled_values_multi_issuer_evidence_extraction_plan_write_outputs(r
     wrapper_payloads: dict[str, dict[str, Any]] = {
         "checks_json": {"multi_issuer_evidence_extraction_plan_check_count": report.get("multi_issuer_evidence_extraction_plan_check_count", 0), "multi_issuer_evidence_extraction_plan_check_rows": report.get("multi_issuer_evidence_extraction_plan_check_rows") or []},
         "blockers_json": {"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint", "")},
-        "scope_json": {"evidence_extraction_scope_count": report.get("evidence_extraction_scope_count", 0), "evidence_extraction_scope_rows": report.get("evidence_extraction_scope_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "scope_json": {"planned_evidence_extraction_scope_count": report.get("planned_evidence_extraction_scope_count", 0), "evidence_extraction_scope_count": report.get("evidence_extraction_scope_count", 0), "evidence_extraction_scope_rows": report.get("evidence_extraction_scope_rows") or [], "safe_hint": report.get("safe_hint", "")},
         "upstream_validation_json": {"upstream_validation_count": report.get("upstream_validation_count", 0), "upstream_validation_rows": report.get("upstream_validation_rows") or [], "safe_hint": report.get("safe_hint", "")},
         "candidate_slots_json": {"candidate_slot_evidence_plan_count": report.get("candidate_slot_evidence_plan_count", 0), "candidate_slot_evidence_plan_rows": report.get("candidate_slot_evidence_plan_rows") or [], "safe_hint": report.get("safe_hint", "")},
         "source_locator_contracts_json": {"source_locator_contract_count": report.get("source_locator_contract_count", 0), "source_locator_contract_rows": report.get("source_locator_contract_rows") or [], "safe_hint": report.get("safe_hint", "")},
@@ -80198,10 +80216,16 @@ def _rzd_controlled_values_multi_issuer_evidence_extraction_plan_write_outputs(r
             "ready_for_task210_multi_issuer_evidence_extraction_dry_run_plan": report.get("ready_for_task210_multi_issuer_evidence_extraction_dry_run_plan", False),
             "ready_for_task211_multi_issuer_controlled_import_apply_plan": report.get("ready_for_task211_multi_issuer_controlled_import_apply_plan", False),
             "controlled_import_apply_ready": report.get("controlled_import_apply_ready", False),
+            "planned_evidence_extraction_scope_count": report.get("planned_evidence_extraction_scope_count", 0),
+            "evidence_extraction_scope_count": report.get("evidence_extraction_scope_count", 0),
             "candidate_slot_evidence_plan_count": report.get("candidate_slot_evidence_plan_count", 0),
             "source_locator_contract_count": report.get("source_locator_contract_count", 0),
             "source_document_contract_count": report.get("source_document_contract_count", 0),
             "metric_evidence_contract_count": report.get("metric_evidence_contract_count", 0),
+            "corporate_bond_scope_valid": report.get("corporate_bond_scope_valid", False),
+            "ofz_exclusion_valid": report.get("ofz_exclusion_valid", False),
+            "no_source_backed_values_claim_valid": report.get("no_source_backed_values_claim_valid", False),
+            "evidence_source_selection_plan_unlocked_valid": report.get("evidence_source_selection_plan_unlocked_valid", False),
             "multi_issuer_evidence_extraction_plan_checksum_sha256": report.get("multi_issuer_evidence_extraction_plan_checksum_sha256", ""),
             **{field: report.get(field, False) for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_PLAN_FALSE_FIELDS},
             "safe_hint": report.get("safe_hint", ""),
@@ -80214,6 +80238,12 @@ def _rzd_controlled_values_multi_issuer_evidence_extraction_plan_write_outputs(r
             "ready_for_task210_multi_issuer_evidence_extraction_dry_run_plan": report.get("ready_for_task210_multi_issuer_evidence_extraction_dry_run_plan", False),
             "ready_for_task211_multi_issuer_controlled_import_apply_plan": report.get("ready_for_task211_multi_issuer_controlled_import_apply_plan", False),
             "controlled_import_apply_ready": report.get("controlled_import_apply_ready", False),
+            "planned_evidence_extraction_scope_count": report.get("planned_evidence_extraction_scope_count", 0),
+            "evidence_extraction_scope_count": report.get("evidence_extraction_scope_count", 0),
+            "corporate_bond_scope_valid": report.get("corporate_bond_scope_valid", False),
+            "ofz_exclusion_valid": report.get("ofz_exclusion_valid", False),
+            "no_source_backed_values_claim_valid": report.get("no_source_backed_values_claim_valid", False),
+            "evidence_source_selection_plan_unlocked_valid": report.get("evidence_source_selection_plan_unlocked_valid", False),
             "safe_hint": report.get("safe_hint", ""),
         },
     }
