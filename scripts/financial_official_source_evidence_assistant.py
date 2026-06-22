@@ -10567,6 +10567,14 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_REQUIRED_BOOL_FIELDS =
     "bond_ranking_executed", "live_source_verification_executed", "live_source_record_created",
     "metric_extraction_executed", "actual_metric_values_written", "controlled_values_created",
     "controlled_values_imported", "controlled_values_upserted",
+    "plan_generates_recommendations", "plan_executes_scoring", "plan_executes_trading",
+    "plan_executes_paper_trading", "plan_mutates_database", "plan_downloads_external_sources",
+    "plan_scrapes_external_sources", "plan_calls_broker_api", "plan_selects_concrete_issuers",
+    "plan_ranks_issuers", "plan_ranks_bonds", "plan_creates_live_source_records",
+    "plan_verifies_live_source_availability", "plan_extracts_metric_values",
+    "plan_writes_actual_metric_values", "plan_creates_controlled_values",
+    "plan_executes_import", "plan_executes_upsert", "plan_executes_insert",
+    "plan_executes_update", "plan_executes_delete",
 )
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_REQUIRED_COUNT_FIELDS = (
     "expected_import_row_count", "task204_planned_extraction_contract_scope_count",
@@ -10588,6 +10596,29 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_REQUIRED_LIST_FIELDS =
     "manual_review_gate_rows", "blocked_execution_policy_rows", "methodology_action_strategy_rows",
     "safety_gate_rows", "next_task_rows", "multi_issuer_controlled_import_plan_check_rows",
     "blocker_rows",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_FALSE_FIELDS = (
+    "plan_generates_recommendations",
+    "plan_executes_scoring",
+    "plan_executes_trading",
+    "plan_executes_paper_trading",
+    "plan_mutates_database",
+    "plan_downloads_external_sources",
+    "plan_scrapes_external_sources",
+    "plan_calls_broker_api",
+    "plan_selects_concrete_issuers",
+    "plan_ranks_issuers",
+    "plan_ranks_bonds",
+    "plan_creates_live_source_records",
+    "plan_verifies_live_source_availability",
+    "plan_extracts_metric_values",
+    "plan_writes_actual_metric_values",
+    "plan_creates_controlled_values",
+    "plan_executes_import",
+    "plan_executes_upsert",
+    "plan_executes_insert",
+    "plan_executes_update",
+    "plan_executes_delete",
 )
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
@@ -75655,6 +75686,7 @@ def _rzd_controlled_values_multi_issuer_controlled_import_plan_safety_flags() ->
         "actual_metric_values_written": False,
         "controlled_values_created": False,
     })
+    flags.update({field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_FALSE_FIELDS})
     return flags
 
 
@@ -76569,6 +76601,7 @@ def _rzd_controlled_values_multi_issuer_controlled_import_plan_write_outputs(rep
             "next_task_count": report.get("next_task_count", 0),
             "source_multi_issuer_extraction_contract_plan_checksum_sha256": report.get("source_multi_issuer_extraction_contract_plan_checksum_sha256", ""),
             "multi_issuer_controlled_import_plan_checksum_sha256": report.get("multi_issuer_controlled_import_plan_checksum_sha256", ""),
+            **{field: report.get(field, False) for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_FALSE_FIELDS},
             "safe_hint": report.get("safe_hint") or "",
         }, artifacts["summary_json"])
     if artifacts.get("safety_json"):

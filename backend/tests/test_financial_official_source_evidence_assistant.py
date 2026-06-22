@@ -24661,6 +24661,11 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_impor
     assert safety["delete_executed"] is False
     assert safety["controlled_values_imported"] is False
     assert safety["controlled_values_upserted"] is False
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_FALSE_FIELDS:
+        assert summary[field] is False
+        assert isinstance(summary[field], bool)
+        assert safety[field] is False
+        assert isinstance(safety[field], bool)
     for heading in (
         "# RZD Controlled Values Multi-Issuer Controlled Import Plan",
         "## Input chain",
@@ -38539,6 +38544,9 @@ def _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(rep
         "ready_for_paper_trading",
     ):
         assert report[field] is False
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_FALSE_FIELDS:
+        assert report[field] is False
+        assert isinstance(report[field], bool)
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:
