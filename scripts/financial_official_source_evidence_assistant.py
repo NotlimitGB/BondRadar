@@ -77166,16 +77166,31 @@ def _rzd_controlled_values_multi_issuer_candidate_slot_dataset_plan_rows() -> li
 
 
 def _rzd_controlled_values_multi_issuer_ratio_dataset_preview_specs() -> list[dict[str, Any]]:
+    controlled_lineage = {
+        "revenue_growth_pct": ("total_revenue", "", "total_revenue", ["total_revenue"]),
+        "net_profit_growth_pct": ("profit_for_the_year", "", "profit_for_the_year", ["profit_for_the_year"]),
+        "total_assets_growth_pct": ("total_assets", "", "total_assets", ["total_assets"]),
+        "total_liabilities_growth_pct": ("total_liabilities", "", "total_liabilities", ["total_liabilities"]),
+        "equity_growth_pct": ("total_equity", "", "total_equity", ["total_equity"]),
+        "cash_and_cash_equivalents_growth_pct": ("cash_and_cash_equivalents", "", "cash_and_cash_equivalents", ["cash_and_cash_equivalents"]),
+        "operating_cash_flow_growth_pct": ("operating_cash_flow", "", "operating_cash_flow", ["operating_cash_flow"]),
+        "net_profit_margin": ("profit_for_the_year", "total_revenue", "", ["profit_for_the_year", "total_revenue"]),
+        "profit_before_tax_margin": ("profit_before_tax", "total_revenue", "", ["profit_before_tax", "total_revenue"]),
+        "operating_profit_margin": ("operating_profit", "total_revenue", "", ["operating_profit", "total_revenue"]),
+        "liabilities_to_assets": ("total_liabilities", "total_assets", "", ["total_liabilities", "total_assets"]),
+        "current_liabilities_to_assets": ("current_liabilities", "total_assets", "", ["current_liabilities", "total_assets"]),
+        "equity_to_assets": ("total_equity", "total_assets", "", ["total_equity", "total_assets"]),
+        "debt_to_assets": ("borrowings_or_loans", "total_assets", "", ["borrowings_or_loans", "total_assets"]),
+        "debt_to_equity": ("borrowings_or_loans", "total_equity", "", ["borrowings_or_loans", "total_equity"]),
+        "cash_to_current_liabilities": ("cash_and_cash_equivalents", "current_liabilities", "", ["cash_and_cash_equivalents", "current_liabilities"]),
+        "operating_cash_flow_to_net_profit": ("operating_cash_flow", "profit_for_the_year", "", ["operating_cash_flow", "profit_for_the_year"]),
+        "operating_cash_flow_margin": ("operating_cash_flow", "total_revenue", "", ["operating_cash_flow", "total_revenue"]),
+        "interest_coverage_preview": ("operating_profit", "net_finance_costs", "", ["operating_profit", "net_finance_costs"]),
+    }
     specs = []
     for spec in RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_PREVIEW_SPECS:
         ratio_key = str(spec.get("ratio_key") or "")
-        required = [
-            str(value)
-            for value in (spec.get("numerator"), spec.get("denominator"), spec.get("source"))
-            if value
-        ]
-        if spec.get("fallback_numerator"):
-            required.append(str(spec["fallback_numerator"]))
+        numerator, denominator, source, required = controlled_lineage.get(ratio_key, ("", "", "", []))
         dependencies: list[str] = []
         if ratio_key in {"liabilities_to_assets", "total_liabilities_growth_pct"}:
             dependencies.append("total_liabilities_mapping_required")
@@ -77190,10 +77205,10 @@ def _rzd_controlled_values_multi_issuer_ratio_dataset_preview_specs() -> list[di
         specs.append({
             "ratio_key": ratio_key,
             "ratio_category": str(spec.get("category") or ""),
-            "numerator_metric_key": str(spec.get("numerator") or spec.get("source") or ""),
-            "denominator_metric_key": str(spec.get("denominator") or ""),
-            "source_metric_key": str(spec.get("source") or ""),
-            "required_metric_keys": sorted(set(required)),
+            "numerator_metric_key": numerator,
+            "denominator_metric_key": denominator,
+            "source_metric_key": source,
+            "required_metric_keys": list(required),
             "methodology_dependency_keys": sorted(set(dependencies)),
         })
     return specs
@@ -77235,7 +77250,7 @@ def _rzd_controlled_values_multi_issuer_ratio_input_metric_requirement_rows() ->
     metric_keys = [
         "total_revenue", "operating_profit", "profit_before_tax", "profit_for_the_year",
         "total_assets", "total_equity", "current_liabilities", "total_liabilities",
-        "cash_and_cash_equivalents", "operating_cash_flow", "borrowings_or_loans", "finance_costs",
+        "cash_and_cash_equivalents", "operating_cash_flow", "borrowings_or_loans", "net_finance_costs",
     ]
     specs = _rzd_controlled_values_multi_issuer_ratio_dataset_preview_specs()
     return [
@@ -77622,6 +77637,46 @@ def _build_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_report(
         add_block("external_scrape_allowed")
     if "broker_api_allowed" in generated_blob:
         add_block("broker_api_allowed")
+    legacy_metric_aliases = {"revenue", "net_profit", "equity", "finance_costs"}
+    canonical_controlled_metric_keys = {
+        "total_revenue", "operating_profit", "profit_before_tax", "profit_for_the_year",
+        "total_assets", "total_equity", "current_liabilities", "total_liabilities",
+        "cash_and_cash_equivalents", "operating_cash_flow", "borrowings_or_loans",
+        "finance_costs", "net_finance_costs",
+    }
+    task205_metric_keys = {
+        str(row.get("metric_key") or "")
+        for row in (task205.get("import_row_contract_rows") or [])
+        if isinstance(row, dict) and row.get("metric_key")
+    }
+    allowed_controlled_metric_keys = (task205_metric_keys | canonical_controlled_metric_keys) if task205_metric_keys else canonical_controlled_metric_keys
+    emitted_metric_keys: set[str] = set()
+    for row in ratio_rows:
+        emitted_metric_keys.update(
+            str(row.get(field) or "")
+            for field in ("numerator_metric_key", "denominator_metric_key", "source_metric_key")
+            if str(row.get(field) or "")
+        )
+        emitted_metric_keys.update(str(value) for value in (row.get("required_metric_keys") or []) if value)
+    emitted_input_metric_keys = {
+        str(row.get("metric_key") or "")
+        for row in input_metric_rows
+        if isinstance(row, dict) and row.get("metric_key")
+    }
+    emitted_metric_keys.update(emitted_input_metric_keys)
+    legacy_found = sorted(emitted_metric_keys & legacy_metric_aliases)
+    if legacy_found:
+        add_block("legacy_metric_alias_detected", {"metric_keys": legacy_found})
+    unknown_found = sorted(key for key in emitted_metric_keys if key and key not in allowed_controlled_metric_keys)
+    if unknown_found:
+        add_block("unknown_controlled_metric_key_detected", {"metric_keys": unknown_found})
+    task206_input_requirement_keys = {str(row.get("metric_key") or "") for row in input_metric_rows if isinstance(row, dict)}
+    if task206_input_requirement_keys != {
+        "total_revenue", "operating_profit", "profit_before_tax", "profit_for_the_year",
+        "total_assets", "total_equity", "current_liabilities", "total_liabilities",
+        "cash_and_cash_equivalents", "operating_cash_flow", "borrowings_or_loans", "net_finance_costs",
+    }:
+        add_block("unknown_controlled_metric_key_detected", {"input_metric_requirement_keys": sorted(task206_input_requirement_keys)})
     if any(row.get("ratio_value_placeholder") is not None or row.get("ratio_value_2025_placeholder") is not None or row.get("ratio_value_2024_placeholder") is not None for row in ratio_rows):
         add_block("actual_ratio_value_detected")
     if any(str(row.get("ratio_computation_status") or "") != "not_executed" for row in ratio_rows):

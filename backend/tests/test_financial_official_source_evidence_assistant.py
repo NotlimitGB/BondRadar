@@ -24930,6 +24930,40 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_pr
     assert {row["ratio_key"] for row in report["ratio_dataset_preview_rows"]} == {
         spec["ratio_key"] for spec in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_PREVIEW_SPECS
     }
+    legacy_aliases = {"revenue", "net_profit", "equity", "finance_costs"}
+    for row in report["ratio_dataset_preview_rows"]:
+        assert row.get("numerator_metric_key", "") not in legacy_aliases
+        assert row.get("denominator_metric_key", "") not in legacy_aliases
+        assert row.get("source_metric_key", "") not in legacy_aliases
+        assert not (set(row.get("required_metric_keys") or []) & legacy_aliases)
+    assert {row["metric_key"] for row in report["input_metric_requirement_rows"]} == {
+        "total_revenue",
+        "operating_profit",
+        "profit_before_tax",
+        "profit_for_the_year",
+        "total_assets",
+        "total_equity",
+        "current_liabilities",
+        "total_liabilities",
+        "cash_and_cash_equivalents",
+        "operating_cash_flow",
+        "borrowings_or_loans",
+        "net_finance_costs",
+    }
+    ratio_by_key = {}
+    for row in report["ratio_dataset_preview_rows"]:
+        ratio_by_key.setdefault(row["ratio_key"], row)
+    assert ratio_by_key["revenue_growth_pct"]["required_metric_keys"] == ["total_revenue"]
+    assert ratio_by_key["revenue_growth_pct"]["source_metric_key"] == "total_revenue"
+    assert ratio_by_key["revenue_growth_pct"]["denominator_metric_key"] == ""
+    assert ratio_by_key["net_profit_growth_pct"]["required_metric_keys"] == ["profit_for_the_year"]
+    assert ratio_by_key["equity_growth_pct"]["required_metric_keys"] == ["total_equity"]
+    assert ratio_by_key["net_profit_margin"]["required_metric_keys"] == ["profit_for_the_year", "total_revenue"]
+    assert ratio_by_key["net_profit_margin"]["numerator_metric_key"] == "profit_for_the_year"
+    assert ratio_by_key["net_profit_margin"]["denominator_metric_key"] == "total_revenue"
+    assert ratio_by_key["interest_coverage_preview"]["required_metric_keys"] == ["operating_profit", "net_finance_costs"]
+    assert ratio_by_key["interest_coverage_preview"]["denominator_metric_key"] == "net_finance_costs"
+    assert ratio_by_key["operating_cash_flow_to_net_profit"]["required_metric_keys"] == ["operating_cash_flow", "profit_for_the_year"]
     assert report["source_multi_issuer_controlled_import_plan_checksum_sha256"] == task205["multi_issuer_controlled_import_plan_checksum_sha256"]
     assert report["multi_issuer_ratio_dataset_preview_plan_checksum_sha256"]
     assert {row["action_type"] for row in report["methodology_action_strategy_rows"]} == set(assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS)
@@ -25202,6 +25236,39 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_pr
     assert "issuer_ranking_detected" in dirty_codes
     assert dirty_generated["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is False
     _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(dirty_generated)
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_ratio_dataset_preview_scope_rows", original_scope_rows)
+
+    def legacy_alias_rows() -> list[dict]:
+        rows = original_rows()
+        rows[0]["numerator_metric_key"] = "revenue"
+        rows[0]["source_metric_key"] = "revenue"
+        rows[0]["required_metric_keys"] = ["revenue"]
+        return rows
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_ratio_dataset_preview_rows", legacy_alias_rows)
+
+    legacy_generated = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert "legacy_metric_alias_detected" in {row["code"] for row in legacy_generated["blocker_rows"]}
+    assert legacy_generated["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is False
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(legacy_generated)
+
+    def unknown_metric_rows() -> list[dict]:
+        rows = original_rows()
+        rows[0]["numerator_metric_key"] = "invented_metric_key"
+        rows[0]["required_metric_keys"] = ["invented_metric_key"]
+        return rows
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_ratio_dataset_preview_rows", unknown_metric_rows)
+
+    unknown_generated = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert "unknown_controlled_metric_key_detected" in {row["code"] for row in unknown_generated["blocker_rows"]}
+    assert unknown_generated["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is False
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(unknown_generated)
 
 
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
