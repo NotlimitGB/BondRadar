@@ -24526,6 +24526,331 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     _assert_rzd_controlled_values_multi_issuer_extraction_contract_plan_fields(dirty_generated)
 
 
+def _write_task205_ready_task204(chain: Path, repo: Path, monkeypatch) -> dict:
+    _write_task197_ready_task196(chain, repo, monkeypatch)
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan(["--operator-resolution-chain-output-dir", str(chain)])
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview(["--operator-resolution-chain-output-dir", str(chain)])
+    _run_rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate(["--operator-resolution-chain-output-dir", str(chain)])
+    _run_rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure(["--operator-resolution-chain-output-dir", str(chain)])
+    _run_rzd_manual_official_pdf_controlled_values_multi_issuer_analytics_plan(["--operator-resolution-chain-output-dir", str(chain)])
+    _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_selection_plan(["--operator-resolution-chain-output-dir", str(chain)])
+    _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview(["--operator-resolution-chain-output-dir", str(chain)])
+    return _run_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contract_plan(["--operator-resolution-chain-output-dir", str(chain)])
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task204 = _write_task205_ready_task204(chain, repo, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task204["ready_for_task205_multi_issuer_controlled_import_plan"] is True
+    assert report["status"] == "warning"
+    assert report["multi_issuer_controlled_import_plan_status"] == "warning"
+    assert report["multi_issuer_controlled_import_plan_ready"] is True
+    assert report["controlled_import_plan_scope"] == "corporate_multi_issuer_controlled_import_planning_only"
+    assert report["issuer_universe_scope"] == "corporate_bond_issuers_only"
+    assert report["ofz_scope"] == "excluded_from_current_multi_issuer_plan"
+    assert report["concrete_issuer_selection_scope"] == "prohibited_in_task205"
+    assert report["live_source_scope"] == "prohibited_in_task205"
+    assert report["metric_extraction_scope"] == "prohibited_in_task205"
+    assert report["actual_values_scope"] == "prohibited_in_task205"
+    assert report["import_execution_scope"] == "plan_only_no_import"
+    assert report["db_mutation_scope"] == "prohibited_in_task205"
+    assert report["ready_for_multi_issuer_ratio_dataset_preview_plan"] is True
+    assert report["ready_for_task206_multi_issuer_ratio_dataset_preview_plan"] is True
+    assert report["ready_for_multi_issuer_controlled_import_plan"] is False
+    assert report["ready_for_task205_multi_issuer_controlled_import_plan"] is False
+    assert report["blocker_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert report["controlled_import_scope_count"] == 10
+    assert report["target_table_contract_count"] == 1
+    assert report["import_batch_contract_count"] == 3
+    assert report["import_row_contract_count"] == 39
+    assert report["idempotency_strategy_count"] == 8
+    assert report["pre_import_validation_rule_count"] == 12
+    assert report["manual_review_gate_count"] == 11
+    assert report["blocked_execution_policy_count"] == 12
+    assert report["methodology_action_strategy_count"] == 6
+    assert report["safety_gate_count"] == 24
+    assert report["next_task_count"] == 5
+    assert report["target_table_contract_valid"] is True
+    assert report["import_batch_contracts_valid"] is True
+    assert report["import_row_contracts_valid"] is True
+    assert report["blocked_execution_policy_valid"] is True
+    assert report["methodology_actions_preserved"] is True
+    assert report["target_table_contract_rows"][0]["expected_revision"] == "202606170001"
+    assert report["target_table_contract_rows"][0]["expected_table"] == "controlled_financial_statement_values"
+    assert report["target_table_contract_rows"][0]["write_allowed_now"] is False
+    assert all(row["batch_status"] == "planned_not_imported" for row in report["import_batch_contract_rows"])
+    assert all(row["value_placeholder"] is None for row in report["import_row_contract_rows"])
+    assert all(row["write_allowed_now"] is False for row in report["import_row_contract_rows"])
+    assert all(row["import_execution_status"] == "not_executed" for row in report["import_row_contract_rows"])
+    assert len({row["natural_key_sha256_preview"] for row in report["import_row_contract_rows"]}) == 39
+    first_row = report["import_row_contract_rows"][0]
+    assert first_row["natural_key_preview"] == f"{first_row['candidate_slot_id']}:{first_row['metric_key']}"
+    assert first_row["natural_key_sha256_preview"] == hashlib.sha256(first_row["natural_key_preview"].encode("utf-8")).hexdigest()
+    assert not any("http://" in row["natural_key_preview"] or "https://" in row["natural_key_preview"] for row in report["import_row_contract_rows"])
+    assert {row["action_type"] for row in report["methodology_action_strategy_rows"]} == set(assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS)
+    assert "scoring_safety_gate_required" in {row["action_type"] for row in report["methodology_action_strategy_rows"]}
+    next_task_by_id = {row["task_id"]: row for row in report["next_task_rows"]}
+    assert next_task_by_id["Task206"]["allowed_now"] is True
+    assert all(not row["allowed_now"] for task_id, row in next_task_by_id.items() if task_id != "Task206")
+    assert report["source_multi_issuer_extraction_contract_plan_checksum_sha256"] == task204["multi_issuer_extraction_contract_plan_checksum_sha256"]
+    assert report["multi_issuer_controlled_import_plan_checksum_sha256"]
+    assert report["multi_issuer_controlled_import_plan_executed"] is True
+    _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_wrappers_markdown(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task205_ready_task204(chain, repo, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_checks_task205.json").read_text(encoding="utf-8"))
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_blockers_task205.json").read_text(encoding="utf-8"))
+    scope = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_scope_task205.json").read_text(encoding="utf-8"))
+    target = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_target_table_contract_task205.json").read_text(encoding="utf-8"))
+    batches = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_batch_contracts_task205.json").read_text(encoding="utf-8"))
+    rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_row_contracts_task205.json").read_text(encoding="utf-8"))
+    idempotency = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_idempotency_strategy_task205.json").read_text(encoding="utf-8"))
+    validation = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_pre_import_validation_rules_task205.json").read_text(encoding="utf-8"))
+    review = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_manual_review_gates_task205.json").read_text(encoding="utf-8"))
+    policy = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_blocked_execution_policy_task205.json").read_text(encoding="utf-8"))
+    actions = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_methodology_actions_task205.json").read_text(encoding="utf-8"))
+    gates = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_safety_gates_task205.json").read_text(encoding="utf-8"))
+    next_tasks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_next_tasks_task205.json").read_text(encoding="utf-8"))
+    summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_summary_task205.json").read_text(encoding="utf-8"))
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_safety_task205.json").read_text(encoding="utf-8"))
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_task205.md").read_text(encoding="utf-8")
+
+    assert checks["multi_issuer_controlled_import_plan_check_rows"] == report["multi_issuer_controlled_import_plan_check_rows"]
+    assert blockers["blocker_count"] == 0
+    assert scope["controlled_import_scope_rows"] == report["controlled_import_scope_rows"]
+    assert target["target_table_contract_rows"] == report["target_table_contract_rows"]
+    assert batches["import_batch_contract_rows"] == report["import_batch_contract_rows"]
+    assert rows["import_row_contract_rows"] == report["import_row_contract_rows"]
+    assert idempotency["idempotency_strategy_rows"] == report["idempotency_strategy_rows"]
+    assert validation["pre_import_validation_rule_rows"] == report["pre_import_validation_rule_rows"]
+    assert review["manual_review_gate_rows"] == report["manual_review_gate_rows"]
+    assert policy["blocked_execution_policy_rows"] == report["blocked_execution_policy_rows"]
+    assert actions["methodology_action_strategy_rows"] == report["methodology_action_strategy_rows"]
+    assert gates["safety_gate_rows"] == report["safety_gate_rows"]
+    assert next_tasks["next_task_rows"] == report["next_task_rows"]
+    assert summary["multi_issuer_controlled_import_plan_checksum_sha256"] == report["multi_issuer_controlled_import_plan_checksum_sha256"]
+    assert safety["multi_issuer_controlled_import_plan_executed"] is True
+    assert safety["import_executed"] is False
+    assert safety["upsert_executed"] is False
+    assert safety["insert_executed"] is False
+    assert safety["update_executed"] is False
+    assert safety["delete_executed"] is False
+    assert safety["controlled_values_imported"] is False
+    assert safety["controlled_values_upserted"] is False
+    for heading in (
+        "# RZD Controlled Values Multi-Issuer Controlled Import Plan",
+        "## Input chain",
+        "## Import plan verdict",
+        "## Controlled import scope",
+        "## Target table contract",
+        "## Import batch contracts",
+        "## Import row contracts",
+        "## Idempotency strategy",
+        "## Pre-import validation rules",
+        "## Manual review gates",
+        "## Blocked execution policy",
+        "## Open methodology actions",
+        "## Safety gates",
+        "## Next tasks",
+        "## Safety",
+        "## Checksums",
+        "## Decision",
+    ):
+        assert heading in markdown
+    for phrase in (
+        "No migration was executed by Task205.",
+        "No Alembic command was executed by Task205.",
+        "No database mutation was performed by Task205.",
+        "No rows were imported by Task205.",
+        "No rows were upserted by Task205.",
+        "No rows were inserted by Task205.",
+        "No rows were updated by Task205.",
+        "No rows were deleted by Task205.",
+        "No metric extraction was executed by Task205.",
+        "No actual metric values were written by Task205.",
+        "No controlled financial values were created by Task205.",
+        "No concrete issuer was selected by Task205.",
+        "No concrete source URL was written by Task205.",
+        "No live source availability was verified by Task205.",
+        "No external issuer report was downloaded by Task205.",
+        "No external source was scraped by Task205.",
+        "No broker API was called by Task205.",
+        "No scoring was executed by Task205.",
+        "No investment recommendation was generated by Task205.",
+        "No issuer or bond ranking was produced by Task205.",
+        "No methodology patch was executed by Task205.",
+        "Task205 created a controlled import plan only.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_upstream_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task205_ready_task204(chain, repo, monkeypatch)
+
+    missing = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-plan-input",
+            str(chain / "missing_task204.json"),
+        ]
+    )
+    assert missing["status"] == "blocked"
+    assert "task204_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task206_multi_issuer_ratio_dataset_preview_plan"] is False
+    _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(missing)
+
+    task204_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contract_plan_task204.json"
+    task204 = json.loads(task204_path.read_text(encoding="utf-8"))
+    task204.update({
+        "status": "blocked",
+        "multi_issuer_extraction_contract_plan_status": "blocked",
+        "multi_issuer_extraction_contract_plan_ready": False,
+        "ready_for_task205_multi_issuer_controlled_import_plan": False,
+        "extraction_contract_scope": "wrong_scope",
+        "issuer_universe_scope": "wrong_scope",
+        "ofz_scope": "included",
+        "contract_extracts_metric_values": None,
+        "contract_writes_actual_metric_values": True,
+        "contract_creates_controlled_values": True,
+        "multi_issuer_extraction_contract_plan_checksum_sha256": "",
+        "bad_safety_count": 1,
+        "blocker_count": 1,
+        "database_mutated": True,
+        "import_executed": True,
+        "scoring_executed": True,
+        "ready_for_scoring": True,
+        "trading_executed": True,
+        "recommendation_generated": True,
+        "external_download_executed": True,
+        "external_scrape_executed": True,
+        "broker_api_called": True,
+        "concrete_issuer_selection_executed": True,
+        "issuer_ranking_executed": True,
+        "bond_ranking_executed": True,
+        "live_source_verification_executed": True,
+        "live_source_record_created": True,
+    })
+    task204_path.write_text(json.dumps(task204, ensure_ascii=False), encoding="utf-8")
+
+    dirty = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    blocker_codes = {row["code"] for row in dirty["blocker_rows"]}
+    assert "task204_status_invalid" in blocker_codes
+    assert "task204_not_ready_for_controlled_import_plan" in blocker_codes
+    assert "task204_scope_invalid" in blocker_codes
+    assert "task204_output_contract_invalid" in blocker_codes
+    assert "task204_checksum_missing" in blocker_codes
+    assert "task204_safety_invalid" in blocker_codes
+    assert dirty["ready_for_task206_multi_issuer_ratio_dataset_preview_plan"] is False
+    assert dirty["multi_issuer_controlled_import_plan_executed"] is True
+    _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(dirty)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_row_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    repo = tmp_path
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task205_ready_task204(chain, repo, monkeypatch)
+    task204_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contract_plan_task204.json"
+    task204 = json.loads(task204_path.read_text(encoding="utf-8"))
+    task204["methodology_action_strategy_rows"] = [
+        row for row in task204["methodology_action_strategy_rows"]
+        if row["action_type"] != "scoring_safety_gate_required"
+    ]
+    task204_path.write_text(json.dumps(task204, ensure_ascii=False), encoding="utf-8")
+
+    missing_action = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    missing_action_codes = {row["code"] for row in missing_action["blocker_rows"]}
+    assert "methodology_action_missing" in missing_action_codes
+    assert "scoring_safety_gate_missing" in missing_action_codes
+    assert missing_action["ready_for_task206_multi_issuer_ratio_dataset_preview_plan"] is False
+    _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(missing_action)
+
+    task204 = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contract_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    task204_path.write_text(json.dumps(task204, ensure_ascii=False), encoding="utf-8")
+    original_rows = assistant._rzd_controlled_values_multi_issuer_import_row_contract_rows
+    original_scope_rows = assistant._rzd_controlled_values_multi_issuer_controlled_import_scope_rows
+
+    def dirty_rows() -> list[dict]:
+        rows = original_rows()
+        rows[0]["value_placeholder"] = 123
+        rows[0]["write_allowed_now"] = True
+        rows[0]["import_execution_status"] = "executed"
+        rows[0]["upsert_allowed_now"] = True
+        rows[0]["insert_allowed_now"] = True
+        rows[0]["update_allowed_now"] = True
+        rows[0]["delete_allowed_now"] = True
+        rows[0]["controlled_value_creation_status"] = "created"
+        return rows
+
+    def dirty_scope() -> list[dict]:
+        rows = original_scope_rows()
+        rows[0]["included"] = "https://issuer.example/report.pdf Gazprom live_available ranked issuer"
+        return rows
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_import_row_contract_rows", dirty_rows)
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_controlled_import_scope_rows", dirty_scope)
+
+    dirty_generated = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    dirty_codes = {row["code"] for row in dirty_generated["blocker_rows"]}
+    assert "concrete_issuer_selection_detected" in dirty_codes
+    assert "concrete_url_detected" in dirty_codes
+    assert "live_source_claim_detected" in dirty_codes
+    assert "actual_metric_value_detected" in dirty_codes
+    assert "controlled_value_creation_detected" in dirty_codes
+    assert "import_execution_detected" in dirty_codes
+    assert "upsert_execution_detected" in dirty_codes
+    assert "insert_execution_detected" in dirty_codes
+    assert "update_execution_detected" in dirty_codes
+    assert "delete_execution_detected" in dirty_codes
+    assert "db_mutation_detected" in dirty_codes
+    assert "issuer_ranking_detected" in dirty_codes
+    assert dirty_generated["ready_for_task206_multi_issuer_ratio_dataset_preview_plan"] is False
+    _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(dirty_generated)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -32931,6 +33256,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-plan",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -38079,6 +38417,123 @@ def _assert_rzd_controlled_values_multi_issuer_extraction_contract_plan_fields(r
         "metric_extraction_executed",
         "actual_metric_values_written",
         "controlled_values_created",
+        "ready_for_scoring",
+        "ready_for_trading",
+        "ready_for_paper_trading",
+    ):
+        assert report[field] is False
+
+
+def _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_REQUIRED_LIST_FIELDS:
+        assert field in report
+        assert isinstance(report[field], list)
+        assert report[field] is not None
+    for field in (
+        "status",
+        "multi_issuer_controlled_import_plan_status",
+        "controlled_import_plan_scope",
+        "issuer_universe_scope",
+        "ofz_scope",
+        "concrete_issuer_selection_scope",
+        "live_source_scope",
+        "metric_extraction_scope",
+        "actual_values_scope",
+        "import_execution_scope",
+        "db_mutation_scope",
+        "controlled_import_plan_reason",
+        "expected_revision",
+        "expected_table",
+        "task204_input_path",
+        "task204_status",
+        "task204_multi_issuer_extraction_contract_plan_status",
+        "task204_extraction_contract_scope",
+        "task204_issuer_universe_scope",
+        "task204_ofz_scope",
+        "task204_concrete_issuer_selection_scope",
+        "task204_live_source_scope",
+        "task204_metric_extraction_scope",
+        "task204_actual_values_scope",
+        "task204_multi_issuer_extraction_contract_plan_checksum_sha256",
+        "source_multi_issuer_extraction_contract_plan_checksum_sha256",
+        "multi_issuer_controlled_import_plan_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    row_specs = (
+        ("blocker_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_BLOCKER_FIELDS, set()),
+        ("multi_issuer_controlled_import_plan_check_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_CHECK_FIELDS, set()),
+        ("controlled_import_scope_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_SCOPE_FIELDS, set()),
+        ("target_table_contract_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_TARGET_TABLE_FIELDS, set()),
+        ("import_batch_contract_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_BATCH_FIELDS, set()),
+        ("import_row_contract_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_ROW_FIELDS, {"value_placeholder"}),
+        ("idempotency_strategy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_IDEMPOTENCY_FIELDS, set()),
+        ("pre_import_validation_rule_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_PRE_IMPORT_VALIDATION_FIELDS, set()),
+        ("manual_review_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_MANUAL_REVIEW_FIELDS, set()),
+        ("blocked_execution_policy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_BLOCKED_POLICY_FIELDS, set()),
+        ("methodology_action_strategy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_METHODOLOGY_ACTION_FIELDS, set()),
+        ("safety_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_SAFETY_GATE_FIELDS, set()),
+        ("next_task_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_NEXT_TASK_FIELDS, set()),
+    )
+    for row_key, fields, nullable_fields in row_specs:
+        for row in report.get(row_key) or []:
+            for field in fields:
+                assert field in row
+                if field not in nullable_fields:
+                    assert row[field] is not None
+    for field in (
+        "database_mutated",
+        "migration_executed",
+        "import_executed",
+        "upsert_executed",
+        "insert_executed",
+        "update_executed",
+        "delete_executed",
+        "scoring_executed",
+        "trading_executed",
+        "paper_trading_executed",
+        "recommendation_generated",
+        "methodology_patch_executed",
+        "verification_executed",
+        "interpretation_review_executed",
+        "analytics_readiness_gate_executed",
+        "analytics_dataset_preview_executed",
+        "analytics_dataset_review_gate_executed",
+        "analytics_dataset_export_plan_executed",
+        "analytics_dataset_export_preview_executed",
+        "analytics_dataset_export_preview_review_gate_executed",
+        "analytics_export_layer_closure_executed",
+        "multi_issuer_analytics_plan_executed",
+        "multi_issuer_source_selection_plan_executed",
+        "multi_issuer_source_evidence_preview_executed",
+        "multi_issuer_extraction_contract_plan_executed",
+        "production_export_executed",
+        "external_download_executed",
+        "external_scrape_executed",
+        "broker_api_called",
+        "concrete_issuer_selection_executed",
+        "issuer_ranking_executed",
+        "bond_ranking_executed",
+        "live_source_verification_executed",
+        "live_source_record_created",
+        "metric_extraction_executed",
+        "actual_metric_values_written",
+        "controlled_values_created",
+        "controlled_values_imported",
+        "controlled_values_upserted",
+        "ready_for_multi_issuer_controlled_import_plan",
+        "ready_for_task205_multi_issuer_controlled_import_plan",
         "ready_for_scoring",
         "ready_for_trading",
         "ready_for_paper_trading",
