@@ -25893,6 +25893,295 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extract
     _assert_rzd_controlled_values_multi_issuer_evidence_extraction_plan_fields(failed)
 
 
+def _write_task209_ready_task208(chain: Path, tmp_path: Path, monkeypatch) -> dict:
+    _write_task208_ready_task207(chain, tmp_path, monkeypatch)
+    return _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task208 = _write_task209_ready_task208(chain, tmp_path, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task208["ready_for_task209_multi_issuer_evidence_source_selection_plan"] is True
+    assert report["status"] == "warning"
+    assert report["multi_issuer_evidence_source_selection_plan_status"] == "warning"
+    assert report["multi_issuer_evidence_source_selection_plan_ready"] is True
+    assert report["ready_for_task210_multi_issuer_evidence_source_discovery_preview"] is True
+    assert report["ready_for_task209_multi_issuer_evidence_source_selection_plan"] is False
+    assert report["ready_for_task211_multi_issuer_evidence_extraction_dry_run_plan"] is False
+    assert report["ready_for_task212_multi_issuer_controlled_import_apply_plan"] is False
+    assert report["controlled_import_apply_ready"] is False
+    assert report["blocker_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert report["planned_evidence_source_selection_scope_count"] == 10
+    assert report["upstream_validation_count"] == 6
+    assert report["candidate_slot_source_selection_plan_count"] == 3
+    assert report["allowed_source_type_count"] == 8
+    assert report["official_source_rule_count"] == 12
+    assert report["source_exclusion_rule_count"] == 10
+    assert report["source_locator_field_contract_count"] == 12
+    assert report["discovery_preview_contract_count"] == 10
+    assert report["source_review_gate_count"] == 11
+    assert report["blocked_execution_policy_count"] == 20
+    assert report["methodology_action_strategy_count"] == 6
+    assert report["safety_gate_count"] == 40
+    assert report["next_task_count"] == 5
+    assert [row["candidate_slot_id"] for row in report["candidate_slot_source_selection_plan_rows"]] == [
+        "candidate_slot_001",
+        "candidate_slot_002",
+        "candidate_slot_003",
+    ]
+    for row in report["candidate_slot_source_selection_plan_rows"]:
+        assert row["issuer_name"] is None
+        assert row["source_url"] is None
+        assert row["official_source_url_placeholder"] is None
+        assert row["selected_source_type_placeholder"] is None
+        assert row["ready_for_source_discovery_preview"] is True
+        assert row["ready_for_source_selection_execution"] is False
+        assert row["ready_for_evidence_extraction_execution"] is False
+        assert row["ready_for_controlled_import_apply"] is False
+    assert tuple(row["source_type_key"] for row in report["allowed_source_type_rows"]) == assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_ALLOWED_SOURCE_TYPES
+    for row in report["source_locator_field_contract_rows"]:
+        assert row["placeholder_value"] is None
+        assert row["concrete_value_allowed_now"] is False
+    assert {row["action_type"] for row in report["methodology_action_strategy_rows"]} == set(assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS)
+    assert "scoring_safety_gate_required" in {row["action_type"] for row in report["methodology_action_strategy_rows"]}
+    next_task_by_id = {row["task_id"]: row for row in report["next_task_rows"]}
+    assert next_task_by_id["Task210"]["allowed_now"] is True
+    assert all(not row["allowed_now"] for task_id, row in next_task_by_id.items() if task_id != "Task210")
+    assert report["source_multi_issuer_evidence_extraction_plan_checksum_sha256"] == task208["multi_issuer_evidence_extraction_plan_checksum_sha256"]
+    assert report["multi_issuer_evidence_source_selection_plan_checksum_sha256"]
+    assert report["multi_issuer_evidence_source_selection_plan_executed"] is True
+    assert report["evidence_source_selection_plan_created"] is True
+    assert report["evidence_source_discovery_executed"] is False
+    assert report["live_web_search_executed"] is False
+    assert report["live_source_discovery_executed"] is False
+    assert report["source_selection_executed"] is False
+    _assert_rzd_controlled_values_multi_issuer_evidence_source_selection_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_wrappers_markdown(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task209_ready_task208(chain, tmp_path, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_checks_task209.json").read_text(encoding="utf-8"))
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_blockers_task209.json").read_text(encoding="utf-8"))
+    scope = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_scope_task209.json").read_text(encoding="utf-8"))
+    slots = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_candidate_slots_task209.json").read_text(encoding="utf-8"))
+    source_types = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_allowed_source_types_task209.json").read_text(encoding="utf-8"))
+    rules = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_official_source_rules_task209.json").read_text(encoding="utf-8"))
+    locators = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_source_locator_fields_task209.json").read_text(encoding="utf-8"))
+    actions = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_methodology_actions_task209.json").read_text(encoding="utf-8"))
+    summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_summary_task209.json").read_text(encoding="utf-8"))
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_safety_task209.json").read_text(encoding="utf-8"))
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_task209.md").read_text(encoding="utf-8")
+
+    assert checks["multi_issuer_evidence_source_selection_plan_check_rows"] == report["multi_issuer_evidence_source_selection_plan_check_rows"]
+    assert blockers["blocker_count"] == 0
+    assert scope["evidence_source_selection_scope_rows"] == report["evidence_source_selection_scope_rows"]
+    assert slots["candidate_slot_source_selection_plan_rows"] == report["candidate_slot_source_selection_plan_rows"]
+    assert source_types["allowed_source_type_rows"] == report["allowed_source_type_rows"]
+    assert rules["official_source_rule_rows"] == report["official_source_rule_rows"]
+    assert locators["source_locator_field_contract_rows"] == report["source_locator_field_contract_rows"]
+    assert actions["methodology_action_strategy_rows"] == report["methodology_action_strategy_rows"]
+    assert summary["multi_issuer_evidence_source_selection_plan_checksum_sha256"] == report["multi_issuer_evidence_source_selection_plan_checksum_sha256"]
+    assert safety["multi_issuer_evidence_source_selection_plan_executed"] is True
+    assert safety["evidence_source_selection_plan_created"] is True
+    assert safety["ready_for_task210_multi_issuer_evidence_source_discovery_preview"] is True
+    assert safety["ready_for_task211_multi_issuer_evidence_extraction_dry_run_plan"] is False
+    assert safety["ready_for_task212_multi_issuer_controlled_import_apply_plan"] is False
+    for wrapper in (summary, safety):
+        assert isinstance(wrapper["planned_evidence_source_selection_scope_count"], int)
+        assert wrapper["planned_evidence_source_selection_scope_count"] == 10
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_FALSE_FIELDS:
+        assert summary[field] is False
+        assert isinstance(summary[field], bool)
+        assert safety[field] is False
+        assert isinstance(safety[field], bool)
+    for heading in (
+        "# RZD Controlled Values Multi-Issuer Evidence Source Selection Plan",
+        "## Input chain",
+        "## Evidence source selection plan verdict",
+        "## Evidence source selection scope",
+        "## Upstream validation",
+        "## Candidate slot source selection plan",
+        "## Allowed official source types",
+        "## Official source rules",
+        "## Source exclusion rules",
+        "## Source locator field contract",
+        "## Discovery preview contract",
+        "## Source review gates",
+        "## Blocked execution policy",
+        "## Open methodology actions",
+        "## Safety gates",
+        "## Next tasks",
+        "## Safety",
+        "## Checksums",
+        "## Decision",
+    ):
+        assert heading in markdown
+    for phrase in (
+        "No live web search was executed by Task209.",
+        "No live source discovery was executed by Task209.",
+        "No source selection was executed by Task209.",
+        "No concrete issuer name was written by Task209.",
+        "No concrete source URL was written by Task209.",
+        "No source document was downloaded by Task209.",
+        "No source document was scraped by Task209.",
+        "No source document was cached by Task209.",
+        "No source integrity verification was executed by Task209.",
+        "No evidence extraction was executed by Task209.",
+        "No source-backed values were claimed by Task209.",
+        "No controlled import apply plan was created by Task209.",
+        "No controlled import apply was executed by Task209.",
+        "Task209 created an evidence source selection plan only.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_multi_issuer_evidence_source_selection_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task209_ready_task208(chain, tmp_path, monkeypatch)
+
+    missing = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-source-selection-plan-input",
+            str(chain / "missing_task208.json"),
+        ]
+    )
+    assert missing["status"] == "blocked"
+    assert "task208_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task210_multi_issuer_evidence_source_discovery_preview"] is False
+    _assert_rzd_controlled_values_multi_issuer_evidence_source_selection_plan_fields(missing)
+
+    task208_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_plan_task208.json"
+    task208 = json.loads(task208_path.read_text(encoding="utf-8"))
+    task208.update({
+        "status": "blocked",
+        "multi_issuer_evidence_extraction_plan_status": "blocked",
+        "multi_issuer_evidence_extraction_plan_ready": False,
+        "ready_for_task209_multi_issuer_evidence_source_selection_plan": False,
+        "ready_for_task210_multi_issuer_evidence_extraction_dry_run_plan": True,
+        "ready_for_task211_multi_issuer_controlled_import_apply_plan": True,
+        "controlled_import_apply_ready": True,
+        "candidate_slot_evidence_plan_count": 2,
+        "methodology_action_strategy_rows": [],
+        "multi_issuer_evidence_extraction_plan_checksum_sha256": "",
+        "bad_safety_count": 1,
+        "blocker_count": 1,
+        "corporate_bond_scope_valid": False,
+        "evidence_source_selection_plan_unlocked_valid": False,
+        "plan_writes_concrete_source_urls": True,
+        "plan_selects_concrete_issuers": None,
+        "database_mutated": True,
+        "import_executed": True,
+        "evidence_extraction_executed": True,
+        "source_backed_values_available": True,
+        "controlled_import_apply_plan_created": True,
+        "controlled_import_apply_executed": True,
+        "scoring_executed": True,
+        "trading_executed": True,
+    })
+    task208_path.write_text(json.dumps(task208, ensure_ascii=False), encoding="utf-8")
+
+    dirty = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    codes = {row["code"] for row in dirty["blocker_rows"]}
+    assert "task208_status_invalid" in codes
+    assert "task208_not_ready_for_source_selection_plan" in codes
+    assert "task208_unexpected_future_readiness" in codes
+    assert "task208_counts_invalid" in codes
+    assert "task208_output_contract_invalid" in codes
+    assert "task208_plan_flag_invalid" in codes
+    assert "task208_blockers_or_bad_safety" in codes
+    assert "task208_checksum_missing" in codes
+    assert "methodology_action_missing" in codes
+    assert "scoring_safety_gate_missing" in codes
+    assert "task208_safety_invalid" in codes
+    assert dirty["ready_for_task210_multi_issuer_evidence_source_discovery_preview"] is False
+    _assert_rzd_controlled_values_multi_issuer_evidence_source_selection_plan_fields(dirty)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_generated_row_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task209_ready_task208(chain, tmp_path, monkeypatch)
+
+    original_candidate_builder = assistant._rzd_controlled_values_multi_issuer_evidence_source_selection_candidate_rows
+
+    def dirty_candidate_builder(task208: dict) -> list[dict]:
+        rows = original_candidate_builder(task208)
+        rows[0]["issuer_name"] = "Concrete Issuer"
+        rows[0]["source_url"] = "https://example.com/report.pdf"
+        rows[0]["ready_for_source_selection_execution"] = True
+        return rows
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_evidence_source_selection_candidate_rows", dirty_candidate_builder)
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    codes = {row["code"] for row in report["blocker_rows"]}
+    assert "concrete_issuer_name_detected" in codes
+    assert "concrete_url_detected" in codes
+    assert "ready_for_source_selection_execution_leak" in codes
+    assert report["ready_for_task210_multi_issuer_evidence_source_discovery_preview"] is False
+    _assert_rzd_controlled_values_multi_issuer_evidence_source_selection_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan_failed_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task209_ready_task208(chain, tmp_path, monkeypatch)
+    task208_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_plan_task208.json"
+
+    failed = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-source-selection-plan-output",
+            str(task208_path),
+        ]
+    )
+
+    assert failed["status"] == "failed"
+    assert isinstance(failed["planned_evidence_source_selection_scope_count"], int)
+    assert isinstance(failed["evidence_source_discovery_preview_unlocked_valid"], bool)
+    assert isinstance(failed["controlled_import_apply_blocked_valid"], bool)
+    _assert_rzd_controlled_values_multi_issuer_evidence_source_selection_plan_fields(failed)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -34350,6 +34639,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extract
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_source_selection_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-source-selection-plan",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -40052,6 +40354,167 @@ def _assert_rzd_controlled_values_multi_issuer_evidence_extraction_plan_fields(r
     ):
         assert report[field] is False
     for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_PLAN_FALSE_FIELDS:
+        assert report[field] is False
+        assert isinstance(report[field], bool)
+
+
+def _assert_rzd_controlled_values_multi_issuer_evidence_source_selection_plan_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_REQUIRED_LIST_FIELDS:
+        assert field in report
+        assert isinstance(report[field], list)
+        assert report[field] is not None
+    for field in (
+        "status",
+        "multi_issuer_evidence_source_selection_plan_status",
+        "evidence_source_selection_plan_scope",
+        "issuer_universe_scope",
+        "ofz_scope",
+        "concrete_issuer_selection_scope",
+        "concrete_issuer_identity_scope",
+        "concrete_source_url_scope",
+        "live_source_scope",
+        "live_web_search_scope",
+        "source_discovery_scope",
+        "source_selection_scope",
+        "source_locator_scope",
+        "official_source_rule_scope",
+        "source_document_scope",
+        "source_download_scope",
+        "source_scrape_scope",
+        "source_cache_scope",
+        "source_integrity_scope",
+        "metric_extraction_scope",
+        "actual_values_scope",
+        "source_backed_values_scope",
+        "import_execution_scope",
+        "ratio_computation_scope",
+        "scoring_scope",
+        "recommendation_scope",
+        "ranking_scope",
+        "trading_scope",
+        "db_mutation_scope",
+        "controlled_import_apply_scope",
+        "evidence_source_selection_plan_reason",
+        "expected_revision",
+        "expected_table",
+        "task208_input_path",
+        "task208_status",
+        "task208_multi_issuer_evidence_extraction_plan_status",
+        "task208_multi_issuer_evidence_extraction_plan_checksum_sha256",
+        "source_multi_issuer_evidence_extraction_plan_checksum_sha256",
+        "multi_issuer_evidence_source_selection_plan_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    row_specs = (
+        ("blocker_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_BLOCKER_FIELDS, set()),
+        ("multi_issuer_evidence_source_selection_plan_check_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_CHECK_FIELDS, set()),
+        ("evidence_source_selection_scope_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_SCOPE_FIELDS, set()),
+        ("upstream_validation_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_UPSTREAM_FIELDS, set()),
+        ("candidate_slot_source_selection_plan_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_CANDIDATE_SLOT_FIELDS, {"issuer_name", "source_url", "official_source_url_placeholder", "selected_source_type_placeholder"}),
+        ("allowed_source_type_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_ALLOWED_SOURCE_TYPE_FIELDS, set()),
+        ("official_source_rule_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_OFFICIAL_SOURCE_RULE_FIELDS, set()),
+        ("source_exclusion_rule_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_SOURCE_EXCLUSION_FIELDS, set()),
+        ("source_locator_field_contract_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_SOURCE_LOCATOR_FIELD_FIELDS, {"placeholder_value"}),
+        ("discovery_preview_contract_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_DISCOVERY_PREVIEW_FIELDS, set()),
+        ("source_review_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_SOURCE_REVIEW_FIELDS, set()),
+        ("blocked_execution_policy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_BLOCKED_POLICY_FIELDS, set()),
+        ("methodology_action_strategy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_METHODOLOGY_ACTION_FIELDS, set()),
+        ("safety_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_SAFETY_GATE_FIELDS, set()),
+        ("next_task_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_NEXT_TASK_FIELDS, set()),
+    )
+    for row_key, fields, nullable_fields in row_specs:
+        for row in report.get(row_key) or []:
+            for field in fields:
+                assert field in row
+                if field not in nullable_fields:
+                    assert row[field] is not None
+    for field in (
+        "database_mutated",
+        "migration_executed",
+        "import_executed",
+        "upsert_executed",
+        "insert_executed",
+        "update_executed",
+        "delete_executed",
+        "scoring_executed",
+        "trading_executed",
+        "paper_trading_executed",
+        "recommendation_generated",
+        "methodology_patch_executed",
+        "verification_executed",
+        "interpretation_review_executed",
+        "analytics_readiness_gate_executed",
+        "analytics_dataset_preview_executed",
+        "analytics_dataset_review_gate_executed",
+        "analytics_dataset_export_plan_executed",
+        "analytics_dataset_export_preview_executed",
+        "analytics_dataset_export_preview_review_gate_executed",
+        "analytics_export_layer_closure_executed",
+        "multi_issuer_analytics_plan_executed",
+        "multi_issuer_source_selection_plan_executed",
+        "multi_issuer_source_evidence_preview_executed",
+        "multi_issuer_extraction_contract_plan_executed",
+        "multi_issuer_controlled_import_plan_executed",
+        "multi_issuer_ratio_dataset_preview_plan_executed",
+        "multi_issuer_controlled_import_readiness_gate_executed",
+        "multi_issuer_evidence_extraction_plan_executed",
+        "production_export_executed",
+        "external_download_executed",
+        "external_scrape_executed",
+        "broker_api_called",
+        "concrete_issuer_selection_executed",
+        "issuer_ranking_executed",
+        "bond_ranking_executed",
+        "live_source_verification_executed",
+        "live_source_record_created",
+        "metric_extraction_executed",
+        "actual_metric_values_written",
+        "controlled_values_created",
+        "controlled_values_imported",
+        "controlled_values_upserted",
+        "ratio_computation_executed",
+        "actual_ratio_values_written",
+        "scored_dataset_created",
+        "controlled_import_apply_executed",
+        "controlled_import_apply_plan_created",
+        "evidence_extraction_executed",
+        "source_backed_values_available",
+        "source_documents_downloaded",
+        "source_documents_scraped",
+        "source_documents_cached",
+        "source_integrity_verified",
+        "concrete_source_urls_written",
+        "concrete_issuer_names_written",
+        "evidence_source_discovery_executed",
+        "live_web_search_executed",
+        "live_source_discovery_executed",
+        "source_selection_executed",
+        "ready_for_multi_issuer_evidence_source_selection_plan",
+        "ready_for_task209_multi_issuer_evidence_source_selection_plan",
+        "ready_for_multi_issuer_evidence_extraction_dry_run_plan",
+        "ready_for_task211_multi_issuer_evidence_extraction_dry_run_plan",
+        "ready_for_multi_issuer_controlled_import_apply_plan",
+        "ready_for_task212_multi_issuer_controlled_import_apply_plan",
+        "ready_for_controlled_import_apply",
+        "controlled_import_apply_ready",
+        "ready_for_scoring",
+        "ready_for_trading",
+        "ready_for_paper_trading",
+    ):
+        assert report[field] is False
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_PLAN_FALSE_FIELDS:
         assert report[field] is False
         assert isinstance(report[field], bool)
 
