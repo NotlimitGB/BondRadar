@@ -24856,6 +24856,354 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_impor
     _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(dirty_generated)
 
 
+def _write_task206_ready_task205(chain: Path, repo: Path, monkeypatch) -> dict:
+    _write_task205_ready_task204(chain, repo, monkeypatch)
+    return _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task205 = _write_task206_ready_task205(chain, tmp_path, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task205["ready_for_task206_multi_issuer_ratio_dataset_preview_plan"] is True
+    assert report["status"] == "warning"
+    assert report["multi_issuer_ratio_dataset_preview_plan_status"] == "warning"
+    assert report["multi_issuer_ratio_dataset_preview_plan_ready"] is True
+    assert report["ratio_dataset_preview_plan_scope"] == "corporate_multi_issuer_ratio_dataset_preview_planning_only"
+    assert report["issuer_universe_scope"] == "corporate_bond_issuers_only"
+    assert report["ofz_scope"] == "excluded_from_current_multi_issuer_plan"
+    assert report["concrete_issuer_selection_scope"] == "prohibited_in_task206"
+    assert report["live_source_scope"] == "prohibited_in_task206"
+    assert report["metric_extraction_scope"] == "prohibited_in_task206"
+    assert report["actual_values_scope"] == "prohibited_in_task206"
+    assert report["import_execution_scope"] == "prohibited_in_task206"
+    assert report["ratio_computation_scope"] == "plan_only_no_ratio_computation"
+    assert report["scoring_scope"] == "prohibited_in_task206"
+    assert report["recommendation_scope"] == "prohibited_in_task206"
+    assert report["ranking_scope"] == "prohibited_in_task206"
+    assert report["trading_scope"] == "prohibited_in_task206"
+    assert report["db_mutation_scope"] == "prohibited_in_task206"
+    assert report["ready_for_multi_issuer_controlled_import_readiness_gate"] is True
+    assert report["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is True
+    assert report["ready_for_multi_issuer_ratio_dataset_preview_plan"] is False
+    assert report["ready_for_task206_multi_issuer_ratio_dataset_preview_plan"] is False
+    assert report["blocker_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert report["planned_ratio_dataset_preview_scope_count"] == 10
+    assert report["dataset_schema_contract_count"] == 15
+    assert report["candidate_slot_dataset_plan_count"] == 3
+    assert report["ratio_dataset_preview_row_count"] == 57
+    assert report["input_metric_requirement_count"] == 12
+    assert report["availability_policy_count"] == 8
+    assert report["non_computation_policy_count"] == 8
+    assert report["manual_review_gate_count"] == 9
+    assert report["blocked_scoring_policy_count"] == 8
+    assert report["methodology_action_strategy_count"] == 6
+    assert report["safety_gate_count"] == 27
+    assert report["next_task_count"] == 5
+    assert [row["candidate_slot_id"] for row in report["candidate_slot_dataset_plan_rows"]] == [
+        "candidate_slot_001",
+        "candidate_slot_002",
+        "candidate_slot_003",
+    ]
+    assert all(row["planned_ratio_row_count"] == 19 for row in report["candidate_slot_dataset_plan_rows"])
+    assert all(row["ratio_value_placeholder"] is None for row in report["ratio_dataset_preview_rows"])
+    assert all(row["ratio_value_2025_placeholder"] is None for row in report["ratio_dataset_preview_rows"])
+    assert all(row["ratio_value_2024_placeholder"] is None for row in report["ratio_dataset_preview_rows"])
+    assert all(row["ratio_computation_status"] == "not_executed" for row in report["ratio_dataset_preview_rows"])
+    assert all(row["actual_ratio_values_written"] is False for row in report["ratio_dataset_preview_rows"])
+    assert all(row["scored_dataset_status"] == "not_created" for row in report["ratio_dataset_preview_rows"])
+    assert all(row["scoring_status"] == "blocked" for row in report["ratio_dataset_preview_rows"])
+    assert all(row["recommendation_status"] == "blocked" for row in report["ratio_dataset_preview_rows"])
+    assert all(row["ranking_status"] == "blocked" for row in report["ratio_dataset_preview_rows"])
+    assert all(row["trading_status"] == "blocked" for row in report["ratio_dataset_preview_rows"])
+    assert {row["ratio_key"] for row in report["ratio_dataset_preview_rows"]} == {
+        spec["ratio_key"] for spec in assistant.RZD_CONTROLLED_VALUES_FINANCIAL_RATIO_PREVIEW_SPECS
+    }
+    assert report["source_multi_issuer_controlled_import_plan_checksum_sha256"] == task205["multi_issuer_controlled_import_plan_checksum_sha256"]
+    assert report["multi_issuer_ratio_dataset_preview_plan_checksum_sha256"]
+    assert {row["action_type"] for row in report["methodology_action_strategy_rows"]} == set(assistant.RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_CANONICAL_ACTIONS)
+    assert "scoring_safety_gate_required" in {row["action_type"] for row in report["methodology_action_strategy_rows"]}
+    next_task_by_id = {row["task_id"]: row for row in report["next_task_rows"]}
+    assert next_task_by_id["Task207"]["allowed_now"] is True
+    assert all(not row["allowed_now"] for task_id, row in next_task_by_id.items() if task_id != "Task207")
+    assert report["multi_issuer_ratio_dataset_preview_plan_executed"] is True
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_wrappers_markdown(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task206_ready_task205(chain, tmp_path, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    checks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_checks_task206.json").read_text(encoding="utf-8"))
+    blockers = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_blockers_task206.json").read_text(encoding="utf-8"))
+    scope = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_scope_task206.json").read_text(encoding="utf-8"))
+    schema = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_schema_contract_task206.json").read_text(encoding="utf-8"))
+    slots = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_candidate_slots_task206.json").read_text(encoding="utf-8"))
+    ratio_rows = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_ratio_rows_task206.json").read_text(encoding="utf-8"))
+    metrics = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_input_metric_requirements_task206.json").read_text(encoding="utf-8"))
+    availability = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_availability_policy_task206.json").read_text(encoding="utf-8"))
+    non_compute = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_non_computation_policy_task206.json").read_text(encoding="utf-8"))
+    review = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_manual_review_gates_task206.json").read_text(encoding="utf-8"))
+    policy = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_blocked_scoring_policy_task206.json").read_text(encoding="utf-8"))
+    actions = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_methodology_actions_task206.json").read_text(encoding="utf-8"))
+    gates = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_safety_gates_task206.json").read_text(encoding="utf-8"))
+    next_tasks = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_next_tasks_task206.json").read_text(encoding="utf-8"))
+    summary = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_summary_task206.json").read_text(encoding="utf-8"))
+    safety = json.loads((chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_safety_task206.json").read_text(encoding="utf-8"))
+    markdown = (chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_task206.md").read_text(encoding="utf-8")
+
+    assert checks["multi_issuer_ratio_dataset_preview_plan_check_rows"] == report["multi_issuer_ratio_dataset_preview_plan_check_rows"]
+    assert blockers["blocker_count"] == 0
+    assert scope["ratio_dataset_preview_scope_rows"] == report["ratio_dataset_preview_scope_rows"]
+    assert schema["dataset_schema_contract_rows"] == report["dataset_schema_contract_rows"]
+    assert slots["candidate_slot_dataset_plan_rows"] == report["candidate_slot_dataset_plan_rows"]
+    assert ratio_rows["ratio_dataset_preview_rows"] == report["ratio_dataset_preview_rows"]
+    assert metrics["input_metric_requirement_rows"] == report["input_metric_requirement_rows"]
+    assert availability["availability_policy_rows"] == report["availability_policy_rows"]
+    assert non_compute["non_computation_policy_rows"] == report["non_computation_policy_rows"]
+    assert review["manual_review_gate_rows"] == report["manual_review_gate_rows"]
+    assert policy["blocked_scoring_policy_rows"] == report["blocked_scoring_policy_rows"]
+    assert actions["methodology_action_strategy_rows"] == report["methodology_action_strategy_rows"]
+    assert gates["safety_gate_rows"] == report["safety_gate_rows"]
+    assert next_tasks["next_task_rows"] == report["next_task_rows"]
+    assert summary["multi_issuer_ratio_dataset_preview_plan_checksum_sha256"] == report["multi_issuer_ratio_dataset_preview_plan_checksum_sha256"]
+    assert safety["multi_issuer_ratio_dataset_preview_plan_executed"] is True
+    assert safety["ratio_computation_executed"] is False
+    assert safety["actual_ratio_values_written"] is False
+    assert safety["scored_dataset_created"] is False
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_FALSE_FIELDS:
+        assert summary[field] is False
+        assert isinstance(summary[field], bool)
+        assert safety[field] is False
+        assert isinstance(safety[field], bool)
+    for heading in (
+        "# RZD Controlled Values Multi-Issuer Ratio Dataset Preview Plan",
+        "## Input chain",
+        "## Ratio dataset preview plan verdict",
+        "## Ratio dataset preview scope",
+        "## Dataset schema contract",
+        "## Candidate slot dataset plan",
+        "## Ratio dataset preview rows",
+        "## Input metric requirements",
+        "## Availability policy",
+        "## Non-computation policy",
+        "## Manual review gates",
+        "## Blocked scoring policy",
+        "## Open methodology actions",
+        "## Safety gates",
+        "## Next tasks",
+        "## Safety",
+        "## Checksums",
+        "## Decision",
+    ):
+        assert heading in markdown
+    for phrase in (
+        "No migration was executed by Task206.",
+        "No Alembic command was executed by Task206.",
+        "No database mutation was performed by Task206.",
+        "No rows were imported by Task206.",
+        "No rows were upserted by Task206.",
+        "No rows were inserted by Task206.",
+        "No rows were updated by Task206.",
+        "No rows were deleted by Task206.",
+        "No metric extraction was executed by Task206.",
+        "No actual metric values were written by Task206.",
+        "No controlled financial values were created by Task206.",
+        "No ratio computation was executed by Task206.",
+        "No actual ratio values were written by Task206.",
+        "No scored dataset was created by Task206.",
+        "No production export artifact was generated by Task206.",
+        "No scoring was executed by Task206.",
+        "No investment recommendation was generated by Task206.",
+        "No issuer or bond ranking was produced by Task206.",
+        "No methodology patch was executed by Task206.",
+        "No external issuer report was downloaded by Task206.",
+        "No broker API was called by Task206.",
+        "No concrete issuer was selected by Task206.",
+        "No concrete source URL was written by Task206.",
+        "Task206 created a ratio dataset preview plan only.",
+    ):
+        assert phrase in markdown
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_upstream_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task206_ready_task205(chain, tmp_path, monkeypatch)
+
+    missing = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan-input",
+            str(chain / "missing_task205.json"),
+        ]
+    )
+    assert missing["status"] == "blocked"
+    assert "task205_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is False
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(missing)
+
+    task205_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_task205.json"
+    task205 = json.loads(task205_path.read_text(encoding="utf-8"))
+    task205.update({
+        "status": "blocked",
+        "multi_issuer_controlled_import_plan_status": "blocked",
+        "multi_issuer_controlled_import_plan_ready": False,
+        "ready_for_task206_multi_issuer_ratio_dataset_preview_plan": False,
+        "controlled_import_plan_scope": "wrong_scope",
+        "issuer_universe_scope": "wrong_scope",
+        "plan_executes_scoring": None,
+        "plan_executes_import": True,
+        "multi_issuer_controlled_import_plan_checksum_sha256": "",
+        "bad_safety_count": 1,
+        "blocker_count": 1,
+        "database_mutated": True,
+        "import_executed": True,
+        "upsert_executed": True,
+        "insert_executed": True,
+        "update_executed": True,
+        "delete_executed": True,
+        "scoring_executed": True,
+        "ready_for_scoring": True,
+        "trading_executed": True,
+        "recommendation_generated": True,
+        "production_export_executed": True,
+        "external_download_executed": True,
+        "external_scrape_executed": True,
+        "broker_api_called": True,
+        "concrete_issuer_selection_executed": True,
+        "issuer_ranking_executed": True,
+        "bond_ranking_executed": True,
+        "live_source_verification_executed": True,
+        "metric_extraction_executed": True,
+        "actual_metric_values_written": True,
+        "controlled_values_created": True,
+        "controlled_values_imported": True,
+        "controlled_values_upserted": True,
+    })
+    task205_path.write_text(json.dumps(task205, ensure_ascii=False), encoding="utf-8")
+
+    dirty = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    codes = {row["code"] for row in dirty["blocker_rows"]}
+    assert "task205_status_invalid" in codes
+    assert "task205_not_ready_for_ratio_dataset_preview_plan" in codes
+    assert "task205_scope_invalid" in codes
+    assert "task205_output_contract_invalid" in codes
+    assert "task205_safety_invalid" in codes
+    assert "db_mutation_detected" in codes
+    assert "import_execution_detected" in codes
+    assert "upsert_execution_detected" in codes
+    assert "insert_execution_detected" in codes
+    assert "update_execution_detected" in codes
+    assert "delete_execution_detected" in codes
+    assert "production_export_detected" in codes
+    assert "external_download_allowed" in codes
+    assert "external_scrape_allowed" in codes
+    assert "broker_api_allowed" in codes
+    assert "concrete_issuer_selection_detected" in codes
+    assert "issuer_ranking_detected" in codes
+    assert "bond_ranking_detected" in codes
+    assert "metric_extraction_detected" in codes
+    assert "actual_metric_value_detected" in codes
+    assert "controlled_value_creation_detected" in codes
+    assert dirty["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is False
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(dirty)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_row_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task206_ready_task205(chain, tmp_path, monkeypatch)
+    task205_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_task205.json"
+    task205 = json.loads(task205_path.read_text(encoding="utf-8"))
+    task205["methodology_action_strategy_rows"] = [
+        row for row in task205["methodology_action_strategy_rows"]
+        if row["action_type"] != "scoring_safety_gate_required"
+    ]
+    task205_path.write_text(json.dumps(task205, ensure_ascii=False), encoding="utf-8")
+
+    missing_action = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    missing_action_codes = {row["code"] for row in missing_action["blocker_rows"]}
+    assert "methodology_action_missing" in missing_action_codes
+    assert "scoring_safety_gate_missing" in missing_action_codes
+    assert missing_action["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is False
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(missing_action)
+
+    _write_task206_ready_task205(chain, tmp_path, monkeypatch)
+    original_rows = assistant._rzd_controlled_values_multi_issuer_ratio_dataset_preview_rows
+    original_scope_rows = assistant._rzd_controlled_values_multi_issuer_ratio_dataset_preview_scope_rows
+
+    def dirty_ratio_rows() -> list[dict]:
+        rows = original_rows()
+        rows[0]["ratio_value_placeholder"] = 1.23
+        rows[0]["ratio_computation_status"] = "executed"
+        rows[0]["actual_ratio_values_written"] = True
+        rows[0]["scored_dataset_status"] = "created"
+        rows[0]["scoring_status"] = "ready"
+        rows[0]["recommendation_status"] = "buy"
+        rows[0]["ranking_status"] = "ranked"
+        rows[0]["trading_status"] = "ready"
+        return rows
+
+    def dirty_scope() -> list[dict]:
+        rows = original_scope_rows()
+        rows[0]["included"] = "https://issuer.example/report.pdf Gazprom live_available download_allowed scrape_allowed broker_api_allowed"
+        return rows
+
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_ratio_dataset_preview_rows", dirty_ratio_rows)
+    monkeypatch.setattr(assistant, "_rzd_controlled_values_multi_issuer_ratio_dataset_preview_scope_rows", dirty_scope)
+
+    dirty_generated = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    dirty_codes = {row["code"] for row in dirty_generated["blocker_rows"]}
+    assert "concrete_issuer_selection_detected" in dirty_codes
+    assert "concrete_url_detected" in dirty_codes
+    assert "live_source_claim_detected" in dirty_codes
+    assert "external_download_allowed" in dirty_codes
+    assert "external_scrape_allowed" in dirty_codes
+    assert "broker_api_allowed" in dirty_codes
+    assert "actual_ratio_value_detected" in dirty_codes
+    assert "ratio_computation_detected" in dirty_codes
+    assert "scored_dataset_detected" in dirty_codes
+    assert "unexpected_scoring_or_trading_ready" in dirty_codes
+    assert "recommendation_semantics_detected" in dirty_codes
+    assert "issuer_ranking_detected" in dirty_codes
+    assert dirty_generated["ready_for_task207_multi_issuer_controlled_import_readiness_gate"] is False
+    _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(dirty_generated)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -33274,6 +33622,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_impor
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -38545,6 +38906,142 @@ def _assert_rzd_controlled_values_multi_issuer_controlled_import_plan_fields(rep
     ):
         assert report[field] is False
     for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_FALSE_FIELDS:
+        assert report[field] is False
+        assert isinstance(report[field], bool)
+
+
+def _assert_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_fields(report: dict) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+        assert report[field] is not None
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_REQUIRED_LIST_FIELDS:
+        assert field in report
+        assert isinstance(report[field], list)
+        assert report[field] is not None
+    for field in (
+        "status",
+        "multi_issuer_ratio_dataset_preview_plan_status",
+        "ratio_dataset_preview_plan_scope",
+        "issuer_universe_scope",
+        "ofz_scope",
+        "concrete_issuer_selection_scope",
+        "live_source_scope",
+        "metric_extraction_scope",
+        "actual_values_scope",
+        "import_execution_scope",
+        "ratio_computation_scope",
+        "scoring_scope",
+        "recommendation_scope",
+        "ranking_scope",
+        "trading_scope",
+        "db_mutation_scope",
+        "ratio_dataset_preview_plan_reason",
+        "expected_revision",
+        "expected_table",
+        "task205_input_path",
+        "task205_status",
+        "task205_multi_issuer_controlled_import_plan_status",
+        "task205_controlled_import_plan_scope",
+        "task205_issuer_universe_scope",
+        "task205_ofz_scope",
+        "task205_concrete_issuer_selection_scope",
+        "task205_live_source_scope",
+        "task205_metric_extraction_scope",
+        "task205_actual_values_scope",
+        "task205_import_execution_scope",
+        "task205_db_mutation_scope",
+        "task205_multi_issuer_controlled_import_plan_checksum_sha256",
+        "source_multi_issuer_controlled_import_plan_checksum_sha256",
+        "multi_issuer_ratio_dataset_preview_plan_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+        assert report[field] is not None
+    row_specs = (
+        ("blocker_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_BLOCKER_FIELDS, set()),
+        ("multi_issuer_ratio_dataset_preview_plan_check_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_CHECK_FIELDS, set()),
+        ("ratio_dataset_preview_scope_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_SCOPE_FIELDS, set()),
+        ("dataset_schema_contract_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_SCHEMA_FIELDS, set()),
+        ("candidate_slot_dataset_plan_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_CANDIDATE_SLOT_FIELDS, set()),
+        (
+            "ratio_dataset_preview_rows",
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_RATIO_ROW_FIELDS,
+            {"ratio_value_placeholder", "ratio_value_2025_placeholder", "ratio_value_2024_placeholder"},
+        ),
+        ("input_metric_requirement_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_INPUT_METRIC_FIELDS, set()),
+        ("availability_policy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_POLICY_FIELDS, set()),
+        ("non_computation_policy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_POLICY_FIELDS, set()),
+        ("manual_review_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_MANUAL_REVIEW_FIELDS, set()),
+        ("blocked_scoring_policy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_BLOCKED_SCORING_FIELDS, set()),
+        ("methodology_action_strategy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_METHODOLOGY_ACTION_FIELDS, set()),
+        ("safety_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_SAFETY_GATE_FIELDS, set()),
+        ("next_task_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_NEXT_TASK_FIELDS, set()),
+    )
+    for row_key, fields, nullable_fields in row_specs:
+        for row in report.get(row_key) or []:
+            for field in fields:
+                assert field in row
+                if field not in nullable_fields:
+                    assert row[field] is not None
+    for field in (
+        "database_mutated",
+        "migration_executed",
+        "import_executed",
+        "upsert_executed",
+        "insert_executed",
+        "update_executed",
+        "delete_executed",
+        "scoring_executed",
+        "trading_executed",
+        "paper_trading_executed",
+        "recommendation_generated",
+        "methodology_patch_executed",
+        "verification_executed",
+        "interpretation_review_executed",
+        "analytics_readiness_gate_executed",
+        "analytics_dataset_preview_executed",
+        "analytics_dataset_review_gate_executed",
+        "analytics_dataset_export_plan_executed",
+        "analytics_dataset_export_preview_executed",
+        "analytics_dataset_export_preview_review_gate_executed",
+        "analytics_export_layer_closure_executed",
+        "multi_issuer_analytics_plan_executed",
+        "multi_issuer_source_selection_plan_executed",
+        "multi_issuer_source_evidence_preview_executed",
+        "multi_issuer_extraction_contract_plan_executed",
+        "multi_issuer_controlled_import_plan_executed",
+        "production_export_executed",
+        "external_download_executed",
+        "external_scrape_executed",
+        "broker_api_called",
+        "concrete_issuer_selection_executed",
+        "issuer_ranking_executed",
+        "bond_ranking_executed",
+        "live_source_verification_executed",
+        "live_source_record_created",
+        "metric_extraction_executed",
+        "actual_metric_values_written",
+        "controlled_values_created",
+        "controlled_values_imported",
+        "controlled_values_upserted",
+        "ratio_computation_executed",
+        "actual_ratio_values_written",
+        "scored_dataset_created",
+        "ready_for_multi_issuer_ratio_dataset_preview_plan",
+        "ready_for_task206_multi_issuer_ratio_dataset_preview_plan",
+        "ready_for_scoring",
+        "ready_for_trading",
+        "ready_for_paper_trading",
+    ):
+        assert report[field] is False
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_FALSE_FIELDS:
         assert report[field] is False
         assert isinstance(report[field], bool)
 
