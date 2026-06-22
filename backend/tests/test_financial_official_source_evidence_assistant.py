@@ -24241,6 +24241,12 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     assert all(not row["allowed_now"] for task_id, row in next_task_by_id.items() if task_id != "Task205")
     assert report["multi_issuer_extraction_contract_plan_checksum_sha256"]
     assert report["source_multi_issuer_source_evidence_preview_checksum_sha256"] == task203["multi_issuer_source_evidence_preview_checksum_sha256"]
+    assert report["contract_extracts_metric_values"] is False
+    assert report["contract_writes_actual_metric_values"] is False
+    assert report["contract_creates_controlled_values"] is False
+    assert isinstance(report["contract_extracts_metric_values"], bool)
+    assert isinstance(report["contract_writes_actual_metric_values"], bool)
+    assert isinstance(report["contract_creates_controlled_values"], bool)
     assert report["multi_issuer_extraction_contract_plan_executed"] is True
     assert report["metric_extraction_executed"] is False
     assert report["actual_metric_values_written"] is False
@@ -24297,7 +24303,13 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     assert gates["safety_gate_rows"] == report["safety_gate_rows"]
     assert next_tasks["next_task_rows"] == report["next_task_rows"]
     assert summary["multi_issuer_extraction_contract_plan_checksum_sha256"] == report["multi_issuer_extraction_contract_plan_checksum_sha256"]
+    assert summary["contract_extracts_metric_values"] is False
+    assert summary["contract_writes_actual_metric_values"] is False
+    assert summary["contract_creates_controlled_values"] is False
     assert safety["multi_issuer_extraction_contract_plan_executed"] is True
+    assert safety["contract_extracts_metric_values"] is False
+    assert safety["contract_writes_actual_metric_values"] is False
+    assert safety["contract_creates_controlled_values"] is False
     assert safety["metric_extraction_executed"] is False
     assert safety["actual_metric_values_written"] is False
     assert safety["controlled_values_created"] is False
@@ -24378,6 +24390,9 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     assert missing["status"] == "blocked"
     assert "task203_input_missing" in {row["code"] for row in missing["blocker_rows"]}
     assert missing["ready_for_task205_multi_issuer_controlled_import_plan"] is False
+    assert missing["contract_extracts_metric_values"] is False
+    assert missing["contract_writes_actual_metric_values"] is False
+    assert missing["contract_creates_controlled_values"] is False
     _assert_rzd_controlled_values_multi_issuer_extraction_contract_plan_fields(missing)
 
     task203_path = chain / "rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_task203.json"
@@ -24428,6 +24443,9 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     assert "task203_scope_invalid" in blocker_codes
     assert "task203_safety_invalid" in blocker_codes
     assert dirty["ready_for_task205_multi_issuer_controlled_import_plan"] is False
+    assert dirty["contract_extracts_metric_values"] is False
+    assert dirty["contract_writes_actual_metric_values"] is False
+    assert dirty["contract_creates_controlled_values"] is False
     _assert_rzd_controlled_values_multi_issuer_extraction_contract_plan_fields(dirty)
 
 
@@ -24463,6 +24481,9 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     assert "scoring_safety_gate_missing" in blocker_codes
     assert report["methodology_actions_preserved"] is False
     assert report["ready_for_task205_multi_issuer_controlled_import_plan"] is False
+    assert report["contract_extracts_metric_values"] is False
+    assert report["contract_writes_actual_metric_values"] is False
+    assert report["contract_creates_controlled_values"] is False
     _assert_rzd_controlled_values_multi_issuer_extraction_contract_plan_fields(report)
 
     original_metric_rows = assistant._rzd_controlled_values_multi_issuer_metric_contract_rows
@@ -24499,6 +24520,9 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contr
     assert "controlled_value_creation_detected" in dirty_codes
     assert "issuer_ranking_detected" in dirty_codes
     assert dirty_generated["ready_for_task205_multi_issuer_controlled_import_plan"] is False
+    assert dirty_generated["contract_extracts_metric_values"] is False
+    assert dirty_generated["contract_writes_actual_metric_values"] is False
+    assert dirty_generated["contract_creates_controlled_values"] is False
     _assert_rzd_controlled_values_multi_issuer_extraction_contract_plan_fields(dirty_generated)
 
 
@@ -38049,6 +38073,9 @@ def _assert_rzd_controlled_values_multi_issuer_extraction_contract_plan_fields(r
         "bond_ranking_executed",
         "live_source_verification_executed",
         "live_source_record_created",
+        "contract_extracts_metric_values",
+        "contract_writes_actual_metric_values",
+        "contract_creates_controlled_values",
         "metric_extraction_executed",
         "actual_metric_values_written",
         "controlled_values_created",
