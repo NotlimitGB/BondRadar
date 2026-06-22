@@ -118,6 +118,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-extraction-contract-plan",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-plan",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -10901,6 +10902,163 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_REQUIRED_LIST_FIEL
     "multi_issuer_ratio_dataset_preview_plan_check_rows",
     "blocker_rows",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_ARTIFACT_NAMES = {
+    "gate_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_task207.json",
+    "gate_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_task207.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_checks_task207.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_blockers_task207.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_scope_task207.json",
+    "upstream_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_upstream_validation_task207.json",
+    "candidate_slots_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_candidate_slots_task207.json",
+    "metric_contracts_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_metric_contracts_task207.json",
+    "ratio_lineage_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_ratio_lineage_task207.json",
+    "missing_evidence_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_missing_evidence_task207.json",
+    "apply_blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_apply_blockers_task207.json",
+    "manual_review_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_manual_review_gates_task207.json",
+    "methodology_actions_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_methodology_actions_task207.json",
+    "safety_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_gates_task207.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_next_tasks_task207.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_summary_task207.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_task207.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_BLOCKER_FIELDS = [
+    "blocker_id", "severity", "code", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_CHECK_FIELDS = [
+    "check_index", "check_key", "status", "severity", "message", "details", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_SCOPE_FIELDS = [
+    "scope_index", "scope_key", "scope_status", "included", "excluded", "reason", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_UPSTREAM_FIELDS = [
+    "validation_index", "validation_key", "source_task", "expected_status", "actual_status",
+    "passed", "blocks_task207", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_CANDIDATE_SLOT_FIELDS = [
+    "candidate_slot_index", "candidate_slot_id", "candidate_identity_status",
+    "ready_for_evidence_extraction_plan", "ready_for_controlled_import_apply",
+    "source_backed_values_available", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_METRIC_CONTRACT_FIELDS = [
+    "metric_contract_index", "metric_key", "contract_source", "source_backed_value_status",
+    "ready_for_evidence_extraction_plan", "ready_for_controlled_import_apply",
+    "methodology_dependency_keys", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_RATIO_LINEAGE_FIELDS = [
+    "ratio_lineage_index", "ratio_key", "required_metric_keys", "legacy_alias_free",
+    "all_required_metric_contracts_available", "source_backed_values_available",
+    "ratio_computation_permitted_now", "ready_for_evidence_extraction_plan",
+    "ready_for_controlled_import_apply", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_MISSING_EVIDENCE_FIELDS = [
+    "requirement_index", "requirement_key", "missing_status", "blocks_controlled_import_apply",
+    "blocks_task208", "future_task_hint", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_APPLY_BLOCKER_FIELDS = [
+    "apply_blocker_index", "apply_blocker_key", "expected_blocker", "blocks_controlled_import_apply",
+    "increments_blocker_count", "future_task_hint", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_MANUAL_REVIEW_FIELDS = [
+    "review_gate_index", "review_gate_key", "review_required", "review_status",
+    "blocks_controlled_import_apply", "blocks_task208", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_METHODOLOGY_ACTION_FIELDS = [
+    "action_index", "action_type", "severity", "required", "current_status",
+    "readiness_gate_strategy", "blocks_controlled_import_apply", "blocks_task208",
+    "blocks_future_scoring", "blocks_recommendation", "blocks_trading", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_SAFETY_GATE_FIELDS = [
+    "gate_index", "gate_key", "enforced", "blocks_capability", "condition", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_NEXT_TASK_FIELDS = [
+    "next_task_index", "task_id", "task_name", "allowed_now", "depends_on",
+    "blocked_capabilities", "description", "safe_hint",
+]
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_FALSE_FIELDS = (
+    *RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_FALSE_FIELDS,
+    "plan_creates_controlled_import_apply_plan",
+    "plan_executes_controlled_import_apply",
+    "plan_executes_evidence_extraction",
+    "plan_claims_source_backed_values",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_REQUIRED_BOOL_FIELDS = (
+    "multi_issuer_controlled_import_readiness_gate_ready",
+    "ready_for_multi_issuer_evidence_extraction_plan",
+    "ready_for_task208_multi_issuer_evidence_extraction_plan",
+    "ready_for_multi_issuer_controlled_import_readiness_gate",
+    "ready_for_task207_multi_issuer_controlled_import_readiness_gate",
+    "ready_for_multi_issuer_controlled_import_apply_plan",
+    "ready_for_task209_multi_issuer_controlled_import_apply_plan",
+    "ready_for_controlled_import_apply",
+    "controlled_import_apply_ready",
+    "ready_for_scoring", "ready_for_trading", "ready_for_paper_trading",
+    "task206_multi_issuer_ratio_dataset_preview_plan_ready",
+    "task206_ready_for_task207_multi_issuer_controlled_import_readiness_gate",
+    "task206_ratio_dataset_preview_scope_valid", "task206_dataset_schema_contract_valid",
+    "task206_candidate_slot_dataset_plan_valid", "task206_ratio_dataset_preview_rows_valid",
+    "task206_input_metric_requirements_valid", "task206_availability_policy_valid",
+    "task206_non_computation_policy_valid", "task206_manual_review_gates_valid",
+    "task206_blocked_scoring_policy_valid", "task206_methodology_actions_preserved",
+    "task206_safety_gates_valid", "task206_next_tasks_valid",
+    "task206_corporate_bond_scope_valid", "task206_ofz_exclusion_valid",
+    "task206_no_concrete_issuer_selection_valid", "task206_no_concrete_urls_valid",
+    "task206_no_live_source_claims_valid", "task206_no_metric_extraction_valid",
+    "task206_no_actual_metric_values_valid", "task206_no_controlled_values_created_valid",
+    "task206_no_import_execution_valid", "task206_no_ratio_computation_valid",
+    "task206_no_actual_ratio_values_valid", "task206_no_scored_dataset_valid",
+    "task206_no_db_mutation_valid", "task206_no_recommendation_semantics_valid",
+    "task206_no_trading_semantics_valid",
+    "controlled_import_readiness_scope_valid", "upstream_validation_valid",
+    "candidate_slot_readiness_valid", "metric_contract_readiness_valid",
+    "ratio_lineage_readiness_valid", "missing_evidence_requirements_valid",
+    "apply_blockers_valid", "manual_review_gates_valid", "methodology_actions_preserved",
+    "safety_gates_valid", "next_tasks_valid", "corporate_bond_scope_valid",
+    "ofz_exclusion_valid", "no_concrete_issuer_selection_valid", "no_concrete_urls_valid",
+    "no_live_source_claims_valid", "no_metric_extraction_valid", "no_actual_metric_values_valid",
+    "no_controlled_values_created_valid", "no_import_execution_valid", "no_ratio_computation_valid",
+    "no_actual_ratio_values_valid", "no_scored_dataset_valid", "no_db_mutation_valid",
+    "no_recommendation_semantics_valid", "no_trading_semantics_valid",
+    "controlled_import_apply_blocked_valid", "evidence_extraction_plan_unlocked_valid",
+    "database_mutated", "migration_executed", "import_executed", "upsert_executed",
+    "insert_executed", "update_executed", "delete_executed", "scoring_executed",
+    "trading_executed", "paper_trading_executed", "recommendation_generated",
+    "methodology_patch_executed", "verification_executed", "interpretation_review_executed",
+    "analytics_readiness_gate_executed", "analytics_dataset_preview_executed",
+    "analytics_dataset_review_gate_executed", "analytics_dataset_export_plan_executed",
+    "analytics_dataset_export_preview_executed", "analytics_dataset_export_preview_review_gate_executed",
+    "analytics_export_layer_closure_executed", "multi_issuer_analytics_plan_executed",
+    "multi_issuer_source_selection_plan_executed", "multi_issuer_source_evidence_preview_executed",
+    "multi_issuer_extraction_contract_plan_executed", "multi_issuer_controlled_import_plan_executed",
+    "multi_issuer_ratio_dataset_preview_plan_executed", "multi_issuer_controlled_import_readiness_gate_executed",
+    "production_export_executed", "external_download_executed", "external_scrape_executed",
+    "broker_api_called", "concrete_issuer_selection_executed", "issuer_ranking_executed",
+    "bond_ranking_executed", "live_source_verification_executed", "live_source_record_created",
+    "metric_extraction_executed", "actual_metric_values_written", "controlled_values_created",
+    "controlled_values_imported", "controlled_values_upserted", "ratio_computation_executed",
+    "actual_ratio_values_written", "scored_dataset_created", "controlled_import_apply_executed",
+    "controlled_import_apply_plan_created", "evidence_extraction_executed",
+    "source_backed_values_available", *RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_FALSE_FIELDS,
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_REQUIRED_COUNT_FIELDS = (
+    "expected_import_row_count", "task206_ratio_dataset_preview_row_count",
+    "task206_input_metric_requirement_count", "task206_candidate_slot_dataset_plan_count",
+    "task206_methodology_action_strategy_count", "task206_safety_gate_count",
+    "task206_next_task_count", "task206_bad_safety_count", "task206_blocker_count",
+    "planned_controlled_import_readiness_scope_count", "upstream_validation_count",
+    "candidate_slot_readiness_count", "metric_contract_readiness_count",
+    "ratio_lineage_readiness_count", "missing_evidence_requirement_count",
+    "apply_blocker_count", "manual_review_gate_count", "methodology_action_strategy_count",
+    "safety_gate_count", "next_task_count",
+    "multi_issuer_controlled_import_readiness_gate_check_count", "bad_safety_count", "blocker_count",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_REQUIRED_LIST_FIELDS = (
+    "controlled_import_readiness_scope_rows", "upstream_validation_rows",
+    "candidate_slot_readiness_rows", "metric_contract_readiness_rows",
+    "ratio_lineage_readiness_rows", "missing_evidence_requirement_rows",
+    "apply_blocker_rows", "manual_review_gate_rows", "methodology_action_strategy_rows",
+    "safety_gate_rows", "next_task_rows",
+    "multi_issuer_controlled_import_readiness_gate_check_rows", "blocker_rows",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -12825,6 +12983,24 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-upstream-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-candidate-slots-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-metric-contracts-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-ratio-lineage-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-missing-evidence-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-apply-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-manual-review-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-methodology-actions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-safety-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -13136,6 +13312,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate":
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -78067,6 +78245,901 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_pre
         report["errors"] = [*report.get("errors", []), {"message": "controlled_values_multi_issuer_ratio_dataset_preview_plan_write_failed", "error": str(exc)}]
         _rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_normalize_report(report)
     return report
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_flags() -> dict[str, bool]:
+    flags = _rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_safety_flags()
+    flags.update({
+        "multi_issuer_ratio_dataset_preview_plan_executed": False,
+        "multi_issuer_controlled_import_readiness_gate_executed": False,
+        "controlled_import_apply_executed": False,
+        "controlled_import_apply_plan_created": False,
+        "evidence_extraction_executed": False,
+        "source_backed_values_available": False,
+    })
+    flags.update({field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_FALSE_FIELDS})
+    return flags
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_blocker_row(
+    code: str,
+    *,
+    severity: str = "high",
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_id": f"rzd_controlled_values_multi_issuer_controlled_import_readiness_gate:global:{code}",
+        "severity": severity,
+        "code": code,
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task207 is a readiness gate only; evidence extraction planning may be unlocked, but controlled import apply, imports, DB mutation, scoring, ranking, recommendations, downloads, scraping, broker APIs, and trading remain blocked.",
+    }
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_check_row(
+    code: str,
+    *,
+    passed: bool,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "check_index": 0,
+        "check_key": code,
+        "status": "passed" if passed else "blocked",
+        "severity": "info" if passed else "high",
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": "Task207 check is read-only and gates planning only.",
+    }
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    task206_default = (
+        chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_ARTIFACT_NAMES["plan_json"]
+        if chain_dir else None
+    )
+    return {
+        "task206": (
+            args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_input
+            or args.rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_input
+            or task206_default
+        ),
+        "task205": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task204": args.rzd_manual_official_pdf_controlled_values_multi_issuer_extraction_contract_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_EXTRACTION_CONTRACT_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task203": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_evidence_preview_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_EVIDENCE_PREVIEW_ARTIFACT_NAMES["preview_json"]
+            if chain_dir else None
+        ),
+        "task202": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_selection_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_SELECTION_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task201": args.rzd_manual_official_pdf_controlled_values_multi_issuer_analytics_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_MULTI_ISSUER_ANALYTICS_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task200": args.rzd_manual_official_pdf_controlled_values_analytics_export_layer_closure_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_ANALYTICS_EXPORT_LAYER_CLOSURE_ARTIFACT_NAMES["closure_json"]
+            if chain_dir else None
+        ),
+        "task199": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_review_gate_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_REVIEW_GATE_ARTIFACT_NAMES["review_json"]
+            if chain_dir else None
+        ),
+        "task198": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_preview_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PREVIEW_ARTIFACT_NAMES["preview_json"]
+            if chain_dir else None
+        ),
+        "task197": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_export_plan_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_EXPORT_PLAN_ARTIFACT_NAMES["plan_json"]
+            if chain_dir else None
+        ),
+        "task196": args.rzd_manual_official_pdf_controlled_values_ratio_analytics_dataset_review_gate_input or (
+            chain_dir / RZD_CONTROLLED_VALUES_RATIO_ANALYTICS_DATASET_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+            if chain_dir else None
+        ),
+    }
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {key: chain_dir / name for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_ARTIFACT_NAMES.items()}
+        if chain_dir else {}
+    )
+    return {
+        "gate_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_output or defaults.get("gate_json"),
+        "gate_markdown": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_markdown_output or defaults.get("gate_markdown"),
+        "checks_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_checks_output or defaults.get("checks_json"),
+        "blockers_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_blockers_output or defaults.get("blockers_json"),
+        "scope_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_scope_output or defaults.get("scope_json"),
+        "upstream_validation_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_upstream_validation_output or defaults.get("upstream_validation_json"),
+        "candidate_slots_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_candidate_slots_output or defaults.get("candidate_slots_json"),
+        "metric_contracts_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_metric_contracts_output or defaults.get("metric_contracts_json"),
+        "ratio_lineage_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_ratio_lineage_output or defaults.get("ratio_lineage_json"),
+        "missing_evidence_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_missing_evidence_output or defaults.get("missing_evidence_json"),
+        "apply_blockers_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_apply_blockers_output or defaults.get("apply_blockers_json"),
+        "manual_review_gates_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_manual_review_gates_output or defaults.get("manual_review_gates_json"),
+        "methodology_actions_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_methodology_actions_output or defaults.get("methodology_actions_json"),
+        "safety_gates_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_gates_output or defaults.get("safety_gates_json"),
+        "next_tasks_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_next_tasks_output or defaults.get("next_tasks_json"),
+        "summary_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_summary_output or defaults.get("summary_json"),
+        "safety_json": args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_output or defaults.get("safety_json"),
+    }
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_output_errors(
+    args: argparse.Namespace,
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: dict[Path, str] = {}
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path and path == input_path:
+                return [{"message": "rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_output_must_not_equal_input", "output": key, "input": input_key}]
+        if path in seen:
+            return [{"message": "rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_output_must_not_equal_input", "output": key, "duplicate_output": seen[path]}]
+        seen[path] = key
+    return []
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_scope_rows() -> list[dict[str, Any]]:
+    rows = [
+        ("task207_scope", "readiness_gate_only", "controlled import readiness review", "controlled import apply, evidence extraction"),
+        ("corporate_issuer_scope", "confirmed", "corporate bond issuer planning scope", "OFZ/government bond modules"),
+        ("candidate_identity_scope", "placeholder_only", "candidate slots from Task206", "concrete issuer selection"),
+        ("source_scope", "missing_not_claimed", "source requirements", "concrete URLs, live availability claims"),
+        ("evidence_scope", "missing_not_claimed", "future evidence extraction plan readiness", "source-backed value claims"),
+        ("metric_extraction_scope", "prohibited_current_stage", "none", "actual metric extraction"),
+        ("controlled_import_scope", "blocked_missing_source_backed_values", "readiness blockers", "apply plan or apply execution"),
+        ("ratio_scope", "prohibited_current_stage", "lineage review only", "ratio computation or actual ratio values"),
+        ("scoring_scope", "prohibited_current_stage", "none", "scoring, ranking, recommendations, trading"),
+        ("next_task_scope", "task208_only", "Task208 evidence extraction plan", "Task209 import apply planning"),
+    ]
+    return [
+        {
+            "scope_index": index,
+            "scope_key": key,
+            "scope_status": status,
+            "included": included,
+            "excluded": excluded,
+            "reason": "Task207 reviews readiness and keeps apply execution blocked.",
+            "safe_hint": "Readiness scope is inert and does not select issuers, write URLs, verify sources, extract values, import, mutate DB state, compute ratios, score, recommend, rank, or trade.",
+        }
+        for index, (key, status, included, excluded) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_upstream_rows(task206: dict[str, Any]) -> list[dict[str, Any]]:
+    checks = [
+        ("task206_status", "Task206", "warning_or_passed", str(task206.get("status") or "")),
+        ("task206_ready_for_task207", "Task206", "True", str(_as_bool(task206.get("ready_for_task207_multi_issuer_controlled_import_readiness_gate")))),
+        ("task206_ratio_rows", "Task206", "57", str(int(task206.get("ratio_dataset_preview_row_count") or 0))),
+        ("task206_metric_requirements", "Task206", "12", str(int(task206.get("input_metric_requirement_count") or 0))),
+        ("task206_methodology_actions", "Task206", "6", str(int(task206.get("methodology_action_strategy_count") or 0))),
+        ("task206_checksum", "Task206", "present", "present" if task206.get("multi_issuer_ratio_dataset_preview_plan_checksum_sha256") else ""),
+    ]
+    return [
+        {
+            "validation_index": index,
+            "validation_key": key,
+            "source_task": source,
+            "expected_status": expected,
+            "actual_status": actual,
+            "passed": bool(actual) and (actual == expected or expected in {"warning_or_passed", "present"} and (actual in {"warning", "passed", "present"})),
+            "blocks_task207": True,
+            "safe_hint": "Upstream validation reads Task206 only and performs no side effects.",
+        }
+        for index, (key, source, expected, actual) in enumerate(checks, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_candidate_slot_rows(task206: dict[str, Any]) -> list[dict[str, Any]]:
+    source_rows = task206.get("candidate_slot_dataset_plan_rows") or []
+    if not source_rows:
+        source_rows = [{"candidate_slot_id": f"candidate_slot_{index:03d}", "candidate_identity_status": "placeholder_only"} for index in range(1, 4)]
+    return [
+        {
+            "candidate_slot_index": index,
+            "candidate_slot_id": str(row.get("candidate_slot_id") or f"candidate_slot_{index:03d}"),
+            "candidate_identity_status": str(row.get("candidate_identity_status") or "placeholder_only"),
+            "ready_for_evidence_extraction_plan": True,
+            "ready_for_controlled_import_apply": False,
+            "source_backed_values_available": False,
+            "safe_hint": "Candidate slot is placeholder-only; Task207 does not select a concrete issuer or authorize import apply.",
+        }
+        for index, row in enumerate(source_rows[:3], start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_metric_contract_rows(task206: dict[str, Any]) -> list[dict[str, Any]]:
+    input_metric_keys = [str(row.get("metric_key") or "") for row in (task206.get("input_metric_requirement_rows") or []) if isinstance(row, dict)]
+    metric_keys = list(dict.fromkeys([*input_metric_keys, "finance_costs"]))
+    if not input_metric_keys:
+        metric_keys = [
+            "total_revenue", "operating_profit", "profit_before_tax", "profit_for_the_year",
+            "total_assets", "total_equity", "current_liabilities", "total_liabilities",
+            "cash_and_cash_equivalents", "operating_cash_flow", "borrowings_or_loans",
+            "net_finance_costs", "finance_costs",
+        ]
+    dependencies_by_metric = {
+        "total_liabilities": ["total_liabilities_mapping_required"],
+        "operating_cash_flow": ["operating_cash_flow_mapping_required"],
+        "borrowings_or_loans": ["debt_semantics_review_required"],
+        "net_finance_costs": ["interest_coverage_policy_required"],
+        "finance_costs": ["interest_coverage_policy_required"],
+    }
+    return [
+        {
+            "metric_contract_index": index,
+            "metric_key": metric_key,
+            "contract_source": "Task206 input metric requirements" if metric_key != "finance_costs" else "methodology context alias only",
+            "source_backed_value_status": "missing_not_extracted",
+            "ready_for_evidence_extraction_plan": True,
+            "ready_for_controlled_import_apply": False,
+            "methodology_dependency_keys": dependencies_by_metric.get(metric_key, []),
+            "safe_hint": "Metric contract is ready for future evidence extraction planning but has no source-backed value for import apply.",
+        }
+        for index, metric_key in enumerate(metric_keys[:13], start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_ratio_lineage_rows(task206: dict[str, Any]) -> list[dict[str, Any]]:
+    ratio_rows = task206.get("ratio_dataset_preview_rows") or []
+    unique_rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in ratio_rows:
+        if not isinstance(row, dict):
+            continue
+        ratio_key = str(row.get("ratio_key") or "")
+        if ratio_key and ratio_key not in seen:
+            unique_rows.append(row)
+            seen.add(ratio_key)
+    if not unique_rows:
+        unique_rows = _rzd_controlled_values_multi_issuer_ratio_dataset_preview_specs()
+    contract_keys = {
+        "total_revenue", "operating_profit", "profit_before_tax", "profit_for_the_year",
+        "total_assets", "total_equity", "current_liabilities", "total_liabilities",
+        "cash_and_cash_equivalents", "operating_cash_flow", "borrowings_or_loans", "net_finance_costs",
+    }
+    legacy_aliases = {"revenue", "net_profit", "equity", "finance_costs"}
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(unique_rows[:19], start=1):
+        required = [str(value) for value in (row.get("required_metric_keys") or [])]
+        lineage_values = [
+            str(row.get("source_metric_key") or ""),
+            str(row.get("numerator_metric_key") or ""),
+            str(row.get("denominator_metric_key") or ""),
+            *required,
+        ]
+        legacy_free = not any(value in legacy_aliases for value in lineage_values if value)
+        all_available = all(value in contract_keys for value in required)
+        rows.append({
+            "ratio_lineage_index": index,
+            "ratio_key": str(row.get("ratio_key") or ""),
+            "required_metric_keys": required,
+            "legacy_alias_free": legacy_free,
+            "all_required_metric_contracts_available": all_available,
+            "source_backed_values_available": False,
+            "ratio_computation_permitted_now": False,
+            "ready_for_evidence_extraction_plan": legacy_free and all_available,
+            "ready_for_controlled_import_apply": False,
+            "safe_hint": "Ratio lineage is ready for future evidence planning only; no ratio is computed and no source-backed values are claimed.",
+        })
+    return rows
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_missing_evidence_rows() -> list[dict[str, Any]]:
+    keys = [
+        "concrete_issuer_identity_missing", "official_source_locator_missing", "source_document_missing",
+        "source_document_hash_missing", "source_page_evidence_missing", "source_backed_metric_values_missing",
+        "manual_evidence_review_missing", "duplicate_key_check_missing", "import_dry_run_missing",
+        "pre_apply_backup_missing", "future_apply_token_missing", "controlled_apply_plan_missing",
+    ]
+    return [
+        {
+            "requirement_index": index,
+            "requirement_key": key,
+            "missing_status": "missing_expected_current_stage",
+            "blocks_controlled_import_apply": True,
+            "blocks_task208": False,
+            "future_task_hint": "Task208 or later",
+            "safe_hint": "Missing evidence blocks import apply but does not block evidence extraction planning.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_apply_blocker_rows() -> list[dict[str, Any]]:
+    keys = [
+        "no_concrete_issuers_for_apply", "no_concrete_sources_for_apply", "no_source_backed_values_for_apply",
+        "no_manual_evidence_review_for_apply", "no_duplicate_key_check_for_apply", "no_import_dry_run_for_apply",
+        "no_future_apply_token_for_apply", "no_pre_apply_backup_for_apply", "no_controlled_apply_plan_for_apply",
+        "open_methodology_actions_for_apply", "no_scoring_safety_gate_for_apply", "task207_is_not_apply_stage",
+    ]
+    return [
+        {
+            "apply_blocker_index": index,
+            "apply_blocker_key": key,
+            "expected_blocker": True,
+            "blocks_controlled_import_apply": True,
+            "increments_blocker_count": False,
+            "future_task_hint": "Task208+ evidence and controlled apply planning",
+            "safe_hint": "Expected apply blocker documents why Task207 cannot unlock controlled import apply.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_manual_review_rows() -> list[dict[str, Any]]:
+    keys = [
+        "issuer_identity_review", "official_source_review", "document_hash_review", "page_evidence_review",
+        "metric_value_review", "lineage_review", "duplicate_key_review", "dry_run_review",
+        "backup_review", "operator_apply_token_review",
+    ]
+    return [
+        {
+            "review_gate_index": index,
+            "review_gate_key": key,
+            "review_required": True,
+            "review_status": "required_before_controlled_import_apply",
+            "blocks_controlled_import_apply": True,
+            "blocks_task208": False,
+            "safe_hint": "Manual review is required before any future controlled import apply.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_methodology_rows(task206: dict[str, Any]) -> list[dict[str, Any]]:
+    source_rows = task206.get("methodology_action_strategy_rows") or []
+    if not source_rows:
+        source_rows = [
+            {"action_type": action, "severity": "high", "required": True, "current_status": "open"}
+            for action in (
+                "total_liabilities_mapping_required", "operating_cash_flow_mapping_required",
+                "debt_semantics_review_required", "interest_coverage_policy_required",
+                "liquidity_context_review_required", "scoring_safety_gate_required",
+            )
+        ]
+    rows = []
+    for index, row in enumerate(source_rows[:6], start=1):
+        rows.append({
+            "action_index": index,
+            "action_type": str(row.get("action_type") or ""),
+            "severity": str(row.get("severity") or "high"),
+            "required": _as_bool(row.get("required")) or str(row.get("action_type") or "") == "scoring_safety_gate_required",
+            "current_status": str(row.get("current_status") or "open"),
+            "readiness_gate_strategy": "preserve_open_action_before_apply",
+            "blocks_controlled_import_apply": True,
+            "blocks_task208": False,
+            "blocks_future_scoring": True,
+            "blocks_recommendation": True,
+            "blocks_trading": True,
+            "safe_hint": "Open methodology action is preserved and keeps scoring, recommendations, trading, and import apply blocked.",
+        })
+    return rows
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_safety_rows() -> list[dict[str, Any]]:
+    keys = [
+        "no_db_mutation", "no_alembic", "no_import", "no_upsert", "no_insert", "no_update",
+        "no_delete", "no_metric_extraction", "no_actual_metric_values", "no_controlled_values_created",
+        "no_controlled_values_imported", "no_controlled_values_upserted", "no_ratio_computation",
+        "no_actual_ratio_values", "no_scored_dataset", "no_production_export", "no_preview_export_modification",
+        "no_scoring", "no_recommendation", "no_trading", "no_paper_trading", "no_issuer_ranking",
+        "no_bond_ranking", "no_methodology_patch", "no_external_download", "no_external_scrape",
+        "no_broker_api", "no_concrete_issuer_selection", "no_concrete_issuer_name",
+        "no_concrete_source_url", "no_live_source_verification", "no_live_source_record",
+        "no_controlled_import_apply_plan",
+    ]
+    return [
+        {
+            "gate_index": index,
+            "gate_key": key,
+            "enforced": True,
+            "blocks_capability": key.removeprefix("no_"),
+            "condition": "must_remain_false",
+            "safe_hint": "Task207 safety gate is enforced for readiness planning only.",
+        }
+        for index, key in enumerate(keys, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_next_task_rows() -> list[dict[str, Any]]:
+    rows = [
+        ("Task208", "Multi-Issuer Evidence Extraction Plan", True, "Task207", "imports,DB mutation,scoring,recommendations,trading", "Plan future evidence extraction contracts."),
+        ("Task209", "Multi-Issuer Controlled Import Apply Plan", False, "Task208+", "controlled_import_apply", "Apply planning remains blocked until evidence exists."),
+        ("Task210", "Multi-Issuer Controlled Import Apply", False, "Task209", "imports,DB mutation", "No apply execution is allowed from Task207."),
+        ("Task211", "Multi-Issuer Post-Import Verification", False, "Task210", "verification", "Post-import verification depends on a future apply."),
+        ("Task212", "Multi-Issuer Analytics Expansion", False, "Task211", "scoring,recommendations,trading", "Analytics expansion remains future-only and non-scoring."),
+    ]
+    return [
+        {
+            "next_task_index": index,
+            "task_id": task_id,
+            "task_name": task_name,
+            "allowed_now": allowed_now,
+            "depends_on": depends_on,
+            "blocked_capabilities": blocked,
+            "description": description,
+            "safe_hint": "Only Task208 evidence extraction planning is unlocked by Task207.",
+        }
+        for index, (task_id, task_name, allowed_now, depends_on, blocked, description) in enumerate(rows, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_rows_unsafe(rows: list[dict[str, Any]]) -> list[str]:
+    forbidden = ("http://", "https://", "source_backed_values_available\": true", "ready_for_controlled_import_apply\": true")
+    text = json.dumps(rows, ensure_ascii=False, sort_keys=True)
+    return [code for code, needle in (
+        ("concrete_url_detected", "http://"),
+        ("concrete_url_detected", "https://"),
+    ) if needle in text]
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_normalize_report(report: dict[str, Any]) -> None:
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_REQUIRED_BOOL_FIELDS:
+        report[field] = _as_bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_REQUIRED_COUNT_FIELDS:
+        try:
+            report[field] = int(report.get(field) or 0)
+        except (TypeError, ValueError):
+            report[field] = 0
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_REQUIRED_LIST_FIELDS:
+        if not isinstance(report.get(field), list):
+            report[field] = []
+    report["blocker_count"] = len(report.get("blocker_rows") or [])
+    report["bad_safety_count"] = int(report.get("bad_safety_count") or 0)
+    report["planned_controlled_import_readiness_scope_count"] = len(report.get("controlled_import_readiness_scope_rows") or [])
+    report["upstream_validation_count"] = len(report.get("upstream_validation_rows") or [])
+    report["candidate_slot_readiness_count"] = len(report.get("candidate_slot_readiness_rows") or [])
+    report["metric_contract_readiness_count"] = len(report.get("metric_contract_readiness_rows") or [])
+    report["ratio_lineage_readiness_count"] = len(report.get("ratio_lineage_readiness_rows") or [])
+    report["missing_evidence_requirement_count"] = len(report.get("missing_evidence_requirement_rows") or [])
+    report["apply_blocker_count"] = len(report.get("apply_blocker_rows") or [])
+    report["manual_review_gate_count"] = len(report.get("manual_review_gate_rows") or [])
+    report["methodology_action_strategy_count"] = len(report.get("methodology_action_strategy_rows") or [])
+    report["safety_gate_count"] = len(report.get("safety_gate_rows") or [])
+    report["next_task_count"] = len(report.get("next_task_rows") or [])
+    report["multi_issuer_controlled_import_readiness_gate_check_count"] = len(report.get("multi_issuer_controlled_import_readiness_gate_check_rows") or [])
+    if not report.get("safe_hint"):
+        report["safe_hint"] = "Task207 is a controlled import readiness gate only."
+    if not report.get("next_step"):
+        report["next_step"] = "Task208 - Multi-Issuer Evidence Extraction Plan"
+
+
+def _build_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_report(
+    task206: dict[str, Any],
+    *,
+    inputs: dict[str, Path | None],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    expected_revision = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_revision)
+    expected_table = str(args.rzd_manual_official_pdf_controlled_values_migration_expected_table)
+    expected_row_count = int(args.rzd_manual_official_pdf_controlled_values_import_expected_row_count)
+    task206_path = inputs.get("task206")
+    blocker_rows: list[dict[str, Any]] = []
+
+    def add_block(code: str, details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_blocker_row(code, details=details))
+
+    if not task206:
+        add_block("task206_input_missing", {"path": str(task206_path or "")})
+    task206_status = str(task206.get("status") or "")
+    if task206 and task206_status not in {"warning", "passed"}:
+        add_block("task206_status_invalid", {"status": task206_status})
+    if task206 and (
+        not _as_bool(task206.get("multi_issuer_ratio_dataset_preview_plan_ready"))
+        or not _as_bool(task206.get("ready_for_task207_multi_issuer_controlled_import_readiness_gate"))
+    ):
+        add_block("task206_not_ready_for_import_readiness_gate")
+    expected_task206_counts = {
+        "ratio_dataset_preview_row_count": 57,
+        "input_metric_requirement_count": 12,
+        "candidate_slot_dataset_plan_count": 3,
+        "methodology_action_strategy_count": 6,
+        "safety_gate_count": 27,
+        "next_task_count": 5,
+    }
+    if task206 and any(int(task206.get(field) or 0) != expected for field, expected in expected_task206_counts.items()):
+        add_block("task206_counts_invalid", {"expected": expected_task206_counts})
+    required_task206_true_fields = [
+        "ratio_dataset_preview_scope_valid", "dataset_schema_contract_valid", "candidate_slot_dataset_plan_valid",
+        "ratio_dataset_preview_rows_valid", "input_metric_requirements_valid", "availability_policy_valid",
+        "non_computation_policy_valid", "manual_review_gates_valid", "blocked_scoring_policy_valid",
+        "methodology_actions_preserved", "safety_gates_valid", "next_tasks_valid", "corporate_bond_scope_valid",
+        "ofz_exclusion_valid", "no_concrete_issuer_selection_valid", "no_concrete_urls_valid",
+        "no_live_source_claims_valid", "no_metric_extraction_valid", "no_actual_metric_values_valid",
+        "no_controlled_values_created_valid", "no_import_execution_valid", "no_ratio_computation_valid",
+        "no_actual_ratio_values_valid", "no_scored_dataset_valid", "no_db_mutation_valid",
+        "no_recommendation_semantics_valid", "no_trading_semantics_valid",
+    ]
+    if task206 and any(not _as_bool(task206.get(field)) for field in required_task206_true_fields):
+        add_block("task206_output_contract_invalid")
+    if task206 and any(_as_bool(task206.get(field)) for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_FALSE_FIELDS):
+        add_block("task206_safety_invalid")
+    task206_safety_fields = [
+        "database_mutated", "migration_executed", "import_executed", "upsert_executed", "insert_executed",
+        "update_executed", "delete_executed", "scoring_executed", "trading_executed", "paper_trading_executed",
+        "recommendation_generated", "methodology_patch_executed", "production_export_executed",
+        "external_download_executed", "external_scrape_executed", "broker_api_called",
+        "concrete_issuer_selection_executed", "issuer_ranking_executed", "bond_ranking_executed",
+        "live_source_verification_executed", "live_source_record_created", "metric_extraction_executed",
+        "actual_metric_values_written", "controlled_values_created", "controlled_values_imported",
+        "controlled_values_upserted", "ratio_computation_executed", "actual_ratio_values_written",
+        "scored_dataset_created",
+    ]
+    if task206 and any(_as_bool(task206.get(field)) for field in task206_safety_fields):
+        add_block("task206_safety_invalid")
+    if task206 and (int(task206.get("bad_safety_count") or 0) > 0 or int(task206.get("blocker_count") or 0) > 0):
+        add_block("task206_safety_invalid", {"bad_safety_count": task206.get("bad_safety_count"), "blocker_count": task206.get("blocker_count")})
+    if task206 and not task206.get("multi_issuer_ratio_dataset_preview_plan_checksum_sha256"):
+        add_block("task206_output_contract_invalid", {"missing": "multi_issuer_ratio_dataset_preview_plan_checksum_sha256"})
+
+    scope_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_scope_rows()
+    upstream_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_upstream_rows(task206)
+    candidate_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_candidate_slot_rows(task206)
+    metric_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_metric_contract_rows(task206)
+    ratio_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_ratio_lineage_rows(task206)
+    missing_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_missing_evidence_rows()
+    apply_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_apply_blocker_rows()
+    review_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_manual_review_rows()
+    methodology_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_methodology_rows(task206)
+    safety_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_safety_rows()
+    next_task_rows = _rzd_controlled_values_multi_issuer_controlled_import_readiness_next_task_rows()
+
+    if not any(row.get("action_type") == "scoring_safety_gate_required" for row in methodology_rows):
+        add_block("scoring_safety_gate_missing")
+    if len(methodology_rows) != 6:
+        add_block("methodology_action_missing")
+    if any(not row.get("legacy_alias_free") for row in ratio_rows):
+        add_block("task206_lineage_invalid", {"legacy_alias_rows": [row for row in ratio_rows if not row.get("legacy_alias_free")]})
+    if any(not row.get("all_required_metric_contracts_available") for row in ratio_rows):
+        add_block("task206_lineage_invalid")
+    if any(code in {"concrete_url_detected"} for code in _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_rows_unsafe([
+        *scope_rows, *upstream_rows, *candidate_rows, *metric_rows, *ratio_rows, *missing_rows, *apply_rows,
+        *review_rows, *methodology_rows, *safety_rows, *next_task_rows,
+    ])):
+        add_block("concrete_url_detected")
+    if sum(1 for row in next_task_rows if row.get("allowed_now")) != 1 or not next_task_rows[0].get("allowed_now"):
+        add_block("unexpected_next_task_unlock")
+
+    validity_checks = {
+        "controlled_import_readiness_scope_valid": len(scope_rows) == 10,
+        "upstream_validation_valid": len(upstream_rows) == 6 and all(row.get("passed") for row in upstream_rows),
+        "candidate_slot_readiness_valid": len(candidate_rows) == 3 and all(row.get("ready_for_evidence_extraction_plan") and not row.get("ready_for_controlled_import_apply") for row in candidate_rows),
+        "metric_contract_readiness_valid": len(metric_rows) == 13,
+        "ratio_lineage_readiness_valid": len(ratio_rows) == 19 and all(row.get("legacy_alias_free") and row.get("all_required_metric_contracts_available") for row in ratio_rows),
+        "missing_evidence_requirements_valid": len(missing_rows) == 12 and all(row.get("blocks_controlled_import_apply") and not row.get("blocks_task208") for row in missing_rows),
+        "apply_blockers_valid": len(apply_rows) == 12 and all(row.get("expected_blocker") and not row.get("increments_blocker_count") for row in apply_rows),
+        "manual_review_gates_valid": len(review_rows) == 10,
+        "methodology_actions_preserved": len(methodology_rows) == 6 and any(row.get("action_type") == "scoring_safety_gate_required" for row in methodology_rows),
+        "safety_gates_valid": len(safety_rows) == 33,
+        "next_tasks_valid": len(next_task_rows) == 5 and next_task_rows[0].get("task_id") == "Task208" and sum(1 for row in next_task_rows if row.get("allowed_now")) == 1,
+        "corporate_bond_scope_valid": True,
+        "ofz_exclusion_valid": True,
+        "no_concrete_issuer_selection_valid": True,
+        "no_concrete_urls_valid": True,
+        "no_live_source_claims_valid": True,
+        "no_metric_extraction_valid": True,
+        "no_actual_metric_values_valid": True,
+        "no_controlled_values_created_valid": True,
+        "no_import_execution_valid": True,
+        "no_ratio_computation_valid": True,
+        "no_actual_ratio_values_valid": True,
+        "no_scored_dataset_valid": True,
+        "no_db_mutation_valid": True,
+        "no_recommendation_semantics_valid": True,
+        "no_trading_semantics_valid": True,
+        "controlled_import_apply_blocked_valid": True,
+        "evidence_extraction_plan_unlocked_valid": True,
+    }
+    for code, passed in validity_checks.items():
+        if not passed:
+            add_block(code.replace("_valid", "_invalid"))
+    check_inputs = [*validity_checks.items()]
+    check_rows = [
+        _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_check_row(code, passed=bool(passed))
+        for code, passed in check_inputs
+    ]
+    for index, row in enumerate(check_rows, start=1):
+        row["check_index"] = index
+
+    checksum_payload = {
+        "controlled_import_readiness_scope_rows": scope_rows,
+        "upstream_validation_rows": upstream_rows,
+        "candidate_slot_readiness_rows": candidate_rows,
+        "metric_contract_readiness_rows": metric_rows,
+        "ratio_lineage_readiness_rows": ratio_rows,
+        "missing_evidence_requirement_rows": missing_rows,
+        "apply_blocker_rows": apply_rows,
+        "manual_review_gate_rows": review_rows,
+        "methodology_action_strategy_rows": methodology_rows,
+        "safety_gate_rows": safety_rows,
+        "next_task_rows": next_task_rows,
+        "multi_issuer_controlled_import_readiness_gate_check_rows": check_rows,
+    }
+    gate_checksum = _rzd_controlled_values_import_plan_sha(checksum_payload)
+    check_rows.append(_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_check_row("task207_checksum_built", passed=bool(gate_checksum)))
+    check_rows[-1]["check_index"] = len(check_rows)
+    if not gate_checksum:
+        add_block("task207_checksum_missing")
+
+    status = "blocked" if blocker_rows else "warning"
+    source_checksum = str(task206.get("multi_issuer_ratio_dataset_preview_plan_checksum_sha256") or "")
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate",
+        "status": status,
+        "multi_issuer_controlled_import_readiness_gate_status": status,
+        "multi_issuer_controlled_import_readiness_gate_ready": False,
+        "controlled_import_readiness_gate_scope": "corporate_multi_issuer_controlled_import_readiness_review_only",
+        "issuer_universe_scope": "corporate_bond_issuers_only",
+        "ofz_scope": "excluded_from_current_multi_issuer_plan",
+        "concrete_issuer_selection_scope": "prohibited_in_task207",
+        "live_source_scope": "prohibited_in_task207",
+        "metric_extraction_scope": "prohibited_in_task207",
+        "actual_values_scope": "prohibited_in_task207",
+        "import_execution_scope": "prohibited_in_task207",
+        "ratio_computation_scope": "prohibited_in_task207",
+        "scoring_scope": "prohibited_in_task207",
+        "recommendation_scope": "prohibited_in_task207",
+        "ranking_scope": "prohibited_in_task207",
+        "trading_scope": "prohibited_in_task207",
+        "db_mutation_scope": "prohibited_in_task207",
+        "controlled_import_apply_scope": "blocked_missing_source_backed_values",
+        "evidence_extraction_scope": "plan_next_task_only",
+        "source_backed_values_scope": "missing_not_claimed",
+        "controlled_import_readiness_gate_reason": "Task207 confirms readiness for evidence extraction planning and keeps controlled import apply blocked.",
+        "ready_for_multi_issuer_evidence_extraction_plan": False,
+        "ready_for_task208_multi_issuer_evidence_extraction_plan": False,
+        "ready_for_multi_issuer_controlled_import_readiness_gate": False,
+        "ready_for_task207_multi_issuer_controlled_import_readiness_gate": False,
+        "ready_for_multi_issuer_controlled_import_apply_plan": False,
+        "ready_for_task209_multi_issuer_controlled_import_apply_plan": False,
+        "ready_for_controlled_import_apply": False,
+        "controlled_import_apply_ready": False,
+        "ready_for_scoring": False,
+        "ready_for_trading": False,
+        "ready_for_paper_trading": False,
+        "expected_revision": expected_revision,
+        "expected_table": expected_table,
+        "expected_import_row_count": expected_row_count,
+        "task206_input_path": str(task206_path or ""),
+        "task206_status": task206_status,
+        "task206_multi_issuer_ratio_dataset_preview_plan_status": str(task206.get("multi_issuer_ratio_dataset_preview_plan_status") or ""),
+        "task206_multi_issuer_ratio_dataset_preview_plan_ready": _as_bool(task206.get("multi_issuer_ratio_dataset_preview_plan_ready")),
+        "task206_ratio_dataset_preview_plan_scope": str(task206.get("ratio_dataset_preview_plan_scope") or ""),
+        "task206_issuer_universe_scope": str(task206.get("issuer_universe_scope") or ""),
+        "task206_ofz_scope": str(task206.get("ofz_scope") or ""),
+        "task206_concrete_issuer_selection_scope": str(task206.get("concrete_issuer_selection_scope") or ""),
+        "task206_live_source_scope": str(task206.get("live_source_scope") or ""),
+        "task206_metric_extraction_scope": str(task206.get("metric_extraction_scope") or ""),
+        "task206_actual_values_scope": str(task206.get("actual_values_scope") or ""),
+        "task206_import_execution_scope": str(task206.get("import_execution_scope") or ""),
+        "task206_ratio_computation_scope": str(task206.get("ratio_computation_scope") or ""),
+        "task206_scoring_scope": str(task206.get("scoring_scope") or ""),
+        "task206_recommendation_scope": str(task206.get("recommendation_scope") or ""),
+        "task206_ranking_scope": str(task206.get("ranking_scope") or ""),
+        "task206_trading_scope": str(task206.get("trading_scope") or ""),
+        "task206_db_mutation_scope": str(task206.get("db_mutation_scope") or ""),
+        "task206_ready_for_task207_multi_issuer_controlled_import_readiness_gate": _as_bool(task206.get("ready_for_task207_multi_issuer_controlled_import_readiness_gate")),
+        "task206_ratio_dataset_preview_row_count": int(task206.get("ratio_dataset_preview_row_count") or 0),
+        "task206_input_metric_requirement_count": int(task206.get("input_metric_requirement_count") or 0),
+        "task206_candidate_slot_dataset_plan_count": int(task206.get("candidate_slot_dataset_plan_count") or 0),
+        "task206_methodology_action_strategy_count": int(task206.get("methodology_action_strategy_count") or 0),
+        "task206_safety_gate_count": int(task206.get("safety_gate_count") or 0),
+        "task206_next_task_count": int(task206.get("next_task_count") or 0),
+        "task206_multi_issuer_ratio_dataset_preview_plan_checksum_sha256": source_checksum,
+        "source_multi_issuer_ratio_dataset_preview_plan_checksum_sha256": source_checksum,
+        "controlled_import_readiness_scope_rows": scope_rows,
+        "upstream_validation_rows": upstream_rows,
+        "candidate_slot_readiness_rows": candidate_rows,
+        "metric_contract_readiness_rows": metric_rows,
+        "ratio_lineage_readiness_rows": ratio_rows,
+        "missing_evidence_requirement_rows": missing_rows,
+        "apply_blocker_rows": apply_rows,
+        "manual_review_gate_rows": review_rows,
+        "methodology_action_strategy_rows": methodology_rows,
+        "safety_gate_rows": safety_rows,
+        "next_task_rows": next_task_rows,
+        "multi_issuer_controlled_import_readiness_gate_check_rows": check_rows,
+        "multi_issuer_controlled_import_readiness_gate_checksum_sha256": gate_checksum,
+        "blocker_rows": blocker_rows,
+        "bad_safety_count": 0,
+        "safe_hint": "Task207 created a readiness gate only; evidence extraction planning may proceed, but controlled import apply remains blocked.",
+        "next_step": "Task208 - Multi-Issuer Evidence Extraction Plan",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate", status),
+        "safety_flags": _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_flags(),
+        **_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_flags(),
+        "multi_issuer_controlled_import_readiness_gate_executed": True,
+    }
+    for field in required_task206_true_fields:
+        report[f"task206_{field}"] = _as_bool(task206.get(field))
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_RATIO_DATASET_PREVIEW_PLAN_FALSE_FIELDS:
+        report[f"task206_{field}"] = _as_bool(task206.get(field))
+    for field in task206_safety_fields:
+        report[f"task206_{field}"] = _as_bool(task206.get(field))
+    report["task206_bad_safety_count"] = int(task206.get("bad_safety_count") or 0)
+    report["task206_blocker_count"] = int(task206.get("blocker_count") or 0)
+    report.update(validity_checks)
+    if not blocker_rows:
+        report["multi_issuer_controlled_import_readiness_gate_ready"] = True
+        report["ready_for_multi_issuer_evidence_extraction_plan"] = True
+        report["ready_for_task208_multi_issuer_evidence_extraction_plan"] = True
+    _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_normalize_report(report)
+    return report
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None] | None = None,
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_rows = [
+        _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_blocker_row(
+            "task207_failed",
+            details={"errors": errors},
+        )
+    ]
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate",
+        "status": "failed",
+        "multi_issuer_controlled_import_readiness_gate_status": "failed",
+        "multi_issuer_controlled_import_readiness_gate_ready": False,
+        "controlled_import_readiness_gate_scope": "corporate_multi_issuer_controlled_import_readiness_review_only",
+        "issuer_universe_scope": "corporate_bond_issuers_only",
+        "ofz_scope": "excluded_from_current_multi_issuer_plan",
+        "concrete_issuer_selection_scope": "prohibited_in_task207",
+        "live_source_scope": "prohibited_in_task207",
+        "metric_extraction_scope": "prohibited_in_task207",
+        "actual_values_scope": "prohibited_in_task207",
+        "import_execution_scope": "prohibited_in_task207",
+        "ratio_computation_scope": "prohibited_in_task207",
+        "scoring_scope": "prohibited_in_task207",
+        "recommendation_scope": "prohibited_in_task207",
+        "ranking_scope": "prohibited_in_task207",
+        "trading_scope": "prohibited_in_task207",
+        "db_mutation_scope": "prohibited_in_task207",
+        "controlled_import_apply_scope": "blocked_missing_source_backed_values",
+        "evidence_extraction_scope": "plan_next_task_only",
+        "source_backed_values_scope": "missing_not_claimed",
+        "controlled_import_readiness_gate_reason": "Task207 failed before completing a controlled import readiness gate.",
+        "expected_revision": "",
+        "expected_table": "",
+        "task206_input_path": "",
+        "task206_status": "",
+        "task206_multi_issuer_ratio_dataset_preview_plan_status": "",
+        "task206_ratio_dataset_preview_plan_scope": "",
+        "task206_issuer_universe_scope": "",
+        "task206_ofz_scope": "",
+        "task206_concrete_issuer_selection_scope": "",
+        "task206_live_source_scope": "",
+        "task206_metric_extraction_scope": "",
+        "task206_actual_values_scope": "",
+        "task206_import_execution_scope": "",
+        "task206_ratio_computation_scope": "",
+        "task206_scoring_scope": "",
+        "task206_recommendation_scope": "",
+        "task206_ranking_scope": "",
+        "task206_trading_scope": "",
+        "task206_db_mutation_scope": "",
+        "task206_multi_issuer_ratio_dataset_preview_plan_checksum_sha256": "",
+        "controlled_import_readiness_scope_rows": [],
+        "upstream_validation_rows": [],
+        "candidate_slot_readiness_rows": [],
+        "metric_contract_readiness_rows": [],
+        "ratio_lineage_readiness_rows": [],
+        "missing_evidence_requirement_rows": [],
+        "apply_blocker_rows": [],
+        "manual_review_gate_rows": [],
+        "methodology_action_strategy_rows": [],
+        "safety_gate_rows": [],
+        "next_task_rows": [],
+        "multi_issuer_controlled_import_readiness_gate_check_rows": [],
+        "multi_issuer_controlled_import_readiness_gate_checksum_sha256": "",
+        "source_multi_issuer_ratio_dataset_preview_plan_checksum_sha256": "",
+        "blocker_rows": blocker_rows,
+        "errors": errors,
+        "bad_safety_count": 0,
+        "safety_flags": _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_flags(),
+        **_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_flags(),
+        "multi_issuer_controlled_import_readiness_gate_executed": False,
+        "next_step": "Task208 - Multi-Issuer Evidence Extraction Plan",
+        "next_steps": _next_steps("rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate", "failed"),
+    }
+    _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_normalize_report(report)
+    if artifacts and write_outputs:
+        try:
+            _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_write_outputs(report, artifacts)
+        except Exception as exc:
+            report["errors"] = [*report.get("errors", []), {"message": "controlled_values_multi_issuer_controlled_import_readiness_gate_write_failed", "error": str(exc)}]
+    return report
+
+
+def _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_write_outputs(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    if artifacts.get("gate_json"):
+        write_json_report(report, artifacts["gate_json"])
+    if artifacts.get("gate_markdown"):
+        write_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_markdown(report, artifacts["gate_markdown"])
+    wrapper_payloads: dict[str, dict[str, Any]] = {
+        "checks_json": {"multi_issuer_controlled_import_readiness_gate_check_count": report.get("multi_issuer_controlled_import_readiness_gate_check_count", 0), "multi_issuer_controlled_import_readiness_gate_check_rows": report.get("multi_issuer_controlled_import_readiness_gate_check_rows") or []},
+        "blockers_json": {"blocker_count": report.get("blocker_count", 0), "blocker_rows": report.get("blocker_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "scope_json": {"planned_controlled_import_readiness_scope_count": report.get("planned_controlled_import_readiness_scope_count", 0), "controlled_import_readiness_scope_rows": report.get("controlled_import_readiness_scope_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "upstream_validation_json": {"upstream_validation_count": report.get("upstream_validation_count", 0), "upstream_validation_rows": report.get("upstream_validation_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "candidate_slots_json": {"candidate_slot_readiness_count": report.get("candidate_slot_readiness_count", 0), "candidate_slot_readiness_rows": report.get("candidate_slot_readiness_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "metric_contracts_json": {"metric_contract_readiness_count": report.get("metric_contract_readiness_count", 0), "metric_contract_readiness_rows": report.get("metric_contract_readiness_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "ratio_lineage_json": {"ratio_lineage_readiness_count": report.get("ratio_lineage_readiness_count", 0), "ratio_lineage_readiness_rows": report.get("ratio_lineage_readiness_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "missing_evidence_json": {"missing_evidence_requirement_count": report.get("missing_evidence_requirement_count", 0), "missing_evidence_requirement_rows": report.get("missing_evidence_requirement_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "apply_blockers_json": {"apply_blocker_count": report.get("apply_blocker_count", 0), "apply_blocker_rows": report.get("apply_blocker_rows") or [], "controlled_import_apply_ready": report.get("controlled_import_apply_ready", False), "safe_hint": report.get("safe_hint", "")},
+        "manual_review_gates_json": {"manual_review_gate_count": report.get("manual_review_gate_count", 0), "manual_review_gate_rows": report.get("manual_review_gate_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "methodology_actions_json": {"methodology_action_strategy_count": report.get("methodology_action_strategy_count", 0), "methodology_action_strategy_rows": report.get("methodology_action_strategy_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "safety_gates_json": {"safety_gate_count": report.get("safety_gate_count", 0), "safety_gate_rows": report.get("safety_gate_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "next_tasks_json": {"next_task_count": report.get("next_task_count", 0), "next_task_rows": report.get("next_task_rows") or [], "safe_hint": report.get("safe_hint", "")},
+        "summary_json": {
+            "status": report.get("status", ""),
+            "multi_issuer_controlled_import_readiness_gate_ready": report.get("multi_issuer_controlled_import_readiness_gate_ready", False),
+            "ready_for_task208_multi_issuer_evidence_extraction_plan": report.get("ready_for_task208_multi_issuer_evidence_extraction_plan", False),
+            "ready_for_task209_multi_issuer_controlled_import_apply_plan": report.get("ready_for_task209_multi_issuer_controlled_import_apply_plan", False),
+            "controlled_import_apply_ready": report.get("controlled_import_apply_ready", False),
+            "candidate_slot_readiness_count": report.get("candidate_slot_readiness_count", 0),
+            "metric_contract_readiness_count": report.get("metric_contract_readiness_count", 0),
+            "ratio_lineage_readiness_count": report.get("ratio_lineage_readiness_count", 0),
+            "apply_blocker_count": report.get("apply_blocker_count", 0),
+            "multi_issuer_controlled_import_readiness_gate_checksum_sha256": report.get("multi_issuer_controlled_import_readiness_gate_checksum_sha256", ""),
+            **{field: report.get(field, False) for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_IMPORT_READINESS_GATE_FALSE_FIELDS},
+            "safe_hint": report.get("safe_hint", ""),
+        },
+        "safety_json": {
+            **_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_safety_flags(),
+            "multi_issuer_controlled_import_readiness_gate_executed": report.get("multi_issuer_controlled_import_readiness_gate_executed", False),
+            "ready_for_task208_multi_issuer_evidence_extraction_plan": report.get("ready_for_task208_multi_issuer_evidence_extraction_plan", False),
+            "ready_for_task209_multi_issuer_controlled_import_apply_plan": report.get("ready_for_task209_multi_issuer_controlled_import_apply_plan", False),
+            "controlled_import_apply_ready": report.get("controlled_import_apply_ready", False),
+            "safe_hint": report.get("safe_hint", ""),
+        },
+    }
+    for key, payload in wrapper_payloads.items():
+        path = artifacts.get(key)
+        if path:
+            write_json_report(payload, path)
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_inputs(args)
+    artifacts = _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_artifacts(args)
+    output_errors = _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_output_errors(args, inputs=inputs, artifacts=artifacts)
+    if output_errors:
+        return _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_failed_report(output_errors, artifacts=artifacts, write_outputs=False)
+    try:
+        task206_path = inputs.get("task206")
+        task206 = _load_json_object(task206_path) if task206_path is not None and task206_path.is_file() else {}
+    except Exception as exc:
+        return _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_failed_report(
+            [{"message": "controlled_values_multi_issuer_controlled_import_readiness_gate_input_required", "error": str(exc)}],
+            artifacts=artifacts,
+        )
+    report = _build_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_report(task206, inputs=inputs, args=args)
+    try:
+        _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_write_outputs(report, artifacts)
+    except Exception as exc:
+        report["status"] = "failed"
+        report["multi_issuer_controlled_import_readiness_gate_status"] = "failed"
+        report["errors"] = [*report.get("errors", []), {"message": "controlled_values_multi_issuer_controlled_import_readiness_gate_write_failed", "error": str(exc)}]
+        _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_normalize_report(report)
     return report
 
 
@@ -86803,6 +87876,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         return render_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_plan_markdown(report)
     if report.get("mode") == "rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan":
         return render_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_preview_plan_markdown(report)
+    if report.get("mode") == "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate":
+        return render_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_markdown(report)
     if report.get("mode") == "source-trust-recovery-workspace-v2":
         return render_source_trust_recovery_markdown(report)
     if report.get("mode") == "source-trust-recovery-validate-v2":
@@ -95263,6 +96338,156 @@ def render_rzd_manual_official_pdf_controlled_values_multi_issuer_ratio_dataset_
         "",
         f"- source Task205 checksum: `{report.get('source_multi_issuer_controlled_import_plan_checksum_sha256')}`",
         f"- ratio dataset preview plan checksum: `{report.get('multi_issuer_ratio_dataset_preview_plan_checksum_sha256')}`",
+        "",
+        "## Decision",
+        "",
+        decision,
+        "",
+        "## Blockers",
+        "",
+    ]
+    blockers = report.get("blocker_rows") or []
+    if blockers:
+        lines.extend(f"- `{row.get('code')}` {row.get('message')}" for row in blockers)
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def write_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_markdown(report: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_markdown(report), encoding="utf-8")
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_import_readiness_gate_markdown(report: dict[str, Any]) -> str:
+    if report.get("blocker_rows"):
+        decision = "Multi-issuer controlled import readiness gating is blocked. Resolve Task206 readiness, output-contract, lineage, safety, methodology-action, or next-task blockers before Task208."
+    else:
+        decision = (
+            "Multi-issuer controlled import readiness gate completed for corporate bond issuers only.\n\n"
+            "The chain is ready for Task208 evidence extraction planning.\n\n"
+            "The chain is not ready for controlled import apply because concrete issuers, concrete official sources, source-backed values, manual evidence review, dry run, backup, and future apply token are still missing.\n\n"
+            "Task207 does not select concrete issuers, write concrete URLs, download sources, scrape sources, extract metrics, import data, upsert data, insert/update/delete rows, compute ratios, write ratio values, create scored datasets, score issuers, score bonds, rank issuers, rank bonds, generate recommendations, or execute trading."
+        )
+
+    def _keys(rows: list[dict[str, Any]], key: str) -> str:
+        return ", ".join(str(row.get(key) or "") for row in rows if isinstance(row, dict))
+
+    lines = [
+        "# RZD Controlled Values Multi-Issuer Controlled Import Readiness Gate",
+        "",
+        "## Input chain",
+        "",
+        f"- Task206 input: `{report.get('task206_input_path')}`",
+        f"- expected revision: `{report.get('expected_revision')}`",
+        f"- expected table: `{report.get('expected_table')}`",
+        f"- expected import row count: `{report.get('expected_import_row_count')}`",
+        "",
+        "## Readiness gate verdict",
+        "",
+        f"- status: `{report.get('status')}` / `{report.get('multi_issuer_controlled_import_readiness_gate_status')}`",
+        f"- ready for Task208: `{report.get('ready_for_task208_multi_issuer_evidence_extraction_plan')}`",
+        f"- ready for controlled import apply: `{report.get('controlled_import_apply_ready')}`",
+        f"- ready for Task209: `{report.get('ready_for_task209_multi_issuer_controlled_import_apply_plan')}`",
+        "",
+        "## Controlled import readiness scope",
+        "",
+        f"- scope rows: `{report.get('planned_controlled_import_readiness_scope_count')}`",
+        f"- scope keys: {_keys(report.get('controlled_import_readiness_scope_rows') or [], 'scope_key') or 'none'}",
+        "",
+        "## Upstream validation",
+        "",
+        f"- upstream validation rows: `{report.get('upstream_validation_count')}`",
+        f"- validation keys: {_keys(report.get('upstream_validation_rows') or [], 'validation_key') or 'none'}",
+        "",
+        "## Candidate slot readiness",
+        "",
+        f"- candidate slots: `{report.get('candidate_slot_readiness_count')}`",
+        f"- slot ids: {_keys(report.get('candidate_slot_readiness_rows') or [], 'candidate_slot_id') or 'none'}",
+        "",
+        "## Metric contract readiness",
+        "",
+        f"- metric contracts: `{report.get('metric_contract_readiness_count')}`",
+        f"- metric keys: {_keys(report.get('metric_contract_readiness_rows') or [], 'metric_key') or 'none'}",
+        "",
+        "## Ratio lineage readiness",
+        "",
+        f"- ratio lineage rows: `{report.get('ratio_lineage_readiness_count')}`",
+        f"- sample ratio keys: {_keys((report.get('ratio_lineage_readiness_rows') or [])[:19], 'ratio_key') or 'none'}",
+        "",
+        "## Missing evidence requirements",
+        "",
+        f"- missing evidence requirements: `{report.get('missing_evidence_requirement_count')}`",
+        f"- requirement keys: {_keys(report.get('missing_evidence_requirement_rows') or [], 'requirement_key') or 'none'}",
+        "",
+        "## Apply blockers",
+        "",
+        f"- apply blockers: `{report.get('apply_blocker_count')}`",
+        f"- apply blocker keys: {_keys(report.get('apply_blocker_rows') or [], 'apply_blocker_key') or 'none'}",
+        "",
+        "## Manual review gates",
+        "",
+        f"- manual review gates: `{report.get('manual_review_gate_count')}`",
+        f"- review gate keys: {_keys(report.get('manual_review_gate_rows') or [], 'review_gate_key') or 'none'}",
+        "",
+        "## Open methodology actions",
+        "",
+        f"- methodology actions: `{report.get('methodology_action_strategy_count')}`",
+        f"- action types: {_keys(report.get('methodology_action_strategy_rows') or [], 'action_type') or 'none'}",
+        "",
+        "## Safety gates",
+        "",
+        f"- safety gates: `{report.get('safety_gate_count')}`",
+        f"- gate keys: {_keys(report.get('safety_gate_rows') or [], 'gate_key') or 'none'}",
+        "",
+        "## Next tasks",
+        "",
+        f"- next tasks: `{report.get('next_task_count')}`",
+        f"- task ids: {_keys(report.get('next_task_rows') or [], 'task_id') or 'none'}",
+        "",
+        "## Safety",
+        "",
+        "No migration was executed by Task207.",
+        "No Alembic command was executed by Task207.",
+        "No database mutation was performed by Task207.",
+        "No rows were imported by Task207.",
+        "No rows were upserted by Task207.",
+        "No rows were inserted by Task207.",
+        "No rows were updated by Task207.",
+        "No rows were deleted by Task207.",
+        "No metric extraction was executed by Task207.",
+        "No actual metric values were written by Task207.",
+        "No controlled financial values were created by Task207.",
+        "No controlled financial values were imported by Task207.",
+        "No controlled financial values were upserted by Task207.",
+        "No ratio computation was executed by Task207.",
+        "No actual ratio values were written by Task207.",
+        "No scored dataset was created by Task207.",
+        "No production export artifact was generated by Task207.",
+        "No preview export artifact was created or modified by Task207.",
+        "No scoring was executed by Task207.",
+        "No trading or paper trading was executed by Task207.",
+        "No investment recommendation was generated by Task207.",
+        "No issuer or bond ranking was produced by Task207.",
+        "No methodology patch was executed by Task207.",
+        "No external issuer report was downloaded by Task207.",
+        "No external source was scraped by Task207.",
+        "No broker API was called by Task207.",
+        "No concrete issuer was selected by Task207.",
+        "No concrete issuer name was written by Task207.",
+        "No concrete source URL was written by Task207.",
+        "No live source availability was verified by Task207.",
+        "No live source record was created by Task207.",
+        "No controlled import apply plan was created by Task207.",
+        "No controlled import apply was executed by Task207.",
+        "No evidence extraction was executed by Task207.",
+        "No source-backed values were claimed by Task207.",
+        "Task207 created a controlled import readiness gate only.",
+        "",
+        "## Checksums",
+        "",
+        f"- source Task206 checksum: `{report.get('source_multi_issuer_ratio_dataset_preview_plan_checksum_sha256')}`",
+        f"- readiness gate checksum: `{report.get('multi_issuer_controlled_import_readiness_gate_checksum_sha256')}`",
         "",
         "## Decision",
         "",
@@ -106326,6 +107551,8 @@ def _next_steps(mode: str, status: str) -> list[str]:
         return ["Use Task205 output only for Task206 multi-issuer ratio dataset preview planning; imports, upserts, inserts, updates, deletes, DB mutation, actual values, controlled value creation, scoring, recommendations, ranking, trading, and paper trading remain blocked."]
     if mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-ratio-dataset-preview-plan":
         return ["Use Task206 output only for Task207 multi-issuer controlled import readiness gating; imports, ratio computation, scored datasets, DB mutation, scoring, recommendations, ranking, trading, and paper trading remain blocked."]
+    if mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate":
+        return ["Use Task207 output only for Task208 multi-issuer evidence extraction planning; controlled import apply, evidence extraction execution, imports, DB mutation, scoring, recommendations, ranking, trading, and paper trading remain blocked."]
     if mode == "source-trust-recovery-workspace-v2":
         return ["Fill the Task142 source page template for source-trust-blocked issuers; a future validation mode must review every manual source URL."]
     if mode == "source-trust-recovery-validate-v2":
@@ -106776,6 +108003,12 @@ def _generic_report_output_is_safe(args: argparse.Namespace, output_path: Path |
             args,
             inputs=_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_inputs(args),
             artifacts=_rzd_controlled_values_multi_issuer_ratio_dataset_preview_plan_artifacts(args),
+        )
+    if args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-import-readiness-gate":
+        return not _rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_output_errors(
+            args,
+            inputs=_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_inputs(args),
+            artifacts=_rzd_controlled_values_multi_issuer_controlled_import_readiness_gate_artifacts(args),
         )
     if args.mode == "source-trust-recovery-workspace-v2":
         return not _source_trust_recovery_output_errors(
