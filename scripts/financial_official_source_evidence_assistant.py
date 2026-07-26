@@ -125,6 +125,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -12016,6 +12017,90 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_LIST_
     "multi_issuer_source_candidate_seed_template_check_rows",
     "blocker_rows", "bad_safety_codes", "next_steps", "errors",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_ARTIFACT_NAMES = {
+    "fill_plan_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_task214.json",
+    "fill_plan_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_task214.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_checks_task214.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_blockers_task214.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_scope_task214.json",
+    "upstream_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_upstream_validation_task214.json",
+    "candidate_slot_fill_plan_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_candidate_slot_fill_plan_task214.json",
+    "field_fill_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_field_fill_rules_task214.json",
+    "operator_instructions_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_operator_instructions_task214.json",
+    "completion_criteria_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_completion_criteria_task214.json",
+    "validation_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_validation_rules_task214.json",
+    "manual_review_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_manual_review_gates_task214.json",
+    "official_source_requirements_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_official_source_requirements_task214.json",
+    "exclusion_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_exclusion_rules_task214.json",
+    "blocked_execution_policy_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_blocked_execution_policy_task214.json",
+    "methodology_actions_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_methodology_actions_task214.json",
+    "safety_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_safety_gates_task214.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_next_tasks_task214.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_summary_task214.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_safety_task214.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_TASK215_NEXT_STEP = (
+    "Task215 - Multi-Issuer Source Candidate Seed Fill Workspace"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_BLOCKED_NEXT_STEP = (
+    "Task214 - Resolve source candidate seed fill plan blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_FAILED_NEXT_STEP = (
+    "Task214 - Repair failed source candidate seed fill plan and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_FALSE_FIELDS = (
+    *RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS,
+    "source_candidate_seed_filled", "source_candidate_seed_materialized",
+    "source_candidate_seed_loaded", "source_candidate_seed_reviewed",
+    "source_candidate_seed_accepted", "fill_execution_enabled",
+    "fill_validation_executed", "source_access_enabled", "network_access_enabled",
+    "database_mutation_enabled", "extraction_enabled", "import_enabled",
+    "scoring_enabled", "recommendation_enabled", "ranking_enabled",
+    "broker_enabled", "export_enabled", "trading_enabled",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_BOOL_FIELDS = (
+    "multi_issuer_source_candidate_seed_fill_plan_ready",
+    "ready_for_task215_multi_issuer_source_candidate_seed_fill_workspace",
+    "ready_for_task216_multi_issuer_source_candidate_seed_validation_and_review_gate",
+    "ready_for_task217_multi_issuer_evidence_extraction_dry_run_plan",
+    "ready_for_task218_multi_issuer_controlled_import_apply_plan",
+    "ready_for_task219_multi_issuer_analytics_review",
+    "source_candidate_seed_fill_plan_created", "task213_handoff_valid",
+    "next_tasks_valid", "write_outputs",
+    *RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_FALSE_FIELDS,
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_COUNT_FIELDS = (
+    "source_candidate_seed_fill_plan_scope_count", "upstream_validation_count",
+    "candidate_slot_fill_plan_count", "field_fill_rule_count",
+    "operator_instruction_count", "completion_criteria_count",
+    "validation_rule_count", "manual_review_gate_count",
+    "official_source_requirement_count", "exclusion_rule_count",
+    "blocked_execution_policy_count", "methodology_action_count",
+    "safety_gate_count", "next_task_count",
+    "multi_issuer_source_candidate_seed_fill_plan_check_count",
+    "blocker_count", "bad_safety_count", "concrete_issuer_value_count",
+    "concrete_url_value_count", "filled_candidate_value_count",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_LIST_FIELDS = (
+    "source_candidate_seed_fill_plan_scope_rows", "upstream_validation_rows",
+    "candidate_slot_fill_plan_rows", "field_fill_rule_rows",
+    "operator_instruction_rows", "completion_criteria_rows",
+    "validation_rule_rows", "manual_review_gate_rows",
+    "official_source_requirement_rows", "exclusion_rule_rows",
+    "blocked_execution_policy_rows", "methodology_action_rows",
+    "safety_gate_rows", "next_task_rows",
+    "multi_issuer_source_candidate_seed_fill_plan_check_rows",
+    "blocker_rows", "bad_safety_codes", "allowed_source_types", "errors",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_STRING_FIELDS = (
+    "mode", "status", "multi_issuer_source_candidate_seed_fill_plan_status",
+    "task213_input_path", "task213_status",
+    "task213_multi_issuer_source_candidate_seed_template_checksum_sha256",
+    "source_multi_issuer_source_candidate_seed_template_checksum_sha256",
+    "source_candidate_seed_fill_plan_scope",
+    "multi_issuer_source_candidate_seed_fill_plan_checksum_sha256",
+    "next_step", "safe_hint",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -14082,6 +14167,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-upstream-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-candidate-slot-fill-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-field-fill-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-operator-instructions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-completion-criteria-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-validation-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-manual-review-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-official-source-requirements-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-exclusion-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-blocked-execution-policy-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-methodology-actions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-safety-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -14407,6 +14513,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan":
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -86738,6 +86846,7 @@ def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_fi
         codes.add("filled_candidate_value_detected")
 
     def inspect(value: Any, key: str = "") -> None:
+        nonlocal url_count
         normalized_key = key.casefold()
         if isinstance(value, dict):
             for child_key, child in value.items():
@@ -86748,6 +86857,16 @@ def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_fi
         elif value not in {None, ""}:
             if normalized_key in {"document_title", "document_url"}:
                 codes.add("concrete_document_value_detected")
+            if normalized_key in {
+                "source_url", "official_source_url", "document_url",
+                "source_locator_notes",
+            } and re.search(
+                r"(?i)(?:^|[\s/])(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/\s]|$)",
+                str(value),
+            ):
+                codes.add("concrete_url_or_domain_value_detected")
+                if "://" not in str(value):
+                    url_count += 1
             if normalized_key in {
                 "financial_value", "metric_value", "bond_identifier", "bond_id", "isin",
             }:
@@ -87693,6 +87812,785 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_
                 artifacts=artifacts,
             )
         )
+    return report
+
+
+def _task214_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    default = (
+        chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_ARTIFACT_NAMES[
+            "template_json"
+        ]
+        if chain
+        else None
+    )
+    return {
+        "task213": (
+            args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_input
+            or default
+        )
+    }
+
+
+def _task214_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            key: chain / name
+            for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_ARTIFACT_NAMES.items()
+        }
+        if chain
+        else {}
+    )
+    suffixes = {
+        "fill_plan_json": "output",
+        "fill_plan_markdown": "markdown_output",
+        "checks_json": "checks_output",
+        "blockers_json": "blockers_output",
+        "scope_json": "scope_output",
+        "upstream_validation_json": "upstream_validation_output",
+        "candidate_slot_fill_plan_json": "candidate_slot_fill_plan_output",
+        "field_fill_rules_json": "field_fill_rules_output",
+        "operator_instructions_json": "operator_instructions_output",
+        "completion_criteria_json": "completion_criteria_output",
+        "validation_rules_json": "validation_rules_output",
+        "manual_review_gates_json": "manual_review_gates_output",
+        "official_source_requirements_json": "official_source_requirements_output",
+        "exclusion_rules_json": "exclusion_rules_output",
+        "blocked_execution_policy_json": "blocked_execution_policy_output",
+        "methodology_actions_json": "methodology_actions_output",
+        "safety_gates_json": "safety_gates_output",
+        "next_tasks_json": "next_tasks_output",
+        "summary_json": "summary_output",
+        "safety_json": "safety_output",
+    }
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "source_candidate_seed_fill_plan"
+    )
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in suffixes.items()
+    }
+
+
+def _task214_output_errors(
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: list[tuple[str, Path]] = []
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path is not None and _paths_equal(path, input_path):
+                return [{"message": "task214_output_must_not_equal_input", "output": key, "input": input_key}]
+        for seen_key, seen_path in seen:
+            if _paths_equal(path, seen_path):
+                return [{"message": "task214_outputs_must_be_unique", "output": key, "duplicate_output": seen_key}]
+        seen.append((key, path))
+    return []
+
+
+def _task214_scope_rows() -> list[dict[str, Any]]:
+    values = (
+        ("task_scope", "offline_fill_planning_only"),
+        ("template_scope", "task213_template_unchanged"),
+        ("slot_scope", "three_abstract_candidate_slots"),
+        ("field_scope", "fourteen_template_fields"),
+        ("source_scope", "future_official_source_candidates_only"),
+        ("network_scope", "prohibited"),
+        ("database_scope", "read_only_no_mutation"),
+        ("evidence_scope", "no_accepted_evidence"),
+        ("execution_scope", "no_fill_execution"),
+        ("handoff_scope", "task215_workspace_only"),
+    )
+    return [
+        {
+            "scope_index": index,
+            "scope_key": key,
+            "scope_value": value,
+            "included": True,
+            "safe_hint": "Task214 records planning metadata only.",
+        }
+        for index, (key, value) in enumerate(values, 1)
+    ]
+
+
+def _task214_allowed_source_types(task213: dict[str, Any]) -> tuple[list[str], bool]:
+    official_rows = task213.get("official_source_rule_rows")
+    if not isinstance(official_rows, list) or len(official_rows) != 12:
+        return [], False
+    sets: list[tuple[str, ...]] = []
+    for row in official_rows:
+        if not isinstance(row, dict):
+            return [], False
+        value = row.get("applies_to_source_types")
+        if not isinstance(value, list) or not value:
+            return [], False
+        normalized = tuple(sorted({str(item) for item in value if str(item)}))
+        if not normalized:
+            return [], False
+        sets.append(normalized)
+    canonical = tuple(sorted(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_ALLOWED_SOURCE_TYPES
+    ))
+    if (
+        len(sets) != 12
+        or any(item != sets[0] for item in sets[1:])
+        or sets[0] != canonical
+    ):
+        return [], False
+    return list(sets[0]), True
+
+
+def _task214_upstream_rows(task213: dict[str, Any]) -> list[dict[str, Any]]:
+    template_rows = task213.get("seed_template_rows")
+    field_rows = task213.get("seed_field_contract_rows")
+    slot_rows = task213.get("candidate_slot_rows")
+    checksum = str(
+        task213.get("multi_issuer_source_candidate_seed_template_checksum_sha256") or ""
+    )
+    expected_ids = [f"candidate_slot_{index:03d}" for index in range(1, 4)]
+    expected_fields = list(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS
+    )
+    allowed_types, source_types_valid = _task214_allowed_source_types(task213)
+    template_shape = (
+        isinstance(template_rows, list)
+        and len(template_rows) == 3
+        and [row.get("candidate_slot_id") for row in template_rows if isinstance(row, dict)]
+        == expected_ids
+        and all(
+            isinstance(row, dict)
+            and list(row) == expected_fields
+            and row.get("report_year") is None
+            and row.get("operator_review_status") == "unfilled"
+            and row.get("safe_hint") == "operator_fill_required_no_candidate_value"
+            and all(
+                row.get(field) == ""
+                for field in expected_fields
+                if field not in {
+                    "candidate_slot_id", "report_year",
+                    "operator_review_status", "safe_hint",
+                }
+            )
+            for row in template_rows
+        )
+    )
+    field_shape = (
+        isinstance(field_rows, list)
+        and len(field_rows) == 14
+        and [row.get("field_name") for row in field_rows if isinstance(row, dict)]
+        == expected_fields
+        and all(
+            row.get("field_type") == ("int" if row.get("field_name") == "report_year" else "str")
+            and row.get("required") is (
+                row.get("field_name")
+                not in {"issuer_name", "source_url", "official_source_url", "safe_hint"}
+            )
+            and row.get("operator_fill_required") is (
+                row.get("field_name")
+                not in {"candidate_slot_id", "operator_review_status", "safe_hint"}
+            )
+            and row.get("manual_review_required") is True
+            and row.get("official_source_validation_required") is (
+                row.get("field_name")
+                not in {
+                    "candidate_slot_id", "source_locator_notes",
+                    "operator_review_status", "safe_hint",
+                }
+            )
+            and row.get("accepted_evidence_allowed") is False
+            and row.get("import_readiness_allowed") is False
+            for row in field_rows
+            if isinstance(row, dict)
+        )
+    )
+    slot_shape = (
+        isinstance(slot_rows, list)
+        and len(slot_rows) == 3
+        and [row.get("candidate_slot_id") for row in slot_rows if isinstance(row, dict)]
+        == expected_ids
+        and all(
+            row.get("slot_index") == index
+            and row.get("slot_order") == index
+            and row.get("template_row_present") is True
+            and row.get("operator_fill_required") is True
+            and row.get("manual_review_required") is True
+            and row.get("official_source_validation_required") is True
+            and row.get("accepted_evidence") is False
+            and row.get("import_ready") is False
+            and row.get("scoring_ready") is False
+            and row.get("recommendation_ready") is False
+            and row.get("status") == "empty_operator_template"
+            for index, row in enumerate(slot_rows, 1)
+            if isinstance(row, dict)
+        )
+    )
+    forbidden = _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+        task213,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS,
+    )
+    specs = [
+        ("task213_status", task213.get("status") == "warning"),
+        ("task213_template_ready", _as_bool(task213.get("multi_issuer_source_candidate_seed_template_ready"))),
+        ("task213_task214_ready", _as_bool(task213.get("ready_for_task214_multi_issuer_source_candidate_seed_fill_plan"))),
+        ("task213_counts", int(task213.get("candidate_slot_count") or 0) == 3 and int(task213.get("seed_template_row_count") or 0) == 3 and int(task213.get("seed_field_count") or 0) == 14),
+        ("task213_scope_count", int(task213.get("seed_template_scope_count") or 0) == 10),
+        ("task213_zero_values", int(task213.get("concrete_issuer_value_count") or 0) == 0 and int(task213.get("concrete_url_value_count") or 0) == 0 and int(task213.get("filled_candidate_value_count") or 0) == 0),
+        ("task213_clean_verdict", int(task213.get("blocker_count") or 0) == 0 and int(task213.get("bad_safety_count") or 0) == 0),
+        ("task213_template_created", task213.get("seed_template_created") is True),
+        ("task213_seed_flags", all(task213.get(key) is False for key in ("source_candidate_seed_created", "source_candidate_seed_materialized", "source_candidate_seed_loaded", "source_candidate_seed_reviewed", "source_candidate_seed_accepted"))),
+        ("task213_slot_schema", slot_shape),
+        ("task213_template_schema", template_shape),
+        ("task213_field_schema", field_shape),
+        ("task213_source_types", source_types_valid and len(allowed_types) == 8),
+        (
+            "task213_checksum",
+            re.fullmatch(r"[0-9a-f]{64}", checksum) is not None
+            and checksum
+            == _rzd_controlled_values_multi_issuer_source_candidate_seed_template_checksum_from_report(
+                task213
+            ),
+        ),
+        ("task213_next_tasks", task213.get("next_tasks_valid") is True and [row.get("task_id") for row in task213.get("next_task_rows") or [] if isinstance(row, dict) and row.get("allowed_now") is True] == ["Task214"]),
+        ("task213_forbidden_flags", not forbidden),
+        ("task213_no_later_readiness", not any(_as_bool(task213.get(key)) for key in ("ready_for_task215_multi_issuer_source_candidate_seed_fill", "ready_for_task216_multi_issuer_source_candidate_seed_review_gate", "ready_for_task217_multi_issuer_evidence_extraction_dry_run_plan", "ready_for_task218_multi_issuer_controlled_import_apply_plan", "ready_for_controlled_import_apply", "ready_for_scoring", "ready_for_trading"))),
+    ]
+    return [
+        {
+            "validation_index": index,
+            "validation_key": key,
+            "source_task": "Task213",
+            "passed": bool(passed),
+            "blocks_task214": not bool(passed),
+            "safe_hint": "Task214 accepts only the complete Task213 warning contract.",
+        }
+        for index, (key, passed) in enumerate(specs, 1)
+    ]
+
+
+def _task214_plan_rows(
+    task213: dict[str, Any],
+    allowed_types: list[str],
+) -> dict[str, list[dict[str, Any]]]:
+    field_contract = task213.get("seed_field_contract_rows") or []
+    optional = {"issuer_name", "source_url", "official_source_url"}
+    system = {"candidate_slot_id", "operator_review_status", "safe_hint"}
+    required = [
+        str(row.get("field_name"))
+        for row in field_contract
+        if isinstance(row, dict)
+        and row.get("field_name") not in optional | system
+        and row.get("required") is True
+    ]
+    slots = [
+        {
+            "slot_index": index,
+            "candidate_slot_id": f"candidate_slot_{index:03d}",
+            "slot_order": index,
+            "required_operator_fields": required,
+            "optional_operator_fields": sorted(optional),
+            "system_managed_fields": sorted(system),
+            "allowed_source_types": allowed_types,
+            "manual_review_required": True,
+            "official_source_validation_required": True,
+            "network_allowed": False,
+            "database_allowed": False,
+            "completion_status": "planned",
+            "safe_hint": "No issuer, identifier, locator, document, or value is selected.",
+        }
+        for index in range(1, 4)
+    ]
+    fields = []
+    for index, upstream in enumerate(field_contract, 1):
+        name = str(upstream.get("field_name") or "")
+        management = "system_preserved" if name in system else "operator_optional" if name in optional else "operator_required"
+        fields.append({
+            "field_index": index,
+            "field_name": name,
+            "field_type": "int" if name == "report_year" else "str",
+            "fill_management": management,
+            "required": management == "operator_required",
+            "operator_fill_allowed": name not in system,
+            "manual_review_required": name not in system,
+            "concrete_value_allowed_in_task214": False,
+            "safe_hint": "Task214 defines a future fill rule without filling a value.",
+        })
+    def rows(count: int, prefix: str, text: str, **extra: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                f"{prefix}_index": index,
+                f"{prefix}_key": f"{prefix}_{index:02d}",
+                "requirement": text,
+                "status": "planned",
+                "safe_hint": "Planning metadata only; no execution authority.",
+                **extra,
+            }
+            for index in range(1, count + 1)
+        ]
+    return {
+        "candidate_slot_fill_plan_rows": slots,
+        "field_fill_rule_rows": fields,
+        "operator_instruction_rows": rows(8, "instruction", "Operator fills only in the separate Task215 workspace.", network_allowed=False, database_allowed=False),
+        "completion_criteria_rows": rows(10, "criterion", "Future workspace completion requires explicit validation and manual review.", required=True),
+        "validation_rule_rows": rows(12, "validation", "Validate structure, provenance, identifiers, and source locators offline.", manual_review_required=True, network_required=False, database_required=False, blocks_task215=True),
+        "manual_review_gate_rows": rows(12, "gate", "Manual review remains pending and blocks acceptance.", completed=False),
+        "official_source_requirement_rows": rows(12, "official_requirement", "Future candidate must use an allowed official source category.", applies_to_source_types=allowed_types, accepted_evidence=False),
+        "exclusion_rule_rows": rows(10, "exclusion", "Exclude non-official, government-bond, recommendation, and execution content.", enforced=True),
+        "blocked_execution_policy_rows": rows(24, "policy", "Execution capability remains blocked in Task214.", blocked=True),
+        "methodology_action_rows": rows(6, "action", "Methodology action remains open for later explicit review.", completed=False),
+        "safety_gate_rows": rows(46, "safety_gate", "Dangerous capability is disabled.", passed=True, enabled=False),
+    }
+
+
+def _task214_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    tasks = (
+        ("Task215", "Multi-Issuer Source Candidate Seed Fill Workspace", allowed, "Task214"),
+        ("Task216", "Multi-Issuer Source Candidate Seed Validation and Review Gate", False, "Task215"),
+        ("Task217", "Multi-Issuer Evidence Extraction Dry Run Plan", False, "Task216"),
+        ("Task218", "Multi-Issuer Controlled Import Apply Plan", False, "Task217"),
+        ("Task219", "Multi-Issuer Analytics Review", False, "Task218"),
+    )
+    return [
+        {
+            "next_task_index": index,
+            "task_id": task_id,
+            "task_name": name,
+            "allowed_now": bool(is_allowed),
+            "depends_on": dependency,
+            "safe_hint": "Only Task215 workspace planning handoff may be unlocked.",
+        }
+        for index, (task_id, name, is_allowed, dependency) in enumerate(tasks, 1)
+    ]
+
+
+def _task214_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        key: report.get(key) or []
+        for key in (
+            "source_candidate_seed_fill_plan_scope_rows",
+            "upstream_validation_rows",
+            "candidate_slot_fill_plan_rows",
+            "field_fill_rule_rows",
+            "operator_instruction_rows",
+            "completion_criteria_rows",
+            "validation_rule_rows",
+            "manual_review_gate_rows",
+            "official_source_requirement_rows",
+            "exclusion_rule_rows",
+            "blocked_execution_policy_rows",
+            "methodology_action_rows",
+            "safety_gate_rows",
+            "next_task_rows",
+            "multi_issuer_source_candidate_seed_fill_plan_check_rows",
+        )
+    })
+
+
+def _task214_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    row_counts = {
+        "source_candidate_seed_fill_plan_scope_count": "source_candidate_seed_fill_plan_scope_rows",
+        "upstream_validation_count": "upstream_validation_rows",
+        "candidate_slot_fill_plan_count": "candidate_slot_fill_plan_rows",
+        "field_fill_rule_count": "field_fill_rule_rows",
+        "operator_instruction_count": "operator_instruction_rows",
+        "completion_criteria_count": "completion_criteria_rows",
+        "validation_rule_count": "validation_rule_rows",
+        "manual_review_gate_count": "manual_review_gate_rows",
+        "official_source_requirement_count": "official_source_requirement_rows",
+        "exclusion_rule_count": "exclusion_rule_rows",
+        "blocked_execution_policy_count": "blocked_execution_policy_rows",
+        "methodology_action_count": "methodology_action_rows",
+        "safety_gate_count": "safety_gate_rows",
+        "next_task_count": "next_task_rows",
+        "multi_issuer_source_candidate_seed_fill_plan_check_count": "multi_issuer_source_candidate_seed_fill_plan_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count, rows in row_counts.items():
+        value = report.get(rows)
+        report[rows] = value if isinstance(value, list) else []
+        report[count] = len(report[rows])
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_LIST_FIELDS:
+        value = report.get(field)
+        report[field] = value if isinstance(value, list) else []
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_BOOL_FIELDS:
+        report[field] = _as_bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_REQUIRED_STRING_FIELDS:
+        report[field] = str(report.get(field) or "")
+    report["bad_safety_codes"] = sorted({
+        str(code) for code in report.get("bad_safety_codes") or [] if str(code)
+    })
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    for field in dict.fromkeys(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_FALSE_FIELDS):
+        report[field] = False
+    report["multi_issuer_source_candidate_seed_fill_plan_checksum_sha256"] = _task214_checksum(report)
+    return report
+
+
+def _task214_failed(
+    errors: list[dict[str, Any]],
+    *,
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan",
+        "status": "failed",
+        "multi_issuer_source_candidate_seed_fill_plan_status": "failed",
+        "multi_issuer_source_candidate_seed_fill_plan_ready": False,
+        "ready_for_task215_multi_issuer_source_candidate_seed_fill_workspace": False,
+        "source_candidate_seed_fill_plan_created": False,
+        "task213_handoff_valid": False,
+        "next_tasks_valid": False,
+        "write_outputs": write_outputs,
+        "next_step": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_FAILED_NEXT_STEP,
+        "errors": errors,
+        "blocker_rows": [{"blocker_index": 1, "code": "task214_failed", "safe_hint": "Repair Task214 and rerun."}],
+        "bad_safety_codes": [],
+        "concrete_issuer_value_count": 0,
+        "concrete_url_value_count": 0,
+        "filled_candidate_value_count": 0,
+        "task213_multi_issuer_source_candidate_seed_template_checksum_sha256": "",
+        "source_multi_issuer_source_candidate_seed_template_checksum_sha256": "",
+        "next_task_rows": _task214_next_rows(False),
+    }
+    for key in (
+        "source_candidate_seed_fill_plan_scope_rows", "upstream_validation_rows",
+        "candidate_slot_fill_plan_rows", "field_fill_rule_rows",
+        "operator_instruction_rows", "completion_criteria_rows",
+        "validation_rule_rows", "manual_review_gate_rows",
+        "official_source_requirement_rows", "exclusion_rule_rows",
+        "blocked_execution_policy_rows", "methodology_action_rows",
+        "safety_gate_rows", "multi_issuer_source_candidate_seed_fill_plan_check_rows",
+    ):
+        report[key] = []
+    return _task214_finalize(report)
+
+
+def _build_task214_report(
+    task213: dict[str, Any],
+    task213_path: Path | None,
+) -> dict[str, Any]:
+    upstream = _task214_upstream_rows(task213) if task213 else []
+    blockers: list[dict[str, Any]] = []
+    if not task213:
+        blockers.append({"code": "task213_input_missing"})
+    for row in upstream:
+        if not row["passed"]:
+            blockers.append({"code": f"{row['validation_key']}_invalid"})
+    template_rows = task213.get("seed_template_rows") or []
+    issuer_count, url_count, filled_count, safety_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_findings(
+            template_rows
+        )
+    )
+    for code in safety_codes:
+        blockers.append({"code": code})
+    allowed_types, source_types_valid = _task214_allowed_source_types(task213)
+    handoff_valid = bool(task213 and upstream and all(row["passed"] for row in upstream))
+    families = _task214_plan_rows(task213, allowed_types) if handoff_valid and not safety_codes else {
+        key: [] for key in (
+            "candidate_slot_fill_plan_rows", "field_fill_rule_rows",
+            "operator_instruction_rows", "completion_criteria_rows",
+            "validation_rule_rows", "manual_review_gate_rows",
+            "official_source_requirement_rows", "exclusion_rule_rows",
+            "blocked_execution_policy_rows", "methodology_action_rows",
+            "safety_gate_rows",
+        )
+    }
+    scope = _task214_scope_rows() if handoff_valid and not safety_codes else []
+    expected = {
+        "source_candidate_seed_fill_plan_scope_rows": 10,
+        "candidate_slot_fill_plan_rows": 3,
+        "field_fill_rule_rows": 14,
+        "operator_instruction_rows": 8,
+        "completion_criteria_rows": 10,
+        "validation_rule_rows": 12,
+        "manual_review_gate_rows": 12,
+        "official_source_requirement_rows": 12,
+        "exclusion_rule_rows": 10,
+        "blocked_execution_policy_rows": 24,
+        "methodology_action_rows": 6,
+        "safety_gate_rows": 46,
+    }
+    candidate = {
+        "source_candidate_seed_fill_plan_scope_rows": scope,
+        **families,
+    }
+    checks = {
+        "task213_handoff_valid": handoff_valid,
+        "allowed_source_types_valid": source_types_valid,
+        **{
+            f"{key.removesuffix('_rows')}_valid": len(candidate[key]) == count
+            for key, count in expected.items()
+        },
+        "no_concrete_issuer_values_valid": issuer_count == 0,
+        "no_concrete_url_values_valid": url_count == 0,
+        "no_filled_candidate_values_valid": filled_count == 0,
+    }
+    status = "warning" if all(checks.values()) and not blockers and not safety_codes else "blocked"
+    task215_allowed = (
+        status == "warning"
+        and handoff_valid
+        and not blockers
+        and not safety_codes
+        and issuer_count == url_count == filled_count == 0
+    )
+    next_rows = _task214_next_rows(task215_allowed)
+    checks["next_tasks_valid"] = (
+        task215_allowed
+        and len(next_rows) == 5
+        and sum(row["allowed_now"] for row in next_rows) == 1
+        and next_rows[0]["task_id"] == "Task215"
+    )
+    check_rows = [
+        {
+            "check_index": index,
+            "check_key": key,
+            "status": "passed" if passed else "blocked",
+            "passed": bool(passed),
+            "safe_hint": "Task214 contract check.",
+        }
+        for index, (key, passed) in enumerate(checks.items(), 1)
+    ]
+    safe_blockers = [
+        {
+            "blocker_index": index,
+            "code": str(row["code"]),
+            "safe_hint": "Resolve the sanitized Task214 blocker and rerun.",
+        }
+        for index, row in enumerate(blockers, 1)
+    ]
+    checksum = str(task213.get("multi_issuer_source_candidate_seed_template_checksum_sha256") or "")
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan",
+        "status": status,
+        "multi_issuer_source_candidate_seed_fill_plan_status": status,
+        "multi_issuer_source_candidate_seed_fill_plan_ready": task215_allowed,
+        "ready_for_task215_multi_issuer_source_candidate_seed_fill_workspace": task215_allowed,
+        "ready_for_task216_multi_issuer_source_candidate_seed_validation_and_review_gate": False,
+        "ready_for_task217_multi_issuer_evidence_extraction_dry_run_plan": False,
+        "ready_for_task218_multi_issuer_controlled_import_apply_plan": False,
+        "ready_for_task219_multi_issuer_analytics_review": False,
+        "task213_input_path": str(task213_path or ""),
+        "task213_status": str(task213.get("status") or ""),
+        "task213_handoff_valid": handoff_valid,
+        "task213_multi_issuer_source_candidate_seed_template_checksum_sha256": checksum if re.fullmatch(r"[0-9a-f]{64}", checksum) else "",
+        "source_multi_issuer_source_candidate_seed_template_checksum_sha256": checksum if re.fullmatch(r"[0-9a-f]{64}", checksum) else "",
+        "source_candidate_seed_fill_plan_scope": "plan_only_no_seed_fill",
+        "source_candidate_seed_fill_plan_scope_rows": scope,
+        "upstream_validation_rows": upstream,
+        **families,
+        "allowed_source_types": allowed_types if source_types_valid else [],
+        "next_task_rows": next_rows,
+        "multi_issuer_source_candidate_seed_fill_plan_check_rows": check_rows,
+        "blocker_rows": safe_blockers,
+        "bad_safety_codes": safety_codes,
+        "concrete_issuer_value_count": issuer_count,
+        "concrete_url_value_count": url_count,
+        "filled_candidate_value_count": filled_count,
+        "source_candidate_seed_fill_plan_created": task215_allowed,
+        "next_tasks_valid": task215_allowed,
+        "write_outputs": True,
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_TASK215_NEXT_STEP
+            if task215_allowed
+            else RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_BLOCKED_NEXT_STEP
+        ),
+        "errors": [],
+        "safe_hint": "Task214 creates planning metadata only and does not fill the Task213 template.",
+    }
+    return _task214_finalize(report)
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_markdown(
+    report: dict[str, Any],
+) -> str:
+    status = report.get("status", "failed")
+    allowed = report.get("ready_for_task215_multi_issuer_source_candidate_seed_fill_workspace") is True
+    verdict = (
+        "WARNING — Task214 fill plan is ready; only Task215 workspace is unlocked."
+        if status == "warning" and allowed
+        else "BLOCKED — Task215 remains locked."
+        if status == "blocked"
+        else "FAILED — repair Task214 and rerun; Task215 remains locked."
+    )
+    return "\n".join([
+        "# Task214 — Multi-Issuer Source Candidate Seed Fill Plan",
+        "",
+        verdict,
+        "",
+        f"- Status: `{status}`",
+        f"- Plan created: `{str(report.get('source_candidate_seed_fill_plan_created', False)).lower()}`",
+        f"- Task215 ready: `{str(allowed).lower()}`",
+        f"- Candidate slot plans / field rules: `{report.get('candidate_slot_fill_plan_count', 0)}/{report.get('field_fill_rule_count', 0)}`",
+        f"- Concrete issuer / URL / filled values: `{report.get('concrete_issuer_value_count', 0)}/{report.get('concrete_url_value_count', 0)}/{report.get('filled_candidate_value_count', 0)}`",
+        f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
+        f"- Task213 checksum: `{report.get('source_multi_issuer_source_candidate_seed_template_checksum_sha256', '')}`",
+        f"- Task214 checksum: `{report.get('multi_issuer_source_candidate_seed_fill_plan_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`",
+        "",
+        "No source access, fill execution, database mutation, extraction, import, scoring, recommendation, ranking, broker, export, or trading is authorized.",
+        "",
+    ])
+
+
+def _task214_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    checksum = report.get("multi_issuer_source_candidate_seed_fill_plan_checksum_sha256", "")
+    envelope = {
+        "status": report.get("status", ""),
+        "multi_issuer_source_candidate_seed_fill_plan_ready": report.get("multi_issuer_source_candidate_seed_fill_plan_ready", False),
+        "ready_for_task215_multi_issuer_source_candidate_seed_fill_workspace": report.get("ready_for_task215_multi_issuer_source_candidate_seed_fill_workspace", False),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "multi_issuer_source_candidate_seed_fill_plan_checksum_sha256": checksum,
+    }
+    mappings = {
+        "checks_json": ("multi_issuer_source_candidate_seed_fill_plan_check_count", "multi_issuer_source_candidate_seed_fill_plan_check_rows"),
+        "scope_json": ("source_candidate_seed_fill_plan_scope_count", "source_candidate_seed_fill_plan_scope_rows"),
+        "upstream_validation_json": ("upstream_validation_count", "upstream_validation_rows"),
+        "candidate_slot_fill_plan_json": ("candidate_slot_fill_plan_count", "candidate_slot_fill_plan_rows"),
+        "field_fill_rules_json": ("field_fill_rule_count", "field_fill_rule_rows"),
+        "operator_instructions_json": ("operator_instruction_count", "operator_instruction_rows"),
+        "completion_criteria_json": ("completion_criteria_count", "completion_criteria_rows"),
+        "validation_rules_json": ("validation_rule_count", "validation_rule_rows"),
+        "manual_review_gates_json": ("manual_review_gate_count", "manual_review_gate_rows"),
+        "official_source_requirements_json": ("official_source_requirement_count", "official_source_requirement_rows"),
+        "exclusion_rules_json": ("exclusion_rule_count", "exclusion_rule_rows"),
+        "blocked_execution_policy_json": ("blocked_execution_policy_count", "blocked_execution_policy_rows"),
+        "methodology_actions_json": ("methodology_action_count", "methodology_action_rows"),
+        "safety_gates_json": ("safety_gate_count", "safety_gate_rows"),
+        "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {
+        key: {count: report.get(count, 0), rows: report.get(rows) or []}
+        for key, (count, rows) in mappings.items()
+    }
+    payloads["scope_json"] = {
+        **envelope,
+        "source_candidate_seed_fill_plan_scope": report.get(
+            "source_candidate_seed_fill_plan_scope", ""
+        ),
+        **payloads["scope_json"],
+    }
+    payloads["blockers_json"] = {**envelope, "blocker_rows": report.get("blocker_rows") or []}
+    payloads["summary_json"] = {
+        **envelope,
+        "candidate_slot_fill_plan_count": report.get("candidate_slot_fill_plan_count", 0),
+        "field_fill_rule_count": report.get("field_fill_rule_count", 0),
+        "concrete_issuer_value_count": report.get("concrete_issuer_value_count", 0),
+        "concrete_url_value_count": report.get("concrete_url_value_count", 0),
+        "filled_candidate_value_count": report.get("filled_candidate_value_count", 0),
+        "safety_gate_count": report.get("safety_gate_count", 0),
+        "safety_gate_rows": report.get("safety_gate_rows") or [],
+    }
+    payloads["safety_json"] = {
+        **envelope,
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        "concrete_issuer_value_count": report.get("concrete_issuer_value_count", 0),
+        "concrete_url_value_count": report.get("concrete_url_value_count", 0),
+        "filled_candidate_value_count": report.get("filled_candidate_value_count", 0),
+        **{
+            field: False
+            for field in dict.fromkeys(
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_PLAN_FALSE_FIELDS
+            )
+        },
+    }
+    for key in ("next_tasks_json",):
+        payloads[key] = {**envelope, "next_tasks_valid": report.get("next_tasks_valid", False), **payloads[key]}
+    return payloads
+
+
+def _task214_write_direct(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("fill_plan_json"):
+        write_json_report(report, artifacts["fill_plan_json"])
+    markdown = artifacts.get("fill_plan_markdown")
+    if markdown:
+        markdown.parent.mkdir(parents=True, exist_ok=True)
+        markdown.write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan_markdown(report),
+            encoding="utf-8",
+        )
+    for key, payload in _task214_wrappers(report).items():
+        path = artifacts.get(key)
+        if path:
+            write_json_report(payload, path)
+
+
+def _task214_write_atomic(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    targets = {key: path for key, path in artifacts.items() if path is not None}
+    roots: dict[Path, Path] = {}
+    staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent
+            parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(prefix=".task214-source-seed-fill-plan-", dir=parent))
+                roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task214_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"
+                shutil.copy2(target, backup)
+                backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target)
+            published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file():
+                    os.replace(backup, target)
+                elif target in published and target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise
+    finally:
+        for root in roots.values():
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_plan(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = _task214_inputs(args)
+    artifacts = _task214_artifacts(args)
+    errors = _task214_output_errors(inputs, artifacts)
+    if errors:
+        return _task214_failed(errors, write_outputs=False)
+    path = inputs["task213"]
+    try:
+        task213 = _load_json_object(path) if path is not None and path.is_file() else {}
+    except Exception as exc:
+        report = _task214_failed([{"message": "task213_input_malformed", "error": str(exc)}])
+        _task214_write_atomic(report, artifacts)
+        return report
+    report = _build_task214_report(task213, path)
+    try:
+        _task214_write_atomic(report, artifacts)
+    except Exception as exc:
+        report = _task214_failed([{"message": "task214_write_failed", "error": str(exc)}])
+        _task214_write_atomic(report, artifacts)
     return report
 
 
