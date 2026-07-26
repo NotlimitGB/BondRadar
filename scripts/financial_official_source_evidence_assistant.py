@@ -124,6 +124,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-source-discovery-preview",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -11883,6 +11884,138 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_REQUIRED_L
     "multi_issuer_source_candidate_seed_prepare_plan_check_rows",
     "blocker_rows", "bad_safety_codes",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_ARTIFACT_NAMES = {
+    "template_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_task213.json",
+    "template_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_task213.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_checks_task213.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_blockers_task213.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_scope_task213.json",
+    "upstream_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_upstream_validation_task213.json",
+    "seed_template_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_seed_template_task213.json",
+    "candidate_slots_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_candidate_slots_task213.json",
+    "field_contract_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_field_contract_task213.json",
+    "placeholder_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_placeholder_rules_task213.json",
+    "operator_instructions_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_operator_instructions_task213.json",
+    "validation_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_validation_rules_task213.json",
+    "manual_review_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_manual_review_gates_task213.json",
+    "official_source_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_official_source_rules_task213.json",
+    "exclusion_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_exclusion_rules_task213.json",
+    "methodology_actions_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_methodology_actions_task213.json",
+    "safety_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_safety_gates_task213.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_next_tasks_task213.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_summary_task213.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_safety_task213.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_TASK214_NEXT_STEP = (
+    "Task214 - Multi-Issuer Source Candidate Seed Fill Plan"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_BLOCKED_NEXT_STEP = (
+    "Task213 - Resolve source candidate seed template blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FAILED_NEXT_STEP = (
+    "Task213 - Repair failed source candidate seed template and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS = (
+    "candidate_slot_id", "issuer_name", "issuer_inn", "issuer_ogrn",
+    "source_type_key", "source_url", "official_source_url", "document_title",
+    "report_year", "report_standard", "document_language",
+    "source_locator_notes", "operator_review_status", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_BLOCKER_FIELDS = (
+    "blocker_index", "code", "message", "details", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_CHECK_FIELDS = (
+    "check_index", "check_key", "status", "severity", "message", "details", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_SCOPE_FIELDS = (
+    "scope_index", "scope_key", "scope_value", "included", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_UPSTREAM_FIELDS = (
+    "validation_index", "validation_key", "source_task", "expected_status",
+    "actual_status", "passed", "blocks_task213", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_CANDIDATE_SLOT_FIELDS = (
+    "slot_index", "candidate_slot_id", "slot_order", "template_row_present",
+    "operator_fill_required", "manual_review_required",
+    "official_source_validation_required", "accepted_evidence", "import_ready",
+    "scoring_ready", "recommendation_ready", "status", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELD_CONTRACT_FIELDS = (
+    "field_index", "field_name", "field_type", "required",
+    "placeholder_value", "operator_fill_required", "manual_review_required",
+    "official_source_validation_required", "accepted_evidence_allowed",
+    "import_readiness_allowed", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_PLACEHOLDER_RULE_FIELDS = (
+    "rule_index", "rule_key", "field_name", "placeholder_value",
+    "concrete_value_allowed", "operator_fill_required", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_OPERATOR_INSTRUCTION_FIELDS = (
+    "instruction_index", "instruction_key", "instruction",
+    "operator_action_required", "manual_review_required",
+    "network_allowed", "database_allowed", "completion_status", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_VALIDATION_RULE_FIELDS = (
+    "validation_index", "validation_key", "validation_rule", "required",
+    "manual_review_required", "network_required", "database_required",
+    "blocks_task214", "status", "safe_hint",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS = (
+    *RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_FALSE_FIELDS,
+    "accepted_evidence_created", "source_candidate_accepted_as_evidence",
+    "import_readiness_enabled", "scoring_readiness_enabled",
+    "recommendation_readiness_enabled", "accepted_evidence", "import_ready",
+    "scoring_ready", "recommendation_ready", "official_source_validated",
+    "manual_review_completed", "candidate_filled",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_BOOL_FIELDS = (
+    "multi_issuer_source_candidate_seed_template_ready",
+    "ready_for_task214_multi_issuer_source_candidate_seed_fill_plan",
+    "ready_for_task213_multi_issuer_source_candidate_seed_template",
+    "ready_for_task215_multi_issuer_source_candidate_seed_fill",
+    "ready_for_task216_multi_issuer_source_candidate_seed_review_gate",
+    "ready_for_task217_multi_issuer_evidence_extraction_dry_run_plan",
+    "ready_for_task218_multi_issuer_controlled_import_apply_plan",
+    "ready_for_controlled_import_apply", "controlled_import_apply_ready",
+    "ready_for_scoring", "ready_for_trading", "ready_for_paper_trading",
+    "task212_multi_issuer_source_candidate_seed_prepare_plan_ready",
+    "task212_ready_for_task213_multi_issuer_source_candidate_seed_template",
+    "task212_next_tasks_valid", "task212_handoff_valid",
+    "seed_template_scope_valid", "upstream_validation_valid",
+    "seed_template_rows_valid", "candidate_slots_valid",
+    "field_contract_valid", "placeholder_rules_valid",
+    "operator_instructions_valid", "validation_rules_valid",
+    "manual_review_gates_valid", "official_source_rules_valid",
+    "exclusion_rules_valid", "methodology_actions_preserved",
+    "safety_gates_valid", "next_tasks_valid",
+    "no_concrete_issuer_values_valid", "no_concrete_url_values_valid",
+    "no_filled_candidate_values_valid", "empty_template_valid",
+    "controlled_import_apply_blocked_valid",
+    "multi_issuer_source_candidate_seed_template_executed",
+    "seed_template_created", "source_candidate_seed_created",
+    *RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS,
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_COUNT_FIELDS = (
+    "seed_template_scope_count", "upstream_validation_count",
+    "candidate_slot_count", "seed_template_row_count", "seed_field_count",
+    "placeholder_rule_count", "operator_instruction_count",
+    "validation_rule_count", "manual_review_gate_count",
+    "official_source_rule_count", "exclusion_rule_count",
+    "methodology_action_count", "safety_gate_count", "next_task_count",
+    "multi_issuer_source_candidate_seed_template_check_count",
+    "concrete_issuer_value_count", "concrete_url_value_count",
+    "filled_candidate_value_count", "bad_safety_count", "blocker_count",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_LIST_FIELDS = (
+    "seed_template_scope_rows", "upstream_validation_rows",
+    "seed_template_rows", "candidate_slot_rows", "seed_field_contract_rows",
+    "placeholder_rule_rows", "operator_instruction_rows",
+    "validation_rule_rows", "manual_review_gate_rows",
+    "official_source_rule_rows", "exclusion_rule_rows",
+    "methodology_action_rows", "safety_gate_rows", "next_task_rows",
+    "multi_issuer_source_candidate_seed_template_check_rows",
+    "blocker_rows", "bad_safety_codes", "next_steps", "errors",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -13928,6 +14061,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-upstream-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-seed-template-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-candidate-slots-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-field-contract-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-placeholder-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-operator-instructions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-validation-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-manual-review-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-official-source-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-exclusion-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-methodology-actions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-safety-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -14251,6 +14405,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_review_gate(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template":
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -86128,6 +86284,1415 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_
             _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_finalize_failed_report(
                 report
             )
+    return report
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_blocker_row(
+    code: str,
+    *,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "blocker_index": 0,
+        "code": code,
+        "message": code.replace("_", " "),
+        "details": details or {},
+        "safe_hint": (
+            "Task213 creates only an empty operator-fillable template and cannot "
+            "accept a source candidate or enable execution."
+        ),
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_check_row(
+    code: str,
+    *,
+    passed: bool,
+) -> dict[str, Any]:
+    return {
+        "check_index": 0,
+        "check_key": code,
+        "status": "passed" if passed else "blocked",
+        "severity": "info" if passed else "high",
+        "message": code.replace("_", " "),
+        "details": {},
+        "safe_hint": "Task213 checks validate only the empty offline template contract.",
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_inputs(
+    args: argparse.Namespace,
+) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    task212_default = (
+        chain_dir
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_ARTIFACT_NAMES[
+            "plan_json"
+        ]
+        if chain_dir
+        else None
+    )
+    return {
+        "task212": (
+            args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_input
+            or task212_default
+        ),
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_artifacts(
+    args: argparse.Namespace,
+) -> dict[str, Path | None]:
+    chain_dir = args.operator_resolution_chain_output_dir
+    defaults = (
+        {
+            key: chain_dir / name
+            for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_ARTIFACT_NAMES.items()
+        }
+        if chain_dir
+        else {}
+    )
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "source_candidate_seed_template"
+    )
+    arg_suffixes = {
+        "template_json": "output",
+        "template_markdown": "markdown_output",
+        "checks_json": "checks_output",
+        "blockers_json": "blockers_output",
+        "scope_json": "scope_output",
+        "upstream_validation_json": "upstream_validation_output",
+        "seed_template_json": "seed_template_output",
+        "candidate_slots_json": "candidate_slots_output",
+        "field_contract_json": "field_contract_output",
+        "placeholder_rules_json": "placeholder_rules_output",
+        "operator_instructions_json": "operator_instructions_output",
+        "validation_rules_json": "validation_rules_output",
+        "manual_review_gates_json": "manual_review_gates_output",
+        "official_source_rules_json": "official_source_rules_output",
+        "exclusion_rules_json": "exclusion_rules_output",
+        "methodology_actions_json": "methodology_actions_output",
+        "safety_gates_json": "safety_gates_output",
+        "next_tasks_json": "next_tasks_output",
+        "summary_json": "summary_output",
+        "safety_json": "safety_output",
+    }
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in arg_suffixes.items()
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_output_errors(
+    *,
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: list[tuple[Path, str]] = []
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path and _paths_equal(path, input_path):
+                return [{
+                    "message": "rzd_controlled_values_multi_issuer_source_candidate_seed_template_output_must_not_equal_input",
+                    "output": key,
+                    "input": input_key,
+                }]
+        for seen_path, seen_key in seen:
+            if _paths_equal(path, seen_path):
+                return [{
+                    "message": "rzd_controlled_values_multi_issuer_source_candidate_seed_template_output_must_be_unique",
+                    "output": key,
+                    "duplicate_output": seen_key,
+                }]
+        seen.append((path, key))
+    return []
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_scope_rows() -> list[dict[str, Any]]:
+    specs = [
+        ("task_scope", "empty_operator_fillable_template"),
+        ("issuer_scope", "corporate_bond_issuers_only"),
+        ("ofz_scope", "excluded"),
+        ("candidate_scope", "three_abstract_unfilled_slots"),
+        ("field_scope", "fourteen_carried_seed_fields"),
+        ("source_scope", "official_source_candidates_not_validated"),
+        ("network_scope", "prohibited"),
+        ("database_scope", "read_only_no_mutation"),
+        ("evidence_scope", "no_accepted_evidence"),
+        ("execution_scope", "template_creation_only"),
+    ]
+    return [
+        {
+            "scope_index": index,
+            "scope_key": key,
+            "scope_value": value,
+            "included": True,
+            "safe_hint": "Scope row is declarative and contains no candidate value.",
+        }
+        for index, (key, value) in enumerate(specs, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_upstream_rows(
+    task212: dict[str, Any],
+) -> list[dict[str, Any]]:
+    checksum = str(
+        task212.get("multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256")
+        or ""
+    )
+    expected_fields = list(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS
+    )
+    actual_fields = [
+        row.get("field_name")
+        for row in task212.get("seed_field_contract_rows") or []
+        if isinstance(row, dict)
+    ]
+    dangerous = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+            task212,
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_FALSE_FIELDS,
+        )
+    )
+    checks = [
+        ("task212_status", "warning", str(task212.get("status") or ""), str(task212.get("status") or "") == "warning"),
+        ("task212_plan_ready", "True", str(_as_bool(task212.get("multi_issuer_source_candidate_seed_prepare_plan_ready"))), _as_bool(task212.get("multi_issuer_source_candidate_seed_prepare_plan_ready"))),
+        ("task212_task213_ready", "True", str(_as_bool(task212.get("ready_for_task213_multi_issuer_source_candidate_seed_template"))), _as_bool(task212.get("ready_for_task213_multi_issuer_source_candidate_seed_template"))),
+        ("task212_blockers", "0", str(int(task212.get("blocker_count") or 0)), int(task212.get("blocker_count") or 0) == 0),
+        ("task212_bad_safety", "0", str(int(task212.get("bad_safety_count") or 0)), int(task212.get("bad_safety_count") or 0) == 0),
+        ("task212_scope", "plan_only_no_seed_materialization", str(task212.get("source_candidate_seed_prepare_scope") or ""), str(task212.get("source_candidate_seed_prepare_scope") or "") == "plan_only_no_seed_materialization"),
+        ("task212_planned_scope_count", "10", str(int(task212.get("planned_source_candidate_seed_prepare_scope_count") or 0)), int(task212.get("planned_source_candidate_seed_prepare_scope_count") or 0) == 10),
+        ("task212_current_scope_count", "10", str(int(task212.get("source_candidate_seed_prepare_scope_count") or 0)), int(task212.get("source_candidate_seed_prepare_scope_count") or 0) == 10),
+        ("task212_candidate_slot_count", "3", str(int(task212.get("candidate_slot_plan_count") or 0)), int(task212.get("candidate_slot_plan_count") or 0) == 3),
+        ("task212_seed_field_count", "14", str(int(task212.get("seed_field_contract_count") or 0)), int(task212.get("seed_field_contract_count") or 0) == 14 and actual_fields == expected_fields),
+        ("task212_preparation_step_count", "10", str(int(task212.get("source_candidate_seed_preparation_step_count") or 0)), int(task212.get("source_candidate_seed_preparation_step_count") or 0) == 10),
+        ("task212_validation_plan_count", "12", str(int(task212.get("source_candidate_seed_validation_plan_count") or 0)), int(task212.get("source_candidate_seed_validation_plan_count") or 0) == 12),
+        ("task212_concrete_issuer_count", "0", str(int(task212.get("concrete_issuer_value_count") or 0)), int(task212.get("concrete_issuer_value_count") or 0) == 0),
+        ("task212_concrete_url_count", "0", str(int(task212.get("concrete_url_value_count") or 0)), int(task212.get("concrete_url_value_count") or 0) == 0),
+        ("task212_next_tasks_valid", "True", str(_as_bool(task212.get("next_tasks_valid"))), _as_bool(task212.get("next_tasks_valid"))),
+        ("task212_checksum", "lowercase_sha256", checksum, re.fullmatch(r"[0-9a-f]{64}", checksum) is not None),
+        ("task212_forbidden_flags", "all_false", str(dangerous), not dangerous),
+    ]
+    return [
+        {
+            "validation_index": index,
+            "validation_key": key,
+            "source_task": "Task212",
+            "expected_status": expected,
+            "actual_status": _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_sanitize_value(
+                actual,
+                key="actual_status",
+            ),
+            "passed": bool(passed),
+            "blocks_task213": not bool(passed),
+            "safe_hint": "Task213 accepts only the explicit Task212 warning handoff.",
+        }
+        for index, (key, expected, actual, passed) in enumerate(checks, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "candidate_slot_id": f"candidate_slot_{index:03d}",
+            "issuer_name": "",
+            "issuer_inn": "",
+            "issuer_ogrn": "",
+            "source_type_key": "",
+            "source_url": "",
+            "official_source_url": "",
+            "document_title": "",
+            "report_year": None,
+            "report_standard": "",
+            "document_language": "",
+            "source_locator_notes": "",
+            "operator_review_status": "unfilled",
+            "safe_hint": "operator_fill_required_no_candidate_value",
+        }
+        for index in range(1, 4)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_candidate_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "slot_index": index,
+            "candidate_slot_id": f"candidate_slot_{index:03d}",
+            "slot_order": index,
+            "template_row_present": True,
+            "operator_fill_required": True,
+            "manual_review_required": True,
+            "official_source_validation_required": True,
+            "accepted_evidence": False,
+            "import_ready": False,
+            "scoring_ready": False,
+            "recommendation_ready": False,
+            "status": "empty_operator_template",
+            "safe_hint": "Slot exists only as an unfilled operator template row.",
+        }
+        for index in range(1, 4)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_field_rows() -> list[dict[str, Any]]:
+    task212_rows = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_seed_field_rows()
+    )
+    return [
+        {
+            "field_index": row["field_index"],
+            "field_name": row["field_name"],
+            "field_type": row["field_type"],
+            "required": row["required"],
+            "placeholder_value": (
+                None
+                if row["field_name"] == "report_year"
+                else (
+                    "unfilled"
+                    if row["field_name"] == "operator_review_status"
+                    else (
+                        "operator_fill_required_no_candidate_value"
+                        if row["field_name"] == "safe_hint"
+                        else ""
+                    )
+                )
+            ),
+            "operator_fill_required": row["field_name"] not in {
+                "candidate_slot_id", "operator_review_status", "safe_hint",
+            },
+            "manual_review_required": True,
+            "official_source_validation_required": row["field_name"] in {
+                "issuer_name", "issuer_inn", "issuer_ogrn", "source_type_key",
+                "source_url", "official_source_url", "document_title",
+                "report_year", "report_standard", "document_language",
+            },
+            "accepted_evidence_allowed": False,
+            "import_readiness_allowed": False,
+            "safe_hint": "Field semantics are carried from Task212; no candidate value is populated.",
+        }
+        for row in task212_rows
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_placeholder_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "rule_index": row["field_index"],
+            "rule_key": f"placeholder_{row['field_name']}",
+            "field_name": row["field_name"],
+            "placeholder_value": row["placeholder_value"],
+            "concrete_value_allowed": False,
+            "operator_fill_required": row["operator_fill_required"],
+            "safe_hint": "Placeholder is empty or abstract and never constitutes evidence.",
+        }
+        for row in _rzd_controlled_values_multi_issuer_source_candidate_seed_template_field_rows()
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_instruction_rows() -> list[dict[str, Any]]:
+    specs = [
+        ("select_slot", "Select one abstract candidate slot."),
+        ("fill_issuer_identity", "Fill issuer identity fields in a later explicit task."),
+        ("select_source_type", "Select one allowed source type in a later explicit task."),
+        ("fill_source_locator", "Fill candidate locators without claiming live availability."),
+        ("fill_document_metadata", "Fill document metadata without creating evidence."),
+        ("retain_unreviewed_state", "Keep operator review status unreviewed until the review gate."),
+        ("run_offline_validation", "Run only offline structure validation after filling."),
+        ("request_manual_review", "Submit the filled candidate to a separate manual review gate."),
+    ]
+    return [
+        {
+            "instruction_index": index,
+            "instruction_key": key,
+            "instruction": instruction,
+            "operator_action_required": True,
+            "manual_review_required": True,
+            "network_allowed": False,
+            "database_allowed": False,
+            "completion_status": "not_started",
+            "safe_hint": "Task213 records the instruction and performs no fill action.",
+        }
+        for index, (key, instruction) in enumerate(specs, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_validation_rows() -> list[dict[str, Any]]:
+    specs = [
+        ("exact_row_count", "exactly three candidate rows"),
+        ("exact_field_contract", "each row has exactly the carried fourteen fields"),
+        ("stable_slot_identity", "slot IDs and order are stable and abstract"),
+        ("empty_candidate_values", "all candidate values are empty"),
+        ("operator_fill_required", "future operator filling remains required"),
+        ("manual_review_required", "manual review remains required"),
+        ("official_source_validation_required", "official-source validation remains required"),
+        ("no_accepted_evidence", "no row starts as accepted evidence"),
+        ("no_import_readiness", "no row starts as import ready"),
+        ("no_scoring_or_recommendation", "no row enables scoring or recommendations"),
+        ("offline_only", "validation uses no network or database"),
+        ("checksum_and_safety", "checksum is deterministic and forbidden flags remain false"),
+    ]
+    return [
+        {
+            "validation_index": index,
+            "validation_key": key,
+            "validation_rule": rule,
+            "required": True,
+            "manual_review_required": key not in {"exact_row_count", "exact_field_contract"},
+            "network_required": False,
+            "database_required": False,
+            "blocks_task214": True,
+            "status": "template_rule_declared",
+            "safe_hint": "Rule validates structure only and performs no source access.",
+        }
+        for index, (key, rule) in enumerate(specs, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_rows() -> list[dict[str, Any]]:
+    rows = _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_rows()
+    return [
+        {
+            **row,
+            "gate_key": str(row["gate_key"]).replace("task212_", "task213_"),
+            "condition": "must remain false during and after empty-template creation",
+            "safe_hint": "Task213 safety gate is declarative and executes no blocked capability.",
+        }
+        for row in rows
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_next_task_rows(
+    task214_allowed: bool,
+) -> list[dict[str, Any]]:
+    tasks = [
+        ("Task214", "Multi-Issuer Source Candidate Seed Fill Plan", task214_allowed, "Task213"),
+        ("Task215", "Multi-Issuer Source Candidate Seed Fill", False, "Task214"),
+        ("Task216", "Multi-Issuer Source Candidate Seed Review Gate", False, "Task215"),
+        ("Task217", "Multi-Issuer Evidence Extraction Dry Run Plan", False, "Task216"),
+        ("Task218", "Multi-Issuer Controlled Import Apply Plan", False, "Task217"),
+    ]
+    return [
+        {
+            "next_task_index": index,
+            "task_id": task_id,
+            "task_name": task_name,
+            "allowed_now": allowed,
+            "depends_on": depends_on,
+            "blocked_capabilities": (
+                "template filling execution, source access, evidence, import, scoring, trading"
+            ),
+            "description": (
+                "Only the separate operator-fill planning task is unlocked."
+                if allowed
+                else "Blocked until its prerequisite completes through a separate explicit task."
+            ),
+            "safe_hint": "Readiness names one planning task and executes no candidate fill.",
+        }
+        for index, (task_id, task_name, allowed, depends_on) in enumerate(tasks, start=1)
+    ]
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_filled_value_count(
+    rows: list[dict[str, Any]],
+) -> int:
+    fillable_fields = {
+        "issuer_name", "issuer_inn", "issuer_ogrn", "source_type_key",
+        "source_url", "official_source_url", "document_title", "report_year",
+        "report_standard", "document_language", "source_locator_notes",
+    }
+    return sum(
+        1
+        for row in rows
+        if isinstance(row, dict)
+        for key, value in row.items()
+        if key in fillable_fields and value not in {None, ""}
+    )
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_findings(
+    rows: list[dict[str, Any]],
+) -> tuple[int, int, int, list[str]]:
+    issuer_count, url_count, inherited_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_findings(
+            rows
+        )
+    )
+    filled_count = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_filled_value_count(
+            rows
+        )
+    )
+    codes = set(inherited_codes)
+    dangerous_fields = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+            rows,
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS,
+        )
+    )
+    if dangerous_fields:
+        codes.add("forbidden_execution_flag_detected")
+    if filled_count:
+        codes.add("filled_candidate_value_detected")
+
+    def inspect(value: Any, key: str = "") -> None:
+        normalized_key = key.casefold()
+        if isinstance(value, dict):
+            for child_key, child in value.items():
+                inspect(child, str(child_key))
+        elif isinstance(value, list):
+            for child in value:
+                inspect(child, key)
+        elif value not in {None, ""}:
+            if normalized_key in {"document_title", "document_url"}:
+                codes.add("concrete_document_value_detected")
+            if normalized_key in {
+                "financial_value", "metric_value", "bond_identifier", "bond_id", "isin",
+            }:
+                codes.add("forbidden_financial_or_bond_value_detected")
+            if normalized_key == "operator_review_status" and str(value) != "unfilled":
+                codes.add("accepted_source_state_detected")
+
+    inspect(rows)
+    return issuer_count, url_count, filled_count, sorted(codes)
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_sanitize_rows(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    sanitized: list[dict[str, Any]] = []
+    for index, _row in enumerate(rows, start=1):
+        sanitized.append({
+            "candidate_slot_id": f"candidate_slot_{index:03d}",
+            "issuer_name": "",
+            "issuer_inn": "",
+            "issuer_ogrn": "",
+            "source_type_key": "",
+            "source_url": "",
+            "official_source_url": "",
+            "document_title": "",
+            "report_year": None,
+            "report_standard": "",
+            "document_language": "",
+            "source_locator_notes": "",
+            "operator_review_status": "unfilled",
+            "safe_hint": "operator_fill_required_no_candidate_value",
+        })
+    return sanitized
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_task214_allowed(
+    *,
+    status: str,
+    template_valid: bool,
+    task212_handoff_valid: bool,
+    blocker_count: int,
+    bad_safety_count: int,
+    concrete_issuer_value_count: int,
+    concrete_url_value_count: int,
+    filled_candidate_value_count: int,
+) -> bool:
+    return (
+        status == "warning"
+        and template_valid is True
+        and task212_handoff_valid is True
+        and blocker_count == 0
+        and bad_safety_count == 0
+        and concrete_issuer_value_count == 0
+        and concrete_url_value_count == 0
+        and filled_candidate_value_count == 0
+    )
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_checksum_from_report(
+    report: dict[str, Any],
+) -> str:
+    payload = {
+        "scope_rows": report.get("seed_template_scope_rows") or [],
+        "upstream_rows": report.get("upstream_validation_rows") or [],
+        "seed_template_rows": report.get("seed_template_rows") or [],
+        "candidate_slot_rows": report.get("candidate_slot_rows") or [],
+        "field_contract_rows": report.get("seed_field_contract_rows") or [],
+        "placeholder_rows": report.get("placeholder_rule_rows") or [],
+        "instruction_rows": report.get("operator_instruction_rows") or [],
+        "validation_rows": report.get("validation_rule_rows") or [],
+        "manual_rows": report.get("manual_review_gate_rows") or [],
+        "official_rows": report.get("official_source_rule_rows") or [],
+        "exclusion_rows": report.get("exclusion_rule_rows") or [],
+        "methodology_rows": report.get("methodology_action_rows") or [],
+        "safety_rows": report.get("safety_gate_rows") or [],
+        "next_task_rows": report.get("next_task_rows") or [],
+        "check_rows": report.get("multi_issuer_source_candidate_seed_template_check_rows") or [],
+    }
+    return _rzd_controlled_values_import_plan_sha(payload)
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_normalize_report(
+    report: dict[str, Any],
+) -> None:
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_BOOL_FIELDS:
+        report[field] = _as_bool(report.get(field))
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_COUNT_FIELDS:
+        report[field] = int(report.get(field) or 0)
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_LIST_FIELDS:
+        value = report.get(field)
+        report[field] = value if isinstance(value, list) else []
+    for field in (
+        "mode", "status", "multi_issuer_source_candidate_seed_template_status",
+        "source_candidate_seed_template_scope", "task212_input_path",
+        "task212_status",
+        "task212_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256",
+        "multi_issuer_source_candidate_seed_template_checksum_sha256",
+        "next_step", "safe_hint",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["bad_safety_codes"] = sorted({
+        str(code)
+        for code in report.get("bad_safety_codes") or []
+        if isinstance(code, str) and code
+    })
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    count_rows = {
+        "seed_template_scope_count": "seed_template_scope_rows",
+        "upstream_validation_count": "upstream_validation_rows",
+        "candidate_slot_count": "candidate_slot_rows",
+        "seed_template_row_count": "seed_template_rows",
+        "seed_field_count": "seed_field_contract_rows",
+        "placeholder_rule_count": "placeholder_rule_rows",
+        "operator_instruction_count": "operator_instruction_rows",
+        "validation_rule_count": "validation_rule_rows",
+        "manual_review_gate_count": "manual_review_gate_rows",
+        "official_source_rule_count": "official_source_rule_rows",
+        "exclusion_rule_count": "exclusion_rule_rows",
+        "methodology_action_count": "methodology_action_rows",
+        "safety_gate_count": "safety_gate_rows",
+        "next_task_count": "next_task_rows",
+        "multi_issuer_source_candidate_seed_template_check_count": (
+            "multi_issuer_source_candidate_seed_template_check_rows"
+        ),
+        "blocker_count": "blocker_rows",
+    }
+    for count_field, rows_field in count_rows.items():
+        report[count_field] = len(report.get(rows_field) or [])
+    report["controlled_import_apply_blocked_valid"] = (
+        not report["ready_for_controlled_import_apply"]
+        and not report["controlled_import_apply_ready"]
+        and not report["controlled_import_executed"]
+    )
+
+
+def _build_rzd_controlled_values_multi_issuer_source_candidate_seed_template_report(
+    task212: dict[str, Any],
+    *,
+    task212_path: Path | None,
+) -> dict[str, Any]:
+    blocker_rows: list[dict[str, Any]] = []
+    bad_safety_codes: set[str] = set()
+
+    def add_blocker(code: str, details: dict[str, Any] | None = None) -> None:
+        blocker_rows.append(
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_blocker_row(
+                code,
+                details=details,
+            )
+        )
+
+    if not task212:
+        add_blocker("task212_input_missing", {"path": str(task212_path or "")})
+    upstream_rows_raw = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_upstream_rows(
+            task212
+        )
+        if task212
+        else []
+    )
+    if task212 and not all(row["passed"] for row in upstream_rows_raw):
+        for row in upstream_rows_raw:
+            if not row["passed"]:
+                add_blocker(
+                    f"{row['validation_key']}_invalid",
+                    {"actual_status": row["actual_status"]},
+                )
+    task212_handoff_valid = bool(
+        task212
+        and upstream_rows_raw
+        and all(row["passed"] for row in upstream_rows_raw)
+    )
+
+    if task212_handoff_valid:
+        scope_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_scope_rows()
+        )
+        template_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_rows()
+        )
+        candidate_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_candidate_rows()
+        )
+        field_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_field_rows()
+        )
+        placeholder_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_placeholder_rows()
+        )
+        instruction_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_instruction_rows()
+        )
+        validation_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_validation_rows()
+        )
+        manual_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_manual_rows()
+        )
+        official_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_official_rule_rows()
+        )
+        exclusion_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_exclusion_rows()
+        )
+        methodology_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_methodology_rows()
+        )
+        safety_rows_raw = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_rows()
+        )
+    else:
+        scope_rows_raw = []
+        template_rows_raw = []
+        candidate_rows_raw = []
+        field_rows_raw = []
+        placeholder_rows_raw = []
+        instruction_rows_raw = []
+        validation_rows_raw = []
+        manual_rows_raw = []
+        official_rows_raw = []
+        exclusion_rows_raw = []
+        methodology_rows_raw = []
+        safety_rows_raw = []
+
+    generated_rows = [
+        *scope_rows_raw, *upstream_rows_raw, *template_rows_raw,
+        *candidate_rows_raw, *field_rows_raw, *placeholder_rows_raw,
+        *instruction_rows_raw, *validation_rows_raw, *manual_rows_raw,
+        *official_rows_raw, *exclusion_rows_raw, *methodology_rows_raw,
+        *safety_rows_raw, *blocker_rows,
+    ]
+    issuer_count, url_count, filled_count, generated_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_findings(
+            generated_rows
+        )
+    )
+    for code in generated_codes:
+        bad_safety_codes.add(code)
+        add_blocker(code)
+
+    template_rows = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_sanitize_rows(
+            template_rows_raw
+        )
+    )
+    project = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_project_rows
+    )
+    scope_rows = project(
+        scope_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_SCOPE_FIELDS,
+    )
+    upstream_rows = project(
+        upstream_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_UPSTREAM_FIELDS,
+    )
+    candidate_rows = project(
+        candidate_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_CANDIDATE_SLOT_FIELDS,
+    )
+    field_rows = project(
+        field_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELD_CONTRACT_FIELDS,
+    )
+    placeholder_rows = project(
+        placeholder_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_PLACEHOLDER_RULE_FIELDS,
+    )
+    instruction_rows = project(
+        instruction_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_OPERATOR_INSTRUCTION_FIELDS,
+    )
+    validation_rows = project(
+        validation_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_VALIDATION_RULE_FIELDS,
+    )
+    manual_rows = project(
+        manual_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_MANUAL_REVIEW_FIELDS,
+    )
+    official_rows = project(
+        official_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_OFFICIAL_RULE_FIELDS,
+    )
+    exclusion_rows = project(
+        exclusion_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_EXCLUSION_FIELDS,
+    )
+    methodology_rows = project(
+        methodology_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_METHODOLOGY_FIELDS,
+    )
+    safety_rows = project(
+        safety_rows_raw,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_SAFETY_FIELDS,
+    )
+
+    validity_checks = {
+        "task212_handoff_valid": task212_handoff_valid,
+        "seed_template_scope_valid": len(scope_rows) == 10,
+        "upstream_validation_valid": bool(upstream_rows) and all(row["passed"] for row in upstream_rows),
+        "seed_template_rows_valid": len(template_rows) == 3 and all(
+            list(row) == list(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS)
+            for row in template_rows
+        ),
+        "candidate_slots_valid": len(candidate_rows) == 3 and all(
+            row["operator_fill_required"]
+            and row["manual_review_required"]
+            and row["official_source_validation_required"]
+            and not row["accepted_evidence"]
+            and not row["import_ready"]
+            and not row["scoring_ready"]
+            and not row["recommendation_ready"]
+            for row in candidate_rows
+        ),
+        "field_contract_valid": len(field_rows) == 14 and [
+            row["field_name"] for row in field_rows
+        ] == list(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS),
+        "placeholder_rules_valid": len(placeholder_rows) == 14 and all(
+            not row["concrete_value_allowed"] for row in placeholder_rows
+        ),
+        "operator_instructions_valid": len(instruction_rows) == 8 and all(
+            not row["network_allowed"] and not row["database_allowed"]
+            for row in instruction_rows
+        ),
+        "validation_rules_valid": len(validation_rows) == 12 and all(
+            not row["network_required"] and not row["database_required"]
+            for row in validation_rows
+        ),
+        "manual_review_gates_valid": len(manual_rows) == 12,
+        "official_source_rules_valid": len(official_rows) == 12,
+        "exclusion_rules_valid": len(exclusion_rows) == 10,
+        "methodology_actions_preserved": len(methodology_rows) == 6,
+        "safety_gates_valid": len(safety_rows) == 46,
+        "no_concrete_issuer_values_valid": issuer_count == 0,
+        "no_concrete_url_values_valid": url_count == 0,
+        "no_filled_candidate_values_valid": filled_count == 0,
+        "empty_template_valid": (
+            len(template_rows) == 3
+            and _rzd_controlled_values_multi_issuer_source_candidate_seed_template_filled_value_count(
+                template_rows
+            ) == 0
+        ),
+    }
+    if task212_handoff_valid:
+        for key, passed in validity_checks.items():
+            if not passed and key != "task212_handoff_valid":
+                add_blocker(key.replace("_valid", "_invalid"))
+
+    status = "blocked" if blocker_rows or bad_safety_codes else "warning"
+    template_valid = all(validity_checks.values())
+    task214_allowed = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_task214_allowed(
+            status=status,
+            template_valid=template_valid,
+            task212_handoff_valid=task212_handoff_valid,
+            blocker_count=len(blocker_rows),
+            bad_safety_count=len(bad_safety_codes),
+            concrete_issuer_value_count=issuer_count,
+            concrete_url_value_count=url_count,
+            filled_candidate_value_count=filled_count,
+        )
+    )
+    next_task_rows = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_next_task_rows(
+            task214_allowed
+        )
+    )
+    validity_checks["next_tasks_valid"] = bool(
+        task214_allowed
+        and len(next_task_rows) == 5
+        and sum(row["allowed_now"] is True for row in next_task_rows) == 1
+        and next_task_rows[0]["task_id"] == "Task214"
+        and next_task_rows[0]["allowed_now"] is True
+    )
+    check_rows = [
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_check_row(
+            key,
+            passed=bool(passed),
+        )
+        for key, passed in validity_checks.items()
+    ]
+    for index, row in enumerate(check_rows, start=1):
+        row["check_index"] = index
+    for index, row in enumerate(blocker_rows, start=1):
+        row["blocker_index"] = index
+    blocker_rows = project(
+        blocker_rows,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_BLOCKER_FIELDS,
+    )
+    check_rows = project(
+        check_rows,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_CHECK_FIELDS,
+    )
+    next_task_rows = project(
+        next_task_rows,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_NEXT_TASK_FIELDS,
+    )
+    safety_flags = {
+        field: False
+        for field in dict.fromkeys(
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS
+        )
+    }
+    task212_checksum = str(
+        task212.get("multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256")
+        or ""
+    )
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template",
+        "status": status,
+        "multi_issuer_source_candidate_seed_template_status": status,
+        "multi_issuer_source_candidate_seed_template_ready": task214_allowed,
+        "ready_for_task214_multi_issuer_source_candidate_seed_fill_plan": task214_allowed,
+        "ready_for_task213_multi_issuer_source_candidate_seed_template": False,
+        "ready_for_task215_multi_issuer_source_candidate_seed_fill": False,
+        "ready_for_task216_multi_issuer_source_candidate_seed_review_gate": False,
+        "ready_for_task217_multi_issuer_evidence_extraction_dry_run_plan": False,
+        "ready_for_task218_multi_issuer_controlled_import_apply_plan": False,
+        "ready_for_controlled_import_apply": False,
+        "controlled_import_apply_ready": False,
+        "ready_for_scoring": False,
+        "ready_for_trading": False,
+        "ready_for_paper_trading": False,
+        "task212_input_path": str(task212_path or ""),
+        "task212_status": str(task212.get("status") or ""),
+        "task212_multi_issuer_source_candidate_seed_prepare_plan_ready": _as_bool(
+            task212.get("multi_issuer_source_candidate_seed_prepare_plan_ready")
+        ),
+        "task212_ready_for_task213_multi_issuer_source_candidate_seed_template": _as_bool(
+            task212.get("ready_for_task213_multi_issuer_source_candidate_seed_template")
+        ),
+        "task212_next_tasks_valid": _as_bool(task212.get("next_tasks_valid")),
+        "task212_handoff_valid": task212_handoff_valid,
+        "task212_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256": (
+            task212_checksum
+            if re.fullmatch(r"[0-9a-f]{64}", task212_checksum)
+            else ""
+        ),
+        "source_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256": (
+            task212_checksum
+            if re.fullmatch(r"[0-9a-f]{64}", task212_checksum)
+            else ""
+        ),
+        "source_candidate_seed_template_scope": "empty_operator_fillable_template",
+        "seed_template_scope_rows": scope_rows,
+        "upstream_validation_rows": upstream_rows,
+        "seed_template_rows": template_rows,
+        "candidate_slot_rows": candidate_rows,
+        "seed_field_contract_rows": field_rows,
+        "placeholder_rule_rows": placeholder_rows,
+        "operator_instruction_rows": instruction_rows,
+        "validation_rule_rows": validation_rows,
+        "manual_review_gate_rows": manual_rows,
+        "official_source_rule_rows": official_rows,
+        "exclusion_rule_rows": exclusion_rows,
+        "methodology_action_rows": methodology_rows,
+        "safety_gate_rows": safety_rows,
+        "next_task_rows": next_task_rows,
+        "multi_issuer_source_candidate_seed_template_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "bad_safety_codes": sorted(bad_safety_codes),
+        "concrete_issuer_value_count": issuer_count,
+        "concrete_url_value_count": url_count,
+        "filled_candidate_value_count": filled_count,
+        "next_tasks_valid": task214_allowed,
+        "multi_issuer_source_candidate_seed_template_executed": True,
+        "seed_template_created": task214_allowed,
+        "source_candidate_seed_created": False,
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_TASK214_NEXT_STEP
+            if task214_allowed
+            else RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_BLOCKED_NEXT_STEP
+        ),
+        "next_steps": [(
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_TASK214_NEXT_STEP
+            if task214_allowed
+            else RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_BLOCKED_NEXT_STEP
+        )],
+        "safe_hint": (
+            "The empty template exists; no candidate is filled, reviewed, or accepted."
+            if task214_allowed
+            else "Task214 remains blocked until Task213 blockers are resolved."
+        ),
+        "errors": [],
+        "safety_flags": safety_flags,
+        **safety_flags,
+    }
+    for key, value in validity_checks.items():
+        report[key] = bool(value)
+    _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_sanitize_report(
+        report
+    )
+    _rzd_controlled_values_multi_issuer_source_candidate_seed_template_normalize_report(
+        report
+    )
+    report["multi_issuer_source_candidate_seed_template_checksum_sha256"] = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_checksum_from_report(
+            report
+        )
+    )
+    return report
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_failed_report(
+    errors: list[dict[str, Any]],
+    *,
+    artifacts: dict[str, Path | None] | None = None,
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    safety_flags = {
+        field: False
+        for field in dict.fromkeys(
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS
+        )
+    }
+    report: dict[str, Any] = {
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-template",
+        "status": "failed",
+        "multi_issuer_source_candidate_seed_template_status": "failed",
+        "multi_issuer_source_candidate_seed_template_ready": False,
+        "ready_for_task214_multi_issuer_source_candidate_seed_fill_plan": False,
+        "ready_for_task213_multi_issuer_source_candidate_seed_template": False,
+        "ready_for_task215_multi_issuer_source_candidate_seed_fill": False,
+        "ready_for_task216_multi_issuer_source_candidate_seed_review_gate": False,
+        "ready_for_task217_multi_issuer_evidence_extraction_dry_run_plan": False,
+        "ready_for_task218_multi_issuer_controlled_import_apply_plan": False,
+        "ready_for_controlled_import_apply": False,
+        "controlled_import_apply_ready": False,
+        "ready_for_scoring": False,
+        "ready_for_trading": False,
+        "ready_for_paper_trading": False,
+        "task212_input_path": "",
+        "task212_status": "",
+        "task212_multi_issuer_source_candidate_seed_prepare_plan_ready": False,
+        "task212_ready_for_task213_multi_issuer_source_candidate_seed_template": False,
+        "task212_next_tasks_valid": False,
+        "task212_handoff_valid": False,
+        "task212_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256": "",
+        "source_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256": "",
+        "source_candidate_seed_template_scope": "template_failed_before_creation",
+        **{
+            field: []
+            for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_REQUIRED_LIST_FIELDS
+        },
+        "next_task_rows": (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_next_task_rows(
+                False
+            )
+        ),
+        "blocker_rows": [
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_blocker_row(
+                "task213_failed"
+            )
+        ],
+        "bad_safety_codes": [],
+        "concrete_issuer_value_count": 0,
+        "concrete_url_value_count": 0,
+        "filled_candidate_value_count": 0,
+        "next_tasks_valid": False,
+        "multi_issuer_source_candidate_seed_template_executed": False,
+        "seed_template_created": False,
+        "source_candidate_seed_created": False,
+        "next_step": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FAILED_NEXT_STEP,
+        "next_steps": [
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FAILED_NEXT_STEP
+        ],
+        "safe_hint": "Task213 failed before creating the empty seed template.",
+        "errors": errors,
+        "safety_flags": safety_flags,
+        **safety_flags,
+    }
+    for field in (
+        "seed_template_scope_valid", "upstream_validation_valid",
+        "seed_template_rows_valid", "candidate_slots_valid",
+        "field_contract_valid", "placeholder_rules_valid",
+        "operator_instructions_valid", "validation_rules_valid",
+        "manual_review_gates_valid", "official_source_rules_valid",
+        "exclusion_rules_valid", "methodology_actions_preserved",
+        "safety_gates_valid", "no_concrete_issuer_values_valid",
+        "no_concrete_url_values_valid", "no_filled_candidate_values_valid",
+        "empty_template_valid", "controlled_import_apply_blocked_valid",
+    ):
+        report[field] = False
+    _rzd_controlled_values_multi_issuer_source_candidate_seed_template_normalize_report(
+        report
+    )
+    report["multi_issuer_source_candidate_seed_template_checksum_sha256"] = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_checksum_from_report(
+            report
+        )
+    )
+    if artifacts and write_outputs:
+        try:
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_write_outputs(
+                report,
+                artifacts,
+            )
+        except Exception as exc:
+            report["errors"] = [
+                *report["errors"],
+                {
+                    "message": "controlled_values_multi_issuer_source_candidate_seed_template_write_failed",
+                    "error": str(exc),
+                },
+            ]
+    return report
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_markdown(
+    report: dict[str, Any],
+) -> str:
+    task214_allowed = (
+        report.get("ready_for_task214_multi_issuer_source_candidate_seed_fill_plan")
+        is True
+    )
+    status = str(report.get("status") or "")
+    if task214_allowed:
+        decision = [
+            "The empty operator-fillable seed template exists.",
+            "No candidate, source, document, metric, or evidence value is populated.",
+            "Task214 source-candidate seed fill planning is unlocked.",
+        ]
+    elif status == "failed":
+        decision = [
+            "Task214 remains blocked.",
+            "Repair the failed Task213 template and rerun it.",
+        ]
+    else:
+        decision = [
+            "Task214 remains blocked.",
+            "Resolve Task213 blockers and rerun the template mode.",
+        ]
+    lines = [
+        "# Multi-Issuer Source Candidate Seed Template",
+        "",
+        "## Status",
+        f"- Task213 status: `{report.get('status')}`",
+        f"- template ready: `{report.get('multi_issuer_source_candidate_seed_template_ready')}`",
+        f"- Task214 ready: `{report.get('ready_for_task214_multi_issuer_source_candidate_seed_fill_plan')}`",
+        f"- Task212 handoff valid: `{report.get('task212_handoff_valid')}`",
+        "",
+        "## Empty template",
+        f"- candidate slots: `{report.get('candidate_slot_count')}`",
+        f"- template rows: `{report.get('seed_template_row_count')}`",
+        f"- seed fields: `{report.get('seed_field_count')}`",
+        f"- filled candidate values: `{report.get('filled_candidate_value_count')}`",
+        f"- seed_template_created: `{report.get('seed_template_created')}`",
+        f"- source_candidate_seed_materialized: `{report.get('source_candidate_seed_materialized')}`",
+        "",
+        "## Safety",
+        f"- blocker count: `{report.get('blocker_count')}`",
+        f"- bad safety count: `{report.get('bad_safety_count')}`",
+        f"- concrete issuer count: `{report.get('concrete_issuer_value_count')}`",
+        f"- concrete URL count: `{report.get('concrete_url_value_count')}`",
+        "No network, database, extraction, import, scoring, recommendation, ranking, broker, export, or trading action was executed.",
+        "",
+        "## Lineage and checksum",
+        f"- Task212 checksum: `{report.get('source_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256')}`",
+        f"- Task213 checksum: `{report.get('multi_issuer_source_candidate_seed_template_checksum_sha256')}`",
+        "",
+        "## Next step",
+        f"- next_tasks_valid: `{report.get('next_tasks_valid')}`",
+        f"- next_step: `{report.get('next_step')}`",
+        "",
+        "## Decision",
+        *decision,
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_wrapper_payloads(
+    report: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    checksum = report.get(
+        "multi_issuer_source_candidate_seed_template_checksum_sha256",
+        "",
+    )
+    envelope = {
+        "status": report.get("status", ""),
+        "multi_issuer_source_candidate_seed_template_ready": report.get(
+            "multi_issuer_source_candidate_seed_template_ready",
+            False,
+        ),
+        "ready_for_task214_multi_issuer_source_candidate_seed_fill_plan": report.get(
+            "ready_for_task214_multi_issuer_source_candidate_seed_fill_plan",
+            False,
+        ),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "multi_issuer_source_candidate_seed_template_checksum_sha256": checksum,
+    }
+    return {
+        "checks_json": {
+            "multi_issuer_source_candidate_seed_template_check_count": report.get(
+                "multi_issuer_source_candidate_seed_template_check_count", 0
+            ),
+            "multi_issuer_source_candidate_seed_template_check_rows": report.get(
+                "multi_issuer_source_candidate_seed_template_check_rows"
+            ) or [],
+        },
+        "blockers_json": {
+            **envelope,
+            "blocker_rows": report.get("blocker_rows") or [],
+        },
+        "scope_json": {
+            **envelope,
+            "source_candidate_seed_template_scope": report.get(
+                "source_candidate_seed_template_scope", ""
+            ),
+            "seed_template_scope_count": report.get("seed_template_scope_count", 0),
+            "seed_template_scope_rows": report.get("seed_template_scope_rows") or [],
+        },
+        "upstream_validation_json": {
+            "upstream_validation_count": report.get("upstream_validation_count", 0),
+            "upstream_validation_rows": report.get("upstream_validation_rows") or [],
+        },
+        "seed_template_json": {
+            **envelope,
+            "seed_template_created": report.get("seed_template_created", False),
+            "seed_template_row_count": report.get("seed_template_row_count", 0),
+            "seed_template_rows": report.get("seed_template_rows") or [],
+            "filled_candidate_value_count": report.get("filled_candidate_value_count", 0),
+        },
+        "candidate_slots_json": {
+            "candidate_slot_count": report.get("candidate_slot_count", 0),
+            "candidate_slot_rows": report.get("candidate_slot_rows") or [],
+        },
+        "field_contract_json": {
+            "seed_field_count": report.get("seed_field_count", 0),
+            "seed_field_contract_rows": report.get("seed_field_contract_rows") or [],
+        },
+        "placeholder_rules_json": {
+            "placeholder_rule_count": report.get("placeholder_rule_count", 0),
+            "placeholder_rule_rows": report.get("placeholder_rule_rows") or [],
+        },
+        "operator_instructions_json": {
+            "operator_instruction_count": report.get("operator_instruction_count", 0),
+            "operator_instruction_rows": report.get("operator_instruction_rows") or [],
+        },
+        "validation_rules_json": {
+            "validation_rule_count": report.get("validation_rule_count", 0),
+            "validation_rule_rows": report.get("validation_rule_rows") or [],
+        },
+        "manual_review_gates_json": {
+            "manual_review_gate_count": report.get("manual_review_gate_count", 0),
+            "manual_review_gate_rows": report.get("manual_review_gate_rows") or [],
+        },
+        "official_source_rules_json": {
+            "official_source_rule_count": report.get("official_source_rule_count", 0),
+            "official_source_rule_rows": report.get("official_source_rule_rows") or [],
+        },
+        "exclusion_rules_json": {
+            "exclusion_rule_count": report.get("exclusion_rule_count", 0),
+            "exclusion_rule_rows": report.get("exclusion_rule_rows") or [],
+        },
+        "methodology_actions_json": {
+            "methodology_action_count": report.get("methodology_action_count", 0),
+            "methodology_action_rows": report.get("methodology_action_rows") or [],
+        },
+        "safety_gates_json": {
+            "safety_gate_count": report.get("safety_gate_count", 0),
+            "safety_gate_rows": report.get("safety_gate_rows") or [],
+        },
+        "next_tasks_json": {
+            **envelope,
+            "next_tasks_valid": report.get("next_tasks_valid", False),
+            "next_task_count": report.get("next_task_count", 0),
+            "next_task_rows": report.get("next_task_rows") or [],
+        },
+        "summary_json": {
+            **envelope,
+            "multi_issuer_source_candidate_seed_template_status": report.get(
+                "multi_issuer_source_candidate_seed_template_status", ""
+            ),
+            "candidate_slot_count": report.get("candidate_slot_count", 0),
+            "seed_field_count": report.get("seed_field_count", 0),
+            "concrete_issuer_value_count": report.get("concrete_issuer_value_count", 0),
+            "concrete_url_value_count": report.get("concrete_url_value_count", 0),
+            "filled_candidate_value_count": report.get("filled_candidate_value_count", 0),
+            "source_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256": report.get(
+                "source_multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256",
+                "",
+            ),
+        },
+        "safety_json": {
+            **envelope,
+            "bad_safety_codes": report.get("bad_safety_codes") or [],
+            "concrete_issuer_value_count": report.get("concrete_issuer_value_count", 0),
+            "concrete_url_value_count": report.get("concrete_url_value_count", 0),
+            "filled_candidate_value_count": report.get("filled_candidate_value_count", 0),
+            **{
+                field: report.get(field, False)
+                for field in dict.fromkeys(
+                    RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FALSE_FIELDS
+                )
+            },
+            "safety_gate_count": report.get("safety_gate_count", 0),
+            "safety_gate_rows": report.get("safety_gate_rows") or [],
+        },
+    }
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_write_outputs_direct(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("template_json"):
+        write_json_report(report, artifacts["template_json"])
+    if artifacts.get("template_markdown"):
+        path = artifacts["template_markdown"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template_markdown(
+                report
+            ),
+            encoding="utf-8",
+        )
+    for key, payload in (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_wrapper_payloads(
+            report
+        ).items()
+    ):
+        path = artifacts.get(key)
+        if path:
+            write_json_report(payload, path)
+
+
+def _rzd_controlled_values_multi_issuer_source_candidate_seed_template_write_outputs(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    targets = {key: path for key, path in artifacts.items() if path is not None}
+    stage_roots: dict[Path, Path] = {}
+    staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            staging_parent = target.parent.parent
+            staging_parent.mkdir(parents=True, exist_ok=True)
+            stage_root = stage_roots.get(staging_parent)
+            if stage_root is None:
+                stage_root = Path(
+                    tempfile.mkdtemp(
+                        prefix=".task213-source-seed-template-",
+                        dir=staging_parent,
+                    )
+                )
+                stage_roots[staging_parent] = stage_root
+            staged[key] = stage_root / f"{index:02d}{target.suffix}"
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_write_outputs_direct(
+            report,
+            staged,
+        )
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"
+                shutil.copy2(target, backup)
+                backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target)
+            published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup is not None and backup.is_file():
+                    os.replace(backup, target)
+                elif target in published and target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise
+    finally:
+        for root in stage_roots.values():
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_template(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_inputs(args)
+    )
+    artifacts = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_artifacts(
+            args
+        )
+    )
+    output_errors = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_output_errors(
+            inputs=inputs,
+            artifacts=artifacts,
+        )
+    )
+    if output_errors:
+        return (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_failed_report(
+                output_errors,
+                artifacts=artifacts,
+                write_outputs=False,
+            )
+        )
+    task212_path = inputs.get("task212")
+    try:
+        task212 = (
+            _load_json_object(task212_path)
+            if task212_path is not None and task212_path.is_file()
+            else {}
+        )
+    except Exception as exc:
+        return (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_failed_report(
+                [{
+                    "message": "controlled_values_multi_issuer_source_candidate_seed_template_input_required",
+                    "error": str(exc),
+                }],
+                artifacts=artifacts,
+            )
+        )
+    report = (
+        _build_rzd_controlled_values_multi_issuer_source_candidate_seed_template_report(
+            task212,
+            task212_path=task212_path,
+        )
+    )
+    try:
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_write_outputs(
+            report,
+            artifacts,
+        )
+    except Exception as exc:
+        report = (
+            _rzd_controlled_values_multi_issuer_source_candidate_seed_template_failed_report(
+                [{
+                    "message": "controlled_values_multi_issuer_source_candidate_seed_template_write_failed",
+                    "error": str(exc),
+                }],
+                artifacts=artifacts,
+            )
+        )
     return report
 
 
