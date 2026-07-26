@@ -27203,6 +27203,919 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
     _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_review_gate_fields(failed)
 
 
+def _write_task212_ready_task211(chain: Path, tmp_path: Path, monkeypatch) -> dict:
+    _write_task211_ready_task210(chain, tmp_path, monkeypatch)
+    return _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task211 = _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert task211["ready_for_task212_multi_issuer_source_candidate_seed_prepare_plan"] is True
+    assert report["status"] == "warning"
+    assert report["multi_issuer_source_candidate_seed_prepare_plan_status"] == "warning"
+    assert report["multi_issuer_source_candidate_seed_prepare_plan_ready"] is True
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is True
+    assert report["blocker_count"] == report["bad_safety_count"] == 0
+    assert report["source_candidate_seed_prepare_scope"] == "plan_only_no_seed_materialization"
+    assert report["planned_source_candidate_seed_prepare_scope_count"] == 10
+    assert report["source_candidate_seed_prepare_scope_count"] == 10
+    assert report["candidate_slot_plan_count"] == 3
+    assert report["seed_field_contract_count"] == 14
+    assert report["source_candidate_seed_preparation_step_count"] == 10
+    assert report["allowed_source_type_plan_count"] == 8
+    assert report["official_source_rule_count"] == 12
+    assert report["source_exclusion_rule_count"] == 10
+    assert report["manual_review_gate_count"] == 12
+    assert report["source_candidate_seed_validation_plan_count"] == 12
+    assert report["blocked_execution_policy_count"] == 24
+    assert report["methodology_action_strategy_count"] == 6
+    assert report["safety_gate_count"] == 46
+    assert report["concrete_issuer_value_count"] == 0
+    assert report["concrete_url_value_count"] == 0
+    assert [row["slot_id"] for row in report["candidate_slot_plan_rows"]] == [
+        "candidate_slot_001",
+        "candidate_slot_002",
+        "candidate_slot_003",
+    ]
+    assert all(row["concrete_values_allowed"] is False for row in report["candidate_slot_plan_rows"])
+    assert [row["field_name"] for row in report["seed_field_contract_rows"]] == [
+        "candidate_slot_id",
+        "issuer_name",
+        "issuer_inn",
+        "issuer_ogrn",
+        "source_type_key",
+        "source_url",
+        "official_source_url",
+        "document_title",
+        "report_year",
+        "report_standard",
+        "document_language",
+        "source_locator_notes",
+        "operator_review_status",
+        "safe_hint",
+    ]
+    assert next(row for row in report["seed_field_contract_rows"] if row["field_name"] == "report_year")["field_type"] == "int"
+    assert all(
+        row["field_type"] == "str"
+        for row in report["seed_field_contract_rows"]
+        if row["field_name"] != "report_year"
+    )
+    assert all(row["placeholder_allowed"] is True for row in report["seed_field_contract_rows"])
+    assert all(row["concrete_value_allowed_in_task212"] is False for row in report["seed_field_contract_rows"])
+    assert all(row["completion_status"] == "planned" for row in report["source_candidate_seed_preparation_step_rows"])
+    assert all(row["network_required"] is False for row in report["source_candidate_seed_preparation_step_rows"])
+    assert all(row["database_required"] is False for row in report["source_candidate_seed_preparation_step_rows"])
+    assert all(row["constitutes_source_backed_evidence"] is False for row in report["allowed_source_type_plan_rows"])
+    assert all(row["live_access_allowed"] is False for row in report["allowed_source_type_plan_rows"])
+    assert report["task211_multi_issuer_source_candidate_seed_review_gate_checksum_sha256"] == task211["multi_issuer_source_candidate_seed_review_gate_checksum_sha256"]
+    assert report["source_multi_issuer_source_candidate_seed_review_gate_checksum_sha256"] == task211["multi_issuer_source_candidate_seed_review_gate_checksum_sha256"]
+    assert re.fullmatch(r"[0-9a-f]{64}", report["multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256"])
+    next_by_id = {row["task_id"]: row for row in report["next_task_rows"]}
+    assert next_by_id["Task213"]["allowed_now"] is True
+    assert all(row["allowed_now"] is False for task_id, row in next_by_id.items() if task_id != "Task213")
+    assert report["next_tasks_valid"] is True
+    assert report["next_step"] == assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_TASK213_NEXT_STEP
+    assert len(
+        [
+            path
+            for path in chain.iterdir()
+            if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+        ]
+    ) == 20
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_wrappers_markdown(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    stem = "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_"
+    payloads = {
+        key: json.loads((chain / name).read_text(encoding="utf-8"))
+        for key, name in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_ARTIFACT_NAMES.items()
+        if name.endswith(".json")
+    }
+    markdown = (chain / f"{stem}task212.md").read_text(encoding="utf-8")
+
+    assert payloads["plan_json"] == report
+    assert payloads["checks_json"]["multi_issuer_source_candidate_seed_prepare_plan_check_rows"] == report["multi_issuer_source_candidate_seed_prepare_plan_check_rows"]
+    assert payloads["scope_json"]["source_candidate_seed_prepare_scope_rows"] == report["source_candidate_seed_prepare_scope_rows"]
+    assert payloads["candidate_slots_json"]["candidate_slot_plan_rows"] == report["candidate_slot_plan_rows"]
+    assert payloads["seed_field_contract_json"]["seed_field_contract_rows"] == report["seed_field_contract_rows"]
+    assert payloads["preparation_steps_json"]["source_candidate_seed_preparation_step_rows"] == report["source_candidate_seed_preparation_step_rows"]
+    assert payloads["validation_plan_json"]["source_candidate_seed_validation_plan_rows"] == report["source_candidate_seed_validation_plan_rows"]
+    for key in ("scope_json", "summary_json", "safety_json"):
+        assert payloads[key]["multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256"] == report["multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256"]
+    assert payloads["summary_json"]["status"] == payloads["safety_json"]["status"] == payloads["blockers_json"]["status"] == payloads["next_tasks_json"]["status"] == "warning"
+    assert payloads["next_tasks_json"]["next_task_rows"] == report["next_task_rows"]
+    assert payloads["next_tasks_json"]["next_tasks_valid"] is True
+    assert "Task213 empty seed-template creation is unlocked." in markdown
+    assert f"Task212 checksum: `{report['multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256']}`" in markdown
+    assert "No seed file was created, loaded, reviewed, accepted, or materialized by Task212." in markdown
+    assert "Task213 remains blocked." not in markdown
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_explicit_first_and_missing_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task211 = _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    explicit = tmp_path / "explicit_task211.json"
+    explicit.write_text(json.dumps(task211, ensure_ascii=False), encoding="utf-8")
+    chain_task211 = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    chain_task211.write_text("{}", encoding="utf-8")
+
+    explicit_report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-input",
+            str(explicit),
+        ]
+    )
+    assert explicit_report["status"] == "warning"
+    assert explicit_report["task211_input_path"] == str(explicit)
+
+    missing_dir = tmp_path / "missing"
+    missing_dir.mkdir()
+    missing = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(missing_dir)]
+    )
+    assert missing["status"] == "blocked"
+    assert "task211_input_missing" in {row["code"] for row in missing["blocker_rows"]}
+    assert missing["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert missing["next_tasks_valid"] is False
+    assert all(row["allowed_now"] is False for row in missing["next_task_rows"])
+    assert len(missing["candidate_slot_plan_rows"]) == 3
+    assert len(missing["seed_field_contract_rows"]) == 14
+    assert len(missing["source_candidate_seed_preparation_step_rows"]) == 10
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(missing)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_dirty_upstream_and_bad_safety(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    task211_path = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    dirty = json.loads(task211_path.read_text(encoding="utf-8"))
+    dirty["blocker_count"] = 2
+    dirty["bad_safety_count"] = 1
+    task211_path.write_text(json.dumps(dirty, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    codes = {row["code"] for row in report["blocker_rows"]}
+    assert "task211_blocker_count_nonzero" in codes
+    assert "task211_bad_safety_count_nonzero" in codes
+    assert report["bad_safety_codes"] == ["task211_bad_safety_count_nonzero"]
+    assert report["bad_safety_count"] == 1
+    assert report["status"] == "blocked"
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_rejects_nested_upstream_safety_flags(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    task211_path = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    task211 = json.loads(task211_path.read_text(encoding="utf-8"))
+    task211.setdefault("safety_flags", {}).update(
+        {
+            "database_mutated": True,
+            "upsert_executed": True,
+            "source_documents_scraped": True,
+            "issuer_ranking_executed": True,
+            "ready_for_scoring": True,
+        }
+    )
+    task211_path.write_text(json.dumps(task211, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    blocker_codes = {row["code"] for row in report["blocker_rows"]}
+    assert "task211_dangerous_execution_flag_detected" in blocker_codes
+    assert "task211_unexpected_later_readiness" in blocker_codes
+    assert report["bad_safety_codes"] == [
+        "task211_dangerous_execution_flag_detected",
+        "task211_unexpected_later_readiness",
+    ]
+    assert report["status"] == "blocked"
+    assert report["task211_handoff_valid"] is False
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert report["next_tasks_valid"] is False
+    assert all(row["allowed_now"] is False for row in report["next_task_rows"])
+    for field in (
+        "database_mutated",
+        "upsert_executed",
+        "source_documents_scraped",
+        "issuer_ranking_executed",
+        "ready_for_scoring",
+    ):
+        assert report[field] is False
+    persisted_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    )
+    assert '"upsert_executed": true' not in persisted_text
+    assert '"source_documents_scraped": true' not in persisted_text
+    assert '"issuer_ranking_executed": true' not in persisted_text
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+@pytest.mark.parametrize(
+    ("checksum", "expected_status"),
+    [
+        ("", "blocked"),
+        ("A" * 64, "blocked"),
+        ("0" * 63, "blocked"),
+        ("g" * 64, "blocked"),
+        ("a" * 64, "warning"),
+    ],
+)
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_checksum_validation(
+    tmp_path: Path,
+    monkeypatch,
+    checksum: str,
+    expected_status: str,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    task211_path = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    task211 = json.loads(task211_path.read_text(encoding="utf-8"))
+    task211["multi_issuer_source_candidate_seed_review_gate_checksum_sha256"] = checksum
+    task211_path.write_text(json.dumps(task211, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == expected_status
+    assert (
+        "task211_checksum_invalid_sha256_format"
+        in {row["code"] for row in report["blocker_rows"]}
+    ) is (expected_status == "blocked")
+
+
+@pytest.mark.parametrize(
+    "forbidden_field",
+    tuple(
+        dict.fromkeys(
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_FALSE_FIELDS
+        )
+    ),
+)
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_detects_complete_forbidden_field_set(
+    forbidden_field: str,
+) -> None:
+    issuer_count, url_count, codes = (
+        assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_findings(
+            [{"safe_hint": {forbidden_field: True}}]
+        )
+    )
+    sanitized = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_sanitize_value(
+        {forbidden_field: True}
+    )
+
+    assert issuer_count == 0
+    assert url_count == 0
+    assert "forbidden_execution_flag_detected" in codes
+    assert len(codes) >= 2
+    assert sanitized[forbidden_field] is False
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_sanitizes_generated_leaks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    original_builder = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_candidate_rows
+
+    def leaking_rows(task211: dict) -> list[dict]:
+        rows = original_builder(task211)
+        rows[0].update(
+            {
+                "issuer_name": "LEAKED ISSUER",
+                "issuer_inn": "7700000000",
+                "issuer_ogrn": "1027700000000",
+                "isin": "RU000A000000",
+                "source_url": "https://leaked.invalid/report.pdf",
+                "ready_for_scoring": True,
+                "safe_hint": {
+                    "source_documents_downloaded": True,
+                    "source_documents_cached": True,
+                    "evidence_extraction_executed": True,
+                    "controlled_financial_values_created": True,
+                    "ranking_executed": True,
+                    "broker_api_called": True,
+                    "paper_trading_executed": True,
+                    "production_export_executed": True,
+                    "migration_executed": True,
+                    "source_candidate_seed_loaded": True,
+                    "source_candidate_seed_reviewed": True,
+                    "source_candidate_seed_accepted": True,
+                },
+            }
+        )
+        return rows
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_candidate_rows",
+        leaking_rows,
+    )
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    expected = {
+        "concrete_issuer_identity_detected",
+        "inn_detected",
+        "ogrn_detected",
+        "isin_detected",
+        "concrete_url_detected",
+        "scoring_readiness_detected",
+        "forbidden_execution_flag_detected",
+        "source_document_execution_detected",
+        "evidence_extraction_detected",
+        "controlled_value_execution_detected",
+        "ranking_readiness_detected",
+        "broker_execution_detected",
+        "trading_readiness_detected",
+        "export_execution_detected",
+        "database_mutation_detected",
+        "seed_materialization_detected",
+    }
+    assert report["status"] == "blocked"
+    assert expected.issubset(set(report["bad_safety_codes"]))
+    assert report["bad_safety_count"] == len(set(report["bad_safety_codes"]))
+    assert report["concrete_issuer_value_count"] == 4
+    assert report["concrete_url_value_count"] == 1
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    persisted_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    )
+    for raw_value in (
+        "LEAKED ISSUER",
+        "7700000000",
+        "1027700000000",
+        "RU000A000000",
+        "https://leaked.invalid/report.pdf",
+        '"source_documents_downloaded": true',
+        '"evidence_extraction_executed": true',
+        '"broker_api_called": true',
+        '"production_export_executed": true',
+    ):
+        assert raw_value not in persisted_text
+    assert report["candidate_slot_plan_rows"][0]["safe_hint"] == "redacted_unsafe_generated_value"
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+@pytest.mark.parametrize("row_family", ("scope", "upstream"))
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_sanitizes_scope_and_upstream_leaks(
+    tmp_path: Path,
+    monkeypatch,
+    row_family: str,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    unsafe_values = {
+        "issuer_name": "LEAKED SCOPE ISSUER",
+        "issuer_inn": "7800000000",
+        "issuer_ogrn": "1037800000000",
+        "isin": "RU000A111111",
+        "source_url": "https://scope-leak.invalid/report.pdf",
+        "source_documents_downloaded": True,
+        "controlled_import_executed": True,
+        "ranking_executed": True,
+        "broker_api_called": True,
+        "paper_trading_executed": True,
+        "safe_hint": {
+            "source_documents_downloaded": True,
+            "broker_api_called": True,
+        },
+    }
+    if row_family == "scope":
+        original_scope = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_scope_rows
+
+        def leaking_scope() -> list[dict]:
+            rows = original_scope()
+            rows[0].update(unsafe_values)
+            return rows
+
+        monkeypatch.setattr(
+            assistant,
+            "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_scope_rows",
+            leaking_scope,
+        )
+        report_row_key = "source_candidate_seed_prepare_scope_rows"
+    else:
+        original_upstream = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_upstream_rows
+
+        def leaking_upstream(task211: dict) -> list[dict]:
+            rows = original_upstream(task211)
+            rows[0].update(unsafe_values)
+            return rows
+
+        monkeypatch.setattr(
+            assistant,
+            "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_upstream_rows",
+            leaking_upstream,
+        )
+        report_row_key = "upstream_validation_rows"
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert report["bad_safety_count"] > 0
+    assert report["concrete_issuer_value_count"] == 4
+    assert report["concrete_url_value_count"] == 1
+    assert report[report_row_key][0]["safe_hint"] == "redacted_unsafe_generated_value"
+    persisted_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    )
+    for raw_value in (
+        "LEAKED SCOPE ISSUER",
+        "7800000000",
+        "1037800000000",
+        "RU000A111111",
+        "https://scope-leak.invalid/report.pdf",
+        '"source_documents_downloaded": true',
+        '"controlled_import_executed": true',
+        '"broker_api_called": true',
+    ):
+        assert raw_value not in persisted_text
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+@pytest.mark.parametrize("row_family", ("next_task", "check", "blocker"))
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_sanitizes_late_row_family_leaks_before_readiness(
+    tmp_path: Path,
+    monkeypatch,
+    row_family: str,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    unsafe_values = {
+        "issuer_name": "LEAKED LATE ISSUER",
+        "issuer_inn": "7900000000",
+        "issuer_ogrn": "1047900000000",
+        "isin": "RU000A222222",
+        "source_url": "https://late-leak.invalid/report.pdf",
+        "source_documents_downloaded": True,
+        "controlled_import_executed": True,
+        "ranking_executed": True,
+        "broker_api_called": True,
+        "paper_trading_executed": True,
+        "safe_hint": {
+            "source_documents_downloaded": True,
+            "broker_api_called": True,
+        },
+    }
+    if row_family == "next_task":
+        original_next = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_next_task_rows
+
+        def leaking_next(allowed: bool) -> list[dict]:
+            rows = original_next(allowed)
+            rows[0].update(unsafe_values)
+            return rows
+
+        monkeypatch.setattr(
+            assistant,
+            "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_next_task_rows",
+            leaking_next,
+        )
+        report_row_key = "next_task_rows"
+    elif row_family == "check":
+        original_check = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_check_row
+
+        def leaking_check(
+            code: str,
+            *,
+            passed: bool,
+            details: dict | None = None,
+        ) -> dict:
+            row = original_check(code, passed=passed, details=details)
+            row.update(unsafe_values)
+            return row
+
+        monkeypatch.setattr(
+            assistant,
+            "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_check_row",
+            leaking_check,
+        )
+        report_row_key = "multi_issuer_source_candidate_seed_prepare_plan_check_rows"
+    else:
+        original_blocker = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_blocker_row
+
+        def leaking_blocker(
+            code: str,
+            *,
+            details: dict | None = None,
+        ) -> dict:
+            row = original_blocker(code, details=details)
+            row.update(unsafe_values)
+            return row
+
+        monkeypatch.setattr(
+            assistant,
+            "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_blocker_row",
+            leaking_blocker,
+        )
+        report_row_key = "blocker_rows"
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert report["next_tasks_valid"] is False
+    assert all(row["allowed_now"] is False for row in report["next_task_rows"])
+    assert report["bad_safety_count"] > 0
+    assert report["concrete_issuer_value_count"] > 0
+    assert report["concrete_url_value_count"] > 0
+    assert report[report_row_key][0]["safe_hint"] == "redacted_unsafe_generated_value"
+    persisted_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    )
+    for raw_value in (
+        "LEAKED LATE ISSUER",
+        "7900000000",
+        "1047900000000",
+        "RU000A222222",
+        "https://late-leak.invalid/report.pdf",
+        '"source_documents_downloaded": true',
+        '"controlled_import_executed": true',
+        '"broker_api_called": true',
+    ):
+        assert raw_value not in persisted_text
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_sanitizes_upstream_scalar_leaks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    task211_path = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    task211 = json.loads(task211_path.read_text(encoding="utf-8"))
+    raw_status = (
+        "LEAKED STATUS ISSUER 7100000000 1057100000000 RU000A333333 "
+        "https://status-leak.invalid/report.pdf"
+    )
+    task211["status"] = raw_status
+    task211_path.write_text(json.dumps(task211, ensure_ascii=False), encoding="utf-8")
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert report["status"] == "blocked"
+    assert report["task211_status"] == "invalid"
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert report["bad_safety_count"] > 0
+    assert report["concrete_issuer_value_count"] > 0
+    assert report["concrete_url_value_count"] > 0
+    assert "untrusted_upstream_status_detected" in report["bad_safety_codes"]
+    persisted_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    )
+    for raw_value in (
+        "LEAKED STATUS ISSUER",
+        "7100000000",
+        "1057100000000",
+        "RU000A333333",
+        "https://status-leak.invalid/report.pdf",
+    ):
+        assert raw_value not in persisted_text
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_scans_exact_pre_readiness_check_rows(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    original_check = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_check_row
+    handoff_calls = 0
+
+    def third_call_leak(
+        code: str,
+        *,
+        passed: bool,
+        details: dict | None = None,
+    ) -> dict:
+        nonlocal handoff_calls
+        row = original_check(code, passed=passed, details=details)
+        if code == "task211_handoff_valid":
+            handoff_calls += 1
+            if handoff_calls == 3:
+                row["safe_hint"] = {
+                    "broker_api_called": True,
+                    "controlled_import_executed": True,
+                    "ready_for_scoring": True,
+                }
+                row["issuer_name"] = "LEAKED CHECK ISSUER"
+                row["source_url"] = "https://check-leak.invalid/report.pdf"
+        return row
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_check_row",
+        third_call_leak,
+    )
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+
+    assert handoff_calls == 8
+    assert report["status"] == "blocked"
+    assert report["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert report["bad_safety_count"] > 0
+    persisted_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    )
+    assert "LEAKED CHECK ISSUER" not in persisted_text
+    assert "https://check-leak.invalid/report.pdf" not in persisted_text
+    assert '"broker_api_called": true' not in persisted_text
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_malformed_persists_failed_family(
+    tmp_path: Path,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    malformed = tmp_path / "malformed_task211.json"
+    malformed.write_text('{"status": "warning", invalid-json', encoding="utf-8")
+    failed = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-input",
+            str(malformed),
+        ]
+    )
+    assert failed["status"] == "failed"
+    assert failed["multi_issuer_source_candidate_seed_prepare_plan_ready"] is False
+    assert failed["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert failed["next_tasks_valid"] is False
+    assert all(row["allowed_now"] is False for row in failed["next_task_rows"])
+    for rows_field in (
+        "source_candidate_seed_prepare_scope_rows",
+        "upstream_validation_rows",
+        "candidate_slot_plan_rows",
+        "seed_field_contract_rows",
+        "source_candidate_seed_preparation_step_rows",
+        "allowed_source_type_plan_rows",
+        "official_source_rule_rows",
+        "source_exclusion_rule_rows",
+        "manual_review_gate_rows",
+        "source_candidate_seed_validation_plan_rows",
+        "blocked_execution_policy_rows",
+        "methodology_action_strategy_rows",
+        "safety_gate_rows",
+    ):
+        assert failed[rows_field] == []
+    assert len(
+        [
+            path
+            for path in chain.iterdir()
+            if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+        ]
+    ) == 20
+    markdown = (chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_ARTIFACT_NAMES["plan_markdown"]).read_text(encoding="utf-8")
+    assert "Task213 remains blocked." in markdown
+    assert "Task213 empty seed-template creation is unlocked." not in markdown
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(failed)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_checksum_directory_independent(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    checksums = []
+    for suffix in ("a", "b"):
+        chain = tmp_path / suffix / "chain"
+        chain.mkdir(parents=True)
+        _write_task212_ready_task211(chain, tmp_path / suffix, monkeypatch)
+        report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+            ["--operator-resolution-chain-output-dir", str(chain)]
+        )
+        checksums.append(report["multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256"])
+    assert checksums[0] == checksums[1]
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_collisions_write_nothing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    task211_path = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    original = task211_path.read_bytes()
+    input_collision = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-output",
+            str(task211_path.parent / "." / task211_path.name),
+        ]
+    )
+    assert input_collision["status"] == "failed"
+    assert task211_path.read_bytes() == original
+    assert not [
+        path
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    ]
+
+    alias = tmp_path / "alias.json"
+    output_collision = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-output",
+            str(alias),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-summary-output",
+            str(alias.parent / "." / alias.name),
+        ]
+    )
+    assert output_collision["status"] == "failed"
+    assert not alias.exists()
+    assert not [
+        path
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    ]
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_stages_distinct_same_basename_outputs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    plan_output = tmp_path / "a" / "same.json"
+    summary_output = tmp_path / "b" / "same.json"
+
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        [
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-output",
+            str(plan_output),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan-summary-output",
+            str(summary_output),
+        ]
+    )
+
+    assert report["status"] == "warning"
+    assert json.loads(plan_output.read_text(encoding="utf-8")) == report
+    summary = json.loads(summary_output.read_text(encoding="utf-8"))
+    assert summary["status"] == "warning"
+    assert summary["multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256"] == report["multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256"]
+    assert not list(tmp_path.glob(".task212-source-seed-plan-*"))
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(report)
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_mid_write_failure_persists_failed_family(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task212_ready_task211(chain, tmp_path, monkeypatch)
+    original_write = assistant.write_json_report
+    original_next = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_next_task_rows
+    calls = 0
+    next_calls = 0
+
+    def leak_on_post_readiness_regeneration(allowed: bool) -> list[dict]:
+        nonlocal next_calls
+        next_calls += 1
+        rows = original_next(allowed)
+        if next_calls >= 3:
+            rows[0].update({
+                "issuer_name": "LATE WRITE LEAK",
+                "source_url": "https://late-write.invalid/report.pdf",
+                "ready_for_scoring": True,
+            })
+        return rows
+
+    def fail_once(payload: dict, path: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 4:
+            raise OSError(
+                "LEAKED FAILURE ISSUER 7200000000 1067200000000 "
+                "RU000A444444 https://failure-leak.invalid/report.pdf"
+            )
+        original_write(payload, path)
+
+    monkeypatch.setattr(
+        assistant,
+        "_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_next_task_rows",
+        leak_on_post_readiness_regeneration,
+    )
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    failed = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert failed["status"] == "failed"
+    assert failed["multi_issuer_source_candidate_seed_prepare_plan_ready"] is False
+    assert failed["ready_for_task213_multi_issuer_source_candidate_seed_template"] is False
+    assert failed["source_candidate_seed_prepare_plan_created"] is False
+    assert failed["next_tasks_valid"] is False
+    assert all(row["allowed_now"] is False for row in failed["next_task_rows"])
+    assert "task212_output_write_failed" in {row["code"] for row in failed["blocker_rows"]}
+    assert next_calls == 2
+    assert failed["bad_safety_count"] > 0
+    main_path = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_ARTIFACT_NAMES["plan_json"]
+    persisted = json.loads(main_path.read_text(encoding="utf-8"))
+    assert persisted == failed
+    persisted_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+    )
+    for raw_value in (
+        "LATE WRITE LEAK",
+        "https://late-write.invalid/report.pdf",
+        "LEAKED FAILURE ISSUER",
+        "7200000000",
+        "1067200000000",
+        "RU000A444444",
+        "https://failure-leak.invalid/report.pdf",
+        '"ready_for_scoring": true',
+    ):
+        assert raw_value not in persisted_text
+    assert len(
+        [
+            path
+            for path in chain.iterdir()
+            if "source_candidate_seed_prepare_plan" in path.name and "task212" in path.name
+        ]
+    ) == 20
+    assert not list(tmp_path.glob(".task212-source-seed-plan-*"))
+    _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(failed)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -35699,6 +36612,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
     return report
 
 
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_prepare_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-prepare-plan",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
 def _run_source_trust_recovery(extra_args: list[str] | None = None) -> dict:
     args = assistant.parse_args(
         [
@@ -41872,6 +42798,87 @@ def _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_review_gate
         expected_seed_input_detected = expected_seed_loaded
     assert report["source_candidate_seed_input_detected"] is expected_seed_input_detected
     assert report["source_candidate_seed_loaded"] is expected_seed_loaded
+
+
+def _assert_rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_fields(
+    report: dict,
+) -> None:
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_REQUIRED_BOOL_FIELDS:
+        assert field in report
+        assert isinstance(report[field], bool)
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_REQUIRED_COUNT_FIELDS:
+        assert field in report
+        assert isinstance(report[field], int)
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_REQUIRED_LIST_FIELDS:
+        assert field in report
+        assert isinstance(report[field], list)
+    for field in (
+        "status",
+        "multi_issuer_source_candidate_seed_prepare_plan_status",
+        "source_candidate_seed_prepare_scope",
+        "issuer_universe_scope",
+        "ofz_scope",
+        "task211_input_path",
+        "task211_status",
+        "task211_multi_issuer_source_candidate_seed_review_gate_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_review_gate_checksum_sha256",
+        "multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256",
+        "safe_hint",
+        "next_step",
+    ):
+        assert field in report
+        assert isinstance(report[field], str)
+    row_specs = (
+        ("blocker_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_BLOCKER_FIELDS),
+        ("multi_issuer_source_candidate_seed_prepare_plan_check_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_CHECK_FIELDS),
+        ("source_candidate_seed_prepare_scope_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_SCOPE_FIELDS),
+        ("upstream_validation_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_UPSTREAM_FIELDS),
+        ("candidate_slot_plan_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_CANDIDATE_SLOT_FIELDS),
+        ("seed_field_contract_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_SEED_FIELD_FIELDS),
+        ("source_candidate_seed_preparation_step_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_STEP_FIELDS),
+        ("allowed_source_type_plan_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_SOURCE_TYPE_FIELDS),
+        ("official_source_rule_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_OFFICIAL_RULE_FIELDS),
+        ("source_exclusion_rule_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_EXCLUSION_FIELDS),
+        ("manual_review_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_MANUAL_REVIEW_FIELDS),
+        ("source_candidate_seed_validation_plan_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_VALIDATION_FIELDS),
+        ("blocked_execution_policy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_BLOCKED_POLICY_FIELDS),
+        ("methodology_action_strategy_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_METHODOLOGY_FIELDS),
+        ("safety_gate_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_SAFETY_FIELDS),
+        ("next_task_rows", assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_NEXT_TASK_FIELDS),
+    )
+    for row_key, fields in row_specs:
+        for row in report[row_key]:
+            assert set(row) == set(fields)
+    count_rows = {
+        "planned_source_candidate_seed_prepare_scope_count": "source_candidate_seed_prepare_scope_rows",
+        "source_candidate_seed_prepare_scope_count": "source_candidate_seed_prepare_scope_rows",
+        "upstream_validation_count": "upstream_validation_rows",
+        "candidate_slot_plan_count": "candidate_slot_plan_rows",
+        "seed_field_contract_count": "seed_field_contract_rows",
+        "source_candidate_seed_preparation_step_count": "source_candidate_seed_preparation_step_rows",
+        "allowed_source_type_plan_count": "allowed_source_type_plan_rows",
+        "official_source_rule_count": "official_source_rule_rows",
+        "source_exclusion_rule_count": "source_exclusion_rule_rows",
+        "manual_review_gate_count": "manual_review_gate_rows",
+        "source_candidate_seed_validation_plan_count": "source_candidate_seed_validation_plan_rows",
+        "blocked_execution_policy_count": "blocked_execution_policy_rows",
+        "methodology_action_strategy_count": "methodology_action_strategy_rows",
+        "safety_gate_count": "safety_gate_rows",
+        "next_task_count": "next_task_rows",
+        "multi_issuer_source_candidate_seed_prepare_plan_check_count": "multi_issuer_source_candidate_seed_prepare_plan_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count_field, rows_field in count_rows.items():
+        assert report[count_field] == len(report[rows_field])
+    assert report["bad_safety_count"] == len(report["bad_safety_codes"])
+    assert report["bad_safety_codes"] == sorted(set(report["bad_safety_codes"]))
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_PREPARE_PLAN_FALSE_FIELDS:
+        assert report[field] is False
+    assert report["multi_issuer_source_candidate_seed_prepare_plan_checksum_sha256"] == (
+        assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_plan_checksum_from_report(
+            report
+        )
+    )
 
 
 def _assert_rzd_manual_official_pdf_controlled_value_extraction_report_fields(report: dict) -> None:
