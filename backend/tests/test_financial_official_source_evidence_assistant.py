@@ -29011,6 +29011,145 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
     assert checksums[0] == checksums[1]
 
 
+def _write_task217_ready_task216(chain: Path, tmp_path: Path, monkeypatch) -> dict:
+    _write_task216_ready_task215(chain, tmp_path, monkeypatch)
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == "warning"
+    return report
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task216 = _write_task217_ready_task216(chain, tmp_path, monkeypatch)
+    source = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    before = source.read_bytes()
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate([
+        "--operator-resolution-chain-output-dir", str(chain),
+        "--authorize-multi-issuer-source-candidate-manual-fill",
+    ])
+    assert report["status"] == "warning"
+    assert report["multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready"] is True
+    assert report["explicit_concrete_data_authorization_recorded"] is True
+    assert report["manual_operator_fill_authorized"] is True
+    assert report["manual_fill_authorization_scope_valid"] is True
+    assert report["authorized_candidate_slot_count"] == 3
+    assert report["authorized_seed_field_count"] == 14
+    assert report["authorized_operator_fillable_field_count"] == 11
+    assert report["authorized_candidate_slot_ids"] == ["candidate_slot_001", "candidate_slot_002", "candidate_slot_003"]
+    assert report["ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace"] is True
+    assert [row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]] == ["Task218"]
+    assert report["concrete_issuer_value_count"] == report["concrete_url_value_count"] == report["filled_candidate_value_count"] == 0
+    assert report["source_multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256"] == task216["multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256"]
+    assert source.read_bytes() == before
+    assert len([path for path in chain.iterdir() if "source_candidate_seed_manual_fill_authorization_gate" in path.name and "task217" in path.name]) == 20
+    assert not list(tmp_path.glob(".task217-source-seed-manual-auth-*"))
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FALSE_FIELDS:
+        assert report[field] is False
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_missing_flag_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    _write_task217_ready_task216(chain, tmp_path, monkeypatch)
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == "blocked"
+    assert "manual_fill_authorization_missing" in {row["code"] for row in report["blocker_rows"]}
+    assert report["manual_operator_fill_authorized"] is False
+    assert report["next_step"] == assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_MISSING_NEXT_STEP
+    assert all(not row["allowed_now"] for row in report["next_task_rows"])
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_invalid_upstream_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing = tmp_path / "missing"; missing.mkdir()
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate([
+        "--operator-resolution-chain-output-dir", str(missing),
+        "--authorize-multi-issuer-source-candidate-manual-fill",
+    ])
+    assert report["status"] == "blocked"
+    chain = tmp_path / "chain"; chain.mkdir()
+    _write_task217_ready_task216(chain, tmp_path, monkeypatch)
+    source = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_ARTIFACT_NAMES["gate_json"]
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256"] = "a" * 64
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    blocked = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate([
+        "--operator-resolution-chain-output-dir", str(chain),
+        "--authorize-multi-issuer-source-candidate-manual-fill",
+    ])
+    assert blocked["status"] == "blocked"
+    assert "task216_checksum_invalid" in {row["code"] for row in blocked["blocker_rows"]}
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_generated_leak_sanitized(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    _write_task217_ready_task216(chain, tmp_path, monkeypatch)
+    original = assistant._task217_authorized_slot_rows
+    def leaking() -> list[dict]:
+        rows = original(); rows[0]["issuer_name"] = "LEAKED AUTH ISSUER"; return rows
+    monkeypatch.setattr(assistant, "_task217_authorized_slot_rows", leaking)
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate([
+        "--operator-resolution-chain-output-dir", str(chain),
+        "--authorize-multi-issuer-source-candidate-manual-fill",
+    ])
+    assert report["status"] == "blocked"
+    persisted = "\n".join(path.read_text(encoding="utf-8") for path in chain.iterdir() if "source_candidate_seed_manual_fill_authorization_gate" in path.name and "task217" in path.name)
+    assert "LEAKED AUTH ISSUER" not in persisted
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_malformed_failed(
+    tmp_path: Path,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    malformed = tmp_path / "task216.json"; malformed.write_text('{"status": invalid', encoding="utf-8")
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate([
+        "--operator-resolution-chain-output-dir", str(chain),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-input", str(malformed),
+        "--authorize-multi-issuer-source-candidate-manual-fill",
+    ])
+    assert report["status"] == "failed"
+    assert report["manual_operator_fill_authorized"] is False
+    assert all(not row["allowed_now"] for row in report["next_task_rows"])
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_parity_checksum(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    checksums = []
+    for suffix in ("a", "b"):
+        chain = tmp_path / suffix / "chain"; chain.mkdir(parents=True)
+        _write_task217_ready_task216(chain, tmp_path / suffix, monkeypatch)
+        report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate([
+            "--operator-resolution-chain-output-dir", str(chain),
+            "--authorize-multi-issuer-source-candidate-manual-fill",
+        ])
+        names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES
+        payloads = {key: json.loads((chain / name).read_text(encoding="utf-8")) for key, name in names.items() if name.endswith(".json")}
+        markdown = (chain / names["gate_markdown"]).read_text(encoding="utf-8")
+        assert payloads["gate_json"] == report
+        assert payloads["authorization_record_json"]["explicit_concrete_data_authorization_recorded"] is True
+        assert payloads["authorization_limitations_json"]["network_access_authorized"] is False
+        assert payloads["next_tasks_json"]["next_task_rows"] == report["next_task_rows"]
+        assert "only Task218 is unlocked" in markdown
+        checksums.append(report["multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"])
+    assert checksums[0] == checksums[1]
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -37564,6 +37703,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
         [
             "--mode",
             "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate",
             *(extra_args or []),
         ]
     )

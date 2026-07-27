@@ -128,6 +128,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-plan",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-workspace",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -12213,6 +12214,51 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_
     "candidate_seed_validation_completed", "candidate_seed_review_completed",
     "candidate_seed_approved", "manual_fill_executed",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES = {
+    "gate_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_task217.json",
+    "gate_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_task217.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checks_task217.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_blockers_task217.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_scope_task217.json",
+    "upstream_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_upstream_validation_task217.json",
+    "authorization_record_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_authorization_record_task217.json",
+    "authorized_candidate_slots_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_authorized_candidate_slots_task217.json",
+    "authorized_field_contract_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_authorized_field_contract_task217.json",
+    "manual_fill_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_manual_fill_rules_task217.json",
+    "operator_responsibilities_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_operator_responsibilities_task217.json",
+    "official_source_requirements_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_official_source_requirements_task217.json",
+    "validation_requirements_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_validation_requirements_task217.json",
+    "manual_review_requirements_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_manual_review_requirements_task217.json",
+    "authorization_limitations_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_authorization_limitations_task217.json",
+    "exclusion_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_exclusion_rules_task217.json",
+    "blocked_execution_policy_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_blocked_execution_policy_task217.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_next_tasks_task217.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_summary_task217.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_safety_task217.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_TASK218_NEXT_STEP = (
+    "Task218 - Multi-Issuer Source Candidate Seed Manual Fill Input Workspace"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_MISSING_NEXT_STEP = (
+    "Task217 - Provide explicit manual-fill authorization and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_BLOCKED_NEXT_STEP = (
+    "Task217 - Resolve manual-fill authorization blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FAILED_NEXT_STEP = (
+    "Task217 - Repair failed manual-fill authorization gate and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FALSE_FIELDS = (
+    *RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_FALSE_FIELDS,
+    "concrete_source_selection_executed",
+    "automated_issuer_selection_authorized", "automated_source_selection_authorized",
+    "automated_source_discovery_authorized", "network_access_authorized",
+    "live_url_validation_authorized", "document_download_authorized",
+    "database_write_authorized", "import_authorized",
+    "evidence_extraction_authorized", "controlled_value_creation_authorized",
+    "scoring_authorized", "ranking_authorized", "recommendation_authorized",
+    "broker_api_authorized", "trading_authorized",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -14342,6 +14388,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate-safety-output", type=Path, default=None)
+    parser.add_argument("--authorize-multi-issuer-source-candidate-manual-fill", action="store_true", default=False)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-upstream-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-authorization-record-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-authorized-candidate-slots-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-authorized-field-contract-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-manual-fill-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-operator-responsibilities-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-official-source-requirements-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-validation-requirements-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-manual-review-requirements-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-authorization-limitations-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-exclusion-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-blocked-execution-policy-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -14673,6 +14741,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_workspace(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate":
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -89861,6 +89931,377 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_
     except Exception as exc:
         report = _task216_failed([{"message": "task216_write_failed", "error": str(exc)}])
         _task216_write_atomic(report, artifacts)
+    return report
+
+
+def _task217_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    default = chain / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_ARTIFACT_NAMES["gate_json"] if chain else None
+    return {"task216": args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_input or default}
+
+
+def _task217_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {key: chain / name for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES.items()} if chain else {}
+    suffixes = {
+        "gate_json": "output", "gate_markdown": "markdown_output", "checks_json": "checks_output",
+        "blockers_json": "blockers_output", "scope_json": "scope_output",
+        "upstream_validation_json": "upstream_validation_output", "authorization_record_json": "authorization_record_output",
+        "authorized_candidate_slots_json": "authorized_candidate_slots_output",
+        "authorized_field_contract_json": "authorized_field_contract_output",
+        "manual_fill_rules_json": "manual_fill_rules_output",
+        "operator_responsibilities_json": "operator_responsibilities_output",
+        "official_source_requirements_json": "official_source_requirements_output",
+        "validation_requirements_json": "validation_requirements_output",
+        "manual_review_requirements_json": "manual_review_requirements_output",
+        "authorization_limitations_json": "authorization_limitations_output",
+        "exclusion_rules_json": "exclusion_rules_output",
+        "blocked_execution_policy_json": "blocked_execution_policy_output",
+        "next_tasks_json": "next_tasks_output", "summary_json": "summary_output", "safety_json": "safety_output",
+    }
+    prefix = "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate"
+    return {key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key) for key, suffix in suffixes.items()}
+
+
+def _task217_output_errors(inputs: dict[str, Path | None], artifacts: dict[str, Path | None]) -> list[dict[str, Any]]:
+    seen: list[tuple[str, Path]] = []
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path is not None and _paths_equal(path, input_path):
+                return [{"message": "task217_output_must_not_equal_input", "output": key, "input": input_key}]
+        for seen_key, seen_path in seen:
+            if _paths_equal(path, seen_path):
+                return [{"message": "task217_outputs_must_be_unique", "output": key, "duplicate_output": seen_key}]
+        seen.append((key, path))
+    return []
+
+
+def _task217_upstream_rows(task216: dict[str, Any]) -> list[dict[str, Any]]:
+    checksum = str(task216.get("multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256") or "")
+    structural = task216.get("workspace_structural_review_rows")
+    candidates = task216.get("candidate_row_review_rows")
+    fields = task216.get("field_contract_review_rows")
+    blanks = task216.get("blank_value_review_rows")
+    manual = task216.get("manual_action_requirement_rows")
+    authorization = task216.get("authorization_requirement_rows")
+    dangerous = _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+        task216, RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_FALSE_FIELDS
+    )
+    specs = [
+        ("task216_status", task216.get("status") == "warning"),
+        ("task216_gate_ready", task216.get("multi_issuer_source_candidate_seed_validation_and_review_gate_ready") is True),
+        ("task216_boundary", all(task216.get(key) is True for key in ("workspace_structure_valid", "workspace_blank", "manual_fill_required", "manual_action_required", "explicit_concrete_data_authorization_required"))),
+        ("task216_incomplete", all(task216.get(key) is False for key in ("candidate_seed_validation_completed", "candidate_seed_review_completed", "candidate_seed_approved", "ready_for_task217"))),
+        ("task216_next_tasks", task216.get("next_tasks_valid") is True and all(not row.get("allowed_now") for row in task216.get("next_task_rows") or [] if isinstance(row, dict))),
+        ("task216_counts", int(task216.get("workspace_row_count") or 0) == 3 and int(task216.get("workspace_seed_field_count") or 0) == 14),
+        ("task216_zero_values", int(task216.get("concrete_issuer_value_count") or 0) == 0 and int(task216.get("concrete_url_value_count") or 0) == 0 and int(task216.get("filled_candidate_value_count") or 0) == 0),
+        ("task216_clean", int(task216.get("blocker_count") or 0) == 0 and int(task216.get("bad_safety_count") or 0) == 0),
+        ("task216_structural_rows", isinstance(structural, list) and len(structural) == 10 and all(row.get("passed") is True for row in structural if isinstance(row, dict))),
+        ("task216_candidate_rows", isinstance(candidates, list) and len(candidates) == 3 and [row.get("candidate_slot_id") for row in candidates if isinstance(row, dict)] == [f"candidate_slot_{index:03d}" for index in range(1, 4)] and all(row.get("row_blank") is True and row.get("candidate_validated") is False and row.get("candidate_reviewed") is False and row.get("candidate_approved") is False for row in candidates if isinstance(row, dict))),
+        ("task216_field_rows", isinstance(fields, list) and len(fields) == 14 and all(row.get("passed") is True for row in fields if isinstance(row, dict))),
+        ("task216_blank_rows", isinstance(blanks, list) and len(blanks) == 3 and all(row.get("passed") is True for row in blanks if isinstance(row, dict))),
+        ("task216_manual_rows", isinstance(manual, list) and len(manual) == 6 and all(row.get("required") is True and row.get("executed") is False for row in manual if isinstance(row, dict))),
+        ("task216_authorization_rows", isinstance(authorization, list) and len(authorization) == 6 and all(row.get("required") is True and row.get("granted") is False for row in authorization if isinstance(row, dict))),
+        ("task216_checksum", re.fullmatch(r"[0-9a-f]{64}", checksum) is not None and checksum == _task216_checksum(task216)),
+        ("task216_forbidden_flags", not dangerous),
+    ]
+    return [
+        {"validation_index": index, "validation_key": key, "source_task": "Task216", "passed": bool(passed), "blocks_task217": not bool(passed), "safe_hint": "Task217 accepts only the blank Task216 manual boundary."}
+        for index, (key, passed) in enumerate(specs, 1)
+    ]
+
+
+def _task217_authorized_slot_rows() -> list[dict[str, Any]]:
+    return [
+        {"slot_index": index, "candidate_slot_id": f"candidate_slot_{index:03d}", "manual_operator_entry_authorized_for_task218": True, "automatic_selection_authorized": False, "safe_hint": "Authorization contains no candidate value."}
+        for index in range(1, 4)
+    ]
+
+
+def _task217_field_rows() -> list[dict[str, Any]]:
+    system = {"candidate_slot_id", "operator_review_status", "safe_hint"}
+    return [
+        {"field_index": index, "field_name": name, "field_type": "int" if name == "report_year" else "str", "operator_fillable": name not in system, "system_managed": name in system, "concrete_value_present": False, "safe_hint": "Values may be supplied manually only in Task218."}
+        for index, name in enumerate(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS, 1)
+    ]
+
+
+def _task217_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    tasks = (
+        ("Task218", "Multi-Issuer Source Candidate Seed Manual Fill Input Workspace", allowed, "Task217"),
+        ("Task219", "Multi-Issuer Source Candidate Seed Validation and Review", False, "Task218"),
+        ("Task220", "Multi-Issuer Evidence Extraction Dry Run Plan", False, "Task219"),
+        ("Task221", "Multi-Issuer Controlled Import Apply Plan", False, "Task220"),
+        ("Task222", "Multi-Issuer Analytics Review", False, "Task221"),
+    )
+    return [
+        {"next_task_index": index, "task_id": task_id, "task_name": name, "allowed_now": bool(is_allowed), "depends_on": depends_on, "safe_hint": "Only the manual Task218 input workspace may be unlocked."}
+        for index, (task_id, name, is_allowed, depends_on) in enumerate(tasks, 1)
+    ]
+
+
+def _task217_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        key: report.get(key) or []
+        for key in (
+            "authorization_scope_rows", "upstream_validation_rows", "authorization_record_rows",
+            "authorized_candidate_slot_rows", "authorized_field_contract_rows", "manual_fill_rule_rows",
+            "operator_responsibility_rows", "official_source_requirement_rows", "validation_requirement_rows",
+            "manual_review_requirement_rows", "authorization_limitation_rows", "exclusion_rule_rows",
+            "blocked_execution_policy_rows", "next_task_rows",
+            "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_check_rows",
+        )
+    })
+
+
+def _task217_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    row_fields = (
+        "authorization_scope_rows", "upstream_validation_rows", "authorization_record_rows",
+        "authorized_candidate_slot_rows", "authorized_field_contract_rows", "manual_fill_rule_rows",
+        "operator_responsibility_rows", "official_source_requirement_rows", "validation_requirement_rows",
+        "manual_review_requirement_rows", "authorization_limitation_rows", "exclusion_rule_rows",
+        "blocked_execution_policy_rows", "next_task_rows",
+        "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_check_rows",
+        "blocker_rows", "bad_safety_codes", "authorized_candidate_slot_ids", "errors",
+    )
+    for field in row_fields:
+        value = report.get(field)
+        report[field] = value if isinstance(value, list) else []
+    counts = {
+        "authorization_scope_count": "authorization_scope_rows", "upstream_validation_count": "upstream_validation_rows",
+        "authorization_record_count": "authorization_record_rows", "authorized_candidate_slot_count": "authorized_candidate_slot_rows",
+        "authorized_seed_field_count": "authorized_field_contract_rows", "manual_fill_rule_count": "manual_fill_rule_rows",
+        "operator_responsibility_count": "operator_responsibility_rows", "official_source_requirement_count": "official_source_requirement_rows",
+        "validation_requirement_count": "validation_requirement_rows", "manual_review_requirement_count": "manual_review_requirement_rows",
+        "authorization_limitation_count": "authorization_limitation_rows", "exclusion_rule_count": "exclusion_rule_rows",
+        "blocked_execution_policy_count": "blocked_execution_policy_rows", "next_task_count": "next_task_rows",
+        "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_check_count": "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count, rows in counts.items():
+        report[count] = len(report[rows])
+    report["authorized_operator_fillable_field_count"] = sum(row.get("operator_fillable") is True for row in report["authorized_field_contract_rows"])
+    report["bad_safety_codes"] = sorted(set(report["bad_safety_codes"]))
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    for field in dict.fromkeys(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FALSE_FIELDS):
+        report[field] = False
+    for field in (
+        "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready",
+        "explicit_concrete_data_authorization_recorded", "manual_operator_fill_authorized",
+        "manual_fill_authorization_scope_valid",
+        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace",
+        "next_tasks_valid", "task216_handoff_valid", "authorization_flag_supplied", "write_outputs",
+    ):
+        report[field] = _as_bool(report.get(field))
+    for field in (
+        "mode", "status", "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_status",
+        "task216_input_path", "task216_status",
+        "task216_multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256",
+        "next_step", "safe_hint",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"] = _task217_checksum(report)
+    return report
+
+
+def _task217_failed(errors: list[dict[str, Any]], *, write_outputs: bool = True) -> dict[str, Any]:
+    return _task217_finalize({
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate",
+        "status": "failed", "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_status": "failed",
+        "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready": False,
+        "explicit_concrete_data_authorization_recorded": False, "manual_operator_fill_authorized": False,
+        "manual_fill_authorization_scope_valid": False,
+        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace": False,
+        "next_tasks_valid": False, "task216_handoff_valid": False, "authorization_flag_supplied": False,
+        "write_outputs": write_outputs, "next_task_rows": _task217_next_rows(False),
+        "next_step": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FAILED_NEXT_STEP,
+        "blocker_rows": [{"blocker_index": 1, "code": "task217_failed", "safe_hint": "Repair Task217 and rerun."}],
+        "bad_safety_codes": [], "concrete_issuer_value_count": 0, "concrete_url_value_count": 0,
+        "filled_candidate_value_count": 0, "errors": errors,
+    })
+
+
+def _build_task217_report(task216: dict[str, Any], task216_path: Path | None, *, authorized: bool) -> dict[str, Any]:
+    upstream = _task217_upstream_rows(task216) if task216 else []
+    blockers = ["task216_input_missing"] if not task216 else []
+    blockers.extend(f"{row['validation_key']}_invalid" for row in upstream if not row["passed"])
+    scan_rows = [
+        *(task216.get("candidate_row_review_rows") or []),
+        *(task216.get("workspace_structural_review_rows") or []),
+    ]
+    issuer_count, url_count, filled_count, upstream_codes = _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_findings(scan_rows)
+    if upstream_codes or issuer_count or url_count or filled_count:
+        blockers.append("concrete_candidate_data_not_authorized")
+    handoff = bool(task216 and upstream and all(row["passed"] for row in upstream))
+    if handoff and not blockers and not authorized:
+        blockers.append("manual_fill_authorization_missing")
+    raw_slots = _task217_authorized_slot_rows() if handoff and authorized and not blockers else []
+    _, _, _, generated_codes = _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_findings(raw_slots)
+    blockers.extend(generated_codes)
+    gate_ready = handoff and authorized and not blockers and not upstream_codes and not generated_codes
+    fields = _task217_field_rows() if gate_ready else []
+    families = {
+        "authorization_scope_rows": _task216_rows(10, "scope", "Manual entry into the existing three-slot schema only.", included=True) if gate_ready else [],
+        "authorization_record_rows": _task216_rows(1, "authorization_record", "Explicit CLI authorization recorded.", recorded=True) if gate_ready else [],
+        "authorized_candidate_slot_rows": raw_slots if gate_ready else [],
+        "authorized_field_contract_rows": fields,
+        "manual_fill_rule_rows": _task216_rows(12, "manual_fill_rule", "Only operator-supplied Task218 values are authorized.", required=True) if gate_ready else [],
+        "operator_responsibility_rows": _task216_rows(8, "responsibility", "Operator owns accuracy and provenance.", required=True) if gate_ready else [],
+        "official_source_requirement_rows": _task216_rows(12, "official_source", "Official-source validation is mandatory after filling.", required=True) if gate_ready else [],
+        "validation_requirement_rows": _task216_rows(12, "validation", "Post-fill validation is mandatory.", required=True) if gate_ready else [],
+        "manual_review_requirement_rows": _task216_rows(12, "manual_review", "Post-fill manual review is mandatory.", required=True) if gate_ready else [],
+        "authorization_limitation_rows": _task216_rows(15, "limitation", "Automated and execution capabilities remain unauthorized.", authorized=False) if gate_ready else [],
+        "exclusion_rule_rows": _task216_rows(10, "exclusion", "Concrete examples and autonomous actions are excluded.", enforced=True) if gate_ready else [],
+        "blocked_execution_policy_rows": _task216_rows(24, "policy", "All execution remains blocked.", blocked=True) if gate_ready else [],
+    }
+    next_rows = _task217_next_rows(gate_ready)
+    checks = {
+        "task216_handoff_valid": handoff, "authorization_flag_supplied": authorized,
+        "scope_valid": gate_ready and len(raw_slots) == 3 and len(fields) == 14 and sum(row["operator_fillable"] for row in fields) == 11,
+        "no_concrete_values_valid": issuer_count == url_count == filled_count == 0,
+        "next_tasks_valid": gate_ready and sum(row["allowed_now"] for row in next_rows) == 1 and next_rows[0]["task_id"] == "Task218",
+    }
+    status = "warning" if gate_ready else "blocked"
+    check_rows = [
+        {"check_index": index, "check_key": key, "status": "passed" if passed else "blocked", "passed": bool(passed), "safe_hint": "Task217 authorization contract check."}
+        for index, (key, passed) in enumerate(checks.items(), 1)
+    ]
+    blocker_rows = [
+        {"blocker_index": index, "code": code, "safe_hint": "Resolve the sanitized Task217 blocker and rerun."}
+        for index, code in enumerate(dict.fromkeys(blockers), 1)
+    ]
+    checksum = str(task216.get("multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256") or "")
+    missing_only = blockers == ["manual_fill_authorization_missing"]
+    return _task217_finalize({
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate",
+        "status": status, "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_status": status,
+        "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready": gate_ready,
+        "explicit_concrete_data_authorization_recorded": gate_ready,
+        "manual_operator_fill_authorized": gate_ready, "manual_fill_authorization_scope_valid": gate_ready,
+        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace": gate_ready,
+        "next_tasks_valid": gate_ready, "task216_handoff_valid": handoff,
+        "authorization_flag_supplied": authorized, "write_outputs": True,
+        "task216_input_path": str(task216_path or ""), "task216_status": str(task216.get("status") or ""),
+        "task216_multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256": checksum if re.fullmatch(r"[0-9a-f]{64}", checksum) else "",
+        "source_multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256": checksum if re.fullmatch(r"[0-9a-f]{64}", checksum) else "",
+        "upstream_validation_rows": upstream, **families, "next_task_rows": next_rows,
+        "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_check_rows": check_rows,
+        "blocker_rows": blocker_rows, "bad_safety_codes": sorted(set(upstream_codes) | set(generated_codes)),
+        "authorized_candidate_slot_ids": [row["candidate_slot_id"] for row in raw_slots] if gate_ready else [],
+        "concrete_issuer_value_count": issuer_count, "concrete_url_value_count": url_count,
+        "filled_candidate_value_count": filled_count,
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_TASK218_NEXT_STEP if gate_ready
+            else RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_MISSING_NEXT_STEP if missing_only
+            else RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_BLOCKED_NEXT_STEP
+        ),
+        "safe_hint": "Authorization permits only later manual operator entry; no values or automated actions are present.",
+        "errors": [],
+    })
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_markdown(report: dict[str, Any]) -> str:
+    ready = report.get("multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready") is True
+    return "\n".join([
+        "# Task217 — Multi-Issuer Source Candidate Seed Manual Fill Authorization Gate", "",
+        "WARNING — explicit manual-fill authorization recorded; only Task218 is unlocked." if ready else
+        "BLOCKED — explicit authorization or a valid Task216 handoff is required." if report.get("status") == "blocked" else
+        "FAILED — repair Task217; Task218 remains locked.", "",
+        f"- Status: `{report.get('status', '')}`",
+        f"- Explicit authorization / manual fill authorized: `{str(report.get('explicit_concrete_data_authorization_recorded', False)).lower()}/{str(report.get('manual_operator_fill_authorized', False)).lower()}`",
+        f"- Authorized slots / fields / operator-fillable: `{report.get('authorized_candidate_slot_count', 0)}/{report.get('authorized_seed_field_count', 0)}/{report.get('authorized_operator_fillable_field_count', 0)}`",
+        f"- Task218 ready: `{str(report.get('ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace', False)).lower()}`",
+        f"- Concrete / URL / filled: `{report.get('concrete_issuer_value_count', 0)}/{report.get('concrete_url_value_count', 0)}/{report.get('filled_candidate_value_count', 0)}`",
+        f"- Next step: `{report.get('next_step', '')}`", "",
+        "No automatic selection, network, database, import, scoring, recommendation, broker, or trading authorization is granted.", "",
+    ])
+
+
+def _task217_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    envelope = {
+        "status": report.get("status", ""), "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready": report.get("multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready", False),
+        "manual_operator_fill_authorized": report.get("manual_operator_fill_authorized", False),
+        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace": report.get("ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace", False),
+        "blocker_count": report.get("blocker_count", 0), "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""), "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256": report.get("multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256", ""),
+    }
+    mappings = {
+        "checks_json": ("multi_issuer_source_candidate_seed_manual_fill_authorization_gate_check_count", "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_check_rows"),
+        "scope_json": ("authorization_scope_count", "authorization_scope_rows"), "upstream_validation_json": ("upstream_validation_count", "upstream_validation_rows"),
+        "authorization_record_json": ("authorization_record_count", "authorization_record_rows"), "authorized_candidate_slots_json": ("authorized_candidate_slot_count", "authorized_candidate_slot_rows"),
+        "authorized_field_contract_json": ("authorized_seed_field_count", "authorized_field_contract_rows"), "manual_fill_rules_json": ("manual_fill_rule_count", "manual_fill_rule_rows"),
+        "operator_responsibilities_json": ("operator_responsibility_count", "operator_responsibility_rows"), "official_source_requirements_json": ("official_source_requirement_count", "official_source_requirement_rows"),
+        "validation_requirements_json": ("validation_requirement_count", "validation_requirement_rows"), "manual_review_requirements_json": ("manual_review_requirement_count", "manual_review_requirement_rows"),
+        "authorization_limitations_json": ("authorization_limitation_count", "authorization_limitation_rows"), "exclusion_rules_json": ("exclusion_rule_count", "exclusion_rule_rows"),
+        "blocked_execution_policy_json": ("blocked_execution_policy_count", "blocked_execution_policy_rows"), "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {key: {count: report.get(count, 0), rows: report.get(rows) or []} for key, (count, rows) in mappings.items()}
+    payloads["blockers_json"] = {**envelope, "blocker_rows": report.get("blocker_rows") or []}
+    payloads["authorization_record_json"] = {**envelope, "explicit_concrete_data_authorization_recorded": report.get("explicit_concrete_data_authorization_recorded", False), **payloads["authorization_record_json"]}
+    payloads["authorization_limitations_json"] = {**envelope, **payloads["authorization_limitations_json"], **{field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FALSE_FIELDS if field.endswith("_authorized")}}
+    payloads["next_tasks_json"] = {**envelope, "next_tasks_valid": report.get("next_tasks_valid", False), **payloads["next_tasks_json"]}
+    payloads["summary_json"] = {**envelope, "authorized_candidate_slot_count": report.get("authorized_candidate_slot_count", 0), "authorized_seed_field_count": report.get("authorized_seed_field_count", 0), "authorized_operator_fillable_field_count": report.get("authorized_operator_fillable_field_count", 0)}
+    payloads["safety_json"] = {**envelope, "bad_safety_codes": report.get("bad_safety_codes") or [], "concrete_issuer_value_count": report.get("concrete_issuer_value_count", 0), "concrete_url_value_count": report.get("concrete_url_value_count", 0), "filled_candidate_value_count": report.get("filled_candidate_value_count", 0), **{field: False for field in dict.fromkeys(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FALSE_FIELDS)}}
+    return payloads
+
+
+def _task217_write_direct(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    if artifacts.get("gate_json"):
+        write_json_report(report, artifacts["gate_json"])
+    if artifacts.get("gate_markdown"):
+        artifacts["gate_markdown"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["gate_markdown"].write_text(render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_markdown(report), encoding="utf-8")
+    for key, payload in _task217_wrappers(report).items():
+        if artifacts.get(key):
+            write_json_report(payload, artifacts[key])
+
+
+def _task217_write_atomic(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    targets = {key: path for key, path in artifacts.items() if path is not None}
+    roots: dict[Path, Path] = {}; staged: dict[str, Path] = {}; backups: dict[Path, Path] = {}; published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent; parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(prefix=".task217-source-seed-manual-auth-", dir=parent)); roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task217_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"; shutil.copy2(target, backup); backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target); published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file(): os.replace(backup, target)
+                elif target in published and target.exists(): target.unlink()
+            except OSError: pass
+        raise
+    finally:
+        for root in roots.values(): shutil.rmtree(root, ignore_errors=True)
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _task217_inputs(args); artifacts = _task217_artifacts(args)
+    errors = _task217_output_errors(inputs, artifacts)
+    if errors: return _task217_failed(errors, write_outputs=False)
+    path = inputs["task216"]
+    try:
+        task216 = _load_json_object(path) if path is not None and path.is_file() else {}
+    except Exception as exc:
+        report = _task217_failed([{"message": "task216_input_malformed", "error": str(exc)}]); _task217_write_atomic(report, artifacts); return report
+    report = _build_task217_report(task216, path, authorized=args.authorize_multi_issuer_source_candidate_manual_fill)
+    try:
+        _task217_write_atomic(report, artifacts)
+    except Exception as exc:
+        report = _task217_failed([{"message": "task217_write_failed", "error": str(exc)}]); _task217_write_atomic(report, artifacts)
     return report
 
 
