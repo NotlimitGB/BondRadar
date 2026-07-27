@@ -12237,7 +12237,7 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFA
     "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_safety_task217.json",
 }
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_TASK218_NEXT_STEP = (
-    "Task218 - Multi-Issuer Source Candidate Seed Manual Fill Input Workspace"
+    "Task218 - Authorized Manual Candidate Seed Draft Loader"
 )
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_MISSING_NEXT_STEP = (
     "Task217 - Provide explicit manual-fill authorization and rerun"
@@ -90030,7 +90030,7 @@ def _task217_field_rows() -> list[dict[str, Any]]:
 
 def _task217_next_rows(allowed: bool) -> list[dict[str, Any]]:
     tasks = (
-        ("Task218", "Multi-Issuer Source Candidate Seed Manual Fill Input Workspace", allowed, "Task217"),
+        ("Task218", "Authorized Manual Candidate Seed Draft Loader", allowed, "Task217"),
         ("Task219", "Multi-Issuer Source Candidate Seed Validation and Review", False, "Task218"),
         ("Task220", "Multi-Issuer Evidence Extraction Dry Run Plan", False, "Task219"),
         ("Task221", "Multi-Issuer Controlled Import Apply Plan", False, "Task220"),
@@ -90091,7 +90091,7 @@ def _task217_finalize(report: dict[str, Any]) -> dict[str, Any]:
         "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready",
         "explicit_concrete_data_authorization_recorded", "manual_operator_fill_authorized",
         "manual_fill_authorization_scope_valid",
-        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace",
+        "ready_for_task218_authorized_manual_candidate_seed_draft_loader",
         "next_tasks_valid", "task216_handoff_valid", "authorization_flag_supplied", "write_outputs",
     ):
         report[field] = _as_bool(report.get(field))
@@ -90114,7 +90114,7 @@ def _task217_failed(errors: list[dict[str, Any]], *, write_outputs: bool = True)
         "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready": False,
         "explicit_concrete_data_authorization_recorded": False, "manual_operator_fill_authorized": False,
         "manual_fill_authorization_scope_valid": False,
-        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace": False,
+        "ready_for_task218_authorized_manual_candidate_seed_draft_loader": False,
         "next_tasks_valid": False, "task216_handoff_valid": False, "authorization_flag_supplied": False,
         "write_outputs": write_outputs, "next_task_rows": _task217_next_rows(False),
         "next_step": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_FAILED_NEXT_STEP,
@@ -90181,7 +90181,7 @@ def _build_task217_report(task216: dict[str, Any], task216_path: Path | None, *,
         "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready": gate_ready,
         "explicit_concrete_data_authorization_recorded": gate_ready,
         "manual_operator_fill_authorized": gate_ready, "manual_fill_authorization_scope_valid": gate_ready,
-        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace": gate_ready,
+        "ready_for_task218_authorized_manual_candidate_seed_draft_loader": gate_ready,
         "next_tasks_valid": gate_ready, "task216_handoff_valid": handoff,
         "authorization_flag_supplied": authorized, "write_outputs": True,
         "task216_input_path": str(task216_path or ""), "task216_status": str(task216.get("status") or ""),
@@ -90213,7 +90213,7 @@ def render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candida
         f"- Status: `{report.get('status', '')}`",
         f"- Explicit authorization / manual fill authorized: `{str(report.get('explicit_concrete_data_authorization_recorded', False)).lower()}/{str(report.get('manual_operator_fill_authorized', False)).lower()}`",
         f"- Authorized slots / fields / operator-fillable: `{report.get('authorized_candidate_slot_count', 0)}/{report.get('authorized_seed_field_count', 0)}/{report.get('authorized_operator_fillable_field_count', 0)}`",
-        f"- Task218 ready: `{str(report.get('ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace', False)).lower()}`",
+        f"- Task218 Authorized Manual Candidate Seed Draft Loader ready: `{str(report.get('ready_for_task218_authorized_manual_candidate_seed_draft_loader', False)).lower()}`",
         f"- Concrete / URL / filled: `{report.get('concrete_issuer_value_count', 0)}/{report.get('concrete_url_value_count', 0)}/{report.get('filled_candidate_value_count', 0)}`",
         f"- Next step: `{report.get('next_step', '')}`", "",
         "No automatic selection, network, database, import, scoring, recommendation, broker, or trading authorization is granted.", "",
@@ -90224,7 +90224,7 @@ def _task217_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
     envelope = {
         "status": report.get("status", ""), "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready": report.get("multi_issuer_source_candidate_seed_manual_fill_authorization_gate_ready", False),
         "manual_operator_fill_authorized": report.get("manual_operator_fill_authorized", False),
-        "ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace": report.get("ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace", False),
+        "ready_for_task218_authorized_manual_candidate_seed_draft_loader": report.get("ready_for_task218_authorized_manual_candidate_seed_draft_loader", False),
         "blocker_count": report.get("blocker_count", 0), "bad_safety_count": report.get("bad_safety_count", 0),
         "next_step": report.get("next_step", ""), "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256": report.get("multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256", ""),
     }

@@ -29041,7 +29041,8 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
     assert report["authorized_seed_field_count"] == 14
     assert report["authorized_operator_fillable_field_count"] == 11
     assert report["authorized_candidate_slot_ids"] == ["candidate_slot_001", "candidate_slot_002", "candidate_slot_003"]
-    assert report["ready_for_task218_multi_issuer_source_candidate_seed_manual_fill_input_workspace"] is True
+    assert report["ready_for_task218_authorized_manual_candidate_seed_draft_loader"] is True
+    assert report["next_step"] == "Task218 - Authorized Manual Candidate Seed Draft Loader"
     assert [row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]] == ["Task218"]
     assert report["concrete_issuer_value_count"] == report["concrete_url_value_count"] == report["filled_candidate_value_count"] == 0
     assert report["source_multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256"] == task216["multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256"]
