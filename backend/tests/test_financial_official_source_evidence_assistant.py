@@ -28837,6 +28837,180 @@ def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
     assert checksums[0] == checksums[1]
 
 
+def _write_task216_ready_task215(chain: Path, tmp_path: Path, monkeypatch) -> dict:
+    _write_task215_ready_task214(chain, tmp_path, monkeypatch)
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_fill_workspace(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == "warning", report.get("blocker_rows")
+    return report
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate_warning_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task215 = _write_task216_ready_task215(chain, tmp_path, monkeypatch)
+    source = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_WORKSPACE_ARTIFACT_NAMES["workspace_json"]
+    before = source.read_bytes()
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == "warning"
+    assert report["multi_issuer_source_candidate_seed_validation_and_review_gate_ready"] is True
+    assert report["workspace_structure_valid"] is True
+    assert report["workspace_blank"] is True
+    assert report["manual_fill_required"] is True
+    assert report["manual_action_required"] is True
+    assert report["explicit_concrete_data_authorization_required"] is True
+    assert report["candidate_seed_validation_completed"] is False
+    assert report["candidate_seed_review_completed"] is False
+    assert report["candidate_seed_approved"] is False
+    assert report["ready_for_task217"] is False
+    assert report["next_tasks_valid"] is True
+    assert all(not row["allowed_now"] for row in report["next_task_rows"])
+    assert report["workspace_row_count"] == 3
+    assert report["workspace_seed_field_count"] == 14
+    assert report["concrete_issuer_value_count"] == report["concrete_url_value_count"] == report["filled_candidate_value_count"] == 0
+    assert report["blocker_count"] == report["bad_safety_count"] == 0
+    assert report["next_step"] == assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_MANUAL_NEXT_STEP
+    assert report["source_multi_issuer_source_candidate_seed_fill_workspace_checksum_sha256"] == task215["multi_issuer_source_candidate_seed_fill_workspace_checksum_sha256"]
+    assert re.fullmatch(r"[0-9a-f]{64}", report["multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256"])
+    assert source.read_bytes() == before
+    assert len([
+        path for path in chain.iterdir()
+        if "source_candidate_seed_validation_and_review_gate" in path.name and "task216" in path.name
+    ]) == 20
+    assert not list(tmp_path.glob(".task216-source-seed-review-gate-*"))
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate_missing_and_checksum_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing_chain = tmp_path / "missing"
+    missing_chain.mkdir()
+    missing = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(
+        ["--operator-resolution-chain-output-dir", str(missing_chain)]
+    )
+    assert missing["status"] == "blocked"
+    assert missing["manual_action_required"] is False
+    assert missing["next_tasks_valid"] is False
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task216_ready_task215(chain, tmp_path, monkeypatch)
+    source = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_WORKSPACE_ARTIFACT_NAMES["workspace_json"]
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["multi_issuer_source_candidate_seed_fill_workspace_checksum_sha256"] = "a" * 64
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    blocked = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert blocked["status"] == "blocked"
+    assert "task215_checksum_invalid" in {row["code"] for row in blocked["blocker_rows"]}
+    assert all(not row["allowed_now"] for row in blocked["next_task_rows"])
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate_concrete_upstream_blocked_sanitized(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task216_ready_task215(chain, tmp_path, monkeypatch)
+    source = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_FILL_WORKSPACE_ARTIFACT_NAMES["workspace_json"]
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["fill_workspace_rows"][0]["issuer_name"] = "UNAUTHORIZED ISSUER"
+    payload["fill_workspace_rows"][0]["source_url"] = "issuer.example/report.pdf"
+    payload["multi_issuer_source_candidate_seed_fill_workspace_checksum_sha256"] = assistant._task215_checksum(payload)
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == "blocked"
+    assert "concrete_candidate_data_not_authorized" in {row["code"] for row in report["blocker_rows"]}
+    assert report["workspace_structure_valid"] is False
+    assert report["manual_fill_required"] is False
+    persisted = "\n".join(
+        path.read_text(encoding="utf-8") for path in chain.iterdir()
+        if "source_candidate_seed_validation_and_review_gate" in path.name and "task216" in path.name
+    )
+    assert "UNAUTHORIZED ISSUER" not in persisted
+    assert "issuer.example/report.pdf" not in persisted
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate_generated_leak_blocked(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task216_ready_task215(chain, tmp_path, monkeypatch)
+    original = assistant._task216_candidate_review_rows
+    def leaking() -> list[dict]:
+        rows = original()
+        rows[0]["document_title"] = "LEAKED REVIEW DOCUMENT"
+        return rows
+    monkeypatch.setattr(assistant, "_task216_candidate_review_rows", leaking)
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(
+        ["--operator-resolution-chain-output-dir", str(chain)]
+    )
+    assert report["status"] == "blocked"
+    assert report["candidate_row_review_rows"] == []
+    persisted = "\n".join(
+        path.read_text(encoding="utf-8") for path in chain.iterdir()
+        if "source_candidate_seed_validation_and_review_gate" in path.name and "task216" in path.name
+    )
+    assert "LEAKED REVIEW DOCUMENT" not in persisted
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate_malformed_failed(
+    tmp_path: Path,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    malformed = tmp_path / "task215.json"
+    malformed.write_text('{"status": invalid', encoding="utf-8")
+    report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate([
+        "--operator-resolution-chain-output-dir", str(chain),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate-input", str(malformed),
+    ])
+    assert report["status"] == "failed"
+    assert report["manual_action_required"] is False
+    assert report["next_tasks_valid"] is False
+    markdown = (chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_ARTIFACT_NAMES["gate_markdown"]).read_text(encoding="utf-8")
+    assert "FAILED" in markdown and "no Task217 is unlocked" in markdown
+
+
+def test_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate_parity_and_checksum(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    checksums = []
+    for suffix in ("a", "b"):
+        chain = tmp_path / suffix / "chain"
+        chain.mkdir(parents=True)
+        _write_task216_ready_task215(chain, tmp_path / suffix, monkeypatch)
+        report = _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(
+            ["--operator-resolution-chain-output-dir", str(chain)]
+        )
+        names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_REVIEW_GATE_ARTIFACT_NAMES
+        payloads = {
+            key: json.loads((chain / name).read_text(encoding="utf-8"))
+            for key, name in names.items() if name.endswith(".json")
+        }
+        markdown = (chain / names["gate_markdown"]).read_text(encoding="utf-8")
+        assert payloads["gate_json"] == report
+        assert payloads["workspace_structural_review_json"]["workspace_structural_review_rows"] == report["workspace_structural_review_rows"]
+        assert payloads["manual_action_requirements_json"]["manual_action_required"] is True
+        assert payloads["next_tasks_json"]["next_task_rows"] == report["next_task_rows"]
+        assert "no Task217 is unlocked" in markdown
+        checksums.append(report["multi_issuer_source_candidate_seed_validation_and_review_gate_checksum_sha256"])
+    assert checksums[0] == checksums[1]
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -37377,6 +37551,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
         [
             "--mode",
             "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-fill-workspace",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_review_gate(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate",
             *(extra_args or []),
         ]
     )
