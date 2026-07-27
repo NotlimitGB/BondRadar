@@ -29598,6 +29598,409 @@ def test_authorized_manual_draft_loader_wrappers_checksum_and_collision_contract
     assert not alias_output.exists()
 
 
+def _task219_valid_inn(prefix: str) -> str:
+    assert re.fullmatch(r"[0-9]{9}", prefix)
+    weights = (2, 4, 10, 3, 5, 9, 4, 6, 8)
+    return prefix + str(sum(int(prefix[index]) * weight for index, weight in enumerate(weights)) % 11 % 10)
+
+
+def _task219_valid_ogrn(prefix: str) -> str:
+    assert re.fullmatch(r"[0-9]{12}", prefix)
+    return prefix + str(int(prefix) % 11 % 10)
+
+
+def _task219_candidate_row(index: int) -> dict:
+    row = _task218_candidate_row(index)
+    row.update({
+        "issuer_inn": _task219_valid_inn(f"7700000{index:02d}"),
+        "issuer_ogrn": _task219_valid_ogrn(f"1027700000{index:02d}"),
+        "source_type_key": "official_financial_report_pdf",
+        "source_url": f"https://candidate-{index}.invalid/report.pdf",
+        "official_source_url": "",
+        "source_locator_notes": f"synthetic locator {index}",
+    })
+    return row
+
+
+def _write_task219_ready_task218(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, Path, Path]:
+    _write_task218_ready_task217(chain, tmp_path, monkeypatch)
+    draft = tmp_path / "task219-operator-draft.json"
+    payload = {
+        "schema_version": "bondradar.manual_candidate_seed.v1",
+        "candidate_rows": [_task219_candidate_row(index) for index in range(1, 4)],
+    }
+    draft.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
+    report = _run_task218(chain, draft)
+    assert report["status"] == "warning" and report["complete_draft"] is True
+    task218_path = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES["loader_json"]
+    return report, task218_path, draft
+
+
+def _task219_review_payload(
+    task218_checksum: str,
+    decisions: tuple[str, str, str] = (
+        "approve_for_dry_run", "approve_for_dry_run", "approve_for_dry_run",
+    ),
+) -> dict:
+    rows = []
+    for index, decision in enumerate(decisions, 1):
+        approve = decision == "approve_for_dry_run"
+        rows.append({
+            "candidate_slot_id": f"candidate_slot_{index:03d}",
+            "review_decision": decision,
+            "issuer_identity_confirmed": approve,
+            "source_officiality_confirmed": approve,
+            "document_scope_confirmed": approve,
+            "reporting_period_confirmed": approve,
+            "report_standard_confirmed": approve,
+            "candidate_only_scope_acknowledged": True,
+            "review_notes": "" if approve else f"synthetic {decision} note {index}",
+        })
+    return {
+        "schema_version": "bondradar.manual_candidate_seed_review.v1",
+        "task218_checksum_sha256": task218_checksum,
+        "review_rows": rows,
+    }
+
+
+def _write_task219_review(path: Path, payload: dict) -> bytes:
+    data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
+    path.write_bytes(data)
+    return data
+
+
+def _run_task219(
+    chain: Path,
+    review: Path | None = None,
+    *,
+    authorize: bool = False,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = ["--operator-resolution-chain-output-dir", str(chain)]
+    if review is not None:
+        arguments.extend(["--manual-candidate-seed-review-input", str(review)])
+    if authorize:
+        arguments.append("--authorize-manual-candidate-seed-review")
+    arguments.extend(extra or [])
+    return _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review(arguments)
+
+
+def test_source_candidate_seed_validation_and_manual_review_validation_only_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task218, task218_path, draft = _write_task219_ready_task218(chain, tmp_path, monkeypatch)
+    before218, before_draft = task218_path.read_bytes(), draft.read_bytes()
+
+    report = _run_task219(chain)
+
+    assert report["status"] == "warning"
+    assert report["multi_issuer_source_candidate_seed_validation_and_review_ready"] is True
+    assert report["candidate_seed_validation_completed"] is True
+    assert report["identifier_checksum_validation_completed"] is True
+    assert report["source_candidate_consistency_validation_completed"] is True
+    assert report["manual_review_required"] is True
+    assert report["manual_review_input_supplied"] is False
+    assert report["manual_review_authorized"] is False
+    assert report["manual_review_completed"] is False
+    assert report["candidate_seed_approved"] is False
+    assert report["ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan"] is False
+    assert report["next_tasks_valid"] is True
+    assert all(not row["allowed_now"] for row in report["next_task_rows"])
+    assert report["next_step"] == assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_MANUAL_NEXT_STEP
+    assert report["source_authorized_manual_candidate_seed_draft_loader_checksum_sha256"] == task218["authorized_manual_candidate_seed_draft_loader_checksum_sha256"]
+    assert re.fullmatch(r"[0-9a-f]{64}", report["multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"])
+    assert task218_path.read_bytes() == before218 and draft.read_bytes() == before_draft
+    assert len([path for path in chain.iterdir() if "validation_and_manual_review" in path.name and "task219" in path.name]) == 20
+    assert not list(tmp_path.glob(".task219-source-seed-review-*"))
+    for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FALSE_FIELDS:
+        assert report[field] is False
+
+
+def test_source_candidate_seed_validation_and_manual_review_approved_warning_and_containment(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task218, task218_path, draft = _write_task219_ready_task218(chain, tmp_path, monkeypatch)
+    review = tmp_path / "review.json"
+    payload = _task219_review_payload(task218["authorized_manual_candidate_seed_draft_loader_checksum_sha256"])
+    payload["review_rows"][0]["review_notes"] = "  synthetic reviewer note\r\nsecond line  "
+    review_bytes = _write_task219_review(review, payload)
+    before = (task218_path.read_bytes(), draft.read_bytes(), review.read_bytes())
+
+    report = _run_task219(chain, review, authorize=True)
+
+    assert report["status"] == "warning"
+    assert report["manual_review_input_supplied"] is True
+    assert report["manual_review_authorized"] is True
+    assert report["manual_review_completed"] is True
+    assert report["candidate_seed_review_completed"] is True
+    assert report["candidate_seed_approved"] is True
+    assert report["source_candidate_seed_reviewed"] is True
+    assert report["source_candidate_seed_accepted"] is True
+    assert report["candidate_seed_acceptance_scope"] == "evidence_extraction_dry_run_only"
+    assert (report["approved_candidate_row_count"], report["needs_correction_candidate_row_count"], report["rejected_candidate_row_count"]) == (3, 0, 0)
+    assert report["ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan"] is True
+    assert [row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]] == ["Task220"]
+    assert report["manual_candidate_seed_review_input_checksum_sha256"] == hashlib.sha256(review_bytes).hexdigest()
+    assert report["manual_review_decision_rows"][0]["review_notes"] == "synthetic reviewer note\nsecond line"
+    assert (task218_path.read_bytes(), draft.read_bytes(), review.read_bytes()) == before
+    names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES
+    candidate_marker, note_marker = report["validated_candidate_snapshot_rows"][0]["issuer_inn"], "synthetic reviewer note"
+    candidate_allowed = {names["review_json"], names["validated_candidate_snapshot_json"]}
+    notes_allowed = {names["review_json"], names["manual_review_decisions_json"]}
+    for key, name in names.items():
+        text = (chain / name).read_text(encoding="utf-8")
+        assert (candidate_marker in text) is (name in candidate_allowed), key
+        assert (note_marker in text) is (name in notes_allowed), key
+
+
+@pytest.mark.parametrize(
+    ("decisions", "expected_counts"),
+    [
+        (("approve_for_dry_run", "approve_for_dry_run", "needs_correction"), (2, 1, 0)),
+        (("approve_for_dry_run", "approve_for_dry_run", "reject"), (2, 0, 1)),
+    ],
+)
+def test_source_candidate_seed_validation_and_manual_review_nonapproved_warning(
+    tmp_path: Path,
+    monkeypatch,
+    decisions: tuple[str, str, str],
+    expected_counts: tuple[int, int, int],
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task218, _, _ = _write_task219_ready_task218(chain, tmp_path, monkeypatch)
+    review = tmp_path / "review.json"
+    _write_task219_review(review, _task219_review_payload(
+        task218["authorized_manual_candidate_seed_draft_loader_checksum_sha256"], decisions
+    ))
+    report = _run_task219(chain, review, authorize=True)
+    assert report["status"] == "warning"
+    assert report["manual_review_completed"] is True
+    assert report["candidate_correction_required"] is True
+    assert report["candidate_seed_approved"] is False
+    assert report["source_candidate_seed_reviewed"] is True
+    assert report["source_candidate_seed_accepted"] is False
+    assert (report["approved_candidate_row_count"], report["needs_correction_candidate_row_count"], report["rejected_candidate_row_count"]) == expected_counts
+    assert all(not row["allowed_now"] for row in report["next_task_rows"])
+    assert report["next_step"] == assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_CORRECTION_NEXT_STEP
+
+
+def test_source_candidate_seed_validation_and_manual_review_local_validation_and_shared_warning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task218, task218_path, _ = _write_task219_ready_task218(chain, tmp_path, monkeypatch)
+    original = json.loads(task218_path.read_text(encoding="utf-8"))
+    cases = [
+        ("bad_inn", lambda rows: rows[0].update(issuer_inn=rows[0]["issuer_inn"][:-1] + str((int(rows[0]["issuer_inn"][-1]) + 1) % 10)), "issuer_inn_checksum_invalid"),
+        ("bad_ogrn", lambda rows: rows[0].update(issuer_ogrn=rows[0]["issuer_ogrn"][:-1] + str((int(rows[0]["issuer_ogrn"][-1]) + 1) % 10)), "issuer_ogrn_checksum_invalid"),
+        ("duplicate_inn", lambda rows: rows[1].update(issuer_inn=rows[0]["issuer_inn"]), "duplicate_issuer_inn"),
+        ("duplicate_ogrn", lambda rows: rows[1].update(issuer_ogrn=rows[0]["issuer_ogrn"]), "duplicate_issuer_ogrn"),
+        ("missing_locator", lambda rows: rows[0].update(source_url="", official_source_url=""), "required_source_locator_missing"),
+        ("localhost", lambda rows: rows[0].update(source_url="https://localhost/report.pdf"), "localhost_forbidden"),
+        ("private_ip", lambda rows: rows[0].update(source_url="https://10.0.0.1/report.pdf"), "non_global_ip_forbidden"),
+        ("short_loopback", lambda rows: rows[0].update(source_url="https://127.1/report.pdf"), "ambiguous_numeric_ip_forbidden"),
+        ("decimal_loopback", lambda rows: rows[0].update(source_url="https://2130706433/report.pdf"), "ambiguous_numeric_ip_forbidden"),
+        ("hex_loopback", lambda rows: rows[0].update(source_url="https://0x7f000001/report.pdf"), "ambiguous_numeric_ip_forbidden"),
+        ("octal_loopback", lambda rows: rows[0].update(source_url="https://0177.0.0.1/report.pdf"), "ambiguous_numeric_ip_forbidden"),
+    ]
+    for label, mutate, code in cases:
+        payload = json.loads(json.dumps(original))
+        mutate(payload["normalized_candidate_rows"])
+        payload["filled_candidate_value_count"] = assistant._rzd_controlled_values_multi_issuer_source_candidate_seed_template_filled_value_count(
+            payload["normalized_candidate_rows"]
+        )
+        payload["concrete_url_value_count"] = sum(
+            1 for row in payload["normalized_candidate_rows"]
+            for field in ("source_url", "official_source_url")
+            if row[field] not in {None, ""}
+        )
+        payload["concrete_issuer_value_count"] = sum(
+            1 for row in payload["normalized_candidate_rows"]
+            for field in ("issuer_name", "issuer_inn", "issuer_ogrn")
+            if row[field] not in {None, ""}
+        )
+        payload["authorized_manual_candidate_seed_draft_loader_checksum_sha256"] = assistant._task218_checksum(payload)
+        task218_path.write_text(json.dumps(payload), encoding="utf-8")
+        report = _run_task219(chain)
+        assert report["status"] == "blocked", label
+        assert code in {row["code"] for row in report["blocker_rows"]}, label
+        assert report["validated_candidate_snapshot_rows"] == []
+        persisted = "\n".join(
+            path.read_text(encoding="utf-8") for path in chain.iterdir()
+            if "validation_and_manual_review" in path.name and "task219" in path.name
+        )
+        assert payload["normalized_candidate_rows"][0]["issuer_inn"] not in persisted
+    shared = json.loads(json.dumps(original))
+    shared["normalized_candidate_rows"][1]["source_url"] = shared["normalized_candidate_rows"][0]["source_url"]
+    shared["authorized_manual_candidate_seed_draft_loader_checksum_sha256"] = assistant._task218_checksum(shared)
+    task218_path.write_text(json.dumps(shared), encoding="utf-8")
+    warning = _run_task219(chain)
+    assert warning["status"] == "warning"
+    assert warning["validation_warning_codes"] == ["shared_source_url_warning"]
+    assert warning["blocker_count"] == 0
+
+
+def test_source_candidate_seed_validation_and_manual_review_authorization_and_review_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task218, _, _ = _write_task219_ready_task218(chain, tmp_path, monkeypatch)
+    checksum = task218["authorized_manual_candidate_seed_draft_loader_checksum_sha256"]
+    review = tmp_path / "review.json"
+    base = _task219_review_payload(checksum)
+    _write_task219_review(review, base)
+    assert _run_task219(chain, review)["status"] == "blocked"
+    assert _run_task219(chain, authorize=True)["status"] == "blocked"
+    review_directory = tmp_path / "review-directory"; review_directory.mkdir()
+    assert _run_task219(chain, review_directory, authorize=True)["status"] == "blocked"
+    oversized = tmp_path / "oversized-review.json"; oversized.write_bytes(b"x" * 131073)
+    assert _run_task219(chain, oversized, authorize=True)["status"] == "blocked"
+    cases = [
+        ("top_fields", lambda p: p.update(extra="SECRET")),
+        ("checksum", lambda p: p.update(task218_checksum_sha256="a" * 64)),
+        ("schema", lambda p: p.update(schema_version="wrong")),
+        ("count", lambda p: p["review_rows"].pop()),
+        ("row_fields", lambda p: p["review_rows"][0].update(extra="SECRET")),
+        ("slot", lambda p: p["review_rows"][0].update(candidate_slot_id="candidate_slot_999")),
+        ("decision", lambda p: p["review_rows"][0].update(review_decision="unknown")),
+        ("non_bool", lambda p: p["review_rows"][0].update(issuer_identity_confirmed=1)),
+        ("approve_false", lambda p: p["review_rows"][0].update(source_officiality_confirmed=False)),
+        ("needs_notes", lambda p: p["review_rows"][0].update(review_decision="needs_correction", review_notes="")),
+        ("reject_notes", lambda p: p["review_rows"][0].update(review_decision="reject", review_notes="")),
+        ("ack_false", lambda p: p["review_rows"][0].update(review_decision="reject", candidate_only_scope_acknowledged=False, review_notes="synthetic")),
+        ("notes_nul", lambda p: p["review_rows"][0].update(review_notes="SECRET\u0000NOTE")),
+        ("notes_long", lambda p: p["review_rows"][0].update(review_notes="x" * 2049)),
+    ]
+    for label, mutate in cases:
+        payload = json.loads(json.dumps(base)); mutate(payload)
+        _write_task219_review(review, payload)
+        report = _run_task219(chain, review, authorize=True)
+        assert report["status"] == "blocked", label
+        assert report["manual_review_decision_rows"] == [], label
+
+
+def test_source_candidate_seed_validation_and_manual_review_failed_and_sanitized_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task218, task218_path, _ = _write_task219_ready_task218(chain, tmp_path, monkeypatch)
+    task218_original = task218_path.read_bytes()
+    review = tmp_path / "review.json"; review.write_bytes(b'{"schema_version":')
+    failed = _run_task219(chain, review, authorize=True)
+    assert failed["status"] == "failed" and failed["validated_candidate_snapshot_rows"] == []
+    review.write_bytes(b"\xff\xfe")
+    assert _run_task219(chain, review, authorize=True)["status"] == "failed"
+    malformed = tmp_path / "task218-malformed.json"; malformed.write_text('{"status": invalid', encoding="utf-8")
+    explicit = _run_task219(chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-input", str(malformed),
+    ])
+    assert explicit["status"] == "failed"
+    invalid_upstream = json.loads(task218_original)
+    invalid_upstream["authorized_manual_candidate_seed_draft_loader_checksum_sha256"] = "a" * 64
+    task218_path.write_text(json.dumps(invalid_upstream), encoding="utf-8")
+    blocked_upstream = _run_task219(chain)
+    assert blocked_upstream["status"] == "blocked"
+    assert blocked_upstream["validated_candidate_snapshot_rows"] == []
+    task218_path.write_bytes(task218_original)
+    original_metadata = assistant._task219_metadata
+    def leaking() -> dict[str, list[dict]]:
+        rows = original_metadata()
+        rows["validation_scope_rows"][0]["issuer_name"] = "SECRET TASK219 ISSUER"
+        rows["validation_scope_rows"][0]["review_notes"] = "SECRET TASK219 REVIEW NOTE"
+        return rows
+    monkeypatch.setattr(assistant, "_task219_metadata", leaking)
+    blocked = _run_task219(chain)
+    assert blocked["status"] == "blocked"
+    persisted = "\n".join(
+        path.read_text(encoding="utf-8") for path in chain.iterdir()
+        if "validation_and_manual_review" in path.name and "task219" in path.name
+    )
+    assert "SECRET TASK219 ISSUER" not in persisted
+    assert "SECRET TASK219 REVIEW NOTE" not in persisted
+    assert "review_note_detected" in blocked["bad_safety_codes"]
+    monkeypatch.setattr(assistant, "_task219_metadata", original_metadata)
+
+    retry_chain = tmp_path / "retry-chain"; retry_chain.mkdir()
+    original_writer = assistant.write_json_report
+    calls = {"count": 0}
+    def fail_once(payload: dict, path: Path) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("synthetic Task219 write failure")
+        original_writer(payload, path)
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    failed_write = _run_task219(retry_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-input",
+        str(task218_path),
+    ])
+    assert failed_write["status"] == "failed"
+    assert failed_write["validated_candidate_snapshot_rows"] == []
+    assert len([path for path in retry_chain.iterdir() if "validation_and_manual_review" in path.name and "task219" in path.name]) == 20
+    persistent_chain = tmp_path / "persistent-chain"; persistent_chain.mkdir()
+    def always_fail(_payload: dict, _path: Path) -> None:
+        raise OSError("persistent Task219 write failure")
+    monkeypatch.setattr(assistant, "write_json_report", always_fail)
+    persistent = _run_task219(persistent_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-input",
+        str(task218_path),
+    ])
+    assert persistent["status"] == "failed"
+    assert persistent["write_outputs"] is False
+    assert not any("validation_and_manual_review" in path.name for path in persistent_chain.iterdir())
+
+
+def test_source_candidate_seed_validation_and_manual_review_wrappers_determinism_and_collisions(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    checksums = []
+    for suffix in ("a", "b"):
+        root = tmp_path / suffix; chain = root / "chain"; chain.mkdir(parents=True)
+        task218, _, _ = _write_task219_ready_task218(chain, root, monkeypatch)
+        review = root / "review.json"
+        _write_task219_review(review, _task219_review_payload(task218["authorized_manual_candidate_seed_draft_loader_checksum_sha256"]))
+        report = _run_task219(chain, review, authorize=True)
+        names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES
+        payloads = {key: json.loads((chain / name).read_text(encoding="utf-8")) for key, name in names.items() if name.endswith(".json")}
+        markdown = (chain / names["review_markdown"]).read_text(encoding="utf-8")
+        assert payloads["review_json"] == report
+        assert payloads["validated_candidate_snapshot_json"]["validated_candidate_snapshot_rows"] == report["validated_candidate_snapshot_rows"]
+        assert payloads["manual_review_decisions_json"]["manual_review_decision_rows"] == report["manual_review_decision_rows"]
+        assert payloads["next_tasks_json"]["next_task_rows"] == report["next_task_rows"]
+        assert payloads["summary_json"]["approved_candidate_row_count"] == 3
+        assert payloads["safety_json"]["evidence_accepted"] is False
+        assert "only Task220 dry-run planning is unlocked" in markdown
+        checksums.append(report["multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"])
+    assert checksums[0] == checksums[1]
+    collision_chain = tmp_path / "collision"; collision_chain.mkdir()
+    task218_path = tmp_path / "a" / "chain" / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES["loader_json"]
+    collision = _run_task219(collision_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-input", str(task218_path),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-output", str(task218_path),
+    ])
+    assert collision["status"] == "failed" and collision["write_outputs"] is False
+    alias_chain = tmp_path / "alias"; alias_chain.mkdir()
+    alias_output = tmp_path / "same-task219-output.json"
+    alias = _run_task219(alias_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-input", str(task218_path),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-output", str(alias_output),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-checks-output", str(alias_output),
+    ])
+    assert alias["status"] == "failed" and alias["write_outputs"] is False
+    assert not alias_output.exists()
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -38177,6 +38580,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
         [
             "--mode",
             "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-authorized-manual-draft-loader",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review",
             *(extra_args or []),
         ]
     )

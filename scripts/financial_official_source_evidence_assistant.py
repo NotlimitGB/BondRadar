@@ -5,6 +5,7 @@ import copy
 import csv
 import hashlib
 import html
+import ipaddress
 import json
 import os
 import re
@@ -130,6 +131,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-authorized-manual-draft-loader",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -12306,6 +12308,69 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_FALSE_
     "automated_issuer_selection_executed",
     "automated_source_selection_executed",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES = {
+    "review_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_task219.json",
+    "review_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_task219.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_checks_task219.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_blockers_task219.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_scope_task219.json",
+    "task218_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_task218_validation_task219.json",
+    "validated_candidate_snapshot_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_validated_candidate_snapshot_task219.json",
+    "identifier_checksum_checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_identifier_checksum_checks_task219.json",
+    "url_checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_url_checks_task219.json",
+    "source_candidate_consistency_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_source_candidate_consistency_task219.json",
+    "review_input_manifest_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_review_input_manifest_task219.json",
+    "manual_review_decisions_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_manual_review_decisions_task219.json",
+    "review_confirmations_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_review_confirmations_task219.json",
+    "review_outcome_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_review_outcome_task219.json",
+    "candidate_approval_status_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_candidate_approval_status_task219.json",
+    "evidence_acceptance_boundary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_evidence_and_acceptance_boundary_task219.json",
+    "blocked_execution_policy_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_blocked_execution_policy_task219.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_next_tasks_task219.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_summary_task219.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_safety_task219.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_TASK220_NEXT_STEP = (
+    "Task220 - Multi-Issuer Evidence Extraction Dry Run Plan"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_MANUAL_NEXT_STEP = (
+    "Task219 - Provide authorized manual candidate review input and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_CORRECTION_NEXT_STEP = (
+    "Task218 - Correct or replace non-approved candidate rows and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_BLOCKED_NEXT_STEP = (
+    "Task219 - Resolve candidate validation and review blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FAILED_NEXT_STEP = (
+    "Task219 - Repair failed candidate validation and manual review and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FALSE_FIELDS = tuple(
+    field
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_FALSE_FIELDS
+    if field not in {
+        "candidate_seed_validation_completed", "candidate_seed_review_completed",
+        "candidate_seed_approved", "source_candidate_seed_reviewed",
+        "source_candidate_seed_accepted", "manual_review_completed",
+    }
+) + (
+    "database_mutated", "migration_executed", "import_executed",
+    "manual_fill_executed", "concrete_issuer_selection_executed",
+    "concrete_source_selection_executed", "automated_issuer_selection_executed",
+    "automated_source_selection_executed", "live_web_search_executed",
+    "live_source_discovery_executed", "live_url_validation_executed",
+    "source_documents_downloaded", "source_documents_cached",
+    "evidence_extraction_executed", "controlled_financial_values_created",
+    "controlled_import_prepared", "controlled_import_executed",
+    "scoring_executed", "ranking_executed", "recommendation_generated",
+    "broker_api_called", "trading_executed", "paper_trading_executed",
+    "production_export_executed", "evidence_accepted",
+    "controlled_values_accepted", "database_write_authorized",
+    "import_authorized", "evidence_extraction_authorized",
+    "controlled_value_creation_authorized", "scoring_authorized",
+    "ranking_authorized", "recommendation_authorized",
+    "broker_api_authorized", "trading_authorized",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -14479,6 +14544,29 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-authorized-manual-draft-loader-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-authorized-manual-draft-loader-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-authorized-manual-draft-loader-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-input", type=Path, default=None)
+    parser.add_argument("--manual-candidate-seed-review-input", type=Path, default=None)
+    parser.add_argument("--authorize-manual-candidate-seed-review", action="store_true")
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-task218-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-validated-candidate-snapshot-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-identifier-checksum-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-url-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-source-candidate-consistency-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-review-input-manifest-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-manual-review-decisions-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-review-confirmations-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-review-outcome-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-candidate-approval-status-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-evidence-acceptance-boundary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-blocked-execution-policy-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -14814,6 +14902,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_manual_fill_authorization_gate(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-authorized-manual-draft-loader":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_authorized_manual_draft_loader(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review":
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -85443,6 +85533,8 @@ def _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_fin
         if isinstance(value, str) and (url_key and value.strip() or "http://" in value.casefold() or "https://" in value.casefold()):
             url_count += 1
             codes.add("concrete_url_detected")
+        if normalized_key == "review_notes" and isinstance(value, str) and value.strip():
+            codes.add("review_note_detected")
         if normalized_key in forbidden_false_fields and _as_bool(value):
             codes.add("forbidden_execution_flag_detected")
             codes.add(forbidden_flag_category(normalized_key))
@@ -85476,6 +85568,8 @@ def _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_sanitize_v
         "issuer_name", "issuer_id", "issuer_inn", "issuer_ogrn", "isin",
     } and value not in {None, ""}:
         return "redacted_concrete_identifier"
+    if normalized_key == "review_notes" and isinstance(value, str) and value.strip():
+        return "redacted_review_note"
     if normalized_key == "safe_hint" and not isinstance(value, str):
         return "redacted_unsafe_generated_value"
     if (
@@ -91439,6 +91533,908 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_
         input_blockers=input_blockers,
     )
     return _task218_publish(report, artifacts)
+
+
+def _task219_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    default = (
+        chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES[
+            "loader_json"
+        ]
+        if chain else None
+    )
+    return {
+        "task218": (
+            args.rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_input
+            or default
+        ),
+        "review": args.manual_candidate_seed_review_input,
+    }
+
+
+def _task219_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {
+        key: chain / name
+        for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES.items()
+    } if chain else {}
+    suffixes = {
+        "review_json": "output", "review_markdown": "markdown_output",
+        "checks_json": "checks_output", "blockers_json": "blockers_output",
+        "scope_json": "scope_output", "task218_validation_json": "task218_validation_output",
+        "validated_candidate_snapshot_json": "validated_candidate_snapshot_output",
+        "identifier_checksum_checks_json": "identifier_checksum_checks_output",
+        "url_checks_json": "url_checks_output",
+        "source_candidate_consistency_json": "source_candidate_consistency_output",
+        "review_input_manifest_json": "review_input_manifest_output",
+        "manual_review_decisions_json": "manual_review_decisions_output",
+        "review_confirmations_json": "review_confirmations_output",
+        "review_outcome_json": "review_outcome_output",
+        "candidate_approval_status_json": "candidate_approval_status_output",
+        "evidence_acceptance_boundary_json": "evidence_acceptance_boundary_output",
+        "blocked_execution_policy_json": "blocked_execution_policy_output",
+        "next_tasks_json": "next_tasks_output", "summary_json": "summary_output",
+        "safety_json": "safety_output",
+    }
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_"
+        "seed_validation_and_manual_review"
+    )
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in suffixes.items()
+    }
+
+
+def _task219_output_errors(
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: list[tuple[str, Path]] = []
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path is not None and _paths_equal(path, input_path):
+                return [{"message": "task219_output_must_not_equal_input", "output": key, "input": input_key}]
+        for seen_key, seen_path in seen:
+            if _paths_equal(path, seen_path):
+                return [{"message": "task219_outputs_must_be_unique", "output": key, "duplicate_output": seen_key}]
+        seen.append((key, path))
+    return []
+
+
+def _task219_task218_validation_rows(task218: dict[str, Any]) -> list[dict[str, Any]]:
+    checksum = str(task218.get("authorized_manual_candidate_seed_draft_loader_checksum_sha256") or "")
+    operator_checksum = str(task218.get("operator_candidate_seed_input_checksum_sha256") or "")
+    lineage = str(task218.get("source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256") or "")
+    explicit_lineage = str(task218.get("task217_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256") or "")
+    rows = task218.get("normalized_candidate_rows")
+    completeness = task218.get("row_completeness_rows")
+    next_rows = task218.get("next_task_rows")
+    fields = list(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS)
+    ids = [f"candidate_slot_{index:03d}" for index in range(1, 4)]
+    exact_rows = (
+        isinstance(rows, list) and len(rows) == 3
+        and [row.get("candidate_slot_id") for row in rows if isinstance(row, dict)] == ids
+        and all(
+            isinstance(row, dict) and list(row) == fields
+            and row.get("operator_review_status") == "draft_loaded"
+            and row.get("safe_hint") == "authorized_manual_draft_pending_task219_review"
+            and isinstance(row.get("report_year"), int)
+            and not isinstance(row.get("report_year"), bool)
+            and 1900 <= row.get("report_year") <= 2100
+            and all(
+                isinstance(row.get(field), str)
+                for field in fields
+                if field != "report_year"
+            )
+            and all(
+                row.get(field) not in {None, ""}
+                for field in (
+                    "issuer_inn", "issuer_ogrn", "source_type_key",
+                    "document_title", "report_year", "report_standard",
+                    "document_language", "source_locator_notes",
+                )
+            )
+            for row in rows
+        )
+    )
+    exact_completeness = (
+        isinstance(completeness, list) and len(completeness) == 3
+        and [row.get("candidate_slot_id") for row in completeness if isinstance(row, dict)] == ids
+        and all(
+            isinstance(row, dict) and row.get("classification") == "complete"
+            and row.get("complete") is True and row.get("empty") is False
+            and row.get("partial") is False and row.get("valid") is True
+            and row.get("issue_codes") == []
+            for row in completeness
+        )
+    )
+    next_valid = (
+        isinstance(next_rows, list) and len(next_rows) == 5
+        and [row.get("task_id") for row in next_rows if isinstance(row, dict)] == [
+            "Task219", "Task220", "Task221", "Task222", "Task223",
+        ]
+        and [row.get("task_id") for row in next_rows if isinstance(row, dict) and row.get("allowed_now") is True] == ["Task219"]
+    )
+    dangerous = _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+        task218,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_FALSE_FIELDS,
+    )
+    specs = (
+        ("task218_status", task218.get("status") == "warning"),
+        ("task218_ready", task218.get("authorized_manual_candidate_seed_draft_loader_ready") is True),
+        ("task218_complete", task218.get("complete_draft") is True and task218.get("partial_draft_warning") is False),
+        ("task218_counts", int(task218.get("complete_candidate_row_count") or 0) == 3 and int(task218.get("empty_candidate_row_count") or 0) == 0 and int(task218.get("partial_candidate_row_count") or 0) == 0 and int(task218.get("concrete_candidate_row_count") or 0) == 3),
+        ("task218_row_family_counts", int(task218.get("candidate_row_count") or 0) == 3 and int(task218.get("loaded_candidate_row_count") or 0) == 3 and int(task218.get("row_completeness_count") or 0) == 3),
+        ("task218_concrete_counts", isinstance(rows, list) and int(task218.get("filled_candidate_value_count") or 0) == _rzd_controlled_values_multi_issuer_source_candidate_seed_template_filled_value_count(rows) and int(task218.get("concrete_url_value_count") or 0) == sum(1 for row in rows if isinstance(row, dict) for field in ("source_url", "official_source_url") if row.get(field) not in {None, ""}) and int(task218.get("concrete_issuer_value_count") or 0) == sum(1 for row in rows if isinstance(row, dict) for field in ("issuer_name", "issuer_inn", "issuer_ogrn") if row.get(field) not in {None, ""})),
+        ("task218_loaded", all(task218.get(field) is True for field in ("source_candidate_seed_materialized", "source_candidate_seed_loaded", "source_candidate_seed_filled"))),
+        ("task218_unreviewed", all(task218.get(field) is False for field in ("source_candidate_seed_reviewed", "source_candidate_seed_accepted", "candidate_seed_validation_completed", "candidate_seed_review_completed", "candidate_seed_approved"))),
+        ("task218_task219_ready", task218.get("ready_for_task219_multi_issuer_source_candidate_seed_validation_and_review") is True),
+        ("task218_clean", int(task218.get("blocker_count") or 0) == 0 and int(task218.get("bad_safety_count") or 0) == 0),
+        ("task218_next_contract", task218.get("next_tasks_valid") is True and task218.get("next_step") == RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_TASK219_NEXT_STEP and next_valid),
+        ("task218_candidate_rows", exact_rows),
+        ("task218_completeness_rows", exact_completeness),
+        ("task218_checksum", re.fullmatch(r"[0-9a-f]{64}", checksum) is not None and checksum == _task218_checksum(task218)),
+        ("task218_operator_checksum", re.fullmatch(r"[0-9a-f]{64}", operator_checksum) is not None),
+        ("task218_task217_lineage", re.fullmatch(r"[0-9a-f]{64}", lineage) is not None and lineage == explicit_lineage),
+        ("task218_forbidden_flags", not dangerous),
+    )
+    return [
+        {
+            "validation_index": index, "validation_key": key, "source_task": "Task218",
+            "passed": bool(passed), "blocks_task219": not bool(passed),
+            "safe_hint": "Task219 accepts only the exact complete Task218 draft.",
+        }
+        for index, (key, passed) in enumerate(specs, 1)
+    ]
+
+
+def _task219_inn_valid(value: str) -> bool:
+    if re.fullmatch(r"[0-9]{10}", value) is None:
+        return False
+    weights = (2, 4, 10, 3, 5, 9, 4, 6, 8)
+    return sum(int(value[index]) * weight for index, weight in enumerate(weights)) % 11 % 10 == int(value[9])
+
+
+def _task219_ogrn_valid(value: str) -> bool:
+    return (
+        re.fullmatch(r"[0-9]{13}", value) is not None
+        and int(value[:12]) % 11 % 10 == int(value[12])
+    )
+
+
+def _task219_url_result(value: str) -> tuple[bool, str, str]:
+    if not value:
+        return True, "", ""
+    if any(character.isspace() or ord(character) < 32 or 127 <= ord(character) <= 159 for character in value):
+        return False, "", "url_whitespace_or_control_invalid"
+    try:
+        parsed = urllib.parse.urlsplit(value)
+        port = parsed.port
+        host = parsed.hostname or ""
+    except ValueError:
+        return False, "", "url_syntax_invalid"
+    if parsed.scheme.casefold() not in {"http", "https"} or not host:
+        return False, "", "url_scheme_or_hostname_invalid"
+    if parsed.username is not None or parsed.password is not None:
+        return False, "", "url_credentials_forbidden"
+    normalized_host = host.casefold().rstrip(".")
+    if normalized_host == "localhost" or normalized_host.endswith(".localhost"):
+        return False, "", "localhost_forbidden"
+    try:
+        address = ipaddress.ip_address(normalized_host)
+    except ValueError:
+        address = None
+    if address is None and re.fullmatch(
+        r"(?:0x[0-9a-f]+|[0-9]+)(?:\.(?:0x[0-9a-f]+|[0-9]+))*",
+        normalized_host,
+    ):
+        return False, "", "ambiguous_numeric_ip_forbidden"
+    if address is not None and not address.is_global:
+        return False, "", "non_global_ip_forbidden"
+    host_text = f"[{normalized_host}]" if ":" in normalized_host else normalized_host
+    netloc = host_text + (f":{port}" if port is not None else "")
+    normalized = urllib.parse.urlunsplit((
+        parsed.scheme.casefold(), netloc, parsed.path, parsed.query, parsed.fragment,
+    ))
+    return True, normalized, ""
+
+
+def _task219_local_validation(
+    rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str], list[str]]:
+    identifier_rows: list[dict[str, Any]] = []
+    url_rows: list[dict[str, Any]] = []
+    consistency_rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    warnings: set[str] = set()
+    seen_inn: set[str] = set()
+    seen_ogrn: set[str] = set()
+    normalized_urls: dict[str, set[str]] = {}
+    cached_type = "previously_cached_controlled_source"
+    allowed_types = set(RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_SOURCE_SELECTION_ALLOWED_SOURCE_TYPES)
+    for index, row in enumerate(rows, 1):
+        slot = f"candidate_slot_{index:03d}"
+        inn = str(row.get("issuer_inn") or "")
+        ogrn = str(row.get("issuer_ogrn") or "")
+        inn_valid, ogrn_valid = _task219_inn_valid(inn), _task219_ogrn_valid(ogrn)
+        duplicate_inn, duplicate_ogrn = inn in seen_inn, ogrn in seen_ogrn
+        seen_inn.add(inn); seen_ogrn.add(ogrn)
+        if not inn_valid: blockers.append("issuer_inn_checksum_invalid")
+        if not ogrn_valid: blockers.append("issuer_ogrn_checksum_invalid")
+        if duplicate_inn: blockers.append("duplicate_issuer_inn")
+        if duplicate_ogrn: blockers.append("duplicate_issuer_ogrn")
+        identifier_rows.append({
+            "check_index": index, "candidate_slot_id": slot,
+            "inn_checksum_valid": inn_valid, "ogrn_checksum_valid": ogrn_valid,
+            "duplicate_inn": duplicate_inn, "duplicate_ogrn": duplicate_ogrn,
+            "passed": inn_valid and ogrn_valid and not duplicate_inn and not duplicate_ogrn,
+            "safe_hint": "Identifier values are omitted from this artifact.",
+        })
+        source_type = str(row.get("source_type_key") or "")
+        source_type_valid = source_type in allowed_types
+        locator_required = source_type != cached_type
+        locator_present = bool(str(row.get("source_url") or "") or str(row.get("official_source_url") or ""))
+        notes_present = bool(str(row.get("source_locator_notes") or ""))
+        if not source_type_valid: blockers.append("source_type_not_allowed")
+        if locator_required and not locator_present: blockers.append("required_source_locator_missing")
+        if not locator_required and not notes_present: blockers.append("cached_source_locator_notes_missing")
+        for field in ("source_url", "official_source_url"):
+            value = str(row.get(field) or "")
+            passed, normalized, code = _task219_url_result(value)
+            if not passed: blockers.append(code)
+            if normalized:
+                normalized_urls.setdefault(normalized, set()).add(slot)
+            url_rows.append({
+                "check_index": len(url_rows) + 1, "candidate_slot_id": slot,
+                "field_name": field, "value_present": bool(value),
+                "passed": passed, "issue_code": code,
+                "safe_hint": "The concrete URL is omitted from this artifact.",
+            })
+        consistency_rows.append({
+            "consistency_index": index, "candidate_slot_id": slot,
+            "source_type_allowed": source_type_valid,
+            "locator_required": locator_required, "locator_present": locator_present,
+            "cached_locator_notes_present": notes_present,
+            "passed": source_type_valid and (locator_present if locator_required else notes_present),
+            "safe_hint": "Candidate values are omitted from this artifact.",
+        })
+    if any(len(slots) > 1 for slots in normalized_urls.values()):
+        warnings.add("shared_source_url_warning")
+    return identifier_rows, url_rows, consistency_rows, list(dict.fromkeys(blockers)), sorted(warnings)
+
+
+def _task219_review_notes(value: Any) -> tuple[str, str | None]:
+    if not isinstance(value, str):
+        return "", "review_notes_type_invalid"
+    normalized = value.replace("\r\n", "\n")
+    if "\r" in normalized or "\u2028" in normalized or "\u2029" in normalized:
+        return "", "review_notes_line_break_invalid"
+    if any((ord(character) < 32 and character != "\n") or 127 <= ord(character) <= 159 for character in normalized):
+        return "", "review_notes_control_character_invalid"
+    normalized = normalized.strip()
+    if len(normalized) > 2048:
+        return "", "review_notes_too_long"
+    return normalized, None
+
+
+def _task219_parse_review(
+    document: Any,
+    task218_checksum: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    blockers: list[str] = []
+    decisions: list[dict[str, Any]] = []
+    confirmations: list[dict[str, Any]] = []
+    outcomes: list[dict[str, Any]] = []
+    if not isinstance(document, dict) or set(document) != {"schema_version", "task218_checksum_sha256", "review_rows"}:
+        return [], [], [], ["review_top_level_contract_invalid"]
+    if document.get("schema_version") != "bondradar.manual_candidate_seed_review.v1":
+        blockers.append("review_schema_version_invalid")
+    if document.get("task218_checksum_sha256") != task218_checksum:
+        blockers.append("review_task218_checksum_mismatch")
+    rows = document.get("review_rows")
+    if not isinstance(rows, list) or len(rows) != 3:
+        return [], [], [], [*blockers, "review_row_count_invalid"]
+    confirmation_fields = (
+        "issuer_identity_confirmed", "source_officiality_confirmed",
+        "document_scope_confirmed", "reporting_period_confirmed",
+        "report_standard_confirmed", "candidate_only_scope_acknowledged",
+    )
+    fields = {
+        "candidate_slot_id", "review_decision", *confirmation_fields, "review_notes",
+    }
+    allowed_decisions = {"approve_for_dry_run", "needs_correction", "reject"}
+    for index, raw in enumerate(rows, 1):
+        slot = f"candidate_slot_{index:03d}"
+        row_errors: list[str] = []
+        if not isinstance(raw, dict) or set(raw) != fields:
+            row_errors.append("review_row_field_set_invalid")
+            raw = raw if isinstance(raw, dict) else {}
+        if raw.get("candidate_slot_id") != slot:
+            row_errors.append("review_candidate_slot_invalid")
+        decision = raw.get("review_decision")
+        if decision not in allowed_decisions:
+            row_errors.append("review_decision_invalid")
+            decision = ""
+        bools: dict[str, bool] = {}
+        for field in confirmation_fields:
+            value = raw.get(field)
+            if not isinstance(value, bool):
+                row_errors.append(f"{field}_type_invalid")
+                bools[field] = False
+            else:
+                bools[field] = value
+        notes, note_error = _task219_review_notes(raw.get("review_notes"))
+        if note_error: row_errors.append(note_error)
+        if decision == "approve_for_dry_run" and not all(bools.values()):
+            row_errors.append("approve_confirmation_incomplete")
+        if decision in {"needs_correction", "reject"} and (not bools["candidate_only_scope_acknowledged"] or not notes):
+            row_errors.append(f"{decision}_requirements_invalid")
+        blockers.extend(row_errors)
+        decisions.append({
+            "review_index": index, "candidate_slot_id": slot,
+            "review_decision": str(decision), **bools, "review_notes": notes,
+            "safe_hint": "Manual decision is bound to the exact Task218 checksum.",
+        })
+        confirmations.append({
+            "confirmation_index": index, "candidate_slot_id": slot, **bools,
+            "all_approval_confirmations_true": all(bools.values()),
+            "safe_hint": "Review notes are omitted from this artifact.",
+        })
+        outcomes.append({
+            "outcome_index": index, "candidate_slot_id": slot,
+            "review_decision": str(decision),
+            "approved_for_dry_run": decision == "approve_for_dry_run" and not row_errors,
+            "needs_correction": decision == "needs_correction" and not row_errors,
+            "rejected": decision == "reject" and not row_errors,
+            "safe_hint": "Approval is limited to evidence-extraction dry-run planning.",
+        })
+    return decisions, confirmations, outcomes, list(dict.fromkeys(blockers))
+
+
+def _task219_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    tasks = (
+        ("Task220", "Multi-Issuer Evidence Extraction Dry Run Plan", allowed, "Task219"),
+        ("Task221", "Multi-Issuer Controlled Import Apply Plan", False, "Task220"),
+        ("Task222", "Multi-Issuer Controlled Import Apply", False, "Task221"),
+        ("Task223", "Multi-Issuer Analytics Review", False, "Task222"),
+        ("Task224", "Multi-Issuer Scoring Review", False, "Task223"),
+    )
+    return [
+        {
+            "next_task_index": index, "task_id": task_id, "task_name": name,
+            "allowed_now": bool(is_allowed), "depends_on": depends_on,
+            "safe_hint": "Only Task220 dry-run planning may follow full approval.",
+        }
+        for index, (task_id, name, is_allowed, depends_on) in enumerate(tasks, 1)
+    ]
+
+
+def _task219_metadata() -> dict[str, list[dict[str, Any]]]:
+    def rows(count: int, prefix: str, requirement: str, **extra: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                f"{prefix}_index": index, f"{prefix}_key": f"{prefix}_{index:02d}",
+                "requirement": requirement, "status": "pending",
+                "safe_hint": "Task219 performs deterministic offline validation and review only.",
+                **extra,
+            }
+            for index in range(1, count + 1)
+        ]
+    return {
+        "validation_scope_rows": rows(10, "scope", "Offline candidate validation and explicit manual review only.", included=True),
+        "evidence_acceptance_boundary_rows": rows(12, "boundary", "Candidate approval is limited to evidence-extraction dry-run planning.", enforced=True),
+        "blocked_execution_policy_rows": rows(24, "policy", "Network, database, import, extraction and decision execution remain blocked.", blocked=True),
+    }
+
+
+def _task219_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "task218_checksum": report.get("source_authorized_manual_candidate_seed_draft_loader_checksum_sha256") or "",
+        **{
+            key: report.get(key) or []
+            for key in (
+                "validated_candidate_snapshot_rows", "identifier_checksum_check_rows",
+                "url_check_rows", "source_candidate_consistency_rows",
+                "validation_warning_codes", "manual_review_decision_rows",
+                "review_confirmation_rows", "review_outcome_rows",
+                "candidate_approval_status_rows", "task218_validation_rows",
+                "validation_scope_rows", "evidence_acceptance_boundary_rows",
+                "blocked_execution_policy_rows", "next_task_rows",
+                "source_candidate_seed_validation_and_manual_review_check_rows",
+            )
+        },
+        "candidate_seed_approved": report.get("candidate_seed_approved") is True,
+        "candidate_correction_required": report.get("candidate_correction_required") is True,
+    })
+
+
+def _task219_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    row_fields = (
+        "validation_scope_rows", "task218_validation_rows",
+        "validated_candidate_snapshot_rows", "identifier_checksum_check_rows",
+        "url_check_rows", "source_candidate_consistency_rows",
+        "review_input_manifest_rows", "manual_review_decision_rows",
+        "review_confirmation_rows", "review_outcome_rows",
+        "candidate_approval_status_rows", "evidence_acceptance_boundary_rows",
+        "blocked_execution_policy_rows", "next_task_rows",
+        "source_candidate_seed_validation_and_manual_review_check_rows",
+        "blocker_rows", "validation_warning_codes", "bad_safety_codes", "errors",
+    )
+    for field in row_fields:
+        report[field] = report.get(field) if isinstance(report.get(field), list) else []
+    counts = {
+        "validation_scope_count": "validation_scope_rows",
+        "task218_validation_count": "task218_validation_rows",
+        "validated_candidate_snapshot_count": "validated_candidate_snapshot_rows",
+        "identifier_checksum_check_count": "identifier_checksum_check_rows",
+        "url_check_count": "url_check_rows",
+        "source_candidate_consistency_count": "source_candidate_consistency_rows",
+        "review_input_manifest_count": "review_input_manifest_rows",
+        "manual_review_decision_count": "manual_review_decision_rows",
+        "review_confirmation_count": "review_confirmation_rows",
+        "review_outcome_count": "review_outcome_rows",
+        "candidate_approval_status_count": "candidate_approval_status_rows",
+        "evidence_acceptance_boundary_count": "evidence_acceptance_boundary_rows",
+        "blocked_execution_policy_count": "blocked_execution_policy_rows",
+        "next_task_count": "next_task_rows",
+        "source_candidate_seed_validation_and_manual_review_check_count":
+            "source_candidate_seed_validation_and_manual_review_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count, rows in counts.items():
+        report[count] = len(report[rows])
+    report["validation_warning_codes"] = sorted(set(report["validation_warning_codes"]))
+    report["validation_warning_count"] = len(report["validation_warning_codes"])
+    report["bad_safety_codes"] = sorted(set(report["bad_safety_codes"]))
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    for field in dict.fromkeys(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FALSE_FIELDS):
+        report[field] = False
+    for field in (
+        "multi_issuer_source_candidate_seed_validation_and_review_ready",
+        "candidate_seed_validation_completed", "identifier_checksum_validation_completed",
+        "source_candidate_consistency_validation_completed", "manual_review_required",
+        "manual_review_input_supplied", "manual_review_authorized",
+        "manual_review_completed", "candidate_correction_required",
+        "candidate_seed_review_completed", "candidate_seed_approved",
+        "source_candidate_seed_reviewed", "source_candidate_seed_accepted",
+        "ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan",
+        "next_tasks_valid", "task218_handoff_valid", "write_outputs",
+    ):
+        report[field] = _as_bool(report.get(field))
+    for field in (
+        "mode", "status", "multi_issuer_source_candidate_seed_validation_and_review_status",
+        "candidate_seed_acceptance_scope",
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+        "manual_candidate_seed_review_input_checksum_sha256", "next_step", "safe_hint",
+    ):
+        report[field] = str(report.get(field) or "")
+    for field in (
+        "approved_candidate_row_count", "needs_correction_candidate_row_count",
+        "rejected_candidate_row_count", "manual_candidate_seed_review_input_size_bytes",
+    ):
+        value = report.get(field)
+        report[field] = value if isinstance(value, int) and not isinstance(value, bool) else 0
+    report["multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"] = _task219_checksum(report)
+    return report
+
+
+def _task219_failed(
+    errors: list[dict[str, Any]],
+    *,
+    write_outputs: bool = True,
+    review_bytes: bytes | None = None,
+) -> dict[str, Any]:
+    return _task219_finalize({
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review",
+        "status": "failed", "multi_issuer_source_candidate_seed_validation_and_review_status": "failed",
+        "multi_issuer_source_candidate_seed_validation_and_review_ready": False,
+        "candidate_seed_validation_completed": False,
+        "identifier_checksum_validation_completed": False,
+        "source_candidate_consistency_validation_completed": False,
+        "manual_review_required": False, "manual_review_input_supplied": False,
+        "manual_review_authorized": False, "manual_review_completed": False,
+        "candidate_correction_required": False, "candidate_seed_review_completed": False,
+        "candidate_seed_approved": False, "source_candidate_seed_reviewed": False,
+        "source_candidate_seed_accepted": False,
+        "ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan": False,
+        "next_tasks_valid": False, "task218_handoff_valid": False,
+        "write_outputs": write_outputs, "next_task_rows": _task219_next_rows(False),
+        "manual_candidate_seed_review_input_checksum_sha256":
+            hashlib.sha256(review_bytes).hexdigest() if review_bytes is not None else "",
+        "manual_candidate_seed_review_input_size_bytes": len(review_bytes or b""),
+        "blocker_rows": [{"blocker_index": 1, "code": "task219_failed", "safe_hint": "Repair the sanitized Task219 failure and rerun."}],
+        "next_step": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FAILED_NEXT_STEP,
+        "errors": [{"message": str(row.get("message") or "task219_failed")} for row in errors],
+    })
+
+
+def _build_task219_report(
+    task218: dict[str, Any],
+    *,
+    review_bytes: bytes | None,
+    review_document: Any,
+    review_input_supplied: bool,
+    review_authorized: bool,
+    input_blockers: list[str],
+) -> dict[str, Any]:
+    upstream = _task219_task218_validation_rows(task218) if task218 else []
+    blockers = list(input_blockers)
+    if not task218: blockers.append("task218_input_missing")
+    blockers.extend(f"{row['validation_key']}_invalid" for row in upstream if not row["passed"])
+    task218_valid = bool(upstream and all(row["passed"] for row in upstream))
+    source_rows = task218.get("normalized_candidate_rows") if task218_valid else []
+    identifier_rows: list[dict[str, Any]] = []
+    url_rows: list[dict[str, Any]] = []
+    consistency_rows: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    if task218_valid:
+        identifier_rows, url_rows, consistency_rows, local_blockers, warnings = _task219_local_validation(source_rows)
+        blockers.extend(local_blockers)
+    if review_input_supplied != review_authorized:
+        blockers.append(
+            "review_input_without_authorization"
+            if review_input_supplied else "review_authorization_without_input"
+        )
+    task218_checksum = str(task218.get("authorized_manual_candidate_seed_draft_loader_checksum_sha256") or "")
+    decisions: list[dict[str, Any]] = []
+    confirmations: list[dict[str, Any]] = []
+    outcomes: list[dict[str, Any]] = []
+    if review_input_supplied and review_authorized and review_document is not None:
+        decisions, confirmations, outcomes, review_blockers = _task219_parse_review(review_document, task218_checksum)
+        blockers.extend(review_blockers)
+    blockers = list(dict.fromkeys(blockers))
+    technical_validation = task218_valid and not blockers
+    review_completed = technical_validation and review_input_supplied and review_authorized and len(decisions) == 3
+    approved_count = sum(row.get("approved_for_dry_run") is True for row in outcomes) if review_completed else 0
+    correction_count = sum(row.get("needs_correction") is True for row in outcomes) if review_completed else 0
+    rejected_count = sum(row.get("rejected") is True for row in outcomes) if review_completed else 0
+    full_approval = review_completed and approved_count == 3
+    correction_required = review_completed and not full_approval
+    metadata = _task219_metadata() if technical_validation else {
+        "validation_scope_rows": [], "evidence_acceptance_boundary_rows": [],
+        "blocked_execution_policy_rows": [],
+    }
+    approval_rows = [
+        {
+            "approval_index": index, "candidate_slot_id": f"candidate_slot_{index:03d}",
+            "review_decision": row.get("review_decision", ""),
+            "approved_for_dry_run": row.get("approved_for_dry_run") is True,
+            "candidate_only_acceptance": row.get("approved_for_dry_run") is True,
+            "safe_hint": "Approval does not accept evidence or controlled values.",
+        }
+        for index, row in enumerate(outcomes, 1)
+    ] if review_completed else []
+    manifest = [{
+        "manifest_index": 1, "schema_version": "bondradar.manual_candidate_seed_review.v1",
+        "input_supplied": review_input_supplied, "authorization_supplied": review_authorized,
+        "maximum_size_bytes": 131072, "exact_byte_checksum_recorded": review_bytes is not None,
+        "safe_hint": "The review path and review notes are omitted.",
+    }]
+    generated = [
+        *upstream, *identifier_rows, *url_rows, *consistency_rows, *manifest,
+        *confirmations, *outcomes, *approval_rows,
+        *metadata["validation_scope_rows"], *metadata["evidence_acceptance_boundary_rows"],
+        *metadata["blocked_execution_policy_rows"],
+    ]
+    _, _, _, generated_codes = _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_findings(generated)
+    if generated_codes:
+        blockers.append("unsafe_generated_task219_structure")
+        technical_validation = review_completed = full_approval = correction_required = False
+        source_rows = []; decisions = []; confirmations = []; outcomes = []; approval_rows = []
+        identifier_rows = []; url_rows = []; consistency_rows = []; upstream = []
+        metadata = {"validation_scope_rows": [], "evidence_acceptance_boundary_rows": [], "blocked_execution_policy_rows": []}
+    status = "warning" if technical_validation else "blocked"
+    task220_allowed = full_approval and not blockers and not generated_codes
+    next_rows = _task219_next_rows(task220_allowed)
+    checks = {
+        "task218_handoff_valid": task218_valid,
+        "technical_validation_completed": technical_validation,
+        "review_authorization_matrix_valid": review_input_supplied == review_authorized,
+        "generated_structure_safe": not generated_codes,
+        "task220_boundary_valid": (
+            [row["task_id"] for row in next_rows if row["allowed_now"]] == ["Task220"]
+            if full_approval else all(not row["allowed_now"] for row in next_rows)
+        ),
+    }
+    check_rows = [
+        {
+            "check_index": index, "check_key": key,
+            "status": "passed" if passed else "blocked", "passed": bool(passed),
+            "safe_hint": "Task219 validation and review contract check.",
+        }
+        for index, (key, passed) in enumerate(checks.items(), 1)
+    ]
+    blocker_rows = [
+        {"blocker_index": index, "code": code, "safe_hint": "Resolve the sanitized Task219 blocker and rerun."}
+        for index, code in enumerate(dict.fromkeys(blockers), 1)
+    ]
+    validation_only = technical_validation and not review_input_supplied and not review_authorized
+    task217_lineage = str(task218.get("source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256") or "")
+    return _task219_finalize({
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review",
+        "status": status, "multi_issuer_source_candidate_seed_validation_and_review_status": status,
+        "multi_issuer_source_candidate_seed_validation_and_review_ready": technical_validation,
+        "candidate_seed_validation_completed": technical_validation,
+        "identifier_checksum_validation_completed": technical_validation,
+        "source_candidate_consistency_validation_completed": technical_validation,
+        "manual_review_required": validation_only,
+        "manual_review_input_supplied": review_input_supplied,
+        "manual_review_authorized": review_authorized,
+        "manual_review_completed": review_completed,
+        "candidate_correction_required": correction_required,
+        "candidate_seed_review_completed": review_completed,
+        "candidate_seed_approved": full_approval,
+        "source_candidate_seed_reviewed": review_completed,
+        "source_candidate_seed_accepted": full_approval,
+        "candidate_seed_acceptance_scope": "evidence_extraction_dry_run_only" if full_approval else "",
+        "ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan": task220_allowed,
+        "next_tasks_valid": status == "warning", "task218_handoff_valid": task218_valid,
+        "write_outputs": True,
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256":
+            task218_checksum if re.fullmatch(r"[0-9a-f]{64}", task218_checksum) else "",
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256":
+            task217_lineage if re.fullmatch(r"[0-9a-f]{64}", task217_lineage) else "",
+        "manual_candidate_seed_review_input_checksum_sha256":
+            hashlib.sha256(review_bytes).hexdigest() if review_bytes is not None else "",
+        "manual_candidate_seed_review_input_size_bytes": len(review_bytes or b""),
+        "validation_scope_rows": metadata["validation_scope_rows"],
+        "task218_validation_rows": upstream,
+        "validated_candidate_snapshot_rows": source_rows if technical_validation else [],
+        "identifier_checksum_check_rows": identifier_rows if technical_validation else [],
+        "url_check_rows": url_rows if technical_validation else [],
+        "source_candidate_consistency_rows": consistency_rows if technical_validation else [],
+        "review_input_manifest_rows": manifest,
+        "manual_review_decision_rows": decisions if review_completed else [],
+        "review_confirmation_rows": confirmations if review_completed else [],
+        "review_outcome_rows": outcomes if review_completed else [],
+        "candidate_approval_status_rows": approval_rows,
+        "evidence_acceptance_boundary_rows": metadata["evidence_acceptance_boundary_rows"],
+        "blocked_execution_policy_rows": metadata["blocked_execution_policy_rows"],
+        "next_task_rows": next_rows,
+        "source_candidate_seed_validation_and_manual_review_check_rows": check_rows,
+        "blocker_rows": blocker_rows, "validation_warning_codes": warnings if technical_validation else [],
+        "bad_safety_codes": generated_codes,
+        "approved_candidate_row_count": approved_count if review_completed else 0,
+        "needs_correction_candidate_row_count": correction_count if review_completed else 0,
+        "rejected_candidate_row_count": rejected_count if review_completed else 0,
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_TASK220_NEXT_STEP
+            if task220_allowed else
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_CORRECTION_NEXT_STEP
+            if correction_required else
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_MANUAL_NEXT_STEP
+            if validation_only else
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_BLOCKED_NEXT_STEP
+        ),
+        "safe_hint": "Candidate approval is limited to Task220 evidence-extraction dry-run planning.",
+        "errors": [],
+    })
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_markdown(
+    report: dict[str, Any],
+) -> str:
+    approved = report.get("candidate_seed_approved") is True
+    correction = report.get("candidate_correction_required") is True
+    validation_only = report.get("manual_review_required") is True
+    verdict = (
+        "WARNING — all candidates approved; only Task220 dry-run planning is unlocked."
+        if approved else "WARNING — manual review completed; candidate correction is required."
+        if correction else "WARNING — local validation passed; authorized manual review is required."
+        if validation_only else "BLOCKED — resolve candidate validation or review blockers."
+        if report.get("status") == "blocked" else "FAILED — repair Task219; Task220 remains locked."
+    )
+    return "\n".join([
+        "# Task219 — Multi-Issuer Source Candidate Seed Validation and Review", "",
+        verdict, "", f"- Status: `{report.get('status', '')}`",
+        f"- Validation / identifier / consistency: `{str(report.get('candidate_seed_validation_completed', False)).lower()}/{str(report.get('identifier_checksum_validation_completed', False)).lower()}/{str(report.get('source_candidate_consistency_validation_completed', False)).lower()}`",
+        f"- Manual review supplied / authorized / completed: `{str(report.get('manual_review_input_supplied', False)).lower()}/{str(report.get('manual_review_authorized', False)).lower()}/{str(report.get('manual_review_completed', False)).lower()}`",
+        f"- Approved / correction / rejected: `{report.get('approved_candidate_row_count', 0)}/{report.get('needs_correction_candidate_row_count', 0)}/{report.get('rejected_candidate_row_count', 0)}`",
+        f"- Candidate accepted scope: `{report.get('candidate_seed_acceptance_scope', '')}`",
+        f"- Task220 ready: `{str(report.get('ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan', False)).lower()}`",
+        f"- Blockers / bad safety / warnings: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}/{report.get('validation_warning_count', 0)}`",
+        f"- Task219 SHA-256: `{report.get('multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`", "",
+        "No candidate value or review note is printed here. No network, database, import, extraction, scoring, recommendation, broker, export, or trading authority is granted.", "",
+    ])
+
+
+def _task219_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    envelope = {
+        "status": report.get("status", ""),
+        "multi_issuer_source_candidate_seed_validation_and_review_ready":
+            report.get("multi_issuer_source_candidate_seed_validation_and_review_ready", False),
+        "candidate_seed_validation_completed": report.get("candidate_seed_validation_completed", False),
+        "candidate_seed_review_completed": report.get("candidate_seed_review_completed", False),
+        "candidate_seed_approved": report.get("candidate_seed_approved", False),
+        "candidate_correction_required": report.get("candidate_correction_required", False),
+        "ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan":
+            report.get("ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan", False),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256":
+            report.get("multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256", ""),
+    }
+    mappings = {
+        "checks_json": ("source_candidate_seed_validation_and_manual_review_check_count", "source_candidate_seed_validation_and_manual_review_check_rows"),
+        "scope_json": ("validation_scope_count", "validation_scope_rows"),
+        "task218_validation_json": ("task218_validation_count", "task218_validation_rows"),
+        "identifier_checksum_checks_json": ("identifier_checksum_check_count", "identifier_checksum_check_rows"),
+        "url_checks_json": ("url_check_count", "url_check_rows"),
+        "source_candidate_consistency_json": ("source_candidate_consistency_count", "source_candidate_consistency_rows"),
+        "review_input_manifest_json": ("review_input_manifest_count", "review_input_manifest_rows"),
+        "review_confirmations_json": ("review_confirmation_count", "review_confirmation_rows"),
+        "review_outcome_json": ("review_outcome_count", "review_outcome_rows"),
+        "candidate_approval_status_json": ("candidate_approval_status_count", "candidate_approval_status_rows"),
+        "evidence_acceptance_boundary_json": ("evidence_acceptance_boundary_count", "evidence_acceptance_boundary_rows"),
+        "blocked_execution_policy_json": ("blocked_execution_policy_count", "blocked_execution_policy_rows"),
+        "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {
+        key: {count: report.get(count, 0), rows: report.get(rows) or []}
+        for key, (count, rows) in mappings.items()
+    }
+    payloads["blockers_json"] = {**envelope, "blocker_rows": report.get("blocker_rows") or []}
+    payloads["validated_candidate_snapshot_json"] = {
+        **envelope, "validated_candidate_snapshot_count": report.get("validated_candidate_snapshot_count", 0),
+        "validated_candidate_snapshot_rows": report.get("validated_candidate_snapshot_rows") or [],
+    }
+    payloads["manual_review_decisions_json"] = {
+        **envelope, "manual_review_decision_count": report.get("manual_review_decision_count", 0),
+        "manual_review_decision_rows": report.get("manual_review_decision_rows") or [],
+    }
+    payloads["review_outcome_json"] = {
+        **envelope,
+        "approved_candidate_row_count": report.get("approved_candidate_row_count", 0),
+        "needs_correction_candidate_row_count": report.get("needs_correction_candidate_row_count", 0),
+        "rejected_candidate_row_count": report.get("rejected_candidate_row_count", 0),
+        **payloads["review_outcome_json"],
+    }
+    payloads["candidate_approval_status_json"] = {
+        **envelope,
+        "candidate_seed_acceptance_scope": report.get("candidate_seed_acceptance_scope", ""),
+        **payloads["candidate_approval_status_json"],
+    }
+    payloads["evidence_acceptance_boundary_json"] = {
+        **envelope,
+        "candidate_seed_acceptance_scope": report.get("candidate_seed_acceptance_scope", ""),
+        "evidence_accepted": False, "controlled_values_accepted": False,
+        "database_write_authorized": False, "import_authorized": False,
+        "evidence_extraction_authorized": False,
+        "controlled_value_creation_authorized": False,
+        **payloads["evidence_acceptance_boundary_json"],
+    }
+    payloads["review_input_manifest_json"] = {
+        **payloads["review_input_manifest_json"],
+        "manual_candidate_seed_review_input_checksum_sha256": report.get("manual_candidate_seed_review_input_checksum_sha256", ""),
+        "manual_candidate_seed_review_input_size_bytes": report.get("manual_candidate_seed_review_input_size_bytes", 0),
+    }
+    payloads["next_tasks_json"] = {**envelope, "next_tasks_valid": report.get("next_tasks_valid", False), **payloads["next_tasks_json"]}
+    payloads["summary_json"] = {
+        **envelope,
+        "approved_candidate_row_count": report.get("approved_candidate_row_count", 0),
+        "needs_correction_candidate_row_count": report.get("needs_correction_candidate_row_count", 0),
+        "rejected_candidate_row_count": report.get("rejected_candidate_row_count", 0),
+        "candidate_seed_acceptance_scope": report.get("candidate_seed_acceptance_scope", ""),
+        "validation_warning_count": report.get("validation_warning_count", 0),
+        "validation_warning_codes": report.get("validation_warning_codes") or [],
+    }
+    payloads["safety_json"] = {
+        **envelope, "bad_safety_codes": report.get("bad_safety_codes") or [],
+        "source_candidate_seed_reviewed": report.get("source_candidate_seed_reviewed", False),
+        "source_candidate_seed_accepted": report.get("source_candidate_seed_accepted", False),
+        "candidate_seed_acceptance_scope": report.get("candidate_seed_acceptance_scope", ""),
+        **{field: False for field in dict.fromkeys(RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FALSE_FIELDS)},
+    }
+    return payloads
+
+
+def _task219_write_direct(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    if artifacts.get("review_json"): write_json_report(report, artifacts["review_json"])
+    if artifacts.get("review_markdown"):
+        artifacts["review_markdown"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["review_markdown"].write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review_markdown(report),
+            encoding="utf-8",
+        )
+    for key, payload in _task219_wrappers(report).items():
+        if artifacts.get(key): write_json_report(payload, artifacts[key])
+
+
+def _task219_write_atomic(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    targets = {key: path for key, path in artifacts.items() if path is not None}
+    roots: dict[Path, Path] = {}; staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}; published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent; parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(prefix=".task219-source-seed-review-", dir=parent)); roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task219_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"
+                shutil.copy2(target, backup); backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target); published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file(): os.replace(backup, target)
+                elif target in published and target.exists(): target.unlink()
+            except OSError: pass
+        raise
+    finally:
+        for root in roots.values(): shutil.rmtree(root, ignore_errors=True)
+
+
+def _task219_publish(report: dict[str, Any], artifacts: dict[str, Path | None]) -> dict[str, Any]:
+    try:
+        _task219_write_atomic(report, artifacts); return report
+    except Exception:
+        failed = _task219_failed([{"message": "task219_write_failed"}])
+        try:
+            _task219_write_atomic(failed, artifacts); return failed
+        except Exception:
+            return _task219_failed([{"message": "task219_write_failed"}], write_outputs=False)
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = _task219_inputs(args); artifacts = _task219_artifacts(args)
+    errors = _task219_output_errors(inputs, artifacts)
+    if errors: return _task219_failed(errors, write_outputs=False)
+    task218_path, review_path = inputs["task218"], inputs["review"]
+    try:
+        task218 = _load_json_object(task218_path) if task218_path is not None and task218_path.is_file() else {}
+    except Exception:
+        return _task219_publish(_task219_failed([{"message": "task218_input_malformed"}]), artifacts)
+    review_supplied = review_path is not None
+    authorized = args.authorize_manual_candidate_seed_review
+    input_blockers: list[str] = []
+    review_bytes: bytes | None = None
+    review_document: Any = None
+    if review_supplied and not authorized:
+        input_blockers.append("review_input_without_authorization")
+    elif authorized and not review_supplied:
+        input_blockers.append("review_authorization_without_input")
+    elif review_supplied:
+        if not review_path.is_file():
+            input_blockers.append("review_input_not_regular_file")
+        else:
+            try:
+                if review_path.stat().st_size > 131072:
+                    input_blockers.append("review_input_too_large")
+                else:
+                    review_bytes = review_path.read_bytes()
+            except OSError:
+                return _task219_publish(_task219_failed([{"message": "review_input_read_failed"}]), artifacts)
+    if review_bytes is not None:
+        try:
+            review_document = json.loads(review_bytes.decode("utf-8"))
+        except UnicodeDecodeError:
+            return _task219_publish(_task219_failed([{"message": "review_input_utf8_invalid"}], review_bytes=review_bytes), artifacts)
+        except json.JSONDecodeError:
+            return _task219_publish(_task219_failed([{"message": "review_input_json_invalid"}], review_bytes=review_bytes), artifacts)
+        except Exception:
+            return _task219_publish(_task219_failed([{"message": "review_input_parse_failed"}], review_bytes=review_bytes), artifacts)
+    report = _build_task219_report(
+        task218, review_bytes=review_bytes, review_document=review_document,
+        review_input_supplied=review_supplied, review_authorized=authorized,
+        input_blockers=input_blockers,
+    )
+    return _task219_publish(report, artifacts)
 
 
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
