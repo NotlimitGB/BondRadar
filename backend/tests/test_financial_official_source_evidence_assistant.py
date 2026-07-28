@@ -30452,6 +30452,441 @@ def test_multi_issuer_evidence_extraction_dry_run_plan_determinism_collisions_an
     assert not list(tmp_path.glob(".task220-evidence-dry-run-plan-*"))
 
 
+def _write_task221_ready_task220(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, Path, tuple[Path, ...]]:
+    _, task219_path, upstream_paths = _write_task220_ready_task219(
+        chain, tmp_path, monkeypatch
+    )
+    report = _run_task220(chain)
+    assert report["status"] == "warning"
+    task220_path = (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES[
+            "plan_json"
+        ]
+    )
+    return report, task220_path, (task219_path, *upstream_paths)
+
+
+def _task221_manifest(task220: dict, *, decision: str = "authorize_controlled_dry_run") -> dict:
+    authorized = decision == "authorize_controlled_dry_run"
+    return {
+        "schema_version":
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_SCHEMA_VERSION,
+        "task220_checksum_sha256":
+            task220["multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256"],
+        "authorization_decision": decision,
+        "authorization_scope":
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_SCOPE,
+        "authorized_job_ids": (
+            [row["dry_run_job_id"] for row in task220["dry_run_job_rows"]]
+            if authorized else []
+        ),
+        "authorize_source_access": authorized,
+        "authorize_network_access":
+            task220["network_access_required_by_plan"] if authorized else False,
+        "authorize_document_download":
+            task220["document_download_required_by_plan"] if authorized else False,
+        "authorize_controlled_cache_lookup":
+            task220["controlled_cache_lookup_required_by_plan"] if authorized else False,
+        "authorize_local_text_layout_extraction": authorized,
+        "authorize_evidence_candidate_generation": authorized,
+        "authorize_task_scoped_artifact_write": authorized,
+        "acknowledge_evidence_candidates_only": True,
+        "acknowledge_no_database_write": True,
+        "acknowledge_no_controlled_value_creation": True,
+        "acknowledge_no_import": True,
+        "acknowledge_no_scoring": True,
+        "acknowledge_no_ranking": True,
+        "acknowledge_no_recommendation": True,
+        "acknowledge_no_broker_api": True,
+        "acknowledge_no_trading": True,
+    }
+
+
+def _run_task221(
+    chain: Path,
+    *,
+    manifest: Path | None = None,
+    authorize: bool = False,
+    extra: list[str] | None = None,
+) -> dict:
+    args = [
+        "--operator-resolution-chain-output-dir",
+        str(chain),
+    ]
+    if manifest is not None:
+        args.extend([
+            "--multi-issuer-evidence-extraction-dry-run-authorization-input",
+            str(manifest),
+        ])
+    if authorize:
+        args.append("--authorize-multi-issuer-evidence-extraction-dry-run")
+    args.extend(extra or [])
+    parsed = assistant.parse_args([
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate",
+        *args,
+    ])
+    report, exit_code = assistant.run_assistant(parsed)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def test_evidence_extraction_dry_run_authorization_gate_warning_states_and_smoke(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task220, task220_path, upstream_paths = _write_task221_ready_task220(
+        chain, tmp_path, monkeypatch
+    )
+    before = {
+        path: path.read_bytes() for path in (task220_path, *upstream_paths)
+    }
+
+    no_input = _run_task221(chain)
+    assert no_input["status"] == "warning"
+    assert no_input["multi_issuer_evidence_extraction_dry_run_authorization_gate_ready"] is True
+    assert no_input["task220_validation_completed"] is True
+    assert no_input["dry_run_plan_bound"] is True
+    assert no_input["authorization_decision_recorded"] is False
+    assert no_input["dry_run_execution_authorized"] is False
+    assert no_input["ready_for_task222_controlled_multi_issuer_evidence_extraction_dry_run_executor"] is False
+    assert all(not row["allowed_now"] for row in no_input["next_task_rows"])
+
+    manifest_path = tmp_path / "task221-authorization.json"
+    manifest = _task221_manifest(task220)
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    manifest_before = manifest_path.read_bytes()
+    authorized = _run_task221(chain, manifest=manifest_path, authorize=True)
+    assert authorized["status"] == "warning"
+    assert authorized["authorization_decision"] == "authorize_controlled_dry_run"
+    assert authorized["dry_run_authorization_granted"] is True
+    assert authorized["dry_run_authorization_declined"] is False
+    assert authorized["authorized_job_count"] == 3
+    assert authorized["authorized_capability_count"] == sum(
+        row["authorized_by_operator"]
+        for row in authorized["capability_authorization_rows"]
+    )
+    assert authorized["dry_run_execution_authorized"] is True
+    assert authorized["source_access_authorized"] is True
+    assert authorized["network_access_authorized"] is task220["network_access_required_by_plan"]
+    assert authorized["document_download_authorized"] is task220["document_download_required_by_plan"]
+    assert authorized["controlled_cache_lookup_authorized"] is task220["controlled_cache_lookup_required_by_plan"]
+    assert authorized["local_text_layout_extraction_authorized"] is True
+    assert authorized["evidence_candidate_generation_authorized"] is True
+    assert authorized["task_scoped_artifact_write_authorized"] is True
+    assert authorized["authorization_single_use"] is True
+    assert authorized["authorization_reusable"] is False
+    assert authorized["authorization_consumed"] is False
+    assert authorized["ready_for_task222_controlled_multi_issuer_evidence_extraction_dry_run_executor"] is True
+    assert [
+        row["task_id"] for row in authorized["next_task_rows"]
+        if row["allowed_now"]
+    ] == ["Task222"]
+    assert authorized["blocker_count"] == 0
+    assert authorized["bad_safety_count"] == 0
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        authorized["multi_issuer_evidence_extraction_dry_run_authorization_input_checksum_sha256"],
+    )
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        authorized["multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256"],
+    )
+    for field in (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_ALWAYS_FALSE_FIELDS
+    ):
+        assert authorized[field] is False, field
+    assert {path: path.read_bytes() for path in before} == before
+    assert manifest_path.read_bytes() == manifest_before
+
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_GATE_ARTIFACT_NAMES
+    )
+    assert len(names) == 20
+    assert all((chain / name).is_file() for name in names.values())
+    payloads = {
+        key: json.loads((chain / name).read_text(encoding="utf-8"))
+        for key, name in names.items() if name.endswith(".json")
+    }
+    markdown = (chain / names["gate_markdown"]).read_text(encoding="utf-8")
+    assert payloads["gate_json"] == authorized
+    assert payloads["task220_validation_json"]["task220_validation_rows"] == authorized["task220_validation_rows"]
+    assert payloads["dry_run_plan_binding_json"]["dry_run_plan_binding_rows"] == authorized["dry_run_plan_binding_rows"]
+    assert payloads["authorization_input_manifest_json"]["authorization_input_manifest_rows"] == [manifest]
+    assert payloads["authorized_job_set_json"]["authorized_job_rows"] == authorized["authorized_job_rows"]
+    assert payloads["next_tasks_json"]["next_task_rows"] == authorized["next_task_rows"]
+    assert "only Task222 Executor is unlocked" in markdown
+    concrete_markers = (
+        task220["approved_candidate_snapshot_rows"][0]["issuer_inn"],
+        task220["approved_candidate_snapshot_rows"][0]["source_url"],
+        "TASK220 SYNTHETIC REVIEW NOTE MUST NOT LEAK",
+    )
+    persisted = "\n".join(
+        (chain / name).read_text(encoding="utf-8") for name in names.values()
+    )
+    assert all(marker not in persisted for marker in concrete_markers)
+    assert not list(tmp_path.glob(".task221-evidence-dry-run-auth-*"))
+
+    decline_path = tmp_path / "task221-decline.json"
+    decline_path.write_text(
+        json.dumps(_task221_manifest(task220, decision="do_not_authorize")),
+        encoding="utf-8",
+    )
+    declined = _run_task221(chain, manifest=decline_path, authorize=True)
+    assert declined["status"] == "warning"
+    assert declined["dry_run_authorization_declined"] is True
+    assert declined["dry_run_authorization_granted"] is False
+    assert declined["authorized_job_count"] == 0
+    assert declined["authorized_capability_count"] == 0
+    assert declined["dry_run_execution_authorized"] is False
+    assert all(not row["allowed_now"] for row in declined["next_task_rows"])
+    final_authorized = _run_task221(
+        chain, manifest=manifest_path, authorize=True
+    )
+    assert final_authorized["dry_run_authorization_granted"] is True
+    assert final_authorized[
+        "ready_for_task222_controlled_multi_issuer_evidence_extraction_dry_run_executor"
+    ] is True
+
+
+def test_evidence_extraction_dry_run_authorization_gate_blocks_invalid_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task220, task220_path, _ = _write_task221_ready_task220(
+        chain, tmp_path, monkeypatch
+    )
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(_task221_manifest(task220)), encoding="utf-8"
+    )
+    assert _run_task221(chain, manifest=manifest_path)["status"] == "blocked"
+    assert _run_task221(chain, authorize=True)["status"] == "blocked"
+
+    mutations = [
+        lambda value: value.update(task220_checksum_sha256="a" * 64),
+        lambda value: value.update(authorization_scope="wrong_scope"),
+        lambda value: value["authorized_job_ids"].reverse(),
+        lambda value: value["authorized_job_ids"].pop(),
+        lambda value: value["authorized_job_ids"].append("task220_unknown_job"),
+        lambda value: value.update(authorize_network_access=False),
+        lambda value: value.update(acknowledge_no_database_write=False),
+        lambda value: value.update(unexpected_field=True),
+    ]
+    for index, mutate in enumerate(mutations, 1):
+        payload = _task221_manifest(task220)
+        mutate(payload)
+        path = tmp_path / f"invalid-manifest-{index}.json"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        report = _run_task221(chain, manifest=path, authorize=True)
+        assert report["status"] == "blocked", index
+        assert report["authorization_decision_recorded"] is False
+        assert report["authorized_job_count"] == 0
+        assert report["authorization_input_manifest_rows"] == []
+        assert all(not row["allowed_now"] for row in report["next_task_rows"])
+
+    original = json.loads(task220_path.read_text(encoding="utf-8"))
+    for index, mutate in enumerate((
+        lambda value: value.update(
+            multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256="a" * 64
+        ),
+        lambda value: value["dry_run_job_rows"][0].update(
+            dry_run_job_id="task220_bad_job"
+        ),
+        lambda value: value["dry_run_job_rows"][0]["planned_stage_rows"][0].update(
+            stage_status="executed"
+        ),
+        lambda value: value["controlled_field_target_rows"][0].update(
+            controlled_field_key="unknown_metric"
+        ),
+        lambda value: value["authorization_requirement_rows"][0].update(
+            required_by_plan=False
+        ),
+        lambda value: value.update(dry_run_execution_authorized=True),
+        lambda value: value.update(
+            source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256="b" * 64
+        ),
+    ), 1):
+        payload = json.loads(json.dumps(original))
+        mutate(payload)
+        if index != 1:
+            payload[
+                "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256"
+            ] = assistant._task220_checksum(payload)
+        task220_path.write_text(json.dumps(payload), encoding="utf-8")
+        report = _run_task221(chain)
+        assert report["status"] == "blocked", index
+        assert report["task220_validation_completed"] is False
+        assert report["dry_run_plan_binding_rows"] == []
+    task220_path.write_text(json.dumps(original), encoding="utf-8")
+
+
+def test_evidence_extraction_dry_run_authorization_gate_missing_failed_and_sanitized(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing_chain = tmp_path / "missing"
+    missing_chain.mkdir()
+    missing = _run_task221(missing_chain)
+    assert missing["status"] == "blocked"
+    assert missing["authorized_job_count"] == 0
+    assert len([
+        path for path in missing_chain.iterdir()
+        if "evidence_extraction_dry_run_authorization_gate" in path.name
+        and "task221" in path.name
+    ]) == 20
+
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task220, _, _ = _write_task221_ready_task220(
+        chain, tmp_path, monkeypatch
+    )
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text('{"schema_version": invalid', encoding="utf-8")
+    failed = _run_task221(chain, manifest=malformed, authorize=True)
+    assert failed["status"] == "failed"
+    assert failed["write_outputs"] is True
+    invalid_utf8 = tmp_path / "invalid-utf8.json"
+    invalid_utf8.write_bytes(b"\xff\xfe")
+    assert _run_task221(
+        chain, manifest=invalid_utf8, authorize=True
+    )["status"] == "failed"
+    directory = tmp_path / "manifest-dir"
+    directory.mkdir()
+    assert _run_task221(
+        chain, manifest=directory, authorize=True
+    )["status"] == "blocked"
+    oversized = tmp_path / "oversized.json"
+    oversized.write_bytes(b" " * 131073)
+    assert _run_task221(
+        chain, manifest=oversized, authorize=True
+    )["status"] == "blocked"
+
+    original_scope = assistant._task221_scope_rows
+
+    def leaking_scope() -> list[dict]:
+        rows = original_scope()
+        rows[0]["issuer_name"] = "SECRET TASK221 ISSUER"
+        rows[0]["source_url"] = "https://secret-task221.invalid/report.pdf"
+        return rows
+
+    monkeypatch.setattr(assistant, "_task221_scope_rows", leaking_scope)
+    manifest = tmp_path / "valid.json"
+    manifest.write_text(json.dumps(_task221_manifest(task220)), encoding="utf-8")
+    leaked = _run_task221(chain, manifest=manifest, authorize=True)
+    assert leaked["status"] == "blocked"
+    persisted = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "evidence_extraction_dry_run_authorization_gate" in path.name
+        and "task221" in path.name
+    )
+    assert "SECRET TASK221 ISSUER" not in persisted
+    assert "secret-task221.invalid" not in persisted
+
+
+def test_evidence_extraction_dry_run_authorization_gate_determinism_collisions_and_atomic_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task220, task220_path, _ = _write_task221_ready_task220(
+        chain, tmp_path, monkeypatch
+    )
+    payload = _task221_manifest(task220)
+    first_manifest = tmp_path / "first.json"
+    second_manifest = tmp_path / "second.json"
+    first_manifest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    second_manifest.write_text(
+        json.dumps(dict(reversed(list(payload.items()))), separators=(",", ":")),
+        encoding="utf-8",
+    )
+    first = _run_task221(chain, manifest=first_manifest, authorize=True)
+    second_chain = tmp_path / "second-chain"
+    second_chain.mkdir()
+    second = _run_task221(
+        second_chain,
+        manifest=second_manifest,
+        authorize=True,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate-input",
+            str(task220_path),
+        ],
+    )
+    assert first["multi_issuer_evidence_extraction_dry_run_authorization_input_checksum_sha256"] == second["multi_issuer_evidence_extraction_dry_run_authorization_input_checksum_sha256"]
+    assert first["multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256"] == second["multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256"]
+
+    before = task220_path.read_bytes()
+    collision = _run_task221(
+        tmp_path / "collision",
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate-input",
+            str(task220_path),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate-output",
+            str(task220_path),
+        ],
+    )
+    assert collision["status"] == "failed"
+    assert collision["write_outputs"] is False
+    assert task220_path.read_bytes() == before
+    alias = tmp_path / "alias.json"
+    alias_report = _run_task221(
+        tmp_path / "alias-chain",
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate-input",
+            str(task220_path),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate-output",
+            str(alias),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate-checks-output",
+            str(alias),
+        ],
+    )
+    assert alias_report["status"] == "failed"
+    assert alias_report["write_outputs"] is False
+    assert not alias.exists()
+
+    retry_chain = tmp_path / "retry-chain"
+    retry_chain.mkdir()
+    original_writer = assistant.write_json_report
+    calls = {"count": 0}
+
+    def fail_once(data: dict, path: Path) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("synthetic Task221 writer failure")
+        original_writer(data, path)
+
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    failed_write = _run_task221(
+        retry_chain,
+        manifest=first_manifest,
+        authorize=True,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-authorization-gate-input",
+            str(task220_path),
+        ],
+    )
+    assert failed_write["status"] == "failed"
+    assert failed_write["write_outputs"] is True
+    assert failed_write["authorized_job_count"] == 0
+    assert len([
+        path for path in retry_chain.iterdir()
+        if "evidence_extraction_dry_run_authorization_gate" in path.name
+        and "task221" in path.name
+    ]) == 20
+    assert not list(tmp_path.glob(".task221-evidence-dry-run-auth-*"))
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
