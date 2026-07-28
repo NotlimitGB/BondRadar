@@ -31749,6 +31749,485 @@ def test_multi_issuer_dry_run_evidence_candidate_review_gate_failed_collision_an
     assert not list(tmp_path.glob(".task223-evidence-candidate-review-*"))
 
 
+def _write_task224_ready_task223(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, Path, Path]:
+    _write_task223_ready_task222(chain, tmp_path, monkeypatch)
+    task223 = _run_task223(chain)
+    assert task223["status"] == "warning"
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES
+    )
+    return (
+        task223,
+        chain / names["gate_json"],
+        chain / names["manual_review_template_json"],
+    )
+
+
+def _task224_review_document(
+    template_path: Path,
+    decisions: list[tuple[str, str]],
+    *,
+    correction_index: int | None = None,
+) -> dict:
+    document = json.loads(template_path.read_text(encoding="utf-8"))
+    assert len(decisions) == len(document["review_rows"])
+    for index, (row, (decision, reason)) in enumerate(
+        zip(document["review_rows"], decisions)
+    ):
+        row["review_decision"] = decision
+        row["review_reason_code"] = reason
+        if correction_index == index:
+            row["corrected_candidate_value_text"] = "operator proposal"
+            row["corrected_normalized_numeric_candidate"] = (
+                "12345678901234567890.123456789"
+            )
+            row["review_note"] = " correction requested\r\nby operator "
+    return document
+
+
+def _run_task224(
+    chain: Path,
+    *,
+    review_input: Path | None = None,
+    confirm: bool = False,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review",
+        "--operator-resolution-chain-output-dir",
+        str(chain),
+    ]
+    if review_input is not None:
+        arguments.extend([
+            "--multi-issuer-dry-run-evidence-candidate-review-input",
+            str(review_input),
+        ])
+    if confirm:
+        arguments.append(
+            "--confirm-multi-issuer-dry-run-evidence-candidate-manual-review"
+        )
+    arguments.extend(extra or [])
+    parsed = assistant.parse_args(arguments)
+    report, exit_code = assistant.run_assistant(parsed)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def test_multi_issuer_dry_run_evidence_candidate_manual_review_warning_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, _, template_path = _write_task224_ready_task223(
+        chain, tmp_path, monkeypatch
+    )
+    no_input = _run_task224(chain)
+    assert no_input["status"] == "warning"
+    assert no_input[
+        "multi_issuer_dry_run_evidence_candidate_manual_review_ready"
+    ] is True
+    assert no_input["task223_validation_completed"] is True
+    assert no_input["review_template_binding_validated"] is True
+    assert no_input["review_input_supplied"] is False
+    assert no_input["review_completed"] is False
+    assert (
+        no_input["evidence_candidate_count"],
+        no_input["approved_candidate_count"],
+        no_input["rejected_candidate_count"],
+        no_input["correction_requested_candidate_count"],
+        no_input["unreviewed_candidate_count"],
+    ) == (6, 0, 0, 0, 6)
+    assert all(
+        not row["allowed_now"] for row in no_input["next_task_rows"]
+    )
+
+    review_path = tmp_path / "review.json"
+    mixed = _task224_review_document(
+        template_path,
+        [
+            *[
+                (
+                    "approve_for_controlled_value_staging",
+                    "evidence_matches_report",
+                )
+                for _ in range(4)
+            ],
+            *[
+                ("reject_candidate", "duplicate_candidate")
+                for _ in range(2)
+            ],
+        ],
+    )
+    review_path.write_text(
+        json.dumps(mixed, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    unconfirmed = _run_task224(
+        chain, review_input=review_path
+    )
+    assert unconfirmed["status"] == "warning"
+    assert unconfirmed["review_input_validated"] is True
+    assert unconfirmed["review_confirmation_supplied"] is False
+    assert unconfirmed["review_decisions_recorded"] is False
+    task224_names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES
+    )
+    unconfirmed_input = json.loads(
+        (chain / task224_names["review_input_validation_json"]).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert len(unconfirmed_input["validated_review_rows"]) == 6
+    result = json.loads(
+        (chain / task224_names["manual_review_result_json"]).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert result["manual_review_result_rows"] == []
+
+    immutable_paths = [
+        path for path in chain.rglob("*")
+        if path.is_file() and "task224" not in path.name
+    ]
+    before = {path: path.read_bytes() for path in immutable_paths}
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError(
+            "Task224 must not access sources or extract PDFs"
+        )
+
+    monkeypatch.setattr(
+        assistant, "_task222_controlled_http_get", forbidden
+    )
+    monkeypatch.setattr(assistant, "_task222_extract_pdf", forbidden)
+    confirmed = _run_task224(
+        chain, review_input=review_path, confirm=True
+    )
+    assert confirmed["status"] == "warning"
+    assert confirmed["review_completed"] is True
+    assert confirmed["approved_candidates_staging_eligible"] is True
+    assert (
+        confirmed["evidence_candidate_count"],
+        confirmed["approved_candidate_count"],
+        confirmed["rejected_candidate_count"],
+        confirmed["correction_requested_candidate_count"],
+        confirmed["unreviewed_candidate_count"],
+    ) == (6, 4, 2, 0, 0)
+    assert [
+        row["task_id"] for row in confirmed["next_task_rows"]
+        if row["allowed_now"]
+    ] == ["Task225"]
+    assert confirmed["blocker_count"] == 0
+    assert confirmed["bad_safety_count"] == 0
+    assert len(task224_names) == 20
+    assert all((chain / name).is_file() for name in task224_names.values())
+    for field in (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ALWAYS_FALSE_FIELDS
+    ):
+        assert confirmed[field] is False, field
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        confirmed[
+            "multi_issuer_dry_run_evidence_candidate_manual_review_input_checksum_sha256"
+        ],
+    )
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        confirmed[
+            "multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256"
+        ],
+    )
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        confirmed[
+            "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+        ],
+    )
+    task222 = json.loads(
+        (
+            chain
+            / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES[
+                "executor_json"
+            ]
+        ).read_text(encoding="utf-8")
+    )
+    concrete = task222["evidence_candidate_rows"][0][
+        "value_candidate"
+    ]["raw_value_text"]
+    assert concrete
+    for name in task224_names.values():
+        assert concrete not in (chain / name).read_text(encoding="utf-8")
+    assert {path: path.read_bytes() for path in immutable_paths} == before
+    assert not list(tmp_path.glob(".task224-evidence-candidate-review-*"))
+    assert not list(chain.rglob("*.tmp"))
+
+
+def test_multi_issuer_dry_run_evidence_candidate_manual_review_rejected_and_correction_states(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, _, template_path = _write_task224_ready_task223(
+        chain, tmp_path, monkeypatch
+    )
+    review_path = tmp_path / "review.json"
+    rejected = _task224_review_document(
+        template_path,
+        [
+            ("reject_candidate", "duplicate_candidate")
+            for _ in range(6)
+        ],
+    )
+    review_path.write_text(json.dumps(rejected), encoding="utf-8")
+    all_rejected = _run_task224(
+        chain, review_input=review_path, confirm=True
+    )
+    assert all_rejected["status"] == "warning"
+    assert all_rejected["review_completed"] is True
+    assert (
+        all_rejected["approved_candidate_count"],
+        all_rejected["rejected_candidate_count"],
+        all_rejected["correction_requested_candidate_count"],
+    ) == (0, 6, 0)
+    assert all_rejected["approved_candidates_staging_eligible"] is False
+    assert all(
+        not row["allowed_now"]
+        for row in all_rejected["next_task_rows"]
+    )
+
+    correction = _task224_review_document(
+        template_path,
+        [
+            (
+                "request_candidate_correction",
+                "wrong_numeric_value",
+            ),
+            *[
+                (
+                    "approve_for_controlled_value_staging",
+                    "evidence_matches_report",
+                )
+                for _ in range(5)
+            ],
+        ],
+        correction_index=0,
+    )
+    review_path.write_text(
+        json.dumps(correction, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    corrected = _run_task224(
+        chain, review_input=review_path, confirm=True
+    )
+    assert corrected["status"] == "warning"
+    assert corrected["review_completed"] is True
+    assert (
+        corrected["approved_candidate_count"],
+        corrected["rejected_candidate_count"],
+        corrected["correction_requested_candidate_count"],
+    ) == (5, 0, 1)
+    assert corrected["approved_candidates_staging_eligible"] is False
+    assert all(
+        not row["allowed_now"] for row in corrected["next_task_rows"]
+    )
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES
+    )
+    result_text = (chain / names["manual_review_result_json"]).read_text(
+        encoding="utf-8"
+    )
+    proposal_text = (
+        chain / names["correction_proposals_json"]
+    ).read_text(encoding="utf-8")
+    assert "correction requested\\nby operator" in result_text
+    assert "12345678901234567890.123456789" in proposal_text
+    for key, name in names.items():
+        if key in {
+            "manual_review_result_json",
+            "correction_proposals_json",
+        }:
+            continue
+        text = (chain / name).read_text(encoding="utf-8")
+        assert "correction requested" not in text
+        assert "12345678901234567890.123456789" not in text
+
+
+def test_multi_issuer_dry_run_evidence_candidate_manual_review_input_guards(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, _, template_path = _write_task224_ready_task223(
+        chain, tmp_path, monkeypatch
+    )
+    template = json.loads(template_path.read_text(encoding="utf-8"))
+    base = _task224_review_document(
+        template_path,
+        [
+            (
+                "approve_for_controlled_value_staging",
+                "evidence_matches_report",
+            )
+            for _ in range(6)
+        ],
+    )
+    cases: list[tuple[str, dict]] = []
+    changed = copy.deepcopy(base)
+    changed["unknown"] = True
+    cases.append(("unknown_top_level", changed))
+    changed = copy.deepcopy(base)
+    changed["review_rows"][0]["evidence_candidate_id"] = "changed"
+    cases.append(("identity", changed))
+    changed = copy.deepcopy(base)
+    changed["review_rows"][0]["review_decision"] = "accept"
+    cases.append(("decision", changed))
+    changed = copy.deepcopy(base)
+    changed["review_rows"][0][
+        "corrected_candidate_value_text"
+    ] = "not allowed for approve"
+    cases.append(("approve_correction", changed))
+    changed = copy.deepcopy(base)
+    changed["review_rows"][0]["review_reason_code"] = (
+        "other_bounded_manual_reason"
+    )
+    cases.append(("other_without_note", changed))
+    for name, document in cases:
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps(document), encoding="utf-8")
+        report = _run_task224(
+            chain, review_input=path, confirm=True
+        )
+        assert report["status"] == "blocked", name
+        assert report["review_decisions_recorded"] is False
+        assert report["approved_candidate_count"] == 0
+        assert all(
+            not row["allowed_now"] for row in report["next_task_rows"]
+        )
+        serialized = json.dumps(report, ensure_ascii=False)
+        assert "not allowed for approve" not in serialized
+
+    missing = _run_task224(
+        chain,
+        confirm=True,
+    )
+    assert missing["status"] == "blocked"
+    malformed = tmp_path / "malformed.json"
+    malformed.write_text('{"schema_version": invalid', encoding="utf-8")
+    failed = _run_task224(chain, review_input=malformed)
+    assert failed["status"] == "failed"
+    assert failed["write_outputs"] is True
+    invalid_utf8 = tmp_path / "invalid.json"
+    invalid_utf8.write_bytes(b"\xff\xfe")
+    failed_utf8 = _run_task224(chain, review_input=invalid_utf8)
+    assert failed_utf8["status"] == "failed"
+
+
+def test_multi_issuer_dry_run_evidence_candidate_manual_review_determinism_collision_and_atomic_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, task223_path, template_path = _write_task224_ready_task223(
+        chain, tmp_path, monkeypatch
+    )
+    document = _task224_review_document(
+        template_path,
+        [
+            (
+                "request_candidate_correction",
+                "wrong_numeric_value",
+            ),
+            *[
+                (
+                    "approve_for_controlled_value_staging",
+                    "evidence_matches_report",
+                )
+                for _ in range(5)
+            ],
+        ],
+        correction_index=0,
+    )
+    compact = tmp_path / "compact.json"
+    compact.write_text(
+        json.dumps(document, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    pretty = tmp_path / "pretty.json"
+    pretty.write_text(
+        json.dumps(document, ensure_ascii=False, indent=4, sort_keys=True),
+        encoding="utf-8",
+    )
+    first = _run_task224(
+        chain, review_input=compact, confirm=True
+    )
+    second = _run_task224(
+        chain, review_input=pretty, confirm=True
+    )
+    assert first[
+        "multi_issuer_dry_run_evidence_candidate_manual_review_input_checksum_sha256"
+    ] == second[
+        "multi_issuer_dry_run_evidence_candidate_manual_review_input_checksum_sha256"
+    ]
+    assert first[
+        "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+    ] == second[
+        "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+    ]
+
+    before = task223_path.read_bytes()
+    collision = _run_task224(
+        tmp_path / "collision",
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review-gate-input",
+            str(task223_path),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review-output",
+            str(task223_path),
+        ],
+    )
+    assert collision["status"] == "failed"
+    assert collision["write_outputs"] is False
+    assert task223_path.read_bytes() == before
+
+    retry = tmp_path / "retry"
+    retry.mkdir()
+    original_writer = assistant.write_json_report
+    calls = {"count": 0}
+
+    def fail_once(data: dict, path: Path) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("synthetic Task224 writer failure")
+        original_writer(data, path)
+
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    retried = _run_task224(
+        retry,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review-gate-input",
+            str(task223_path),
+        ],
+    )
+    assert retried["status"] == "failed"
+    assert retried["write_outputs"] is True
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES
+    )
+    assert len([
+        path for path in retry.iterdir()
+        if path.name in set(names.values())
+    ]) == 20
+    assert not list(tmp_path.glob(".task224-evidence-candidate-review-*"))
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
