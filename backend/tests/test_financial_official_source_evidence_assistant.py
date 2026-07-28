@@ -30001,6 +30001,457 @@ def test_source_candidate_seed_validation_and_manual_review_wrappers_determinism
     assert not alias_output.exists()
 
 
+def _write_task220_ready_task219(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, Path, tuple[Path, ...]]:
+    task218, task218_path, draft = _write_task219_ready_task218(
+        chain, tmp_path, monkeypatch
+    )
+    review = tmp_path / "task220-review.json"
+    payload = _task219_review_payload(
+        task218["authorized_manual_candidate_seed_draft_loader_checksum_sha256"]
+    )
+    payload["review_rows"][0]["review_notes"] = (
+        "TASK220 SYNTHETIC REVIEW NOTE MUST NOT LEAK"
+    )
+    _write_task219_review(review, payload)
+    report = _run_task219(chain, review, authorize=True)
+    assert report["status"] == "warning"
+    assert report["candidate_seed_approved"] is True
+    task219_path = (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES[
+            "review_json"
+        ]
+    )
+    task217_path = (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES[
+            "gate_json"
+        ]
+    )
+    return report, task219_path, (task217_path, task218_path, draft, review)
+
+
+def _run_task220(
+    chain: Path,
+    *,
+    extra: list[str] | None = None,
+) -> dict:
+    return _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan([
+        "--operator-resolution-chain-output-dir",
+        str(chain),
+        *(extra or []),
+    ])
+
+
+def _task220_rechecksum_task219(payload: dict) -> dict:
+    payload[
+        "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+    ] = assistant._task219_checksum(payload)
+    return payload
+
+
+def test_multi_issuer_evidence_extraction_dry_run_plan_approved_warning_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task219, task219_path, upstream_paths = _write_task220_ready_task219(
+        chain, tmp_path, monkeypatch
+    )
+    before = {
+        path: path.read_bytes() for path in (task219_path, *upstream_paths)
+    }
+
+    report = _run_task220(chain)
+
+    assert report["status"] == "warning"
+    assert report["multi_issuer_evidence_extraction_dry_run_plan_status"] == "warning"
+    assert report["multi_issuer_evidence_extraction_dry_run_plan_ready"] is True
+    assert report["task219_validation_completed"] is True
+    assert report["approved_candidate_seed_bound"] is True
+    assert report["dry_run_plan_created"] is True
+    assert report["dry_run_plan_valid"] is True
+    assert (
+        report["planned_candidate_row_count"],
+        report["planned_dry_run_job_count"],
+        report["planned_stage_count_per_job"],
+    ) == (3, 3, 12)
+    assert report["planned_extraction_stage_count"] == 36
+    assert report["network_access_required_by_plan"] is True
+    assert report["document_download_required_by_plan"] is True
+    assert report["controlled_cache_lookup_required_by_plan"] is False
+    assert report["dry_run_execution_authorization_required"] is True
+    assert report["dry_run_execution_authorized"] is False
+    assert report["dry_run_executed"] is False
+    assert (
+        report[
+            "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate"
+        ]
+        is True
+    )
+    assert [
+        row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]
+    ] == ["Task221"]
+    assert [
+        row["dry_run_job_id"] for row in report["dry_run_job_rows"]
+    ] == [
+        f"task220_evidence_dry_run_candidate_slot_{index:03d}"
+        for index in range(1, 4)
+    ]
+    assert all(
+        [stage["stage_id"] for stage in row["planned_stage_rows"]]
+        == list(
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_STAGE_IDS
+        )
+        for row in report["dry_run_job_rows"]
+    )
+    assert all(
+        row["planned_controlled_field_keys"]
+        == list(assistant.EVIDENCE_FINANCIAL_FIELDS)
+        for row in report["dry_run_job_rows"]
+    )
+    assert report["blocker_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        report[
+            "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256"
+        ],
+    )
+    assert (
+        report[
+            "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+        ]
+        == task219[
+            "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+        ]
+    )
+    for field in (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_FALSE_FIELDS
+    ):
+        assert report[field] is False, field
+    assert {path: path.read_bytes() for path in before} == before
+
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES
+    )
+    assert len(names) == 20
+    assert all((chain / name).is_file() for name in names.values())
+    payloads = {
+        key: json.loads((chain / name).read_text(encoding="utf-8"))
+        for key, name in names.items()
+        if name.endswith(".json")
+    }
+    markdown = (chain / names["plan_markdown"]).read_text(encoding="utf-8")
+    assert payloads["plan_json"] == report
+    assert (
+        payloads["candidate_dry_run_job_plan_json"][
+            "approved_candidate_snapshot_rows"
+        ]
+        == report["approved_candidate_snapshot_rows"]
+    )
+    assert (
+        payloads["source_access_plan_json"]["source_access_plan_rows"]
+        == report["source_access_plan_rows"]
+    )
+    assert payloads["next_tasks_json"]["next_task_rows"] == report["next_task_rows"]
+    assert payloads["summary_json"]["planned_dry_run_job_count"] == 3
+    assert payloads["safety_json"]["dry_run_execution_authorized"] is False
+    assert "only Task221 authorization gate is unlocked" in markdown
+    issuer_marker = report["approved_candidate_snapshot_rows"][0]["issuer_inn"]
+    url_marker = report["approved_candidate_snapshot_rows"][0]["source_url"]
+    note_marker = "TASK220 SYNTHETIC REVIEW NOTE MUST NOT LEAK"
+    issuer_allowed = {
+        names["plan_json"], names["candidate_dry_run_job_plan_json"],
+    }
+    url_allowed = {
+        names["plan_json"],
+        names["candidate_dry_run_job_plan_json"],
+        names["source_access_plan_json"],
+    }
+    for key, name in names.items():
+        text = (chain / name).read_text(encoding="utf-8")
+        assert (issuer_marker in text) is (name in issuer_allowed), key
+        assert (url_marker in text) is (name in url_allowed), key
+        assert note_marker not in text, key
+    assert not list(tmp_path.glob(".task220-evidence-dry-run-plan-*"))
+
+
+def test_multi_issuer_evidence_extraction_dry_run_plan_blocks_upstream_and_plan_drift(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    approved, task219_path, _ = _write_task220_ready_task219(
+        chain, tmp_path, monkeypatch
+    )
+    original = json.loads(json.dumps(approved))
+    mutations = [
+        (
+            "validation_only",
+            lambda payload: payload.update(
+                manual_review_completed=False,
+                candidate_seed_review_completed=False,
+                candidate_seed_approved=False,
+                source_candidate_seed_accepted=False,
+                ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan=False,
+            ),
+        ),
+        (
+            "nonapproved",
+            lambda payload: payload["review_outcome_rows"][0].update(
+                approved_for_dry_run=False,
+                needs_correction=True,
+            ),
+        ),
+        (
+            "scope",
+            lambda payload: payload.update(
+                candidate_seed_acceptance_scope="wrong_scope"
+            ),
+        ),
+        (
+            "counts",
+            lambda payload: payload.update(approved_candidate_row_count=2),
+        ),
+        (
+            "lineage",
+            lambda payload: payload.update(
+                source_authorized_manual_candidate_seed_draft_loader_checksum_sha256="bad"
+            ),
+        ),
+        (
+            "valid_hex_task218_lineage",
+            lambda payload: payload.update(
+                source_authorized_manual_candidate_seed_draft_loader_checksum_sha256="a"
+                * 64
+            ),
+        ),
+        (
+            "valid_hex_task217_lineage",
+            lambda payload: payload.update(
+                source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256="b"
+                * 64
+            ),
+        ),
+        (
+            "slot",
+            lambda payload: payload["validated_candidate_snapshot_rows"][0].update(
+                candidate_slot_id="candidate_slot_999"
+            ),
+        ),
+        (
+            "source_type",
+            lambda payload: payload["validated_candidate_snapshot_rows"][0].update(
+                source_type_key="unknown_source_type"
+            ),
+        ),
+        (
+            "locator",
+            lambda payload: payload["validated_candidate_snapshot_rows"][0].update(
+                source_url="",
+                official_source_url="",
+            ),
+        ),
+    ]
+    for label, mutate in mutations:
+        payload = json.loads(json.dumps(original))
+        mutate(payload)
+        _task220_rechecksum_task219(payload)
+        task219_path.write_text(json.dumps(payload), encoding="utf-8")
+        before = task219_path.read_bytes()
+        report = _run_task220(chain)
+        assert report["status"] == "blocked", label
+        assert report["task219_validation_completed"] is False, label
+        assert report["approved_candidate_seed_bound"] is False, label
+        assert report["planned_candidate_row_count"] == 0, label
+        assert report["planned_dry_run_job_count"] == 0, label
+        assert report["approved_candidate_snapshot_rows"] == [], label
+        assert all(not row["allowed_now"] for row in report["next_task_rows"]), label
+        assert task219_path.read_bytes() == before, label
+        persisted = "\n".join(
+            (chain / name).read_text(encoding="utf-8")
+            for name in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES.values()
+        )
+        assert original["validated_candidate_snapshot_rows"][0]["issuer_inn"] not in persisted
+    task219_path.write_text(json.dumps(original), encoding="utf-8")
+    checksum_corrupt = json.loads(json.dumps(original))
+    checksum_corrupt[
+        "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+    ] = "a" * 64
+    task219_path.write_text(json.dumps(checksum_corrupt), encoding="utf-8")
+    assert _run_task220(chain)["status"] == "blocked"
+
+
+def test_multi_issuer_evidence_extraction_dry_run_plan_missing_and_failed_inputs(
+    tmp_path: Path,
+) -> None:
+    missing_chain = tmp_path / "missing"
+    missing_chain.mkdir()
+    missing = _run_task220(missing_chain)
+    assert missing["status"] == "blocked"
+    assert missing["planned_dry_run_job_count"] == 0
+    assert len([
+        path for path in missing_chain.iterdir()
+        if "evidence_extraction_dry_run_plan" in path.name
+        and "task220" in path.name
+    ]) == 20
+
+    malformed = tmp_path / "malformed-task219.json"
+    malformed.write_text('{"status": invalid', encoding="utf-8")
+    failed_chain = tmp_path / "failed"
+    failed_chain.mkdir()
+    failed = _run_task220(failed_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-input",
+        str(malformed),
+    ])
+    assert failed["status"] == "failed"
+    assert failed["planned_candidate_row_count"] == 0
+    assert failed["write_outputs"] is True
+    invalid_utf8 = tmp_path / "invalid-utf8-task219.json"
+    invalid_utf8.write_bytes(b"\xff\xfe")
+    failed_utf8 = _run_task220(failed_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-input",
+        str(invalid_utf8),
+    ])
+    assert failed_utf8["status"] == "failed"
+
+
+def test_multi_issuer_evidence_extraction_dry_run_plan_generated_contract_safety(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, task219_path, _ = _write_task220_ready_task219(
+        chain, tmp_path, monkeypatch
+    )
+    original_bundle = assistant._task220_job_bundle
+    original_metadata = assistant._task220_metadata
+
+    def duplicate_job(rows: list[dict]) -> tuple:
+        jobs, access, documents, stages, blockers = original_bundle(rows)
+        jobs[1]["dry_run_job_id"] = jobs[0]["dry_run_job_id"]
+        return jobs, access, documents, stages, blockers
+
+    monkeypatch.setattr(assistant, "_task220_job_bundle", duplicate_job)
+    duplicate = _run_task220(chain)
+    assert duplicate["status"] == "blocked"
+    assert duplicate["approved_candidate_snapshot_rows"] == []
+    monkeypatch.setattr(assistant, "_task220_job_bundle", original_bundle)
+
+    def invalid_stage(rows: list[dict]) -> tuple:
+        jobs, access, documents, stages, blockers = original_bundle(rows)
+        jobs[0]["planned_stage_rows"][0]["stage_order"] = 99
+        stages[0]["stage_order"] = 99
+        return jobs, access, documents, stages, blockers
+
+    monkeypatch.setattr(assistant, "_task220_job_bundle", invalid_stage)
+    bad_stage = _run_task220(chain)
+    assert bad_stage["status"] == "blocked"
+    monkeypatch.setattr(assistant, "_task220_job_bundle", original_bundle)
+
+    def leaking_metadata(**kwargs) -> dict[str, list[dict]]:
+        rows = original_metadata(**kwargs)
+        rows["scope_rows"][0]["issuer_name"] = "SECRET TASK220 ISSUER"
+        rows["scope_rows"][0]["review_notes"] = "SECRET TASK220 REVIEW NOTE"
+        rows["scope_rows"][0]["document_title"] = "SECRET TASK220 DOCUMENT"
+        return rows
+
+    monkeypatch.setattr(assistant, "_task220_metadata", leaking_metadata)
+    leaked = _run_task220(chain)
+    assert leaked["status"] == "blocked"
+    assert "review_note_detected" in leaked["bad_safety_codes"]
+    assert "concrete_document_value_detected" in leaked["bad_safety_codes"]
+    persisted = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in chain.iterdir()
+        if "evidence_extraction_dry_run_plan" in path.name
+        and "task220" in path.name
+    )
+    assert "SECRET TASK220 ISSUER" not in persisted
+    assert "SECRET TASK220 REVIEW NOTE" not in persisted
+    assert "SECRET TASK220 DOCUMENT" not in persisted
+    assert task219_path.is_file()
+
+
+def test_multi_issuer_evidence_extraction_dry_run_plan_determinism_collisions_and_atomic_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source_chain = tmp_path / "chain"
+    source_chain.mkdir()
+    _, task219_path, _ = _write_task220_ready_task219(
+        source_chain, tmp_path, monkeypatch
+    )
+    first = _run_task220(source_chain)
+    second_chain = tmp_path / "second"
+    second_chain.mkdir()
+    second = _run_task220(second_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-input",
+        str(task219_path),
+    ])
+    assert (
+        first["multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256"]
+        == second["multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256"]
+    )
+
+    before = task219_path.read_bytes()
+    collision = _run_task220(tmp_path / "collision-chain", extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-input",
+        str(task219_path),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-output",
+        str(task219_path),
+    ])
+    assert collision["status"] == "failed"
+    assert collision["write_outputs"] is False
+    assert task219_path.read_bytes() == before
+    alias_output = tmp_path / "same-task220-output.json"
+    alias = _run_task220(tmp_path / "alias-chain", extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-input",
+        str(task219_path),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-output",
+        str(alias_output),
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-checks-output",
+        str(alias_output),
+    ])
+    assert alias["status"] == "failed"
+    assert alias["write_outputs"] is False
+    assert not alias_output.exists()
+
+    retry_chain = tmp_path / "retry-chain"
+    retry_chain.mkdir()
+    original_writer = assistant.write_json_report
+    calls = {"count": 0}
+
+    def fail_once(payload: dict, path: Path) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("synthetic Task220 writer failure")
+        original_writer(payload, path)
+
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    failed_write = _run_task220(retry_chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-input",
+        str(task219_path),
+    ])
+    assert failed_write["status"] == "failed"
+    assert failed_write["write_outputs"] is True
+    assert failed_write["planned_candidate_row_count"] == 0
+    assert len([
+        path for path in retry_chain.iterdir()
+        if "evidence_extraction_dry_run_plan" in path.name
+        and "task220" in path.name
+    ]) == 20
+    assert not list(tmp_path.glob(".task220-evidence-dry-run-plan-*"))
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
@@ -38593,6 +39044,19 @@ def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate
         [
             "--mode",
             "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review",
+            *(extra_args or []),
+        ]
+    )
+    report, exit_code = assistant.run_assistant(args)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan(extra_args: list[str] | None = None) -> dict:
+    args = assistant.parse_args(
+        [
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan",
             *(extra_args or []),
         ]
     )

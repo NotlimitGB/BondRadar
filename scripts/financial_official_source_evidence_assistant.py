@@ -132,6 +132,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-manual-fill-authorization-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-authorized-manual-draft-loader",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -12371,6 +12372,66 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIE
     "ranking_authorized", "recommendation_authorized",
     "broker_api_authorized", "trading_authorized",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES = {
+    "plan_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_task220.json",
+    "plan_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_task220.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_checks_task220.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_blockers_task220.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_scope_task220.json",
+    "task219_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_task219_validation_task220.json",
+    "lineage_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_lineage_task220.json",
+    "candidate_dry_run_job_plan_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_candidate_dry_run_job_plan_task220.json",
+    "source_access_plan_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_source_access_plan_task220.json",
+    "document_handling_plan_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_document_handling_plan_task220.json",
+    "planned_extraction_stages_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_planned_extraction_stages_task220.json",
+    "controlled_field_targeting_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_controlled_field_targeting_task220.json",
+    "expected_dry_run_outputs_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_expected_dry_run_outputs_task220.json",
+    "plan_invariants_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_invariants_task220.json",
+    "failure_retry_policy_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_failure_and_retry_policy_task220.json",
+    "authorization_requirements_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_authorization_requirements_task220.json",
+    "execution_acceptance_boundary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_execution_and_acceptance_boundary_task220.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_next_tasks_task220.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_summary_task220.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_safety_task220.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_TASK221_NEXT_STEP = (
+    "Task221 - Multi-Issuer Evidence Extraction Dry Run Authorization Gate"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_BLOCKED_NEXT_STEP = (
+    "Task220 - Resolve evidence extraction dry run plan blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_FAILED_NEXT_STEP = (
+    "Task220 - Repair failed evidence extraction dry run plan and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_STAGE_IDS = (
+    "01_validate_authorized_input",
+    "02_resolve_planned_source_locator",
+    "03_access_source_read_only",
+    "04_capture_source_response_metadata",
+    "05_retrieve_document_when_required",
+    "06_calculate_document_checksum",
+    "07_validate_document_type_and_size",
+    "08_extract_text_and_layout_locally",
+    "09_locate_controlled_financial_evidence",
+    "10_generate_dry_run_evidence_candidates",
+    "11_validate_evidence_candidate_structure",
+    "12_write_dry_run_artifacts_only",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_FALSE_FIELDS = tuple(
+    dict.fromkeys((
+        *RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FALSE_FIELDS,
+        "dry_run_execution_authorized", "dry_run_executed",
+        "network_access_authorized", "source_access_authorized",
+        "document_download_authorized", "controlled_cache_write_authorized",
+        "evidence_extraction_authorized", "database_write_authorized",
+        "controlled_value_creation_authorized", "import_authorized",
+        "scoring_authorized", "ranking_authorized", "recommendation_authorized",
+        "broker_api_authorized", "trading_authorized",
+        "dns_resolution_executed", "http_request_executed",
+        "source_access_executed", "document_download_executed",
+        "evidence_candidate_generation_executed",
+    ))
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -14567,6 +14628,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-task219-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-lineage-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-candidate-dry-run-job-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-source-access-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-document-handling-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-planned-extraction-stages-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-controlled-field-targeting-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-expected-dry-run-outputs-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-invariants-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-failure-and-retry-policy-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-authorization-requirements-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-execution-and-acceptance-boundary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -14904,6 +14986,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_authorized_manual_draft_loader(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-source-candidate-seed-validation-and-manual-review":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_seed_validation_and_manual_review(args)
+    elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan":
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -92435,6 +92519,1614 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_source_candidate_
         input_blockers=input_blockers,
     )
     return _task219_publish(report, artifacts)
+
+
+def _task220_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    task219_default = (
+        chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES[
+            "review_json"
+        ]
+        if chain else None
+    )
+    task219 = (
+        args.rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_input
+        or task219_default
+    )
+    return {
+        "task219": task219,
+        "task218_lineage": (
+            task219.parent
+            / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES[
+                "loader_json"
+            ]
+            if task219 is not None else None
+        ),
+        "task217_lineage": (
+            task219.parent
+            / RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES[
+                "gate_json"
+            ]
+            if task219 is not None else None
+        ),
+    }
+
+
+def _task220_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {
+        key: chain / name
+        for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES.items()
+    } if chain else {}
+    suffixes = {
+        "plan_json": "output",
+        "plan_markdown": "markdown_output",
+        "checks_json": "checks_output",
+        "blockers_json": "blockers_output",
+        "scope_json": "scope_output",
+        "task219_validation_json": "task219_validation_output",
+        "lineage_json": "lineage_output",
+        "candidate_dry_run_job_plan_json": "candidate_dry_run_job_plan_output",
+        "source_access_plan_json": "source_access_plan_output",
+        "document_handling_plan_json": "document_handling_plan_output",
+        "planned_extraction_stages_json": "planned_extraction_stages_output",
+        "controlled_field_targeting_json": "controlled_field_targeting_output",
+        "expected_dry_run_outputs_json": "expected_dry_run_outputs_output",
+        "plan_invariants_json": "invariants_output",
+        "failure_retry_policy_json": "failure_and_retry_policy_output",
+        "authorization_requirements_json": "authorization_requirements_output",
+        "execution_acceptance_boundary_json": "execution_and_acceptance_boundary_output",
+        "next_tasks_json": "next_tasks_output",
+        "summary_json": "summary_output",
+        "safety_json": "safety_output",
+    }
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "evidence_extraction_dry_run_plan"
+    )
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in suffixes.items()
+    }
+
+
+def _task220_output_errors(
+    inputs: dict[str, Path | None],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    seen: list[tuple[str, Path]] = []
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in inputs.items():
+            if input_path is not None and _paths_equal(path, input_path):
+                return [{
+                    "message": "task220_output_must_not_equal_input",
+                    "output": key,
+                    "input": input_key,
+                }]
+        for seen_key, seen_path in seen:
+            if _paths_equal(path, seen_path):
+                return [{
+                    "message": "task220_outputs_must_be_unique",
+                    "output": key,
+                    "duplicate_output": seen_key,
+                }]
+        seen.append((key, path))
+    return []
+
+
+def _task220_task219_validation_rows(
+    task219: dict[str, Any],
+    task218: dict[str, Any],
+    task217: dict[str, Any],
+) -> list[dict[str, Any]]:
+    checksum = str(
+        task219.get(
+            "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+        ) or ""
+    )
+    task218_lineage = str(
+        task219.get(
+            "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256"
+        ) or ""
+    )
+    task217_lineage = str(
+        task219.get(
+            "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"
+        ) or ""
+    )
+    candidate_rows = task219.get("validated_candidate_snapshot_rows")
+    decision_rows = task219.get("manual_review_decision_rows")
+    confirmation_rows = task219.get("review_confirmation_rows")
+    outcome_rows = task219.get("review_outcome_rows")
+    approval_rows = task219.get("candidate_approval_status_rows")
+    next_rows = task219.get("next_task_rows")
+    canonical_fields = list(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_TEMPLATE_FIELDS
+    )
+    slot_ids = [f"candidate_slot_{index:03d}" for index in range(1, 4)]
+    confirmation_fields = (
+        "issuer_identity_confirmed",
+        "source_officiality_confirmed",
+        "document_scope_confirmed",
+        "reporting_period_confirmed",
+        "report_standard_confirmed",
+        "candidate_only_scope_acknowledged",
+    )
+    decision_field_set = {
+        "review_index", "candidate_slot_id", "review_decision",
+        *confirmation_fields, "review_notes", "safe_hint",
+    }
+    confirmation_field_set = {
+        "confirmation_index", "candidate_slot_id", *confirmation_fields,
+        "all_approval_confirmations_true", "safe_hint",
+    }
+    outcome_field_set = {
+        "outcome_index", "candidate_slot_id", "review_decision",
+        "approved_for_dry_run", "needs_correction", "rejected", "safe_hint",
+    }
+    approval_field_set = {
+        "approval_index", "candidate_slot_id", "review_decision",
+        "approved_for_dry_run", "candidate_only_acceptance", "safe_hint",
+    }
+    candidate_contract_valid = (
+        isinstance(candidate_rows, list)
+        and len(candidate_rows) == 3
+        and int(task219.get("validated_candidate_snapshot_count") or 0) == 3
+        and [
+            row.get("candidate_slot_id")
+            for row in candidate_rows
+            if isinstance(row, dict)
+        ] == slot_ids
+        and all(
+            isinstance(row, dict)
+            and list(row) == canonical_fields
+            and row.get("operator_review_status") == "draft_loaded"
+            and row.get("safe_hint")
+            == "authorized_manual_draft_pending_task219_review"
+            and isinstance(row.get("report_year"), int)
+            and not isinstance(row.get("report_year"), bool)
+            and all(
+                isinstance(row.get(field), str)
+                for field in canonical_fields
+                if field != "report_year"
+            )
+            for row in candidate_rows
+        )
+    )
+    review_contract_valid = (
+        isinstance(decision_rows, list)
+        and isinstance(confirmation_rows, list)
+        and isinstance(outcome_rows, list)
+        and isinstance(approval_rows, list)
+        and all(len(rows) == 3 for rows in (
+            decision_rows, confirmation_rows, outcome_rows, approval_rows,
+        ))
+        and all(
+            [
+                row.get("candidate_slot_id")
+                for row in rows
+                if isinstance(row, dict)
+            ] == slot_ids
+            for rows in (
+                decision_rows, confirmation_rows, outcome_rows, approval_rows,
+            )
+        )
+        and all(
+            isinstance(row, dict)
+            and set(row) == decision_field_set
+            and row.get("review_decision") == "approve_for_dry_run"
+            and all(row.get(field) is True for field in confirmation_fields)
+            for row in decision_rows
+        )
+        and all(
+            isinstance(row, dict)
+            and set(row) == confirmation_field_set
+            and row.get("all_approval_confirmations_true") is True
+            and all(row.get(field) is True for field in confirmation_fields)
+            for row in confirmation_rows
+        )
+        and all(
+            isinstance(row, dict)
+            and set(row) == outcome_field_set
+            and row.get("review_decision") == "approve_for_dry_run"
+            and row.get("approved_for_dry_run") is True
+            and row.get("needs_correction") is False
+            and row.get("rejected") is False
+            for row in outcome_rows
+        )
+        and all(
+            isinstance(row, dict)
+            and set(row) == approval_field_set
+            and row.get("review_decision") == "approve_for_dry_run"
+            and row.get("approved_for_dry_run") is True
+            and row.get("candidate_only_acceptance") is True
+            for row in approval_rows
+        )
+        and int(task219.get("manual_review_decision_count") or 0) == 3
+        and int(task219.get("review_confirmation_count") or 0) == 3
+        and int(task219.get("review_outcome_count") or 0) == 3
+        and int(task219.get("candidate_approval_status_count") or 0) == 3
+    )
+    next_contract_valid = (
+        isinstance(next_rows, list)
+        and len(next_rows) == 5
+        and [
+            row.get("task_id") for row in next_rows if isinstance(row, dict)
+        ] == ["Task220", "Task221", "Task222", "Task223", "Task224"]
+        and [
+            row.get("task_id")
+            for row in next_rows
+            if isinstance(row, dict) and row.get("allowed_now") is True
+        ] == ["Task220"]
+    )
+    local_identifier_rows: list[dict[str, Any]] = []
+    local_url_rows: list[dict[str, Any]] = []
+    local_consistency_rows: list[dict[str, Any]] = []
+    local_blockers: list[str] = []
+    local_warnings: list[str] = []
+    if candidate_contract_valid:
+        (
+            local_identifier_rows,
+            local_url_rows,
+            local_consistency_rows,
+            local_blockers,
+            local_warnings,
+        ) = _task219_local_validation(candidate_rows)
+    source_contract_valid = (
+        candidate_contract_valid
+        and not local_blockers
+        and local_identifier_rows
+        == (task219.get("identifier_checksum_check_rows") or [])
+        and local_url_rows == (task219.get("url_check_rows") or [])
+        and local_consistency_rows
+        == (task219.get("source_candidate_consistency_rows") or [])
+        and local_warnings == (task219.get("validation_warning_codes") or [])
+    )
+    task218_checksum = str(
+        task218.get(
+            "authorized_manual_candidate_seed_draft_loader_checksum_sha256"
+        ) or ""
+    )
+    task218_task217_lineage = str(
+        task218.get(
+            "task217_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"
+        ) or ""
+    )
+    task218_task217_source_alias = str(
+        task218.get(
+            "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"
+        ) or ""
+    )
+    task217_checksum = str(
+        task217.get(
+            "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"
+        ) or ""
+    )
+    task217_contract_rows = (
+        _task218_authorization_rows(task217) if task217 else []
+    )
+    task218_lineage_bound = (
+        bool(task218)
+        and bool(task217)
+        and re.fullmatch(r"[0-9a-f]{64}", task218_checksum) is not None
+        and task218_checksum == task218_lineage
+        and task218_checksum == _task218_checksum(task218)
+        and re.fullmatch(r"[0-9a-f]{64}", task218_task217_lineage) is not None
+        and task218_task217_lineage == task217_lineage
+        and task218_task217_source_alias == task217_lineage
+        and task217_checksum == task217_lineage
+        and task217_checksum == _task217_checksum(task217)
+        and bool(
+            task217_contract_rows
+            and all(row.get("passed") is True for row in task217_contract_rows)
+        )
+        and task218.get("normalized_candidate_rows") == candidate_rows
+    )
+    row_families = {
+        key: value
+        for key, value in task219.items()
+        if key.endswith("_rows")
+        and key not in {
+            "validated_candidate_snapshot_rows",
+            "manual_review_decision_rows",
+        }
+    }
+    row_families["manual_review_decision_rows_without_notes"] = [
+        {
+            key: value
+            for key, value in row.items()
+            if key != "review_notes"
+        }
+        for row in decision_rows or []
+        if isinstance(row, dict)
+    ]
+    _, _, containment_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_findings(
+            [row_families]
+        )
+    )
+    containment_valid = not {
+        "issuer_name_detected", "inn_detected", "ogrn_detected",
+        "isin_detected", "concrete_url_detected", "review_note_detected",
+    }.intersection(containment_codes)
+    forbidden_flags_valid = not (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+            task219,
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_FALSE_FIELDS,
+        )
+    )
+    specs = (
+        ("task219_status", task219.get("status") == "warning"),
+        (
+            "task219_ready",
+            task219.get(
+                "multi_issuer_source_candidate_seed_validation_and_review_ready"
+            ) is True,
+        ),
+        (
+            "task219_validation_state",
+            all(task219.get(field) is True for field in (
+                "candidate_seed_validation_completed",
+                "identifier_checksum_validation_completed",
+                "source_candidate_consistency_validation_completed",
+            )),
+        ),
+        (
+            "task219_manual_review_state",
+            all(task219.get(field) is True for field in (
+                "manual_review_input_supplied",
+                "manual_review_authorized",
+                "manual_review_completed",
+                "candidate_seed_review_completed",
+                "candidate_seed_approved",
+                "source_candidate_seed_reviewed",
+                "source_candidate_seed_accepted",
+            ))
+            and task219.get("manual_review_required") is False
+            and task219.get("candidate_correction_required") is False,
+        ),
+        (
+            "task219_review_counts",
+            int(task219.get("approved_candidate_row_count") or 0) == 3
+            and int(task219.get("needs_correction_candidate_row_count") or 0) == 0
+            and int(task219.get("rejected_candidate_row_count") or 0) == 0,
+        ),
+        (
+            "task219_acceptance_scope",
+            task219.get("candidate_seed_acceptance_scope")
+            == "evidence_extraction_dry_run_only",
+        ),
+        (
+            "task219_task220_ready",
+            task219.get(
+                "ready_for_task220_multi_issuer_evidence_extraction_dry_run_plan"
+            ) is True,
+        ),
+        (
+            "task219_clean",
+            int(task219.get("blocker_count") or 0) == 0
+            and int(task219.get("bad_safety_count") or 0) == 0,
+        ),
+        (
+            "task219_next_contract",
+            task219.get("next_tasks_valid") is True
+            and task219.get("next_step")
+            == RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_TASK220_NEXT_STEP
+            and next_contract_valid,
+        ),
+        ("task219_candidate_contract", candidate_contract_valid),
+        ("task219_source_contract", source_contract_valid),
+        ("task219_review_contract", review_contract_valid),
+        (
+            "task219_checksum",
+            re.fullmatch(r"[0-9a-f]{64}", checksum) is not None
+            and checksum == _task219_checksum(task219),
+        ),
+        (
+            "task219_lineage",
+            re.fullmatch(r"[0-9a-f]{64}", task218_lineage) is not None
+            and re.fullmatch(r"[0-9a-f]{64}", task217_lineage) is not None
+            and task218_lineage_bound,
+        ),
+        ("task219_containment", containment_valid),
+        ("task219_forbidden_flags", forbidden_flags_valid),
+    )
+    return [
+        {
+            "validation_index": index,
+            "validation_key": key,
+            "source_task": "Task219",
+            "passed": bool(passed),
+            "blocks_task220": not bool(passed),
+            "safe_hint": "Task220 accepts only the exact fully approved Task219 contract.",
+        }
+        for index, (key, passed) in enumerate(specs, 1)
+    ]
+
+
+def _task220_stage_rows(
+    *,
+    job_id: str,
+    candidate_slot_id: str,
+    network_required: bool,
+) -> list[dict[str, Any]]:
+    network_stage_ids = {
+        "03_access_source_read_only",
+        "04_capture_source_response_metadata",
+        "05_retrieve_document_when_required",
+    }
+    document_stage_ids = {
+        "06_calculate_document_checksum",
+        "07_validate_document_type_and_size",
+        "08_extract_text_and_layout_locally",
+        "09_locate_controlled_financial_evidence",
+        "10_generate_dry_run_evidence_candidates",
+        "11_validate_evidence_candidate_structure",
+    }
+    return [
+        {
+            "dry_run_job_id": job_id,
+            "candidate_slot_id": candidate_slot_id,
+            "stage_id": stage_id,
+            "stage_order": index,
+            "stage_status": "planned_not_executed",
+            "requires_network": network_required and stage_id in network_stage_ids,
+            "requires_document_bytes": stage_id in document_stage_ids,
+            "database_write_allowed": False,
+            "controlled_value_creation_allowed": False,
+            "import_allowed": False,
+            "safe_hint": "Stage is planned only and requires separate Task221 authorization.",
+        }
+        for index, stage_id in enumerate(
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_STAGE_IDS,
+            1,
+        )
+    ]
+
+
+def _task220_job_bundle(
+    candidate_rows: list[dict[str, Any]],
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    list[str],
+]:
+    document_types = {
+        "official_financial_report_pdf",
+        "audited_annual_report",
+        "interim_financial_report",
+    }
+    page_types = {
+        "exchange_reference_page",
+        "issuer_investor_relations_page",
+        "issuer_official_website",
+        "official_disclosure_center",
+    }
+    cached_type = "previously_cached_controlled_source"
+    jobs: list[dict[str, Any]] = []
+    access_rows: list[dict[str, Any]] = []
+    document_rows: list[dict[str, Any]] = []
+    stage_rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    controlled_keys = list(EVIDENCE_FINANCIAL_FIELDS)
+    for index, candidate in enumerate(candidate_rows, 1):
+        slot = f"candidate_slot_{index:03d}"
+        job_id = f"task220_evidence_dry_run_{slot}"
+        source_type = str(candidate.get("source_type_key") or "")
+        official_url = str(candidate.get("official_source_url") or "")
+        source_url = str(candidate.get("source_url") or "")
+        locator_notes = str(candidate.get("source_locator_notes") or "")
+        if official_url:
+            locator_field, locator_value = "official_source_url", official_url
+        elif source_url:
+            locator_field, locator_value = "source_url", source_url
+        elif source_type == cached_type and locator_notes:
+            locator_field, locator_value = "source_locator_notes", locator_notes
+        else:
+            locator_field, locator_value = "", ""
+            blockers.append("planned_source_locator_missing")
+        if source_type == cached_type:
+            access_mode = "controlled_cache_lookup"
+            network_required = False
+            cache_required = True
+        else:
+            access_mode = "authorized_read_only_network_fetch"
+            network_required = True
+            cache_required = False
+        if source_type in document_types:
+            document_mode = "retrieve_hash_validate_and_extract_document"
+            download_required = True
+        elif source_type in page_types:
+            document_mode = "inspect_page_and_resolve_document_candidate"
+            download_required = False
+        elif source_type == cached_type:
+            document_mode = "validate_controlled_cached_document"
+            download_required = False
+        else:
+            document_mode = ""
+            download_required = False
+            blockers.append("source_type_not_allowed")
+        planned_stages = _task220_stage_rows(
+            job_id=job_id,
+            candidate_slot_id=slot,
+            network_required=network_required,
+        )
+        jobs.append({
+            "dry_run_job_id": job_id,
+            "candidate_slot_id": slot,
+            "source_type_key": source_type,
+            "planned_source_locator_field": locator_field,
+            "planned_source_access_mode": access_mode,
+            "planned_document_handling_mode": document_mode,
+            "network_access_required": network_required,
+            "document_download_required": download_required,
+            "controlled_cache_lookup_required": cache_required,
+            "planned_stage_rows": planned_stages,
+            "planned_controlled_field_keys": controlled_keys,
+            "planned_output_scope": "dry_run_evidence_candidates_only",
+            "execution_authorization_required": True,
+            "execution_status": "planned_not_executed",
+            "safe_hint": "Candidate is bound to a plan only; no source access or extraction occurred.",
+        })
+        access_rows.append({
+            "source_access_index": index,
+            "dry_run_job_id": job_id,
+            "candidate_slot_id": slot,
+            "source_type_key": source_type,
+            "planned_source_locator_field": locator_field,
+            "planned_source_locator_value": locator_value,
+            "planned_source_access_mode": access_mode,
+            "network_access_required": network_required,
+            "controlled_cache_lookup_required": cache_required,
+            "source_access_authorized": False,
+            "source_access_executed": False,
+            "safe_hint": "Concrete locator is an approved candidate value, not live evidence.",
+        })
+        document_rows.append({
+            "document_plan_index": index,
+            "dry_run_job_id": job_id,
+            "candidate_slot_id": slot,
+            "source_type_key": source_type,
+            "planned_document_handling_mode": document_mode,
+            "document_download_required": download_required,
+            "document_download_authorized": False,
+            "document_download_executed": False,
+            "document_checksum_status": "planned_not_calculated",
+            "evidence_extraction_status": "planned_not_executed",
+            "safe_hint": "Document handling labels describe future work only.",
+        })
+        stage_rows.extend(copy.deepcopy(planned_stages))
+    return jobs, access_rows, document_rows, stage_rows, list(dict.fromkeys(blockers))
+
+
+def _task220_metadata(
+    *,
+    network_required: bool,
+    download_required: bool,
+    cache_required: bool,
+) -> dict[str, list[dict[str, Any]]]:
+    scope_keys = (
+        "approved_candidate_binding",
+        "deterministic_job_planning",
+        "source_locator_planning",
+        "source_access_planning",
+        "document_handling_planning",
+        "ordered_extraction_stage_planning",
+        "controlled_field_targeting",
+        "dry_run_output_contract",
+        "authorization_boundary",
+        "task221_only_handoff",
+    )
+    controlled_rows = [
+        {
+            "target_index": index,
+            "controlled_field_key": field,
+            "definition_source": "EVIDENCE_FINANCIAL_FIELDS",
+            "target_status": "planned_not_extracted",
+            "value_created": False,
+            "evidence_accepted": False,
+            "safe_hint": "Canonical field key is a future dry-run target only.",
+        }
+        for index, field in enumerate(EVIDENCE_FINANCIAL_FIELDS, 1)
+    ]
+    output_specs = (
+        ("source_response_metadata", []),
+        ("document_manifest", []),
+        ("text_and_layout_extraction_trace", []),
+        (
+            "dry_run_value_candidates",
+            [row["field_name"] for row in FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS],
+        ),
+        (
+            "dry_run_evidence_rows",
+            [row["field_name"] for row in FINANCIAL_EXTRACTION_EVIDENCE_FIELDS],
+        ),
+        ("validation_status_rows", list(FINANCIAL_EXTRACTION_VALIDATION_STATUS_FIELDS)),
+    )
+    invariant_keys = (
+        "exact_three_candidates",
+        "one_job_per_candidate",
+        "canonical_slot_order",
+        "unique_stable_job_ids",
+        "exact_twelve_stages_per_job",
+        "canonical_stage_order",
+        "canonical_controlled_field_keys",
+        "no_network_execution",
+        "no_document_execution",
+        "no_evidence_or_value_acceptance",
+        "no_database_or_import",
+        "task221_only_unlock",
+    )
+    failure_keys = (
+        "input_contract_failure_blocks",
+        "lineage_failure_blocks",
+        "locator_failure_blocks",
+        "source_type_failure_blocks",
+        "stage_contract_failure_blocks",
+        "generated_safety_failure_blocks",
+        "no_automatic_source_fallback",
+        "atomic_publication_retry_once_as_failed",
+    )
+    requirement_specs = (
+        ("network_access", network_required),
+        ("source_access", True),
+        ("document_download", download_required),
+        ("controlled_cache_lookup", cache_required),
+        ("local_text_and_layout_extraction", True),
+        ("dry_run_evidence_candidate_generation", True),
+        ("dry_run_artifact_write", True),
+    )
+    boundary_keys = (
+        "dry_run_execution",
+        "network_access",
+        "source_access",
+        "document_download",
+        "controlled_cache_write",
+        "evidence_extraction",
+        "evidence_acceptance",
+        "controlled_value_creation",
+        "controlled_value_acceptance",
+        "database_write",
+        "controlled_import",
+        "scoring_recommendation_ranking_broker_trading",
+    )
+    return {
+        "scope_rows": [
+            {
+                "scope_index": index,
+                "scope_key": key,
+                "included": True,
+                "scope_status": "plan_only",
+                "safe_hint": "Task220 is an offline plan and grants no execution authority.",
+            }
+            for index, key in enumerate(scope_keys, 1)
+        ],
+        "controlled_field_target_rows": controlled_rows,
+        "expected_dry_run_output_rows": [
+            {
+                "output_index": index,
+                "output_key": key,
+                "schema_field_keys": fields,
+                "output_status": "planned_not_created",
+                "dry_run_only": True,
+                "accepted_output": False,
+                "safe_hint": "Expected output is a future review candidate, not an accepted value.",
+            }
+            for index, (key, fields) in enumerate(output_specs, 1)
+        ],
+        "plan_invariant_rows": [
+            {
+                "invariant_index": index,
+                "invariant_key": key,
+                "enforced": True,
+                "status": "planned_contract",
+                "safe_hint": "Invariant constrains Task220 and its future authorized executor.",
+            }
+            for index, key in enumerate(invariant_keys, 1)
+        ],
+        "failure_retry_policy_rows": [
+            {
+                "policy_index": index,
+                "policy_key": key,
+                "failure_action": "block_without_side_effects",
+                "automatic_retry_allowed": key == "atomic_publication_retry_once_as_failed",
+                "status": "enforced",
+                "safe_hint": "Failures cannot authorize source access, extraction, or value creation.",
+            }
+            for index, key in enumerate(failure_keys, 1)
+        ],
+        "authorization_requirement_rows": [
+            {
+                "requirement_index": index,
+                "capability_key": key,
+                "required_by_plan": bool(required),
+                "authorization_required": bool(required),
+                "authorized": False,
+                "executed": False,
+                "authorization_task": "Task221",
+                "safe_hint": "Required-by-plan is distinct from authorized and executed.",
+            }
+            for index, (key, required) in enumerate(requirement_specs, 1)
+        ],
+        "execution_acceptance_boundary_rows": [
+            {
+                "boundary_index": index,
+                "capability_key": key,
+                "authorized": False,
+                "executed": False,
+                "accepted": False,
+                "boundary_status": "blocked_pending_separate_task",
+                "safe_hint": "Task220 grants no execution or acceptance authority.",
+            }
+            for index, key in enumerate(boundary_keys, 1)
+        ],
+    }
+
+
+def _task220_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    tasks = (
+        (
+            "Task221",
+            "Multi-Issuer Evidence Extraction Dry Run Authorization Gate",
+            allowed,
+            "Task220",
+        ),
+        (
+            "Task222",
+            "Multi-Issuer Evidence Extraction Dry Run",
+            False,
+            "Task221",
+        ),
+        (
+            "Task223",
+            "Multi-Issuer Evidence Validation and Review",
+            False,
+            "Task222",
+        ),
+        (
+            "Task224",
+            "Multi-Issuer Controlled Import Apply Plan",
+            False,
+            "Task223",
+        ),
+        (
+            "Task225",
+            "Multi-Issuer Controlled Import Apply",
+            False,
+            "Task224",
+        ),
+    )
+    return [
+        {
+            "next_task_index": index,
+            "task_id": task_id,
+            "task_name": name,
+            "allowed_now": bool(is_allowed),
+            "depends_on": depends_on,
+            "safe_hint": "Only Task221 authorization planning may follow a valid Task220 plan.",
+        }
+        for index, (task_id, name, is_allowed, depends_on) in enumerate(tasks, 1)
+    ]
+
+
+def _task220_checksum(report: dict[str, Any]) -> str:
+    review_outcome = [
+        {
+            key: value
+            for key, value in row.items()
+            if key != "review_notes"
+        }
+        for row in report.get("approved_review_outcome_rows") or []
+        if isinstance(row, dict)
+    ]
+    return _rzd_controlled_values_import_plan_sha({
+        "task219_checksum": report.get(
+            "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+        ) or "",
+        "task218_lineage": report.get(
+            "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256"
+        ) or "",
+        "task217_lineage": report.get(
+            "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"
+        ) or "",
+        "approved_candidate_snapshot_rows":
+            report.get("approved_candidate_snapshot_rows") or [],
+        "approved_review_outcome_rows": review_outcome,
+        "dry_run_job_rows": report.get("dry_run_job_rows") or [],
+        "source_access_plan_rows": report.get("source_access_plan_rows") or [],
+        "document_handling_plan_rows":
+            report.get("document_handling_plan_rows") or [],
+        "planned_extraction_stage_rows":
+            report.get("planned_extraction_stage_rows") or [],
+        "controlled_field_target_rows":
+            report.get("controlled_field_target_rows") or [],
+        "authorization_requirement_rows":
+            report.get("authorization_requirement_rows") or [],
+        "task219_validation_rows": report.get("task219_validation_rows") or [],
+        "check_rows": report.get(
+            "multi_issuer_evidence_extraction_dry_run_plan_check_rows"
+        ) or [],
+        "next_task_rows": report.get("next_task_rows") or [],
+        "dry_run_execution_authorization_required":
+            report.get("dry_run_execution_authorization_required") is True,
+        "ready_for_task221":
+            report.get(
+                "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate"
+            ) is True,
+    })
+
+
+def _task220_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    list_fields = (
+        "scope_rows", "task219_validation_rows", "lineage_rows",
+        "approved_candidate_snapshot_rows", "approved_review_outcome_rows",
+        "dry_run_job_rows", "source_access_plan_rows",
+        "document_handling_plan_rows", "planned_extraction_stage_rows",
+        "controlled_field_target_rows", "expected_dry_run_output_rows",
+        "plan_invariant_rows", "failure_retry_policy_rows",
+        "authorization_requirement_rows", "execution_acceptance_boundary_rows",
+        "next_task_rows",
+        "multi_issuer_evidence_extraction_dry_run_plan_check_rows",
+        "blocker_rows", "bad_safety_codes", "errors",
+    )
+    for field in list_fields:
+        report[field] = report.get(field) if isinstance(report.get(field), list) else []
+    count_fields = {
+        "scope_count": "scope_rows",
+        "task219_validation_count": "task219_validation_rows",
+        "lineage_count": "lineage_rows",
+        "planned_candidate_row_count": "approved_candidate_snapshot_rows",
+        "planned_dry_run_job_count": "dry_run_job_rows",
+        "source_access_plan_count": "source_access_plan_rows",
+        "document_handling_plan_count": "document_handling_plan_rows",
+        "planned_extraction_stage_count": "planned_extraction_stage_rows",
+        "controlled_field_target_count": "controlled_field_target_rows",
+        "expected_dry_run_output_count": "expected_dry_run_output_rows",
+        "plan_invariant_count": "plan_invariant_rows",
+        "failure_retry_policy_count": "failure_retry_policy_rows",
+        "authorization_requirement_count": "authorization_requirement_rows",
+        "execution_acceptance_boundary_count":
+            "execution_acceptance_boundary_rows",
+        "next_task_count": "next_task_rows",
+        "multi_issuer_evidence_extraction_dry_run_plan_check_count":
+            "multi_issuer_evidence_extraction_dry_run_plan_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count, rows in count_fields.items():
+        report[count] = len(report[rows])
+    report["planned_stage_count_per_job"] = (
+        len(report["dry_run_job_rows"][0].get("planned_stage_rows") or [])
+        if report["dry_run_job_rows"]
+        and all(
+            len(row.get("planned_stage_rows") or [])
+            == len(report["dry_run_job_rows"][0].get("planned_stage_rows") or [])
+            for row in report["dry_run_job_rows"]
+        )
+        else 0
+    )
+    report["bad_safety_codes"] = sorted(set(report["bad_safety_codes"]))
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    for field in dict.fromkeys(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_FALSE_FIELDS
+    ):
+        report[field] = False
+    bool_fields = (
+        "multi_issuer_evidence_extraction_dry_run_plan_ready",
+        "task219_validation_completed", "approved_candidate_seed_bound",
+        "dry_run_plan_created", "dry_run_plan_valid",
+        "network_access_required_by_plan",
+        "document_download_required_by_plan",
+        "controlled_cache_lookup_required_by_plan",
+        "dry_run_execution_authorization_required",
+        "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate",
+        "next_tasks_valid", "execution_boundary_valid", "write_outputs",
+    )
+    for field in bool_fields:
+        report[field] = _as_bool(report.get(field))
+    string_fields = (
+        "mode", "status", "multi_issuer_evidence_extraction_dry_run_plan_status",
+        "planned_output_scope",
+        "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+        "next_step", "safe_hint",
+    )
+    for field in string_fields:
+        report[field] = str(report.get(field) or "")
+    report[
+        "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256"
+    ] = _task220_checksum(report)
+    return report
+
+
+def _task220_failed(
+    errors: list[dict[str, Any]],
+    *,
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    return _task220_finalize({
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan",
+        "status": "failed",
+        "multi_issuer_evidence_extraction_dry_run_plan_status": "failed",
+        "multi_issuer_evidence_extraction_dry_run_plan_ready": False,
+        "task219_validation_completed": False,
+        "approved_candidate_seed_bound": False,
+        "dry_run_plan_created": False,
+        "dry_run_plan_valid": False,
+        "network_access_required_by_plan": False,
+        "document_download_required_by_plan": False,
+        "controlled_cache_lookup_required_by_plan": False,
+        "dry_run_execution_authorization_required": False,
+        "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate":
+            False,
+        "next_tasks_valid": False,
+        "execution_boundary_valid": True,
+        "write_outputs": write_outputs,
+        "next_task_rows": _task220_next_rows(False),
+        "blocker_rows": [{
+            "blocker_index": 1,
+            "code": "task220_failed",
+            "safe_hint": "Repair the sanitized Task220 failure and rerun.",
+        }],
+        "errors": [
+            {"message": str(row.get("message") or "task220_failed")}
+            for row in errors
+        ],
+        "next_step":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_FAILED_NEXT_STEP,
+        "safe_hint": "Failed Task220 grants no source or extraction authority.",
+    })
+
+
+def _build_task220_report(
+    task219: dict[str, Any],
+    *,
+    task218: dict[str, Any],
+    task217: dict[str, Any],
+    input_blockers: list[str],
+) -> dict[str, Any]:
+    upstream_rows = (
+        _task220_task219_validation_rows(task219, task218, task217)
+        if task219 else []
+    )
+    blockers = list(input_blockers)
+    if not task219:
+        blockers.append("task219_input_missing")
+    blockers.extend(
+        f"{row['validation_key']}_invalid"
+        for row in upstream_rows
+        if not row["passed"]
+    )
+    upstream_accepted = bool(
+        upstream_rows and all(row["passed"] for row in upstream_rows)
+    )
+    candidate_rows = (
+        copy.deepcopy(task219.get("validated_candidate_snapshot_rows") or [])
+        if upstream_accepted else []
+    )
+    review_outcomes = (
+        copy.deepcopy(task219.get("review_outcome_rows") or [])
+        if upstream_accepted else []
+    )
+    jobs: list[dict[str, Any]] = []
+    access_rows: list[dict[str, Any]] = []
+    document_rows: list[dict[str, Any]] = []
+    stage_rows: list[dict[str, Any]] = []
+    if upstream_accepted:
+        jobs, access_rows, document_rows, stage_rows, job_blockers = (
+            _task220_job_bundle(candidate_rows)
+        )
+        blockers.extend(job_blockers)
+    job_ids = [
+        str(row.get("dry_run_job_id") or "")
+        for row in jobs
+        if isinstance(row, dict)
+    ]
+    jobs_valid = (
+        len(jobs) == 3
+        and len(set(job_ids)) == 3
+        and job_ids == [
+            f"task220_evidence_dry_run_candidate_slot_{index:03d}"
+            for index in range(1, 4)
+        ]
+    )
+    stages_valid = (
+        len(stage_rows) == 36
+        and all(
+            [
+                stage.get("stage_id")
+                for stage in row.get("planned_stage_rows") or []
+            ] == list(
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_STAGE_IDS
+            )
+            and [
+                stage.get("stage_order")
+                for stage in row.get("planned_stage_rows") or []
+            ] == list(range(1, 13))
+            for row in jobs
+        )
+    )
+    if upstream_accepted and not jobs_valid:
+        blockers.append("dry_run_job_contract_invalid")
+    if upstream_accepted and not stages_valid:
+        blockers.append("planned_stage_contract_invalid")
+    network_required = any(
+        row.get("network_access_required") is True for row in jobs
+    )
+    download_required = any(
+        row.get("document_download_required") is True for row in jobs
+    )
+    cache_required = any(
+        row.get("controlled_cache_lookup_required") is True for row in jobs
+    )
+    metadata = _task220_metadata(
+        network_required=network_required,
+        download_required=download_required,
+        cache_required=cache_required,
+    ) if upstream_accepted else {
+        "scope_rows": [],
+        "controlled_field_target_rows": [],
+        "expected_dry_run_output_rows": [],
+        "plan_invariant_rows": [],
+        "failure_retry_policy_rows": [],
+        "authorization_requirement_rows": [],
+        "execution_acceptance_boundary_rows": [],
+    }
+    generated = [
+        *jobs,
+        *document_rows,
+        *stage_rows,
+        *metadata["scope_rows"],
+        *metadata["controlled_field_target_rows"],
+        *metadata["expected_dry_run_output_rows"],
+        *metadata["plan_invariant_rows"],
+        *metadata["failure_retry_policy_rows"],
+        *metadata["authorization_requirement_rows"],
+        *metadata["execution_acceptance_boundary_rows"],
+    ]
+    _, _, _, template_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_template_safety_findings(
+            generated
+        )
+    )
+    template_codes = [
+        code for code in template_codes
+        if code != "filled_candidate_value_detected"
+    ]
+    dangerous = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+            generated,
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_FALSE_FIELDS,
+        )
+    )
+    bad_safety_codes = sorted(set(template_codes))
+    if dangerous:
+        bad_safety_codes.append("forbidden_execution_flag_detected")
+        bad_safety_codes = sorted(set(bad_safety_codes))
+    execution_boundary_valid = not dangerous
+    if bad_safety_codes:
+        blockers.append("unsafe_generated_task220_structure")
+    blockers = list(dict.fromkeys(blockers))
+    plan_valid = (
+        upstream_accepted
+        and jobs_valid
+        and stages_valid
+        and execution_boundary_valid
+        and not blockers
+        and not bad_safety_codes
+    )
+    if not plan_valid:
+        candidate_rows = []
+        review_outcomes = []
+        jobs = []
+        access_rows = []
+        document_rows = []
+        stage_rows = []
+        network_required = download_required = cache_required = False
+        if bad_safety_codes:
+            metadata = {
+                "scope_rows": [],
+                "controlled_field_target_rows": [],
+                "expected_dry_run_output_rows": [],
+                "plan_invariant_rows": [],
+                "failure_retry_policy_rows": [],
+                "authorization_requirement_rows": [],
+                "execution_acceptance_boundary_rows": [],
+            }
+    task221_allowed = plan_valid
+    next_rows = _task220_next_rows(task221_allowed)
+    checks = (
+        ("task219_upstream_accepted", upstream_accepted),
+        ("candidate_job_contract_valid", jobs_valid if upstream_accepted else False),
+        ("planned_stage_contract_valid", stages_valid if upstream_accepted else False),
+        ("generated_structure_safe", not bad_safety_codes),
+        ("execution_boundary_valid", execution_boundary_valid),
+        (
+            "task221_only_readiness",
+            [
+                row["task_id"] for row in next_rows if row["allowed_now"]
+            ] == (["Task221"] if task221_allowed else []),
+        ),
+    )
+    check_rows = [
+        {
+            "check_index": index,
+            "check_key": key,
+            "status": "passed" if passed else "blocked",
+            "passed": bool(passed),
+            "safe_hint": "Task220 deterministic dry-run planning contract check.",
+        }
+        for index, (key, passed) in enumerate(checks, 1)
+    ]
+    blocker_rows = [
+        {
+            "blocker_index": index,
+            "code": code,
+            "safe_hint": "Resolve the sanitized Task220 blocker and rerun.",
+        }
+        for index, code in enumerate(dict.fromkeys(blockers), 1)
+    ]
+    task219_checksum = str(
+        task219.get(
+            "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+        ) or ""
+    )
+    task218_lineage = str(
+        task219.get(
+            "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256"
+        ) or ""
+    )
+    task217_lineage = str(
+        task219.get(
+            "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"
+        ) or ""
+    )
+    lineage_rows = [
+        {
+            "lineage_index": index,
+            "source_task": source_task,
+            "checksum_field": field,
+            "checksum_sha256": checksum if re.fullmatch(r"[0-9a-f]{64}", checksum) else "",
+            "validated": upstream_accepted,
+            "safe_hint": "Lineage checksum is path-independent and carries no candidate value.",
+        }
+        for index, (source_task, field, checksum) in enumerate((
+            (
+                "Task219",
+                "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+                task219_checksum,
+            ),
+            (
+                "Task218",
+                "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+                task218_lineage,
+            ),
+            (
+                "Task217",
+                "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+                task217_lineage,
+            ),
+        ), 1)
+    ] if upstream_accepted else []
+    status = "warning" if plan_valid else "blocked"
+    return _task220_finalize({
+        "mode": "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-plan",
+        "status": status,
+        "multi_issuer_evidence_extraction_dry_run_plan_status": status,
+        "multi_issuer_evidence_extraction_dry_run_plan_ready": plan_valid,
+        "task219_validation_completed": plan_valid,
+        "approved_candidate_seed_bound": plan_valid,
+        "dry_run_plan_created": plan_valid,
+        "dry_run_plan_valid": plan_valid,
+        "network_access_required_by_plan": network_required if plan_valid else False,
+        "document_download_required_by_plan":
+            download_required if plan_valid else False,
+        "controlled_cache_lookup_required_by_plan":
+            cache_required if plan_valid else False,
+        "dry_run_execution_authorization_required": plan_valid,
+        "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate":
+            task221_allowed,
+        "next_tasks_valid": plan_valid,
+        "execution_boundary_valid": execution_boundary_valid,
+        "write_outputs": True,
+        "planned_output_scope":
+            "dry_run_evidence_candidates_only" if plan_valid else "",
+        "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256":
+            task219_checksum if upstream_accepted else "",
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256":
+            task218_lineage if upstream_accepted else "",
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256":
+            task217_lineage if upstream_accepted else "",
+        "scope_rows": metadata["scope_rows"],
+        "task219_validation_rows": upstream_rows,
+        "lineage_rows": lineage_rows,
+        "approved_candidate_snapshot_rows": candidate_rows,
+        "approved_review_outcome_rows": review_outcomes,
+        "dry_run_job_rows": jobs,
+        "source_access_plan_rows": access_rows,
+        "document_handling_plan_rows": document_rows,
+        "planned_extraction_stage_rows": stage_rows,
+        "controlled_field_target_rows": metadata["controlled_field_target_rows"],
+        "expected_dry_run_output_rows": metadata["expected_dry_run_output_rows"],
+        "plan_invariant_rows": metadata["plan_invariant_rows"],
+        "failure_retry_policy_rows": metadata["failure_retry_policy_rows"],
+        "authorization_requirement_rows": metadata["authorization_requirement_rows"],
+        "execution_acceptance_boundary_rows":
+            metadata["execution_acceptance_boundary_rows"],
+        "next_task_rows": next_rows,
+        "multi_issuer_evidence_extraction_dry_run_plan_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "bad_safety_codes": bad_safety_codes,
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_TASK221_NEXT_STEP
+            if task221_allowed
+            else RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_BLOCKED_NEXT_STEP
+        ),
+        "safe_hint": "Task220 plans future dry-run work and grants no execution authority.",
+        "errors": [],
+    })
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_markdown(
+    report: dict[str, Any],
+) -> str:
+    ready = (
+        report.get(
+            "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate"
+        ) is True
+    )
+    verdict = (
+        "WARNING — dry-run plan is valid; only Task221 authorization gate is unlocked."
+        if ready
+        else "BLOCKED — resolve Task220 planning blockers; Task221 remains locked."
+        if report.get("status") == "blocked"
+        else "FAILED — repair Task220; Task221 remains locked."
+    )
+    return "\n".join([
+        "# Task220 — Multi-Issuer Evidence Extraction Dry Run Plan",
+        "",
+        verdict,
+        "",
+        f"- Status: `{report.get('status', '')}`",
+        f"- Plan ready: `{str(report.get('multi_issuer_evidence_extraction_dry_run_plan_ready', False)).lower()}`",
+        f"- Task219 validated / candidate seed bound: `{str(report.get('task219_validation_completed', False)).lower()}/{str(report.get('approved_candidate_seed_bound', False)).lower()}`",
+        f"- Candidates / jobs / stages per job: `{report.get('planned_candidate_row_count', 0)}/{report.get('planned_dry_run_job_count', 0)}/{report.get('planned_stage_count_per_job', 0)}`",
+        f"- Network / download / cache required by plan: `{str(report.get('network_access_required_by_plan', False)).lower()}/{str(report.get('document_download_required_by_plan', False)).lower()}/{str(report.get('controlled_cache_lookup_required_by_plan', False)).lower()}`",
+        f"- Execution authorization required / authorized / executed: `{str(report.get('dry_run_execution_authorization_required', False)).lower()}/false/false`",
+        f"- Task221 ready: `{str(ready).lower()}`",
+        f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
+        f"- Task219 SHA-256: `{report.get('source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256', '')}`",
+        f"- Task220 SHA-256: `{report.get('multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`",
+        "",
+        "No candidate value or review note is printed here. Required-by-plan is not authorized or executed. No network, cache, download, extraction, evidence acceptance, controlled value, database, import, scoring, recommendation, ranking, broker, export, or trading action occurred.",
+        "",
+    ])
+
+
+def _task220_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    envelope = {
+        "status": report.get("status", ""),
+        "multi_issuer_evidence_extraction_dry_run_plan_ready":
+            report.get("multi_issuer_evidence_extraction_dry_run_plan_ready", False),
+        "task219_validation_completed":
+            report.get("task219_validation_completed", False),
+        "approved_candidate_seed_bound":
+            report.get("approved_candidate_seed_bound", False),
+        "dry_run_plan_created": report.get("dry_run_plan_created", False),
+        "dry_run_plan_valid": report.get("dry_run_plan_valid", False),
+        "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate":
+            report.get(
+                "ready_for_task221_multi_issuer_evidence_extraction_dry_run_authorization_gate",
+                False,
+            ),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256":
+            report.get(
+                "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256",
+                "",
+            ),
+    }
+    mappings = {
+        "checks_json": (
+            "multi_issuer_evidence_extraction_dry_run_plan_check_count",
+            "multi_issuer_evidence_extraction_dry_run_plan_check_rows",
+        ),
+        "scope_json": ("scope_count", "scope_rows"),
+        "task219_validation_json": (
+            "task219_validation_count", "task219_validation_rows",
+        ),
+        "document_handling_plan_json": (
+            "document_handling_plan_count", "document_handling_plan_rows",
+        ),
+        "planned_extraction_stages_json": (
+            "planned_extraction_stage_count", "planned_extraction_stage_rows",
+        ),
+        "controlled_field_targeting_json": (
+            "controlled_field_target_count", "controlled_field_target_rows",
+        ),
+        "expected_dry_run_outputs_json": (
+            "expected_dry_run_output_count", "expected_dry_run_output_rows",
+        ),
+        "plan_invariants_json": (
+            "plan_invariant_count", "plan_invariant_rows",
+        ),
+        "failure_retry_policy_json": (
+            "failure_retry_policy_count", "failure_retry_policy_rows",
+        ),
+        "authorization_requirements_json": (
+            "authorization_requirement_count", "authorization_requirement_rows",
+        ),
+        "execution_acceptance_boundary_json": (
+            "execution_acceptance_boundary_count",
+            "execution_acceptance_boundary_rows",
+        ),
+        "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {
+        key: {
+            **envelope,
+            count: report.get(count, 0),
+            rows: report.get(rows) or [],
+        }
+        for key, (count, rows) in mappings.items()
+    }
+    payloads["blockers_json"] = {
+        **envelope,
+        "blocker_rows": report.get("blocker_rows") or [],
+    }
+    payloads["lineage_json"] = {
+        **envelope,
+        "lineage_count": report.get("lineage_count", 0),
+        "lineage_rows": report.get("lineage_rows") or [],
+        "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256":
+            report.get(
+                "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+                "",
+            ),
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256":
+            report.get(
+                "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+                "",
+            ),
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256":
+            report.get(
+                "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+                "",
+            ),
+    }
+    payloads["candidate_dry_run_job_plan_json"] = {
+        **envelope,
+        "planned_candidate_row_count":
+            report.get("planned_candidate_row_count", 0),
+        "approved_candidate_snapshot_rows":
+            report.get("approved_candidate_snapshot_rows") or [],
+        "planned_dry_run_job_count":
+            report.get("planned_dry_run_job_count", 0),
+        "dry_run_job_rows": report.get("dry_run_job_rows") or [],
+    }
+    payloads["source_access_plan_json"] = {
+        **envelope,
+        "source_access_plan_count": report.get("source_access_plan_count", 0),
+        "source_access_plan_rows": report.get("source_access_plan_rows") or [],
+    }
+    payloads["next_tasks_json"] = {
+        **payloads["next_tasks_json"],
+        "next_tasks_valid": report.get("next_tasks_valid", False),
+    }
+    payloads["summary_json"] = {
+        **envelope,
+        "planned_candidate_row_count":
+            report.get("planned_candidate_row_count", 0),
+        "planned_dry_run_job_count":
+            report.get("planned_dry_run_job_count", 0),
+        "planned_stage_count_per_job":
+            report.get("planned_stage_count_per_job", 0),
+        "network_access_required_by_plan":
+            report.get("network_access_required_by_plan", False),
+        "document_download_required_by_plan":
+            report.get("document_download_required_by_plan", False),
+        "controlled_cache_lookup_required_by_plan":
+            report.get("controlled_cache_lookup_required_by_plan", False),
+        "dry_run_execution_authorization_required":
+            report.get("dry_run_execution_authorization_required", False),
+    }
+    payloads["safety_json"] = {
+        **envelope,
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        "dry_run_execution_authorization_required":
+            report.get("dry_run_execution_authorization_required", False),
+        "network_access_required_by_plan":
+            report.get("network_access_required_by_plan", False),
+        "document_download_required_by_plan":
+            report.get("document_download_required_by_plan", False),
+        "controlled_cache_lookup_required_by_plan":
+            report.get("controlled_cache_lookup_required_by_plan", False),
+        **{
+            field: False
+            for field in dict.fromkeys(
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_FALSE_FIELDS
+            )
+        },
+    }
+    return payloads
+
+
+def _task220_write_direct(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("plan_json"):
+        write_json_report(report, artifacts["plan_json"])
+    if artifacts.get("plan_markdown"):
+        artifacts["plan_markdown"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["plan_markdown"].write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan_markdown(
+                report
+            ),
+            encoding="utf-8",
+        )
+    for key, payload in _task220_wrappers(report).items():
+        if artifacts.get(key):
+            write_json_report(payload, artifacts[key])
+
+
+def _task220_write_atomic(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    targets = {
+        key: path for key, path in artifacts.items() if path is not None
+    }
+    roots: dict[Path, Path] = {}
+    staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent
+            parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(
+                    prefix=".task220-evidence-dry-run-plan-",
+                    dir=parent,
+                ))
+                roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task220_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"
+                shutil.copy2(target, backup)
+                backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target)
+            published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file():
+                    os.replace(backup, target)
+                elif target in published and target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise
+    finally:
+        for root in roots.values():
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def _task220_publish(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> dict[str, Any]:
+    try:
+        _task220_write_atomic(report, artifacts)
+        return report
+    except Exception:
+        failed = _task220_failed([{"message": "task220_write_failed"}])
+        try:
+            _task220_write_atomic(failed, artifacts)
+            return failed
+        except Exception:
+            return _task220_failed(
+                [{"message": "task220_write_failed"}],
+                write_outputs=False,
+            )
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_extraction_dry_run_plan(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = _task220_inputs(args)
+    artifacts = _task220_artifacts(args)
+    errors = _task220_output_errors(inputs, artifacts)
+    if errors:
+        return _task220_failed(errors, write_outputs=False)
+    task219_path = inputs["task219"]
+    if task219_path is None or not task219_path.exists():
+        return _task220_publish(
+            _build_task220_report(
+                {},
+                task218={},
+                task217={},
+                input_blockers=["task219_input_missing"],
+            ),
+            artifacts,
+        )
+    if not task219_path.is_file():
+        return _task220_publish(
+            _build_task220_report(
+                {},
+                task218={},
+                task217={},
+                input_blockers=["task219_input_not_regular_file"],
+            ),
+            artifacts,
+        )
+    try:
+        task219 = _load_json_object(task219_path)
+    except Exception:
+        return _task220_publish(
+            _task220_failed([{"message": "task219_input_malformed"}]),
+            artifacts,
+        )
+    task218_path = inputs["task218_lineage"]
+    if task218_path is None or not task218_path.is_file():
+        return _task220_publish(
+            _build_task220_report(
+                task219,
+                task218={},
+                task217={},
+                input_blockers=["task218_lineage_input_missing"],
+            ),
+            artifacts,
+        )
+    try:
+        task218 = _load_json_object(task218_path)
+    except Exception:
+        return _task220_publish(
+            _task220_failed([{"message": "task218_lineage_input_malformed"}]),
+            artifacts,
+        )
+    task217_path = inputs["task217_lineage"]
+    if task217_path is None or not task217_path.is_file():
+        return _task220_publish(
+            _build_task220_report(
+                task219,
+                task218=task218,
+                task217={},
+                input_blockers=["task217_lineage_input_missing"],
+            ),
+            artifacts,
+        )
+    try:
+        task217 = _load_json_object(task217_path)
+    except Exception:
+        return _task220_publish(
+            _task220_failed([{"message": "task217_lineage_input_malformed"}]),
+            artifacts,
+        )
+    return _task220_publish(
+        _build_task220_report(
+            task219,
+            task218=task218,
+            task217=task217,
+            input_blockers=[],
+        ),
+        artifacts,
+    )
 
 
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
