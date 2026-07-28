@@ -30887,6 +30887,439 @@ def test_evidence_extraction_dry_run_authorization_gate_determinism_collisions_a
     assert not list(tmp_path.glob(".task221-evidence-dry-run-auth-*"))
 
 
+def _write_task222_ready_task221(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, dict, Path, tuple[Path, ...]]:
+    task220, task220_path, upstream_paths = _write_task221_ready_task220(
+        chain, tmp_path, monkeypatch
+    )
+    manifest_path = tmp_path / "task222-authorization.json"
+    manifest_path.write_text(
+        json.dumps(_task221_manifest(task220)),
+        encoding="utf-8",
+    )
+    task221 = _run_task221(
+        chain, manifest=manifest_path, authorize=True
+    )
+    assert task221["status"] == "warning"
+    assert task221[
+        "ready_for_task222_controlled_multi_issuer_evidence_extraction_dry_run_executor"
+    ] is True
+    task221_path = (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_GATE_ARTIFACT_NAMES[
+            "gate_json"
+        ]
+    )
+    return (
+        task221,
+        task220,
+        task221_path,
+        (task220_path, *upstream_paths, manifest_path),
+    )
+
+
+def _run_task222(
+    chain: Path,
+    *,
+    execute: bool = False,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--operator-resolution-chain-output-dir",
+        str(chain),
+    ]
+    if execute:
+        arguments.append(
+            "--execute-controlled-multi-issuer-evidence-extraction-dry-run"
+        )
+    arguments.extend(extra or [])
+    parsed = assistant.parse_args([
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-executor",
+        *arguments,
+    ])
+    report, exit_code = assistant.run_assistant(parsed)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _task222_pdf_bytes() -> bytes:
+    return b"%PDF-1.4\nTASK222 SYNTHETIC PDF\n%%EOF\n"
+
+
+def _task222_transport_success(url: str, **_kwargs) -> dict:
+    data = _task222_pdf_bytes()
+    return {
+        "status": "ok",
+        "final_url": url,
+        "http_status": 200,
+        "content_type": "application/pdf",
+        "content_length": len(data),
+        "raw_bytes": data,
+        "response_sha256": hashlib.sha256(data).hexdigest(),
+        "redirect_chain": [],
+        "resolved_addresses": ["8.8.8.8"],
+        "selected_address": "8.8.8.8",
+        "dns_resolution_executed": True,
+        "http_request_executed": True,
+    }
+
+
+def _task222_extraction_success(_path: Path) -> dict:
+    text = (
+        "Revenue 2025 1200 2024 1000\n"
+        "Net profit 2025 100 2024 90\n"
+    )
+    return {
+        "status": "ok",
+        "backend": "synthetic_task222",
+        "page_count": 1,
+        "extracted_page_count": 1,
+        "extracted_text_bytes": len(text.encode()),
+        "pages": [{
+            "page_number": 1,
+            "text": text,
+            "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "char_count": len(text),
+        }],
+    }
+
+
+def test_controlled_multi_issuer_evidence_extraction_dry_run_executor_no_flag_and_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task221, task220, task221_path, upstream_paths = (
+        _write_task222_ready_task221(chain, tmp_path, monkeypatch)
+    )
+    before = {
+        path: path.read_bytes()
+        for path in (task221_path, *upstream_paths)
+    }
+
+    no_flag = _run_task222(chain)
+    assert no_flag["status"] == "warning"
+    assert no_flag[
+        "controlled_multi_issuer_evidence_extraction_dry_run_executor_ready"
+    ] is True
+    assert no_flag["task221_validation_completed"] is True
+    assert no_flag["journal_state"] == "not_reserved"
+    assert no_flag["authorization_consumed"] is False
+    assert no_flag["dry_run_execution_attempted"] is False
+    assert no_flag["attempted_job_count"] == 0
+    assert no_flag["field_outcome_row_count"] == 0
+    assert all(not row["allowed_now"] for row in no_flag["next_task_rows"])
+    assert not (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+    ).exists()
+
+    monkeypatch.setattr(
+        assistant,
+        "_task222_controlled_http_get",
+        _task222_transport_success,
+    )
+    monkeypatch.setattr(
+        assistant,
+        "_task222_extract_pdf",
+        _task222_extraction_success,
+    )
+    executed = _run_task222(chain, execute=True)
+    assert executed["status"] == "warning"
+    assert executed["journal_state"] == "completed"
+    assert executed["execution_reservation_created"] is True
+    assert executed["authorization_consumed"] is True
+    assert executed["dry_run_execution_attempted"] is True
+    assert executed["dry_run_execution_completed"] is True
+    assert executed["dry_run_execution_successful"] is True
+    assert executed["dry_run_executed"] is True
+    assert executed[
+        "controlled_multi_issuer_evidence_extraction_dry_run_executor_ready"
+    ] is False
+    assert (
+        executed["planned_job_count"],
+        executed["attempted_job_count"],
+        executed["successful_job_count"],
+        executed["failed_job_count"],
+    ) == (3, 3, 3, 0)
+    assert executed["controlled_field_count"] == len(
+        assistant.EVIDENCE_FINANCIAL_FIELDS
+    ) == 9
+    assert executed["field_outcome_row_count"] == 27
+    assert executed["extraction_stage_row_count"] == 36
+    assert len(executed["extraction_stage_result_rows"]) == 36
+    assert all(
+        row["stage_status"] == "completed"
+        for row in executed["extraction_stage_result_rows"]
+    )
+    assert executed["dns_resolution_executed"] is True
+    assert executed["http_request_executed"] is True
+    assert executed["source_access_executed"] is True
+    assert executed["document_download_executed"] is True
+    assert executed["evidence_extraction_executed"] is True
+    assert executed["evidence_candidate_generation_executed"] is True
+    assert executed[
+        "ready_for_task223_multi_issuer_dry_run_evidence_candidate_review_gate"
+    ] is True
+    assert [
+        row["task_id"] for row in executed["next_task_rows"]
+        if row["allowed_now"]
+    ] == ["Task223"]
+    assert executed["blocker_count"] == 0
+    assert executed["bad_safety_count"] == 0
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        executed[
+            "controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256"
+        ],
+    )
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        executed[
+            "controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256"
+        ],
+    )
+    for field in (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ALWAYS_FALSE_FIELDS
+    ):
+        assert executed[field] is False, field
+    assert {path: path.read_bytes() for path in before} == before
+
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES
+    )
+    assert len(names) == 20
+    assert all((chain / name).is_file() for name in names.values())
+    payloads = {
+        key: json.loads((chain / name).read_text(encoding="utf-8"))
+        for key, name in names.items() if name.endswith(".json")
+    }
+    markdown = (chain / names["executor_markdown"]).read_text(
+        encoding="utf-8"
+    )
+    assert payloads["executor_json"] == executed
+    assert payloads["execution_journal_json"]["journal_state"] == "completed"
+    assert payloads["controlled_field_outcomes_json"][
+        "controlled_field_outcome_rows"
+    ] == executed["controlled_field_outcome_rows"]
+    assert payloads["evidence_candidates_json"]["evidence_candidate_rows"] == (
+        executed["evidence_candidate_rows"]
+    )
+    assert payloads["next_tasks_json"]["next_task_rows"] == (
+        executed["next_task_rows"]
+    )
+    assert "only Task223 review is unlocked" in markdown
+    marker = task220["approved_candidate_snapshot_rows"][0]["issuer_inn"]
+    allowed = {
+        "executor_json", "source_access_results_json",
+        "document_retrieval_results_json", "evidence_candidates_json",
+        "payload_manifest_json",
+    }
+    for key, name in names.items():
+        if key in allowed:
+            continue
+        assert marker not in (chain / name).read_text(encoding="utf-8")
+        assert "TASK220 SYNTHETIC REVIEW NOTE MUST NOT LEAK" not in (
+            chain / name
+        ).read_text(encoding="utf-8")
+    payload_root = (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+    )
+    assert len([path for path in payload_root.iterdir() if path.is_dir()]) == 3
+    assert not list(tmp_path.glob(".task222-evidence-dry-run-executor-*"))
+    assert not list(chain.glob("*.tmp"))
+
+
+def test_controlled_multi_issuer_evidence_extraction_dry_run_executor_partial_and_replay(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task222_ready_task221(chain, tmp_path, monkeypatch)
+    calls = {"count": 0}
+
+    def partial_transport(url: str, **kwargs) -> dict:
+        calls["count"] += 1
+        if calls["count"] == 2:
+            return {
+                "status": "error",
+                "error_code": "synthetic_http_failure",
+                "redirect_chain": [],
+                "dns_resolution_executed": True,
+                "http_request_executed": True,
+            }
+        return _task222_transport_success(url, **kwargs)
+
+    monkeypatch.setattr(
+        assistant, "_task222_controlled_http_get", partial_transport
+    )
+    monkeypatch.setattr(
+        assistant, "_task222_extract_pdf", _task222_extraction_success
+    )
+    partial = _run_task222(chain, execute=True)
+    assert partial["status"] == "warning"
+    assert partial["journal_state"] == "partial"
+    assert partial["authorization_consumed"] is True
+    assert partial["attempted_job_count"] == 3
+    assert partial["successful_job_count"] == 2
+    assert partial["failed_job_count"] == 1
+    assert partial["field_outcome_row_count"] == 27
+    assert partial["extraction_stage_row_count"] == 36
+    assert partial["dry_run_execution_successful"] is False
+    assert partial[
+        "controlled_multi_issuer_evidence_extraction_dry_run_executor_ready"
+    ] is False
+    assert partial[
+        "ready_for_task223_multi_issuer_dry_run_evidence_candidate_review_gate"
+    ] is False
+    assert all(not row["allowed_now"] for row in partial["next_task_rows"])
+    journal_path = (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES[
+            "execution_journal_json"
+        ]
+    )
+    before = journal_path.read_bytes()
+    replay = _run_task222(chain, execute=True)
+    assert replay["status"] == "blocked"
+    assert replay["write_outputs"] is False
+    assert journal_path.read_bytes() == before
+
+
+def test_controlled_multi_issuer_evidence_extraction_dry_run_executor_failures_collisions_and_atomic_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing_chain = tmp_path / "missing"
+    missing_chain.mkdir()
+    missing = _run_task222(missing_chain)
+    assert missing["status"] == "blocked"
+    assert missing["attempted_job_count"] == 0
+    assert len([
+        path for path in missing_chain.iterdir()
+        if "evidence_extraction_dry_run_executor" in path.name
+        and "task222" in path.name
+    ]) == 20
+
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, _, task221_path, _ = _write_task222_ready_task221(
+        chain, tmp_path, monkeypatch
+    )
+    task221_before = task221_path.read_bytes()
+    collision = _run_task222(
+        tmp_path / "collision",
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-executor-input",
+            str(task221_path),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-executor-output",
+            str(task221_path),
+        ],
+    )
+    assert collision["status"] == "failed"
+    assert collision["write_outputs"] is False
+    assert task221_path.read_bytes() == task221_before
+
+    malformed_chain = tmp_path / "malformed-chain"
+    malformed_chain.mkdir()
+    malformed = tmp_path / "malformed-task221.json"
+    malformed.write_text('{"status": invalid', encoding="utf-8")
+    failed = _run_task222(
+        malformed_chain,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-executor-input",
+            str(malformed),
+        ],
+    )
+    assert failed["status"] == "failed"
+    assert failed["write_outputs"] is True
+    assert failed["evidence_candidate_rows"] == []
+
+    retry_chain = tmp_path / "retry-chain"
+    retry_chain.mkdir()
+    original_writer = assistant.write_json_report
+    calls = {"count": 0}
+
+    def fail_once(data: dict, path: Path) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("synthetic Task222 writer failure")
+        original_writer(data, path)
+
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    retried = _run_task222(
+        retry_chain,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-executor-input",
+            str(task221_path),
+        ],
+    )
+    assert retried["status"] == "failed"
+    assert retried["write_outputs"] is True
+    assert len([
+        path for path in retry_chain.iterdir()
+        if "evidence_extraction_dry_run_executor" in path.name
+        and "task222" in path.name
+    ]) == 20
+    assert not list(tmp_path.glob(".task222-evidence-dry-run-executor-*"))
+
+
+def test_controlled_multi_issuer_evidence_extraction_dry_run_executor_network_and_page_guards(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        assistant.socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (2, 1, 6, "", ("8.8.8.8", 443)),
+            (2, 1, 6, "", ("127.0.0.1", 443)),
+        ],
+    )
+    target, error = assistant._task222_resolve_target(
+        "https://source.invalid/report.pdf"
+    )
+    assert target == {}
+    assert error == "dns_resolution_mixed_global_non_global"
+    assert assistant._task222_resolve_target(
+        "http://localhost/report.pdf"
+    )[1] == "localhost_forbidden"
+    assert assistant._task222_resolve_target(
+        "file:///tmp/report.pdf"
+    )[1] == "url_scheme_or_hostname_invalid"
+
+    html = b"""
+    <html><body>
+      <a href="/reports/2024-ifrs.pdf">2024 IFRS report</a>
+      <a href="/reports/2023-ifrs.pdf">2023 IFRS report</a>
+    </body></html>
+    """
+    rows = assistant._task222_page_document_candidates(
+        html,
+        content_type="text/html; charset=utf-8",
+        page_url="https://issuer.invalid/reports",
+        report_year=2024,
+        report_standard="IFRS",
+    )
+    assert [row["document_url"] for row in rows] == [
+        "https://issuer.invalid/reports/2024-ifrs.pdf"
+    ]
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    result, raw = assistant._task222_cache_document(
+        cache, "../escape.pdf"
+    )
+    assert result["status"] == "error"
+    assert raw is None
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
