@@ -32986,6 +32986,351 @@ def test_normalization_and_period_pairing_workspace_determinism_collision_and_at
     )
 
 
+def _write_task227_ready_task226(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, Path]:
+    _write_task226_ready_task225(chain, tmp_path, monkeypatch)
+    task226 = _run_task226(chain)
+    assert task226["status"] == "warning"
+    assert task226[
+        "ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate"
+    ] is True
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ARTIFACT_NAMES
+    )
+    return task226, chain / names["workspace_json"]
+
+
+def _run_task227(
+    chain: Path,
+    *,
+    authorize: bool = False,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-manual-fill-authorization-gate",
+        "--operator-resolution-chain-output-dir",
+        str(chain),
+        *(
+            [
+                "--authorize-multi-issuer-normalization-and-period-pairing-workspace-manual-fill"
+            ]
+            if authorize else []
+        ),
+        *(extra or []),
+    ]
+    parsed = assistant.parse_args(arguments)
+    report, exit_code = assistant.run_assistant(parsed)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def test_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_warning_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task226, _ = _write_task227_ready_task226(
+        chain, tmp_path, monkeypatch
+    )
+    immutable_paths = [
+        path for path in chain.rglob("*")
+        if path.is_file() and "task227" not in path.name
+    ]
+    before = {path: path.read_bytes() for path in immutable_paths}
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError(
+            "Task227 must not access sources, payloads, extraction, normalization, pairing, or staging"
+        )
+
+    monkeypatch.setattr(
+        assistant, "_task222_controlled_http_get", forbidden
+    )
+    monkeypatch.setattr(assistant, "_task222_extract_pdf", forbidden)
+    payload_root = (
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+    ).resolve()
+    original_open = Path.open
+
+    def guarded_open(path: Path, *args, **kwargs):
+        resolved = path.resolve()
+        if resolved == payload_root or payload_root in resolved.parents:
+            raise AssertionError("Task227 must not read Task222 payload files")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    report = _run_task227(chain, authorize=True)
+    monkeypatch.setattr(Path, "open", original_open)
+
+    assert report["status"] == "warning"
+    assert report[
+        "normalization_and_period_pairing_workspace_manual_fill_authorization_gate_ready"
+    ] is True
+    assert report["task226_validation_completed"] is True
+    assert report["task226_artifact_validation_completed"] is True
+    assert report["task226_workspace_template_validated"] is True
+    assert report["task226_workspace_schema_validated"] is True
+    assert report["task226_normalization_rows_validated"] is True
+    assert report["task226_counterpart_rows_validated"] is True
+    assert report["explicit_concrete_data_authorization_recorded"] is True
+    assert report["normalization_workspace_manual_fill_authorized"] is True
+    assert report["manual_operator_fill_authorized"] is True
+    assert report["manual_fill_authorization_scope_valid"] is True
+    assert (
+        report["authorized_normalization_workspace_row_count"],
+        report["authorized_counterpart_binding_row_count"],
+        report["authorized_normalization_operator_field_count"],
+        report["authorized_counterpart_reference_field_count"],
+    ) == (4, 4, 8, 5)
+    assert (
+        report["filled_normalization_workspace_row_count"],
+        report["filled_counterpart_binding_row_count"],
+        report["normalized_fact_count"],
+        report["complete_period_pair_count"],
+        report["missing_counterpart_count"],
+    ) == (0, 0, 0, 0, 4)
+    assert [
+        row["task_id"] for row in report["next_task_rows"]
+        if row["allowed_now"]
+    ] == ["Task228"]
+    assert report[
+        "ready_for_task228_multi_issuer_normalization_and_period_pairing_workspace_authorized_manual_fill_loader"
+    ] is True
+    assert report["blocker_count"] == 0
+    assert report["bad_safety_count"] == 0
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        report[
+            "multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_record_checksum_sha256"
+        ],
+    )
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        report[
+            "multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_checksum_sha256"
+        ],
+    )
+    for field in (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_ALWAYS_FALSE_FIELDS
+    ):
+        assert report[field] is False, field
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_ARTIFACT_NAMES
+    )
+    assert len(names) == 20
+    assert all((chain / name).is_file() for name in names.values())
+    wrappers = assistant._task227_wrappers(report)
+    for key, expected in wrappers.items():
+        assert json.loads(
+            (chain / names[key]).read_text(encoding="utf-8")
+        ) == expected
+    markdown = (chain / names["gate_markdown"]).read_text(
+        encoding="utf-8"
+    )
+    assert "only Task228 loader is unlocked" in markdown
+    task222 = json.loads((
+        chain
+        / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES[
+            "executor_json"
+        ]
+    ).read_text(encoding="utf-8"))
+    concrete_value = task222["evidence_candidate_rows"][0][
+        "value_candidate"
+    ]["raw_value_text"]
+    issuer_id = task222["evidence_candidate_rows"][0][
+        "value_candidate"
+    ]["company_id"]
+    for name in names.values():
+        text = (chain / name).read_text(encoding="utf-8")
+        assert concrete_value not in text
+        assert issuer_id not in text
+        assert "operator proposal" not in text
+    assert report[
+        "source_multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256"
+    ] == task226[
+        "multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256"
+    ]
+    assert {path: path.read_bytes() for path in immutable_paths} == before
+    assert not list(tmp_path.glob(".task227-normalization-pairing-auth-*"))
+    assert not list(chain.rglob("*.tmp"))
+    assert not list(chain.rglob("*.partial"))
+
+
+def test_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_missing_flag_and_failed_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task227_ready_task226(chain, tmp_path, monkeypatch)
+    blocked = _run_task227(chain)
+    assert blocked["status"] == "blocked"
+    assert blocked["task226_validation_completed"] is True
+    assert blocked["task226_artifact_validation_completed"] is True
+    assert blocked["task226_workspace_template_validated"] is True
+    assert blocked["task226_workspace_schema_validated"] is True
+    assert blocked["authorization_record_rows"] == []
+    assert blocked["authorized_normalization_rows"] == []
+    assert blocked["authorized_counterpart_rows"] == []
+    assert "manual_fill_authorization_missing" in {
+        row["code"] for row in blocked["blocker_rows"]
+    }
+    assert all(not row["allowed_now"] for row in blocked["next_task_rows"])
+
+    missing_dir = tmp_path / "missing"
+    missing_dir.mkdir()
+    missing = _run_task227(missing_dir, authorize=True)
+    assert missing["status"] == "blocked"
+    assert missing["task226_validation_completed"] is False
+    assert missing["authorization_record_rows"] == []
+
+    malformed_output = tmp_path / "malformed-output"
+    malformed_output.mkdir()
+    malformed = tmp_path / "malformed-task226.json"
+    malformed.write_text('{"status": invalid', encoding="utf-8")
+    failed = _run_task227(
+        malformed_output,
+        authorize=True,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-manual-fill-authorization-gate-input",
+            str(malformed),
+        ],
+    )
+    assert failed["status"] == "failed"
+    assert failed["write_outputs"] is True
+    assert failed["task226_validation_rows"] == []
+    assert failed["authorization_record_rows"] == []
+    assert all(not row["allowed_now"] for row in failed["next_task_rows"])
+
+
+def test_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_contract_drift_and_sanitization(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, task226_path = _write_task227_ready_task226(
+        chain, tmp_path, monkeypatch
+    )
+    original_bytes = task226_path.read_bytes()
+    mutated = json.loads(original_bytes.decode("utf-8"))
+    mutated["workspace_template"]["normalization_workspace_rows"][0][
+        "normalized_value"
+    ] = "123.45"
+    task226_path.write_text(json.dumps(mutated), encoding="utf-8")
+    blocked = _run_task227(chain, authorize=True)
+    assert blocked["status"] == "blocked"
+    assert blocked["task226_validation_completed"] is False
+    assert blocked["authorized_normalization_rows"] == []
+    assert blocked["authorized_counterpart_rows"] == []
+    persisted = "\n".join(
+        (chain / name).read_text(encoding="utf-8")
+        for name in (
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_ARTIFACT_NAMES.values()
+        )
+    )
+    assert "123.45" not in persisted
+
+    task226_path.write_bytes(original_bytes)
+    original_rows = assistant._task227_authorized_normalization_rows
+
+    def unsafe_rows(task226: dict) -> list[dict]:
+        rows = original_rows(task226)
+        rows[0]["issuer_name"] = "Unsafe Synthetic Issuer"
+        return rows
+
+    monkeypatch.setattr(
+        assistant, "_task227_authorized_normalization_rows", unsafe_rows
+    )
+    unsafe = _run_task227(chain, authorize=True)
+    assert unsafe["status"] == "blocked"
+    assert unsafe["bad_safety_count"] > 0
+    assert unsafe["authorized_normalization_rows"] == []
+    persisted = "\n".join(
+        (chain / name).read_text(encoding="utf-8")
+        for name in (
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_ARTIFACT_NAMES.values()
+        )
+    )
+    assert "Unsafe Synthetic Issuer" not in persisted
+
+
+def test_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_determinism_collision_and_atomic_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    first_chain = tmp_path / "chain1"
+    first_chain.mkdir()
+    _, task226_path = _write_task227_ready_task226(
+        first_chain, tmp_path, monkeypatch
+    )
+    second_chain = tmp_path / "chain2"
+    shutil.copytree(first_chain, second_chain)
+    first = _run_task227(first_chain, authorize=True)
+    second = _run_task227(second_chain, authorize=True)
+    assert first[
+        "multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_record_checksum_sha256"
+    ] == second[
+        "multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_record_checksum_sha256"
+    ]
+    assert first[
+        "multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_checksum_sha256"
+    ] == second[
+        "multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_checksum_sha256"
+    ]
+
+    before = task226_path.read_bytes()
+    collision = _run_task227(
+        tmp_path / "collision",
+        authorize=True,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-manual-fill-authorization-gate-input",
+            str(task226_path),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-manual-fill-authorization-gate-output",
+            str(task226_path),
+        ],
+    )
+    assert collision["status"] == "failed"
+    assert collision["write_outputs"] is False
+    assert task226_path.read_bytes() == before
+
+    retry = tmp_path / "retry"
+    retry.mkdir()
+    original_writer = assistant.write_json_report
+    calls = {"count": 0}
+
+    def fail_once(data: dict, path: Path) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("synthetic Task227 writer failure")
+        original_writer(data, path)
+
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    retried = _run_task227(
+        retry,
+        authorize=True,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-manual-fill-authorization-gate-input",
+            str(task226_path),
+        ],
+    )
+    assert retried["status"] == "failed"
+    assert retried["write_outputs"] is True
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_ARTIFACT_NAMES
+    )
+    assert len([
+        path for path in retry.iterdir() if path.name in set(names.values())
+    ]) == 20
+    assert not list(tmp_path.glob(".task227-normalization-pairing-auth-*"))
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
