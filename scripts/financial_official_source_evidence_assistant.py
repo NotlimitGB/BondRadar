@@ -140,6 +140,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-evidence-extraction-dry-run-executor",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -12739,7 +12740,7 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_SCHE
 )
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_MAX_INPUT_BYTES = 128 * 1024
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_TASK225_NEXT_STEP = (
-    "Task225 - Multi-Issuer Approved Evidence Candidate Controlled Value Staging Plan"
+    "Task225 - Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Plan"
 )
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_NO_INPUT_NEXT_STEP = (
     "Task224 - Fill the Task223 review template and provide it as review input"
@@ -12761,6 +12762,57 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_FAIL
 )
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ALWAYS_FALSE_FIELDS = (
     RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_ALWAYS_FALSE_FIELDS
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_MODE = (
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-"
+    "candidate-normalization-and-period-pairing-plan"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_SCHEMA_VERSION = (
+    "bondradar.multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan.v1"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES = {
+    "plan_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_task225.json",
+    "plan_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_task225.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_checks_task225.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_blockers_task225.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_scope_task225.json",
+    "task224_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_task224_validation_task225.json",
+    "lineage_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_lineage_task225.json",
+    "task224_artifact_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_task224_artifacts_task225.json",
+    "review_result_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_review_result_task225.json",
+    "approved_candidate_binding_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_candidate_binding_task225.json",
+    "normalization_input_inventory_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_input_inventory_task225.json",
+    "normalized_fact_schema_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_fact_schema_task225.json",
+    "controlled_field_mapping_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_field_mapping_task225.json",
+    "period_pairing_requirements_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_period_requirements_task225.json",
+    "normalization_plan_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_rows_task225.json",
+    "manual_review_gates_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_review_gates_task225.json",
+    "acceptance_execution_boundary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_boundary_task225.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_next_tasks_task225.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_summary_task225.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan_safety_task225.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TASK226_NEXT_STEP = (
+    "Task226 - Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Workspace"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_BLOCKED_NEXT_STEP = (
+    "Task225 - Resolve normalization and period pairing plan blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_FAILED_NEXT_STEP = (
+    "Task225 - Repair failed normalization and period pairing plan and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS = (
+    2025, 2024,
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS = tuple(
+    dict.fromkeys((
+        *RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ALWAYS_FALSE_FIELDS,
+        "normalization_executed", "normalized_fact_created",
+        "period_pair_created", "period_pair_accepted",
+        "controlled_value_staging_planned", "controlled_values_staged",
+        "controlled_values_created", "controlled_import_ready",
+        "staging_ready", "value_ready", "import_ready",
+    ))
 )
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
@@ -15069,6 +15121,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-task224-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-lineage-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-task224-artifact-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-review-result-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-approved-candidate-binding-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-normalization-input-inventory-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-normalized-fact-schema-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-controlled-field-mapping-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-period-pairing-requirements-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-manual-review-gates-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-acceptance-and-execution-boundary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -15416,6 +15489,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_candidate_review_gate(args)
     elif args.mode == "rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review":
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_candidate_manual_review(args)
+    elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_MODE:
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -101698,13 +101773,13 @@ def _task224_next_rows(allowed: bool) -> list[dict[str, Any]]:
     tasks = (
         (
             "Task225",
-            "Multi-Issuer Approved Evidence Candidate Controlled Value Staging Plan",
+            "Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Plan",
             allowed,
             "Task224",
         ),
         (
             "Task226",
-            "Multi-Issuer Analytics Review",
+            "Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Workspace",
             False,
             "Task225",
         ),
@@ -101735,7 +101810,7 @@ def _task224_scope_rows() -> list[dict[str, Any]]:
         "operator_correction_proposals_only",
         "no_original_candidate_value_copy",
         "no_evidence_or_controlled_value_acceptance",
-        "task225_staging_plan_handoff_only",
+        "task225_normalization_and_period_pairing_plan_handoff_only",
     )
     return [
         {
@@ -102322,10 +102397,14 @@ def _task224_checksum(report: dict[str, Any]) -> str:
         ) or [],
         "next_task_rows": report.get("next_task_rows") or [],
         "review_completed": report.get("review_completed") is True,
+        "approved_candidates_normalization_plan_eligible":
+            report.get(
+                "approved_candidates_normalization_plan_eligible"
+            ) is True,
         "approved_candidates_staging_eligible":
             report.get("approved_candidates_staging_eligible") is True,
         "ready_for_task225": report.get(
-            "ready_for_task225_multi_issuer_approved_evidence_candidate_controlled_value_staging_plan"
+            "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan"
         ) is True,
         "acceptance_boundary_valid":
             report.get("acceptance_boundary_valid") is True,
@@ -102387,8 +102466,9 @@ def _task224_finalize(report: dict[str, Any]) -> dict[str, Any]:
         "review_template_binding_validated", "review_input_supplied",
         "review_input_validated", "review_confirmation_supplied",
         "review_decisions_recorded", "review_completed",
+        "approved_candidates_normalization_plan_eligible",
         "approved_candidates_staging_eligible",
-        "ready_for_task225_multi_issuer_approved_evidence_candidate_controlled_value_staging_plan",
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan",
         "next_tasks_valid", "acceptance_boundary_valid", "write_outputs",
     )
     for field in bool_fields:
@@ -102452,8 +102532,9 @@ def _task224_failed(
         "review_confirmation_supplied": False,
         "review_decisions_recorded": False,
         "review_completed": False,
+        "approved_candidates_normalization_plan_eligible": False,
         "approved_candidates_staging_eligible": False,
-        "ready_for_task225_multi_issuer_approved_evidence_candidate_controlled_value_staging_plan":
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan":
             False,
         "next_tasks_valid": False,
         "acceptance_boundary_valid": True,
@@ -102566,7 +102647,7 @@ def _build_task224_report(
     unreviewed_count = (
         0 if review_completed else evidence_candidate_count
     )
-    staging_eligible = (
+    normalization_plan_eligible = (
         review_completed
         and approved_count > 0
         and correction_count == 0
@@ -102624,7 +102705,7 @@ def _build_task224_report(
             "The review-input path and rejected values are omitted.",
     }] if upstream_valid else []
     scope_rows = _task224_scope_rows() if upstream_valid else []
-    next_rows = _task224_next_rows(staging_eligible)
+    next_rows = _task224_next_rows(normalization_plan_eligible)
     unauthorized_generated = [
         *validation_rows, *lineage_rows, *binding_rows,
         *review_input_validation_rows, *decision_summary_rows,
@@ -102681,7 +102762,7 @@ def _build_task224_report(
         reason_rows = []
         acceptance_boundary_rows = []
         next_rows = _task224_next_rows(False)
-        review_input_valid = review_completed = staging_eligible = False
+        review_input_valid = review_completed = normalization_plan_eligible = False
         evidence_candidate_count = approved_count = rejected_count = 0
         correction_count = unreviewed_count = 0
     status = "warning" if warning_state else "blocked"
@@ -102702,7 +102783,7 @@ def _build_task224_report(
             [
                 row["task_id"] for row in next_rows
                 if row["allowed_now"]
-            ] == (["Task225"] if staging_eligible else []),
+            ] == (["Task225"] if normalization_plan_eligible else []),
         ),
         ("generated_contract_safe", not bad_safety_codes),
     )
@@ -102758,10 +102839,11 @@ def _build_task224_report(
         "review_decisions_recorded":
             review_completed if warning_state else False,
         "review_completed": review_completed if warning_state else False,
-        "approved_candidates_staging_eligible":
-            staging_eligible if warning_state else False,
-        "ready_for_task225_multi_issuer_approved_evidence_candidate_controlled_value_staging_plan":
-            staging_eligible if warning_state else False,
+        "approved_candidates_normalization_plan_eligible":
+            normalization_plan_eligible if warning_state else False,
+        "approved_candidates_staging_eligible": False,
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan":
+            normalization_plan_eligible if warning_state else False,
         "next_tasks_valid": warning_state,
         "acceptance_boundary_valid": acceptance_boundary_valid,
         "write_outputs": True,
@@ -102845,7 +102927,7 @@ def _build_task224_report(
             else RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_TASK225_NEXT_STEP
         ),
         "safe_hint":
-            "Manual dispositions remain unaccepted and authorize only a future staging plan.",
+            "Manual dispositions remain unaccepted and authorize only a future normalization and period pairing plan.",
         "errors": [],
     }
     report = _task224_finalize(report)
@@ -102872,12 +102954,12 @@ def _build_task224_report(
 def render_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_candidate_manual_review_markdown(
     report: dict[str, Any],
 ) -> str:
-    staging = report.get(
-        "ready_for_task225_multi_issuer_approved_evidence_candidate_controlled_value_staging_plan"
+    task225_ready = report.get(
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan"
     ) is True
     verdict = (
-        "WARNING - manual review is complete; only Task225 staging planning is unlocked."
-        if staging
+        "WARNING - manual review is complete; only Task225 normalization and period pairing planning is unlocked."
+        if task225_ready
         else "WARNING - Task224 is valid; Task225 remains locked."
         if report.get("status") == "warning"
         else "BLOCKED - resolve Task224 manual-review blockers."
@@ -102893,9 +102975,9 @@ def render_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_eviden
         f"- Task223 / template validated: `{str(report.get('task223_validation_completed', False)).lower()}/{str(report.get('review_template_binding_validated', False)).lower()}`",
         f"- Review input supplied / valid / confirmed / recorded: `{str(report.get('review_input_supplied', False)).lower()}/{str(report.get('review_input_validated', False)).lower()}/{str(report.get('review_confirmation_supplied', False)).lower()}/{str(report.get('review_decisions_recorded', False)).lower()}`",
         f"- Candidates / approved / rejected / corrections / unreviewed: `{report.get('evidence_candidate_count', 0)}/{report.get('approved_candidate_count', 0)}/{report.get('rejected_candidate_count', 0)}/{report.get('correction_requested_candidate_count', 0)}/{report.get('unreviewed_candidate_count', 0)}`",
-        f"- Review completed / staging eligible: `{str(report.get('review_completed', False)).lower()}/{str(report.get('approved_candidates_staging_eligible', False)).lower()}`",
+        f"- Review completed / normalization-plan eligible / staging eligible: `{str(report.get('review_completed', False)).lower()}/{str(report.get('approved_candidates_normalization_plan_eligible', False)).lower()}/{str(report.get('approved_candidates_staging_eligible', False)).lower()}`",
         f"- Evidence / controlled values accepted: `{str(report.get('evidence_accepted', False)).lower()}/{str(report.get('controlled_values_accepted', False)).lower()}`",
-        f"- Task225 ready: `{str(staging).lower()}`",
+        f"- Task225 normalization and period pairing plan ready: `{str(task225_ready).lower()}`",
         f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
         f"- Review input SHA-256: `{report.get('multi_issuer_dry_run_evidence_candidate_manual_review_input_checksum_sha256', '')}`",
         f"- Review result SHA-256: `{report.get('multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256', '')}`",
@@ -102922,11 +103004,15 @@ def _task224_envelope(report: dict[str, Any]) -> dict[str, Any]:
         "review_input_validated":
             report.get("review_input_validated", False),
         "review_completed": report.get("review_completed", False),
+        "approved_candidates_normalization_plan_eligible":
+            report.get(
+                "approved_candidates_normalization_plan_eligible", False
+            ),
         "approved_candidates_staging_eligible":
             report.get("approved_candidates_staging_eligible", False),
-        "ready_for_task225_multi_issuer_approved_evidence_candidate_controlled_value_staging_plan":
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan":
             report.get(
-                "ready_for_task225_multi_issuer_approved_evidence_candidate_controlled_value_staging_plan",
+                "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan",
                 False,
             ),
         "blocker_count": report.get("blocker_count", 0),
@@ -103381,6 +103467,1659 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_
             empty_sidecars,
         )
     return _task224_publish(report, artifacts, sidecars)
+
+
+def _task225_inputs(args: argparse.Namespace) -> dict[str, Any]:
+    chain = args.operator_resolution_chain_output_dir
+    default = (
+        chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES[
+            "review_json"
+        ]
+        if chain else None
+    )
+    task224 = (
+        args.rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_input
+        or default
+    )
+    parent = task224.parent if task224 is not None else None
+    sibling_names = {
+        "task223":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES[
+                "gate_json"
+            ],
+        "task222":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES[
+                "executor_json"
+            ],
+        "task221":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_GATE_ARTIFACT_NAMES[
+                "gate_json"
+            ],
+        "task220":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES[
+                "plan_json"
+            ],
+        "task219":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES[
+                "review_json"
+            ],
+        "task218":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES[
+                "loader_json"
+            ],
+        "task217":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES[
+                "gate_json"
+            ],
+    }
+    return {
+        "task224": task224,
+        **{
+            key: parent / name if parent else None
+            for key, name in sibling_names.items()
+        },
+        "task224_artifacts": {
+            key: parent / name if parent else None
+            for key, name in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES.items()
+            )
+        },
+        "payload_root": (
+            parent
+            / RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+            if parent else None
+        ),
+    }
+
+
+def _task225_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {
+        key: chain / name
+        for key, name in (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES.items()
+        )
+    } if chain else {}
+    suffixes = {
+        "plan_json": "output",
+        "plan_markdown": "markdown_output",
+        "checks_json": "checks_output",
+        "blockers_json": "blockers_output",
+        "scope_json": "scope_output",
+        "task224_validation_json": "task224_validation_output",
+        "lineage_json": "lineage_output",
+        "task224_artifact_validation_json":
+            "task224_artifact_validation_output",
+        "review_result_validation_json":
+            "review_result_validation_output",
+        "approved_candidate_binding_json":
+            "approved_candidate_binding_output",
+        "normalization_input_inventory_json":
+            "normalization_input_inventory_output",
+        "normalized_fact_schema_json": "normalized_fact_schema_output",
+        "controlled_field_mapping_json": "controlled_field_mapping_output",
+        "period_pairing_requirements_json":
+            "period_pairing_requirements_output",
+        "normalization_plan_rows_json": "rows_output",
+        "manual_review_gates_json": "manual_review_gates_output",
+        "acceptance_execution_boundary_json":
+            "acceptance_and_execution_boundary_output",
+        "next_tasks_json": "next_tasks_output",
+        "summary_json": "summary_output",
+        "safety_json": "safety_output",
+    }
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "approved_evidence_candidate_normalization_and_period_pairing_plan"
+    )
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in suffixes.items()
+    }
+
+
+def _task225_output_errors(
+    inputs: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    input_paths = [
+        (key, path)
+        for key, path in inputs.items()
+        if key not in {"task224_artifacts", "payload_root"}
+        and isinstance(path, Path)
+    ]
+    input_paths.extend([
+        (f"task224_artifact_{key}", path)
+        for key, path in inputs.get("task224_artifacts", {}).items()
+        if isinstance(path, Path)
+    ])
+    payload_root = inputs.get("payload_root")
+    seen: list[tuple[str, Path]] = []
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in input_paths:
+            if _paths_equal(path, input_path):
+                return [{
+                    "message": "task225_output_must_not_equal_input",
+                    "output": key,
+                    "input": input_key,
+                }]
+        if isinstance(payload_root, Path) and (
+            _paths_equal(path, payload_root)
+            or _path_is_within(path, payload_root)
+        ):
+            return [{
+                "message": "task225_output_must_not_be_inside_payload_root",
+                "output": key,
+            }]
+        for seen_key, seen_path in seen:
+            if _paths_equal(path, seen_path):
+                return [{
+                    "message": "task225_outputs_must_be_unique",
+                    "output": key,
+                    "duplicate_output": seen_key,
+                }]
+        seen.append((key, path))
+    return []
+
+
+def _task225_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    tasks = (
+        (
+            "Task226",
+            "Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Workspace",
+            allowed,
+            "Task225",
+        ),
+        (
+            "Task227",
+            "Multi-Issuer Normalized Evidence Candidate Review Gate",
+            False,
+            "Task226",
+        ),
+        (
+            "Task228",
+            "Multi-Issuer Approved Evidence Candidate Controlled Value Staging Plan",
+            False,
+            "Task227",
+        ),
+        (
+            "Task229",
+            "Multi-Issuer Controlled Value Staging Plan Review Gate",
+            False,
+            "Task228",
+        ),
+        (
+            "Task230",
+            "Multi-Issuer Controlled Import Apply Plan",
+            False,
+            "Task229",
+        ),
+    )
+    return [
+        {
+            "next_task_index": index,
+            "task_id": task_id,
+            "task_name": task_name,
+            "allowed_now": bool(is_allowed),
+            "depends_on": depends_on,
+            "safe_hint":
+                "Only Task226 may prepare an operator-bound normalization and period pairing workspace.",
+        }
+        for index, (task_id, task_name, is_allowed, depends_on)
+        in enumerate(tasks, 1)
+    ]
+
+
+def _task225_scope_rows() -> list[dict[str, Any]]:
+    keys = (
+        "exact_confirmed_task224_warning_only",
+        "real_task217_task224_lineage_only",
+        "all_twenty_task224_artifacts_only",
+        "approved_candidate_references_only",
+        "single_period_normalization_plan_only",
+        "explicit_2025_2024_pairing_requirements_only",
+        "no_default_currency_unit_or_scale",
+        "no_candidate_value_or_excerpt_persistence",
+        "no_staging_import_or_database_action",
+        "task226_workspace_handoff_only",
+    )
+    return [
+        {
+            "scope_index": index,
+            "scope_key": key,
+            "included": True,
+            "safe_hint":
+                "Task225 describes future normalization and pairing without producing financial values.",
+        }
+        for index, key in enumerate(keys, 1)
+    ]
+
+
+def _task225_manual_review_gate_rows() -> list[dict[str, Any]]:
+    requirements = (
+        "normalized_value_must_bind_to_one_task224_approved_candidate",
+        "currency_must_be_explicitly_evidence_bound",
+        "unit_must_be_explicitly_evidence_bound",
+        "scale_must_be_explicitly_evidence_bound",
+        "sign_adjustment_must_be_explicit_and_reviewed",
+        "precision_must_be_preserved_without_float_conversion",
+        "2025_fact_must_be_separately_source_backed",
+        "2024_fact_must_be_separately_source_backed",
+        "pair_issuer_binding_must_match",
+        "pair_metric_and_reporting_standard_must_match",
+        "pair_document_provenance_must_be_compatible",
+        "task227_review_must_pass_before_staging_planning",
+    )
+    return [
+        {
+            "manual_review_gate_index": index,
+            "requirement_key": requirement,
+            "required": True,
+            "satisfied_in_task225": False,
+            "blocks_task228_staging_plan": True,
+            "safe_hint":
+                "This requirement is planned for later operator review; Task225 does not satisfy it.",
+        }
+        for index, requirement in enumerate(requirements, 1)
+    ]
+
+
+def _task225_boundary_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "boundary_index": index,
+            "boundary_key": field,
+            "authorized": False,
+            "executed": False,
+            "accepted": False,
+            "safe_hint": "Task225 is an offline plan-only boundary.",
+        }
+        for index, field in enumerate(
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS,
+            1,
+        )
+    ]
+
+
+def _task225_registry_mapping_rows() -> tuple[list[dict[str, Any]], list[str]]:
+    rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    for index, controlled_field in enumerate(EVIDENCE_FINANCIAL_FIELDS, 1):
+        matches = [
+            row for row in FINANCIAL_METRIC_REGISTRY
+            if str(row.get("canonical_financial_report_field") or "")
+            == controlled_field
+        ]
+        if len(matches) != 1:
+            blockers.append(
+                f"controlled_field_registry_mapping_{controlled_field}_ambiguous"
+            )
+            continue
+        source = matches[0]
+        rows.append({
+            "controlled_field_mapping_index": index,
+            "controlled_field_key": controlled_field,
+            "metric_id": str(source.get("metric_id") or ""),
+            "target_type": str(source.get("statement_type") or ""),
+            "metric_key": str(source.get("metric_id") or ""),
+            "metric_role": str(source.get("period_type") or ""),
+            "metric_name_en": str(source.get("metric_name") or ""),
+            "currency_required": source.get("currency_required") is True,
+            "unit_required": source.get("unit_required") is True,
+            "scale_required": source.get("scale_required") is True,
+            "default_currency": "",
+            "default_unit": "",
+            "default_scale": "",
+            "mapping_source": "FINANCIAL_METRIC_REGISTRY",
+            "mapping_status": "mapped_for_future_normalization",
+            "safe_hint":
+                "The mapping contains no candidate value and authorizes no staging.",
+        })
+    return rows, blockers
+
+
+def _task225_schema_rows() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    normalized = [
+        {
+            "schema_field_index": index,
+            **copy.deepcopy(row),
+            "schema_source": "FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS",
+            "value_materialized_in_task225": False,
+            "safe_hint":
+                "Schema metadata only; Task225 creates no normalized fact.",
+        }
+        for index, row in enumerate(
+            FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS, 1
+        )
+    ]
+    target = [
+        {
+            "target_schema_field_index": index,
+            "field_name": field,
+            "target_table": "controlled_financial_statement_values",
+            "required_before_task228":
+                field not in {"created_at", "updated_at"},
+            "server_managed": field in {"created_at", "updated_at"},
+            "value_materialized_in_task225": False,
+            "safe_hint":
+                "Existing target-schema field is recorded for future compatibility only.",
+        }
+        for index, field in enumerate(
+            RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS, 1
+        )
+    ]
+    return normalized, target
+
+
+def _task225_task224_artifact_validation(
+    task224: dict[str, Any],
+    documents: dict[str, Any],
+    parent: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    input_wrapper = documents.get("review_input_validation_json")
+    result_wrapper = documents.get("manual_review_result_json")
+    corrections_wrapper = documents.get("correction_proposals_json")
+    sidecars = {
+        "validated_input_rows": (
+            input_wrapper.get("validated_review_rows") or []
+            if isinstance(input_wrapper, dict) else []
+        ),
+        "result_rows": (
+            result_wrapper.get("manual_review_result_rows") or []
+            if isinstance(result_wrapper, dict) else []
+        ),
+        "correction_proposal_rows": (
+            corrections_wrapper.get("correction_proposal_rows") or []
+            if isinstance(corrections_wrapper, dict) else []
+        ),
+    }
+    expected_wrappers = _task224_wrappers(task224, sidecars)
+    expected_names = set(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES.values()
+    )
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "dry_run_evidence_candidate_manual_review"
+    )
+    actual_names = {
+        path.name for path in parent.iterdir()
+        if path.is_file()
+        and path.name.startswith(prefix)
+        and "task224" in path.name
+    }
+    rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    for index, (key, filename) in enumerate(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES.items(),
+        1,
+    ):
+        document = documents.get(key)
+        if key == "review_json":
+            matches = document == task224
+        elif key == "review_markdown":
+            matches = document == (
+                render_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_candidate_manual_review_markdown(
+                    task224
+                )
+            )
+        else:
+            matches = document == expected_wrappers.get(key)
+        present = document is not None
+        valid = present and matches
+        if not valid:
+            blockers.append(f"task224_artifact_{key}_invalid")
+        canonical_hash = (
+            hashlib.sha256(document.encode("utf-8")).hexdigest()
+            if isinstance(document, str)
+            else _rzd_controlled_values_import_plan_sha(document)
+            if isinstance(document, dict)
+            else ""
+        )
+        rows.append({
+            "task224_artifact_validation_index": index,
+            "artifact_key": key,
+            "artifact_name": filename,
+            "present": present,
+            "contract_matches_main": bool(matches),
+            "artifact_sha256": canonical_hash,
+            "validated": valid,
+            "safe_hint":
+                "Canonical artifact content is validated without carrying paths.",
+        })
+    if actual_names != expected_names:
+        blockers.append("task224_artifact_family_not_exact")
+    return rows, list(dict.fromkeys(blockers))
+
+
+def _task225_upstream_validation(
+    loaded: dict[str, dict[str, Any]],
+    task224_documents: dict[str, Any],
+    parent: Path,
+) -> tuple[
+    list[dict[str, Any]], list[dict[str, Any]],
+    list[dict[str, Any]], list[dict[str, Any]],
+    list[dict[str, Any]], list[dict[str, Any]],
+    list[str],
+]:
+    task224 = loaded["task224"]
+    task222 = loaded["task222"]
+    allowed = [
+        row for row in task224.get("next_task_rows") or []
+        if isinstance(row, dict) and row.get("allowed_now") is True
+    ]
+    result_wrapper = task224_documents.get("manual_review_result_json")
+    result_rows = (
+        result_wrapper.get("manual_review_result_rows") or []
+        if isinstance(result_wrapper, dict) else []
+    )
+    approved_result_rows = [
+        row for row in result_rows
+        if isinstance(row, dict)
+        and row.get("review_decision")
+        == "approve_for_controlled_value_staging"
+        and row.get("review_recorded") is True
+    ]
+    approved_refs = [
+        row for row in task224.get("approved_candidate_reference_rows") or []
+        if isinstance(row, dict)
+    ]
+    approved_result_identities = [
+        {
+            key: str(row.get(key) or "")
+            for key in (
+                "evidence_candidate_id", "dry_run_job_id",
+                "candidate_slot_id", "controlled_field_key",
+                "source_document_sha256", "review_decision",
+                "review_reason_code",
+            )
+        }
+        for row in approved_result_rows
+    ]
+    approved_reference_identities = [
+        {
+            key: str(row.get(key) or "")
+            for key in (
+                "evidence_candidate_id", "dry_run_job_id",
+                "candidate_slot_id", "controlled_field_key",
+                "source_document_sha256", "review_decision",
+                "review_reason_code",
+            )
+        }
+        for row in approved_refs
+    ]
+    checks = (
+        ("task224_warning_status", task224.get("status") == "warning"),
+        (
+            "task224_checksum_valid",
+            task224.get(
+                "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+            ) == _task224_checksum(task224),
+        ),
+        (
+            "task224_review_completed",
+            task224.get("review_completed") is True
+            and task224.get("review_decisions_recorded") is True,
+        ),
+        (
+            "task224_approved_batch_valid",
+            int(task224.get("approved_candidate_count") or 0) > 0
+            and int(task224.get("approved_candidate_count") or 0)
+            == len(approved_refs)
+            and int(task224.get("correction_requested_candidate_count") or 0)
+            == 0
+            and int(task224.get("unreviewed_candidate_count") or 0) == 0,
+        ),
+        (
+            "task224_normalization_plan_boundary_valid",
+            task224.get(
+                "approved_candidates_normalization_plan_eligible"
+            ) is True
+            and task224.get("approved_candidates_staging_eligible") is False
+            and all(task224.get(field) in {None, False} for field in (
+                "staging_ready", "value_ready", "import_ready",
+                "controlled_import_ready",
+                "controlled_value_staging_planned",
+                "controlled_values_staged",
+                "controlled_values_created",
+            )),
+        ),
+        (
+            "task224_task225_only_unlock_valid",
+            task224.get(
+                "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan"
+            ) is True
+            and task224.get("next_tasks_valid") is True
+            and len(allowed) == 1
+            and allowed[0].get("task_id") == "Task225"
+            and allowed[0].get("task_name")
+            == "Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Plan"
+            and task224.get("next_step")
+            == RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_TASK225_NEXT_STEP,
+        ),
+        (
+            "task224_clean_verdict",
+            task224.get("blocker_count") == 0
+            and task224.get("bad_safety_count") == 0,
+        ),
+        (
+            "task224_execution_boundary_valid",
+            all(
+                task224.get(field) is False
+                for field in (
+                    RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ALWAYS_FALSE_FIELDS
+                )
+            ),
+        ),
+        (
+            "task224_approved_result_binding_exact",
+            approved_result_identities == approved_reference_identities
+            and len(approved_result_identities) > 0,
+        ),
+    )
+    validation_rows = [
+        {
+            "task224_validation_index": index,
+            "task224_validation_key": key,
+            "passed": bool(passed),
+            "status": "passed" if passed else "blocked",
+            "safe_hint": "Task225 requires the exact confirmed Task224 handoff.",
+        }
+        for index, (key, passed) in enumerate(checks, 1)
+    ]
+    checksum_fields = (
+        (
+            "Task224",
+            "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256",
+            _task224_checksum,
+        ),
+        (
+            "Task223",
+            "multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256",
+            _task223_checksum,
+        ),
+        (
+            "Task222",
+            "controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256",
+            _task222_checksum,
+        ),
+        (
+            "Task221",
+            "multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256",
+            _task221_checksum,
+        ),
+        (
+            "Task220",
+            "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256",
+            _task220_checksum,
+        ),
+        (
+            "Task219",
+            "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+            _task219_checksum,
+        ),
+        (
+            "Task218",
+            "authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+            _task218_checksum,
+        ),
+        (
+            "Task217",
+            "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+            _task217_checksum,
+        ),
+    )
+    lineage_rows: list[dict[str, Any]] = []
+    for index, (task_id, field, checksum_fn) in enumerate(
+        checksum_fields, 1
+    ):
+        document = loaded[task_id.casefold()]
+        reported = str(document.get(field) or "")
+        recomputed = checksum_fn(document)
+        lineage_rows.append({
+            "lineage_index": index,
+            "task_id": task_id,
+            "checksum_field": field,
+            "checksum_sha256": reported,
+            "validated":
+                bool(re.fullmatch(r"[0-9a-f]{64}", reported))
+                and reported == recomputed,
+            "safe_hint":
+                "Checksum is recomputed from the real sibling main artifact.",
+        })
+    artifact_rows, artifact_blockers = (
+        _task225_task224_artifact_validation(
+            task224, task224_documents, parent
+        )
+    )
+    review_validation_rows = [
+        {
+            "review_result_validation_index": 1,
+            "review_completed": task224.get("review_completed") is True,
+            "review_recorded": task224.get("review_decisions_recorded") is True,
+            "approved_candidate_count": len(approved_refs),
+            "rejected_candidate_count":
+                int(task224.get("rejected_candidate_count") or 0),
+            "correction_requested_candidate_count":
+                int(task224.get("correction_requested_candidate_count") or 0),
+            "unreviewed_candidate_count":
+                int(task224.get("unreviewed_candidate_count") or 0),
+            "approved_result_binding_valid":
+                approved_result_identities == approved_reference_identities,
+            "values_copied": False,
+            "review_notes_copied": False,
+            "validated":
+                approved_result_identities == approved_reference_identities
+                and bool(approved_refs),
+            "safe_hint":
+                "Only approved candidate identities and disposition counts are validated.",
+        }
+    ]
+    task222_candidates = {
+        str(row.get("dry_run_candidate_id") or ""): row
+        for row in task222.get("evidence_candidate_rows") or []
+        if isinstance(row, dict)
+    }
+    binding_rows: list[dict[str, Any]] = []
+    inventory_rows: list[dict[str, Any]] = []
+    binding_blockers: list[str] = []
+    for index, reference in enumerate(approved_refs, 1):
+        candidate_id = str(reference.get("evidence_candidate_id") or "")
+        candidate = task222_candidates.get(candidate_id)
+        value_candidate = (
+            candidate.get("value_candidate") or {}
+            if isinstance(candidate, dict) else {}
+        )
+        evidence = (
+            candidate.get("evidence") or {}
+            if isinstance(candidate, dict) else {}
+        )
+        expected_identity = {
+            "evidence_candidate_id": candidate_id,
+            "dry_run_job_id":
+                str(candidate.get("dry_run_job_id") or "")
+                if isinstance(candidate, dict) else "",
+            "candidate_slot_id":
+                str(candidate.get("candidate_slot_id") or "")
+                if isinstance(candidate, dict) else "",
+            "controlled_field_key":
+                str(candidate.get("controlled_field_key") or "")
+                if isinstance(candidate, dict) else "",
+            "source_document_sha256":
+                str(candidate.get("source_document_sha256")
+                    or evidence.get("document_sha256") or "")
+                if isinstance(candidate, dict) else "",
+        }
+        reference_identity = {
+            key: str(reference.get(key) or "")
+            for key in expected_identity
+        }
+        report_period_text = str(value_candidate.get("report_period") or "")
+        try:
+            report_period = int(report_period_text)
+        except ValueError:
+            report_period = 0
+        valid = (
+            candidate is not None
+            and reference_identity == expected_identity
+            and report_period in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS
+            )
+            and expected_identity["controlled_field_key"]
+            in EVIDENCE_FINANCIAL_FIELDS
+            and bool(re.fullmatch(
+                r"[0-9a-f]{64}",
+                expected_identity["source_document_sha256"],
+            ))
+        )
+        if not valid:
+            binding_blockers.append(
+                f"approved_candidate_{index}_task222_binding_invalid"
+            )
+        issuer_binding_checksum = _rzd_controlled_values_import_plan_sha({
+            "company_id": str(value_candidate.get("company_id") or ""),
+            "company_name": str(value_candidate.get("company_name") or ""),
+        }) if candidate is not None else ""
+        report_context_checksum = _rzd_controlled_values_import_plan_sha({
+            "document_sha256":
+                expected_identity["source_document_sha256"],
+            "report_period": report_period,
+            "accounting_standard":
+                str(value_candidate.get("accounting_standard") or ""),
+            "consolidation_scope":
+                str(value_candidate.get("consolidation_scope") or ""),
+        }) if candidate is not None else ""
+        binding_checksum = _rzd_controlled_values_import_plan_sha({
+            **expected_identity,
+            "report_period": report_period,
+            "issuer_binding_checksum": issuer_binding_checksum,
+            "report_context_checksum": report_context_checksum,
+        }) if candidate is not None else ""
+        binding_rows.append({
+            "approved_candidate_binding_index": index,
+            **reference_identity,
+            "report_period": report_period,
+            "issuer_binding_checksum_sha256": issuer_binding_checksum,
+            "report_context_checksum_sha256": report_context_checksum,
+            "approved_candidate_binding_checksum_sha256": binding_checksum,
+            "task222_candidate_bound": valid,
+            "candidate_value_copied": False,
+            "evidence_excerpt_copied": False,
+            "safe_hint":
+                "Only checksum-bound identity and period metadata are carried.",
+        })
+        inventory_rows.append({
+            "normalization_input_inventory_index": index,
+            "evidence_candidate_id": candidate_id,
+            "controlled_field_key":
+                expected_identity["controlled_field_key"],
+            "report_period": report_period,
+            "source_document_sha256":
+                expected_identity["source_document_sha256"],
+            "issuer_binding_checksum_sha256": issuer_binding_checksum,
+            "normalization_status": "not_performed",
+            "ready_for_future_operator_workspace": valid,
+            "raw_value_copied": False,
+            "normalized_value_present": False,
+            "currency_present": False,
+            "unit_present": False,
+            "scale_present": False,
+            "safe_hint":
+                "Task225 inventories approved references without copying financial values.",
+        })
+    blockers = [
+        f"{row['task224_validation_key']}_invalid"
+        for row in validation_rows if row["passed"] is not True
+    ]
+    blockers.extend(
+        f"{row['task_id'].casefold()}_lineage_checksum_invalid"
+        for row in lineage_rows if row["validated"] is not True
+    )
+    blockers.extend(artifact_blockers)
+    blockers.extend(binding_blockers)
+    return (
+        validation_rows, lineage_rows, artifact_rows,
+        review_validation_rows, binding_rows, inventory_rows,
+        list(dict.fromkeys(blockers)),
+    )
+
+
+def _task225_build_plan_rows(
+    binding_rows: list[dict[str, Any]],
+    mapping_rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    mapping_by_field = {
+        row["controlled_field_key"]: row for row in mapping_rows
+    }
+    plan_rows: list[dict[str, Any]] = []
+    pairing_rows: list[dict[str, Any]] = []
+    for index, binding in enumerate(binding_rows, 1):
+        mapping = mapping_by_field.get(
+            str(binding.get("controlled_field_key") or ""), {}
+        )
+        report_period = int(binding.get("report_period") or 0)
+        available_periods = (
+            [report_period]
+            if report_period in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS
+            )
+            else []
+        )
+        missing_periods = [
+            period
+            for period in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS
+            )
+            if period not in available_periods
+        ]
+        plan_id = f"task225_normalization_plan_{index:03d}"
+        plan_rows.append({
+            "normalization_plan_index": index,
+            "normalization_plan_id": plan_id,
+            "evidence_candidate_id":
+                str(binding.get("evidence_candidate_id") or ""),
+            "dry_run_job_id": str(binding.get("dry_run_job_id") or ""),
+            "candidate_slot_id":
+                str(binding.get("candidate_slot_id") or ""),
+            "controlled_field_key":
+                str(binding.get("controlled_field_key") or ""),
+            "source_document_sha256":
+                str(binding.get("source_document_sha256") or ""),
+            "report_period": report_period,
+            "issuer_binding_checksum_sha256":
+                str(binding.get("issuer_binding_checksum_sha256") or ""),
+            "report_context_checksum_sha256":
+                str(binding.get("report_context_checksum_sha256") or ""),
+            "target_type": str(mapping.get("target_type") or ""),
+            "metric_key": str(mapping.get("metric_key") or ""),
+            "metric_role": str(mapping.get("metric_role") or ""),
+            "normalization_status": "planned_not_executed",
+            "requires_explicit_normalized_value": True,
+            "requires_explicit_currency": True,
+            "requires_explicit_unit": True,
+            "requires_explicit_scale": True,
+            "requires_operator_review": True,
+            "normalized_value_present": False,
+            "normalization_executed": False,
+            "normalized_fact_created": False,
+            "staging_ready": False,
+            "safe_hint":
+                "Task226 must bind explicit normalized metadata; Task225 creates no value.",
+        })
+        pairing_rows.append({
+            "period_pairing_requirement_index": index,
+            "period_pairing_requirement_id":
+                f"task225_period_pairing_requirement_{index:03d}",
+            "normalization_plan_id": plan_id,
+            "evidence_candidate_id":
+                str(binding.get("evidence_candidate_id") or ""),
+            "controlled_field_key":
+                str(binding.get("controlled_field_key") or ""),
+            "issuer_binding_checksum_sha256":
+                str(binding.get("issuer_binding_checksum_sha256") or ""),
+            "target_type": str(mapping.get("target_type") or ""),
+            "metric_key": str(mapping.get("metric_key") or ""),
+            "metric_role": str(mapping.get("metric_role") or ""),
+            "required_periods": list(
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS
+            ),
+            "available_approved_periods": available_periods,
+            "missing_approved_periods": missing_periods,
+            "counterpart_must_be_task224_approved": True,
+            "issuer_metric_standard_must_match": True,
+            "document_provenance_must_be_compatible": True,
+            "value_copy_or_derivation_allowed": False,
+            "period_pair_complete": not missing_periods,
+            "period_pair_created": False,
+            "staging_ready": False,
+            "safe_hint":
+                "Missing periods require separately approved evidence; no value may be inferred.",
+        })
+    return plan_rows, pairing_rows
+
+
+def _task225_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "lineage_rows": report.get("lineage_rows") or [],
+        "task224_artifact_validation_rows":
+            report.get("task224_artifact_validation_rows") or [],
+        "review_result_validation_rows":
+            report.get("review_result_validation_rows") or [],
+        "approved_candidate_binding_rows":
+            report.get("approved_candidate_binding_rows") or [],
+        "normalization_input_inventory_rows":
+            report.get("normalization_input_inventory_rows") or [],
+        "normalized_fact_schema_rows":
+            report.get("normalized_fact_schema_rows") or [],
+        "controlled_target_schema_rows":
+            report.get("controlled_target_schema_rows") or [],
+        "controlled_field_mapping_rows":
+            report.get("controlled_field_mapping_rows") or [],
+        "period_pairing_requirement_rows":
+            report.get("period_pairing_requirement_rows") or [],
+        "normalization_plan_rows":
+            report.get("normalization_plan_rows") or [],
+        "manual_review_gate_rows":
+            report.get("manual_review_gate_rows") or [],
+        "acceptance_execution_boundary_rows":
+            report.get("acceptance_execution_boundary_rows") or [],
+        "check_rows":
+            report.get("normalization_and_period_pairing_plan_check_rows")
+            or [],
+        "next_task_rows": report.get("next_task_rows") or [],
+        "plan_ready":
+            report.get("normalization_and_period_pairing_plan_ready") is True,
+        "task226_ready": report.get(
+            "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace"
+        ) is True,
+    })
+
+
+def _task225_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    list_fields = (
+        "scope_rows", "task224_validation_rows", "lineage_rows",
+        "task224_artifact_validation_rows",
+        "review_result_validation_rows",
+        "approved_candidate_binding_rows",
+        "normalization_input_inventory_rows",
+        "normalized_fact_schema_rows", "controlled_target_schema_rows",
+        "controlled_field_mapping_rows",
+        "period_pairing_requirement_rows", "normalization_plan_rows",
+        "manual_review_gate_rows", "acceptance_execution_boundary_rows",
+        "next_task_rows",
+        "normalization_and_period_pairing_plan_check_rows",
+        "blocker_rows", "bad_safety_codes", "errors",
+    )
+    for field in list_fields:
+        report[field] = (
+            report.get(field) if isinstance(report.get(field), list) else []
+        )
+    count_fields = {
+        "scope_count": "scope_rows",
+        "task224_validation_count": "task224_validation_rows",
+        "lineage_count": "lineage_rows",
+        "task224_artifact_validation_count":
+            "task224_artifact_validation_rows",
+        "review_result_validation_count":
+            "review_result_validation_rows",
+        "approved_candidate_binding_count":
+            "approved_candidate_binding_rows",
+        "normalization_input_inventory_count":
+            "normalization_input_inventory_rows",
+        "normalized_fact_schema_field_count":
+            "normalized_fact_schema_rows",
+        "controlled_target_schema_field_count":
+            "controlled_target_schema_rows",
+        "controlled_field_mapping_count":
+            "controlled_field_mapping_rows",
+        "period_pairing_requirement_count":
+            "period_pairing_requirement_rows",
+        "normalization_plan_row_count": "normalization_plan_rows",
+        "manual_review_gate_count": "manual_review_gate_rows",
+        "acceptance_execution_boundary_count":
+            "acceptance_execution_boundary_rows",
+        "next_task_count": "next_task_rows",
+        "normalization_and_period_pairing_plan_check_count":
+            "normalization_and_period_pairing_plan_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count, rows in count_fields.items():
+        report[count] = len(report[rows])
+    report["bad_safety_codes"] = sorted(set(report["bad_safety_codes"]))
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    for field in (
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS
+    ):
+        report[field] = False
+    bool_fields = (
+        "normalization_and_period_pairing_plan_ready",
+        "normalization_and_period_pairing_plan_created",
+        "task224_validation_completed",
+        "task224_artifact_validation_completed",
+        "task224_review_result_validated",
+        "approved_candidate_binding_completed",
+        "normalized_fact_schema_validated",
+        "controlled_target_schema_validated",
+        "controlled_field_mapping_validated",
+        "period_pairing_requirements_created",
+        "acceptance_boundary_valid",
+        "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace",
+        "next_tasks_valid", "write_outputs",
+    )
+    for field in bool_fields:
+        report[field] = _as_bool(report.get(field))
+    int_fields = (
+        "evidence_candidate_count", "approved_candidate_count",
+        "rejected_candidate_count",
+        "correction_requested_candidate_count",
+        "unreviewed_candidate_count", "normalized_fact_count",
+        "complete_period_pair_count", "missing_counterpart_count",
+    )
+    for field in int_fields:
+        value = report.get(field)
+        report[field] = (
+            value if isinstance(value, int) and not isinstance(value, bool)
+            else 0
+        )
+    string_fields = (
+        "mode", "schema_version", "status",
+        "normalization_and_period_pairing_plan_status",
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256",
+        "next_step", "safe_hint",
+    )
+    for field in string_fields:
+        report[field] = str(report.get(field) or "")
+    report[
+        "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256"
+    ] = _task225_checksum(report)
+    return report
+
+
+def _task225_failed(
+    errors: list[dict[str, Any]],
+    *,
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    return _task225_finalize({
+        "mode":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_MODE,
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_SCHEMA_VERSION,
+        "status": "failed",
+        "normalization_and_period_pairing_plan_status": "failed",
+        "next_task_rows": _task225_next_rows(False),
+        "next_step":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_FAILED_NEXT_STEP,
+        "acceptance_boundary_valid": True,
+        "write_outputs": write_outputs,
+        "errors": [
+            {"message": str(row.get("message") or "task225_failed")}
+            for row in errors if isinstance(row, dict)
+        ],
+        "safe_hint":
+            "Task225 failed safely without normalization, staging, or execution.",
+    })
+
+
+def _task225_blocked(code: str) -> dict[str, Any]:
+    return _task225_finalize({
+        "mode":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_MODE,
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_SCHEMA_VERSION,
+        "status": "blocked",
+        "normalization_and_period_pairing_plan_status": "blocked",
+        "next_task_rows": _task225_next_rows(False),
+        "blocker_rows": [{
+            "blocker_index": 1,
+            "code": code,
+            "safe_hint": "Resolve the sanitized Task225 blocker and rerun.",
+        }],
+        "next_step":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_BLOCKED_NEXT_STEP,
+        "acceptance_boundary_valid": True,
+        "write_outputs": True,
+        "errors": [],
+        "safe_hint":
+            "Task225 is blocked and carries no candidate values or review notes.",
+    })
+
+
+def _build_task225_report(
+    loaded: dict[str, dict[str, Any]],
+    task224_documents: dict[str, Any],
+    parent: Path,
+) -> dict[str, Any]:
+    (
+        validation_rows, lineage_rows, artifact_rows,
+        review_validation_rows, binding_rows, inventory_rows,
+        upstream_blockers,
+    ) = _task225_upstream_validation(
+        loaded, task224_documents, parent
+    )
+    mapping_rows, mapping_blockers = _task225_registry_mapping_rows()
+    normalized_schema_rows, target_schema_rows = _task225_schema_rows()
+    plan_rows, pairing_rows = _task225_build_plan_rows(
+        binding_rows, mapping_rows
+    )
+    blockers = [*upstream_blockers, *mapping_blockers]
+    schema_valid = (
+        bool(normalized_schema_rows)
+        and len(normalized_schema_rows)
+        == len(FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS)
+        and [row["field_name"] for row in target_schema_rows]
+        == list(RZD_CONTROLLED_VALUES_DB_SCHEMA_DISCOVERY_REQUIRED_IMPORT_FIELDS)
+        and {"value_2025", "value_2024"}.issubset({
+            row["field_name"] for row in target_schema_rows
+        })
+    )
+    mapping_valid = (
+        len(mapping_rows) == len(EVIDENCE_FINANCIAL_FIELDS) == 9
+        and [row["controlled_field_key"] for row in mapping_rows]
+        == list(EVIDENCE_FINANCIAL_FIELDS)
+        and all(
+            row["default_currency"] == ""
+            and row["default_unit"] == ""
+            and row["default_scale"] == ""
+            for row in mapping_rows
+        )
+    )
+    if not schema_valid:
+        blockers.append("normalization_or_target_schema_invalid")
+    if not mapping_valid:
+        blockers.append("controlled_field_mapping_invalid")
+    if len(plan_rows) != len(binding_rows) or not plan_rows:
+        blockers.append("normalization_plan_row_count_invalid")
+    if len(pairing_rows) != len(plan_rows):
+        blockers.append("period_pairing_requirement_count_invalid")
+    boundary_rows = _task225_boundary_rows()
+    boundary_valid = all(
+        row["authorized"] is False
+        and row["executed"] is False
+        and row["accepted"] is False
+        for row in boundary_rows
+    )
+    scope_rows = _task225_scope_rows()
+    manual_gate_rows = _task225_manual_review_gate_rows()
+    unauthorized_generated = [
+        *validation_rows, *lineage_rows, *artifact_rows,
+        *review_validation_rows, *binding_rows, *inventory_rows,
+        *normalized_schema_rows, *target_schema_rows, *mapping_rows,
+        *pairing_rows, *plan_rows, *manual_gate_rows, *boundary_rows,
+    ]
+    issuer_count, url_count, safety_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_findings(
+            _task223_safety_scan_projection(unauthorized_generated)
+        )
+    )
+    bad_safety_codes = sorted({
+        code for code in safety_codes
+        if code in {
+            "issuer_name_detected", "inn_detected", "ogrn_detected",
+            "isin_detected", "concrete_url_detected",
+            "concrete_document_value_detected", "review_note_detected",
+        }
+    })
+    if issuer_count or url_count:
+        bad_safety_codes.append(
+            "concrete_data_outside_task225_permitted_metadata"
+        )
+    dangerous = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+            unauthorized_generated,
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS,
+        )
+    )
+    if dangerous or not boundary_valid:
+        bad_safety_codes.append(
+            "forbidden_task225_execution_acceptance_or_readiness"
+        )
+    bad_safety_codes = sorted(set(bad_safety_codes))
+    if bad_safety_codes:
+        blockers.append("unsafe_generated_task225_contract")
+    blockers = list(dict.fromkeys(blockers))
+    plan_valid = not blockers
+    next_rows = _task225_next_rows(plan_valid)
+    checks = (
+        ("task224_upstream_valid", not upstream_blockers),
+        (
+            "task224_artifact_family_valid",
+            len(artifact_rows) == 20
+            and all(row["validated"] for row in artifact_rows),
+        ),
+        (
+            "approved_candidate_binding_valid",
+            bool(binding_rows)
+            and all(row["task222_candidate_bound"] for row in binding_rows),
+        ),
+        ("normalized_fact_and_target_schema_valid", schema_valid),
+        ("controlled_field_mapping_valid", mapping_valid),
+        (
+            "normalization_plan_rows_complete",
+            len(plan_rows) == len(binding_rows) and bool(plan_rows),
+        ),
+        (
+            "period_pairing_requirements_complete",
+            len(pairing_rows) == len(plan_rows),
+        ),
+        ("acceptance_boundary_valid", boundary_valid),
+        ("generated_contract_safe", not bad_safety_codes),
+        (
+            "task226_only_readiness",
+            [
+                row["task_id"] for row in next_rows
+                if row["allowed_now"]
+            ] == (["Task226"] if plan_valid else []),
+        ),
+    )
+    check_rows = [
+        {
+            "check_index": index,
+            "check_key": key,
+            "passed": bool(passed),
+            "status": "passed" if passed else "blocked",
+            "safe_hint":
+                "Task225 deterministic normalization and pairing plan check.",
+        }
+        for index, (key, passed) in enumerate(checks, 1)
+    ]
+    task224 = loaded["task224"]
+    task223 = loaded["task223"]
+    task222 = loaded["task222"]
+    warning_state = plan_valid
+    if not warning_state:
+        validation_rows = []
+        lineage_rows = []
+        artifact_rows = []
+        review_validation_rows = []
+        binding_rows = []
+        inventory_rows = []
+        normalized_schema_rows = []
+        target_schema_rows = []
+        mapping_rows = []
+        pairing_rows = []
+        plan_rows = []
+        manual_gate_rows = []
+        boundary_rows = []
+        scope_rows = []
+        next_rows = _task225_next_rows(False)
+    blocker_rows = [
+        {
+            "blocker_index": index,
+            "code": code,
+            "safe_hint": "Resolve the sanitized Task225 blocker and rerun.",
+        }
+        for index, code in enumerate(blockers, 1)
+    ]
+    complete_pair_count = sum(
+        row.get("period_pair_complete") is True for row in pairing_rows
+    )
+    missing_counterpart_count = sum(
+        len(row.get("missing_approved_periods") or [])
+        for row in pairing_rows
+    )
+    report = {
+        "mode":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_MODE,
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_SCHEMA_VERSION,
+        "status": "warning" if warning_state else "blocked",
+        "normalization_and_period_pairing_plan_status":
+            "warning" if warning_state else "blocked",
+        "normalization_and_period_pairing_plan_ready": warning_state,
+        "normalization_and_period_pairing_plan_created": warning_state,
+        "task224_validation_completed": warning_state,
+        "task224_artifact_validation_completed": warning_state,
+        "task224_review_result_validated": warning_state,
+        "approved_candidate_binding_completed": warning_state,
+        "normalized_fact_schema_validated": warning_state,
+        "controlled_target_schema_validated": warning_state,
+        "controlled_field_mapping_validated": warning_state,
+        "period_pairing_requirements_created": warning_state,
+        "acceptance_boundary_valid": boundary_valid,
+        "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace":
+            warning_state,
+        "next_tasks_valid": warning_state,
+        "write_outputs": True,
+        "evidence_candidate_count":
+            int(task224.get("evidence_candidate_count") or 0)
+            if warning_state else 0,
+        "approved_candidate_count":
+            int(task224.get("approved_candidate_count") or 0)
+            if warning_state else 0,
+        "rejected_candidate_count":
+            int(task224.get("rejected_candidate_count") or 0)
+            if warning_state else 0,
+        "correction_requested_candidate_count":
+            int(task224.get("correction_requested_candidate_count") or 0)
+            if warning_state else 0,
+        "unreviewed_candidate_count":
+            int(task224.get("unreviewed_candidate_count") or 0)
+            if warning_state else 0,
+        "normalized_fact_count": 0,
+        "complete_period_pair_count":
+            int(complete_pair_count) if warning_state else 0,
+        "missing_counterpart_count":
+            int(missing_counterpart_count) if warning_state else 0,
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256":
+            str(task224.get(
+                "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+            ) or "") if warning_state else "",
+        "source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256":
+            str(task223.get(
+                "multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256"
+            ) or "") if warning_state else "",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256":
+            str(task222.get(
+                "controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256"
+            ) or "") if warning_state else "",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256":
+            str(task222.get(
+                "controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256"
+            ) or "") if warning_state else "",
+        "scope_rows": scope_rows,
+        "task224_validation_rows": validation_rows,
+        "lineage_rows": lineage_rows,
+        "task224_artifact_validation_rows": artifact_rows,
+        "review_result_validation_rows": review_validation_rows,
+        "approved_candidate_binding_rows": binding_rows,
+        "normalization_input_inventory_rows": inventory_rows,
+        "normalized_fact_schema_rows": normalized_schema_rows,
+        "controlled_target_schema_rows": target_schema_rows,
+        "controlled_field_mapping_rows": mapping_rows,
+        "period_pairing_requirement_rows": pairing_rows,
+        "normalization_plan_rows": plan_rows,
+        "manual_review_gate_rows": manual_gate_rows,
+        "acceptance_execution_boundary_rows": boundary_rows,
+        "next_task_rows": next_rows,
+        "normalization_and_period_pairing_plan_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "bad_safety_codes": bad_safety_codes,
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TASK226_NEXT_STEP
+            if warning_state else
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_BLOCKED_NEXT_STEP
+        ),
+        "safe_hint":
+            "Task225 plans explicit normalization and 2025/2024 pairing; it creates no value or staging row.",
+        "errors": [],
+    }
+    return _task225_finalize(report)
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_markdown(
+    report: dict[str, Any],
+) -> str:
+    ready = report.get(
+        "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace"
+    ) is True
+    verdict = (
+        "WARNING - normalization and period pairing plan is ready; only Task226 workspace is unlocked."
+        if ready
+        else "BLOCKED - resolve Task225 normalization and period pairing plan blockers."
+        if report.get("status") == "blocked"
+        else "FAILED - repair Task225; all downstream tasks remain locked."
+    )
+    return "\n".join([
+        "# Task225 - Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Plan",
+        "",
+        verdict,
+        "",
+        f"- Status: `{report.get('status', '')}`",
+        f"- Task224 / artifact family / review result validated: `{str(report.get('task224_validation_completed', False)).lower()}/{str(report.get('task224_artifact_validation_completed', False)).lower()}/{str(report.get('task224_review_result_validated', False)).lower()}`",
+        f"- Candidates / approved / rejected / corrections / unreviewed: `{report.get('evidence_candidate_count', 0)}/{report.get('approved_candidate_count', 0)}/{report.get('rejected_candidate_count', 0)}/{report.get('correction_requested_candidate_count', 0)}/{report.get('unreviewed_candidate_count', 0)}`",
+        f"- Normalization plan rows / normalized facts: `{report.get('normalization_plan_row_count', 0)}/{report.get('normalized_fact_count', 0)}`",
+        f"- Pairing requirements / complete pairs / missing counterparts: `{report.get('period_pairing_requirement_count', 0)}/{report.get('complete_period_pair_count', 0)}/{report.get('missing_counterpart_count', 0)}`",
+        f"- Target periods: `{list(RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS)}`",
+        f"- Staging / value / import ready: `{str(report.get('staging_ready', False)).lower()}/{str(report.get('value_ready', False)).lower()}/{str(report.get('import_ready', False)).lower()}`",
+        f"- Task226 ready: `{str(ready).lower()}`",
+        f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
+        f"- Task224 SHA-256: `{report.get('source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256', '')}`",
+        f"- Task225 SHA-256: `{report.get('multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`",
+        "",
+        "Task225 copies no raw or normalized candidate values, evidence excerpts, issuer identifiers, URLs, review notes, or corrections. It performs no network, extraction, normalization, staging, evidence or value acceptance, database, import, scoring, ranking, recommendation, broker, export, or trading action.",
+        "",
+    ])
+
+
+def _task225_envelope(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report.get("status", ""),
+        "normalization_and_period_pairing_plan_ready":
+            report.get(
+                "normalization_and_period_pairing_plan_ready", False
+            ),
+        "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace":
+            report.get(
+                "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace",
+                False,
+            ),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256":
+            report.get(
+                "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256",
+                "",
+            ),
+    }
+
+
+def _task225_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    envelope = _task225_envelope(report)
+    mappings = {
+        "checks_json": (
+            "normalization_and_period_pairing_plan_check_count",
+            "normalization_and_period_pairing_plan_check_rows",
+        ),
+        "scope_json": ("scope_count", "scope_rows"),
+        "task224_validation_json": (
+            "task224_validation_count", "task224_validation_rows",
+        ),
+        "lineage_json": ("lineage_count", "lineage_rows"),
+        "task224_artifact_validation_json": (
+            "task224_artifact_validation_count",
+            "task224_artifact_validation_rows",
+        ),
+        "review_result_validation_json": (
+            "review_result_validation_count",
+            "review_result_validation_rows",
+        ),
+        "approved_candidate_binding_json": (
+            "approved_candidate_binding_count",
+            "approved_candidate_binding_rows",
+        ),
+        "normalization_input_inventory_json": (
+            "normalization_input_inventory_count",
+            "normalization_input_inventory_rows",
+        ),
+        "controlled_field_mapping_json": (
+            "controlled_field_mapping_count",
+            "controlled_field_mapping_rows",
+        ),
+        "period_pairing_requirements_json": (
+            "period_pairing_requirement_count",
+            "period_pairing_requirement_rows",
+        ),
+        "normalization_plan_rows_json": (
+            "normalization_plan_row_count", "normalization_plan_rows",
+        ),
+        "manual_review_gates_json": (
+            "manual_review_gate_count", "manual_review_gate_rows",
+        ),
+        "acceptance_execution_boundary_json": (
+            "acceptance_execution_boundary_count",
+            "acceptance_execution_boundary_rows",
+        ),
+        "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {
+        key: {
+            **envelope,
+            count: report.get(count, 0),
+            rows: report.get(rows) or [],
+        }
+        for key, (count, rows) in mappings.items()
+    }
+    payloads["blockers_json"] = {
+        **envelope,
+        "blocker_rows": report.get("blocker_rows") or [],
+    }
+    payloads["normalized_fact_schema_json"] = {
+        **envelope,
+        "normalized_fact_schema_field_count":
+            report.get("normalized_fact_schema_field_count", 0),
+        "normalized_fact_schema_rows":
+            report.get("normalized_fact_schema_rows") or [],
+        "controlled_target_schema_field_count":
+            report.get("controlled_target_schema_field_count", 0),
+        "controlled_target_schema_rows":
+            report.get("controlled_target_schema_rows") or [],
+    }
+    payloads["next_tasks_json"]["next_tasks_valid"] = report.get(
+        "next_tasks_valid", False
+    )
+    payloads["summary_json"] = {
+        **envelope,
+        **{
+            field: report.get(field, 0)
+            for field in (
+                "evidence_candidate_count", "approved_candidate_count",
+                "rejected_candidate_count",
+                "correction_requested_candidate_count",
+                "unreviewed_candidate_count",
+                "normalization_plan_row_count",
+                "normalized_fact_count",
+                "period_pairing_requirement_count",
+                "complete_period_pair_count",
+                "missing_counterpart_count",
+            )
+        },
+        "normalization_and_period_pairing_plan_created":
+            report.get(
+                "normalization_and_period_pairing_plan_created", False
+            ),
+        "staging_ready": False,
+        "value_ready": False,
+        "import_ready": False,
+    }
+    payloads["safety_json"] = {
+        **envelope,
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        **{
+            field: False
+            for field in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS
+            )
+        },
+    }
+    return payloads
+
+
+def _task225_write_direct(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("plan_json"):
+        write_json_report(report, artifacts["plan_json"])
+    if artifacts.get("plan_markdown"):
+        artifacts["plan_markdown"].parent.mkdir(
+            parents=True, exist_ok=True
+        )
+        artifacts["plan_markdown"].write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_markdown(
+                report
+            ),
+            encoding="utf-8",
+        )
+    for key, payload in _task225_wrappers(report).items():
+        if artifacts.get(key):
+            write_json_report(payload, artifacts[key])
+
+
+def _task225_write_atomic(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    targets = {
+        key: path for key, path in artifacts.items() if path is not None
+    }
+    roots: dict[Path, Path] = {}
+    staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent
+            parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(
+                    prefix=".task225-normalization-pairing-plan-",
+                    dir=parent,
+                ))
+                roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task225_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / (
+                    f"backup-{key}{target.suffix}"
+                )
+                shutil.copy2(target, backup)
+                backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target)
+            published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file():
+                    os.replace(backup, target)
+                elif target in published and target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise
+    finally:
+        for root in roots.values():
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def _task225_publish(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> dict[str, Any]:
+    try:
+        _task225_write_atomic(report, artifacts)
+        return report
+    except Exception:
+        failed = _task225_failed([{
+            "message": "task225_terminal_artifact_write_failed",
+        }])
+        try:
+            _task225_write_atomic(failed, artifacts)
+            return failed
+        except Exception:
+            return _task225_failed(
+                [{"message": "task225_terminal_artifact_write_failed"}],
+                write_outputs=False,
+            )
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = _task225_inputs(args)
+    artifacts = _task225_artifacts(args)
+    output_errors = _task225_output_errors(inputs, artifacts)
+    if output_errors:
+        return _task225_failed(output_errors, write_outputs=False)
+    task224_path = inputs.get("task224")
+    if (
+        not isinstance(task224_path, Path)
+        or not task224_path.exists()
+        or not task224_path.is_file()
+    ):
+        return _task225_publish(
+            _task225_blocked("task224_input_missing"), artifacts
+        )
+    loaded: dict[str, dict[str, Any]] = {}
+    for key in (
+        "task224", "task223", "task222", "task221",
+        "task220", "task219", "task218", "task217",
+    ):
+        path = inputs.get(key)
+        if not isinstance(path, Path) or not path.is_file():
+            return _task225_publish(
+                _task225_blocked(f"{key}_lineage_input_missing"),
+                artifacts,
+            )
+        try:
+            loaded[key] = _load_json_object(path)
+        except Exception:
+            return _task225_publish(
+                _task225_failed([{
+                    "message": f"{key}_input_malformed",
+                }]),
+                artifacts,
+            )
+    task224_documents: dict[str, Any] = {}
+    try:
+        for key, path in inputs["task224_artifacts"].items():
+            if not isinstance(path, Path) or not path.is_file():
+                task224_documents[key] = None
+            elif key == "review_markdown":
+                task224_documents[key] = path.read_text(encoding="utf-8")
+            else:
+                task224_documents[key] = _load_json_object(path)
+    except Exception:
+        return _task225_publish(
+            _task225_failed([{
+                "message": "task224_artifact_family_malformed",
+            }]),
+            artifacts,
+        )
+    try:
+        report = _build_task225_report(
+            loaded, task224_documents, task224_path.parent
+        )
+    except Exception:
+        return _task225_publish(
+            _task225_failed([{
+                "message": "task225_internal_validation_failed",
+            }]),
+            artifacts,
+        )
+    return _task225_publish(report, artifacts)
 
 
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:

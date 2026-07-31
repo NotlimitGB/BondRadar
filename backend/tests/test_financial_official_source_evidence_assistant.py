@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sys
 import time
 import urllib.parse
@@ -31911,7 +31912,10 @@ def test_multi_issuer_dry_run_evidence_candidate_manual_review_warning_contracts
     )
     assert confirmed["status"] == "warning"
     assert confirmed["review_completed"] is True
-    assert confirmed["approved_candidates_staging_eligible"] is True
+    assert confirmed[
+        "approved_candidates_normalization_plan_eligible"
+    ] is True
+    assert confirmed["approved_candidates_staging_eligible"] is False
     assert (
         confirmed["evidence_candidate_count"],
         confirmed["approved_candidate_count"],
@@ -31923,6 +31927,12 @@ def test_multi_issuer_dry_run_evidence_candidate_manual_review_warning_contracts
         row["task_id"] for row in confirmed["next_task_rows"]
         if row["allowed_now"]
     ] == ["Task225"]
+    assert confirmed[
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan"
+    ] is True
+    assert confirmed["next_task_rows"][0]["task_name"] == (
+        "Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Plan"
+    )
     assert confirmed["blocker_count"] == 0
     assert confirmed["bad_safety_count"] == 0
     assert len(task224_names) == 20
@@ -31997,6 +32007,9 @@ def test_multi_issuer_dry_run_evidence_candidate_manual_review_rejected_and_corr
         all_rejected["correction_requested_candidate_count"],
     ) == (0, 6, 0)
     assert all_rejected["approved_candidates_staging_eligible"] is False
+    assert all_rejected[
+        "approved_candidates_normalization_plan_eligible"
+    ] is False
     assert all(
         not row["allowed_now"]
         for row in all_rejected["next_task_rows"]
@@ -32034,6 +32047,9 @@ def test_multi_issuer_dry_run_evidence_candidate_manual_review_rejected_and_corr
         corrected["correction_requested_candidate_count"],
     ) == (5, 0, 1)
     assert corrected["approved_candidates_staging_eligible"] is False
+    assert corrected[
+        "approved_candidates_normalization_plan_eligible"
+    ] is False
     assert all(
         not row["allowed_now"] for row in corrected["next_task_rows"]
     )
@@ -32226,6 +32242,353 @@ def test_multi_issuer_dry_run_evidence_candidate_manual_review_determinism_colli
         if path.name in set(names.values())
     ]) == 20
     assert not list(tmp_path.glob(".task224-evidence-candidate-review-*"))
+
+
+def _write_task225_ready_task224(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, Path]:
+    _, _, template_path = _write_task224_ready_task223(
+        chain, tmp_path, monkeypatch
+    )
+    review_path = tmp_path / f"{chain.name}-task224-review.json"
+    document = _task224_review_document(
+        template_path,
+        [
+            *[
+                (
+                    "approve_for_controlled_value_staging",
+                    "evidence_matches_report",
+                )
+                for _ in range(4)
+            ],
+            *[
+                ("reject_candidate", "duplicate_candidate")
+                for _ in range(2)
+            ],
+        ],
+    )
+    review_path.write_text(
+        json.dumps(document, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    task224 = _run_task224(
+        chain, review_input=review_path, confirm=True
+    )
+    assert task224["status"] == "warning"
+    assert task224[
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan"
+    ] is True
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES
+    )
+    return task224, chain / names["review_json"]
+
+
+def _run_task225(
+    chain: Path,
+    *,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan",
+        "--operator-resolution-chain-output-dir",
+        str(chain),
+        *(extra or []),
+    ]
+    parsed = assistant.parse_args(arguments)
+    report, exit_code = assistant.run_assistant(parsed)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def test_approved_evidence_candidate_normalization_and_period_pairing_plan_warning_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task224, _ = _write_task225_ready_task224(
+        chain, tmp_path, monkeypatch
+    )
+    immutable_paths = [
+        path for path in chain.rglob("*")
+        if path.is_file() and "task225" not in path.name
+    ]
+    before = {path: path.read_bytes() for path in immutable_paths}
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError(
+            "Task225 must not access sources, extract, normalize, or stage"
+        )
+
+    monkeypatch.setattr(
+        assistant, "_task222_controlled_http_get", forbidden
+    )
+    monkeypatch.setattr(assistant, "_task222_extract_pdf", forbidden)
+    report = _run_task225(chain)
+    assert report["status"] == "warning"
+    assert report[
+        "normalization_and_period_pairing_plan_ready"
+    ] is True
+    assert report[
+        "normalization_and_period_pairing_plan_created"
+    ] is True
+    assert report["task224_validation_completed"] is True
+    assert report["task224_artifact_validation_completed"] is True
+    assert report["task224_review_result_validated"] is True
+    assert report["approved_candidate_binding_completed"] is True
+    assert report["normalized_fact_schema_validated"] is True
+    assert report["controlled_target_schema_validated"] is True
+    assert report["controlled_field_mapping_validated"] is True
+    assert (
+        report["evidence_candidate_count"],
+        report["approved_candidate_count"],
+        report["rejected_candidate_count"],
+        report["correction_requested_candidate_count"],
+        report["unreviewed_candidate_count"],
+    ) == (6, 4, 2, 0, 0)
+    assert (
+        report["normalization_plan_row_count"],
+        report["period_pairing_requirement_count"],
+        report["normalized_fact_count"],
+        report["complete_period_pair_count"],
+        report["missing_counterpart_count"],
+    ) == (4, 4, 0, 0, 4)
+    assert all(
+        row["normalization_status"] == "planned_not_executed"
+        and row["normalized_value_present"] is False
+        and row["normalization_executed"] is False
+        and row["staging_ready"] is False
+        for row in report["normalization_plan_rows"]
+    )
+    assert all(
+        row["required_periods"] == [2025, 2024]
+        and row["available_approved_periods"] == [2024]
+        and row["missing_approved_periods"] == [2025]
+        and row["period_pair_complete"] is False
+        and row["value_copy_or_derivation_allowed"] is False
+        for row in report["period_pairing_requirement_rows"]
+    )
+    assert [
+        row["task_id"] for row in report["next_task_rows"]
+        if row["allowed_now"]
+    ] == ["Task226"]
+    assert report[
+        "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace"
+    ] is True
+    assert report["blocker_count"] == 0
+    assert report["bad_safety_count"] == 0
+    for field in (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS
+    ):
+        assert report[field] is False, field
+    assert re.fullmatch(
+        r"[0-9a-f]{64}",
+        report[
+            "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256"
+        ],
+    )
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES
+    )
+    assert len(names) == 20
+    assert all((chain / name).is_file() for name in names.values())
+    wrappers = assistant._task225_wrappers(report)
+    for key, expected in wrappers.items():
+        assert json.loads(
+            (chain / names[key]).read_text(encoding="utf-8")
+        ) == expected
+    markdown = (chain / names["plan_markdown"]).read_text(
+        encoding="utf-8"
+    )
+    assert "only Task226 workspace is unlocked" in markdown
+    task222 = json.loads(
+        (
+            chain
+            / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES[
+                "executor_json"
+            ]
+        ).read_text(encoding="utf-8")
+    )
+    concrete_value = task222["evidence_candidate_rows"][0][
+        "value_candidate"
+    ]["raw_value_text"]
+    issuer_id = task222["evidence_candidate_rows"][0][
+        "value_candidate"
+    ]["company_id"]
+    assert concrete_value
+    assert issuer_id
+    for name in names.values():
+        text = (chain / name).read_text(encoding="utf-8")
+        assert concrete_value not in text
+        assert issuer_id not in text
+        assert "operator proposal" not in text
+    assert {path: path.read_bytes() for path in immutable_paths} == before
+    assert task224[
+        "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+    ] == report[
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+    ]
+    assert not list(
+        tmp_path.glob(".task225-normalization-pairing-plan-*")
+    )
+    assert not list(chain.rglob("*.tmp"))
+
+
+def test_approved_evidence_candidate_normalization_and_period_pairing_plan_blocked_and_failed_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    missing_chain = tmp_path / "missing"
+    missing_chain.mkdir()
+    missing = _run_task225(missing_chain)
+    assert missing["status"] == "blocked"
+    assert missing[
+        "normalization_and_period_pairing_plan_ready"
+    ] is False
+    assert missing["normalization_plan_rows"] == []
+    assert all(
+        not row["allowed_now"] for row in missing["next_task_rows"]
+    )
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES
+    )
+    assert all((missing_chain / name).is_file() for name in names.values())
+
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, task224_path = _write_task225_ready_task224(
+        chain, tmp_path, monkeypatch
+    )
+    task224 = json.loads(task224_path.read_text(encoding="utf-8"))
+    task224[
+        "ready_for_task225_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan"
+    ] = False
+    task224_path.write_text(json.dumps(task224), encoding="utf-8")
+    blocked = _run_task225(chain)
+    assert blocked["status"] == "blocked"
+    assert blocked["normalization_plan_rows"] == []
+    assert blocked["approved_candidate_count"] == 0
+    assert blocked["bad_safety_count"] == 0
+    assert all(
+        not row["allowed_now"] for row in blocked["next_task_rows"]
+    )
+
+    malformed_dir = tmp_path / "malformed-output"
+    malformed_dir.mkdir()
+    malformed = tmp_path / "malformed-task224.json"
+    malformed.write_text('{"status": invalid', encoding="utf-8")
+    failed = _run_task225(
+        malformed_dir,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-input",
+            str(malformed),
+        ],
+    )
+    assert failed["status"] == "failed"
+    assert failed["write_outputs"] is True
+    assert failed["normalization_plan_rows"] == []
+    assert all(
+        not row["allowed_now"] for row in failed["next_task_rows"]
+    )
+    assert all((malformed_dir / name).is_file() for name in names.values())
+
+
+def test_approved_evidence_candidate_normalization_and_period_pairing_plan_mapping_guard(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _write_task225_ready_task224(chain, tmp_path, monkeypatch)
+    duplicate = copy.deepcopy(
+        next(
+            row for row in assistant.FINANCIAL_METRIC_REGISTRY
+            if row.get("canonical_financial_report_field") == "revenue"
+        )
+    )
+    monkeypatch.setattr(
+        assistant,
+        "FINANCIAL_METRIC_REGISTRY",
+        [*assistant.FINANCIAL_METRIC_REGISTRY, duplicate],
+    )
+    report = _run_task225(chain)
+    assert report["status"] == "blocked"
+    assert report["controlled_field_mapping_validated"] is False
+    assert report["normalization_plan_rows"] == []
+    assert any(
+        row["code"]
+        == "controlled_field_registry_mapping_revenue_ambiguous"
+        for row in report["blocker_rows"]
+    )
+
+
+def test_approved_evidence_candidate_normalization_and_period_pairing_plan_determinism_collision_and_atomic_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    first_chain = tmp_path / "chain1"
+    first_chain.mkdir()
+    _, task224_path = _write_task225_ready_task224(
+        first_chain, tmp_path, monkeypatch
+    )
+    second_chain = tmp_path / "chain2"
+    shutil.copytree(first_chain, second_chain)
+    first = _run_task225(first_chain)
+    second = _run_task225(second_chain)
+    checksum_field = (
+        "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256"
+    )
+    assert first[checksum_field] == second[checksum_field]
+
+    task224_before = task224_path.read_bytes()
+    collision = _run_task225(
+        tmp_path / "collision",
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-input",
+            str(task224_path),
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-output",
+            str(task224_path),
+        ],
+    )
+    assert collision["status"] == "failed"
+    assert collision["write_outputs"] is False
+    assert task224_path.read_bytes() == task224_before
+
+    retry = tmp_path / "retry"
+    retry.mkdir()
+    original_writer = assistant.write_json_report
+    calls = {"count": 0}
+
+    def fail_once(data: dict, path: Path) -> None:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("synthetic Task225 writer failure")
+        original_writer(data, path)
+
+    monkeypatch.setattr(assistant, "write_json_report", fail_once)
+    retried = _run_task225(
+        retry,
+        extra=[
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-input",
+            str(task224_path),
+        ],
+    )
+    assert retried["status"] == "failed"
+    assert retried["write_outputs"] is True
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES
+    )
+    assert len([
+        path for path in retry.iterdir()
+        if path.name in set(names.values())
+    ]) == 20
+    assert not list(
+        tmp_path.glob(".task225-normalization-pairing-plan-*")
+    )
 
 
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
