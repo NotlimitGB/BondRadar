@@ -141,6 +141,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-dry-run-evidence-candidate-manual-review",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -12814,6 +12815,71 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_
         "staging_ready", "value_ready", "import_ready",
     ))
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_MODE = (
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-"
+    "candidate-normalization-and-period-pairing-workspace"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_SCHEMA_VERSION = (
+    "bondradar.multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace.v1"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ARTIFACT_NAMES = {
+    "workspace_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_task226.json",
+    "workspace_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_task226.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_checks_task226.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_blockers_task226.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_scope_task226.json",
+    "task225_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_task225_validation_task226.json",
+    "lineage_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_lineage_task226.json",
+    "task225_artifact_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_task225_artifacts_task226.json",
+    "normalization_plan_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_plan_validation_task226.json",
+    "period_pairing_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_pairing_validation_task226.json",
+    "workspace_schema_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_schema_task226.json",
+    "normalization_workspace_template_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_normalization_template_task226.json",
+    "counterpart_binding_template_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_counterpart_template_task226.json",
+    "source_reference_inventory_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_source_references_task226.json",
+    "manual_fill_rules_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_fill_rules_task226.json",
+    "authorization_preview_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_authorization_task226.json",
+    "acceptance_execution_boundary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_boundary_task226.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_next_tasks_task226.json",
+    "summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_summary_task226.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_workspace_safety_task226.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_TASK227_NEXT_STEP = (
+    "Task227 - Multi-Issuer Normalization and Period Pairing Workspace Manual Fill Authorization Gate"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_BLOCKED_NEXT_STEP = (
+    "Task226 - Resolve normalization workspace blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_FAILED_NEXT_STEP = (
+    "Task226 - Repair failed normalization workspace and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS = (
+    "normalized_value", "normalized_currency", "normalized_unit",
+    "normalized_scale", "normalization_multiplier",
+    "normalization_sign_adjustment", "normalization_method",
+    "operator_note",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ALWAYS_FALSE_FIELDS = tuple(
+    dict.fromkeys((
+        *RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS,
+        "dns_resolution_executed", "http_request_executed",
+        "source_access_executed", "document_download_executed",
+        "controlled_cache_lookup_executed", "evidence_extraction_executed",
+        "evidence_candidate_generation_executed", "normalized_value_present",
+        "period_pairing_executed", "counterpart_value_copied",
+        "counterpart_value_derived", "workspace_manual_fill_authorized",
+        "workspace_manual_fill_executed", "workspace_review_completed",
+        "evidence_accepted", "controlled_values_accepted",
+        "controlled_financial_values_created", "database_connection_opened",
+        "database_query_executed", "database_write_authorized",
+        "controlled_value_creation_authorized", "import_authorized",
+        "controlled_import_prepared", "controlled_import_executed",
+        "scoring_authorized", "ranking_authorized", "ranking_executed",
+        "recommendation_authorized", "recommendation_generated",
+        "broker_api_authorized", "broker_api_called", "trading_authorized",
+        "production_export_executed",
+    ))
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -15142,6 +15208,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-plan-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-task225-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-lineage-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-task225-artifact-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-normalization-plan-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-period-pairing-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-workspace-schema-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-normalization-workspace-template-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-counterpart-binding-template-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-source-reference-inventory-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-manual-fill-rules-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-authorization-preview-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-acceptance-and-execution-boundary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -15491,6 +15578,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_candidate_manual_review(args)
     elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_MODE:
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan(args)
+    elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_MODE:
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -105120,6 +105209,2006 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence
             artifacts,
         )
     return _task225_publish(report, artifacts)
+
+
+def _task226_inputs(args: argparse.Namespace) -> dict[str, Any]:
+    chain = args.operator_resolution_chain_output_dir
+    default = (
+        chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES[
+            "plan_json"
+        ]
+        if chain else None
+    )
+    task225 = (
+        args.rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace_input
+        or default
+    )
+    parent = task225.parent if task225 is not None else None
+    sibling_names = {
+        "task224":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES[
+                "review_json"
+            ],
+        "task223":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES[
+                "gate_json"
+            ],
+        "task222":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES[
+                "executor_json"
+            ],
+        "task221":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_GATE_ARTIFACT_NAMES[
+                "gate_json"
+            ],
+        "task220":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES[
+                "plan_json"
+            ],
+        "task219":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES[
+                "review_json"
+            ],
+        "task218":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES[
+                "loader_json"
+            ],
+        "task217":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES[
+                "gate_json"
+            ],
+    }
+    return {
+        "task225": task225,
+        **{
+            key: parent / name if parent else None
+            for key, name in sibling_names.items()
+        },
+        "task225_artifacts": {
+            key: parent / name if parent else None
+            for key, name in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES.items()
+            )
+        },
+        "payload_root": (
+            parent
+            / RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+            if parent else None
+        ),
+    }
+
+
+def _task226_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {
+        key: chain / name
+        for key, name in (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ARTIFACT_NAMES.items()
+        )
+    } if chain else {}
+    suffixes = {
+        "workspace_json": "output",
+        "workspace_markdown": "markdown_output",
+        "checks_json": "checks_output",
+        "blockers_json": "blockers_output",
+        "scope_json": "scope_output",
+        "task225_validation_json": "task225_validation_output",
+        "lineage_json": "lineage_output",
+        "task225_artifact_validation_json":
+            "task225_artifact_validation_output",
+        "normalization_plan_validation_json":
+            "normalization_plan_validation_output",
+        "period_pairing_validation_json":
+            "period_pairing_validation_output",
+        "workspace_schema_json": "workspace_schema_output",
+        "normalization_workspace_template_json":
+            "normalization_workspace_template_output",
+        "counterpart_binding_template_json":
+            "counterpart_binding_template_output",
+        "source_reference_inventory_json":
+            "source_reference_inventory_output",
+        "manual_fill_rules_json": "manual_fill_rules_output",
+        "authorization_preview_json": "authorization_preview_output",
+        "acceptance_execution_boundary_json":
+            "acceptance_and_execution_boundary_output",
+        "next_tasks_json": "next_tasks_output",
+        "summary_json": "summary_output",
+        "safety_json": "safety_output",
+    }
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "approved_evidence_candidate_normalization_and_period_pairing_workspace"
+    )
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in suffixes.items()
+    }
+
+
+def _task226_output_errors(
+    inputs: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> list[dict[str, Any]]:
+    input_paths = [
+        (key, path)
+        for key, path in inputs.items()
+        if key not in {"task225_artifacts", "payload_root"}
+        and isinstance(path, Path)
+    ]
+    input_paths.extend([
+        (f"task225_artifact_{key}", path)
+        for key, path in inputs.get("task225_artifacts", {}).items()
+        if isinstance(path, Path)
+    ])
+    payload_root = inputs.get("payload_root")
+    seen: list[tuple[str, Path]] = []
+    for key, path in artifacts.items():
+        if path is None:
+            continue
+        for input_key, input_path in input_paths:
+            if _paths_equal(path, input_path):
+                return [{
+                    "message": "task226_output_must_not_equal_input",
+                    "output": key,
+                    "input": input_key,
+                }]
+        if isinstance(payload_root, Path) and (
+            _paths_equal(path, payload_root)
+            or _path_is_within(path, payload_root)
+        ):
+            return [{
+                "message": "task226_output_must_not_be_inside_payload_root",
+                "output": key,
+            }]
+        for seen_key, seen_path in seen:
+            if _paths_equal(path, seen_path):
+                return [{
+                    "message": "task226_outputs_must_be_unique",
+                    "output": key,
+                    "duplicate_output": seen_key,
+                }]
+        seen.append((key, path))
+    return []
+
+
+def _task226_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    tasks = (
+        (
+            "Task227",
+            "Multi-Issuer Normalization and Period Pairing Workspace Manual Fill Authorization Gate",
+            allowed,
+            "Task226",
+        ),
+        (
+            "Task228",
+            "Authorized Multi-Issuer Normalization and Period Pairing Workspace Loader",
+            False,
+            "Task227",
+        ),
+        (
+            "Task229",
+            "Multi-Issuer Normalized Fact and Period Pairing Review Gate",
+            False,
+            "Task228",
+        ),
+        (
+            "Task230",
+            "Multi-Issuer Controlled Import Apply Plan",
+            False,
+            "Task229",
+        ),
+    )
+    return [
+        {
+            "next_task_index": index,
+            "task_id": task_id,
+            "task_name": task_name,
+            "allowed_now": bool(is_allowed),
+            "depends_on": depends_on,
+            "safe_hint":
+                "Only Task227 may authorize later manual workspace filling; Task226 performs no fill.",
+        }
+        for index, (task_id, task_name, is_allowed, depends_on)
+        in enumerate(tasks, 1)
+    ]
+
+
+def _task226_scope_rows() -> list[dict[str, Any]]:
+    specs = (
+        ("task_scope", "empty_checksum_bound_workspace_generation"),
+        ("normalization_scope", "schema_and_empty_operator_fields_only"),
+        ("pairing_scope", "missing_period_reference_binding_only"),
+        ("source_scope", "checksum_references_only_no_payload_read"),
+        ("network_scope", "prohibited"),
+        ("database_scope", "read_only_no_connection_or_mutation"),
+        ("acceptance_scope", "no_evidence_or_value_acceptance"),
+        ("staging_scope", "prohibited"),
+        ("execution_scope", "workspace_generation_only"),
+        ("handoff_scope", "task227_manual_fill_authorization_gate_only"),
+    )
+    return [
+        {
+            "scope_index": index,
+            "scope_key": key,
+            "scope_value": value,
+            "included": True,
+            "safe_hint":
+                "Task226 creates empty metadata only and grants no execution authority.",
+        }
+        for index, (key, value) in enumerate(specs, 1)
+    ]
+
+
+def _task226_workspace_schema_rows() -> list[dict[str, Any]]:
+    normalized_types = {
+        str(row.get("field_name") or ""): str(row.get("field_type") or "")
+        for row in FINANCIAL_EXTRACTION_NORMALIZED_FACT_FIELDS
+    }
+    top_level = (
+        ("schema_version", "string"),
+        ("task225_checksum_sha256", "string"),
+        ("task224_checksum_sha256", "string"),
+        ("task224_review_result_checksum_sha256", "string"),
+        ("expected_normalization_workspace_row_count", "integer"),
+        ("expected_counterpart_binding_row_count", "integer"),
+        ("normalization_workspace_rows", "object_list"),
+        ("counterpart_binding_rows", "object_list"),
+    )
+    normalization_fields = (
+        ("normalization_workspace_row_id", "string", False),
+        ("normalization_workspace_row_checksum_sha256", "string", False),
+        ("normalization_plan_id", "string", False),
+        ("evidence_candidate_id", "string", False),
+        ("dry_run_job_id", "string", False),
+        ("candidate_slot_id", "string", False),
+        ("controlled_field_key", "string", False),
+        ("report_period", "integer", False),
+        ("source_document_sha256", "string", False),
+        ("issuer_binding_checksum_sha256", "string", False),
+        ("report_context_checksum_sha256", "string", False),
+        ("target_type", "string", False),
+        ("metric_key", "string", False),
+        ("metric_role", "string", False),
+        *tuple(
+            (
+                field,
+                normalized_types.get(field, "string"),
+                True,
+            )
+            for field in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS
+            )
+            if field not in {"normalization_method", "operator_note"}
+        ),
+        ("normalization_method", "string", True),
+        ("operator_note", "string", True),
+        ("workspace_row_filled", "boolean", False),
+        ("normalization_executed", "boolean", False),
+        ("normalized_value_present", "boolean", False),
+        ("normalized_fact_created", "boolean", False),
+        ("period_pair_complete", "boolean", False),
+        ("staging_ready", "boolean", False),
+    )
+    counterpart_fields = (
+        ("counterpart_workspace_row_id", "string", False),
+        ("counterpart_workspace_row_checksum_sha256", "string", False),
+        ("period_pairing_requirement_id", "string", False),
+        ("normalization_plan_id", "string", False),
+        ("controlled_field_key", "string", False),
+        ("issuer_binding_checksum_sha256", "string", False),
+        ("report_context_checksum_sha256", "string", False),
+        ("required_report_period", "integer", False),
+        ("missing_report_period", "integer", False),
+        ("counterpart_task224_checksum_sha256", "string", True),
+        ("counterpart_task224_review_result_checksum_sha256", "string", True),
+        ("counterpart_evidence_candidate_id", "string", True),
+        ("counterpart_source_document_sha256", "string", True),
+        ("operator_note", "string", True),
+        ("counterpart_binding_supplied", "boolean", False),
+        ("counterpart_binding_validated", "boolean", False),
+        ("counterpart_value_copied", "boolean", False),
+        ("counterpart_value_derived", "boolean", False),
+        ("period_pair_complete", "boolean", False),
+    )
+    rows: list[dict[str, Any]] = []
+    for section, fields in (
+        ("workspace", top_level),
+        ("normalization_workspace_row", normalization_fields),
+        ("counterpart_binding_row", counterpart_fields),
+    ):
+        for index, spec in enumerate(fields, 1):
+            name, field_type = spec[0], spec[1]
+            operator_fillable = bool(spec[2]) if len(spec) > 2 else False
+            rows.append({
+                "schema_section": section,
+                "field_index": index,
+                "field_name": name,
+                "field_type": field_type,
+                "required": True,
+                "operator_fillable": operator_fillable,
+                "initially_empty": operator_fillable,
+                "workspace_only": name in {
+                    "normalization_method", "operator_note",
+                },
+                "safe_hint":
+                    "Schema declaration only; Task226 accepts no operator-supplied value.",
+            })
+    return rows
+
+
+def _task226_manual_fill_rule_rows() -> list[dict[str, Any]]:
+    specs = (
+        ("explicit_normalized_value", "Normalized value requires explicit operator entry."),
+        ("explicit_currency", "Currency requires explicit evidence-bound operator entry."),
+        ("explicit_unit", "Unit requires explicit evidence-bound operator entry."),
+        ("explicit_scale", "Scale requires explicit evidence-bound operator entry."),
+        ("explicit_method", "Normalization method requires explicit operator entry."),
+        ("later_review", "Every normalization entry requires a later review gate."),
+        ("no_counterpart_value_entry", "A missing-period value cannot be typed directly."),
+        ("no_period_copy", "A missing-period value cannot be copied from another period."),
+        ("no_period_derivation", "A missing-period value cannot be derived."),
+        ("approved_counterpart_chain", "A missing period requires a separately approved Task224 chain."),
+        ("exact_counterpart_binding", "Counterpart issuer, field, period, and document bindings must match exactly."),
+        ("workspace_not_execution", "Workspace generation is not fill, authorization, normalization, pairing, or staging."),
+    )
+    return [
+        {
+            "manual_fill_rule_index": index,
+            "manual_fill_rule_key": key,
+            "requirement": requirement,
+            "declared": True,
+            "executed": False,
+            "safe_hint": "Rule defines future controlled work without performing it.",
+        }
+        for index, (key, requirement) in enumerate(specs, 1)
+    ]
+
+
+def _task226_authorization_preview_rows() -> list[dict[str, Any]]:
+    capabilities = (
+        "workspace_manual_fill", "normalization", "period_pairing",
+        "normalized_fact_creation", "controlled_value_staging",
+    )
+    return [
+        {
+            "authorization_preview_index": index,
+            "capability": capability,
+            "authorization_required": True,
+            "authorized_in_task226": False,
+            "executed_in_task226": False,
+            "safe_hint":
+                "Task226 previews the future gate and grants no authorization.",
+        }
+        for index, capability in enumerate(capabilities, 1)
+    ]
+
+
+def _task226_boundary_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "boundary_index": index,
+            "field_name": field,
+            "required_value": False,
+            "actual_value": False,
+            "validated": True,
+            "safe_hint": "Execution and acceptance remain disabled.",
+        }
+        for index, field in enumerate(
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ALWAYS_FALSE_FIELDS,
+            1,
+        )
+    ]
+
+
+def _task226_task225_artifact_validation(
+    task225: dict[str, Any],
+    documents: dict[str, Any],
+    parent: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    expected_wrappers = _task225_wrappers(task225)
+    expected_names = set(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES.values()
+    )
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "evidence_normalization_pairing_plan"
+    )
+    actual_names = {
+        path.name for path in parent.iterdir()
+        if path.is_file()
+        and path.name.startswith(prefix)
+        and "task225" in path.name
+    }
+    rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    for index, (key, filename) in enumerate(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES.items(),
+        1,
+    ):
+        document = documents.get(key)
+        if key == "plan_json":
+            matches = document == task225
+        elif key == "plan_markdown":
+            matches = document == (
+                render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_markdown(
+                    task225
+                )
+            )
+        else:
+            matches = document == expected_wrappers.get(key)
+        present = document is not None
+        valid = present and matches
+        if not valid:
+            blockers.append(f"task225_artifact_{key}_invalid")
+        canonical_hash = (
+            hashlib.sha256(document.encode("utf-8")).hexdigest()
+            if isinstance(document, str)
+            else _rzd_controlled_values_import_plan_sha(document)
+            if isinstance(document, dict)
+            else ""
+        )
+        rows.append({
+            "task225_artifact_validation_index": index,
+            "artifact_key": key,
+            "artifact_name": filename,
+            "present": present,
+            "contract_matches_main": bool(matches),
+            "artifact_sha256": canonical_hash,
+            "validated": valid,
+            "safe_hint":
+                "Canonical Task225 artifact content is validated without carrying paths.",
+        })
+    if actual_names != expected_names:
+        blockers.append("task225_artifact_family_not_exact")
+    return rows, list(dict.fromkeys(blockers))
+
+
+def _task226_upstream_validation(
+    loaded: dict[str, dict[str, Any]],
+    task225_documents: dict[str, Any],
+    parent: Path,
+) -> tuple[
+    list[dict[str, Any]], list[dict[str, Any]],
+    list[dict[str, Any]], list[dict[str, Any]],
+    list[dict[str, Any]], list[str],
+]:
+    task225 = loaded["task225"]
+    allowed = [
+        row for row in task225.get("next_task_rows") or []
+        if isinstance(row, dict) and row.get("allowed_now") is True
+    ]
+    task225_issuer_count, task225_url_count, task225_safety_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_findings(
+            _task223_safety_scan_projection(task225)
+        )
+    )
+    task225_concrete_codes = {
+        code for code in task225_safety_codes
+        if code in {
+            "issuer_name_detected", "inn_detected", "ogrn_detected",
+            "isin_detected", "concrete_url_detected",
+            "concrete_document_value_detected", "review_note_detected",
+        }
+    }
+    checks = (
+        ("task225_warning_status", task225.get("status") == "warning"),
+        (
+            "task225_checksum_valid",
+            task225.get(
+                "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256"
+            ) == _task225_checksum(task225),
+        ),
+        (
+            "task225_plan_ready",
+            task225.get("normalization_and_period_pairing_plan_ready") is True
+            and task225.get("normalization_and_period_pairing_plan_created") is True,
+        ),
+        (
+            "task225_upstream_validations_complete",
+            all(task225.get(field) is True for field in (
+                "task224_validation_completed",
+                "task224_artifact_validation_completed",
+                "task224_review_result_validated",
+                "approved_candidate_binding_completed",
+                "normalized_fact_schema_validated",
+                "controlled_target_schema_validated",
+                "controlled_field_mapping_validated",
+                "period_pairing_requirements_created",
+            )),
+        ),
+        (
+            "task225_candidate_counts_valid",
+            int(task225.get("evidence_candidate_count") or 0) == 6
+            and int(task225.get("approved_candidate_count") or 0) == 4
+            and int(task225.get("rejected_candidate_count") or 0) == 2
+            and int(task225.get("correction_requested_candidate_count") or 0) == 0
+            and int(task225.get("unreviewed_candidate_count") or 0) == 0,
+        ),
+        (
+            "task225_workspace_source_counts_valid",
+            int(task225.get("normalization_plan_row_count") or 0) == 4
+            and int(task225.get("period_pairing_requirement_count") or 0) == 4
+            and int(task225.get("normalized_fact_count") or 0) == 0
+            and int(task225.get("complete_period_pair_count") or 0) == 0
+            and int(task225.get("missing_counterpart_count") or 0) == 4,
+        ),
+        (
+            "task225_clean_verdict",
+            int(task225.get("blocker_count") or 0) == 0
+            and int(task225.get("bad_safety_count") or 0) == 0,
+        ),
+        (
+            "task225_execution_boundary_valid",
+            all(
+                task225.get(field) is False
+                for field in (
+                    RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS
+                )
+            ),
+        ),
+        (
+            "task225_no_concrete_data_leakage",
+            task225_issuer_count == 0
+            and task225_url_count == 0
+            and not task225_concrete_codes,
+        ),
+        (
+            "task225_task226_only_unlock_valid",
+            task225.get(
+                "ready_for_task226_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace"
+            ) is True
+            and task225.get("next_tasks_valid") is True
+            and len(allowed) == 1
+            and allowed[0].get("task_id") == "Task226"
+            and allowed[0].get("task_name")
+            == "Multi-Issuer Approved Evidence Candidate Normalization and Period Pairing Workspace"
+            and task225.get("next_step")
+            == RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TASK226_NEXT_STEP,
+        ),
+    )
+    validation_rows = [
+        {
+            "task225_validation_index": index,
+            "task225_validation_key": key,
+            "passed": bool(passed),
+            "status": "passed" if passed else "blocked",
+            "safe_hint": "Task226 requires the exact accepted Task225 plan handoff.",
+        }
+        for index, (key, passed) in enumerate(checks, 1)
+    ]
+    checksum_fields = (
+        (
+            "Task225",
+            "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256",
+            _task225_checksum,
+        ),
+        (
+            "Task224",
+            "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256",
+            _task224_checksum,
+        ),
+        (
+            "Task223",
+            "multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256",
+            _task223_checksum,
+        ),
+        (
+            "Task222",
+            "controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256",
+            _task222_checksum,
+        ),
+        (
+            "Task221",
+            "multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256",
+            _task221_checksum,
+        ),
+        (
+            "Task220",
+            "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256",
+            _task220_checksum,
+        ),
+        (
+            "Task219",
+            "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+            _task219_checksum,
+        ),
+        (
+            "Task218",
+            "authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+            _task218_checksum,
+        ),
+        (
+            "Task217",
+            "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+            _task217_checksum,
+        ),
+    )
+    lineage_rows: list[dict[str, Any]] = []
+    for index, (task_id, field, checksum_fn) in enumerate(
+        checksum_fields, 1
+    ):
+        document = loaded[task_id.casefold()]
+        reported = str(document.get(field) or "")
+        recomputed = checksum_fn(document)
+        lineage_rows.append({
+            "lineage_index": index,
+            "task_id": task_id,
+            "checksum_field": field,
+            "checksum_sha256": reported,
+            "validated":
+                bool(re.fullmatch(r"[0-9a-f]{64}", reported))
+                and reported == recomputed,
+            "safe_hint":
+                "Checksum is recomputed from the real sibling main artifact.",
+        })
+    task225_lineage_rows = task225.get("lineage_rows") or []
+    task225_lineage_by_task = {
+        str(row.get("task_id") or ""): row
+        for row in task225_lineage_rows if isinstance(row, dict)
+    }
+    task225_lineage_valid = (
+        len(task225_lineage_rows) == 8
+        and all(
+            task_id in task225_lineage_by_task
+            and task225_lineage_by_task[task_id].get("checksum_field")
+            == field
+            and task225_lineage_by_task[task_id].get("checksum_sha256")
+            == str(loaded[task_id.casefold()].get(field) or "")
+            and task225_lineage_by_task[task_id].get("validated") is True
+            for task_id, field, _checksum_fn in checksum_fields[1:]
+        )
+        and task225.get(
+            "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+        ) == str(loaded["task224"].get(
+            "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+        ) or "")
+        and task225.get(
+            "source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256"
+        ) == str(loaded["task223"].get(
+            "multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256"
+        ) or "")
+        and task225.get(
+            "source_controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256"
+        ) == str(loaded["task222"].get(
+            "controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256"
+        ) or "")
+        and task225.get(
+            "source_controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256"
+        ) == str(loaded["task222"].get(
+            "controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256"
+        ) or "")
+    )
+    validation_rows.append({
+        "task225_validation_index": len(validation_rows) + 1,
+        "task225_validation_key": "task225_lineage_bindings_exact",
+        "passed": task225_lineage_valid,
+        "status": "passed" if task225_lineage_valid else "blocked",
+        "safe_hint":
+            "Task225 lineage rows and carried aliases must match real sibling artifacts.",
+    })
+    artifact_rows, artifact_blockers = (
+        _task226_task225_artifact_validation(
+            task225, task225_documents, parent
+        )
+    )
+    expected_plan_fields = (
+        "normalization_plan_index", "normalization_plan_id",
+        "evidence_candidate_id", "dry_run_job_id", "candidate_slot_id",
+        "controlled_field_key", "source_document_sha256", "report_period",
+        "issuer_binding_checksum_sha256", "report_context_checksum_sha256",
+        "target_type", "metric_key", "metric_role", "normalization_status",
+        "requires_explicit_normalized_value", "requires_explicit_currency",
+        "requires_explicit_unit", "requires_explicit_scale",
+        "requires_operator_review", "normalized_value_present",
+        "normalization_executed", "normalized_fact_created", "staging_ready",
+        "safe_hint",
+    )
+    plan_rows = task225.get("normalization_plan_rows") or []
+    plan_ids: set[str] = set()
+    plan_validation_rows: list[dict[str, Any]] = []
+    for index, row in enumerate(plan_rows, 1):
+        row = row if isinstance(row, dict) else {}
+        plan_id = str(row.get("normalization_plan_id") or "")
+        unique = bool(plan_id) and plan_id not in plan_ids
+        plan_ids.add(plan_id)
+        no_prefill = not any(
+            row.get(field) not in {None, "", False}
+            for field in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS
+            )
+        )
+        valid = (
+            list(row) == list(expected_plan_fields)
+            and row.get("normalization_plan_index") == index
+            and plan_id == f"task225_normalization_plan_{index:03d}"
+            and unique
+            and row.get("controlled_field_key") in EVIDENCE_FINANCIAL_FIELDS
+            and isinstance(row.get("report_period"), int)
+            and row.get("report_period")
+            in RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS
+            and all(
+                re.fullmatch(r"[0-9a-f]{64}", str(row.get(field) or ""))
+                for field in (
+                    "source_document_sha256",
+                    "issuer_binding_checksum_sha256",
+                    "report_context_checksum_sha256",
+                )
+            )
+            and row.get("normalization_status") == "planned_not_executed"
+            and all(row.get(field) is True for field in (
+                "requires_explicit_normalized_value",
+                "requires_explicit_currency", "requires_explicit_unit",
+                "requires_explicit_scale", "requires_operator_review",
+            ))
+            and all(row.get(field) is False for field in (
+                "normalized_value_present", "normalization_executed",
+                "normalized_fact_created", "staging_ready",
+            ))
+            and no_prefill
+        )
+        plan_validation_rows.append({
+            "normalization_plan_validation_index": index,
+            "normalization_plan_id": plan_id,
+            "controlled_field_key": str(row.get("controlled_field_key") or ""),
+            "report_period":
+                row.get("report_period")
+                if isinstance(row.get("report_period"), int) else 0,
+            "schema_valid": list(row) == list(expected_plan_fields),
+            "identity_unique": unique,
+            "checksum_bindings_valid": bool(valid) if valid else all(
+                re.fullmatch(r"[0-9a-f]{64}", str(row.get(field) or ""))
+                for field in (
+                    "source_document_sha256",
+                    "issuer_binding_checksum_sha256",
+                    "report_context_checksum_sha256",
+                )
+            ),
+            "unfilled": no_prefill,
+            "validated": bool(valid),
+            "safe_hint":
+                "Plan identity and empty normalization state are validated without copying values.",
+        })
+    expected_pair_fields = (
+        "period_pairing_requirement_index",
+        "period_pairing_requirement_id", "normalization_plan_id",
+        "evidence_candidate_id", "controlled_field_key",
+        "issuer_binding_checksum_sha256", "target_type", "metric_key",
+        "metric_role", "required_periods", "available_approved_periods",
+        "missing_approved_periods", "counterpart_must_be_task224_approved",
+        "issuer_metric_standard_must_match",
+        "document_provenance_must_be_compatible",
+        "value_copy_or_derivation_allowed", "period_pair_complete",
+        "period_pair_created", "staging_ready", "safe_hint",
+    )
+    plan_by_id = {
+        str(row.get("normalization_plan_id") or ""): row
+        for row in plan_rows if isinstance(row, dict)
+    }
+    pair_ids: set[str] = set()
+    pair_validation_rows: list[dict[str, Any]] = []
+    for index, row in enumerate(
+        task225.get("period_pairing_requirement_rows") or [], 1
+    ):
+        row = row if isinstance(row, dict) else {}
+        pair_id = str(row.get("period_pairing_requirement_id") or "")
+        plan_id = str(row.get("normalization_plan_id") or "")
+        plan = plan_by_id.get(plan_id) or {}
+        unique = bool(pair_id) and pair_id not in pair_ids
+        pair_ids.add(pair_id)
+        join_valid = bool(plan) and all(
+            row.get(field) == plan.get(field)
+            for field in (
+                "evidence_candidate_id", "controlled_field_key",
+                "issuer_binding_checksum_sha256", "target_type",
+                "metric_key", "metric_role",
+            )
+        )
+        report_context = str(
+            plan.get("report_context_checksum_sha256") or ""
+        )
+        valid = (
+            list(row) == list(expected_pair_fields)
+            and row.get("period_pairing_requirement_index") == index
+            and pair_id == f"task225_period_pairing_requirement_{index:03d}"
+            and unique and join_valid
+            and bool(re.fullmatch(r"[0-9a-f]{64}", report_context))
+            and row.get("required_periods") == list(
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS
+            )
+            and row.get("available_approved_periods")
+            == [plan.get("report_period")]
+            and row.get("missing_approved_periods") == [
+                period for period in (
+                    RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_TARGET_PERIODS
+                )
+                if period != plan.get("report_period")
+            ]
+            and row.get("counterpart_must_be_task224_approved") is True
+            and row.get("issuer_metric_standard_must_match") is True
+            and row.get("document_provenance_must_be_compatible") is True
+            and row.get("value_copy_or_derivation_allowed") is False
+            and row.get("period_pair_complete") is False
+            and row.get("period_pair_created") is False
+            and row.get("staging_ready") is False
+        )
+        pair_validation_rows.append({
+            "period_pairing_validation_index": index,
+            "period_pairing_requirement_id": pair_id,
+            "normalization_plan_id": plan_id,
+            "controlled_field_key": str(row.get("controlled_field_key") or ""),
+            "report_context_checksum_sha256": report_context,
+            "schema_valid": list(row) == list(expected_pair_fields),
+            "plan_join_valid": join_valid,
+            "identity_unique": unique,
+            "validated": bool(valid),
+            "safe_hint":
+                "Pairing requirement inherits report context through its exact Task225 plan binding.",
+        })
+    expected_normalized_schema, expected_target_schema = _task225_schema_rows()
+    expected_mapping, mapping_blockers = _task225_registry_mapping_rows()
+    schema_contract_valid = (
+        task225.get("normalized_fact_schema_rows")
+        == expected_normalized_schema
+        and task225.get("controlled_target_schema_rows")
+        == expected_target_schema
+        and task225.get("controlled_field_mapping_rows")
+        == expected_mapping
+        and not mapping_blockers
+    )
+    blockers = [
+        f"{row['task225_validation_key']}_invalid"
+        for row in validation_rows if row["passed"] is not True
+    ]
+    blockers.extend(
+        f"{row['task_id'].casefold()}_lineage_checksum_invalid"
+        for row in lineage_rows if row["validated"] is not True
+    )
+    blockers.extend(artifact_blockers)
+    if len(plan_validation_rows) != 4:
+        blockers.append("task225_normalization_plan_count_invalid")
+    blockers.extend(
+        f"normalization_plan_row_{index:03d}_invalid"
+        for index, row in enumerate(plan_validation_rows, 1)
+        if row["validated"] is not True
+    )
+    if len(pair_validation_rows) != 4:
+        blockers.append("task225_period_pairing_count_invalid")
+    blockers.extend(
+        f"period_pairing_row_{index:03d}_invalid"
+        for index, row in enumerate(pair_validation_rows, 1)
+        if row["validated"] is not True
+    )
+    if not schema_contract_valid:
+        blockers.append("task225_schema_contracts_invalid")
+    return (
+        validation_rows, lineage_rows, artifact_rows,
+        plan_validation_rows, pair_validation_rows,
+        list(dict.fromkeys(blockers)),
+    )
+
+
+def _task226_build_workspace_rows(
+    task225: dict[str, Any],
+    task224: dict[str, Any],
+    workspace_schema_rows: list[dict[str, Any]],
+) -> tuple[
+    list[dict[str, Any]], list[dict[str, Any]],
+    list[dict[str, Any]], dict[str, Any], str,
+]:
+    task225_checksum = str(task225.get(
+        "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256"
+    ) or "")
+    plan_rows = task225.get("normalization_plan_rows") or []
+    pair_by_plan = {
+        str(row.get("normalization_plan_id") or ""): row
+        for row in task225.get("period_pairing_requirement_rows") or []
+        if isinstance(row, dict)
+    }
+    normalization_schema = [
+        row for row in workspace_schema_rows
+        if row.get("schema_section") == "normalization_workspace_row"
+    ]
+    counterpart_schema = [
+        row for row in workspace_schema_rows
+        if row.get("schema_section") == "counterpart_binding_row"
+    ]
+    normalization_rows: list[dict[str, Any]] = []
+    source_rows: list[dict[str, Any]] = []
+    for index, plan in enumerate(plan_rows, 1):
+        plan_id = str(plan.get("normalization_plan_id") or "")
+        pair = pair_by_plan.get(plan_id) or {}
+        base = {
+            "normalization_workspace_row_id":
+                f"task226_normalization_workspace_{index:03d}",
+            "normalization_plan_id": plan_id,
+            "evidence_candidate_id":
+                str(plan.get("evidence_candidate_id") or ""),
+            "dry_run_job_id": str(plan.get("dry_run_job_id") or ""),
+            "candidate_slot_id": str(plan.get("candidate_slot_id") or ""),
+            "controlled_field_key":
+                str(plan.get("controlled_field_key") or ""),
+            "report_period": int(plan.get("report_period") or 0),
+            "source_document_sha256":
+                str(plan.get("source_document_sha256") or ""),
+            "issuer_binding_checksum_sha256":
+                str(plan.get("issuer_binding_checksum_sha256") or ""),
+            "report_context_checksum_sha256":
+                str(plan.get("report_context_checksum_sha256") or ""),
+            "target_type": str(plan.get("target_type") or ""),
+            "metric_key": str(plan.get("metric_key") or ""),
+            "metric_role": str(plan.get("metric_role") or ""),
+            **{
+                field: ""
+                for field in (
+                    RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS
+                )
+            },
+            "workspace_row_filled": False,
+            "normalization_executed": False,
+            "normalized_value_present": False,
+            "normalized_fact_created": False,
+            "period_pair_complete":
+                pair.get("period_pair_complete") is True,
+            "staging_ready": False,
+        }
+        row_checksum = _rzd_controlled_values_import_plan_sha({
+            "task225_checksum_sha256": task225_checksum,
+            "workspace_row": base,
+            "declared_operator_fill_schema": normalization_schema,
+        })
+        normalization_rows.append({
+            "normalization_workspace_row_id":
+                base["normalization_workspace_row_id"],
+            "normalization_workspace_row_checksum_sha256": row_checksum,
+            **{
+                key: value for key, value in base.items()
+                if key != "normalization_workspace_row_id"
+            },
+        })
+        source_rows.append({
+            "source_reference_inventory_index": index,
+            "normalization_plan_id": plan_id,
+            "evidence_candidate_id":
+                str(plan.get("evidence_candidate_id") or ""),
+            "controlled_field_key":
+                str(plan.get("controlled_field_key") or ""),
+            "report_period": int(plan.get("report_period") or 0),
+            "source_document_sha256":
+                str(plan.get("source_document_sha256") or ""),
+            "issuer_binding_checksum_sha256":
+                str(plan.get("issuer_binding_checksum_sha256") or ""),
+            "report_context_checksum_sha256":
+                str(plan.get("report_context_checksum_sha256") or ""),
+            "raw_value_copied": False,
+            "normalized_value_present": False,
+            "safe_hint":
+                "Only approved checksum-bound identity is carried; no candidate value or excerpt is copied.",
+        })
+    counterpart_rows: list[dict[str, Any]] = []
+    counterpart_index = 0
+    for pair in task225.get("period_pairing_requirement_rows") or []:
+        plan_id = str(pair.get("normalization_plan_id") or "")
+        plan = next(
+            (
+                row for row in plan_rows
+                if isinstance(row, dict)
+                and row.get("normalization_plan_id") == plan_id
+            ),
+            {},
+        )
+        for missing_period in pair.get("missing_approved_periods") or []:
+            counterpart_index += 1
+            base = {
+                "counterpart_workspace_row_id":
+                    f"task226_counterpart_workspace_{counterpart_index:03d}",
+                "period_pairing_requirement_id":
+                    str(pair.get("period_pairing_requirement_id") or ""),
+                "normalization_plan_id": plan_id,
+                "controlled_field_key":
+                    str(pair.get("controlled_field_key") or ""),
+                "issuer_binding_checksum_sha256":
+                    str(pair.get("issuer_binding_checksum_sha256") or ""),
+                "report_context_checksum_sha256":
+                    str(plan.get("report_context_checksum_sha256") or ""),
+                "required_report_period": int(missing_period),
+                "missing_report_period": int(missing_period),
+                "counterpart_task224_checksum_sha256": "",
+                "counterpart_task224_review_result_checksum_sha256": "",
+                "counterpart_evidence_candidate_id": "",
+                "counterpart_source_document_sha256": "",
+                "operator_note": "",
+                "counterpart_binding_supplied": False,
+                "counterpart_binding_validated": False,
+                "counterpart_value_copied": False,
+                "counterpart_value_derived": False,
+                "period_pair_complete": False,
+            }
+            row_checksum = _rzd_controlled_values_import_plan_sha({
+                "task225_checksum_sha256": task225_checksum,
+                "counterpart_row": base,
+                "declared_counterpart_schema": counterpart_schema,
+            })
+            counterpart_rows.append({
+                "counterpart_workspace_row_id":
+                    base["counterpart_workspace_row_id"],
+                "counterpart_workspace_row_checksum_sha256": row_checksum,
+                **{
+                    key: value for key, value in base.items()
+                    if key != "counterpart_workspace_row_id"
+                },
+            })
+    workspace_template = {
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_SCHEMA_VERSION,
+        "task225_checksum_sha256": task225_checksum,
+        "task224_checksum_sha256": str(task225.get(
+            "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+        ) or ""),
+        "task224_review_result_checksum_sha256": str(task224.get(
+            "multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256"
+        ) or ""),
+        "expected_normalization_workspace_row_count": len(normalization_rows),
+        "expected_counterpart_binding_row_count": len(counterpart_rows),
+        "normalization_workspace_rows": normalization_rows,
+        "counterpart_binding_rows": counterpart_rows,
+    }
+    template_checksum = _rzd_controlled_values_import_plan_sha({
+        "schema_version": workspace_template["schema_version"],
+        "task225_checksum_sha256": task225_checksum,
+        "task224_checksum_sha256": workspace_template["task224_checksum_sha256"],
+        "task224_review_result_checksum_sha256":
+            workspace_template["task224_review_result_checksum_sha256"],
+        "normalization_rows": [
+            {
+                "row_id": row["normalization_workspace_row_id"],
+                "checksum": row[
+                    "normalization_workspace_row_checksum_sha256"
+                ],
+            }
+            for row in normalization_rows
+        ],
+        "counterpart_rows": [
+            {
+                "row_id": row["counterpart_workspace_row_id"],
+                "checksum": row[
+                    "counterpart_workspace_row_checksum_sha256"
+                ],
+            }
+            for row in counterpart_rows
+        ],
+    })
+    return (
+        normalization_rows, counterpart_rows, source_rows,
+        workspace_template, template_checksum,
+    )
+
+
+def _task226_empty_workspace_template() -> dict[str, Any]:
+    return {
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_SCHEMA_VERSION,
+        "task225_checksum_sha256": "",
+        "task224_checksum_sha256": "",
+        "task224_review_result_checksum_sha256": "",
+        "expected_normalization_workspace_row_count": 0,
+        "expected_counterpart_binding_row_count": 0,
+        "normalization_workspace_rows": [],
+        "counterpart_binding_rows": [],
+    }
+
+
+def _task226_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "lineage_rows": report.get("lineage_rows") or [],
+        "task225_artifact_validation_rows":
+            report.get("task225_artifact_validation_rows") or [],
+        "normalization_plan_validation_rows":
+            report.get("normalization_plan_validation_rows") or [],
+        "period_pairing_validation_rows":
+            report.get("period_pairing_validation_rows") or [],
+        "workspace_schema_rows": report.get("workspace_schema_rows") or [],
+        "normalization_workspace_rows":
+            report.get("normalization_workspace_rows") or [],
+        "counterpart_binding_rows":
+            report.get("counterpart_binding_rows") or [],
+        "source_reference_inventory_rows":
+            report.get("source_reference_inventory_rows") or [],
+        "manual_fill_rule_rows": report.get("manual_fill_rule_rows") or [],
+        "authorization_preview_rows":
+            report.get("authorization_preview_rows") or [],
+        "acceptance_execution_boundary_rows":
+            report.get("acceptance_execution_boundary_rows") or [],
+        "workspace_template_checksum_sha256": report.get(
+            "multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256"
+        ) or "",
+        "check_rows": report.get(
+            "normalization_and_period_pairing_workspace_check_rows"
+        ) or [],
+        "next_task_rows": report.get("next_task_rows") or [],
+        "workspace_ready": report.get(
+            "normalization_and_period_pairing_workspace_ready"
+        ) is True,
+        "task227_ready": report.get(
+            "ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate"
+        ) is True,
+    })
+
+
+def _task226_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    list_fields = (
+        "scope_rows", "task225_validation_rows", "lineage_rows",
+        "task225_artifact_validation_rows",
+        "normalization_plan_validation_rows",
+        "period_pairing_validation_rows", "workspace_schema_rows",
+        "normalization_workspace_rows", "counterpart_binding_rows",
+        "source_reference_inventory_rows", "manual_fill_rule_rows",
+        "authorization_preview_rows", "acceptance_execution_boundary_rows",
+        "next_task_rows",
+        "normalization_and_period_pairing_workspace_check_rows",
+        "blocker_rows", "bad_safety_codes", "errors",
+    )
+    for field in list_fields:
+        report[field] = (
+            report.get(field) if isinstance(report.get(field), list) else []
+        )
+    count_fields = {
+        "scope_count": "scope_rows",
+        "task225_validation_count": "task225_validation_rows",
+        "lineage_count": "lineage_rows",
+        "task225_artifact_validation_count":
+            "task225_artifact_validation_rows",
+        "normalization_plan_validation_count":
+            "normalization_plan_validation_rows",
+        "period_pairing_validation_count":
+            "period_pairing_validation_rows",
+        "workspace_schema_field_count": "workspace_schema_rows",
+        "normalization_workspace_row_count":
+            "normalization_workspace_rows",
+        "counterpart_binding_row_count": "counterpart_binding_rows",
+        "source_reference_inventory_count":
+            "source_reference_inventory_rows",
+        "manual_fill_rule_count": "manual_fill_rule_rows",
+        "authorization_preview_count": "authorization_preview_rows",
+        "acceptance_execution_boundary_count":
+            "acceptance_execution_boundary_rows",
+        "next_task_count": "next_task_rows",
+        "normalization_and_period_pairing_workspace_check_count":
+            "normalization_and_period_pairing_workspace_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count, rows in count_fields.items():
+        report[count] = len(report[rows])
+    report["normalization_plan_row_count"] = len(
+        report["normalization_workspace_rows"]
+    )
+    report["period_pairing_requirement_count"] = len(
+        report["period_pairing_validation_rows"]
+    )
+    report["filled_normalization_workspace_row_count"] = sum(
+        row.get("workspace_row_filled") is True
+        for row in report["normalization_workspace_rows"]
+        if isinstance(row, dict)
+    )
+    report["filled_counterpart_binding_row_count"] = sum(
+        row.get("counterpart_binding_supplied") is True
+        for row in report["counterpart_binding_rows"]
+        if isinstance(row, dict)
+    )
+    report["missing_counterpart_count"] = len(
+        report["counterpart_binding_rows"]
+    )
+    report["bad_safety_codes"] = sorted(set(report["bad_safety_codes"]))
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    for field in (
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ALWAYS_FALSE_FIELDS
+    ):
+        report[field] = False
+    bool_fields = (
+        "normalization_and_period_pairing_workspace_ready",
+        "task225_validation_completed",
+        "task225_artifact_validation_completed",
+        "task225_normalization_plan_validated",
+        "task225_period_pairing_requirements_validated",
+        "task225_schema_contracts_validated",
+        "normalization_workspace_created", "normalization_workspace_valid",
+        "workspace_manual_fill_required", "acceptance_boundary_valid",
+        "ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate",
+        "next_tasks_valid", "write_outputs",
+    )
+    for field in bool_fields:
+        report[field] = _as_bool(report.get(field))
+    int_fields = (
+        "evidence_candidate_count", "approved_candidate_count",
+        "rejected_candidate_count", "normalized_fact_count",
+        "complete_period_pair_count",
+    )
+    for field in int_fields:
+        value = report.get(field)
+        report[field] = (
+            value if isinstance(value, int) and not isinstance(value, bool)
+            else 0
+        )
+    string_fields = (
+        "mode", "schema_version", "status",
+        "normalization_and_period_pairing_workspace_status",
+        "source_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_input_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_review_template_checksum_sha256",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256",
+        "source_multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256",
+        "source_multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+        "multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256",
+        "next_step", "safe_hint",
+    )
+    for field in string_fields:
+        report[field] = str(report.get(field) or "")
+    if not isinstance(report.get("workspace_template"), dict):
+        report["workspace_template"] = _task226_empty_workspace_template()
+    report[
+        "multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256"
+    ] = _task226_checksum(report)
+    return report
+
+
+def _task226_failed(
+    errors: list[dict[str, Any]],
+    *,
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    return _task226_finalize({
+        "mode":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_MODE,
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_SCHEMA_VERSION,
+        "status": "failed",
+        "normalization_and_period_pairing_workspace_status": "failed",
+        "next_task_rows": _task226_next_rows(False),
+        "next_step":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_FAILED_NEXT_STEP,
+        "acceptance_boundary_valid": True,
+        "workspace_template": _task226_empty_workspace_template(),
+        "write_outputs": write_outputs,
+        "errors": [
+            {"message": str(row.get("message") or "task226_failed")}
+            for row in errors if isinstance(row, dict)
+        ],
+        "safe_hint":
+            "Task226 failed safely without filling, normalization, pairing, staging, or execution.",
+    })
+
+
+def _task226_blocked(code: str) -> dict[str, Any]:
+    return _task226_finalize({
+        "mode":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_MODE,
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_SCHEMA_VERSION,
+        "status": "blocked",
+        "normalization_and_period_pairing_workspace_status": "blocked",
+        "next_task_rows": _task226_next_rows(False),
+        "blocker_rows": [{
+            "blocker_index": 1,
+            "code": code,
+            "safe_hint": "Resolve the sanitized Task226 blocker and rerun.",
+        }],
+        "next_step":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_BLOCKED_NEXT_STEP,
+        "acceptance_boundary_valid": True,
+        "workspace_template": _task226_empty_workspace_template(),
+        "write_outputs": True,
+        "errors": [],
+        "safe_hint":
+            "Task226 is blocked and carries no candidate values, review notes, or filled workspace rows.",
+    })
+
+
+def _build_task226_report(
+    loaded: dict[str, dict[str, Any]],
+    task225_documents: dict[str, Any],
+    parent: Path,
+) -> dict[str, Any]:
+    (
+        validation_rows, lineage_rows, artifact_rows,
+        plan_validation_rows, pair_validation_rows,
+        upstream_blockers,
+    ) = _task226_upstream_validation(
+        loaded, task225_documents, parent
+    )
+    task225 = loaded["task225"]
+    task224 = loaded["task224"]
+    workspace_schema_rows = _task226_workspace_schema_rows()
+    normalized_schema_by_name = {
+        str(row.get("field_name") or ""): row
+        for row in task225.get("normalized_fact_schema_rows") or []
+        if isinstance(row, dict)
+    }
+    canonical_operator_fields = (
+        "normalized_value", "normalized_currency", "normalized_unit",
+        "normalized_scale", "normalization_multiplier",
+        "normalization_sign_adjustment",
+    )
+    schema_contract_valid = (
+        all(field in normalized_schema_by_name for field in canonical_operator_fields)
+        and all(
+            normalized_schema_by_name[field].get("field_type")
+            == (
+                "decimal_string"
+                if field in {"normalized_value", "normalization_multiplier"}
+                else "string"
+            )
+            for field in canonical_operator_fields
+        )
+        and [
+            row.get("field_name") for row in workspace_schema_rows
+            if row.get("schema_section") == "workspace"
+        ] == list(_task226_empty_workspace_template())
+    )
+    blockers = list(upstream_blockers)
+    if not schema_contract_valid:
+        blockers.append("task225_schema_contracts_invalid")
+    normalization_rows: list[dict[str, Any]] = []
+    counterpart_rows: list[dict[str, Any]] = []
+    source_rows: list[dict[str, Any]] = []
+    workspace_template = _task226_empty_workspace_template()
+    template_checksum = ""
+    if not blockers:
+        (
+            normalization_rows, counterpart_rows, source_rows,
+            workspace_template, template_checksum,
+        ) = _task226_build_workspace_rows(
+            task225, task224, workspace_schema_rows
+        )
+    expected_normalization_fields = [
+        row["field_name"] for row in workspace_schema_rows
+        if row["schema_section"] == "normalization_workspace_row"
+    ]
+    expected_counterpart_fields = [
+        row["field_name"] for row in workspace_schema_rows
+        if row["schema_section"] == "counterpart_binding_row"
+    ]
+    workspace_rows_valid = (
+        len(normalization_rows) == 4
+        and all(
+            list(row) == expected_normalization_fields
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(row.get(
+                    "normalization_workspace_row_checksum_sha256"
+                ) or ""),
+            )
+            and all(row.get(field) == "" for field in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS
+            ))
+            and all(row.get(field) is False for field in (
+                "workspace_row_filled", "normalization_executed",
+                "normalized_value_present", "normalized_fact_created",
+                "period_pair_complete", "staging_ready",
+            ))
+            for row in normalization_rows
+        )
+        and len(counterpart_rows) == 4
+        and all(
+            list(row) == expected_counterpart_fields
+            and re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(row.get(
+                    "counterpart_workspace_row_checksum_sha256"
+                ) or ""),
+            )
+            and row.get("required_report_period")
+            == row.get("missing_report_period")
+            and all(row.get(field) == "" for field in (
+                "counterpart_task224_checksum_sha256",
+                "counterpart_task224_review_result_checksum_sha256",
+                "counterpart_evidence_candidate_id",
+                "counterpart_source_document_sha256", "operator_note",
+            ))
+            and all(row.get(field) is False for field in (
+                "counterpart_binding_supplied",
+                "counterpart_binding_validated",
+                "counterpart_value_copied", "counterpart_value_derived",
+                "period_pair_complete",
+            ))
+            for row in counterpart_rows
+        )
+    )
+    forbidden_counterpart_fields = {
+        "counterpart_numeric_value", "counterpart_raw_value",
+        "counterpart_normalized_value", "counterpart_currency",
+        "counterpart_unit", "counterpart_scale",
+    }
+    if any(
+        forbidden_counterpart_fields.intersection(row)
+        for row in counterpart_rows
+    ):
+        blockers.append("direct_counterpart_value_field_present")
+    if not workspace_rows_valid:
+        blockers.append("generated_workspace_rows_invalid")
+    scope_rows = _task226_scope_rows()
+    manual_rule_rows = _task226_manual_fill_rule_rows()
+    authorization_rows = _task226_authorization_preview_rows()
+    boundary_rows = _task226_boundary_rows()
+    boundary_valid = all(
+        row["actual_value"] is False and row["validated"] is True
+        for row in boundary_rows
+    )
+    generated = [
+        *workspace_schema_rows, *normalization_rows, *counterpart_rows,
+        *source_rows, *manual_rule_rows, *authorization_rows,
+        *boundary_rows,
+    ]
+    issuer_count, url_count, safety_codes = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_safety_findings(
+            _task223_safety_scan_projection(generated)
+        )
+    )
+    bad_safety_codes = sorted({
+        code for code in safety_codes
+        if code in {
+            "issuer_name_detected", "inn_detected", "ogrn_detected",
+            "isin_detected", "concrete_url_detected",
+            "concrete_document_value_detected", "review_note_detected",
+        }
+    })
+    if issuer_count or url_count:
+        bad_safety_codes.append(
+            "concrete_data_outside_task226_safe_metadata"
+        )
+    dangerous = (
+        _rzd_controlled_values_multi_issuer_source_candidate_seed_prepare_true_fields(
+            generated,
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ALWAYS_FALSE_FIELDS,
+        )
+    )
+    if dangerous or not boundary_valid:
+        bad_safety_codes.append(
+            "forbidden_task226_execution_acceptance_or_readiness"
+        )
+    bad_safety_codes = sorted(set(bad_safety_codes))
+    if bad_safety_codes:
+        blockers.append("unsafe_generated_task226_contract")
+    blockers = list(dict.fromkeys(blockers))
+    upstream_valid = not upstream_blockers
+    workspace_valid = (
+        upstream_valid and schema_contract_valid
+        and workspace_rows_valid and not blockers
+    )
+    task227_allowed = workspace_valid and boundary_valid
+    next_rows = _task226_next_rows(task227_allowed)
+    checks = (
+        ("task225_upstream_valid", upstream_valid),
+        (
+            "task225_artifact_family_valid",
+            len(artifact_rows) == 20
+            and all(row["validated"] for row in artifact_rows),
+        ),
+        (
+            "task225_normalization_plan_valid",
+            len(plan_validation_rows) == 4
+            and all(row["validated"] for row in plan_validation_rows),
+        ),
+        (
+            "task225_period_pairing_valid",
+            len(pair_validation_rows) == 4
+            and all(row["validated"] for row in pair_validation_rows),
+        ),
+        ("task225_schema_contracts_valid", schema_contract_valid),
+        ("workspace_rows_valid", workspace_rows_valid),
+        ("acceptance_boundary_valid", boundary_valid),
+        ("generated_contract_safe", not bad_safety_codes),
+        (
+            "task227_only_readiness",
+            [
+                row["task_id"] for row in next_rows
+                if row["allowed_now"]
+            ] == (["Task227"] if task227_allowed else []),
+        ),
+    )
+    check_rows = [
+        {
+            "check_index": index,
+            "check_key": key,
+            "passed": bool(passed),
+            "status": "passed" if passed else "blocked",
+            "safe_hint":
+                "Task226 deterministic empty-workspace contract check.",
+        }
+        for index, (key, passed) in enumerate(checks, 1)
+    ]
+    warning_state = task227_allowed
+    if not warning_state:
+        validation_rows = []
+        lineage_rows = []
+        artifact_rows = []
+        plan_validation_rows = []
+        pair_validation_rows = []
+        workspace_schema_rows = []
+        normalization_rows = []
+        counterpart_rows = []
+        source_rows = []
+        manual_rule_rows = []
+        authorization_rows = []
+        boundary_rows = []
+        scope_rows = []
+        workspace_template = _task226_empty_workspace_template()
+        template_checksum = ""
+        next_rows = _task226_next_rows(False)
+    blocker_rows = [
+        {
+            "blocker_index": index,
+            "code": code,
+            "safe_hint": "Resolve the sanitized Task226 blocker and rerun.",
+        }
+        for index, code in enumerate(blockers, 1)
+    ]
+    aliases = {
+        "source_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256":
+            str(task225.get(
+                "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256":
+            str(task224.get(
+                "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_input_checksum_sha256":
+            str(task224.get(
+                "multi_issuer_dry_run_evidence_candidate_manual_review_input_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256":
+            str(task224.get(
+                "multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256":
+            str(loaded["task223"].get(
+                "multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_dry_run_evidence_candidate_review_template_checksum_sha256":
+            str(loaded["task223"].get(
+                "multi_issuer_dry_run_evidence_candidate_review_template_checksum_sha256"
+            ) or ""),
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256":
+            str(loaded["task222"].get(
+                "controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256"
+            ) or ""),
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256":
+            str(loaded["task222"].get(
+                "controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256":
+            str(loaded["task221"].get(
+                "multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256":
+            str(loaded["task220"].get(
+                "multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256":
+            str(loaded["task219"].get(
+                "multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256"
+            ) or ""),
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256":
+            str(loaded["task218"].get(
+                "authorized_manual_candidate_seed_draft_loader_checksum_sha256"
+            ) or ""),
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256":
+            str(loaded["task217"].get(
+                "multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256"
+            ) or ""),
+    }
+    if not warning_state:
+        aliases = {key: "" for key in aliases}
+    report = {
+        "mode":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_MODE,
+        "schema_version":
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_SCHEMA_VERSION,
+        "status": "warning" if warning_state else "blocked",
+        "normalization_and_period_pairing_workspace_status":
+            "warning" if warning_state else "blocked",
+        "normalization_and_period_pairing_workspace_ready": warning_state,
+        "task225_validation_completed": warning_state,
+        "task225_artifact_validation_completed": warning_state,
+        "task225_normalization_plan_validated": warning_state,
+        "task225_period_pairing_requirements_validated": warning_state,
+        "task225_schema_contracts_validated": warning_state,
+        "normalization_workspace_created": warning_state,
+        "normalization_workspace_valid": warning_state,
+        "workspace_manual_fill_required": warning_state,
+        "acceptance_boundary_valid": boundary_valid,
+        "ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate":
+            task227_allowed,
+        "next_tasks_valid": task227_allowed,
+        "write_outputs": True,
+        "evidence_candidate_count":
+            int(task225.get("evidence_candidate_count") or 0)
+            if warning_state else 0,
+        "approved_candidate_count":
+            int(task225.get("approved_candidate_count") or 0)
+            if warning_state else 0,
+        "rejected_candidate_count":
+            int(task225.get("rejected_candidate_count") or 0)
+            if warning_state else 0,
+        "normalized_fact_count": 0,
+        "complete_period_pair_count":
+            int(task225.get("complete_period_pair_count") or 0)
+            if warning_state else 0,
+        **aliases,
+        "multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256":
+            template_checksum,
+        "workspace_template": workspace_template,
+        "scope_rows": scope_rows,
+        "task225_validation_rows": validation_rows,
+        "lineage_rows": lineage_rows,
+        "task225_artifact_validation_rows": artifact_rows,
+        "normalization_plan_validation_rows": plan_validation_rows,
+        "period_pairing_validation_rows": pair_validation_rows,
+        "workspace_schema_rows": workspace_schema_rows,
+        "normalization_workspace_rows": normalization_rows,
+        "counterpart_binding_rows": counterpart_rows,
+        "source_reference_inventory_rows": source_rows,
+        "manual_fill_rule_rows": manual_rule_rows,
+        "authorization_preview_rows": authorization_rows,
+        "acceptance_execution_boundary_rows": boundary_rows,
+        "next_task_rows": next_rows,
+        "normalization_and_period_pairing_workspace_check_rows": check_rows,
+        "blocker_rows": blocker_rows,
+        "bad_safety_codes": bad_safety_codes,
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_TASK227_NEXT_STEP
+            if warning_state else
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_BLOCKED_NEXT_STEP
+        ),
+        "safe_hint":
+            "Task226 creates an empty checksum-bound workspace; no value is filled, normalized, paired, accepted, or staged.",
+        "errors": [],
+    }
+    return _task226_finalize(report)
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace_markdown(
+    report: dict[str, Any],
+) -> str:
+    ready = report.get(
+        "ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate"
+    ) is True
+    verdict = (
+        "WARNING - empty normalization and period pairing workspace is ready; only Task227 authorization gate is unlocked."
+        if ready
+        else "BLOCKED - resolve Task226 normalization workspace blockers."
+        if report.get("status") == "blocked"
+        else "FAILED - repair Task226; all downstream tasks remain locked."
+    )
+    return "\n".join([
+        "# Task226 - Multi-Issuer Normalization and Period Pairing Workspace",
+        "",
+        verdict,
+        "",
+        f"- Status: `{report.get('status', '')}`",
+        f"- Task225 / artifacts / plan / pairing / schema validated: `{str(report.get('task225_validation_completed', False)).lower()}/{str(report.get('task225_artifact_validation_completed', False)).lower()}/{str(report.get('task225_normalization_plan_validated', False)).lower()}/{str(report.get('task225_period_pairing_requirements_validated', False)).lower()}/{str(report.get('task225_schema_contracts_validated', False)).lower()}`",
+        f"- Candidates / approved / rejected: `{report.get('evidence_candidate_count', 0)}/{report.get('approved_candidate_count', 0)}/{report.get('rejected_candidate_count', 0)}`",
+        f"- Normalization plan / workspace / filled rows: `{report.get('normalization_plan_row_count', 0)}/{report.get('normalization_workspace_row_count', 0)}/{report.get('filled_normalization_workspace_row_count', 0)}`",
+        f"- Pairing requirements / counterpart rows / filled bindings: `{report.get('period_pairing_requirement_count', 0)}/{report.get('counterpart_binding_row_count', 0)}/{report.get('filled_counterpart_binding_row_count', 0)}`",
+        f"- Normalized facts / complete pairs / missing counterparts: `{report.get('normalized_fact_count', 0)}/{report.get('complete_period_pair_count', 0)}/{report.get('missing_counterpart_count', 0)}`",
+        f"- Workspace created / valid / manual fill required: `{str(report.get('normalization_workspace_created', False)).lower()}/{str(report.get('normalization_workspace_valid', False)).lower()}/{str(report.get('workspace_manual_fill_required', False)).lower()}`",
+        f"- Task227 ready: `{str(ready).lower()}`",
+        f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
+        f"- Task225 SHA-256: `{report.get('source_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256', '')}`",
+        f"- Workspace template SHA-256: `{report.get('multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256', '')}`",
+        f"- Task226 SHA-256: `{report.get('multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`",
+        "",
+        "Task226 accepts no operator values and performs no source or payload access, extraction, normalization, period-pair completion, evidence or value acceptance, staging, database, import, scoring, ranking, recommendation, broker, export, or trading action.",
+        "",
+    ])
+
+
+def _task226_envelope(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report.get("status", ""),
+        "normalization_and_period_pairing_workspace_ready":
+            report.get(
+                "normalization_and_period_pairing_workspace_ready", False
+            ),
+        "ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate":
+            report.get(
+                "ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate",
+                False,
+            ),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256":
+            report.get(
+                "multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256",
+                "",
+            ),
+        "multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256":
+            report.get(
+                "multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256",
+                "",
+            ),
+    }
+
+
+def _task226_wrappers(
+    report: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    envelope = _task226_envelope(report)
+    mappings = {
+        "checks_json": (
+            "normalization_and_period_pairing_workspace_check_count",
+            "normalization_and_period_pairing_workspace_check_rows",
+        ),
+        "scope_json": ("scope_count", "scope_rows"),
+        "task225_validation_json": (
+            "task225_validation_count", "task225_validation_rows",
+        ),
+        "lineage_json": ("lineage_count", "lineage_rows"),
+        "task225_artifact_validation_json": (
+            "task225_artifact_validation_count",
+            "task225_artifact_validation_rows",
+        ),
+        "normalization_plan_validation_json": (
+            "normalization_plan_validation_count",
+            "normalization_plan_validation_rows",
+        ),
+        "period_pairing_validation_json": (
+            "period_pairing_validation_count",
+            "period_pairing_validation_rows",
+        ),
+        "workspace_schema_json": (
+            "workspace_schema_field_count", "workspace_schema_rows",
+        ),
+        "normalization_workspace_template_json": (
+            "normalization_workspace_row_count",
+            "normalization_workspace_rows",
+        ),
+        "counterpart_binding_template_json": (
+            "counterpart_binding_row_count", "counterpart_binding_rows",
+        ),
+        "source_reference_inventory_json": (
+            "source_reference_inventory_count",
+            "source_reference_inventory_rows",
+        ),
+        "manual_fill_rules_json": (
+            "manual_fill_rule_count", "manual_fill_rule_rows",
+        ),
+        "authorization_preview_json": (
+            "authorization_preview_count", "authorization_preview_rows",
+        ),
+        "acceptance_execution_boundary_json": (
+            "acceptance_execution_boundary_count",
+            "acceptance_execution_boundary_rows",
+        ),
+        "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {
+        key: {
+            **envelope,
+            count: report.get(count, 0),
+            rows: report.get(rows) or [],
+        }
+        for key, (count, rows) in mappings.items()
+    }
+    payloads["blockers_json"] = {
+        **envelope,
+        "blocker_rows": report.get("blocker_rows") or [],
+    }
+    payloads["workspace_schema_json"]["workspace_schema_version"] = (
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_SCHEMA_VERSION
+    )
+    payloads["normalization_workspace_template_json"][
+        "workspace_template"
+    ] = report.get("workspace_template") or _task226_empty_workspace_template()
+    payloads["next_tasks_json"]["next_tasks_valid"] = report.get(
+        "next_tasks_valid", False
+    )
+    payloads["summary_json"] = {
+        **envelope,
+        **{
+            field: report.get(field, 0)
+            for field in (
+                "evidence_candidate_count", "approved_candidate_count",
+                "rejected_candidate_count", "normalization_plan_row_count",
+                "normalization_workspace_row_count",
+                "counterpart_binding_row_count",
+                "filled_normalization_workspace_row_count",
+                "filled_counterpart_binding_row_count",
+                "normalized_fact_count", "complete_period_pair_count",
+                "missing_counterpart_count",
+            )
+        },
+        "normalization_workspace_created": report.get(
+            "normalization_workspace_created", False
+        ),
+        "normalization_workspace_valid": report.get(
+            "normalization_workspace_valid", False
+        ),
+        "workspace_manual_fill_required": report.get(
+            "workspace_manual_fill_required", False
+        ),
+        "workspace_manual_fill_authorized": False,
+        "workspace_manual_fill_executed": False,
+    }
+    payloads["safety_json"] = {
+        **envelope,
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        **{
+            field: False
+            for field in (
+                RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ALWAYS_FALSE_FIELDS
+            )
+        },
+    }
+    return payloads
+
+
+def _task226_write_direct(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    if artifacts.get("workspace_json"):
+        write_json_report(report, artifacts["workspace_json"])
+    if artifacts.get("workspace_markdown"):
+        artifacts["workspace_markdown"].parent.mkdir(
+            parents=True, exist_ok=True
+        )
+        artifacts["workspace_markdown"].write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace_markdown(
+                report
+            ),
+            encoding="utf-8",
+        )
+    for key, payload in _task226_wrappers(report).items():
+        if artifacts.get(key):
+            write_json_report(payload, artifacts[key])
+
+
+def _task226_write_atomic(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> None:
+    targets = {
+        key: path for key, path in artifacts.items() if path is not None
+    }
+    roots: dict[Path, Path] = {}
+    staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent
+            parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(
+                    prefix=".task226-normalization-pairing-workspace-",
+                    dir=parent,
+                ))
+                roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task226_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / (
+                    f"backup-{key}{target.suffix}"
+                )
+                shutil.copy2(target, backup)
+                backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target)
+            published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file():
+                    os.replace(backup, target)
+                elif target in published and target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise
+    finally:
+        for root in roots.values():
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def _task226_publish(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> dict[str, Any]:
+    try:
+        _task226_write_atomic(report, artifacts)
+        return report
+    except Exception:
+        failed = _task226_failed([{
+            "message": "task226_terminal_artifact_write_failed",
+        }])
+        try:
+            _task226_write_atomic(failed, artifacts)
+            return failed
+        except Exception:
+            return _task226_failed(
+                [{"message": "task226_terminal_artifact_write_failed"}],
+                write_outputs=False,
+            )
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_workspace(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = _task226_inputs(args)
+    artifacts = _task226_artifacts(args)
+    output_errors = _task226_output_errors(inputs, artifacts)
+    if output_errors:
+        return _task226_failed(output_errors, write_outputs=False)
+    task225_path = inputs.get("task225")
+    if (
+        not isinstance(task225_path, Path)
+        or not task225_path.exists()
+        or not task225_path.is_file()
+    ):
+        return _task226_publish(
+            _task226_blocked("task225_input_missing"), artifacts
+        )
+    loaded: dict[str, dict[str, Any]] = {}
+    for key in (
+        "task225", "task224", "task223", "task222", "task221",
+        "task220", "task219", "task218", "task217",
+    ):
+        path = inputs.get(key)
+        if not isinstance(path, Path) or not path.is_file():
+            return _task226_publish(
+                _task226_blocked(f"{key}_lineage_input_missing"),
+                artifacts,
+            )
+        try:
+            loaded[key] = _load_json_object(path)
+        except Exception:
+            return _task226_publish(
+                _task226_failed([{
+                    "message": f"{key}_input_malformed",
+                }]),
+                artifacts,
+            )
+    task225_documents: dict[str, Any] = {}
+    try:
+        for key, path in inputs["task225_artifacts"].items():
+            if not isinstance(path, Path) or not path.is_file():
+                task225_documents[key] = None
+            elif key == "plan_markdown":
+                task225_documents[key] = path.read_text(encoding="utf-8")
+            else:
+                task225_documents[key] = _load_json_object(path)
+    except Exception:
+        return _task226_publish(
+            _task226_failed([{
+                "message": "task225_artifact_family_malformed",
+            }]),
+            artifacts,
+        )
+    try:
+        report = _build_task226_report(
+            loaded, task225_documents, task225_path.parent
+        )
+    except Exception:
+        return _task226_publish(
+            _task226_failed([{
+                "message": "task226_internal_validation_failed",
+            }]),
+            artifacts,
+        )
+    return _task226_publish(report, artifacts)
 
 
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
