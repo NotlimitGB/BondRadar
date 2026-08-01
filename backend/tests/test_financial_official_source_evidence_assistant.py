@@ -35007,6 +35007,330 @@ def test_approved_counterpart_value_contract_snapshot_gate_failed_and_atomic_con
     assert "private synthetic path" not in json.dumps(write_failed)
 
 
+def _run_task231b(
+    chain: Path,
+    *,
+    task231a_input: Path | None = None,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-fact-and-complete-period-pair-assembly-executor",
+        "--operator-resolution-chain-output-dir", str(chain),
+    ]
+    if task231a_input is not None:
+        arguments.extend([
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-fact-and-complete-period-pair-assembly-executor-input",
+            str(task231a_input),
+        ])
+    arguments.extend(extra or [])
+    parsed = assistant.parse_args(arguments)
+    report, exit_code = assistant.run_assistant(parsed)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _write_task231b_ready_task231a(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, dict, dict, Path, Path]:
+    task228, task230, task224_path, task225_path = _write_task231a_ready_task230(
+        chain, tmp_path, monkeypatch
+    )
+    row_ids = [
+        row["counterpart_workspace_row_id"]
+        for row in task228["loaded_counterpart_rows"]
+    ]
+    task231a = _run_task231a(
+        chain,
+        task224_bindings={row_id: task224_path for row_id in row_ids},
+        task225_bindings={row_id: task225_path for row_id in row_ids},
+    )
+    assert task231a["status"] == "warning", task231a["blocker_rows"]
+    assert task231a[
+        "ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor"
+    ] is True
+    return task228, task230, task231a, task224_path, task225_path
+
+
+def test_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_success_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task228, task230, task231a, task224_path, _ = _write_task231b_ready_task231a(
+        chain, tmp_path, monkeypatch
+    )
+    clone = tmp_path / "clone"
+    shutil.copytree(chain, clone)
+    names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_EXECUTOR_ARTIFACT_NAMES
+    )
+    immutable = {
+        path: path.read_bytes()
+        for path in chain.rglob("*")
+        if path.is_file() and path.name not in set(names.values())
+    }
+    original_open = Path.open
+    forbidden_names = set().union(
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES.values(),
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES.values(),
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES.values(),
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES.values(),
+    )
+    payload_roots = {
+        (root / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR).resolve()
+        for root in (chain, clone, task224_path.parent)
+    }
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Task231B must not access network or extraction")
+
+    def guarded_open(path: Path, *args, **kwargs):
+        resolved = path.resolve()
+        if path.name in forbidden_names:
+            raise AssertionError("Task231B must not reopen Task222-Task225 artifacts")
+        if any(resolved == root or root in resolved.parents for root in payload_roots):
+            raise AssertionError("Task231B must not read Task222 payload")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(assistant, "_task222_controlled_http_get", forbidden)
+    monkeypatch.setattr(assistant, "_task222_extract_pdf", forbidden)
+    monkeypatch.setattr(Path, "open", guarded_open)
+    report = _run_task231b(chain)
+    clone_report = _run_task231b(clone)
+    monkeypatch.setattr(Path, "open", original_open)
+
+    assert report["status"] == "warning", (report["blocker_rows"], report["errors"])
+    assert report["reviewed_normalized_fact_and_complete_period_pair_assembly_executor_ready"] is False
+    assert report["execution_completed"] is True
+    assert report["task231a_validation_completed"] is True
+    assert report["task231a_artifact_validation_completed"] is True
+    assert report["task217_to_task231a_lineage_validation_completed"] is True
+    assert report["task231a_value_contract_validation_completed"] is True
+    assert report["task230_plan_source_validation_completed"] is True
+    assert report["task228_current_value_source_validation_completed"] is True
+    assert report["normalized_fact_count"] == len(task230["normalized_fact_plan_rows"]) == 4
+    assert report["complete_period_pair_count"] == len(task230["period_pair_plan_rows"]) == 4
+    assert report["all_normalized_facts_valid"] is True
+    assert report["all_complete_period_pairs_valid"] is True
+    assert report["one_to_one_execution_valid"] is True
+    assert report["fact_creation_executed"] is True
+    assert report["normalized_fact_created"] is True
+    assert report["counterpart_value_copied"] is True
+    assert report["counterpart_value_derived"] is False
+    assert report["counterpart_normalization_executed"] is False
+    assert report["normalization_executed"] is False
+    assert report["pair_assembly_executed"] is True
+    assert report["period_pair_created"] is True
+    assert report["controlled_values_accepted"] is False
+    assert report["controlled_financial_values_created"] is False
+    assert report["controlled_values_staged"] is False
+    assert report["database_mutated"] is False
+    assert report[
+        "ready_for_task232_materialized_normalized_fact_and_complete_period_pair_review_gate"
+    ] is True
+    assert [row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]] == ["Task232"]
+    assert report["blocker_count"] == report["bad_safety_count"] == 0
+
+    current_by_checksum = {
+        row["loaded_normalization_row_checksum_sha256"]: row
+        for row in task228["loaded_normalization_rows"]
+    }
+    for row in report["materialized_normalized_fact_rows"]:
+        current = current_by_checksum[row["loaded_normalization_row_checksum_sha256"]]
+        assert row["normalized_value"] == current["normalized_value"]
+        assert row["normalized_currency"] == current["normalized_currency"]
+        assert row["normalized_unit"] == current["normalized_unit"]
+        assert row["normalized_scale"] == current["normalized_scale"]
+        assert re.fullmatch(r"task231b_normalized_fact_[0-9a-f]{16}", row["normalized_fact_id"])
+        assert re.fullmatch(r"[0-9a-f]{64}", row["normalized_fact_checksum_sha256"])
+    contract_by_checksum = {
+        row["approved_counterpart_value_contract_checksum_sha256"]: row
+        for row in task231a["approved_counterpart_value_contract_rows"]
+    }
+    for row in report["complete_period_pair_rows"]:
+        contract = contract_by_checksum[
+            row["approved_counterpart_value_contract_checksum_sha256"]
+        ]
+        assert row["counterpart_value_numeric"] == contract["approved_raw_value_numeric"]
+        assert row["counterpart_currency"] == contract["approved_raw_currency"]
+        assert row["counterpart_unit"] == contract["approved_raw_unit"]
+        assert row["counterpart_scale"] == contract["approved_raw_scale"]
+        assert row["counterpart_report_period"] == 2025
+        assert row["counterpart_value_source_kind"] == "task231a_approved_raw_snapshot"
+        assert re.fullmatch(r"task231b_complete_period_pair_[0-9a-f]{16}", row["complete_period_pair_id"])
+        assert re.fullmatch(r"[0-9a-f]{64}", row["complete_period_pair_checksum_sha256"])
+
+    assert len(names) == len(set(names.values())) == 20
+    assert all((chain / name).is_file() for name in names.values())
+    concrete_keys = {
+        "executor_json", "materialized_normalized_fact_rows_json",
+        "complete_period_pair_rows_json",
+    }
+    concrete_fields = {
+        "normalized_value", "normalized_currency", "normalized_unit", "normalized_scale",
+        "current_normalized_value", "counterpart_value_numeric", "counterpart_currency",
+        "counterpart_unit", "counterpart_scale",
+    }
+    for key, name in names.items():
+        text = (chain / name).read_text(encoding="utf-8")
+        if key not in concrete_keys:
+            assert all(f'"{field}"' not in text for field in concrete_fields)
+        assert "evidence_candidate_id" not in text
+        assert str(task224_path.parent) not in text
+    for key, expected in assistant._task231b_wrappers(report).items():
+        assert json.loads((chain / names[key]).read_text(encoding="utf-8")) == expected
+    assert (chain / names["executor_markdown"]).read_text(encoding="utf-8") == (
+        assistant.render_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_markdown(report)
+    )
+    assert report["materialized_normalized_fact_rows"] == clone_report["materialized_normalized_fact_rows"]
+    assert report["complete_period_pair_rows"] == clone_report["complete_period_pair_rows"]
+    assert report[
+        "multi_issuer_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_checksum_sha256"
+    ] == clone_report[
+        "multi_issuer_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_checksum_sha256"
+    ]
+    assert {path: path.read_bytes() for path in immutable} == immutable
+    assert not list(tmp_path.glob(".task231b-reviewed-assembly-executor-*"))
+
+
+def test_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_blocks_corruption(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task228, task230, task231a, _, _ = _write_task231b_ready_task231a(
+        chain, tmp_path, monkeypatch
+    )
+    task231a_names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES
+    task230_names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ARTIFACT_NAMES
+    task228_names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES
+
+    missing_chain = tmp_path / "missing"
+    missing_chain.mkdir()
+    missing = _run_task231b(missing_chain)
+    assert missing["status"] == "blocked"
+    assert missing["normalized_fact_count"] == missing["complete_period_pair_count"] == 0
+    assert all(row["allowed_now"] is False for row in missing["next_task_rows"])
+
+    invalid_decimal = copy.deepcopy(task228)
+    invalid_decimal["loaded_normalization_rows"][0]["normalized_value"] = "NaN"
+    decimal_rows, decimal_blockers = assistant._task231b_task228_validation(
+        invalid_decimal, task230, task231a, chain
+    )
+    assert any(
+        row["validation_key"] == "loaded_normalization_row_001"
+        and row["validated"] is False
+        for row in decimal_rows
+    )
+    assert "task228_loaded_normalization_row_001_invalid" in decimal_blockers
+
+    for copy_name, artifact in (
+        ("c1", task231a_names["approved_counterpart_value_contract_rows_json"]),
+        ("c2", task230_names["normalized_fact_plan_rows_json"]),
+        ("c3", task228_names["loaded_normalization_rows_json"]),
+    ):
+        corrupt_chain = tmp_path / copy_name
+        shutil.copytree(chain, corrupt_chain)
+        path = corrupt_chain / artifact
+        document = json.loads(path.read_text(encoding="utf-8"))
+        document["synthetic_corruption"] = True
+        path.write_text(json.dumps(document), encoding="utf-8")
+        blocked = _run_task231b(corrupt_chain)
+        assert blocked["status"] == "blocked"
+        assert blocked["normalized_fact_count"] == 0
+        assert blocked["complete_period_pair_count"] == 0
+        assert blocked["execution_completed"] is False
+        assert blocked["fact_creation_executed"] is False
+        assert blocked["pair_assembly_executed"] is False
+        assert blocked[
+            "ready_for_task232_materialized_normalized_fact_and_complete_period_pair_review_gate"
+        ] is False
+        persisted = "\n".join(
+            (corrupt_chain / name).read_text(encoding="utf-8")
+            for name in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_EXECUTOR_ARTIFACT_NAMES.values()
+        )
+        assert '"normalized_value"' not in persisted
+        assert '"counterpart_value_numeric"' not in persisted
+
+
+def test_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_failed_and_atomic_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    _, _, _, task224_path, _ = _write_task231b_ready_task231a(
+        chain, tmp_path, monkeypatch
+    )
+    malformed = tmp_path / "malformed-task231a.json"
+    malformed.write_text('{"status": invalid', encoding="utf-8")
+    failed = _run_task231b(chain, task231a_input=malformed)
+    assert failed["status"] == "failed"
+    assert failed["errors"] == [{"message": "task231a_json_invalid"}]
+    assert failed["normalized_fact_count"] == failed["complete_period_pair_count"] == 0
+
+    invalid_utf = tmp_path / "invalid-utf-task231a.json"
+    invalid_utf.write_bytes(b"\xff\xfe")
+    utf_failed = _run_task231b(chain, task231a_input=invalid_utf)
+    assert utf_failed["status"] == "failed"
+    assert utf_failed["errors"] == [{"message": "task231a_utf8_invalid"}]
+
+    task231a_names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES
+    collision_target = chain / task231a_names["checks_json"]
+    collision_before = collision_target.read_bytes()
+    collision = _run_task231b(chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-fact-and-complete-period-pair-assembly-executor-checks-output",
+        str(collision_target),
+    ])
+    assert collision["status"] == "blocked"
+    assert collision["write_outputs"] is False
+    assert collision["blocker_rows"][0]["code"] == "task231b_output_input_collision"
+    assert collision_target.read_bytes() == collision_before
+
+    task224_before = task224_path.read_bytes()
+    upstream_collision = _run_task231b(chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-fact-and-complete-period-pair-assembly-executor-safety-output",
+        str(task224_path),
+    ])
+    assert upstream_collision["status"] == "blocked"
+    assert upstream_collision["write_outputs"] is False
+    assert upstream_collision["blocker_rows"][0]["code"] == "task231b_output_input_collision"
+    assert task224_path.read_bytes() == task224_before
+
+    original_replace = assistant.os.replace
+
+    def fail_mid_publication(source, target):
+        source_path = Path(source)
+        if source_path.name == "01.md" or source_path.name.startswith("backup-"):
+            raise OSError("private task231b rollback path must not leak")
+        return original_replace(source, target)
+
+    monkeypatch.setattr(assistant.os, "replace", fail_mid_publication)
+    write_failed = _run_task231b(chain)
+    monkeypatch.setattr(assistant.os, "replace", original_replace)
+    assert write_failed["status"] == "failed"
+    assert write_failed["write_outputs"] is False
+    assert write_failed["errors"] == [{"message": "task231b_terminal_artifact_write_failed"}]
+    assert write_failed["bad_safety_codes"] == [
+        "task231b_artifact_rollback_state_uncertain"
+    ]
+    assert write_failed["bad_safety_count"] == 1
+    assert write_failed["execution_completed"] is False
+    assert write_failed[
+        "ready_for_task232_materialized_normalized_fact_and_complete_period_pair_review_gate"
+    ] is False
+    assert all(
+        write_failed[field] is False
+        for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_EXECUTOR_SUCCESS_TRUE_FIELDS
+    )
+    assert "private task231b rollback path" not in json.dumps(write_failed)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
