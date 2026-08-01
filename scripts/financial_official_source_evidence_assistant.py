@@ -146,6 +146,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-authorized-manual-fill-loader",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-facts-and-complete-period-pair-assembly-plan",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -13129,6 +13130,63 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ALWAYS_FALSE_FIELDS =
         "paper_trading_executed", "production_export_executed",
     ))
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_MODE = (
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-"
+    "counterpart-value-contract-snapshot-gate"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_SCHEMA_VERSION = (
+    "bondradar.multi_issuer_approved_counterpart_value_contract_snapshot.v1"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES = {
+    "snapshot_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task231a.json",
+    "snapshot_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task231a.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_checks_task231a.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_blockers_task231a.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_scope_task231a.json",
+    "task230_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task230_validation_task231a.json",
+    "lineage_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_lineage_task231a.json",
+    "task230_artifact_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task230_artifacts_task231a.json",
+    "task230_plan_row_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task230_plan_rows_task231a.json",
+    "binding_input_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_binding_inputs_task231a.json",
+    "task224_family_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task224_family_task231a.json",
+    "task225_family_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task225_family_task231a.json",
+    "task223_inventory_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task223_inventory_task231a.json",
+    "counterpart_source_resolution_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_source_resolution_task231a.json",
+    "approved_counterpart_value_contract_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_value_contract_rows_task231a.json",
+    "value_contract_summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_value_contract_summary_task231a.json",
+    "task231b_readiness_preview_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_task231b_preview_task231a.json",
+    "containment_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_containment_task231a.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_next_tasks_task231a.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_safety_task231a.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_TASK231B_NEXT_STEP = (
+    "Task231B - Reviewed Normalized Fact and Complete Period Pair Assembly Executor"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_BLOCKED_NEXT_STEP = (
+    "Task231A - Resolve approved counterpart value snapshot blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_FAILED_NEXT_STEP = (
+    "Task231A - Repair failed approved counterpart value snapshot gate and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ALWAYS_FALSE_FIELDS = tuple(
+    dict.fromkeys((
+        *RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ALWAYS_FALSE_FIELDS,
+        "source_access_executed", "document_download_executed",
+        "evidence_extraction_executed", "evidence_candidate_generation_executed",
+        "fact_creation_executed", "normalized_fact_created",
+        "counterpart_value_copied", "counterpart_value_derived",
+        "pair_assembly_executed", "period_pairing_executed",
+        "period_pair_created", "period_pair_complete",
+        "controlled_values_accepted", "controlled_financial_values_created",
+        "controlled_values_staged", "database_connection_opened",
+        "database_query_executed", "database_write_authorized",
+        "database_mutated", "migration_executed", "import_authorized",
+        "controlled_import_prepared", "controlled_import_executed",
+        "import_executed", "scoring_executed", "ranking_executed",
+        "recommendation_generated", "broker_api_called", "trading_executed",
+        "paper_trading_executed", "production_export_executed",
+    ))
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -15567,6 +15625,27 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-facts-and-complete-period-pair-assembly-plan-acceptance-and-execution-boundary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-facts-and-complete-period-pair-assembly-plan-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-facts-and-complete-period-pair-assembly-plan-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-input", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-task230-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-lineage-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-task230-artifact-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-task230-plan-row-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-binding-input-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-task224-family-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-task225-family-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-task223-inventory-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-counterpart-source-resolution-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-approved-counterpart-value-contract-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-value-contract-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-task231b-readiness-preview-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-containment-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -15926,6 +16005,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_and_counterpart_binding_review_gate(args)
     elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_MODE:
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_normalized_facts_and_complete_period_pair_assembly_plan(args)
+    elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_MODE:
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -112981,6 +113062,1360 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_normaliz
     except Exception:
         report = _task230_empty_report("failed", errors=[{"message": "task230_internal_validation_failed"}])
     return _task230_publish(report, artifacts)
+
+
+def _task231a_inputs(args: argparse.Namespace) -> dict[str, Any]:
+    chain = args.operator_resolution_chain_output_dir
+    default = (
+        chain / RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ARTIFACT_NAMES["plan_json"]
+        if chain else None
+    )
+    task230 = (
+        args.rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_input
+        or default
+    )
+    parent = task230.parent if isinstance(task230, Path) else None
+    return {
+        "task230": task230,
+        "task228": (
+            parent / RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES["loader_json"]
+            if parent else None
+        ),
+        "task224_bindings": list(
+            args.multi_issuer_counterpart_task224_main_artifact_binding or []
+        ),
+        "task225_bindings": list(
+            args.multi_issuer_counterpart_task225_main_artifact_binding or []
+        ),
+        "payload_root": (
+            parent / RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+            if parent else None
+        ),
+    }
+
+
+def _task231a_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {
+        key: chain / name
+        for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES.items()
+    } if chain else {}
+    suffixes = {
+        "snapshot_json": "output",
+        "snapshot_markdown": "markdown_output",
+        "checks_json": "checks_output",
+        "blockers_json": "blockers_output",
+        "scope_json": "scope_output",
+        "task230_validation_json": "task230_validation_output",
+        "lineage_json": "lineage_output",
+        "task230_artifact_validation_json": "task230_artifact_validation_output",
+        "task230_plan_row_validation_json": "task230_plan_row_validation_output",
+        "binding_input_validation_json": "binding_input_validation_output",
+        "task224_family_validation_json": "task224_family_validation_output",
+        "task225_family_validation_json": "task225_family_validation_output",
+        "task223_inventory_validation_json": "task223_inventory_validation_output",
+        "counterpart_source_resolution_validation_json": "counterpart_source_resolution_validation_output",
+        "approved_counterpart_value_contract_rows_json": "approved_counterpart_value_contract_rows_output",
+        "value_contract_summary_json": "value_contract_summary_output",
+        "task231b_readiness_preview_json": "task231b_readiness_preview_output",
+        "containment_validation_json": "containment_validation_output",
+        "next_tasks_json": "next_tasks_output",
+        "safety_json": "safety_output",
+    }
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_approved_"
+        "counterpart_value_contract_snapshot_gate"
+    )
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in suffixes.items()
+    }
+
+
+def _task231a_output_blockers(
+    inputs: dict[str, Any], artifacts: dict[str, Path | None],
+) -> list[str]:
+    if any(not isinstance(path, Path) for path in artifacts.values()):
+        return ["task231a_output_missing"]
+    upstream = [
+        path for key, path in inputs.items()
+        if key not in {"task224_bindings", "task225_bindings", "payload_root"}
+        and isinstance(path, Path)
+    ]
+    task230_path = inputs.get("task230")
+    if isinstance(task230_path, Path):
+        upstream.extend(
+            task230_path.parent / name
+            for name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ARTIFACT_NAMES.values()
+        )
+    payload_root = inputs.get("payload_root")
+    seen: list[Path] = []
+    for path in artifacts.values():
+        if not isinstance(path, Path):
+            return ["task231a_output_missing"]
+        if any(_paths_equal(path, source) for source in upstream):
+            return ["task231a_output_input_collision"]
+        if isinstance(payload_root, Path) and (
+            _paths_equal(path, payload_root) or _path_is_within(path, payload_root)
+        ):
+            return ["task231a_output_payload_collision"]
+        if any(_paths_equal(path, prior) for prior in seen):
+            return ["task231a_output_duplicate"]
+        if path.is_symlink() or path.exists() and not path.is_file():
+            return ["task231a_output_path_invalid"]
+        seen.append(path)
+    return []
+
+
+def _task231a_validate_task230_family(
+    task230: dict[str, Any], parent: Path,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    names = RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ARTIFACT_NAMES
+    documents: dict[str, Any] = {}
+    blockers: list[str] = []
+    for key, name in names.items():
+        path = parent / name
+        if not path.is_file() or path.is_symlink():
+            documents[key] = None
+            blockers.append(f"task230_artifact_{key}_missing")
+        elif key == "plan_markdown":
+            documents[key] = path.read_text(encoding="utf-8")
+        else:
+            documents[key] = _task229_load_json(path)
+    expected = {
+        "plan_json": task230,
+        "plan_markdown": render_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_normalized_facts_and_complete_period_pair_assembly_plan_markdown(task230),
+        **_task230_wrappers(task230),
+    }
+    rows: list[dict[str, Any]] = []
+    for index, (key, name) in enumerate(names.items(), 1):
+        valid = documents.get(key) == expected.get(key)
+        if not valid:
+            blockers.append(f"task230_artifact_{key}_mismatch")
+        document = documents.get(key)
+        checksum = (
+            hashlib.sha256(document.encode("utf-8")).hexdigest()
+            if isinstance(document, str) else
+            _rzd_controlled_values_import_plan_sha(document)
+            if isinstance(document, dict) else ""
+        )
+        rows.append({
+            "artifact_index": index,
+            "artifact_key": key,
+            "artifact_name": name,
+            "artifact_checksum_sha256": checksum,
+            "validated": valid,
+            "safe_hint": "Task230 artifact matches its canonical projection.",
+        })
+    prefix = "rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_normalized_facts_complete_period_pair_assembly_plan"
+    actual = {
+        path.name for path in parent.iterdir()
+        if path.is_file() and path.name.startswith(prefix) and "task230" in path.name
+    }
+    if actual != set(names.values()):
+        blockers.append("task230_artifact_family_not_exact")
+    return rows, list(dict.fromkeys(blockers))
+
+
+def _task231a_task230_validation(
+    task230: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    fact_rows = task230.get("normalized_fact_plan_rows") or []
+    pair_rows = task230.get("period_pair_plan_rows") or []
+    task228_checksum = str(task230.get(
+        "source_multi_issuer_normalization_and_period_pairing_workspace_authorized_manual_fill_loader_checksum_sha256"
+    ) or "")
+    loaded_checksum = str(task230.get(
+        "source_multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256"
+    ) or "")
+    task229_checksum = str(task230.get(
+        "source_multi_issuer_normalized_fact_and_counterpart_binding_review_gate_checksum_sha256"
+    ) or "")
+    decision_checksum = str(task230.get(
+        "source_multi_issuer_normalized_fact_and_counterpart_binding_review_decision_set_checksum_sha256"
+    ) or "")
+    plan_rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    fact_by_id: dict[str, dict[str, Any]] = {}
+    for index, row in enumerate(fact_rows, 1):
+        row = row if isinstance(row, dict) else {}
+        base = dict(row)
+        reported = str(base.pop("normalized_fact_plan_row_checksum_sha256", ""))
+        expected = _rzd_controlled_values_import_plan_sha({
+            "task228_checksum": task228_checksum,
+            "loaded_workspace_checksum": loaded_checksum,
+            "task229_checksum": task229_checksum,
+            "decision_set_checksum": decision_checksum,
+            "plan_row": base,
+        })
+        row_id = str(row.get("normalized_fact_plan_row_id") or "")
+        valid = (
+            bool(row_id) and row_id not in fact_by_id and reported == expected
+            and row.get("review_decision") == "approve"
+            and row.get("operator_supplied_provenance_confirmed") is True
+            and row.get("fact_creation_planned") is True
+            and row.get("fact_creation_executed") is False
+            and row.get("normalized_fact_created") is False
+            and row.get("staging_ready") is False
+        )
+        if not valid:
+            blockers.append(f"task230_fact_plan_row_{index:03d}_invalid")
+        fact_by_id[row_id] = row
+        plan_rows.append({
+            "validation_index": len(plan_rows) + 1,
+            "row_family": "normalized_fact_plan",
+            "plan_row_id": row_id,
+            "plan_row_checksum_sha256": reported,
+            "validated": valid,
+            "safe_hint": "Task230 fact-plan row checksum and boundary are exact.",
+        })
+    pair_ids: set[str] = set()
+    used_fact_ids: set[str] = set()
+    for index, row in enumerate(pair_rows, 1):
+        row = row if isinstance(row, dict) else {}
+        base = dict(row)
+        reported = str(base.pop("period_pair_plan_row_checksum_sha256", ""))
+        fact_id = str(row.get("normalized_fact_plan_row_id") or "")
+        fact = fact_by_id.get(fact_id) or {}
+        expected = _rzd_controlled_values_import_plan_sha({
+            "task228_checksum": task228_checksum,
+            "task229_checksum": task229_checksum,
+            "normalized_fact_plan_row_checksum": fact.get("normalized_fact_plan_row_checksum_sha256") or "",
+            "pair_plan_row": base,
+        })
+        row_id = str(row.get("period_pair_plan_row_id") or "")
+        valid = (
+            bool(row_id) and row_id not in pair_ids and bool(fact)
+            and fact_id not in used_fact_ids and reported == expected
+            and row.get("counterpart_binding_validated") is True
+            and row.get("pair_assembly_planned") is True
+            and row.get("pair_assembly_executed") is False
+            and row.get("period_pair_complete") is False
+            and row.get("counterpart_value_copied") is False
+            and row.get("counterpart_value_derived") is False
+        )
+        pair_ids.add(row_id)
+        used_fact_ids.add(fact_id)
+        if not valid:
+            blockers.append(f"task230_pair_plan_row_{index:03d}_invalid")
+        plan_rows.append({
+            "validation_index": len(plan_rows) + 1,
+            "row_family": "period_pair_plan",
+            "plan_row_id": row_id,
+            "plan_row_checksum_sha256": reported,
+            "validated": valid,
+            "safe_hint": "Task230 pair-plan row checksum and boundary are exact.",
+        })
+    allowed = [
+        row for row in task230.get("next_task_rows") or []
+        if isinstance(row, dict) and row.get("allowed_now") is True
+    ]
+    checks = (
+        ("task230_status_warning", task230.get("status") == "warning"),
+        ("task230_schema_ready", task230.get("reviewed_normalized_facts_and_complete_period_pair_assembly_plan_ready") is True),
+        ("task230_upstream_validations_complete", all(task230.get(field) is True for field in (
+            "task229_validation_completed", "task229_artifact_validation_completed",
+            "task217_to_task229_lineage_validation_completed", "task229_review_decisions_validated",
+        ))),
+        ("task230_plan_complete", all(task230.get(field) is True for field in (
+            "all_normalized_fact_plan_rows_valid", "all_period_pair_plan_rows_valid",
+            "one_to_one_pairing_valid", "assembly_plan_complete",
+            "fact_creation_planned", "pair_assembly_planned",
+        ))),
+        ("task230_nonempty_equal_plan", bool(fact_rows) and len(fact_rows) == len(pair_rows)
+            and task230.get("normalized_fact_plan_row_count") == len(fact_rows)
+            and task230.get("period_pair_plan_row_count") == len(pair_rows)
+            and task230.get("planned_normalized_fact_count") == len(fact_rows)
+            and task230.get("planned_complete_period_pair_count") == len(pair_rows)),
+        ("task230_no_execution", task230.get("normalized_fact_count") == 0
+            and task230.get("complete_period_pair_count") == 0
+            and all(task230.get(field) is False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ALWAYS_FALSE_FIELDS)),
+        ("task230_task231_only", task230.get("ready_for_task231_reviewed_normalized_fact_and_complete_period_pair_assembly_executor") is True
+            and len(allowed) == 1 and allowed[0].get("task_id") == "Task231"),
+        ("task230_clean", task230.get("blocker_count") == 0 and task230.get("bad_safety_count") == 0),
+        ("task230_fact_checksum", task230.get("multi_issuer_reviewed_normalized_fact_plan_checksum_sha256") == _task230_fact_plan_checksum(task230)),
+        ("task230_pair_checksum", task230.get("multi_issuer_complete_period_pair_assembly_plan_checksum_sha256") == _task230_pair_plan_checksum(task230)),
+        ("task230_checksum", task230.get("multi_issuer_reviewed_normalized_facts_and_complete_period_pair_assembly_plan_checksum_sha256") == _task230_checksum(task230)),
+        ("task230_plan_rows", bool(plan_rows) and all(row["validated"] for row in plan_rows)),
+    )
+    validation = [{
+        "validation_index": index,
+        "validation_key": key,
+        "passed": bool(passed),
+        "status": "passed" if passed else "blocked",
+        "safe_hint": "Task231A requires the exact complete Task230 handoff.",
+    } for index, (key, passed) in enumerate(checks, 1)]
+    blockers.extend(
+        f"{row['validation_key']}_invalid"
+        for row in validation if row["passed"] is not True
+    )
+    return validation, plan_rows, list(dict.fromkeys(blockers))
+
+
+def _task231a_validate_task223_family(
+    parent: Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    names = RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES
+    main_path = parent / names["gate_json"]
+    documents = _task229_load_family(main_path, names, "gate_json")
+    task223 = documents.get("gate_json")
+    blockers: list[str] = []
+    if not isinstance(task223, dict):
+        return {}, [], [], ["task223_main_missing"]
+    inventory = documents.get("evidence_candidate_inventory_json")
+    template = documents.get("manual_review_template_json")
+    inventory_rows = (
+        inventory.get("evidence_candidate_rows") or []
+        if isinstance(inventory, dict) else []
+    )
+    expected = {
+        "gate_json": task223,
+        "gate_markdown": render_rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_candidate_review_gate_markdown(task223),
+        **_task223_wrappers(task223, inventory_rows, template if isinstance(template, dict) else {}),
+    }
+    artifact_rows: list[dict[str, Any]] = []
+    for index, (key, name) in enumerate(names.items(), 1):
+        valid = documents.get(key) == expected.get(key)
+        if not valid:
+            blockers.append(f"task223_artifact_{key}_invalid")
+        artifact_rows.append({
+            "artifact_index": index,
+            "artifact_key": key,
+            "artifact_checksum_sha256": (
+                hashlib.sha256(documents[key].encode("utf-8")).hexdigest()
+                if isinstance(documents.get(key), str) else
+                _rzd_controlled_values_import_plan_sha(documents[key])
+                if isinstance(documents.get(key), dict) else ""
+            ),
+            "validated": valid,
+            "safe_hint": "Task223 artifact matches its canonical persisted projection.",
+        })
+    prefix = "rzd_manual_official_pdf_controlled_values_multi_issuer_dry_run_evidence_candidate_review_gate"
+    actual = {
+        path.name for path in parent.iterdir()
+        if path.is_file() and path.name.startswith(prefix) and "task223" in path.name
+    }
+    if actual != set(names.values()):
+        blockers.append("task223_artifact_family_not_exact")
+    if (
+        task223.get("status") != "warning"
+        or task223.get("multi_issuer_dry_run_evidence_candidate_review_gate_ready") is not True
+        or task223.get("ready_for_task224_multi_issuer_dry_run_evidence_candidate_manual_review") is not True
+        or task223.get("blocker_count") != 0
+        or task223.get("bad_safety_count") != 0
+        or task223.get("multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256") != _task223_checksum(task223)
+        or not inventory_rows
+        or task223.get("evidence_candidate_count") != len(inventory_rows)
+    ):
+        blockers.append("task223_warning_contract_invalid")
+    outer_fields = {
+        "evidence_candidate_index", "dry_run_candidate_id", "dry_run_job_id",
+        "candidate_slot_id", "controlled_field_key", "source_order_occurrence",
+        "candidate_accepted", "evidence_accepted", "controlled_value_created",
+        "value_candidate", "evidence", "safe_hint",
+    }
+    value_fields = set(_financial_extraction_descriptor_field_names(
+        FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS
+    ))
+    evidence_fields = set(_financial_extraction_descriptor_field_names(
+        FINANCIAL_EXTRACTION_EVIDENCE_FIELDS
+    ))
+    references = task223.get("evidence_candidate_reference_rows") or []
+    reference_identities = [
+        (
+            str(row.get("evidence_candidate_id") or ""),
+            str(row.get("dry_run_job_id") or ""),
+            str(row.get("candidate_slot_id") or ""),
+            str(row.get("controlled_field_key") or ""),
+            str(row.get("source_document_sha256") or ""),
+        )
+        for row in references if isinstance(row, dict)
+    ]
+    candidate_identities: list[tuple[str, str, str, str, str]] = []
+    seen_ids: set[str] = set()
+    for index, candidate in enumerate(inventory_rows, 1):
+        if not isinstance(candidate, dict) or set(candidate) != outer_fields:
+            blockers.append(f"task223_inventory_row_{index:03d}_shape_invalid")
+            continue
+        value = candidate.get("value_candidate")
+        evidence = candidate.get("evidence")
+        if (
+            not isinstance(value, dict) or set(value) != value_fields
+            or not isinstance(evidence, dict) or set(evidence) != evidence_fields
+        ):
+            blockers.append(f"task223_inventory_row_{index:03d}_nested_shape_invalid")
+            continue
+        candidate_id = str(candidate.get("dry_run_candidate_id") or "")
+        document_sha = str(evidence.get("document_sha256") or "")
+        identity = (
+            candidate_id,
+            str(candidate.get("dry_run_job_id") or ""),
+            str(candidate.get("candidate_slot_id") or ""),
+            str(candidate.get("controlled_field_key") or ""),
+            document_sha,
+        )
+        candidate_identities.append(identity)
+        valid = (
+            candidate.get("evidence_candidate_index") == index
+            and bool(candidate_id) and candidate_id not in seen_ids
+            and value.get("candidate_id") == candidate_id
+            and evidence.get("candidate_id") == candidate_id
+            and value.get("document_sha256") == document_sha
+            and bool(re.fullmatch(r"[0-9a-f]{64}", document_sha))
+            and bool(str(value.get("raw_value_numeric") or ""))
+            and value.get("normalization_status") == "not_performed"
+            and value.get("normalized_value") == ""
+            and value.get("normalized_currency") == ""
+            and value.get("normalized_unit") == ""
+            and value.get("normalized_scale") == ""
+            and candidate.get("candidate_accepted") is False
+            and candidate.get("evidence_accepted") is False
+            and candidate.get("controlled_value_created") is False
+        )
+        seen_ids.add(candidate_id)
+        if not valid:
+            blockers.append(f"task223_inventory_row_{index:03d}_contract_invalid")
+    if candidate_identities != reference_identities:
+        blockers.append("task223_inventory_reference_binding_invalid")
+    return task223, inventory_rows, artifact_rows, list(dict.fromkeys(blockers))
+
+
+def _task231a_scope_rows() -> list[dict[str, Any]]:
+    return [
+        {"scope_index": 1, "scope_key": "task230_complete_plan", "included": True, "safe_hint": "Validate the exact ready Task230 plan."},
+        {"scope_index": 2, "scope_key": "task228_referenced_value_contract", "included": True, "safe_hint": "Read only exact referenced Task228 rows."},
+        {"scope_index": 3, "scope_key": "task223_task224_task225_counterpart_chain", "included": True, "safe_hint": "Bind one approved raw counterpart contract per pair row."},
+        {"scope_index": 4, "scope_key": "task222_or_payload_read", "included": False, "safe_hint": "Task222 main and payload are forbidden."},
+        {"scope_index": 5, "scope_key": "normalization_or_execution", "included": False, "safe_hint": "No value transformation, fact creation, or pair assembly occurs."},
+        {"scope_index": 6, "scope_key": "database_or_external_io", "included": False, "safe_hint": "No database, network, import, or export action occurs."},
+    ]
+
+
+def _task231a_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    return [{
+        "task_index": 1,
+        "task_id": "Task231B",
+        "task_name": "Reviewed Normalized Fact and Complete Period Pair Assembly Executor",
+        "allowed_now": allowed,
+        "safe_hint": "Task231B may run only after every counterpart value contract is snapshotted.",
+    }]
+
+
+def _task231a_build_value_rows(
+    task230: dict[str, Any], task228: dict[str, Any],
+    task224_bindings: dict[str, Path], task225_bindings: dict[str, Path],
+    forbidden_paths: list[Path], payload_roots: list[Path],
+    artifacts: dict[str, Path | None],
+) -> tuple[
+    list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]],
+    list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]],
+    list[str],
+]:
+    value_rows: list[dict[str, Any]] = []
+    binding_rows: list[dict[str, Any]] = []
+    task224_rows: list[dict[str, Any]] = []
+    task225_rows: list[dict[str, Any]] = []
+    task223_rows: list[dict[str, Any]] = []
+    resolution_rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    fact_by_id = {
+        str(row.get("normalized_fact_plan_row_id") or ""): row
+        for row in task230.get("normalized_fact_plan_rows") or []
+        if isinstance(row, dict)
+    }
+    normalization_by_id = {
+        str(row.get("normalization_workspace_row_id") or ""): row
+        for row in task228.get("loaded_normalization_rows") or []
+        if isinstance(row, dict)
+    }
+    counterpart_by_id = {
+        str(row.get("counterpart_workspace_row_id") or ""): row
+        for row in task228.get("loaded_counterpart_rows") or []
+        if isinstance(row, dict)
+    }
+    used_candidates: set[str] = set()
+    family_cache: dict[tuple[str, str], tuple[dict[str, Any], dict[str, Any], dict[str, Any], list[dict[str, Any]], str, list[str]]] = {}
+    outer_fields = {
+        "evidence_candidate_index", "dry_run_candidate_id", "dry_run_job_id",
+        "candidate_slot_id", "controlled_field_key", "source_order_occurrence",
+        "candidate_accepted", "evidence_accepted", "controlled_value_created",
+        "value_candidate", "evidence", "safe_hint",
+    }
+    value_fields = set(_financial_extraction_descriptor_field_names(
+        FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS
+    ))
+    evidence_fields = set(_financial_extraction_descriptor_field_names(
+        FINANCIAL_EXTRACTION_EVIDENCE_FIELDS
+    ))
+    for index, pair in enumerate(task230.get("period_pair_plan_rows") or [], 1):
+        pair = pair if isinstance(pair, dict) else {}
+        row_id = str(pair.get("counterpart_workspace_row_id") or "")
+        task224_path = task224_bindings.get(row_id)
+        task225_path = task225_bindings.get(row_id)
+        path_valid = True
+        for label, path, expected_name in (
+            ("task224", task224_path, RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES["review_json"]),
+            ("task225", task225_path, RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES["plan_json"]),
+        ):
+            payload_forbidden = isinstance(path, Path) and (
+                any(
+                    _paths_equal(path, root) or _path_is_within(path, root)
+                    for root in payload_roots
+                )
+                or any(
+                    parent.name
+                    == RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+                    for parent in path.parents
+                )
+            )
+            valid = (
+                isinstance(path, Path) and path.exists() and path.is_file()
+                and not path.is_symlink() and path.name == expected_name
+                and not any(_paths_equal(path, source) for source in forbidden_paths)
+                and not any(_paths_equal(path, output) for output in artifacts.values() if isinstance(output, Path))
+                and not payload_forbidden
+            )
+            binding_rows.append({
+                "binding_validation_index": len(binding_rows) + 1,
+                "counterpart_workspace_row_id": row_id,
+                "binding_kind": label,
+                "binding_supplied": isinstance(path, Path),
+                "canonical_main_path_valid": valid,
+                "validated": valid,
+                "safe_hint": "Binding resolves to one explicit canonical main artifact.",
+            })
+            if not valid:
+                blockers.append(
+                    f"counterpart_{label}_binding_payload_forbidden"
+                    if payload_forbidden else
+                    f"counterpart_{label}_binding_{index:03d}_invalid"
+                )
+                path_valid = False
+        if not path_valid or not isinstance(task224_path, Path) or not isinstance(task225_path, Path):
+            continue
+        cache_key = (str(task224_path.resolve(strict=False)), str(task225_path.resolve(strict=False)))
+        cached = family_cache.get(cache_key)
+        if cached is None:
+            family_blockers: list[str] = []
+            task224, task225, task224_task225_blockers = _task229_validate_task224_task225(
+                task224_path, task225_path
+            )
+            family_blockers.extend(task224_task225_blockers)
+            task223, inventory_rows, task223_artifacts, task223_blockers = (
+                _task231a_validate_task223_family(task224_path.parent)
+            )
+            family_blockers.extend(task223_blockers)
+            inventory_path = task224_path.parent / RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES["evidence_candidate_inventory_json"]
+            inventory_checksum = (
+                _rzd_controlled_values_import_plan_sha(_task229_load_json(inventory_path))
+                if inventory_path.is_file() and not inventory_path.is_symlink() else ""
+            )
+            cached = (
+                task224, task225, task223, inventory_rows,
+                inventory_checksum, list(dict.fromkeys(family_blockers)),
+            )
+            family_cache[cache_key] = cached
+            for artifact in task223_artifacts:
+                task223_rows.append({
+                    "validation_index": len(task223_rows) + 1,
+                    "counterpart_workspace_row_id": row_id,
+                    **{key: value for key, value in artifact.items() if key != "artifact_name"},
+                })
+        task224, task225, task223, inventory_rows, inventory_checksum, family_blockers = cached
+        blockers.extend(f"counterpart_{index:03d}_{code}" for code in family_blockers)
+        task224_checksum = str(task224.get(
+            "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+        ) or "")
+        task224_result_checksum = str(task224.get(
+            "multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256"
+        ) or "")
+        task225_checksum = str(task225.get(
+            "multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256"
+        ) or "")
+        task223_checksum = str(task223.get(
+            "multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256"
+        ) or "")
+        task224_valid = (
+            not family_blockers
+            and task224_checksum == pair.get("resolved_task224_checksum_sha256")
+            and task224_result_checksum == pair.get("resolved_task224_review_result_checksum_sha256")
+            and task224.get("source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256") == task223_checksum
+        )
+        task225_valid = (
+            not family_blockers
+            and task225_checksum == pair.get("resolved_task225_checksum_sha256")
+            and task225.get("source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256") == task224_checksum
+        )
+        task224_rows.append({
+            "validation_index": len(task224_rows) + 1,
+            "counterpart_workspace_row_id": row_id,
+            "task224_checksum_sha256": task224_checksum,
+            "task224_review_result_checksum_sha256": task224_result_checksum,
+            "task223_lineage_checksum_sha256": task223_checksum,
+            "validated": task224_valid,
+            "safe_hint": "Task224 approval family and Task223 lineage are exact.",
+        })
+        task225_rows.append({
+            "validation_index": len(task225_rows) + 1,
+            "counterpart_workspace_row_id": row_id,
+            "task225_checksum_sha256": task225_checksum,
+            "task224_lineage_checksum_sha256": task224_checksum,
+            "validated": task225_valid,
+            "safe_hint": "Task225 binding family matches the explicitly bound Task224 family.",
+        })
+        source = counterpart_by_id.get(row_id) or {}
+        fact = fact_by_id.get(str(pair.get("normalized_fact_plan_row_id") or "")) or {}
+        current = normalization_by_id.get(str(pair.get("normalization_workspace_row_id") or "")) or {}
+        candidate_id = str(source.get("counterpart_evidence_candidate_id") or "")
+        approved = [
+            row for row in task224.get("approved_candidate_reference_rows") or []
+            if isinstance(row, dict) and row.get("evidence_candidate_id") == candidate_id
+        ]
+        bindings = [
+            row for row in task225.get("approved_candidate_binding_rows") or []
+            if isinstance(row, dict) and row.get("evidence_candidate_id") == candidate_id
+        ]
+        candidates = [
+            row for row in inventory_rows
+            if isinstance(row, dict) and row.get("dry_run_candidate_id") == candidate_id
+        ]
+        approved_row = approved[0] if len(approved) == 1 else {}
+        binding = bindings[0] if len(bindings) == 1 else {}
+        candidate = candidates[0] if len(candidates) == 1 else {}
+        value = candidate.get("value_candidate") if isinstance(candidate, dict) else {}
+        evidence = candidate.get("evidence") if isinstance(candidate, dict) else {}
+        value = value if isinstance(value, dict) else {}
+        evidence = evidence if isinstance(evidence, dict) else {}
+        raw_numeric = str(value.get("raw_value_numeric") or "")
+        raw_currency = str(value.get("raw_currency") or "")
+        raw_unit = str(value.get("raw_unit") or "")
+        raw_scale = str(value.get("raw_scale") or "")
+        source_document = str(evidence.get("document_sha256") or value.get("document_sha256") or "")
+        candidate_shape_valid = (
+            set(candidate) == outer_fields and set(value) == value_fields
+            and set(evidence) == evidence_fields
+            and candidate.get("candidate_accepted") is False
+            and candidate.get("evidence_accepted") is False
+            and candidate.get("controlled_value_created") is False
+            and value.get("normalization_status") == "not_performed"
+            and value.get("normalized_value") == ""
+            and value.get("normalized_currency") == ""
+            and value.get("normalized_unit") == ""
+            and value.get("normalized_scale") == ""
+        )
+        strings_valid = all(
+            _task228_safe_string(value_text, field)[1] is None and bool(value_text)
+            for field, value_text in (
+                ("raw_currency", raw_currency), ("raw_unit", raw_unit),
+                ("raw_scale", raw_scale),
+            )
+        )
+        identity_valid = (
+            task224_valid and task225_valid and len(approved) == len(bindings) == len(candidates) == 1
+            and candidate_id not in used_candidates
+            and approved_row.get("review_decision") == "approve_for_controlled_value_staging"
+            and approved_row.get("controlled_field_key") == pair.get("controlled_field_key")
+            and binding.get("controlled_field_key") == pair.get("controlled_field_key")
+            and candidate.get("controlled_field_key") == pair.get("controlled_field_key")
+            and source_document == approved_row.get("source_document_sha256")
+            and source_document == binding.get("source_document_sha256")
+            and source_document == source.get("counterpart_source_document_sha256")
+            and binding.get("issuer_binding_checksum_sha256") == pair.get("issuer_binding_checksum_sha256")
+            and binding.get("report_period") == pair.get("counterpart_report_period") == 2025
+            and str(value.get("report_period") or "") == "2025"
+            and pair.get("current_report_period") != 2025
+            and source.get("loaded_counterpart_row_checksum_sha256") == pair.get("loaded_counterpart_row_checksum_sha256")
+            and source.get("controlled_field_key") == pair.get("controlled_field_key")
+            and fact.get("normalization_workspace_row_id") == pair.get("normalization_workspace_row_id")
+            and current.get("loaded_normalization_row_checksum_sha256") == fact.get("loaded_normalization_row_checksum_sha256")
+            and current.get("controlled_field_key") == pair.get("controlled_field_key")
+            and current.get("report_period") == pair.get("current_report_period")
+            and current.get("issuer_binding_checksum_sha256") == pair.get("issuer_binding_checksum_sha256")
+            and current.get("report_context_checksum_sha256") == pair.get("report_context_checksum_sha256")
+        )
+        current_contract_valid = (
+            current.get("workspace_row_filled") is True
+            and current.get("normalized_value_present") is True
+            and current.get("manual_fill_loaded") is True
+            and current.get("normalization_executed") is False
+            and _task228_decimal_valid(str(current.get("normalized_value") or ""))
+        )
+        raw_contract_valid = (
+            candidate_shape_valid and _task228_decimal_valid(raw_numeric)
+            and strings_valid
+            and raw_currency == current.get("normalized_currency")
+            and raw_unit == current.get("normalized_unit")
+            and raw_scale == current.get("normalized_scale")
+        )
+        valid = identity_valid and current_contract_valid and raw_contract_valid
+        if candidate_id:
+            used_candidates.add(candidate_id)
+        if not valid:
+            blockers.append(f"counterpart_value_contract_{index:03d}_invalid")
+        projection_checksum = _rzd_controlled_values_import_plan_sha({
+            "candidate_id": candidate_id,
+            "controlled_field_key": pair.get("controlled_field_key") or "",
+            "source_document_sha256": source_document,
+            "report_period": 2025,
+            "raw_value_numeric": raw_numeric,
+            "raw_currency": raw_currency,
+            "raw_unit": raw_unit,
+            "raw_scale": raw_scale,
+        }) if candidate_id else ""
+        resolution_rows.append({
+            "resolution_index": index,
+            "counterpart_workspace_row_id": row_id,
+            "task230_pair_plan_row_id": str(pair.get("period_pair_plan_row_id") or ""),
+            "approved_candidate_unique": len(approved) == 1,
+            "task225_binding_unique": len(bindings) == 1,
+            "task223_candidate_unique": len(candidates) == 1,
+            "candidate_projection_checksum_sha256": projection_checksum,
+            "identity_validated": identity_valid,
+            "raw_value_contract_validated": raw_contract_valid,
+            "current_value_contract_validated": current_contract_valid,
+            "validated": valid,
+            "safe_hint": "Candidate identity is retained only as an opaque projection checksum.",
+        })
+        if not valid:
+            continue
+        row = {
+            "approved_counterpart_value_contract_index": index,
+            "approved_counterpart_value_contract_id": f"task231a_counterpart_value_contract_{projection_checksum[:16]}",
+            "source_task230_checksum_sha256": str(task230.get("multi_issuer_reviewed_normalized_facts_and_complete_period_pair_assembly_plan_checksum_sha256") or ""),
+            "source_task230_pair_plan_checksum_sha256": str(task230.get("multi_issuer_complete_period_pair_assembly_plan_checksum_sha256") or ""),
+            "source_period_pair_plan_row_id": str(pair.get("period_pair_plan_row_id") or ""),
+            "source_period_pair_plan_row_checksum_sha256": str(pair.get("period_pair_plan_row_checksum_sha256") or ""),
+            "source_normalized_fact_plan_row_id": str(fact.get("normalized_fact_plan_row_id") or ""),
+            "source_normalized_fact_plan_row_checksum_sha256": str(fact.get("normalized_fact_plan_row_checksum_sha256") or ""),
+            "counterpart_workspace_row_id": row_id,
+            "normalization_workspace_row_id": str(pair.get("normalization_workspace_row_id") or ""),
+            "loaded_counterpart_row_checksum_sha256": str(source.get("loaded_counterpart_row_checksum_sha256") or ""),
+            "loaded_normalization_row_checksum_sha256": str(current.get("loaded_normalization_row_checksum_sha256") or ""),
+            "controlled_field_key": str(pair.get("controlled_field_key") or ""),
+            "target_type": str(fact.get("target_type") or ""),
+            "metric_key": str(fact.get("metric_key") or ""),
+            "metric_role": str(fact.get("metric_role") or ""),
+            "current_report_period": int(pair.get("current_report_period") or 0),
+            "counterpart_report_period": 2025,
+            "issuer_binding_checksum_sha256": str(pair.get("issuer_binding_checksum_sha256") or ""),
+            "current_report_context_checksum_sha256": str(pair.get("report_context_checksum_sha256") or ""),
+            "counterpart_report_context_checksum_sha256": str(binding.get("report_context_checksum_sha256") or ""),
+            "source_document_sha256": source_document,
+            "approved_raw_value_numeric": raw_numeric,
+            "approved_raw_currency": raw_currency,
+            "approved_raw_unit": raw_unit,
+            "approved_raw_scale": raw_scale,
+            "value_source_kind": "task223_approved_raw_candidate",
+            "source_task223_checksum_sha256": task223_checksum,
+            "source_task223_evidence_inventory_checksum_sha256": inventory_checksum,
+            "source_task224_checksum_sha256": task224_checksum,
+            "source_task224_review_result_checksum_sha256": task224_result_checksum,
+            "source_task225_checksum_sha256": task225_checksum,
+            "approved_candidate_projection_checksum_sha256": projection_checksum,
+            "task224_approval_confirmed": True,
+            "task225_binding_confirmed": True,
+            "value_contract_lexically_compatible": True,
+            "normalization_executed": False,
+            "counterpart_value_copied": False,
+            "counterpart_value_derived": False,
+            "counterpart_value_contract_snapshotted": True,
+            "fact_creation_executed": False,
+            "pair_assembly_executed": False,
+            "staging_ready": False,
+        }
+        row["approved_counterpart_value_contract_checksum_sha256"] = (
+            _rzd_controlled_values_import_plan_sha(row)
+        )
+        value_rows.append(row)
+    expected_count = len(task230.get("period_pair_plan_rows") or [])
+    if len(value_rows) != expected_count or len(resolution_rows) != expected_count:
+        blockers.append("counterpart_value_contract_inventory_invalid")
+    if set(task224_bindings) != set(counterpart_by_id) or set(task225_bindings) != set(counterpart_by_id):
+        blockers.append("counterpart_binding_inventory_incomplete")
+    return (
+        value_rows, binding_rows, task224_rows, task225_rows,
+        task223_rows, resolution_rows, list(dict.fromkeys(blockers)),
+    )
+
+
+def _task231a_value_contract_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "task230_checksum": report.get("source_task230_checksum_sha256") or "",
+        "task230_pair_plan_checksum": report.get("source_task230_pair_plan_checksum_sha256") or "",
+        "ordered_value_contract_row_checksums": [
+            row.get("approved_counterpart_value_contract_checksum_sha256") or ""
+            for row in report.get("approved_counterpart_value_contract_rows") or []
+        ],
+        "value_contract_count": report.get("approved_counterpart_value_contract_count") or 0,
+        "snapshot_complete": report.get("counterpart_value_contract_snapshot_complete") is True,
+        "normalization_executed": False,
+        "counterpart_value_copied": False,
+        "counterpart_value_derived": False,
+    })
+
+
+def _task231a_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "schema_version": report.get("schema_version") or "",
+        "source_task230_checksum": report.get("source_task230_checksum_sha256") or "",
+        "source_task230_fact_plan_checksum": report.get("source_task230_fact_plan_checksum_sha256") or "",
+        "source_task230_pair_plan_checksum": report.get("source_task230_pair_plan_checksum_sha256") or "",
+        "source_task228_checksum": report.get("source_task228_checksum_sha256") or "",
+        "source_task228_loaded_workspace_checksum": report.get("source_task228_loaded_workspace_checksum_sha256") or "",
+        "task230_validation_rows": report.get("task230_validation_rows") or [],
+        "lineage_rows": report.get("lineage_rows") or [],
+        "task230_artifact_validation_rows": report.get("task230_artifact_validation_rows") or [],
+        "task230_plan_row_validation_rows": report.get("task230_plan_row_validation_rows") or [],
+        "binding_input_validation_rows": report.get("binding_input_validation_rows") or [],
+        "task224_family_validation_rows": report.get("task224_family_validation_rows") or [],
+        "task225_family_validation_rows": report.get("task225_family_validation_rows") or [],
+        "task223_inventory_validation_rows": report.get("task223_inventory_validation_rows") or [],
+        "counterpart_source_resolution_validation_rows": report.get("counterpart_source_resolution_validation_rows") or [],
+        "value_contract_checksum": report.get("multi_issuer_approved_counterpart_value_contracts_checksum_sha256") or "",
+        "value_contract_count": report.get("approved_counterpart_value_contract_count") or 0,
+        "snapshot_complete": report.get("counterpart_value_contract_snapshot_complete") is True,
+        "task231b_ready": report.get("ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor") is True,
+        "next_task_rows": report.get("next_task_rows") or [],
+        "containment_rows": report.get("concrete_data_containment_validation_rows") or [],
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        "always_false_fields": {
+            field: False
+            for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ALWAYS_FALSE_FIELDS
+        },
+    })
+
+
+def _task231a_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    list_fields = (
+        "scope_rows", "task230_validation_rows", "lineage_rows",
+        "task230_artifact_validation_rows", "task230_plan_row_validation_rows",
+        "binding_input_validation_rows", "task224_family_validation_rows",
+        "task225_family_validation_rows", "task223_inventory_validation_rows",
+        "counterpart_source_resolution_validation_rows",
+        "approved_counterpart_value_contract_rows", "value_contract_summary_rows",
+        "task231b_readiness_preview_rows", "concrete_data_containment_validation_rows",
+        "next_task_rows", "approved_counterpart_value_contract_snapshot_gate_check_rows",
+        "blocker_rows", "bad_safety_codes", "errors",
+    )
+    for field in list_fields:
+        report[field] = report.get(field) if isinstance(report.get(field), list) else []
+    count_fields = {
+        "scope_count": "scope_rows",
+        "task230_validation_count": "task230_validation_rows",
+        "lineage_count": "lineage_rows",
+        "task230_artifact_validation_count": "task230_artifact_validation_rows",
+        "task230_plan_row_validation_count": "task230_plan_row_validation_rows",
+        "binding_input_validation_count": "binding_input_validation_rows",
+        "task224_family_validation_count": "task224_family_validation_rows",
+        "task225_family_validation_count": "task225_family_validation_rows",
+        "task223_inventory_validation_count": "task223_inventory_validation_rows",
+        "counterpart_source_resolution_validation_count": "counterpart_source_resolution_validation_rows",
+        "approved_counterpart_value_contract_count": "approved_counterpart_value_contract_rows",
+        "value_contract_summary_count": "value_contract_summary_rows",
+        "task231b_readiness_preview_count": "task231b_readiness_preview_rows",
+        "concrete_data_containment_validation_count": "concrete_data_containment_validation_rows",
+        "next_task_count": "next_task_rows",
+        "approved_counterpart_value_contract_snapshot_gate_check_count": "approved_counterpart_value_contract_snapshot_gate_check_rows",
+        "blocker_count": "blocker_rows",
+        "bad_safety_count": "bad_safety_codes",
+        "error_count": "errors",
+    }
+    for count, rows in count_fields.items():
+        report[count] = len(report[rows])
+    bool_defaults = (
+        "approved_counterpart_value_contract_snapshot_gate_ready",
+        "task230_validation_completed", "task230_artifact_validation_completed",
+        "task230_plan_row_validation_completed", "task217_to_task230_lineage_validation_completed",
+        "task228_source_rows_validated", "task224_family_validation_completed",
+        "task225_family_validation_completed", "task223_inventory_validation_completed",
+        "counterpart_source_resolution_completed", "all_value_contracts_valid",
+        "counterpart_value_contract_snapshot_complete",
+        "ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor",
+        "next_tasks_valid", "concrete_data_containment_validated",
+        "acceptance_boundary_valid", "write_outputs",
+    )
+    for field in bool_defaults:
+        report[field] = report.get(field) is True
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ALWAYS_FALSE_FIELDS:
+        report[field] = False
+    if report.get("status") == "warning" and report.get("counterpart_value_contract_snapshot_complete") is True:
+        report["counterpart_value_contract_snapshotted"] = True
+        report["multi_issuer_approved_counterpart_value_contracts_checksum_sha256"] = _task231a_value_contract_checksum(report)
+    else:
+        report["counterpart_value_contract_snapshotted"] = False
+        report["multi_issuer_approved_counterpart_value_contracts_checksum_sha256"] = ""
+    report["multi_issuer_approved_counterpart_value_contract_snapshot_gate_checksum_sha256"] = _task231a_checksum(report)
+    return report
+
+
+def _task231a_empty_report(
+    status: str, *, blocker_codes: list[str] | None = None,
+    errors: list[dict[str, Any]] | None = None, write_outputs: bool = True,
+) -> dict[str, Any]:
+    return _task231a_finalize({
+        "mode": RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_MODE,
+        "schema_version": RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_SCHEMA_VERSION,
+        "status": status,
+        "approved_counterpart_value_contract_snapshot_gate_status": status,
+        "planned_counterpart_value_contract_count": 0,
+        "source_task230_checksum_sha256": "",
+        "source_task230_fact_plan_checksum_sha256": "",
+        "source_task230_pair_plan_checksum_sha256": "",
+        "source_task228_checksum_sha256": "",
+        "source_task228_loaded_workspace_checksum_sha256": "",
+        "next_task_rows": _task231a_next_rows(False),
+        "blocker_rows": [{
+            "blocker_index": index,
+            "code": code,
+            "safe_hint": "Resolve the sanitized Task231A blocker and rerun.",
+        } for index, code in enumerate(blocker_codes or [], 1)],
+        "bad_safety_codes": [],
+        "errors": [{"message": str(row.get("message") or "task231a_failed")} for row in errors or []],
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_FAILED_NEXT_STEP
+            if status == "failed" else
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_BLOCKED_NEXT_STEP
+        ),
+        "write_outputs": write_outputs,
+        "safe_hint": "Task231A failed closed without retaining counterpart values or partial snapshot rows.",
+    })
+
+
+def _task231a_containment_rows() -> list[dict[str, Any]]:
+    allowed = {"snapshot_json", "approved_counterpart_value_contract_rows_json"}
+    return [{
+        "containment_index": index,
+        "artifact_key": key,
+        "concrete_value_contract_allowed": key in allowed,
+        "candidate_identifier_allowed": False,
+        "issuer_identifier_allowed": False,
+        "path_allowed": False,
+        "validated": True,
+        "safe_hint": (
+            "Only approved raw value-contract fields are present."
+            if key in allowed else
+            "This artifact contains only sanitized validation metadata."
+        ),
+    } for index, key in enumerate(
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES, 1
+    )]
+
+
+def _build_task231a_report(
+    task230: dict[str, Any], task228: dict[str, Any],
+    task230_validation_rows: list[dict[str, Any]],
+    task230_artifact_rows: list[dict[str, Any]],
+    task230_plan_rows: list[dict[str, Any]],
+    binding_rows: list[dict[str, Any]], task224_rows: list[dict[str, Any]],
+    task225_rows: list[dict[str, Any]], task223_rows: list[dict[str, Any]],
+    resolution_rows: list[dict[str, Any]], value_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    planned = len(task230.get("period_pair_plan_rows") or [])
+    complete = bool(
+        planned and len(value_rows) == planned
+        and all(row.get("validated") is True for row in binding_rows)
+        and all(row.get("validated") is True for row in task224_rows)
+        and all(row.get("validated") is True for row in task225_rows)
+        and all(row.get("validated") is True for row in task223_rows)
+        and all(row.get("validated") is True for row in resolution_rows)
+    )
+    next_rows = _task231a_next_rows(complete)
+    containment_rows = _task231a_containment_rows()
+    lineage_rows = [{
+        "lineage_index": index,
+        "task_id": str(row.get("task_id") or ""),
+        "checksum_field": str(row.get("checksum_field") or ""),
+        "checksum_sha256": str(row.get("checksum_sha256") or ""),
+        "validated": row.get("passed") is True,
+        "safe_hint": "Task231A carries the Task230-validated historical lineage.",
+    } for index, row in enumerate(task230.get("lineage_rows") or [], 1) if isinstance(row, dict)]
+    summary_rows = [{
+        "summary_index": 1,
+        "planned_counterpart_value_contract_count": planned,
+        "approved_counterpart_value_contract_count": len(value_rows),
+        "all_value_contracts_valid": complete,
+        "normalization_executed": False,
+        "counterpart_value_copied": False,
+        "counterpart_value_derived": False,
+    }]
+    readiness_rows = [{
+        "readiness_index": 1,
+        "task_id": "Task231B",
+        "snapshot_complete": complete,
+        "all_value_contracts_valid": complete,
+        "facts_created": False,
+        "pairs_assembled": False,
+        "allowed_now": complete,
+        "safe_hint": "Task231B remains a separate controlled executor.",
+    }]
+    checks = (
+        ("task230_valid", all(row.get("passed") is True for row in task230_validation_rows)),
+        ("task230_artifacts_valid", len(task230_artifact_rows) == 20 and all(row.get("validated") is True for row in task230_artifact_rows)),
+        ("task230_plan_rows_valid", bool(task230_plan_rows) and all(row.get("validated") is True for row in task230_plan_rows)),
+        ("lineage_valid", bool(lineage_rows) and all(row.get("validated") is True for row in lineage_rows)),
+        ("binding_inputs_valid", bool(binding_rows) and all(row.get("validated") is True for row in binding_rows)),
+        ("task224_families_valid", bool(task224_rows) and all(row.get("validated") is True for row in task224_rows)),
+        ("task225_families_valid", bool(task225_rows) and all(row.get("validated") is True for row in task225_rows)),
+        ("task223_inventories_valid", bool(task223_rows) and all(row.get("validated") is True for row in task223_rows)),
+        ("counterpart_sources_resolved", bool(resolution_rows) and all(row.get("validated") is True for row in resolution_rows)),
+        ("snapshot_complete", complete),
+        ("containment_valid", len(containment_rows) == 20 and sum(row["concrete_value_contract_allowed"] for row in containment_rows) == 2),
+        ("task231b_only", [row.get("task_id") for row in next_rows if row.get("allowed_now") is True] == ["Task231B"]),
+    )
+    check_rows = [{
+        "check_index": index,
+        "check_key": key,
+        "passed": bool(passed),
+        "status": "passed" if passed else "blocked",
+        "safe_hint": "Task231A deterministic snapshot-gate check.",
+    } for index, (key, passed) in enumerate(checks, 1)]
+    report = {
+        "mode": RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_MODE,
+        "schema_version": RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_SCHEMA_VERSION,
+        "status": "warning",
+        "approved_counterpart_value_contract_snapshot_gate_status": "warning",
+        "approved_counterpart_value_contract_snapshot_gate_ready": complete,
+        "task230_validation_completed": True,
+        "task230_artifact_validation_completed": True,
+        "task230_plan_row_validation_completed": True,
+        "task217_to_task230_lineage_validation_completed": True,
+        "task228_source_rows_validated": True,
+        "task224_family_validation_completed": True,
+        "task225_family_validation_completed": True,
+        "task223_inventory_validation_completed": True,
+        "counterpart_source_resolution_completed": complete,
+        "all_value_contracts_valid": complete,
+        "counterpart_value_contract_snapshot_complete": complete,
+        "ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor": complete,
+        "next_tasks_valid": True,
+        "concrete_data_containment_validated": True,
+        "acceptance_boundary_valid": True,
+        "write_outputs": True,
+        "planned_counterpart_value_contract_count": planned,
+        "source_task230_checksum_sha256": str(task230.get("multi_issuer_reviewed_normalized_facts_and_complete_period_pair_assembly_plan_checksum_sha256") or ""),
+        "source_task230_fact_plan_checksum_sha256": str(task230.get("multi_issuer_reviewed_normalized_fact_plan_checksum_sha256") or ""),
+        "source_task230_pair_plan_checksum_sha256": str(task230.get("multi_issuer_complete_period_pair_assembly_plan_checksum_sha256") or ""),
+        "source_task228_checksum_sha256": str(task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") or ""),
+        "source_task228_loaded_workspace_checksum_sha256": str(task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") or ""),
+        "scope_rows": _task231a_scope_rows(),
+        "task230_validation_rows": task230_validation_rows,
+        "lineage_rows": lineage_rows,
+        "task230_artifact_validation_rows": task230_artifact_rows,
+        "task230_plan_row_validation_rows": task230_plan_rows,
+        "binding_input_validation_rows": binding_rows,
+        "task224_family_validation_rows": task224_rows,
+        "task225_family_validation_rows": task225_rows,
+        "task223_inventory_validation_rows": task223_rows,
+        "counterpart_source_resolution_validation_rows": resolution_rows,
+        "approved_counterpart_value_contract_rows": value_rows,
+        "value_contract_summary_rows": summary_rows,
+        "task231b_readiness_preview_rows": readiness_rows,
+        "concrete_data_containment_validation_rows": containment_rows,
+        "next_task_rows": next_rows,
+        "approved_counterpart_value_contract_snapshot_gate_check_rows": check_rows,
+        "blocker_rows": [], "bad_safety_codes": [], "errors": [],
+        "next_step": RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_TASK231B_NEXT_STEP,
+        "safe_hint": "Task231A snapshots approved raw counterpart contracts without normalization, copying into facts, pair assembly, staging, or database access.",
+    }
+    return _task231a_finalize(report)
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_markdown(
+    report: dict[str, Any],
+) -> str:
+    ready = report.get("ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor") is True
+    verdict = (
+        "WARNING - counterpart value-contract snapshot complete; only Task231B is unlocked."
+        if ready else
+        "BLOCKED - resolve Task231A counterpart snapshot blockers."
+        if report.get("status") == "blocked" else
+        "FAILED - repair Task231A; downstream execution remains locked."
+    )
+    return "\n".join([
+        "# Task231A - Approved Counterpart Value Contract Snapshot Gate",
+        "", verdict, "",
+        f"- Status: `{report.get('status', '')}`",
+        f"- Task230 / artifacts / plan rows / lineage: `{str(report.get('task230_validation_completed', False)).lower()}/{str(report.get('task230_artifact_validation_completed', False)).lower()}/{str(report.get('task230_plan_row_validation_completed', False)).lower()}/{str(report.get('task217_to_task230_lineage_validation_completed', False)).lower()}`",
+        f"- Planned / snapshotted contracts: `{report.get('planned_counterpart_value_contract_count', 0)}/{report.get('approved_counterpart_value_contract_count', 0)}`",
+        f"- Source resolution / containment / Task231B ready: `{str(report.get('counterpart_source_resolution_completed', False)).lower()}/{str(report.get('concrete_data_containment_validated', False)).lower()}/{str(ready).lower()}`",
+        f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
+        f"- Value-contract SHA-256: `{report.get('multi_issuer_approved_counterpart_value_contracts_checksum_sha256', '')}`",
+        f"- Task231A SHA-256: `{report.get('multi_issuer_approved_counterpart_value_contract_snapshot_gate_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`", "",
+        "No value, currency, unit, scale, candidate identity, issuer identifier, path, URL, note, excerpt, or Task222 content is rendered here. No network, extraction, normalization, fact creation, pairing, staging, database, import, scoring, recommendation, broker, export, or trading action is executed.", "",
+    ])
+
+
+def _task231a_envelope(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report.get("status", ""),
+        "approved_counterpart_value_contract_snapshot_gate_ready": report.get("approved_counterpart_value_contract_snapshot_gate_ready", False),
+        "counterpart_value_contract_snapshot_complete": report.get("counterpart_value_contract_snapshot_complete", False),
+        "ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor": report.get("ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor", False),
+        "planned_counterpart_value_contract_count": report.get("planned_counterpart_value_contract_count", 0),
+        "approved_counterpart_value_contract_count": report.get("approved_counterpart_value_contract_count", 0),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "source_task230_checksum_sha256": report.get("source_task230_checksum_sha256", ""),
+        "source_task228_checksum_sha256": report.get("source_task228_checksum_sha256", ""),
+        "multi_issuer_approved_counterpart_value_contracts_checksum_sha256": report.get("multi_issuer_approved_counterpart_value_contracts_checksum_sha256", ""),
+        "multi_issuer_approved_counterpart_value_contract_snapshot_gate_checksum_sha256": report.get("multi_issuer_approved_counterpart_value_contract_snapshot_gate_checksum_sha256", ""),
+    }
+
+
+def _task231a_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    envelope = _task231a_envelope(report)
+    mappings = {
+        "checks_json": ("approved_counterpart_value_contract_snapshot_gate_check_count", "approved_counterpart_value_contract_snapshot_gate_check_rows"),
+        "scope_json": ("scope_count", "scope_rows"),
+        "task230_validation_json": ("task230_validation_count", "task230_validation_rows"),
+        "lineage_json": ("lineage_count", "lineage_rows"),
+        "task230_artifact_validation_json": ("task230_artifact_validation_count", "task230_artifact_validation_rows"),
+        "task230_plan_row_validation_json": ("task230_plan_row_validation_count", "task230_plan_row_validation_rows"),
+        "binding_input_validation_json": ("binding_input_validation_count", "binding_input_validation_rows"),
+        "task224_family_validation_json": ("task224_family_validation_count", "task224_family_validation_rows"),
+        "task225_family_validation_json": ("task225_family_validation_count", "task225_family_validation_rows"),
+        "task223_inventory_validation_json": ("task223_inventory_validation_count", "task223_inventory_validation_rows"),
+        "counterpart_source_resolution_validation_json": ("counterpart_source_resolution_validation_count", "counterpart_source_resolution_validation_rows"),
+        "approved_counterpart_value_contract_rows_json": ("approved_counterpart_value_contract_count", "approved_counterpart_value_contract_rows"),
+        "value_contract_summary_json": ("value_contract_summary_count", "value_contract_summary_rows"),
+        "task231b_readiness_preview_json": ("task231b_readiness_preview_count", "task231b_readiness_preview_rows"),
+        "containment_validation_json": ("concrete_data_containment_validation_count", "concrete_data_containment_validation_rows"),
+        "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {
+        key: {**envelope, count: report.get(count, 0), rows: report.get(rows) or []}
+        for key, (count, rows) in mappings.items()
+    }
+    payloads["blockers_json"] = {**envelope, "blocker_rows": report.get("blocker_rows") or []}
+    payloads["next_tasks_json"]["next_tasks_valid"] = report.get("next_tasks_valid", False)
+    payloads["safety_json"] = {
+        **envelope,
+        "acceptance_boundary_valid": report.get("acceptance_boundary_valid", False),
+        "counterpart_value_contract_snapshotted": report.get("counterpart_value_contract_snapshotted", False),
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        **{field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ALWAYS_FALSE_FIELDS},
+    }
+    return payloads
+
+
+def _task231a_write_direct(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    if artifacts.get("snapshot_json"):
+        write_json_report(report, artifacts["snapshot_json"])
+    if artifacts.get("snapshot_markdown"):
+        artifacts["snapshot_markdown"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["snapshot_markdown"].write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_markdown(report),
+            encoding="utf-8",
+        )
+    for key, payload in _task231a_wrappers(report).items():
+        if artifacts.get(key):
+            write_json_report(payload, artifacts[key])
+
+
+def _task231a_write_atomic(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    targets = {key: path for key, path in artifacts.items() if isinstance(path, Path)}
+    roots: dict[Path, Path] = {}
+    staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent
+            parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(prefix=".task231a-counterpart-value-snapshot-", dir=parent))
+                roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task231a_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"
+                shutil.copy2(target, backup)
+                backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target)
+            published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file():
+                    os.replace(backup, target)
+                elif target in published and target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise
+    finally:
+        for root in roots.values():
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def _task231a_publish(report: dict[str, Any], artifacts: dict[str, Path | None]) -> dict[str, Any]:
+    try:
+        _task231a_write_atomic(report, artifacts)
+        return report
+    except Exception:
+        failed = _task231a_empty_report("failed", errors=[{"message": "task231a_terminal_artifact_write_failed"}])
+        try:
+            _task231a_write_atomic(failed, artifacts)
+            return failed
+        except Exception:
+            return _task231a_empty_report(
+                "failed", errors=[{"message": "task231a_terminal_artifact_write_failed"}],
+                write_outputs=False,
+            )
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = _task231a_inputs(args)
+    artifacts = _task231a_artifacts(args)
+    output_blockers = _task231a_output_blockers(inputs, artifacts)
+    if output_blockers:
+        return _task231a_empty_report("blocked", blocker_codes=output_blockers, write_outputs=False)
+    task230_path = inputs.get("task230")
+    if not isinstance(task230_path, Path) or not task230_path.exists():
+        return _task231a_publish(
+            _task231a_empty_report("blocked", blocker_codes=["task230_input_missing"]), artifacts
+        )
+    if task230_path.is_symlink() or not task230_path.is_file():
+        return _task231a_publish(
+            _task231a_empty_report("blocked", blocker_codes=["task230_input_path_invalid"]), artifacts
+        )
+    try:
+        task230 = _task229_load_json(task230_path)
+    except UnicodeDecodeError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_utf8_invalid"}]), artifacts)
+    except json.JSONDecodeError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_json_invalid"}]), artifacts)
+    except ValueError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_json_object_invalid"}]), artifacts)
+    except OSError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_read_failed"}]), artifacts)
+    try:
+        task230_artifact_rows, artifact_blockers = _task231a_validate_task230_family(
+            task230, task230_path.parent
+        )
+        task230_validation_rows, task230_plan_rows, contract_blockers = (
+            _task231a_task230_validation(task230)
+        )
+    except UnicodeDecodeError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_artifact_utf8_invalid"}]), artifacts)
+    except (json.JSONDecodeError, ValueError):
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_artifact_json_invalid"}]), artifacts)
+    except OSError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_artifact_read_failed"}]), artifacts)
+    except Exception:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task230_checksum_validation_failed"}]), artifacts)
+    blockers = [*artifact_blockers, *contract_blockers]
+    if blockers:
+        return _task231a_publish(
+            _task231a_empty_report("blocked", blocker_codes=list(dict.fromkeys(blockers))), artifacts
+        )
+    task228_path = inputs.get("task228")
+    if not isinstance(task228_path, Path) or not task228_path.is_file() or task228_path.is_symlink():
+        return _task231a_publish(
+            _task231a_empty_report("blocked", blocker_codes=["task228_source_input_missing"]), artifacts
+        )
+    try:
+        task228 = _task229_load_json(task228_path)
+        task228_wrappers = _task228_wrappers(task228)
+        task228_relevant_keys = (
+            "loaded_workspace_json", "loaded_normalization_rows_json", "loaded_counterpart_rows_json",
+        )
+        task228_artifacts_valid = all(
+            _task229_load_json(
+                task228_path.parent / RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES[key]
+            ) == task228_wrappers[key]
+            for key in task228_relevant_keys
+        )
+        task228_valid = (
+            task228.get("status") == "warning"
+            and task228.get("complete_manual_fill") is True
+            and task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") == _task228_checksum(task228)
+            and task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") == _task228_loaded_workspace_checksum(task228)
+            and task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") == task230.get("source_multi_issuer_normalization_and_period_pairing_workspace_authorized_manual_fill_loader_checksum_sha256")
+            and task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") == task230.get("source_multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256")
+            and task228_artifacts_valid
+        )
+    except UnicodeDecodeError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task228_source_utf8_invalid"}]), artifacts)
+    except (json.JSONDecodeError, ValueError):
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task228_source_json_invalid"}]), artifacts)
+    except OSError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task228_source_read_failed"}]), artifacts)
+    except Exception:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task228_source_checksum_validation_failed"}]), artifacts)
+    if not task228_valid:
+        return _task231a_publish(
+            _task231a_empty_report("blocked", blocker_codes=["task228_source_contract_invalid"]), artifacts
+        )
+    counterpart_ids = {
+        str(row.get("counterpart_workspace_row_id") or "")
+        for row in task230.get("period_pair_plan_rows") or [] if isinstance(row, dict)
+    }
+    task224_bindings, binding_blockers224 = _task229_binding_map(
+        inputs.get("task224_bindings") or [], counterpart_ids
+    )
+    task225_bindings, binding_blockers225 = _task229_binding_map(
+        inputs.get("task225_bindings") or [], counterpart_ids
+    )
+    binding_blockers = [*binding_blockers224, *binding_blockers225]
+    if set(task224_bindings) != counterpart_ids or set(task225_bindings) != counterpart_ids:
+        binding_blockers.append("counterpart_binding_inventory_incomplete")
+    if binding_blockers:
+        return _task231a_publish(
+            _task231a_empty_report("blocked", blocker_codes=list(dict.fromkeys(binding_blockers))), artifacts
+        )
+    forbidden_paths = [
+        task230_path, task228_path,
+        *(task230_path.parent / name for name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ARTIFACT_NAMES.values()),
+    ]
+    try:
+        (
+            value_rows, binding_rows, task224_rows, task225_rows,
+            task223_rows, resolution_rows, source_blockers,
+        ) = _task231a_build_value_rows(
+            task230, task228, task224_bindings, task225_bindings,
+            forbidden_paths,
+            [
+                root for root in (
+                    inputs.get("payload_root"),
+                    *(path.parent / RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR for path in (*task224_bindings.values(), *task225_bindings.values())),
+                ) if isinstance(root, Path)
+            ],
+            artifacts,
+        )
+    except UnicodeDecodeError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "counterpart_source_utf8_invalid"}]), artifacts)
+    except json.JSONDecodeError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "counterpart_source_json_invalid"}]), artifacts)
+    except ValueError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "counterpart_source_contract_parse_failed"}]), artifacts)
+    except OSError:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "counterpart_source_read_failed"}]), artifacts)
+    except Exception:
+        return _task231a_publish(_task231a_empty_report("failed", errors=[{"message": "task231a_internal_validation_failed"}]), artifacts)
+    if source_blockers:
+        return _task231a_publish(
+            _task231a_empty_report("blocked", blocker_codes=source_blockers), artifacts
+        )
+    try:
+        report = _build_task231a_report(
+            task230, task228, task230_validation_rows,
+            task230_artifact_rows, task230_plan_rows, binding_rows,
+            task224_rows, task225_rows, task223_rows, resolution_rows,
+            value_rows,
+        )
+    except Exception:
+        report = _task231a_empty_report("failed", errors=[{"message": "task231a_report_build_failed"}])
+    return _task231a_publish(report, artifacts)
 
 
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:

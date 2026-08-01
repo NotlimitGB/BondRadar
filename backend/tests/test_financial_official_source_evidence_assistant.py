@@ -29611,7 +29611,7 @@ def _task219_valid_ogrn(prefix: str) -> str:
     return prefix + str(int(prefix) % 11 % 10)
 
 
-def _task219_candidate_row(index: int) -> dict:
+def _task219_candidate_row(index: int, *, report_year: int = 2024) -> dict:
     row = _task218_candidate_row(index)
     row.update({
         "issuer_inn": _task219_valid_inn(f"7700000{index:02d}"),
@@ -29620,6 +29620,7 @@ def _task219_candidate_row(index: int) -> dict:
         "source_url": f"https://candidate-{index}.invalid/report.pdf",
         "official_source_url": "",
         "source_locator_notes": f"synthetic locator {index}",
+        "report_year": report_year,
     })
     return row
 
@@ -29628,12 +29629,17 @@ def _write_task219_ready_task218(
     chain: Path,
     tmp_path: Path,
     monkeypatch,
+    *,
+    report_year: int = 2024,
 ) -> tuple[dict, Path, Path]:
     _write_task218_ready_task217(chain, tmp_path, monkeypatch)
     draft = tmp_path / "task219-operator-draft.json"
     payload = {
         "schema_version": "bondradar.manual_candidate_seed.v1",
-        "candidate_rows": [_task219_candidate_row(index) for index in range(1, 4)],
+        "candidate_rows": [
+            _task219_candidate_row(index, report_year=report_year)
+            for index in range(1, 4)
+        ],
     }
     draft.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
     report = _run_task218(chain, draft)
@@ -30007,9 +30013,11 @@ def _write_task220_ready_task219(
     chain: Path,
     tmp_path: Path,
     monkeypatch,
+    *,
+    report_year: int = 2024,
 ) -> tuple[dict, Path, tuple[Path, ...]]:
     task218, task218_path, draft = _write_task219_ready_task218(
-        chain, tmp_path, monkeypatch
+        chain, tmp_path, monkeypatch, report_year=report_year
     )
     review = tmp_path / "task220-review.json"
     payload = _task219_review_payload(
@@ -30458,9 +30466,11 @@ def _write_task221_ready_task220(
     chain: Path,
     tmp_path: Path,
     monkeypatch,
+    *,
+    report_year: int = 2024,
 ) -> tuple[dict, Path, tuple[Path, ...]]:
     _, task219_path, upstream_paths = _write_task220_ready_task219(
-        chain, tmp_path, monkeypatch
+        chain, tmp_path, monkeypatch, report_year=report_year
     )
     report = _run_task220(chain)
     assert report["status"] == "warning"
@@ -30893,9 +30903,11 @@ def _write_task222_ready_task221(
     chain: Path,
     tmp_path: Path,
     monkeypatch,
+    *,
+    report_year: int = 2024,
 ) -> tuple[dict, dict, Path, tuple[Path, ...]]:
     task220, task220_path, upstream_paths = _write_task221_ready_task220(
-        chain, tmp_path, monkeypatch
+        chain, tmp_path, monkeypatch, report_year=report_year
     )
     manifest_path = tmp_path / "task222-authorization.json"
     manifest_path.write_text(
@@ -31328,9 +31340,10 @@ def _write_task223_ready_task222(
     monkeypatch,
     *,
     extraction=None,
+    report_year: int = 2024,
 ) -> tuple[dict, Path, tuple[Path, ...]]:
     _, _, task221_path, upstream_paths = _write_task222_ready_task221(
-        chain, tmp_path, monkeypatch
+        chain, tmp_path, monkeypatch, report_year=report_year
     )
     monkeypatch.setattr(
         assistant,
@@ -31754,8 +31767,12 @@ def _write_task224_ready_task223(
     chain: Path,
     tmp_path: Path,
     monkeypatch,
+    *,
+    report_year: int = 2024,
 ) -> tuple[dict, Path, Path]:
-    _write_task223_ready_task222(chain, tmp_path, monkeypatch)
+    _write_task223_ready_task222(
+        chain, tmp_path, monkeypatch, report_year=report_year
+    )
     task223 = _run_task223(chain)
     assert task223["status"] == "warning"
     names = (
@@ -32248,9 +32265,11 @@ def _write_task225_ready_task224(
     chain: Path,
     tmp_path: Path,
     monkeypatch,
+    *,
+    report_year: int = 2024,
 ) -> tuple[dict, Path]:
     _, _, template_path = _write_task224_ready_task223(
-        chain, tmp_path, monkeypatch
+        chain, tmp_path, monkeypatch, report_year=report_year
     )
     review_path = tmp_path / f"{chain.name}-task224-review.json"
     document = _task224_review_document(
@@ -34566,6 +34585,426 @@ def test_reviewed_normalized_facts_and_complete_period_pair_assembly_plan_pairin
         task226, task228, missing_review
     )
     assert "normalized_fact_plan_inventory_invalid" in missing_blockers
+
+
+def _run_task231a(
+    chain: Path,
+    *,
+    task230_input: Path | None = None,
+    task224_bindings: dict[str, Path] | None = None,
+    task225_bindings: dict[str, Path] | None = None,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate",
+        "--operator-resolution-chain-output-dir", str(chain),
+    ]
+    if task230_input is not None:
+        arguments.extend([
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-input",
+            str(task230_input),
+        ])
+    for row_id, path in (task224_bindings or {}).items():
+        arguments.extend([
+            "--multi-issuer-counterpart-task224-main-artifact-binding",
+            f"{row_id}={path}",
+        ])
+    for row_id, path in (task225_bindings or {}).items():
+        arguments.extend([
+            "--multi-issuer-counterpart-task225-main-artifact-binding",
+            f"{row_id}={path}",
+        ])
+    arguments.extend(extra or [])
+    parsed = assistant.parse_args(arguments)
+    report, exit_code = assistant.run_assistant(parsed)
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _write_task231a_ready_task230(
+    chain: Path,
+    tmp_path: Path,
+    monkeypatch,
+) -> tuple[dict, dict, Path, Path]:
+    task227, _ = _write_task228_ready_task227(chain, tmp_path, monkeypatch)
+    source_root = tmp_path
+    sibling = tmp_path / "s"
+    shutil.copytree(chain, sibling)
+    later_families = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_GATE_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ARTIFACT_NAMES,
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_ARTIFACT_NAMES,
+    )
+    for names in later_families:
+        for name in names.values():
+            path = sibling / name
+            if path.is_file():
+                path.unlink()
+    payload_root = sibling / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+    if payload_root.is_dir():
+        shutil.rmtree(payload_root)
+    draft = source_root / "task231a-2025-draft.json"
+    draft.write_text(json.dumps({
+        "schema_version": "bondradar.manual_candidate_seed.v1",
+        "candidate_rows": [
+            _task219_candidate_row(index, report_year=2025)
+            for index in range(1, 4)
+        ],
+    }), encoding="utf-8")
+    task218 = _run_task218(sibling, draft)
+    assert task218["status"] == "warning" and task218["complete_draft"] is True
+    seed_review = source_root / "task231a-2025-seed-review.json"
+    _write_task219_review(seed_review, _task219_review_payload(
+        task218["authorized_manual_candidate_seed_draft_loader_checksum_sha256"]
+    ))
+    task219 = _run_task219(sibling, seed_review, authorize=True)
+    assert task219["status"] == "warning" and task219["candidate_seed_approved"] is True
+    task220 = _run_task220(sibling)
+    assert task220["status"] == "warning"
+    authorization = source_root / "task231a-2025-task222-authorization.json"
+    authorization.write_text(json.dumps(_task221_manifest(task220)), encoding="utf-8")
+    task221 = _run_task221(sibling, manifest=authorization, authorize=True)
+    assert task221["status"] == "warning"
+    monkeypatch.setattr(assistant, "_task222_controlled_http_get", _task222_transport_success)
+    monkeypatch.setattr(assistant, "_task222_extract_pdf", _task222_extraction_success)
+    task222 = _run_task222(sibling, execute=True)
+    assert task222["status"] == "warning"
+    task223 = _run_task223(sibling)
+    assert task223["status"] == "warning"
+    task223_names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES
+    task224_review = source_root / "task231a-2025-task224-review.json"
+    task224_review.write_text(json.dumps(_task224_review_document(
+        sibling / task223_names["manual_review_template_json"],
+        [
+            *[("approve_for_controlled_value_staging", "evidence_matches_report") for _ in range(4)],
+            *[("reject_candidate", "duplicate_candidate") for _ in range(2)],
+        ],
+    )), encoding="utf-8")
+    task224_created = _run_task224(
+        sibling, review_input=task224_review, confirm=True
+    )
+    assert task224_created["status"] == "warning"
+    task225 = _run_task225(sibling)
+    assert task225["status"] == "warning"
+    assert all(
+        row["report_period"] == 2025
+        for row in task225["approved_candidate_binding_rows"]
+    )
+    task224_names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES
+    )
+    task225_names = (
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES
+    )
+    task224_path = sibling / task224_names["review_json"]
+    task225_path = sibling / task225_names["plan_json"]
+    task224 = json.loads(task224_path.read_text(encoding="utf-8"))
+    references = {
+        row["evidence_candidate_id"]: row
+        for row in task224["approved_candidate_reference_rows"]
+    }
+    document = _task228_manual_input(task227)
+    for row in document["normalization_workspace_rows"]:
+        row.update({
+            "normalized_currency": "RUB",
+            "normalized_unit": "RUB million",
+            "normalized_scale": "1000000",
+        })
+    for input_row, binding in zip(
+        document["counterpart_binding_rows"],
+        task225["approved_candidate_binding_rows"],
+    ):
+        reference = references[binding["evidence_candidate_id"]]
+        input_row.update({
+            "counterpart_task224_checksum_sha256": task224[
+                "multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"
+            ],
+            "counterpart_task224_review_result_checksum_sha256": task224[
+                "multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256"
+            ],
+            "counterpart_evidence_candidate_id": reference["evidence_candidate_id"],
+            "counterpart_source_document_sha256": reference["source_document_sha256"],
+        })
+    manual_input = tmp_path / "task231a-task228-input.json"
+    manual_input.write_text(json.dumps(document), encoding="utf-8")
+    task228 = _run_task228(chain, manual_input)
+    assert task228["status"] == "warning" and task228["complete_manual_fill"] is True
+    review_input = tmp_path / "task231a-task229-review.json"
+    review_input.write_text(
+        json.dumps(_task229_review_input(task228)), encoding="utf-8"
+    )
+    row_ids = [
+        row["counterpart_workspace_row_id"]
+        for row in task228["loaded_counterpart_rows"]
+    ]
+    task229 = _run_task229(
+        chain, review_input,
+        task224_bindings={row_id: task224_path for row_id in row_ids},
+        task225_bindings={row_id: task225_path for row_id in row_ids},
+    )
+    assert task229["status"] == "warning", task229["blocker_rows"]
+    task230 = _run_task230(chain)
+    assert task230["status"] == "warning", task230["blocker_rows"]
+    return task228, task230, task224_path, task225_path
+
+
+def test_approved_counterpart_value_contract_snapshot_gate_success_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task228, task230, task224_path, task225_path = (
+        _write_task231a_ready_task230(chain, tmp_path, monkeypatch)
+    )
+    row_ids = [
+        row["counterpart_workspace_row_id"]
+        for row in task228["loaded_counterpart_rows"]
+    ]
+    clone = tmp_path / "clone"
+    clone_source = tmp_path / "clone-source"
+    shutil.copytree(chain, clone)
+    shutil.copytree(task224_path.parent, clone_source)
+    task224_clone = clone_source / task224_path.name
+    task225_clone = clone_source / task225_path.name
+    immutable = {
+        path: path.read_bytes()
+        for root in (chain, task224_path.parent)
+        for path in root.rglob("*") if path.is_file()
+        and path.name not in set(
+            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES.values()
+        )
+    }
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Task231A must not access network or extraction")
+
+    monkeypatch.setattr(assistant, "_task222_controlled_http_get", forbidden)
+    monkeypatch.setattr(assistant, "_task222_extract_pdf", forbidden)
+    original_open = Path.open
+    task222_mains = {
+        (root / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES["executor_json"]).resolve()
+        for root in (chain, task224_path.parent, clone, clone_source)
+    }
+    payload_roots = {
+        (root / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR).resolve()
+        for root in (chain, task224_path.parent, clone, clone_source)
+    }
+
+    def guarded_open(path: Path, *args, **kwargs):
+        resolved = path.resolve()
+        if resolved in task222_mains:
+            raise AssertionError("Task231A must not read Task222 main")
+        if any(resolved == root or root in resolved.parents for root in payload_roots):
+            raise AssertionError("Task231A must not read Task222 payload")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    report = _run_task231a(
+        chain,
+        task224_bindings={row_id: task224_path for row_id in row_ids},
+        task225_bindings={row_id: task225_path for row_id in row_ids},
+    )
+    clone_report = _run_task231a(
+        clone,
+        task224_bindings={row_id: task224_clone for row_id in row_ids},
+        task225_bindings={row_id: task225_clone for row_id in row_ids},
+    )
+    monkeypatch.setattr(Path, "open", original_open)
+
+    assert report["status"] == "warning", report["blocker_rows"]
+    assert report["approved_counterpart_value_contract_snapshot_gate_ready"] is True
+    assert report["counterpart_value_contract_snapshot_complete"] is True
+    assert report["approved_counterpart_value_contract_count"] == len(
+        task230["period_pair_plan_rows"]
+    ) == 4
+    assert report["counterpart_value_contract_snapshotted"] is True
+    assert report["counterpart_source_resolution_completed"] is True
+    assert report[
+        "ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor"
+    ] is True
+    assert [
+        row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]
+    ] == ["Task231B"]
+    assert report["blocker_count"] == report["bad_safety_count"] == 0
+    assert all(
+        report[field] is False
+        for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ALWAYS_FALSE_FIELDS
+    )
+    assert all(
+        row["counterpart_report_period"] == 2025
+        and row["approved_raw_currency"] == "RUB"
+        and row["approved_raw_unit"] == "RUB million"
+        and row["approved_raw_scale"] == "1000000"
+        and row["normalization_executed"] is False
+        and row["counterpart_value_copied"] is False
+        and "evidence_candidate_id" not in row
+        for row in report["approved_counterpart_value_contract_rows"]
+    )
+    names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES
+    assert len(names) == len(set(names.values())) == 20
+    assert all((chain / name).is_file() for name in names.values())
+    concrete_keys = {"snapshot_json", "approved_counterpart_value_contract_rows_json"}
+    concrete_fields = {
+        "approved_raw_value_numeric", "approved_raw_currency",
+        "approved_raw_unit", "approved_raw_scale",
+    }
+    for key, name in names.items():
+        text = (chain / name).read_text(encoding="utf-8")
+        if key in concrete_keys:
+            assert "approved_raw_value_numeric" in text
+        else:
+            assert all(field not in text for field in concrete_fields)
+        assert "evidence_candidate_id" not in text
+        assert str(task224_path.parent) not in text
+    assert (chain / names["snapshot_markdown"]).read_text(encoding="utf-8") == (
+        assistant.render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_counterpart_value_contract_snapshot_gate_markdown(report)
+    )
+    for key, expected in assistant._task231a_wrappers(report).items():
+        assert json.loads((chain / names[key]).read_text(encoding="utf-8")) == expected
+    assert report["approved_counterpart_value_contract_rows"] == clone_report[
+        "approved_counterpart_value_contract_rows"
+    ]
+    assert report[
+        "multi_issuer_approved_counterpart_value_contract_snapshot_gate_checksum_sha256"
+    ] == clone_report[
+        "multi_issuer_approved_counterpart_value_contract_snapshot_gate_checksum_sha256"
+    ]
+    assert {path: path.read_bytes() for path in immutable} == immutable
+    assert not list(tmp_path.glob(".task231a-counterpart-value-snapshot-*"))
+
+
+def test_approved_counterpart_value_contract_snapshot_gate_blocks_missing_and_incompatible_sources(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task228, _, task224_path, task225_path = _write_task231a_ready_task230(
+        chain, tmp_path, monkeypatch
+    )
+    row_ids = [
+        row["counterpart_workspace_row_id"]
+        for row in task228["loaded_counterpart_rows"]
+    ]
+    missing = _run_task231a(chain)
+    assert missing["status"] == "blocked"
+    assert missing["approved_counterpart_value_contract_count"] == 0
+    assert missing["counterpart_value_contract_snapshotted"] is False
+    assert all(row["allowed_now"] is False for row in missing["next_task_rows"])
+
+    payload_root = task224_path.parent / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+    payload_task224 = payload_root / task224_path.name
+    payload_task225 = payload_root / task225_path.name
+    shutil.copy2(task224_path, payload_task224)
+    shutil.copy2(task225_path, payload_task225)
+    payload_blocked = _run_task231a(
+        chain,
+        task224_bindings={row_id: payload_task224 for row_id in row_ids},
+        task225_bindings={row_id: payload_task225 for row_id in row_ids},
+    )
+    assert payload_blocked["status"] == "blocked"
+    assert {
+        "counterpart_task224_binding_payload_forbidden",
+        "counterpart_task225_binding_payload_forbidden",
+    }.issubset({row["code"] for row in payload_blocked["blocker_rows"]})
+    assert payload_blocked["approved_counterpart_value_contract_count"] == 0
+    assert payload_blocked["counterpart_value_contract_snapshotted"] is False
+    assert payload_blocked[
+        "ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor"
+    ] is False
+
+    inventory_path = task224_path.parent / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES[
+        "evidence_candidate_inventory_json"
+    ]
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    inventory["evidence_candidate_rows"][0]["value_candidate"]["raw_unit"] = "incompatible unit"
+    inventory_path.write_text(json.dumps(inventory), encoding="utf-8")
+    blocked = _run_task231a(
+        chain,
+        task224_bindings={row_id: task224_path for row_id in row_ids},
+        task225_bindings={row_id: task225_path for row_id in row_ids},
+    )
+    assert blocked["status"] == "blocked"
+    assert blocked["approved_counterpart_value_contract_count"] == 0
+    assert blocked["counterpart_source_resolution_completed"] is False
+    assert blocked[
+        "ready_for_task231b_reviewed_normalized_fact_and_complete_period_pair_assembly_executor"
+    ] is False
+    assert all(
+        blocked[field] is False
+        for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ALWAYS_FALSE_FIELDS
+    )
+    persisted = "\n".join(
+        (chain / name).read_text(encoding="utf-8")
+        for name in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_COUNTERPART_VALUE_SNAPSHOT_ARTIFACT_NAMES.values()
+    )
+    assert "incompatible unit" not in persisted
+
+
+def test_approved_counterpart_value_contract_snapshot_gate_failed_and_atomic_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+    task228, _, task224_path, task225_path = _write_task231a_ready_task230(
+        chain, tmp_path, monkeypatch
+    )
+    row_ids = [
+        row["counterpart_workspace_row_id"]
+        for row in task228["loaded_counterpart_rows"]
+    ]
+    malformed = tmp_path / "malformed-task230.json"
+    malformed.write_text('{"status": invalid', encoding="utf-8")
+    failed = _run_task231a(chain, task230_input=malformed)
+    assert failed["status"] == "failed"
+    assert failed["errors"] == [{"message": "task230_json_invalid"}]
+    assert failed["approved_counterpart_value_contract_count"] == 0
+
+    invalid_utf = tmp_path / "invalid-utf-task230.json"
+    invalid_utf.write_bytes(b"\xff\xfe")
+    utf_failed = _run_task231a(chain, task230_input=invalid_utf)
+    assert utf_failed["status"] == "failed"
+    assert utf_failed["errors"] == [{"message": "task230_utf8_invalid"}]
+
+    collision_target = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_PLAN_ARTIFACT_NAMES[
+        "checks_json"
+    ]
+    collision_before = collision_target.read_bytes()
+    collision = _run_task231a(chain, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-approved-counterpart-value-contract-snapshot-gate-checks-output",
+        str(collision_target),
+    ])
+    assert collision["status"] == "blocked"
+    assert collision["write_outputs"] is False
+    assert collision["blocker_rows"][0]["code"] == "task231a_output_input_collision"
+    assert collision_target.read_bytes() == collision_before
+
+    original_write = assistant._task231a_write_atomic
+
+    def fail_write(*_args, **_kwargs):
+        raise OSError("private synthetic path must not leak")
+
+    monkeypatch.setattr(assistant, "_task231a_write_atomic", fail_write)
+    write_failed = _run_task231a(
+        chain,
+        task224_bindings={row_id: task224_path for row_id in row_ids},
+        task225_bindings={row_id: task225_path for row_id in row_ids},
+    )
+    monkeypatch.setattr(assistant, "_task231a_write_atomic", original_write)
+    assert write_failed["status"] == "failed"
+    assert write_failed["write_outputs"] is False
+    assert write_failed["errors"] == [{"message": "task231a_terminal_artifact_write_failed"}]
+    assert "private synthetic path" not in json.dumps(write_failed)
 
 
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
