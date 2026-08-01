@@ -144,6 +144,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-approved-evidence-candidate-normalization-and-period-pairing-workspace",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-manual-fill-authorization-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-authorized-manual-fill-loader",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -13005,6 +13006,76 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ALWA
         )
     )
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MODE = (
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-"
+    "counterpart-binding-review-gate"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_SCHEMA_VERSION = (
+    "bondradar.multi_issuer_normalized_fact_and_counterpart_binding_review.v1"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MAX_BYTES = 256 * 1024
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_DECISIONS = (
+    "approve", "reject", "correction_required",
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ARTIFACT_NAMES = {
+    "review_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_task229.json",
+    "review_markdown": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_task229.md",
+    "checks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_checks_task229.json",
+    "blockers_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_blockers_task229.json",
+    "scope_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_scope_task229.json",
+    "task228_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_task228_validation_task229.json",
+    "lineage_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_lineage_task229.json",
+    "task228_artifact_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_task228_artifacts_task229.json",
+    "containment_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_containment_task229.json",
+    "review_input_schema_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_input_schema_task229.json",
+    "review_input_validation_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_input_validation_task229.json",
+    "normalization_review_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_normalization_rows_task229.json",
+    "normalization_review_summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_normalization_summary_task229.json",
+    "counterpart_reference_resolution_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_counterpart_resolution_task229.json",
+    "counterpart_review_rows_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_counterpart_rows_task229.json",
+    "counterpart_review_summary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_counterpart_summary_task229.json",
+    "completeness_readiness_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_completeness_task229.json",
+    "acceptance_execution_boundary_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_boundary_task229.json",
+    "next_tasks_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_next_tasks_task229.json",
+    "safety_json": "rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_counterpart_review_gate_safety_task229.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_TASK230_NEXT_STEP = (
+    "Task230 - Reviewed Normalized Facts and Complete Period Pair Assembly Plan"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_NORMALIZATION_NEXT_STEP = (
+    "Task228 - Correct authorized normalization workspace values and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_COUNTERPART_NEXT_STEP = (
+    "Task228 - Correct counterpart evidence references and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MIXED_NEXT_STEP = (
+    "Task228 - Correct normalization values or counterpart references and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_BLOCKED_NEXT_STEP = (
+    "Task229 - Resolve normalized fact and counterpart review blockers and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_FAILED_NEXT_STEP = (
+    "Task229 - Repair failed review gate and rerun"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ALWAYS_FALSE_FIELDS = tuple(
+    dict.fromkeys((
+        *(
+            field
+            for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ALWAYS_FALSE_FIELDS
+            if field not in {"workspace_review_completed", "counterpart_binding_validated"}
+        ),
+        "workspace_materialization_executed", "period_pairing_executed",
+        "period_pair_created", "controlled_values_staged",
+        "database_write_authorized", "database_mutated", "migration_executed",
+        "controlled_value_creation_authorized", "import_authorized",
+        "controlled_import_prepared", "controlled_import_executed",
+        "import_executed", "scoring_authorized", "scoring_executed",
+        "ranking_authorized", "ranking_executed", "recommendation_authorized",
+        "recommendation_generated", "broker_api_authorized", "broker_api_called",
+        "trading_authorized", "trading_executed", "paper_trading_executed",
+        "production_export_executed",
+    ))
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -15398,6 +15469,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-authorized-manual-fill-loader-next-tasks-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-authorized-manual-fill-loader-summary-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalization-and-period-pairing-workspace-authorized-manual-fill-loader-safety-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-input", type=Path, default=None)
+    parser.add_argument("--multi-issuer-normalized-fact-and-counterpart-binding-review-input", type=Path, default=None)
+    parser.add_argument("--multi-issuer-counterpart-task224-main-artifact-binding", action="append", default=[])
+    parser.add_argument("--multi-issuer-counterpart-task225-main-artifact-binding", action="append", default=[])
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-markdown-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-checks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-blockers-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-scope-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-task228-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-lineage-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-task228-artifact-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-containment-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-review-input-schema-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-review-input-validation-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-normalization-review-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-normalization-review-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-counterpart-reference-resolution-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-counterpart-review-rows-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-counterpart-review-summary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-completeness-readiness-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-acceptance-and-execution-boundary-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-next-tasks-output", type=Path, default=None)
+    parser.add_argument("--rzd-manual-official-pdf-controlled-values-multi-issuer-normalized-fact-and-counterpart-binding-review-gate-safety-output", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -15753,6 +15848,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate(args)
     elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_MODE:
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_normalization_and_period_pairing_workspace_authorized_manual_fill_loader(args)
+    elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MODE:
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_and_counterpart_binding_review_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -110300,6 +110397,1355 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_normalization_and
             artifacts,
         )
     return _task228_publish(report, artifacts)
+
+
+def _task229_inputs(args: argparse.Namespace) -> dict[str, Any]:
+    chain = args.operator_resolution_chain_output_dir
+    default = (
+        chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES[
+            "loader_json"
+        ]
+        if chain else None
+    )
+    task228 = (
+        args.rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_and_counterpart_binding_review_gate_input
+        or default
+    )
+    parent = task228.parent if isinstance(task228, Path) else None
+    main_names = {
+        "task227": RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_ARTIFACT_NAMES["gate_json"],
+        "task226": RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ARTIFACT_NAMES["workspace_json"],
+        "task225": RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES["plan_json"],
+        "task224": RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES["review_json"],
+        "task223": RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_REVIEW_GATE_ARTIFACT_NAMES["gate_json"],
+        "task222": RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_ARTIFACT_NAMES["executor_json"],
+        "task221": RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_AUTH_GATE_ARTIFACT_NAMES["gate_json"],
+        "task220": RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_PLAN_ARTIFACT_NAMES["plan_json"],
+        "task219": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_VALIDATION_MANUAL_REVIEW_ARTIFACT_NAMES["review_json"],
+        "task218": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_AUTHORIZED_DRAFT_ARTIFACT_NAMES["loader_json"],
+        "task217": RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_MANUAL_FILL_AUTH_ARTIFACT_NAMES["gate_json"],
+    }
+    return {
+        "task228": task228,
+        **{key: parent / name if parent else None for key, name in main_names.items()},
+        "review_input": args.multi_issuer_normalized_fact_and_counterpart_binding_review_input,
+        "task224_bindings": list(args.multi_issuer_counterpart_task224_main_artifact_binding or []),
+        "task225_bindings": list(args.multi_issuer_counterpart_task225_main_artifact_binding or []),
+        "payload_root": (
+            parent / RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+            if parent else None
+        ),
+    }
+
+
+def _task229_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {
+        key: chain / name
+        for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ARTIFACT_NAMES.items()
+    } if chain else {}
+    suffixes = {
+        "review_json": "output",
+        "review_markdown": "markdown_output",
+        "checks_json": "checks_output",
+        "blockers_json": "blockers_output",
+        "scope_json": "scope_output",
+        "task228_validation_json": "task228_validation_output",
+        "lineage_json": "lineage_output",
+        "task228_artifact_validation_json": "task228_artifact_validation_output",
+        "containment_validation_json": "containment_validation_output",
+        "review_input_schema_json": "review_input_schema_output",
+        "review_input_validation_json": "review_input_validation_output",
+        "normalization_review_rows_json": "normalization_review_rows_output",
+        "normalization_review_summary_json": "normalization_review_summary_output",
+        "counterpart_reference_resolution_json": "counterpart_reference_resolution_output",
+        "counterpart_review_rows_json": "counterpart_review_rows_output",
+        "counterpart_review_summary_json": "counterpart_review_summary_output",
+        "completeness_readiness_json": "completeness_readiness_output",
+        "acceptance_execution_boundary_json": "acceptance_and_execution_boundary_output",
+        "next_tasks_json": "next_tasks_output",
+        "safety_json": "safety_output",
+    }
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "normalized_fact_and_counterpart_binding_review_gate"
+    )
+    return {
+        key: getattr(args, f"{prefix}_{suffix}", None) or defaults.get(key)
+        for key, suffix in suffixes.items()
+    }
+
+
+def _task229_load_json(path: Path) -> dict[str, Any]:
+    raw = path.read_bytes()
+    document = json.loads(raw.decode("utf-8"))
+    if not isinstance(document, dict):
+        raise ValueError("json_object_required")
+    return document
+
+
+def _task229_binding_map(
+    values: list[str],
+    valid_ids: set[str],
+) -> tuple[dict[str, Path], list[str]]:
+    result: dict[str, Path] = {}
+    blockers: list[str] = []
+    for value in values:
+        if not isinstance(value, str) or "=" not in value:
+            blockers.append("counterpart_binding_argument_invalid")
+            continue
+        row_id, raw_path = value.split("=", 1)
+        if row_id not in valid_ids:
+            blockers.append("counterpart_binding_unknown_row")
+        elif row_id in result:
+            blockers.append("counterpart_binding_duplicate_row")
+        elif not raw_path:
+            blockers.append("counterpart_binding_path_missing")
+        else:
+            result[row_id] = Path(raw_path)
+    return result, list(dict.fromkeys(blockers))
+
+
+def _task229_output_blockers(
+    inputs: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> list[str]:
+    upstream = [
+        path for key, path in inputs.items()
+        if key not in {"task224_bindings", "task225_bindings", "payload_root"}
+        and isinstance(path, Path)
+    ]
+    seen: list[Path] = []
+    payload_root = inputs.get("payload_root")
+    for path in artifacts.values():
+        if path is None:
+            continue
+        if any(_paths_equal(path, source) for source in upstream):
+            return ["task229_output_input_collision"]
+        if isinstance(payload_root, Path) and (
+            _paths_equal(path, payload_root) or _path_is_within(path, payload_root)
+        ):
+            return ["task229_output_payload_collision"]
+        if any(_paths_equal(path, prior) for prior in seen):
+            return ["task229_output_duplicate"]
+        seen.append(path)
+    return []
+
+
+def _task229_task228_row_checksums(
+    task228: dict[str, Any], task227: dict[str, Any],
+) -> tuple[int, list[str]]:
+    errors: list[str] = []
+    gate = str(task227.get("multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_checksum_sha256") or "")
+    record = str(task227.get("multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_record_checksum_sha256") or "")
+    template = str(task227.get("source_multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256") or "")
+    normalization_contract = task227.get("authorized_normalization_field_contract_rows") or []
+    counterpart_contract = task227.get("authorized_counterpart_reference_contract_rows") or []
+    valid_count = 0
+    for index, row in enumerate(task228.get("loaded_normalization_rows") or [], 1):
+        if not isinstance(row, dict):
+            errors.append(f"loaded_normalization_row_{index:03d}_invalid")
+            continue
+        base = dict(row)
+        reported = str(base.pop("loaded_normalization_row_checksum_sha256", ""))
+        expected = _rzd_controlled_values_import_plan_sha({
+            "task227_gate_checksum": gate,
+            "task227_record_checksum": record,
+            "task226_template_checksum": template,
+            "upstream_row_checksum": row.get("normalization_workspace_row_checksum_sha256") or "",
+            "authorized_field_contract": normalization_contract,
+            "loaded_row": base,
+        })
+        if reported == expected:
+            valid_count += 1
+        else:
+            errors.append(f"loaded_normalization_row_{index:03d}_checksum_invalid")
+    for index, row in enumerate(task228.get("loaded_counterpart_rows") or [], 1):
+        if not isinstance(row, dict):
+            errors.append(f"loaded_counterpart_row_{index:03d}_invalid")
+            continue
+        base = dict(row)
+        reported = str(base.pop("loaded_counterpart_row_checksum_sha256", ""))
+        expected = _rzd_controlled_values_import_plan_sha({
+            "task227_gate_checksum": gate,
+            "task227_record_checksum": record,
+            "task226_template_checksum": template,
+            "upstream_row_checksum": row.get("counterpart_workspace_row_checksum_sha256") or "",
+            "authorized_reference_contract": counterpart_contract,
+            "loaded_row": base,
+        })
+        if reported == expected:
+            valid_count += 1
+        else:
+            errors.append(f"loaded_counterpart_row_{index:03d}_checksum_invalid")
+    return valid_count, errors
+
+
+def _task229_validate_task228_family(
+    task228: dict[str, Any], parent: Path,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[str]]:
+    names = RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES
+    documents: dict[str, Any] = {}
+    blockers: list[str] = []
+    for key, name in names.items():
+        path = parent / name
+        if not path.is_file() or path.is_symlink():
+            documents[key] = None
+            blockers.append(f"task228_artifact_{key}_missing")
+            continue
+        if key == "loader_markdown":
+            documents[key] = path.read_text(encoding="utf-8")
+        else:
+            documents[key] = _task229_load_json(path)
+    expected = {
+        "loader_json": task228,
+        "loader_markdown": render_rzd_manual_official_pdf_controlled_values_multi_issuer_normalization_and_period_pairing_workspace_authorized_manual_fill_loader_markdown(task228),
+        **_task228_wrappers(task228),
+    }
+    rows: list[dict[str, Any]] = []
+    for index, (key, name) in enumerate(names.items(), 1):
+        valid = documents.get(key) == expected.get(key)
+        if not valid:
+            blockers.append(f"task228_artifact_{key}_mismatch")
+        document = documents.get(key)
+        checksum = (
+            hashlib.sha256(document.encode("utf-8")).hexdigest()
+            if isinstance(document, str) else
+            _rzd_controlled_values_import_plan_sha(document)
+            if isinstance(document, dict) else ""
+        )
+        rows.append({
+            "artifact_index": index,
+            "artifact_key": key,
+            "artifact_name": name,
+            "artifact_checksum_sha256": checksum,
+            "validated": valid,
+            "safe_hint": "Task228 artifact matches its canonical projection.",
+        })
+    prefix = "rzd_manual_official_pdf_controlled_values_multi_issuer_normalization_pairing_manual_fill_loader"
+    actual = {
+        path.name for path in parent.iterdir()
+        if path.is_file() and path.name.startswith(prefix) and "task228" in path.name
+    }
+    if actual != set(names.values()):
+        blockers.append("task228_artifact_family_not_exact")
+    return documents, rows, list(dict.fromkeys(blockers))
+
+
+def _task229_task228_containment(
+    task228: dict[str, Any], documents: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    allowed = {
+        "loader_json", "loaded_workspace_json",
+        "loaded_normalization_rows_json", "loaded_counterpart_rows_json",
+    }
+    concrete_tokens: set[str] = set()
+    for row in task228.get("loaded_normalization_rows") or []:
+        if isinstance(row, dict):
+            for field in ("normalized_value", "operator_note"):
+                value = row.get(field)
+                if isinstance(value, str) and len(value) >= 4:
+                    concrete_tokens.add(value)
+    for row in task228.get("loaded_counterpart_rows") or []:
+        if isinstance(row, dict):
+            for field in (
+                "counterpart_evidence_candidate_id",
+                "counterpart_source_document_sha256",
+                "operator_note",
+            ):
+                value = row.get(field)
+                if isinstance(value, str) and len(value) >= 4:
+                    concrete_tokens.add(value)
+    rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    for index, key in enumerate(documents, 1):
+        if key in allowed:
+            continue
+        document = documents.get(key)
+        rendered = document if isinstance(document, str) else json.dumps(document, ensure_ascii=False, sort_keys=True)
+        leaked = sorted(token for token in concrete_tokens if token and token in rendered)
+        valid = not leaked
+        if not valid:
+            blockers.append(f"task228_artifact_{key}_concrete_data_leak")
+        rows.append({
+            "containment_index": index,
+            "artifact_key": key,
+            "concrete_data_allowed": False,
+            "validated": valid,
+            "safe_hint": "Concrete Task228 values and references are absent.",
+        })
+    return rows, blockers
+
+
+def _task229_review_schema_rows() -> list[dict[str, Any]]:
+    fields = (
+        "schema_version",
+        "task228_authorized_manual_fill_loader_checksum_sha256",
+        "task228_loaded_workspace_checksum_sha256",
+        "task227_authorization_gate_checksum_sha256",
+        "task227_authorization_record_checksum_sha256",
+        "task226_workspace_checksum_sha256",
+        "task226_workspace_template_checksum_sha256",
+        "normalization_review_rows", "counterpart_review_rows",
+    )
+    rows = [
+        {
+            "schema_section": "top_level", "field_index": index,
+            "field_name": field,
+            "field_type": "object_list" if field.endswith("_rows") else "string",
+            "required": True,
+        }
+        for index, field in enumerate(fields, 1)
+    ]
+    for section, identifier in (
+        ("normalization_review_row", "normalization_workspace_row_id"),
+        ("counterpart_review_row", "counterpart_workspace_row_id"),
+    ):
+        for index, (field, required) in enumerate((
+            (identifier, True),
+            ("loaded_normalization_row_checksum_sha256" if section.startswith("normalization") else "loaded_counterpart_row_checksum_sha256", True),
+            ("requested_decision", True), ("operator_review_note", False),
+        ), 1):
+            rows.append({
+                "schema_section": section, "field_index": index,
+                "field_name": field, "field_type": "string", "required": required,
+            })
+    return rows
+
+
+def _task229_validate_review_input(
+    document: Any, task228: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    top = [
+        "schema_version",
+        "task228_authorized_manual_fill_loader_checksum_sha256",
+        "task228_loaded_workspace_checksum_sha256",
+        "task227_authorization_gate_checksum_sha256",
+        "task227_authorization_record_checksum_sha256",
+        "task226_workspace_checksum_sha256",
+        "task226_workspace_template_checksum_sha256",
+        "normalization_review_rows", "counterpart_review_rows",
+    ]
+    blockers: list[str] = []
+    validation: list[dict[str, Any]] = []
+    if not isinstance(document, dict) or list(document) != top:
+        return [], [], [], ["review_input_top_level_contract_invalid"]
+    bindings = {
+        "schema_version": RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_SCHEMA_VERSION,
+        "task228_authorized_manual_fill_loader_checksum_sha256": task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256"),
+        "task228_loaded_workspace_checksum_sha256": task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256"),
+        "task227_authorization_gate_checksum_sha256": task228.get("source_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_checksum_sha256"),
+        "task227_authorization_record_checksum_sha256": task228.get("source_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_record_checksum_sha256"),
+        "task226_workspace_checksum_sha256": task228.get("source_multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256"),
+        "task226_workspace_template_checksum_sha256": task228.get("source_multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256"),
+    }
+    for field, expected in bindings.items():
+        if document.get(field) != expected:
+            blockers.append(f"{field}_mismatch")
+    normalized: list[dict[str, Any]] = []
+    counterpart: list[dict[str, Any]] = []
+    for family, source_rows, id_field, checksum_field, input_key, target in (
+        ("normalization", task228.get("loaded_normalization_rows") or [], "normalization_workspace_row_id", "loaded_normalization_row_checksum_sha256", "normalization_review_rows", normalized),
+        ("counterpart", task228.get("loaded_counterpart_rows") or [], "counterpart_workspace_row_id", "loaded_counterpart_row_checksum_sha256", "counterpart_review_rows", counterpart),
+    ):
+        supplied = document.get(input_key)
+        if not isinstance(supplied, list) or len(supplied) != len(source_rows):
+            blockers.append(f"{family}_review_inventory_invalid")
+            supplied = supplied if isinstance(supplied, list) else []
+        seen: set[str] = set()
+        for index, expected in enumerate(source_rows, 1):
+            raw = supplied[index - 1] if index <= len(supplied) else {}
+            issues: list[str] = []
+            allowed_without_note = [id_field, checksum_field, "requested_decision"]
+            allowed_with_note = [*allowed_without_note, "operator_review_note"]
+            if not isinstance(raw, dict) or list(raw) not in (allowed_without_note, allowed_with_note):
+                issues.append("review_row_field_contract_invalid")
+                raw = raw if isinstance(raw, dict) else {}
+            row_id = raw.get(id_field)
+            if row_id != expected.get(id_field):
+                issues.append("review_row_identity_invalid")
+            if isinstance(row_id, str) and row_id in seen:
+                issues.append("review_row_duplicate")
+            if isinstance(row_id, str):
+                seen.add(row_id)
+            if raw.get(checksum_field) != expected.get(checksum_field):
+                issues.append("review_row_checksum_binding_invalid")
+            decision = raw.get("requested_decision")
+            if decision not in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_DECISIONS:
+                issues.append("requested_decision_invalid")
+            note = raw.get("operator_review_note", "")
+            _, note_issue = _task228_safe_string(note, "operator_review_note")
+            if note_issue:
+                issues.append(note_issue)
+            blockers.extend(f"{family}_row_{index:03d}_{issue}" for issue in issues)
+            target.append({
+                id_field: str(expected.get(id_field) or ""),
+                checksum_field: str(expected.get(checksum_field) or ""),
+                "requested_decision": str(decision or ""),
+            })
+            validation.append({
+                "review_input_validation_index": len(validation) + 1,
+                "row_family": family,
+                "workspace_row_id": str(expected.get(id_field) or ""),
+                "validated": not issues,
+                "issue_codes": sorted(set(issues)),
+                "safe_hint": "Operator note and concrete values are not retained.",
+            })
+    return normalized, counterpart, validation, list(dict.fromkeys(blockers))
+
+
+def _task229_normalization_rows(
+    task228: dict[str, Any], task227: dict[str, Any],
+    decisions: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    upstream_by_id = {
+        str(row.get("normalization_workspace_row_id") or ""): row
+        for row in task227.get("authorized_normalization_rows") or []
+        if isinstance(row, dict)
+    }
+    excluded = {"authorization_index", "authorized_operator_fields", "current_operator_fields_empty", "immutable_fields_modifiable", "authorization_scope", "safe_hint"}
+    fixed = [
+        "manual_fill_classification", "workspace_row_filled",
+        "normalized_value_present", "manual_fill_loaded",
+        "normalization_executed", "normalized_fact_created", "staging_ready",
+        "review_required", "review_completed", "safe_hint",
+    ]
+    for index, (source, decision) in enumerate(zip(task228.get("loaded_normalization_rows") or [], decisions), 1):
+        row_id = str(source.get("normalization_workspace_row_id") or "")
+        upstream = upstream_by_id.get(row_id, {})
+        expected_keys = [
+            "loaded_normalization_row_checksum_sha256",
+            *[key for key in upstream if key not in excluded],
+            *RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS,
+            *fixed,
+        ]
+        exact_shape = list(source) == expected_keys
+        immutable_valid = bool(upstream) and all(
+            source.get(key) == value for key, value in upstream.items()
+            if key not in excluded
+        )
+        strings_valid = True
+        required_values = True
+        for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS:
+            value = source.get(field)
+            _, issue = _task228_safe_string(value, field)
+            strings_valid = strings_valid and issue is None
+            if field != "operator_note":
+                required_values = required_values and isinstance(value, str) and bool(value)
+        decimal_valid = all(
+            isinstance(source.get(field), str) and _task228_decimal_valid(source[field])
+            for field in ("normalized_value", "normalization_multiplier")
+        )
+        provenance_valid = (
+            source.get("manual_fill_classification") == "complete"
+            and source.get("workspace_row_filled") is True
+            and source.get("normalized_value_present") is True
+            and source.get("manual_fill_loaded") is True
+            and source.get("normalization_executed") is False
+            and source.get("normalized_fact_created") is False
+            and source.get("staging_ready") is False
+            and source.get("review_required") is True
+            and source.get("review_completed") is False
+        )
+        if not exact_shape or not immutable_valid:
+            blockers.append(f"normalization_row_{index:03d}_integrity_invalid")
+        objective_valid = exact_shape and immutable_valid and strings_valid and required_values and decimal_valid and provenance_valid
+        requested = decision["requested_decision"]
+        effective = requested if requested != "approve" else ("approve" if objective_valid else "correction_required")
+        reasons: list[str] = []
+        if requested == "reject": reasons.append("operator_rejected")
+        if requested == "correction_required": reasons.append("operator_correction_required")
+        if requested == "approve" and not strings_valid: reasons.append("normalization_text_invalid")
+        if requested == "approve" and not required_values: reasons.append("normalization_field_missing")
+        if requested == "approve" and not decimal_valid: reasons.append("normalization_decimal_invalid")
+        if requested == "approve" and not provenance_valid: reasons.append("operator_provenance_invalid")
+        result = {
+            "normalization_workspace_row_id": row_id,
+            "loaded_normalization_row_checksum_sha256": str(source.get("loaded_normalization_row_checksum_sha256") or ""),
+            "requested_decision": requested,
+            "effective_decision": effective,
+            "schema_validation_completed": exact_shape and immutable_valid,
+            "value_type_valid": isinstance(source.get("normalized_value"), str),
+            "decimal_lexical_validation_completed": decimal_valid,
+            "normalization_method_valid": strings_valid and bool(source.get("normalization_method")),
+            "sign_valid": strings_valid and bool(source.get("normalization_sign_adjustment")),
+            "scale_valid": strings_valid and bool(source.get("normalized_scale")),
+            "currency_valid": strings_valid and bool(source.get("normalized_currency")),
+            "unit_valid": strings_valid and bool(source.get("normalized_unit")),
+            "operator_provenance_valid": provenance_valid,
+            "computed_provenance_absent": exact_shape and source.get("normalization_executed") is False,
+            "derived_provenance_absent": exact_shape,
+            "copied_provenance_absent": exact_shape,
+            "review_completed": True,
+            "reason_codes": reasons,
+        }
+        result["normalization_review_row_checksum_sha256"] = _rzd_controlled_values_import_plan_sha({
+            "task228_checksum": task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") or "",
+            "loaded_workspace_checksum": task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") or "",
+            "review_row": result,
+            "execution_fields": {field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ALWAYS_FALSE_FIELDS},
+        })
+        rows.append(result)
+    return rows, blockers
+
+
+def _task229_load_family(
+    main_path: Path, names: dict[str, str], main_key: str,
+) -> dict[str, Any]:
+    documents: dict[str, Any] = {}
+    for key, name in names.items():
+        path = main_path if key == main_key else main_path.parent / name
+        if not path.is_file() or path.is_symlink():
+            documents[key] = None
+        elif path.suffix.lower() == ".md":
+            documents[key] = path.read_text(encoding="utf-8")
+        else:
+            documents[key] = _task229_load_json(path)
+    return documents
+
+
+def _task229_validate_task224_task225(
+    task224_path: Path, task225_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+    task224_docs = _task229_load_family(
+        task224_path,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ARTIFACT_NAMES,
+        "review_json",
+    )
+    task225_docs = _task229_load_family(
+        task225_path,
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES,
+        "plan_json",
+    )
+    task224 = task224_docs.get("review_json")
+    task225 = task225_docs.get("plan_json")
+    blockers: list[str] = []
+    if not isinstance(task224, dict):
+        blockers.append("counterpart_task224_main_missing")
+        task224 = {}
+    if not isinstance(task225, dict):
+        blockers.append("counterpart_task225_main_missing")
+        task225 = {}
+    if task224:
+        _, family_blockers = _task225_task224_artifact_validation(
+            task224, task224_docs, task224_path.parent
+        )
+        blockers.extend(family_blockers)
+        if (
+            task224.get("status") != "warning"
+            or task224.get("review_completed") is not True
+            or task224.get("review_decisions_recorded") is not True
+            or int(task224.get("approved_candidate_count") or 0) != len(task224.get("approved_candidate_reference_rows") or [])
+            or int(task224.get("approved_candidate_count") or 0) <= 0
+            or int(task224.get("correction_requested_candidate_count") or 0) != 0
+            or int(task224.get("unreviewed_candidate_count") or 0) != 0
+            or task224.get("blocker_count") != 0
+            or task224.get("bad_safety_count") != 0
+            or task224.get("next_tasks_valid") is not True
+            or [row.get("task_id") for row in task224.get("next_task_rows") or [] if isinstance(row, dict) and row.get("allowed_now") is True] != ["Task225"]
+            or not all(task224.get(field) is False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_DRY_RUN_EVIDENCE_CANDIDATE_MANUAL_REVIEW_ALWAYS_FALSE_FIELDS)
+            or task224.get("multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256") != _task224_checksum(task224)
+        ):
+            blockers.append("counterpart_task224_contract_invalid")
+    if task225:
+        expected = {
+            "plan_json": task225,
+            "plan_markdown": render_rzd_manual_official_pdf_controlled_values_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_markdown(task225),
+            **_task225_wrappers(task225),
+        }
+        for key in RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES:
+            if task225_docs.get(key) != expected.get(key):
+                blockers.append(f"counterpart_task225_artifact_{key}_invalid")
+        prefix = "rzd_manual_official_pdf_controlled_values_multi_issuer_evidence_normalization_pairing_plan"
+        actual = {
+            path.name for path in task225_path.parent.iterdir()
+            if path.is_file() and path.name.startswith(prefix) and "task225" in path.name
+        }
+        expected_names = set(RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ARTIFACT_NAMES.values())
+        if actual != expected_names:
+            blockers.append("counterpart_task225_artifact_family_not_exact")
+        if (
+            task225.get("status") != "warning"
+            or task225.get("normalization_and_period_pairing_plan_ready") is not True
+            or task225.get("task224_validation_completed") is not True
+            or task225.get("task224_artifact_validation_completed") is not True
+            or task225.get("task224_review_result_validated") is not True
+            or task225.get("approved_candidate_binding_completed") is not True
+            or task225.get("acceptance_boundary_valid") is not True
+            or task225.get("blocker_count") != 0
+            or task225.get("bad_safety_count") != 0
+            or task225.get("next_tasks_valid") is not True
+            or [row.get("task_id") for row in task225.get("next_task_rows") or [] if isinstance(row, dict) and row.get("allowed_now") is True] != ["Task226"]
+            or int(task225.get("approved_candidate_binding_count") or 0) != len(task225.get("approved_candidate_binding_rows") or [])
+            or not all(row.get("task222_candidate_bound") is True for row in task225.get("approved_candidate_binding_rows") or [])
+            or not all(row.get("passed") is True for row in task225.get("task224_validation_rows") or [])
+            or not all(row.get("validated") is True for row in task225.get("lineage_rows") or [])
+            or not all(row.get("validated") is True for row in task225.get("task224_artifact_validation_rows") or [])
+            or not all(task225.get(field) is False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_APPROVED_EVIDENCE_NORMALIZATION_PAIRING_PLAN_ALWAYS_FALSE_FIELDS)
+            or task225.get("multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256") != _task225_checksum(task225)
+        ):
+            blockers.append("counterpart_task225_contract_invalid")
+    if task224 and task225 and task225.get("source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256") != task224.get("multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256"):
+        blockers.append("counterpart_task225_task224_lineage_invalid")
+    return task224, task225, list(dict.fromkeys(blockers))
+
+
+def _task229_counterpart_rows(
+    task228: dict[str, Any], decisions: list[dict[str, Any]],
+    task224_bindings: dict[str, Path], task225_bindings: dict[str, Path],
+    forbidden_paths: list[Path], payload_root: Path | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    rows: list[dict[str, Any]] = []
+    resolution_rows: list[dict[str, Any]] = []
+    blockers: list[str] = []
+    filled_period_by_plan = {
+        str(row.get("normalization_plan_id") or ""): row.get("report_period")
+        for row in task228.get("loaded_normalization_rows") or []
+        if isinstance(row, dict)
+    }
+    for index, (source, decision) in enumerate(zip(task228.get("loaded_counterpart_rows") or [], decisions), 1):
+        row_id = str(source.get("counterpart_workspace_row_id") or "")
+        task224_path = task224_bindings.get(row_id)
+        task225_path = task225_bindings.get(row_id)
+        supplied224 = isinstance(task224_path, Path)
+        supplied225 = isinstance(task225_path, Path)
+        resolved = False
+        task224: dict[str, Any] = {}
+        task225: dict[str, Any] = {}
+        chain_blockers: list[str] = []
+        for label, path in (("task224", task224_path), ("task225", task225_path)):
+            if not isinstance(path, Path) or not path.exists():
+                continue
+            if path.is_symlink() or not path.is_file():
+                blockers.append(f"counterpart_{label}_binding_path_invalid")
+            if any(_paths_equal(path, forbidden) for forbidden in forbidden_paths):
+                blockers.append(f"counterpart_{label}_binding_path_collision")
+            if isinstance(payload_root, Path) and (
+                _paths_equal(path, payload_root) or _path_is_within(path, payload_root)
+            ):
+                blockers.append(f"counterpart_{label}_binding_payload_forbidden")
+        if (
+            isinstance(task224_path, Path) and task224_path.is_file() and not task224_path.is_symlink()
+            and isinstance(task225_path, Path) and task225_path.is_file() and not task225_path.is_symlink()
+            and not blockers
+        ):
+            task224, task225, chain_blockers = _task229_validate_task224_task225(task224_path, task225_path)
+            blockers.extend(chain_blockers)
+            resolved = not chain_blockers
+        candidate_id = str(source.get("counterpart_evidence_candidate_id") or "")
+        approved = [
+            row for row in task224.get("approved_candidate_reference_rows") or []
+            if isinstance(row, dict) and row.get("evidence_candidate_id") == candidate_id
+        ] if resolved else []
+        bindings = [
+            row for row in task225.get("approved_candidate_binding_rows") or []
+            if isinstance(row, dict) and row.get("evidence_candidate_id") == candidate_id
+        ] if resolved else []
+        approved_row = approved[0] if len(approved) == 1 else {}
+        binding_row = bindings[0] if len(bindings) == 1 else {}
+        checks = {
+            "task224_checksum_valid": resolved and task224.get("multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256") == source.get("counterpart_task224_checksum_sha256"),
+            "task224_review_result_checksum_valid": resolved and task224.get("multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256") == source.get("counterpart_task224_review_result_checksum_sha256"),
+            "approved_candidate_found": resolved and len(approved) == 1 and approved_row.get("review_decision") == "approve_for_controlled_value_staging",
+            "candidate_id_valid": resolved and len(approved) == len(bindings) == 1,
+            "source_document_checksum_valid": resolved and approved_row.get("source_document_sha256") == source.get("counterpart_source_document_sha256") and binding_row.get("source_document_sha256") == source.get("counterpart_source_document_sha256"),
+            "issuer_binding_valid": resolved and binding_row.get("issuer_binding_checksum_sha256") == source.get("issuer_binding_checksum_sha256"),
+            "controlled_field_valid": resolved and approved_row.get("controlled_field_key") == source.get("controlled_field_key") and binding_row.get("controlled_field_key") == source.get("controlled_field_key"),
+            "target_report_period_valid": resolved and binding_row.get("report_period") == source.get("missing_report_period"),
+            "missing_2025_period_valid": (
+                resolved
+                and source.get("required_report_period") == 2025
+                and source.get("missing_report_period") == 2025
+                and binding_row.get("report_period") == 2025
+                and filled_period_by_plan.get(str(source.get("normalization_plan_id") or "")) != 2025
+            ),
+        }
+        validated = resolved and all(checks.values())
+        requested = decision["requested_decision"]
+        if requested != "approve":
+            effective = requested
+        elif not resolved:
+            effective = "correction_required"
+        else:
+            effective = "approve" if validated else "reject"
+        reasons: list[str] = []
+        if requested == "reject": reasons.append("operator_rejected")
+        if requested == "correction_required": reasons.append("operator_correction_required")
+        if requested == "approve" and not resolved: reasons.append("counterpart_reference_unresolved")
+        if requested == "approve" and resolved and not validated: reasons.append("counterpart_binding_mismatch")
+        result = {
+            "counterpart_workspace_row_id": row_id,
+            "loaded_counterpart_row_checksum_sha256": str(source.get("loaded_counterpart_row_checksum_sha256") or ""),
+            "requested_decision": requested,
+            "effective_decision": effective,
+            "task224_binding_supplied": supplied224,
+            "task225_binding_supplied": supplied225,
+            "task224_reference_resolved": resolved,
+            "task225_reference_resolved": resolved,
+            "task224_artifact_validation_completed": resolved,
+            "task225_artifact_validation_completed": resolved,
+            **checks,
+            "counterpart_binding_validated": validated,
+            "review_completed": True,
+            "reason_codes": reasons,
+            "resolved_task224_checksum_sha256": str(task224.get("multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256") or "") if resolved else "",
+            "resolved_task224_review_result_checksum_sha256": str(task224.get("multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256") or "") if resolved else "",
+            "resolved_task225_checksum_sha256": str(task225.get("multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256") or "") if resolved else "",
+        }
+        result["counterpart_review_row_checksum_sha256"] = _rzd_controlled_values_import_plan_sha({
+            "task228_checksum": task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") or "",
+            "loaded_workspace_checksum": task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") or "",
+            "review_row": result,
+            "execution_fields": {field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ALWAYS_FALSE_FIELDS},
+        })
+        rows.append(result)
+        resolution_rows.append({
+            "resolution_index": index,
+            "counterpart_workspace_row_id": row_id,
+            "task224_binding_supplied": supplied224,
+            "task225_binding_supplied": supplied225,
+            "reference_resolution_status": "resolved" if resolved else "unresolved",
+            "task224_artifact_validation_completed": resolved,
+            "task225_artifact_validation_completed": resolved,
+            "resolved_task224_checksum_sha256": result["resolved_task224_checksum_sha256"],
+            "resolved_task225_checksum_sha256": result["resolved_task225_checksum_sha256"],
+            "counterpart_binding_validated": validated,
+            "safe_hint": "Filesystem paths and candidate identities are omitted.",
+        })
+    return rows, resolution_rows, list(dict.fromkeys(blockers))
+
+
+def _task229_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    return [{
+        "next_task_index": 1,
+        "task_id": "Task230",
+        "task_name": "Reviewed Normalized Facts and Complete Period Pair Assembly Plan",
+        "allowed_now": bool(allowed),
+        "depends_on": "Task229",
+        "safe_hint": "Task230 is available only after unanimous validated review.",
+    }]
+
+
+def _task229_scope_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "scope_index": index, "scope_key": key, "included": True,
+            "safe_hint": "Task229 reviews contracts and creates no facts or pairs.",
+        }
+        for index, key in enumerate((
+            "task228_complete_warning_review_only", "operator_decisions_only",
+            "lexical_normalization_validation", "paired_task224_task225_resolution",
+            "no_task222_payload_access", "no_value_transformation",
+            "no_fact_or_pair_creation", "no_staging_database_or_import",
+            "task230_plan_only_handoff",
+        ), 1)
+    ]
+
+
+def _task229_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "lineage_rows": report.get("lineage_rows") or [],
+        "task228_artifact_validation_rows": report.get("task228_artifact_validation_rows") or [],
+        "containment_validation_rows": report.get("containment_validation_rows") or [],
+        "review_input_schema_rows": report.get("review_input_schema_rows") or [],
+        "review_input_validation_rows": report.get("review_input_validation_rows") or [],
+        "counterpart_reference_resolution_rows": report.get("counterpart_reference_resolution_rows") or [],
+        "decision_set_checksum": report.get("multi_issuer_normalized_fact_and_counterpart_binding_review_decision_set_checksum_sha256") or "",
+        "review_completed": report.get("workspace_review_completed") is True,
+        "task230_ready": report.get("ready_for_task230_reviewed_normalized_facts_and_complete_period_pair_assembly_plan") is True,
+        "next_task_rows": report.get("next_task_rows") or [],
+        "acceptance_boundary": report.get("acceptance_boundary_valid") is True,
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+    })
+
+
+def _task229_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    lists = (
+        "scope_rows", "task228_validation_rows", "lineage_rows",
+        "task228_artifact_validation_rows", "containment_validation_rows",
+        "review_input_schema_rows", "review_input_validation_rows",
+        "normalization_review_rows", "normalization_review_summary_rows",
+        "counterpart_reference_resolution_rows", "counterpart_review_rows",
+        "counterpart_review_summary_rows", "completeness_readiness_rows",
+        "acceptance_execution_boundary_rows", "next_task_rows",
+        "normalized_fact_and_counterpart_binding_review_gate_check_rows",
+        "blocker_rows", "bad_safety_codes", "errors",
+    )
+    for field in lists:
+        report[field] = report.get(field) if isinstance(report.get(field), list) else []
+    counts = {
+        "scope_count": "scope_rows", "task228_validation_count": "task228_validation_rows",
+        "lineage_count": "lineage_rows", "task228_artifact_validation_count": "task228_artifact_validation_rows",
+        "containment_validation_count": "containment_validation_rows",
+        "review_input_schema_field_count": "review_input_schema_rows",
+        "review_input_validation_count": "review_input_validation_rows",
+        "normalization_review_row_count": "normalization_review_rows",
+        "normalization_review_summary_count": "normalization_review_summary_rows",
+        "counterpart_reference_resolution_count": "counterpart_reference_resolution_rows",
+        "counterpart_review_row_count": "counterpart_review_rows",
+        "counterpart_review_summary_count": "counterpart_review_summary_rows",
+        "completeness_readiness_count": "completeness_readiness_rows",
+        "acceptance_execution_boundary_count": "acceptance_execution_boundary_rows",
+        "next_task_count": "next_task_rows",
+        "normalized_fact_and_counterpart_binding_review_gate_check_count": "normalized_fact_and_counterpart_binding_review_gate_check_rows",
+        "blocker_count": "blocker_rows",
+    }
+    for count, field in counts.items():
+        report[count] = len(report[field])
+    for family in ("normalization", "counterpart"):
+        rows = report[f"{family}_review_rows"]
+        report[f"approved_{family}_row_count"] = sum(row.get("effective_decision") == "approve" for row in rows)
+        report[f"rejected_{family}_row_count"] = sum(row.get("effective_decision") == "reject" for row in rows)
+        report[f"{family}_correction_required_count"] = sum(row.get("effective_decision") == "correction_required" for row in rows)
+    report["validated_counterpart_binding_count"] = sum(row.get("counterpart_binding_validated") is True for row in report["counterpart_review_rows"])
+    report["missing_counterpart_count"] = report["counterpart_review_row_count"] - report["validated_counterpart_binding_count"]
+    report["bad_safety_codes"] = sorted(set(report["bad_safety_codes"]))
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ALWAYS_FALSE_FIELDS:
+        report[field] = False
+    for field in (
+        "normalized_fact_and_counterpart_binding_review_gate_ready",
+        "task228_validation_completed", "task228_artifact_validation_completed",
+        "task217_to_task228_lineage_validation_completed",
+        "task228_loaded_row_checksum_validation_completed",
+        "task228_concrete_data_containment_validation_completed",
+        "review_input_supplied", "review_input_validated", "review_input_loaded",
+        "normalization_review_executed", "counterpart_review_executed",
+        "review_decisions_recorded", "all_loaded_rows_reviewed",
+        "workspace_review_completed", "task224_reference_resolution_executed",
+        "counterpart_binding_validated", "acceptance_boundary_valid",
+        "ready_for_task230_reviewed_normalized_facts_and_complete_period_pair_assembly_plan",
+        "ready_for_controlled_value_staging", "ready_for_controlled_import",
+        "ready_for_apply", "next_tasks_valid", "write_outputs",
+    ):
+        report[field] = _as_bool(report.get(field))
+    for field in ("normalized_fact_count", "complete_period_pair_count"):
+        value = report.get(field)
+        report[field] = value if isinstance(value, int) and not isinstance(value, bool) else 0
+    for field in (
+        "mode", "status", "normalized_fact_and_counterpart_binding_review_gate_status",
+        "operator_multi_issuer_normalized_fact_and_counterpart_binding_review_input_checksum_sha256",
+        "multi_issuer_normalized_fact_and_counterpart_binding_review_decision_set_checksum_sha256",
+        "source_multi_issuer_normalization_and_period_pairing_workspace_authorized_manual_fill_loader_checksum_sha256",
+        "source_multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256",
+        "source_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_checksum_sha256",
+        "source_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_record_checksum_sha256",
+        "source_multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256",
+        "source_multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256",
+        "source_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256",
+        "source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256",
+        "source_controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256",
+        "source_multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256",
+        "source_multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+        "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+        "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+        "next_step", "safe_hint",
+    ):
+        report[field] = str(report.get(field) or "")
+    report["multi_issuer_normalized_fact_and_counterpart_binding_review_gate_checksum_sha256"] = _task229_checksum(report)
+    return report
+
+
+def _task229_empty_report(
+    status: str, *, blocker_codes: list[str] | None = None,
+    errors: list[dict[str, Any]] | None = None, input_supplied: bool = False,
+    input_checksum: str = "", write_outputs: bool = True,
+) -> dict[str, Any]:
+    return _task229_finalize({
+        "mode": RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MODE,
+        "status": status,
+        "normalized_fact_and_counterpart_binding_review_gate_status": status,
+        "review_input_supplied": input_supplied,
+        "operator_multi_issuer_normalized_fact_and_counterpart_binding_review_input_checksum_sha256": input_checksum,
+        "next_task_rows": _task229_next_rows(False),
+        "blocker_rows": [{
+            "blocker_index": index, "code": code,
+            "safe_hint": "Resolve the sanitized Task229 blocker and rerun.",
+        } for index, code in enumerate(blocker_codes or [], 1)],
+        "errors": [{"message": str(row.get("message") or "task229_failed")} for row in errors or []],
+        "next_step": (
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_FAILED_NEXT_STEP
+            if status == "failed" else
+            RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_BLOCKED_NEXT_STEP
+        ),
+        "bad_safety_codes": [], "normalized_fact_count": 0,
+        "complete_period_pair_count": 0, "write_outputs": write_outputs,
+        "safe_hint": "Task229 failed closed without retaining review decisions or concrete data.",
+    })
+
+
+def _build_task229_report(
+    task228: dict[str, Any], task227: dict[str, Any],
+    task228_documents: dict[str, Any], artifact_rows: list[dict[str, Any]],
+    containment_rows: list[dict[str, Any]], lineage_rows: list[dict[str, Any]],
+    review_document: dict[str, Any], review_checksum: str,
+    task224_bindings: dict[str, Path], task225_bindings: dict[str, Path],
+    forbidden_paths: list[Path], payload_root: Path | None,
+) -> dict[str, Any]:
+    normalization_decisions, counterpart_decisions, input_validation_rows, input_blockers = _task229_validate_review_input(review_document, task228)
+    normalization_rows, normalization_blockers = _task229_normalization_rows(task228, task227, normalization_decisions)
+    counterpart_rows, resolution_rows, counterpart_blockers = _task229_counterpart_rows(
+        task228, counterpart_decisions, task224_bindings, task225_bindings,
+        forbidden_paths, payload_root,
+    )
+    blockers = [*input_blockers, *normalization_blockers, *counterpart_blockers]
+    if blockers:
+        return _task229_empty_report(
+            "blocked", blocker_codes=list(dict.fromkeys(blockers)),
+            input_supplied=True, input_checksum=review_checksum,
+        )
+    normalization_count = len(normalization_rows)
+    counterpart_count = len(counterpart_rows)
+    approved_normalization = sum(row["effective_decision"] == "approve" for row in normalization_rows)
+    approved_counterpart = sum(row["effective_decision"] == "approve" for row in counterpart_rows)
+    validated_counterpart = sum(row["counterpart_binding_validated"] is True for row in counterpart_rows)
+    workspace_review_completed = (
+        normalization_count == len(task228.get("loaded_normalization_rows") or [])
+        and counterpart_count == len(task228.get("loaded_counterpart_rows") or [])
+        and all(row.get("review_completed") is True for row in (*normalization_rows, *counterpart_rows))
+    )
+    task230_ready = (
+        workspace_review_completed
+        and approved_normalization == normalization_count
+        and approved_counterpart == counterpart_count
+        and validated_counterpart == counterpart_count
+    )
+    next_rows = _task229_next_rows(task230_ready)
+    decision_set_checksum = _rzd_controlled_values_import_plan_sha({
+        "review_input_checksum": review_checksum,
+        "normalization_rows": [{"row_id": row["normalization_workspace_row_id"], "checksum": row["normalization_review_row_checksum_sha256"]} for row in normalization_rows],
+        "counterpart_rows": [{"row_id": row["counterpart_workspace_row_id"], "checksum": row["counterpart_review_row_checksum_sha256"]} for row in counterpart_rows],
+        "counts": {
+            "normalization": normalization_count, "counterpart": counterpart_count,
+            "approved_normalization": approved_normalization,
+            "approved_counterpart": approved_counterpart,
+            "validated_counterpart": validated_counterpart,
+        },
+        "workspace_review_completed": workspace_review_completed,
+        "task230_ready": task230_ready,
+    })
+    normalization_summary = [{
+        "summary_index": 1, "review_row_count": normalization_count,
+        "approved_row_count": approved_normalization,
+        "rejected_row_count": sum(row["effective_decision"] == "reject" for row in normalization_rows),
+        "correction_required_count": sum(row["effective_decision"] == "correction_required" for row in normalization_rows),
+    }]
+    counterpart_summary = [{
+        "summary_index": 1, "review_row_count": counterpart_count,
+        "approved_row_count": approved_counterpart,
+        "rejected_row_count": sum(row["effective_decision"] == "reject" for row in counterpart_rows),
+        "correction_required_count": sum(row["effective_decision"] == "correction_required" for row in counterpart_rows),
+        "validated_counterpart_binding_count": validated_counterpart,
+        "missing_counterpart_count": counterpart_count - validated_counterpart,
+    }]
+    boundary_rows = [{
+        "boundary_index": index, "field_name": field,
+        "actual_value": False, "validated": True,
+        "safe_hint": "Review does not execute the controlled operation.",
+    } for index, field in enumerate(RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ALWAYS_FALSE_FIELDS, 1)]
+    task228_checks = [
+        ("task228_complete_warning", task228.get("status") == "warning" and task228.get("complete_manual_fill") is True and task228.get("partial_manual_fill_warning") is False),
+        ("task228_ready_for_task229", task228.get("ready_for_task229_multi_issuer_normalized_fact_and_counterpart_binding_review_gate") is True),
+        ("task228_clean", task228.get("blocker_count") == 0 and task228.get("bad_safety_count") == 0),
+        ("task228_checksum", task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") == _task228_checksum(task228)),
+        ("task228_loaded_workspace_checksum", task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") == _task228_loaded_workspace_checksum(task228)),
+        ("task228_no_execution", all(task228.get(field) is False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ALWAYS_FALSE_FIELDS)),
+    ]
+    task228_validation_rows = [{
+        "validation_index": index, "validation_key": key,
+        "passed": bool(passed), "status": "passed" if passed else "blocked",
+        "safe_hint": "Task228 is the exact complete-warning handoff.",
+    } for index, (key, passed) in enumerate(task228_checks, 1)]
+    completeness_rows = [{
+        "completeness_index": 1,
+        "all_loaded_rows_reviewed": workspace_review_completed,
+        "workspace_review_completed": workspace_review_completed,
+        "normalization_review_row_count": normalization_count,
+        "counterpart_review_row_count": counterpart_count,
+        "validated_counterpart_binding_count": validated_counterpart,
+        "ready_for_task230": task230_ready,
+        "normalized_fact_count": 0, "complete_period_pair_count": 0,
+    }]
+    checks = (
+        ("task228_valid", all(row["passed"] for row in task228_validation_rows)),
+        ("task228_artifacts_valid", len(artifact_rows) == 20 and all(row["validated"] for row in artifact_rows)),
+        ("lineage_valid", bool(lineage_rows) and all(row["passed"] for row in lineage_rows)),
+        ("containment_valid", bool(containment_rows) and all(row["validated"] for row in containment_rows)),
+        ("review_input_valid", not input_blockers),
+        ("review_complete", workspace_review_completed),
+        ("task230_readiness_valid", [row["task_id"] for row in next_rows if row["allowed_now"]] == (["Task230"] if task230_ready else [])),
+        ("acceptance_boundary_valid", True),
+    )
+    check_rows = [{
+        "check_index": index, "check_key": key, "passed": bool(passed),
+        "status": "passed" if passed else "blocked",
+        "safe_hint": "Task229 deterministic review-gate check.",
+    } for index, (key, passed) in enumerate(checks, 1)]
+    has_norm_correction = approved_normalization != normalization_count
+    has_counterpart_correction = approved_counterpart != counterpart_count or validated_counterpart != counterpart_count
+    next_step = (
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_TASK230_NEXT_STEP
+        if task230_ready else
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MIXED_NEXT_STEP
+        if has_norm_correction and has_counterpart_correction else
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_NORMALIZATION_NEXT_STEP
+        if has_norm_correction else
+        RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_COUNTERPART_NEXT_STEP
+    )
+    report = {
+        "mode": RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MODE,
+        "status": "warning",
+        "normalized_fact_and_counterpart_binding_review_gate_status": "warning",
+        "normalized_fact_and_counterpart_binding_review_gate_ready": True,
+        "task228_validation_completed": True,
+        "task228_artifact_validation_completed": True,
+        "task217_to_task228_lineage_validation_completed": True,
+        "task228_loaded_row_checksum_validation_completed": True,
+        "task228_concrete_data_containment_validation_completed": True,
+        "review_input_supplied": True, "review_input_validated": True,
+        "review_input_loaded": True, "normalization_review_executed": True,
+        "counterpart_review_executed": True, "review_decisions_recorded": True,
+        "all_loaded_rows_reviewed": workspace_review_completed,
+        "workspace_review_completed": workspace_review_completed,
+        "task224_reference_resolution_executed": True,
+        "counterpart_binding_validated": validated_counterpart == counterpart_count and counterpart_count > 0,
+        "acceptance_boundary_valid": True,
+        "ready_for_task230_reviewed_normalized_facts_and_complete_period_pair_assembly_plan": task230_ready,
+        "ready_for_controlled_value_staging": False,
+        "ready_for_controlled_import": False, "ready_for_apply": False,
+        "next_tasks_valid": True, "write_outputs": True,
+        "operator_multi_issuer_normalized_fact_and_counterpart_binding_review_input_checksum_sha256": review_checksum,
+        "multi_issuer_normalized_fact_and_counterpart_binding_review_decision_set_checksum_sha256": decision_set_checksum,
+        "source_multi_issuer_normalization_and_period_pairing_workspace_authorized_manual_fill_loader_checksum_sha256": task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") or "",
+        "source_multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256": task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") or "",
+        **{
+            field: task228.get(field) or ""
+            for field in (
+                "source_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate_checksum_sha256",
+                "source_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_record_checksum_sha256",
+                "source_multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256",
+                "source_multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256",
+                "source_multi_issuer_approved_evidence_candidate_normalization_and_period_pairing_plan_checksum_sha256",
+                "source_multi_issuer_dry_run_evidence_candidate_manual_review_checksum_sha256",
+                "source_multi_issuer_dry_run_evidence_candidate_manual_review_result_checksum_sha256",
+                "source_multi_issuer_dry_run_evidence_candidate_review_gate_checksum_sha256",
+                "source_controlled_multi_issuer_evidence_extraction_dry_run_executor_checksum_sha256",
+                "source_controlled_multi_issuer_evidence_extraction_dry_run_execution_journal_checksum_sha256",
+                "source_multi_issuer_evidence_extraction_dry_run_authorization_gate_checksum_sha256",
+                "source_multi_issuer_evidence_extraction_dry_run_plan_checksum_sha256",
+                "source_multi_issuer_source_candidate_seed_validation_and_review_checksum_sha256",
+                "source_authorized_manual_candidate_seed_draft_loader_checksum_sha256",
+                "source_multi_issuer_source_candidate_seed_manual_fill_authorization_gate_checksum_sha256",
+            )
+        },
+        "normalized_fact_count": 0, "complete_period_pair_count": 0,
+        "scope_rows": _task229_scope_rows(),
+        "task228_validation_rows": task228_validation_rows,
+        "lineage_rows": lineage_rows,
+        "task228_artifact_validation_rows": artifact_rows,
+        "containment_validation_rows": containment_rows,
+        "review_input_schema_rows": _task229_review_schema_rows(),
+        "review_input_validation_rows": input_validation_rows,
+        "normalization_review_rows": normalization_rows,
+        "normalization_review_summary_rows": normalization_summary,
+        "counterpart_reference_resolution_rows": resolution_rows,
+        "counterpart_review_rows": counterpart_rows,
+        "counterpart_review_summary_rows": counterpart_summary,
+        "completeness_readiness_rows": completeness_rows,
+        "acceptance_execution_boundary_rows": boundary_rows,
+        "next_task_rows": next_rows,
+        "normalized_fact_and_counterpart_binding_review_gate_check_rows": check_rows,
+        "blocker_rows": [], "bad_safety_codes": [], "errors": [],
+        "next_step": next_step,
+        "safe_hint": "Task229 records sanitized review decisions and creates no values, facts, pairs, or staging rows.",
+    }
+    return _task229_finalize(report)
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_and_counterpart_binding_review_gate_markdown(
+    report: dict[str, Any],
+) -> str:
+    ready = report.get("ready_for_task230_reviewed_normalized_facts_and_complete_period_pair_assembly_plan") is True
+    verdict = (
+        "WARNING - review complete; only Task230 planning is unlocked."
+        if ready else "WARNING - review complete with corrections; Task230 remains locked."
+        if report.get("status") == "warning" else
+        "BLOCKED - resolve Task229 review blockers."
+        if report.get("status") == "blocked" else
+        "FAILED - repair Task229; downstream work remains locked."
+    )
+    return "\n".join([
+        "# Task229 - Multi-Issuer Normalized Fact and Counterpart Binding Review Gate",
+        "", verdict, "",
+        f"- Status: `{report.get('status', '')}`",
+        f"- Task228 / artifacts / lineage / containment validated: `{str(report.get('task228_validation_completed', False)).lower()}/{str(report.get('task228_artifact_validation_completed', False)).lower()}/{str(report.get('task217_to_task228_lineage_validation_completed', False)).lower()}/{str(report.get('task228_concrete_data_containment_validation_completed', False)).lower()}`",
+        f"- Review input supplied / validated / loaded: `{str(report.get('review_input_supplied', False)).lower()}/{str(report.get('review_input_validated', False)).lower()}/{str(report.get('review_input_loaded', False)).lower()}`",
+        f"- Normalization reviewed / approved / rejected / corrections: `{report.get('normalization_review_row_count', 0)}/{report.get('approved_normalization_row_count', 0)}/{report.get('rejected_normalization_row_count', 0)}/{report.get('normalization_correction_required_count', 0)}`",
+        f"- Counterparts reviewed / approved / rejected / corrections / validated: `{report.get('counterpart_review_row_count', 0)}/{report.get('approved_counterpart_row_count', 0)}/{report.get('rejected_counterpart_row_count', 0)}/{report.get('counterpart_correction_required_count', 0)}/{report.get('validated_counterpart_binding_count', 0)}`",
+        f"- Normalized facts / complete pairs / missing counterparts: `{report.get('normalized_fact_count', 0)}/{report.get('complete_period_pair_count', 0)}/{report.get('missing_counterpart_count', 0)}`",
+        f"- Workspace review completed / Task230 ready: `{str(report.get('workspace_review_completed', False)).lower()}/{str(ready).lower()}`",
+        f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
+        f"- Review input SHA-256: `{report.get('operator_multi_issuer_normalized_fact_and_counterpart_binding_review_input_checksum_sha256', '')}`",
+        f"- Decision set SHA-256: `{report.get('multi_issuer_normalized_fact_and_counterpart_binding_review_decision_set_checksum_sha256', '')}`",
+        f"- Task229 SHA-256: `{report.get('multi_issuer_normalized_fact_and_counterpart_binding_review_gate_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`", "",
+        "No normalized value, candidate identity, issuer identifier, operator note, source excerpt, or filesystem path is persisted. No normalization, pairing, staging, database, import, scoring, recommendation, broker, export, or trading action is executed.", "",
+    ])
+
+
+def _task229_envelope(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": report.get("status", ""),
+        "normalized_fact_and_counterpart_binding_review_gate_ready": report.get("normalized_fact_and_counterpart_binding_review_gate_ready", False),
+        "workspace_review_completed": report.get("workspace_review_completed", False),
+        "ready_for_task230_reviewed_normalized_facts_and_complete_period_pair_assembly_plan": report.get("ready_for_task230_reviewed_normalized_facts_and_complete_period_pair_assembly_plan", False),
+        "blocker_count": report.get("blocker_count", 0),
+        "bad_safety_count": report.get("bad_safety_count", 0),
+        "next_step": report.get("next_step", ""),
+        "operator_multi_issuer_normalized_fact_and_counterpart_binding_review_input_checksum_sha256": report.get("operator_multi_issuer_normalized_fact_and_counterpart_binding_review_input_checksum_sha256", ""),
+        "multi_issuer_normalized_fact_and_counterpart_binding_review_decision_set_checksum_sha256": report.get("multi_issuer_normalized_fact_and_counterpart_binding_review_decision_set_checksum_sha256", ""),
+        "multi_issuer_normalized_fact_and_counterpart_binding_review_gate_checksum_sha256": report.get("multi_issuer_normalized_fact_and_counterpart_binding_review_gate_checksum_sha256", ""),
+    }
+
+
+def _task229_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    envelope = _task229_envelope(report)
+    mappings = {
+        "checks_json": ("normalized_fact_and_counterpart_binding_review_gate_check_count", "normalized_fact_and_counterpart_binding_review_gate_check_rows"),
+        "scope_json": ("scope_count", "scope_rows"),
+        "task228_validation_json": ("task228_validation_count", "task228_validation_rows"),
+        "lineage_json": ("lineage_count", "lineage_rows"),
+        "task228_artifact_validation_json": ("task228_artifact_validation_count", "task228_artifact_validation_rows"),
+        "containment_validation_json": ("containment_validation_count", "containment_validation_rows"),
+        "review_input_schema_json": ("review_input_schema_field_count", "review_input_schema_rows"),
+        "review_input_validation_json": ("review_input_validation_count", "review_input_validation_rows"),
+        "normalization_review_rows_json": ("normalization_review_row_count", "normalization_review_rows"),
+        "normalization_review_summary_json": ("normalization_review_summary_count", "normalization_review_summary_rows"),
+        "counterpart_reference_resolution_json": ("counterpart_reference_resolution_count", "counterpart_reference_resolution_rows"),
+        "counterpart_review_rows_json": ("counterpart_review_row_count", "counterpart_review_rows"),
+        "counterpart_review_summary_json": ("counterpart_review_summary_count", "counterpart_review_summary_rows"),
+        "completeness_readiness_json": ("completeness_readiness_count", "completeness_readiness_rows"),
+        "acceptance_execution_boundary_json": ("acceptance_execution_boundary_count", "acceptance_execution_boundary_rows"),
+        "next_tasks_json": ("next_task_count", "next_task_rows"),
+    }
+    payloads = {
+        key: {**envelope, count: report.get(count, 0), rows: report.get(rows) or []}
+        for key, (count, rows) in mappings.items()
+    }
+    payloads["blockers_json"] = {**envelope, "blocker_rows": report.get("blocker_rows") or []}
+    payloads["next_tasks_json"]["next_tasks_valid"] = report.get("next_tasks_valid", False)
+    payloads["safety_json"] = {
+        **envelope,
+        "acceptance_boundary_valid": report.get("acceptance_boundary_valid", False),
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        **{field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_ALWAYS_FALSE_FIELDS},
+    }
+    return payloads
+
+
+def _task229_write_direct(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    if artifacts.get("review_json"):
+        write_json_report(report, artifacts["review_json"])
+    if artifacts.get("review_markdown"):
+        artifacts["review_markdown"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["review_markdown"].write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_and_counterpart_binding_review_gate_markdown(report),
+            encoding="utf-8",
+        )
+    for key, payload in _task229_wrappers(report).items():
+        if artifacts.get(key):
+            write_json_report(payload, artifacts[key])
+
+
+def _task229_write_atomic(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    targets = {key: path for key, path in artifacts.items() if path is not None}
+    roots: dict[Path, Path] = {}
+    staged: dict[str, Path] = {}
+    backups: dict[Path, Path] = {}
+    published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent
+            parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(prefix=".task229-normalized-fact-review-", dir=parent))
+                roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task229_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"
+                shutil.copy2(target, backup)
+                backups[target] = backup
+        for key, target in targets.items():
+            os.replace(staged[key], target)
+            published.add(target)
+    except Exception:
+        for target in reversed(list(targets.values())):
+            backup = backups.get(target)
+            try:
+                if backup and backup.is_file():
+                    os.replace(backup, target)
+                elif target in published and target.exists():
+                    target.unlink()
+            except OSError:
+                pass
+        raise
+    finally:
+        for root in roots.values():
+            shutil.rmtree(root, ignore_errors=True)
+
+
+def _task229_publish(report: dict[str, Any], artifacts: dict[str, Path | None]) -> dict[str, Any]:
+    try:
+        _task229_write_atomic(report, artifacts)
+        return report
+    except Exception:
+        failed = _task229_empty_report("failed", errors=[{"message": "task229_terminal_artifact_write_failed"}])
+        try:
+            _task229_write_atomic(failed, artifacts)
+            return failed
+        except Exception:
+            return _task229_empty_report(
+                "failed", errors=[{"message": "task229_terminal_artifact_write_failed"}],
+                write_outputs=False,
+            )
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_normalized_fact_and_counterpart_binding_review_gate(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    inputs = _task229_inputs(args)
+    artifacts = _task229_artifacts(args)
+    output_blockers = _task229_output_blockers(inputs, artifacts)
+    if output_blockers:
+        return _task229_empty_report("blocked", blocker_codes=output_blockers, write_outputs=False)
+    task228_path = inputs.get("task228")
+    if not isinstance(task228_path, Path) or not task228_path.exists():
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=["task228_input_missing"]), artifacts)
+    if task228_path.is_symlink() or not task228_path.is_file():
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=["task228_input_path_invalid"]), artifacts)
+    review_path = inputs.get("review_input")
+    if not isinstance(review_path, Path):
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=["review_input_required"]), artifacts)
+    if review_path.is_symlink() or not review_path.is_file():
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=["review_input_path_invalid"], input_supplied=True), artifacts)
+    upstream_paths = [
+        path for key, path in inputs.items()
+        if key not in {"review_input", "task224_bindings", "task225_bindings", "payload_root"}
+        and isinstance(path, Path)
+    ]
+    task228_family_paths = [
+        task228_path.parent / name
+        for name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES.values()
+    ]
+    payload_root = inputs.get("payload_root")
+    if (
+        any(_paths_equal(review_path, path) for path in [*upstream_paths, *task228_family_paths])
+        or any(_paths_equal(review_path, path) for path in artifacts.values() if isinstance(path, Path))
+        or isinstance(payload_root, Path)
+        and (_paths_equal(review_path, payload_root) or _path_is_within(review_path, payload_root))
+    ):
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=["review_input_path_collision"], input_supplied=True), artifacts)
+    try:
+        review_bytes = review_path.read_bytes()
+        if len(review_bytes) > RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZED_FACT_COUNTERPART_REVIEW_MAX_BYTES:
+            return _task229_publish(_task229_empty_report("blocked", blocker_codes=["review_input_too_large"], input_supplied=True), artifacts)
+        review_checksum = hashlib.sha256(review_bytes).hexdigest()
+        review_document = json.loads(review_bytes.decode("utf-8"))
+    except UnicodeDecodeError:
+        return _task229_publish(_task229_empty_report("failed", errors=[{"message": "review_input_utf8_invalid"}], input_supplied=True), artifacts)
+    except json.JSONDecodeError:
+        return _task229_publish(_task229_empty_report("failed", errors=[{"message": "review_input_json_invalid"}], input_supplied=True), artifacts)
+    except OSError:
+        return _task229_publish(_task229_empty_report("failed", errors=[{"message": "review_input_read_failed"}], input_supplied=True), artifacts)
+    try:
+        task228 = _task229_load_json(task228_path)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return _task229_publish(_task229_empty_report("failed", errors=[{"message": "task228_json_invalid"}], input_supplied=True, input_checksum=review_checksum), artifacts)
+    except OSError:
+        return _task229_publish(_task229_empty_report("failed", errors=[{"message": "task228_read_failed"}], input_supplied=True, input_checksum=review_checksum), artifacts)
+    parent = task228_path.parent
+    try:
+        task228_documents, artifact_rows, artifact_blockers = _task229_validate_task228_family(task228, parent)
+        containment_rows, containment_blockers = _task229_task228_containment(task228, task228_documents)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return _task229_publish(_task229_empty_report("failed", errors=[{"message": "task228_artifact_json_invalid"}], input_supplied=True, input_checksum=review_checksum), artifacts)
+    except OSError:
+        return _task229_publish(_task229_empty_report("failed", errors=[{"message": "task228_artifact_read_failed"}], input_supplied=True, input_checksum=review_checksum), artifacts)
+    loaded: dict[str, dict[str, Any]] = {"task228": task228}
+    for key in ("task227", "task226", "task225", "task224", "task223", "task221", "task220", "task219", "task218", "task217"):
+        path = inputs.get(key)
+        if not isinstance(path, Path) or not path.is_file() or path.is_symlink():
+            return _task229_publish(_task229_empty_report("blocked", blocker_codes=[f"{key}_lineage_input_missing"], input_supplied=True, input_checksum=review_checksum), artifacts)
+        try:
+            loaded[key] = _task229_load_json(path)
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            return _task229_publish(_task229_empty_report("failed", errors=[{"message": f"{key}_lineage_json_invalid"}], input_supplied=True, input_checksum=review_checksum), artifacts)
+        except OSError:
+            return _task229_publish(_task229_empty_report("failed", errors=[{"message": f"{key}_lineage_read_failed"}], input_supplied=True, input_checksum=review_checksum), artifacts)
+    task222_path = inputs.get("task222")
+    if not isinstance(task222_path, Path) or not task222_path.is_file() or task222_path.is_symlink():
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=["task222_lineage_input_missing"], input_supplied=True, input_checksum=review_checksum), artifacts)
+    lineage_rows = _task228_sibling_lineage_validation_rows(loaded, task222_path)
+    row_valid_count, row_blockers = _task229_task228_row_checksums(task228, loaded["task227"])
+    expected_row_count = len(task228.get("loaded_normalization_rows") or []) + len(task228.get("loaded_counterpart_rows") or [])
+    upstream_checks = [
+        task228.get("status") == "warning",
+        task228.get("authorized_manual_fill_loader_status") == "warning",
+        task228.get("authorized_manual_fill_loader_ready") is True,
+        task228.get("complete_manual_fill") is True,
+        task228.get("partial_manual_fill_warning") is False,
+        task228.get("ready_for_task229_multi_issuer_normalized_fact_and_counterpart_binding_review_gate") is True,
+        task228.get("blocker_count") == 0,
+        task228.get("bad_safety_count") == 0,
+        task228.get("multi_issuer_normalization_and_period_pairing_authorized_manual_fill_loader_checksum_sha256") == _task228_checksum(task228),
+        task228.get("multi_issuer_normalization_and_period_pairing_loaded_workspace_checksum_sha256") == _task228_loaded_workspace_checksum(task228),
+        row_valid_count == expected_row_count,
+        bool(lineage_rows) and all(row.get("passed") is True for row in lineage_rows),
+        len(artifact_rows) == 20 and all(row.get("validated") is True for row in artifact_rows),
+        bool(containment_rows) and all(row.get("validated") is True for row in containment_rows),
+    ]
+    upstream_blockers = [*artifact_blockers, *containment_blockers, *row_blockers]
+    if not all(upstream_checks):
+        upstream_blockers.append("task228_complete_warning_contract_invalid")
+    if upstream_blockers:
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=list(dict.fromkeys(upstream_blockers)), input_supplied=True, input_checksum=review_checksum), artifacts)
+    counterpart_ids = {
+        str(row.get("counterpart_workspace_row_id") or "")
+        for row in task228.get("loaded_counterpart_rows") or []
+    }
+    task224_bindings, binding_blockers224 = _task229_binding_map(inputs["task224_bindings"], counterpart_ids)
+    task225_bindings, binding_blockers225 = _task229_binding_map(inputs["task225_bindings"], counterpart_ids)
+    if binding_blockers224 or binding_blockers225:
+        return _task229_publish(_task229_empty_report("blocked", blocker_codes=list(dict.fromkeys([*binding_blockers224, *binding_blockers225])), input_supplied=True, input_checksum=review_checksum), artifacts)
+    forbidden_paths = [
+        path for path in [review_path, task228_path, *artifacts.values()]
+        if isinstance(path, Path)
+    ]
+    try:
+        report = _build_task229_report(
+            task228, loaded["task227"], task228_documents, artifact_rows,
+            containment_rows, lineage_rows, review_document, review_checksum,
+            task224_bindings, task225_bindings, forbidden_paths,
+            inputs.get("payload_root") if isinstance(inputs.get("payload_root"), Path) else None,
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        report = _task229_empty_report("failed", errors=[{"message": "counterpart_artifact_json_invalid"}], input_supplied=True, input_checksum=review_checksum)
+    except OSError:
+        report = _task229_empty_report("failed", errors=[{"message": "counterpart_artifact_read_failed"}], input_supplied=True, input_checksum=review_checksum)
+    except Exception:
+        report = _task229_empty_report("failed", errors=[{"message": "task229_internal_validation_failed"}], input_supplied=True, input_checksum=review_checksum)
+    return _task229_publish(report, artifacts)
 
 
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:
