@@ -35331,6 +35331,219 @@ def test_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_fai
     assert "private task231b rollback path" not in json.dumps(write_failed)
 
 
+def _task232_review_document(task231b: dict, *, correction: bool = False) -> dict:
+    fact_rows = []
+    pair_rows = []
+    correction_fact_id = task231b["materialized_normalized_fact_rows"][0]["normalized_fact_id"] if correction else ""
+    for row in reversed(task231b["materialized_normalized_fact_rows"]):
+        corrected = row["normalized_fact_id"] == correction_fact_id
+        fact_rows.append({
+            "normalized_fact_id": row["normalized_fact_id"],
+            "normalized_fact_checksum_sha256": row["normalized_fact_checksum_sha256"],
+            "decision": "request_correction" if corrected else "approve_for_controlled_value_staging",
+            "reason_code": "current_value_requires_correction" if corrected else "reviewed_value_and_provenance_valid",
+            "review_confirmed": True,
+        })
+    for row in reversed(task231b["complete_period_pair_rows"]):
+        corrected = row["normalized_fact_id"] == correction_fact_id
+        pair_rows.append({
+            "complete_period_pair_id": row["complete_period_pair_id"],
+            "complete_period_pair_checksum_sha256": row["complete_period_pair_checksum_sha256"],
+            "normalized_fact_id": row["normalized_fact_id"],
+            "decision": "request_correction" if corrected else "approve_for_controlled_value_staging",
+            "reason_code": "period_pair_contract_mismatch" if corrected else "reviewed_period_pair_complete_and_consistent",
+            "review_confirmed": True,
+        })
+    return {
+        "schema_version": "bondradar.multi_issuer_materialized_fact_pair_review.v1",
+        "source_task231b_checksum_sha256": task231b["multi_issuer_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_checksum_sha256"],
+        "source_materialized_fact_set_checksum_sha256": task231b["multi_issuer_materialized_normalized_facts_checksum_sha256"],
+        "source_complete_period_pair_set_checksum_sha256": task231b["multi_issuer_complete_period_pairs_checksum_sha256"],
+        "fact_review_decisions": fact_rows,
+        "period_pair_review_decisions": pair_rows,
+    }
+
+
+def _run_task232(
+    chain: Path,
+    *,
+    task231b_input: Path | None = None,
+    review_input: Path | None = None,
+    confirmed: bool = True,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-materialized-normalized-fact-and-complete-period-pair-review-gate",
+        "--operator-resolution-chain-output-dir", str(chain),
+    ]
+    if task231b_input is not None:
+        arguments.extend([
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-materialized-normalized-fact-and-complete-period-pair-review-gate-input",
+            str(task231b_input),
+        ])
+    if review_input is not None:
+        arguments.extend([
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-materialized-normalized-fact-and-complete-period-pair-review-input",
+            str(review_input),
+        ])
+    if confirmed:
+        arguments.append("--confirm-rzd-manual-official-pdf-controlled-values-multi-issuer-materialized-normalized-fact-and-complete-period-pair-review")
+    arguments.extend(extra or [])
+    report, exit_code = assistant.run_assistant(assistant.parse_args(arguments))
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def test_materialized_normalized_fact_and_complete_period_pair_review_gate_success_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    _write_task231b_ready_task231a(chain, tmp_path, monkeypatch)
+    task231b = _run_task231b(chain)
+    assert task231b["status"] == "warning"
+    review_path = tmp_path / "review.json"
+    review_path.write_text(json.dumps(_task232_review_document(task231b), ensure_ascii=False), encoding="utf-8")
+    review_before = review_path.read_bytes()
+    upstream_before = {
+        path: path.read_bytes()
+        for path in chain.rglob("*") if path.is_file()
+    }
+    clone = tmp_path / "clone"; shutil.copytree(chain, clone)
+    clone_review = tmp_path / "clone-review.json"
+    clone_review.write_text(json.dumps(_task232_review_document(task231b), ensure_ascii=False), encoding="utf-8")
+
+    original_open = Path.open
+    task231b_names = set(assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_EXECUTOR_ARTIFACT_NAMES.values())
+    review_paths = {review_path.resolve(), clone_review.resolve()}
+    task232_names = set(assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_MATERIALIZED_FACT_PAIR_REVIEW_GATE_ARTIFACT_NAMES.values())
+
+    def guarded_open(path: Path, *args, **kwargs):
+        if "r" in str(args[0] if args else kwargs.get("mode", "r")):
+            resolved = path.resolve()
+            if path.name not in task231b_names | task232_names and resolved not in review_paths:
+                raise AssertionError(f"Task232 reopened forbidden artifact: {path.name}")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    report = _run_task232(chain, review_input=review_path)
+    clone_report = _run_task232(clone, review_input=clone_review)
+    monkeypatch.setattr(Path, "open", original_open)
+
+    assert report["status"] == "warning", (report["blocker_rows"], report["errors"])
+    assert report["materialized_normalized_fact_and_complete_period_pair_review_gate_ready"] is True
+    assert report["task231b_validation_completed"] is True
+    assert report["task231b_artifact_validation_completed"] is True
+    assert report["task231b_fact_set_checksum_validation_completed"] is True
+    assert report["task231b_pair_set_checksum_validation_completed"] is True
+    assert report["review_input_validated"] is report["review_completed"] is True
+    assert report["fact_review_decision_count"] == report["pair_review_decision_count"] == 4
+    assert report["approved_fact_count"] == report["approved_pair_count"] == 4
+    assert report["fact_correction_required_count"] == report["pair_correction_required_count"] == 0
+    assert report["cross_review_consistency_valid"] is True
+    assert report["ready_for_task233_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan"] is True
+    assert [row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]] == ["Task233"]
+    assert all(report[field] is False for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_MATERIALIZED_FACT_PAIR_REVIEW_GATE_ALWAYS_FALSE_FIELDS)
+    assert report["blocker_count"] == report["bad_safety_count"] == 0
+    names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_MATERIALIZED_FACT_PAIR_REVIEW_GATE_ARTIFACT_NAMES
+    assert len(names) == len(set(names.values())) == 20
+    forbidden = {"normalized_value", "normalized_currency", "counterpart_value_numeric", "counterpart_currency", "issuer_name", "evidence_candidate_id", "source_url", "operator_note"}
+    for name in names.values():
+        text = (chain / name).read_text(encoding="utf-8")
+        assert all(f'"{field}"' not in text for field in forbidden)
+    for key, expected in assistant._task232_wrappers(report).items():
+        assert json.loads((chain / names[key]).read_text(encoding="utf-8")) == expected
+    assert (chain / names["review_gate_markdown"]).read_text(encoding="utf-8") == assistant.render_rzd_manual_official_pdf_controlled_values_multi_issuer_materialized_normalized_fact_and_complete_period_pair_review_gate_markdown(report)
+    assert report["fact_review_decision_rows"] == clone_report["fact_review_decision_rows"]
+    assert report["pair_review_decision_rows"] == clone_report["pair_review_decision_rows"]
+    assert report["multi_issuer_materialized_normalized_fact_and_complete_period_pair_review_gate_checksum_sha256"] == clone_report["multi_issuer_materialized_normalized_fact_and_complete_period_pair_review_gate_checksum_sha256"]
+    assert review_path.read_bytes() == review_before
+    assert {path: path.read_bytes() for path in upstream_before} == upstream_before
+    assert not list(tmp_path.glob(".task232-materialized-review-*"))
+
+
+def test_materialized_normalized_fact_and_complete_period_pair_review_gate_correction_and_blockers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    _write_task231b_ready_task231a(chain, tmp_path, monkeypatch)
+    task231b = _run_task231b(chain)
+    correction_path = tmp_path / "correction.json"
+    correction_path.write_text(json.dumps(_task232_review_document(task231b, correction=True)), encoding="utf-8")
+    correction = _run_task232(chain, review_input=correction_path)
+    assert correction["status"] == "warning"
+    assert correction["review_completed"] is True
+    assert correction["fact_correction_required_count"] == correction["pair_correction_required_count"] == 1
+    assert correction["materialized_normalized_fact_and_complete_period_pair_review_gate_ready"] is False
+    assert correction["ready_for_task233_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan"] is False
+    assert all(row["allowed_now"] is False for row in correction["next_task_rows"])
+
+    missing = _run_task232(chain, review_input=None)
+    assert missing["status"] == "blocked" and missing["fact_review_decision_count"] == 0
+    unconfirmed = _run_task232(chain, review_input=correction_path, confirmed=False)
+    assert unconfirmed["status"] == "blocked"
+    invalid_documents = []
+    for mutate in (
+        lambda doc: doc["fact_review_decisions"].pop(),
+        lambda doc: doc["period_pair_review_decisions"].append(copy.deepcopy(doc["period_pair_review_decisions"][0])),
+        lambda doc: doc["fact_review_decisions"][0].update(decision="unknown"),
+        lambda doc: doc["period_pair_review_decisions"][0].update(reason_code="pair_identity_requires_correction"),
+        lambda doc: doc["fact_review_decisions"][0].update(decision="request_correction", reason_code="fact_identity_requires_correction"),
+    ):
+        document = _task232_review_document(task231b); mutate(document); invalid_documents.append(document)
+    for index, document in enumerate(invalid_documents, 1):
+        path = tmp_path / f"invalid-{index}.json"; path.write_text(json.dumps(document), encoding="utf-8")
+        blocked = _run_task232(chain, review_input=path)
+        assert blocked["status"] == "blocked"
+        assert blocked["fact_review_decision_count"] == blocked["pair_review_decision_count"] == 0
+        assert blocked["ready_for_task233_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan"] is False
+
+
+def test_materialized_normalized_fact_and_complete_period_pair_review_gate_failed_corruption_and_atomic_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    _write_task231b_ready_task231a(chain, tmp_path, monkeypatch)
+    task231b = _run_task231b(chain)
+    review_path = tmp_path / "review.json"; review_path.write_text(json.dumps(_task232_review_document(task231b)), encoding="utf-8")
+    names231b = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_EXECUTOR_ARTIFACT_NAMES
+    corrupt = tmp_path / "corrupt"; shutil.copytree(chain, corrupt)
+    wrapper = corrupt / names231b["checks_json"]
+    document = json.loads(wrapper.read_text(encoding="utf-8")); document["synthetic_corruption"] = True
+    wrapper.write_text(json.dumps(document), encoding="utf-8")
+    blocked = _run_task232(corrupt, review_input=review_path)
+    assert blocked["status"] == "blocked" and blocked["review_completed"] is False
+
+    malformed = tmp_path / "malformed.json"; malformed.write_text('{"schema_version": invalid', encoding="utf-8")
+    assert _run_task232(chain, review_input=malformed)["status"] == "failed"
+    invalid_utf = tmp_path / "invalid-utf.json"; invalid_utf.write_bytes(b"\xff\xfe")
+    assert _run_task232(chain, review_input=invalid_utf)["status"] == "failed"
+
+    collision_target = chain / names231b["checks_json"]; before = collision_target.read_bytes()
+    collision = _run_task232(chain, review_input=review_path, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-materialized-normalized-fact-and-complete-period-pair-review-gate-safety-output",
+        str(collision_target),
+    ])
+    assert collision["status"] == "blocked" and collision["write_outputs"] is False
+    assert collision_target.read_bytes() == before
+
+    original_replace = assistant.os.replace
+    def fail_mid_publication(source, target):
+        if Path(source).name == "01.md" or Path(source).name.startswith("backup-"):
+            raise OSError("private task232 rollback path must not leak")
+        return original_replace(source, target)
+    monkeypatch.setattr(assistant.os, "replace", fail_mid_publication)
+    write_failed = _run_task232(chain, review_input=review_path)
+    monkeypatch.setattr(assistant.os, "replace", original_replace)
+    assert write_failed["status"] == "failed" and write_failed["write_outputs"] is False
+    assert write_failed["bad_safety_codes"] == ["task232_artifact_rollback_state_uncertain"]
+    assert write_failed["review_completed"] is False
+    assert "private task232 rollback path" not in json.dumps(write_failed)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
