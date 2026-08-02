@@ -30983,23 +30983,38 @@ def _task222_transport_success(url: str, **_kwargs) -> dict:
 
 
 def _task222_extraction_success(_path: Path) -> dict:
+    # TASK222_V2_SYNTHETIC_TABLE_FIX
+    #
+    # Realistic two-period financial statement fixture.
+    # Original fixture contract remains unchanged:
+    # Revenue 2025 = 1200
+    # Net profit 2025 = 100
     text = (
-        "Revenue 2025 1200 2024 1000\n"
-        "Net profit 2025 100 2024 90\n"
+        "Consolidated financial statements\n"
+        "in millions of Russian rubles\n"
+        "Metric 2024 2025\n"
+        "Revenue 1000 1200\n"
+        "Net profit 90 100\n"
     )
+
     return {
         "status": "ok",
         "backend": "synthetic_task222",
         "page_count": 1,
         "extracted_page_count": 1,
-        "extracted_text_bytes": len(text.encode()),
+        "extracted_text_bytes": len(
+            text.encode()
+        ),
         "pages": [{
             "page_number": 1,
             "text": text,
-            "text_sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "text_sha256": hashlib.sha256(
+                text.encode()
+            ).hexdigest(),
             "char_count": len(text),
         }],
     }
+
 
 
 def test_controlled_multi_issuer_evidence_extraction_dry_run_executor_no_flag_and_success(
@@ -33650,13 +33665,33 @@ def test_normalization_and_period_pairing_workspace_authorized_manual_fill_loade
     assert invalid["status"] == "blocked"
     assert invalid["loaded_normalization_rows"] == []
     assert invalid["loaded_counterpart_rows"] == []
-    persisted = "\n".join(
-        (chain / name).read_text(encoding="utf-8")
-        for name in (
-            assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES.values()
+    # TASK228_STANDALONE_INVALID_VALUE_ASSERTION_FIX
+    #
+    # Artifact names include both JSON and Markdown files, so all
+    # contents remain text. Search for 1e6 as a standalone token:
+    # this catches persisted input values without matching a
+    # coincidental sequence inside a SHA-256 checksum.
+    persisted_artifact_texts = [
+        (chain / name).read_text(
+            encoding="utf-8"
         )
+        for name in (
+            assistant
+            .RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_MANUAL_FILL_LOADER_ARTIFACT_NAMES
+            .values()
+        )
+    ]
+
+    invalid_manual_value_pattern = re.compile(
+        r"(?<![0-9A-Za-z])1e6(?![0-9A-Za-z])"
     )
-    assert "1e6" not in persisted
+
+    assert all(
+        invalid_manual_value_pattern.search(
+            artifact_text
+        ) is None
+        for artifact_text in persisted_artifact_texts
+    )
 
 
 def test_normalization_and_period_pairing_workspace_authorized_manual_fill_loader_input_failures_and_collision(
@@ -52458,3 +52493,443 @@ def _preview_http(calls: list[tuple[str, str]]):
         return import_script.HttpResult(ok=False, status_code=404, data={})
 
     return fake
+
+
+# TASK222_CONSERVATIVE_TABLE_RESOLVER_V2_TESTS
+
+
+def test_task222_v2_number_tokens_preserve_grouped_thousands() -> None:
+    tokens = assistant._task222_v2_number_tokens(
+        "Profit for the year 5 854 2 870 1 815"
+    )
+
+    assert [
+        (row["raw"], row["value"])
+        for row in tokens
+    ] == [
+        ("5 854", 5854),
+        ("2 870", 2870),
+        ("1 815", 1815),
+    ]
+
+    tokens = assistant._task222_v2_number_tokens(
+        "Profit for the year 1,341 1,529"
+    )
+
+    assert [
+        row["value"]
+        for row in tokens
+    ] == [1341, 1529]
+
+    tokens = assistant._task222_v2_number_tokens(
+        "Finance costs 12 (493) (567) (896)"
+    )
+
+    assert [
+        row["value"]
+        for row in tokens
+    ] == [12, -493, -567, -896]
+
+
+def test_task222_v2_resolves_two_and_three_year_columns() -> None:
+    rosneft_page = """
+    (in billions of Russian rubles)
+    Notes December 31, 2024 December 31, 2023
+    Profit for the year 1,341 1,529
+    Net cash provided by operating activities 2,465 2,765
+    """
+
+    rosneft_profit = assistant._task222_v2_resolve_row(
+        field_key="net_profit",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "profit_for_the_year",
+            "raw_line": "Profit for the year 1,341 1,529",
+            "page_number": 1,
+            "line_number": 3,
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=rosneft_page,
+        report_year=2024,
+    )
+
+    assert rosneft_profit is not None
+    assert rosneft_profit[
+        "_task222_v2_numeric_value"
+    ] == 1341
+    assert rosneft_profit[
+        "_task222_v2_currency"
+    ] == "RUB"
+    assert rosneft_profit[
+        "_task222_v2_scale"
+    ] == 1_000_000_000
+
+    nornickel_page = """
+    в миллионах долларов США
+    Примечания 2022 2023 2024
+    Итого выручка 16 876 14 409 12 535
+    Денежные средства и их эквиваленты 20 1 882 2 139 1 822
+    """
+
+    revenue = assistant._task222_v2_resolve_row(
+        field_key="revenue",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "revenue",
+            "raw_line":
+                "Итого выручка 16 876 14 409 12 535",
+            "page_number": 2,
+            "line_number": 3,
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=nornickel_page,
+        report_year=2024,
+    )
+
+    assert revenue is not None
+    assert revenue[
+        "_task222_v2_raw_value_text"
+    ] == "12 535"
+    assert revenue[
+        "_task222_v2_numeric_value"
+    ] == 12535
+    assert revenue[
+        "_task222_v2_currency"
+    ] == "USD"
+
+    cash = assistant._task222_v2_resolve_row(
+        field_key="cash",
+        row={
+            "target_type":
+                "statement_of_financial_position",
+            "metric_key": "cash_and_cash_equivalents",
+            "raw_line":
+                "Денежные средства и их эквиваленты "
+                "20 1 882 2 139 1 822",
+            "page_number": 2,
+            "line_number": 4,
+            "note_reference": "20",
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=nornickel_page,
+        report_year=2024,
+    )
+
+    assert cash is not None
+    assert cash[
+        "_task222_v2_numeric_value"
+    ] == 1822
+
+
+def test_task222_v2_drops_change_percentage_and_rejects_wrong_metrics() -> None:
+    page = """
+    в миллионах долларов США
+    Показатель 2023 2024 Изменение
+    Итого выручка 14 409 12 535 -13%
+    Расходы по процентам 337 620 84%
+    """
+
+    revenue = assistant._task222_v2_resolve_row(
+        field_key="revenue",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "revenue",
+            "raw_line":
+                "Итого выручка 14 409 12 535 -13%",
+            "page_number": 1,
+            "line_number": 3,
+            "extraction_method":
+                "task222_v2_direct_field_line",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert revenue is not None
+    assert revenue[
+        "_task222_v2_numeric_value"
+    ] == 12535
+
+    interest = assistant._task222_v2_resolve_row(
+        field_key="interest_expense",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "finance_costs",
+            "raw_line":
+                "Расходы по процентам 337 620 84%",
+            "page_number": 1,
+            "line_number": 4,
+            "extraction_method":
+                "task222_v2_direct_field_line",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert interest is not None
+    assert interest[
+        "_task222_v2_numeric_value"
+    ] == 620
+
+    wrong_interest = assistant._task222_v2_resolve_row(
+        field_key="interest_expense",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "finance_costs",
+            "raw_line":
+                "Финансовые расходы, нетто "
+                "(493) (567) (896)",
+            "page_number": 1,
+            "line_number": 5,
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert wrong_interest is None
+
+    wrong_equity = assistant._task222_v2_resolve_row(
+        field_key="equity",
+        row={
+            "target_type":
+                "statement_of_financial_position",
+            "metric_key": "total_equity",
+            "raw_line":
+                "Итого капитал и обязательства "
+                "25 795 23 580 23 170",
+            "page_number": 1,
+            "line_number": 6,
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert wrong_equity is None
+
+
+def test_task222_v2_rejects_adjacent_table_contamination() -> None:
+    page = """
+    в миллионах долларов США
+    Примечания 2022 2023 2024
+    """
+
+    resolved = assistant._task222_v2_resolve_row(
+        field_key="cash",
+        row={
+            "target_type":
+                "statement_of_financial_position",
+            "metric_key": "cash_and_cash_equivalents",
+            "raw_line":
+                "Денежные средства и их эквиваленты"
+                "             20 1 882 2 139 1 822"
+                "            Оценочные обязательства"
+                "             26 180 90 173",
+            "page_number": 1,
+            "line_number": 3,
+            "note_reference": "20",
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert resolved is not None
+    assert resolved[
+        "_task222_v2_numeric_value"
+    ] == 1822
+    assert resolved[
+        "_task222_v2_raw_value_text"
+    ] == "1 822"
+
+
+
+# TASK222_V2_FOCUSED_REAL_REPORT_FIX_TESTS
+
+
+def test_task222_v2_rejects_year_only_revenue_narrative() -> None:
+    page = """
+    in millions of Russian rubles
+    Annual report 2024
+    revenue while reducing the net in 2023.
+    """
+
+    result = assistant._task222_v2_resolve_row(
+        field_key="revenue",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "revenue",
+            "raw_line":
+                "revenue while reducing the net in 2023.",
+            "page_number": 1,
+            "line_number": 3,
+            "extraction_method":
+                "controlled_static_line_metric_match",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert result is None
+
+
+def test_task222_v2_selects_total_debt_year_before_change_columns() -> None:
+    page = """
+    в миллионах долларов США
+    Показатель 2023 2024 Изменение %
+    Общий долг 10 232 10 408 176 2%
+    """
+
+    result = assistant._task222_v2_resolve_row(
+        field_key="total_debt",
+        row={
+            "target_type":
+                "statement_of_financial_position",
+            "metric_key": "total_debt",
+            "raw_line":
+                "Общий долг 10 232 10 408 176 2%",
+            "page_number": 1,
+            "line_number": 4,
+            "extraction_method":
+                "task222_v2_direct_field_line",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert result is not None
+    assert result[
+        "_task222_v2_raw_value_text"
+    ] == "10 408"
+    assert result[
+        "_task222_v2_numeric_value"
+    ] == 10408
+
+
+def test_task222_v2_cash_ignores_adjacent_table_values() -> None:
+    page = """
+    в миллионах долларов США
+    Примечания 2022 2023 2024
+    """
+
+    result = assistant._task222_v2_resolve_row(
+        field_key="cash",
+        row={
+            "target_type":
+                "statement_of_financial_position",
+            "metric_key": "cash_and_cash_equivalents",
+            "raw_line":
+                "Денежные средства и их эквиваленты "
+                "20 1 882 2 139 1 822 "
+                "Оценочные обязательства "
+                "26 180 90 173",
+            "page_number": 1,
+            "line_number": 3,
+            "note_reference": "20",
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert result is not None
+    assert result[
+        "_task222_v2_numeric_value"
+    ] == 1822
+
+
+def test_task222_v2_interest_expense_prefers_net_interest() -> None:
+    preferred_score = (
+        assistant._task222_v2_semantic_score(
+            "interest_expense",
+            "profit_or_loss",
+            "Расходы по процентам, за вычетом "
+            "337 620 84%",
+            "task222_v2_direct_field_line",
+        )
+    )
+
+    lease_score = (
+        assistant._task222_v2_semantic_score(
+            "interest_expense",
+            "profit_or_loss",
+            "Расходы по процентам, начисляемым "
+            "на обязательства 35 52 49%",
+            "task222_v2_direct_field_line",
+        )
+    )
+
+    assert preferred_score > 200
+    assert lease_score == 0
+
+    page = """
+    в миллионах долларов США
+    Показатель 2023 2024 Изменение
+    Расходы по процентам, за вычетом 337 620 84%
+    """
+
+    result = assistant._task222_v2_resolve_row(
+        field_key="interest_expense",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "interest_expense",
+            "raw_line":
+                "Расходы по процентам, за вычетом "
+                "337 620 84%",
+            "page_number": 1,
+            "line_number": 4,
+            "extraction_method":
+                "task222_v2_direct_field_line",
+            "extraction_confidence": "high",
+        },
+        page_text=page,
+        report_year=2024,
+    )
+
+    assert result is not None
+    assert result[
+        "_task222_v2_numeric_value"
+    ] == 620
+
+
+def test_task222_v2_uses_nearest_unit_caption() -> None:
+    page = "\n".join([
+        "USD billion",
+        *["unrelated text" for _ in range(20)],
+        "в миллионах долларов США",
+        "Итого выручка 16 876 14 409 12 535",
+    ])
+
+    context = assistant._task222_v2_money_context(
+        page,
+        {
+            "line_number": 23,
+            "line_number_on_page": 23,
+            "unit": "RUB million",
+        },
+    )
+
+    assert context == (
+        "USD",
+        "USD million",
+        1_000_000,
+    )

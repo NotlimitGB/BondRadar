@@ -98109,6 +98109,976 @@ def _task222_internal_candidate_rows(
     return rows
 
 
+# TASK222_CONSERVATIVE_TABLE_RESOLVER_V2
+
+_TASK222_V2_NUMBER_PATTERN = re.compile(
+    r"""
+    (?<![\d])
+    (?:
+        \(\s*-?\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d+)?\s*\)
+        |
+        -?\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?:[.,]\d+)?
+        |
+        \(\s*-?\d+(?:[.,]\d+)?\s*\)
+        |
+        -?\d+(?:[.,]\d+)?
+    )
+    """,
+    re.VERBOSE,
+)
+
+_TASK222_V2_FIELD_TERMS: dict[str, tuple[str, ...]] = {
+    "revenue": (
+        "total revenues",
+        "total revenue",
+        "consolidated revenue",
+        "итого выручка",
+        "консолидированная выручка",
+        "выручка",
+        "revenue",
+    ),
+    "total_debt": (
+        "total company debt",
+        "total debt",
+        "gross debt",
+        "общий долг компании",
+        "общий долг",
+        "совокупный долг",
+    ),
+    "cash": (
+        "cash and cash equivalents",
+        "денежные средства и их эквиваленты",
+    ),
+    "equity": (
+        "total equity",
+        "итого капитал",
+        "всего капитал",
+    ),
+    "net_profit": (
+        "profit for the year",
+        "net profit",
+        "profit for year",
+        "чистая прибыль",
+        "прибыль за год",
+    ),
+    "operating_cash_flow": (
+        "net cash provided by operating activities",
+        "net cash generated from operating activities",
+        "net cash from operating activities",
+        "денежные средства, полученные от операционной деятельности, нетто",
+        "денежный поток, полученный от операционной деятельности, нетто",
+        "денежные потоки от операционной деятельности, нетто",
+    ),
+    "interest_expense": (
+        "interest expense",
+        "interest expenses",
+        "interest costs",
+        "расходы по процентам",
+        "процентные расходы",
+    ),
+}
+
+_TASK222_V2_PREFERRED_TARGET: dict[str, str] = {
+    "revenue": "profit_or_loss",
+    "total_debt": "statement_of_financial_position",
+    "cash": "statement_of_financial_position",
+    "equity": "statement_of_financial_position",
+    "net_profit": "profit_or_loss",
+    "operating_cash_flow": "cash_flows",
+    "interest_expense": "profit_or_loss",
+}
+
+
+def _task222_v2_normalized_text(value: Any) -> str:
+    return (
+        unicodedata.normalize("NFKC", str(value or ""))
+        .casefold()
+        .replace("ё", "е")
+    )
+
+
+def _task222_v2_number_value(raw_token: str) -> int | None:
+    raw = str(raw_token or "").strip()
+
+    if not raw:
+        return None
+
+    negative = raw.startswith("(") and raw.endswith(")")
+
+    cleaned = (
+        raw.strip("()")
+        .replace("\u00a0", " ")
+        .replace("\u202f", " ")
+        .strip()
+    )
+
+    cleaned = re.sub(r"\s+", "", cleaned)
+
+    if re.fullmatch(r"-?\d{1,3}(?:,\d{3})+", cleaned):
+        cleaned = cleaned.replace(",", "")
+    elif re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", cleaned):
+        cleaned = cleaned.replace(".", "")
+    else:
+        cleaned = cleaned.replace(",", ".")
+
+    try:
+        numeric = float(cleaned)
+    except ValueError:
+        return None
+
+    result = int(round(numeric))
+
+    if negative:
+        return -abs(result)
+
+    return result
+
+
+def _task222_v2_number_tokens(text: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+
+    for match in _TASK222_V2_NUMBER_PATTERN.finditer(str(text or "")):
+        raw = match.group(0).strip()
+        value = _task222_v2_number_value(raw)
+
+        if value is None:
+            continue
+
+        rows.append({
+            "raw": raw,
+            "value": value,
+            "start": match.start(),
+            "end": match.end(),
+        })
+
+    return rows
+
+
+def _task222_v2_page_year_order(
+    page_text: str,
+    report_year: int,
+) -> list[int]:
+    best_years: list[int] = []
+    best_score = -10**9
+
+    for raw_line in str(page_text or "").splitlines():
+        found = [
+            int(value)
+            for value in re.findall(
+                r"(?<!\d)(20(?:2[0-6]))(?!\d)",
+                raw_line,
+            )
+        ]
+
+        unique: list[int] = []
+
+        for year in found:
+            if year not in unique:
+                unique.append(year)
+
+        if report_year not in unique:
+            continue
+
+        if not 2 <= len(unique) <= 4:
+            continue
+
+        normalized = _task222_v2_normalized_text(raw_line)
+        alpha_count = len(
+            re.findall(r"[a-zа-я]", normalized)
+        )
+
+        score = len(unique) * 100 - min(alpha_count, 200)
+
+        if any(
+            term in normalized
+            for term in (
+                "примечания",
+                "notes",
+                "за год",
+                "for the year",
+                "на 31 декабря",
+                "december 31",
+                "показатель",
+            )
+        ):
+            score += 30
+
+        if score > best_score:
+            best_score = score
+            best_years = unique
+
+    return best_years or [report_year]
+
+
+def _task222_v2_money_context(
+    page_text: str,
+    row: dict[str, Any],
+) -> tuple[str, str, int] | None:
+    contexts = (
+        (
+            "USD",
+            "USD million",
+            1_000_000,
+            (
+                "in millions of us dollars",
+                "in millions of u.s. dollars",
+                "million us dollars",
+                "usd million",
+                "usd millions",
+                "us$ million",
+                "$ million",
+                "в миллионах долларов сша",
+                "млн долл. сша",
+                "млн долларов сша",
+            ),
+        ),
+        (
+            "USD",
+            "USD billion",
+            1_000_000_000,
+            (
+                "in billions of us dollars",
+                "in billions of u.s. dollars",
+                "billion us dollars",
+                "usd billion",
+                "usd billions",
+                "us$ billion",
+                "$ billion",
+                "в миллиардах долларов сша",
+                "млрд долл. сша",
+                "млрд долларов сша",
+            ),
+        ),
+        (
+            "RUB",
+            "RUB million",
+            1_000_000,
+            (
+                "in millions of russian rubles",
+                "in millions of rubles",
+                "rub million",
+                "rub millions",
+                "в миллионах российских рублей",
+                "в миллионах рублей",
+                "млн руб",
+            ),
+        ),
+        (
+            "RUB",
+            "RUB billion",
+            1_000_000_000,
+            (
+                "in billions of russian rubles",
+                "in billions of rubles",
+                "rub billion",
+                "rub billions",
+                "в миллиардах российских рублей",
+                "в миллиардах рублей",
+                "млрд руб",
+            ),
+        ),
+    )
+
+    page_lines = str(page_text or "").splitlines()
+
+    row_line_number = int(
+        row.get("line_number_on_page")
+        or row.get("line_number")
+        or 0
+    )
+
+    matches: list[
+        tuple[int, int, int, str, str, int]
+    ] = []
+
+    for line_index, raw_line in enumerate(
+        page_lines,
+        start=1,
+    ):
+        normalized = re.sub(
+            r"\s+",
+            " ",
+            _task222_v2_normalized_text(raw_line),
+        )
+
+        for context_index, (
+            currency,
+            unit,
+            scale,
+            terms,
+        ) in enumerate(contexts):
+            if not any(term in normalized for term in terms):
+                continue
+
+            distance = (
+                abs(line_index - row_line_number)
+                if row_line_number
+                else line_index
+            )
+
+            # Unit captions can be located at the top of a long
+            # multi-column statement page, but distant captions on
+            # entirely different pages must not influence the row.
+            if distance > 80:
+                continue
+
+            after_row_penalty = (
+                1
+                if row_line_number
+                and line_index > row_line_number
+                else 0
+            )
+
+            matches.append((
+                distance,
+                after_row_penalty,
+                context_index,
+                currency,
+                unit,
+                scale,
+            ))
+
+    if matches:
+        matches.sort(
+            key=lambda item: (
+                item[0],
+                item[1],
+                item[2],
+            )
+        )
+
+        _, _, _, currency, unit, scale = matches[0]
+
+        return currency, unit, scale
+
+    existing_unit = _task222_v2_normalized_text(
+        row.get("unit")
+    )
+
+    if "usd" in existing_unit or "долл" in existing_unit:
+        scale = (
+            1_000_000_000
+            if (
+                "billion" in existing_unit
+                or "млрд" in existing_unit
+            )
+            else 1_000_000
+        )
+
+        return (
+            "USD",
+            (
+                "USD billion"
+                if scale == 1_000_000_000
+                else "USD million"
+            ),
+            scale,
+        )
+
+    if "rub" in existing_unit or "руб" in existing_unit:
+        scale = (
+            1_000_000_000
+            if (
+                "billion" in existing_unit
+                or "млрд" in existing_unit
+            )
+            else 1_000_000
+        )
+
+        return (
+            "RUB",
+            (
+                "RUB billion"
+                if scale == 1_000_000_000
+                else "RUB million"
+            ),
+            scale,
+        )
+
+    return None
+
+
+
+def _task222_v2_term_position(
+    line: str,
+    field_key: str,
+) -> tuple[int, str] | None:
+    normalized = _task222_v2_normalized_text(line)
+    result: tuple[int, str] | None = None
+
+    for term in sorted(
+        _TASK222_V2_FIELD_TERMS.get(field_key, ()),
+        key=len,
+        reverse=True,
+    ):
+        index = normalized.find(term)
+
+        if index < 0:
+            continue
+
+        if result is None or index < result[0]:
+            result = index, term
+
+    return result
+
+
+def _task222_v2_metric_segment(
+    line: str,
+    field_key: str,
+) -> str:
+    position = _task222_v2_term_position(line, field_key)
+
+    if position is None:
+        return ""
+
+    start, _term = position
+    segment = str(line or "")[start:]
+
+    # PDF layout text may contain two unrelated tables on one physical line.
+    # A large whitespace gap followed by another text label marks the next
+    # table block. Numeric columns are followed by digits, not letters.
+    boundary = re.search(
+        r"\s{12,}(?=[A-Za-zА-Яа-яЁё])",
+        segment,
+    )
+
+    if boundary:
+        segment = segment[:boundary.start()]
+
+    return segment.strip()
+
+
+def _task222_v2_semantic_score(
+    field_key: str,
+    target_type: str,
+    line: str,
+    extraction_method: str = "",
+) -> int:
+    normalized = _task222_v2_normalized_text(line)
+    preferred_target = _TASK222_V2_PREFERRED_TARGET.get(
+        field_key
+    )
+
+    if (
+        preferred_target
+        and target_type
+        and target_type != preferred_target
+    ):
+        return 0
+
+    score = 0
+
+    if field_key == "revenue":
+        if any(
+            term in normalized
+            for term in (
+                "equity share in profit",
+                "equity share in profits",
+                "доля в прибыли",
+                "revenue from metal sales",
+                "от реализации металлов",
+                "выручка от реализации внешним",
+            )
+        ):
+            return 0
+
+        if any(
+            term in normalized
+            for term in (
+                "total revenue",
+                "total revenues",
+                "consolidated revenue",
+                "итого выручка",
+                "консолидированная выручка",
+            )
+        ):
+            score = 150
+
+        elif re.match(
+            r"^\s*(revenue|выручка)\b",
+            normalized,
+        ):
+            score = 90
+
+        else:
+            return 0
+
+    elif field_key == "total_debt":
+        if not any(
+            term in normalized
+            for term in (
+                "total company debt",
+                "total debt",
+                "gross debt",
+                "общий долг компании",
+                "общий долг",
+                "совокупный долг",
+            )
+        ):
+            return 0
+
+        score = 170
+
+    elif field_key == "cash":
+        if not any(
+            term in normalized
+            for term in (
+                "cash and cash equivalents",
+                "денежные средства и их эквиваленты",
+            )
+        ):
+            return 0
+
+        if any(
+            term in normalized
+            for term in (
+                "at beginning",
+                "at the beginning",
+                "at end",
+                "at the end",
+                "на начало",
+                "на конец",
+                "net increase",
+                "net decrease",
+                "чистое изменение",
+                "инвестиционной деятельности",
+                "operating activities",
+                "операционной деятельности",
+            )
+        ):
+            return 0
+
+        score = 140
+
+    elif field_key == "equity":
+        if not any(
+            term in normalized
+            for term in (
+                "total equity",
+                "итого капитал",
+                "всего капитал",
+            )
+        ):
+            return 0
+
+        if any(
+            term in normalized
+            for term in (
+                "equity and liabilities",
+                "capital and liabilities",
+                "капитал и обязательства",
+                "капитал и обязательств",
+            )
+        ):
+            return 0
+
+        score = 140
+
+    elif field_key == "net_profit":
+        if not any(
+            term in normalized
+            for term in (
+                "profit for the year",
+                "profit for year",
+                "net profit",
+                "чистая прибыль",
+                "прибыль за год",
+            )
+        ):
+            return 0
+
+        score = 140
+
+    elif field_key == "operating_cash_flow":
+        if not any(
+            term in normalized
+            for term in (
+                "net cash provided by operating activities",
+                "net cash generated from operating activities",
+                "net cash from operating activities",
+                "денежные средства, полученные от операционной деятельности, нетто",
+                "денежный поток, полученный от операционной деятельности, нетто",
+                "денежные потоки от операционной деятельности, нетто",
+            )
+        ):
+            return 0
+
+        score = 180
+
+    elif field_key == "interest_expense":
+        if not any(
+            term in normalized
+            for term in (
+                "interest expense",
+                "interest expenses",
+                "interest costs",
+                "расходы по процентам",
+                "процентные расходы",
+            )
+        ):
+            return 0
+
+        preferred_interest_terms = (
+            "net of capitalized interest",
+            "net of capitalised interest",
+            "за вычетом капитализированных процентов",
+            "за вычетом капитализированных",
+            "расходы по процентам, за вычетом",
+        )
+
+        secondary_or_lease_terms = (
+            "interest accrued on liabilities",
+            "lease liabilities",
+            "lease obligation",
+            "начисляемым на обязательства",
+            "начисляемым",
+            "обязательства по аренде",
+            "арендным обязательствам",
+            "арендных обязательств",
+        )
+
+        if any(
+            term in normalized
+            for term in preferred_interest_terms
+        ):
+            score = 240
+
+        elif any(
+            term in normalized
+            for term in secondary_or_lease_terms
+        ):
+            return 0
+
+        else:
+            score = 150
+
+    else:
+        return 0
+
+    if extraction_method == "primary_statement_table_row_parser":
+        score += 30
+
+    return score
+
+
+
+def _task222_v2_direct_field_rows(
+    pages: list[dict[str, Any]],
+    field_key: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    target_type = _TASK222_V2_PREFERRED_TARGET.get(
+        field_key,
+        "",
+    )
+
+    for page in pages:
+        page_number = int(page.get("page_number") or 0)
+        text = str(page.get("text") or "")
+
+        for line_number, raw_line in enumerate(
+            text.splitlines(),
+            start=1,
+        ):
+            score = _task222_v2_semantic_score(
+                field_key,
+                target_type,
+                raw_line,
+                "task222_v2_direct_field_line",
+            )
+
+            if score <= 0:
+                continue
+
+            rows.append({
+                "target_type": target_type,
+                "metric_key": field_key,
+                "page_number": page_number,
+                "line_number": line_number,
+                "line_number_on_page": line_number,
+                "raw_line": raw_line,
+                "row_label": raw_line.strip()[:160],
+                "extraction_method":
+                    "task222_v2_direct_field_line",
+                "extraction_confidence": "high",
+                "_task222_v2_semantic_score": score,
+            })
+
+    return rows
+
+
+def _task222_v2_resolve_row(
+    *,
+    field_key: str,
+    row: dict[str, Any],
+    page_text: str,
+    report_year: int,
+) -> dict[str, Any] | None:
+    raw_line = str(row.get("raw_line") or "")
+    target_type = str(row.get("target_type") or "")
+    extraction_method = str(
+        row.get("extraction_method") or ""
+    )
+
+    semantic_score = _task222_v2_semantic_score(
+        field_key,
+        target_type,
+        raw_line,
+        extraction_method,
+    )
+
+    if semantic_score <= 0:
+        return None
+
+    segment = _task222_v2_metric_segment(
+        raw_line,
+        field_key,
+    )
+
+    if not segment:
+        return None
+
+    # Multi-column PDF text frequently places a second table after
+    # the current metric on the same physical line. In management
+    # tables the first percentage normally terminates the current
+    # metric's year/change block.
+    first_percent_index = segment.find("%")
+
+    if first_percent_index >= 0:
+        segment = segment[:first_percent_index + 1]
+
+    money_context = _task222_v2_money_context(
+        page_text,
+        row,
+    )
+
+    if money_context is None:
+        return None
+
+    currency, unit, scale = money_context
+    tokens = _task222_v2_number_tokens(segment)
+
+    if not tokens:
+        return None
+
+    year_order = _task222_v2_page_year_order(
+        page_text,
+        report_year,
+    )
+
+    working = list(tokens)
+
+    if "%" in segment:
+        trailing_percent = re.search(
+            r"\(?\s*[-−–—]?\d+(?:[.,]\d+)?\s*\)?"
+            r"\s*%\s*$",
+            segment,
+        )
+
+        if trailing_percent is not None:
+            cutoff = trailing_percent.start()
+
+            working = [
+                token
+                for token in working
+                if int(token.get("end") or 0) <= cutoff
+            ]
+
+        elif working:
+            working.pop()
+
+        # A grouped value and a following absolute-change
+        # column may be merged by the general number tokenizer.
+        #
+        # Example:
+        #   2023 value:       10 232
+        #   2024 value:       10 408
+        #   absolute change:     176
+        #
+        # The tail can initially appear as one token:
+        #   "10 408 176"
+        #
+        # Under an exact two-year table contract, retain "10 408"
+        # as the second year value and discard "176" as the change.
+        if (
+            len(year_order) == 2
+            and len(working) == 2
+        ):
+            merged_raw = str(
+                working[-1].get("raw") or ""
+            ).strip()
+
+            merged_parts = re.split(
+                r"[ \u00a0\u202f]+",
+                merged_raw,
+            )
+
+            if (
+                not merged_raw.startswith(
+                    ("(", "-", "−", "–", "—")
+                )
+                and len(merged_parts) == 3
+                and all(
+                    re.fullmatch(r"\d{1,3}", part)
+                    for part in merged_parts
+                )
+            ):
+                year_raw = " ".join(
+                    merged_parts[:2]
+                )
+                year_value = (
+                    _task222_v2_number_value(year_raw)
+                )
+
+                if year_value is not None:
+                    working[-1] = {
+                        "raw": year_raw,
+                        "value": year_value,
+                        "start": working[-1].get(
+                            "start",
+                            0,
+                        ),
+                        "end": working[-1].get(
+                            "end",
+                            0,
+                        ),
+                    }
+
+        # A compact pair like "337 620" can represent two
+        # three-digit year columns rather than one thousands-grouped
+        # value. Only split it under the exact two-year condition.
+        if (
+            len(working) == 1
+            and len(year_order) == 2
+        ):
+            compact_raw = str(
+                working[0].get("raw") or ""
+            ).strip()
+
+            compact_parts = re.split(
+                r"[ \u00a0\u202f]+",
+                compact_raw,
+            )
+
+            if (
+                not compact_raw.startswith(
+                    ("(", "-", "−", "–", "—")
+                )
+                and len(compact_parts) == 2
+                and all(
+                    re.fullmatch(r"\d{1,3}", part)
+                    for part in compact_parts
+                )
+            ):
+                working = [
+                    {
+                        "raw": part,
+                        "value": int(part),
+                        "start": 0,
+                        "end": 0,
+                    }
+                    for part in compact_parts
+                ]
+
+    note_reference = str(
+        row.get("note_reference") or ""
+    ).strip()
+
+    if working:
+        first_raw = str(
+            working[0].get("raw") or ""
+        ).strip("() ")
+
+        first_value = abs(
+            int(working[0].get("value") or 0)
+        )
+
+        note_matches = bool(
+            note_reference
+            and first_raw == note_reference
+        )
+
+        extra_small_reference = bool(
+            len(working) > len(year_order)
+            and first_value <= 99
+        )
+
+        if note_matches or extra_small_reference:
+            working = working[1:]
+
+    # Once an optional note reference is removed, year columns are
+    # the first N financial values. Any following absolute-change
+    # column or neighbouring table belongs outside this candidate.
+    if (
+        year_order
+        and len(working) > len(year_order)
+    ):
+        working = working[:len(year_order)]
+
+    raw_value = ""
+    numeric_value: int | None = None
+
+    if (
+        report_year in year_order
+        and len(working) == len(year_order)
+    ):
+        selected = working[
+            year_order.index(report_year)
+        ]
+
+        raw_value = str(selected.get("raw") or "")
+        numeric_value = int(selected.get("value") or 0)
+
+    elif len(working) == 1:
+        selected = working[0]
+
+        raw_value = str(selected.get("raw") or "")
+        numeric_value = int(selected.get("value") or 0)
+
+    if not raw_value or numeric_value is None:
+        return None
+
+    # Calendar years, page numbers and note numbers must never be
+    # emitted as financial values.
+    if 2020 <= abs(numeric_value) <= 2030:
+        return None
+
+    if len(_task222_v2_number_tokens(raw_value)) != 1:
+        return None
+
+    score = semantic_score
+
+    if len(year_order) >= 2:
+        score += 20
+
+    if len(year_order) >= 3:
+        score += 35
+
+    if money_context:
+        score += 20
+
+    if str(row.get("extraction_confidence") or "") == "high":
+        score += 10
+
+    if extraction_method == "primary_statement_table_row_parser":
+        score += 15
+
+    return {
+        **row,
+        "_task222_v2_resolved": True,
+        "_task222_v2_score": score,
+        "_task222_v2_report_year": report_year,
+        "_task222_v2_column_label": str(report_year),
+        "_task222_v2_raw_value_text": raw_value,
+        "_task222_v2_numeric_value": numeric_value,
+        "_task222_v2_currency": currency,
+        "_task222_v2_unit": unit,
+        "_task222_v2_scale": scale,
+        "_task222_v2_context": raw_line[:500],
+        "_task222_v2_year_order": year_order,
+    }
+
+
 def _task222_candidate_records(
     *,
     job: dict[str, Any],
@@ -98119,62 +99089,168 @@ def _task222_candidate_records(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     internal_rows = _task222_internal_candidate_rows(pages)
     report_year = int(candidate.get("report_year") or 0)
+
+    page_text_by_number = {
+        int(page.get("page_number") or 0):
+            str(page.get("text") or "")
+        for page in pages
+        if isinstance(page, dict)
+    }
+
     candidate_rows: list[dict[str, Any]] = []
     outcome_rows: list[dict[str, Any]] = []
-    for field_index, field_key in enumerate(EVIDENCE_FINANCIAL_FIELDS, 1):
-        matches = [
-            row for row in internal_rows
-            if str(row.get("metric_key") or "") in _task222_metric_key(field_key)
+
+    for field_index, field_key in enumerate(
+        EVIDENCE_FINANCIAL_FIELDS,
+        1,
+    ):
+        metric_keys = set(_task222_metric_key(field_key))
+
+        source_rows = [
+            row
+            for row in internal_rows
+            if str(row.get("metric_key") or "")
+            in metric_keys
         ]
-        unique_matches: list[dict[str, Any]] = []
-        seen: set[tuple[Any, ...]] = set()
-        for row in matches:
-            raw_key = f"raw_value_{report_year}"
-            value_key = f"value_{report_year}"
-            if report_year not in {2024, 2025} or row.get(value_key) is None:
-                continue
-            identity = (
-                row.get("page_number"), row.get("line_number"),
-                row.get("metric_key"), row.get(raw_key),
+
+        source_rows.extend(
+            _task222_v2_direct_field_rows(
+                pages,
+                field_key,
             )
-            if identity in seen:
+        )
+
+        resolved_rows: list[dict[str, Any]] = []
+        seen_source_rows: set[tuple[Any, ...]] = set()
+
+        for row in source_rows:
+            page_number = int(
+                row.get("page_number") or 0
+            )
+
+            source_identity = (
+                page_number,
+                row.get("line_number"),
+                str(row.get("target_type") or ""),
+                str(row.get("metric_key") or ""),
+                str(row.get("raw_line") or ""),
+            )
+
+            if source_identity in seen_source_rows:
                 continue
-            seen.add(identity)
+
+            seen_source_rows.add(source_identity)
+
+            resolved = _task222_v2_resolve_row(
+                field_key=field_key,
+                row=row,
+                page_text=page_text_by_number.get(
+                    page_number,
+                    "",
+                ),
+                report_year=report_year,
+            )
+
+            if resolved is not None:
+                resolved_rows.append(resolved)
+
+        resolved_rows.sort(
+            key=lambda row: (
+                -int(row.get("_task222_v2_score") or 0),
+                int(row.get("page_number") or 0),
+                int(row.get("line_number") or 0),
+                str(
+                    row.get(
+                        "_task222_v2_raw_value_text"
+                    )
+                    or ""
+                ),
+            )
+        )
+
+        unique_matches: list[dict[str, Any]] = []
+        seen_values: set[tuple[Any, ...]] = set()
+
+        for row in resolved_rows:
+            value_identity = (
+                row.get("_task222_v2_numeric_value"),
+                row.get("_task222_v2_currency"),
+                row.get("_task222_v2_scale"),
+                row.get("_task222_v2_report_year"),
+            )
+
+            if value_identity in seen_values:
+                continue
+
+            seen_values.add(value_identity)
             unique_matches.append(row)
-        selected = unique_matches[
-            :RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_LIMITS[
-                "evidence_candidates_per_field"
-            ]
-        ]
+
+        # Task222 v2 is deliberately conservative: publish only the
+        # strongest candidate. Conflicting alternatives remain outside
+        # the evidence-candidate contract rather than being guessed.
+        selected = unique_matches[:1]
+
         generated_for_field: list[dict[str, Any]] = []
+
         for occurrence, row in enumerate(selected, 1):
             candidate_id = (
-                f"{job['dry_run_job_id']}:{field_key}:{occurrence:03d}"
+                f"{job['dry_run_job_id']}:"
+                f"{field_key}:{occurrence:03d}"
             )
             evidence_id = f"{candidate_id}:evidence"
-            raw_value = str(row.get(f"raw_value_{report_year}") or "")
-            raw_numeric = str(row.get(f"value_{report_year}") or "")
-            context = str(row.get("raw_line") or "")[
+
+            raw_value = str(
+                row.get("_task222_v2_raw_value_text")
+                or ""
+            )
+            raw_numeric = str(
+                row.get("_task222_v2_numeric_value")
+            )
+            context = str(
+                row.get("_task222_v2_context")
+                or row.get("raw_line")
+                or ""
+            )[
                 :RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_LIMITS[
                     "evidence_excerpt_chars"
                 ]
             ]
+
+            raw_currency = str(
+                row.get("_task222_v2_currency") or ""
+            )
+            raw_unit = str(
+                row.get("_task222_v2_unit") or ""
+            )
+            raw_scale = str(
+                row.get("_task222_v2_scale") or ""
+            )
+            column_label = str(
+                row.get("_task222_v2_column_label")
+                or report_year
+            )
+
             value_record = _financial_extraction_template_row(
                 FINANCIAL_EXTRACTION_VALUE_CANDIDATE_FIELDS
             )
             value_record.update({
                 "candidate_id": candidate_id,
                 "candidate_group_id": job["dry_run_job_id"],
-                "company_id": str(candidate.get("issuer_inn") or ""),
-                "company_name": str(candidate.get("issuer_name") or ""),
+                "company_id":
+                    str(candidate.get("issuer_inn") or ""),
+                "company_name":
+                    str(candidate.get("issuer_name") or ""),
                 "canonical_company_id": "",
                 "canonical_company_name": "",
                 "metric_id": field_key,
                 "metric_name": field_key,
                 "metric_category": "financial_statement",
-                "statement_type": str(row.get("target_type") or ""),
-                "canonical_financial_report_field": field_key,
-                "document_id": f"task222_document:{document_sha256}",
+                "statement_type":
+                    str(row.get("target_type") or ""),
+                "canonical_financial_report_field":
+                    field_key,
+                "document_id":
+                    f"task222_document:{document_sha256}",
                 "document_url": document_url,
                 "document_sha256": document_sha256,
                 "report_period": str(report_year),
@@ -98185,9 +99261,17 @@ def _task222_candidate_records(
                     str(candidate.get("document_language") or ""),
                 "raw_value_text": raw_value,
                 "raw_value_numeric": raw_numeric,
-                "raw_currency": "RUB",
-                "raw_unit": str(row.get("unit") or ""),
-                "raw_scale": str(row.get("scale") or ""),
+                "raw_currency": raw_currency,
+                "raw_unit": raw_unit,
+                "raw_scale": raw_scale,
+                "raw_sign_presentation": (
+                    "parentheses"
+                    if raw_value.startswith("(")
+                    and raw_value.endswith(")")
+                    else "minus"
+                    if raw_value.startswith("-")
+                    else "unsigned"
+                ),
                 "raw_context_text": context,
                 "normalized_value": "",
                 "normalized_currency": "",
@@ -98196,24 +99280,32 @@ def _task222_candidate_records(
                 "normalization_multiplier": "",
                 "normalization_sign_adjustment": "",
                 "normalization_status": "not_performed",
-                "source_label": str(row.get("row_label") or "")[:500],
-                "matched_alias": str(row.get("metric_key") or ""),
+                "source_label":
+                    str(row.get("row_label") or "")[:500],
+                "matched_alias":
+                    str(row.get("metric_key") or ""),
                 "matched_alias_language": "",
                 "evidence_id": evidence_id,
                 "evidence_count": 1,
-                "page_number": str(row.get("page_number") or ""),
-                "row_label": str(row.get("row_label") or "")[:500],
+                "page_number":
+                    str(row.get("page_number") or ""),
+                "row_label":
+                    str(row.get("row_label") or "")[:500],
+                "column_label": column_label,
                 "extraction_method": str(
                     row.get("extraction_method")
-                    or "controlled_static_line_metric_match"
+                    or "task222_v2_conservative_table_resolver"
                 ),
-                "extraction_method_version": "task222.v1",
-                "extraction_confidence":
-                    str(row.get("extraction_confidence") or ""),
-                "candidate_status": "dry_run_candidate_unreviewed",
+                "extraction_method_version": "task222.v2",
+                "extraction_confidence": "high",
+                "candidate_status":
+                    "dry_run_candidate_unreviewed",
                 "validation_status": "not_reviewed",
                 "validation_reason_codes": [
                     "task222_dry_run_candidate_only",
+                    "task222_v2_period_column_resolved",
+                    "task222_v2_currency_and_scale_resolved",
+                    "task222_v2_single_atomic_value",
                 ],
                 "validation_errors": [],
                 "validation_warnings": [
@@ -98235,6 +99327,7 @@ def _task222_candidate_records(
                 "would_mutate_scores": False,
                 "would_trigger_paper_trading": False,
             })
+
             evidence_record = _financial_extraction_template_row(
                 FINANCIAL_EXTRACTION_EVIDENCE_FIELDS
             )
@@ -98242,9 +99335,11 @@ def _task222_candidate_records(
                 "evidence_id": evidence_id,
                 "candidate_id": candidate_id,
                 "candidate_group_id": job["dry_run_job_id"],
-                "company_id": str(candidate.get("issuer_inn") or ""),
+                "company_id":
+                    str(candidate.get("issuer_inn") or ""),
                 "metric_id": field_key,
-                "document_id": f"task222_document:{document_sha256}",
+                "document_id":
+                    f"task222_document:{document_sha256}",
                 "document_url": document_url,
                 "document_sha256": document_sha256,
                 "report_period": str(report_year),
@@ -98252,29 +99347,38 @@ def _task222_candidate_records(
                 "evidence_locator_type": "pdf_page",
                 "evidence_locator_value":
                     str(row.get("page_number") or ""),
-                "page_number": str(row.get("page_number") or ""),
-                "row_label": str(row.get("row_label") or "")[:500],
+                "page_number":
+                    str(row.get("page_number") or ""),
+                "row_label":
+                    str(row.get("row_label") or "")[:500],
+                "column_label": column_label,
                 "text_span": context,
-                "source_label": str(row.get("row_label") or "")[:500],
+                "source_label":
+                    str(row.get("row_label") or "")[:500],
                 "raw_value_text": raw_value,
                 "raw_context_text": context,
                 "evidence_language":
                     str(candidate.get("document_language") or ""),
-                "evidence_quality_status": "unreviewed_dry_run",
+                "evidence_quality_status":
+                    "unreviewed_dry_run",
                 "validation_status": "not_reviewed",
                 "validation_reason_codes": [
                     "task222_dry_run_evidence_only",
+                    "task222_v2_period_column_resolved",
                 ],
                 "validation_errors": [],
                 "validation_warnings": [
                     "manual_evidence_review_required",
                 ],
             })
-            generated_for_field.append({
-                "evidence_candidate_index": len(candidate_rows) + 1,
+
+            generated = {
+                "evidence_candidate_index":
+                    len(candidate_rows) + 1,
                 "dry_run_candidate_id": candidate_id,
                 "dry_run_job_id": job["dry_run_job_id"],
-                "candidate_slot_id": job["candidate_slot_id"],
+                "candidate_slot_id":
+                    job["candidate_slot_id"],
                 "controlled_field_key": field_key,
                 "source_order_occurrence": occurrence,
                 "candidate_accepted": False,
@@ -98284,8 +99388,11 @@ def _task222_candidate_records(
                 "evidence": evidence_record,
                 "safe_hint":
                     "Dry-run candidate requires Task223 manual review.",
-            })
-            candidate_rows.extend(generated_for_field[-1:])
+            }
+
+            generated_for_field.append(generated)
+            candidate_rows.append(generated)
+
         outcome_rows.append({
             "field_outcome_index": len(outcome_rows) + 1,
             "dry_run_job_id": job["dry_run_job_id"],
@@ -98295,16 +99402,18 @@ def _task222_candidate_records(
             "field_outcome_status": (
                 "candidate_found"
                 if len(generated_for_field) == 1
-                else "ambiguous"
-                if len(generated_for_field) > 1
                 else "not_found"
             ),
-            "evidence_candidate_count": len(generated_for_field),
-            "manual_review_required": bool(generated_for_field),
+            "evidence_candidate_count":
+                len(generated_for_field),
+            "manual_review_required":
+                bool(generated_for_field),
             "safe_hint":
                 "Field outcome is technical dry-run metadata only.",
         })
+
     return candidate_rows, outcome_rows
+
 
 
 def _task222_terminal_stage_rows(
