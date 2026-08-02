@@ -5,6 +5,7 @@ import ast
 import copy
 import csv
 import hashlib
+import hmac
 import html
 import http.client
 import ipaddress
@@ -152,6 +153,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-normalized-fact-and-complete-period-pair-assembly-executor",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-materialized-normalized-fact-and-complete-period-pair-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-plan",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-executor",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -13385,6 +13387,66 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_
     "ranking_executed", "recommendation_generated", "broker_api_called",
     "trading_executed", "paper_trading_executed", "production_export_executed",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_MODE = (
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-"
+    "fact-and-complete-period-pair-controlled-staging-executor"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_SCHEMA_VERSION = (
+    "bondradar.multi_issuer_reviewed_materialized_fact_pair_controlled_staging_executor.v1"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ARTIFACT_NAMES = {
+    "executor_json": "rzd_manual_official_pdf_multi_issuer_task234_executor.json",
+    "executor_markdown": "rzd_manual_official_pdf_multi_issuer_task234_executor.md",
+    "checks_json": "rzd_manual_official_pdf_multi_issuer_task234_checks.json",
+    "blockers_json": "rzd_manual_official_pdf_multi_issuer_task234_blockers.json",
+    "scope_json": "rzd_manual_official_pdf_multi_issuer_task234_scope.json",
+    "task233_validation_json": "rzd_manual_official_pdf_multi_issuer_task234_task233.json",
+    "lineage_json": "rzd_manual_official_pdf_multi_issuer_task234_lineage.json",
+    "task233_artifact_validation_json": "rzd_manual_official_pdf_multi_issuer_task234_task233_artifacts.json",
+    "authorization_challenge_json": "rzd_manual_official_pdf_multi_issuer_task234_authorization.json",
+    "live_db_preflight_json": "rzd_manual_official_pdf_multi_issuer_task234_db_preflight.json",
+    "planned_action_rows_json": "rzd_manual_official_pdf_multi_issuer_task234_planned_actions.json",
+    "transaction_result_json": "rzd_manual_official_pdf_multi_issuer_task234_transaction.json",
+    "execution_result_rows_json": "rzd_manual_official_pdf_multi_issuer_task234_execution_rows.json",
+    "post_commit_verification_json": "rzd_manual_official_pdf_multi_issuer_task234_post_commit.json",
+    "idempotency_validation_json": "rzd_manual_official_pdf_multi_issuer_task234_idempotency.json",
+    "rollback_recovery_json": "rzd_manual_official_pdf_multi_issuer_task234_recovery.json",
+    "containment_validation_json": "rzd_manual_official_pdf_multi_issuer_task234_containment.json",
+    "task235_readiness_json": "rzd_manual_official_pdf_multi_issuer_task234_task235.json",
+    "next_tasks_json": "rzd_manual_official_pdf_multi_issuer_task234_next_tasks.json",
+    "safety_json": "rzd_manual_official_pdf_multi_issuer_task234_safety.json",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_OUTPUT_SUFFIXES = {
+    "executor_json": "output", "executor_markdown": "markdown-output",
+    "checks_json": "checks-output", "blockers_json": "blockers-output",
+    "scope_json": "scope-output", "task233_validation_json": "task233-validation-output",
+    "lineage_json": "lineage-output",
+    "task233_artifact_validation_json": "task233-artifact-validation-output",
+    "authorization_challenge_json": "authorization-challenge-output",
+    "live_db_preflight_json": "live-db-preflight-output",
+    "planned_action_rows_json": "planned-action-rows-output",
+    "transaction_result_json": "transaction-result-output",
+    "execution_result_rows_json": "execution-result-rows-output",
+    "post_commit_verification_json": "post-commit-verification-output",
+    "idempotency_validation_json": "idempotency-validation-output",
+    "rollback_recovery_json": "rollback-recovery-output",
+    "containment_validation_json": "concrete-data-non-retention-validation-output",
+    "task235_readiness_json": "task235-readiness-preview-output",
+    "next_tasks_json": "next-tasks-and-summary-output", "safety_json": "safety-output",
+}
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ALWAYS_FALSE_FIELDS = (
+    "dns_resolution_executed", "http_request_executed", "source_access_executed",
+    "document_download_executed", "evidence_extraction_executed",
+    "evidence_candidate_generation_executed", "normalization_executed",
+    "fact_creation_executed", "normalized_fact_created", "counterpart_value_copied",
+    "counterpart_value_derived", "counterpart_normalization_executed",
+    "pair_assembly_executed", "period_pairing_executed", "period_pair_created",
+    "evidence_accepted", "controlled_values_accepted", "migration_executed",
+    "delete_executed", "import_authorized", "controlled_import_prepared",
+    "controlled_import_executed", "import_executed", "scoring_executed",
+    "ranking_executed", "recommendation_generated", "broker_api_called",
+    "trading_executed", "paper_trading_executed", "production_export_executed",
+)
 RZD_MANUAL_OFFICIAL_PDF_CONTROLLED_VALUE_EXTRACTION_PAGE_ROW_BOOL_FIELDS = (
     "selected_for_extraction",
     "is_contents_page",
@@ -15896,6 +15958,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             type=Path,
             default=None,
         )
+    parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-executor-input",
+        type=Path,
+        default=None,
+    )
+    parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-authorization-challenge-sha256",
+        default="",
+    )
+    parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-approved-token",
+        default="",
+    )
+    parser.add_argument(
+        "--confirm-rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-execution",
+        action="store_true",
+    )
+    for option_suffix in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_OUTPUT_SUFFIXES.values():
+        parser.add_argument(
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-executor-"
+            + option_suffix,
+            type=Path,
+            default=None,
+        )
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-page-map-input", type=Path, default=None)
     parser.add_argument("--rzd-manual-official-pdf-parse-plan-targets-input", type=Path, default=None)
@@ -16263,6 +16349,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_materialized_normalized_fact_and_complete_period_pair_review_gate(args)
     elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_MODE:
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan(args)
+    elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_MODE:
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -118198,6 +118286,1118 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_material
     if not _task233_validate_projection(report):
         return _task233_publish(_task233_empty_report("blocked", blockers=["task233_concrete_data_containment_invalid"]), artifacts)
     return _task233_publish(report, artifacts)
+
+
+def _task234_inputs(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    return {
+        "task233": (
+            args.rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_input
+            or (chain / RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ARTIFACT_NAMES["staging_plan_json"] if chain else None)
+        ),
+    }
+
+
+def _task234_artifacts(args: argparse.Namespace) -> dict[str, Path | None]:
+    chain = args.operator_resolution_chain_output_dir
+    defaults = {
+        key: chain / name
+        for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ARTIFACT_NAMES.items()
+    } if chain else {}
+    prefix = (
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_"
+        "materialized_fact_and_complete_period_pair_controlled_staging_executor_"
+    )
+    return {
+        key: getattr(args, prefix + suffix.replace("-", "_"), None) or defaults.get(key)
+        for key, suffix in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_OUTPUT_SUFFIXES.items()
+    }
+
+
+def _task234_path_has_symlink_parent(path: Path) -> bool:
+    return any(parent.is_symlink() for parent in (path, *path.parents))
+
+
+def _task234_output_blockers(inputs: dict[str, Path | None], artifacts: dict[str, Path | None]) -> list[str]:
+    if len(artifacts) != 20 or any(not isinstance(path, Path) for path in artifacts.values()):
+        return ["task234_output_family_incomplete"]
+    task233_path = inputs.get("task233")
+    protected = [path for path in inputs.values() if isinstance(path, Path)]
+    payload_root: Path | None = None
+    if isinstance(task233_path, Path):
+        parent = task233_path.parent
+        for global_name, names in globals().items():
+            if (
+                global_name.endswith("_ARTIFACT_NAMES")
+                and global_name != "RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ARTIFACT_NAMES"
+                and isinstance(names, dict)
+            ):
+                protected.extend(parent / name for name in names.values() if isinstance(name, str))
+        payload_root = parent / RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+    seen: list[Path] = []
+    for path in artifacts.values():
+        if not isinstance(path, Path): return ["task234_output_family_incomplete"]
+        if any(_paths_equal(path, source) for source in protected): return ["task234_output_input_collision"]
+        if isinstance(payload_root, Path) and (_paths_equal(path, payload_root) or _path_is_within(path, payload_root)):
+            return ["task234_output_payload_collision"]
+        if _task233_is_task222_payload_path(path): return ["task234_output_payload_collision"]
+        if any(_paths_equal(path, prior) for prior in seen): return ["task234_output_duplicate"]
+        if _task234_path_has_symlink_parent(path) or path.exists() and not path.is_file():
+            return ["task234_output_path_invalid"]
+        seen.append(path)
+    prefix = "rzd_manual_official_pdf_multi_issuer_task234_"
+    configured = [path for path in artifacts.values() if isinstance(path, Path)]
+    parents = {path.parent for path in configured}
+    if isinstance(task233_path, Path): parents.add(task233_path.parent)
+    for parent in parents:
+        if not parent.exists() or not parent.is_dir(): continue
+        for entry in parent.iterdir():
+            if entry.name.startswith(prefix) and not any(_paths_equal(entry, target) for target in configured):
+                return ["task234_output_family_not_exact"]
+    return []
+
+
+def _task234_next_rows(allowed: bool) -> list[dict[str, Any]]:
+    return [{
+        "next_task_index": 1, "task_id": "Task235",
+        "task_name": "Controlled Staging Post-Write Verification and Idempotency Gate",
+        "allowed_now": allowed, "depends_on": "Task234",
+        "safe_hint": "Task235 performs the mandatory independent post-write verification gate.",
+    }]
+
+
+def _task234_aggregate_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "mode": report.get("mode") or "", "schema": report.get("schema_version") or "",
+        "source_task233_checksum": report.get("source_task233_checksum_sha256") or "",
+        "challenge": report.get("controlled_staging_authorization_challenge_sha256") or "",
+        "execution_results": report.get("multi_issuer_controlled_staging_execution_results_checksum_sha256") or "",
+        "status": report.get("controlled_staging_executor_status") or "",
+        "counts": {
+            key: int(report.get(key) or 0) for key in (
+                "live_db_table_row_count_before", "live_db_table_row_count_after",
+                "planned_insert_count", "planned_update_count", "planned_noop_count",
+                "inserted_row_count", "updated_row_count", "noop_row_count",
+            )
+        },
+        "transaction": {
+            key: report.get(key) is True for key in (
+                "transaction_started", "transaction_committed", "transaction_rolled_back",
+                "post_commit_verification_completed", "post_commit_exact_match_valid",
+                "commit_state_requires_reconciliation",
+            )
+        },
+        "task235_ready": report.get("ready_for_task235_controlled_staging_post_write_verification_gate") is True,
+        "next_task_rows": report.get("next_task_rows") or [],
+        "bad_safety_codes": report.get("bad_safety_codes") or [],
+        "always_false": {
+            field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ALWAYS_FALSE_FIELDS
+        },
+    })
+
+
+def _task234_execution_results_checksum(report: dict[str, Any]) -> str:
+    return _rzd_controlled_values_import_plan_sha({
+        "source_task233_checksum": report.get("source_task233_checksum_sha256") or "",
+        "authorization_challenge": report.get("controlled_staging_authorization_challenge_sha256") or "",
+        "ordered_execution_row_checksums": [
+            str(row.get("execution_row_result_checksum_sha256") or "")
+            for row in report.get("execution_result_rows") or []
+        ],
+        "before": int(report.get("live_db_table_row_count_before") or 0),
+        "after": int(report.get("live_db_table_row_count_after") or 0),
+        "inserted": int(report.get("inserted_row_count") or 0),
+        "updated": int(report.get("updated_row_count") or 0),
+        "noop": int(report.get("noop_row_count") or 0),
+        "committed": report.get("transaction_committed") is True,
+        "post_commit_exact": report.get("post_commit_exact_match_valid") is True,
+    })
+
+
+def _task234_finalize(report: dict[str, Any]) -> dict[str, Any]:
+    list_fields = (
+        "check_rows", "blocker_rows", "scope_rows", "task233_validation_rows", "lineage_rows",
+        "task233_artifact_validation_rows", "authorization_challenge_rows", "live_db_preflight_rows",
+        "planned_action_rows", "transaction_result_rows", "execution_result_rows",
+        "post_commit_verification_rows", "idempotency_validation_rows", "rollback_recovery_rows",
+        "concrete_data_non_retention_validation_rows", "task235_readiness_preview_rows",
+        "next_task_rows", "bad_safety_codes", "errors",
+    )
+    for field in list_fields: report[field] = report.get(field) if isinstance(report.get(field), list) else []
+    count_map = {
+        "check_count": "check_rows", "blocker_count": "blocker_rows", "scope_count": "scope_rows",
+        "task233_validation_count": "task233_validation_rows", "lineage_count": "lineage_rows",
+        "task233_artifact_validation_count": "task233_artifact_validation_rows",
+        "authorization_challenge_count": "authorization_challenge_rows",
+        "live_db_preflight_count": "live_db_preflight_rows", "planned_action_row_count": "planned_action_rows",
+        "transaction_result_count": "transaction_result_rows", "execution_result_row_count": "execution_result_rows",
+        "post_commit_verification_count": "post_commit_verification_rows",
+        "idempotency_validation_count": "idempotency_validation_rows",
+        "rollback_recovery_count": "rollback_recovery_rows",
+        "concrete_data_non_retention_validation_count": "concrete_data_non_retention_validation_rows",
+        "task235_readiness_preview_count": "task235_readiness_preview_rows", "next_task_count": "next_task_rows",
+        "bad_safety_count": "bad_safety_codes", "error_count": "errors",
+    }
+    for count, rows in count_map.items(): report[count] = len(report[rows])
+    bool_fields = (
+        "controlled_staging_executor_ready", "task233_validation_completed", "task233_artifact_validation_completed",
+        "task217_to_task233_lineage_validation_completed", "task233_staging_plan_validation_completed",
+        "task233_target_payload_validation_completed", "authorization_challenge_created",
+        "authorization_challenge_valid", "authorization_challenge_stale", "approval_token_provided",
+        "approval_token_format_valid", "approval_token_valid", "execution_confirmed",
+        "database_connection_opened", "database_query_executed", "database_write_authorized",
+        "transaction_started", "transaction_committed", "transaction_rolled_back",
+        "all_planned_rows_processed", "all_persisted_rows_verified", "post_commit_verification_completed",
+        "post_commit_exact_match_valid", "controlled_values_staged", "controlled_financial_values_created",
+        "database_mutated", "insert_executed", "update_executed", "upsert_executed",
+        "commit_state_requires_reconciliation", "ready_for_task235_controlled_staging_post_write_verification_gate",
+        "next_tasks_valid", "write_outputs",
+    )
+    for field in bool_fields: report[field] = report.get(field) is True
+    count_fields = (
+        "live_db_table_row_count_before", "live_db_table_row_count_after", "planned_total_count",
+        "planned_existing_natural_key_count", "planned_missing_natural_key_count", "planned_insert_count",
+        "planned_update_count", "planned_noop_count", "row_write_attempted_count", "inserted_row_count",
+        "updated_row_count", "noop_row_count",
+    )
+    for field in count_fields: report[field] = int(report.get(field) or 0)
+    string_fields = (
+        "mode", "schema_version", "status", "controlled_staging_executor_status", "target_table", "target_model",
+        "source_task233_checksum_sha256", "source_task233_plan_rows_checksum_sha256",
+        "source_task233_plan_identity_checksum_sha256", "source_task233_target_payloads_checksum_sha256",
+        "controlled_staging_authorization_challenge_sha256", "authorization_challenge_sha256", "authorization_challenge_prefix",
+        "schema_contract_checksum_sha256", "next_step", "safe_hint",
+    )
+    for field in string_fields: report[field] = str(report.get(field) or "")
+    for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ALWAYS_FALSE_FIELDS:
+        report[field] = False
+    report["multi_issuer_controlled_staging_execution_results_checksum_sha256"] = _task234_execution_results_checksum(report)
+    report["multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_checksum_sha256"] = _task234_aggregate_checksum(report)
+    return report
+
+
+def _task234_empty_report(
+    status: str, *, executor_status: str | None = None, blockers: list[str] | None = None,
+    errors: list[str] | None = None, bad_safety_codes: list[str] | None = None,
+    write_outputs: bool = True, transaction: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    tx = transaction or {}
+    return _task234_finalize({
+        "mode": RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_MODE,
+        "schema_version": RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_SCHEMA_VERSION,
+        "status": status, "controlled_staging_executor_status": executor_status or status,
+        "target_table": "controlled_financial_statement_values", "target_model": "ControlledFinancialStatementValue",
+        "blocker_rows": [{"blocker_index": index, "code": code, "safe_hint": "Resolve the sanitized Task234 blocker and rerun."} for index, code in enumerate(blockers or [], 1)],
+        "errors": [{"message": code} for code in errors or []], "bad_safety_codes": list(bad_safety_codes or []),
+        "next_task_rows": _task234_next_rows(False), "write_outputs": write_outputs,
+        "transaction_started": tx.get("transaction_started") is True,
+        "transaction_committed": tx.get("transaction_committed") is True,
+        "transaction_rolled_back": tx.get("transaction_rolled_back") is True,
+        "database_connection_opened": tx.get("database_connection_opened") is True,
+        "database_query_executed": tx.get("database_query_executed") is True,
+        "database_write_authorized": tx.get("database_write_authorized") is True,
+        "database_mutated": tx.get("database_mutated") is True,
+        "controlled_financial_values_created": tx.get("inserted_row_count", 0) > 0,
+        "insert_executed": tx.get("inserted_row_count", 0) > 0,
+        "update_executed": tx.get("updated_row_count", 0) > 0,
+        "upsert_executed": tx.get("inserted_row_count", 0) > 0 or tx.get("updated_row_count", 0) > 0,
+        "post_commit_verification_completed": tx.get("post_commit_verification_completed") is True,
+        "post_commit_exact_match_valid": tx.get("post_commit_exact_match_valid") is True,
+        "commit_state_requires_reconciliation": tx.get("commit_state_requires_reconciliation") is True,
+        "live_db_table_row_count_before": tx.get("live_db_table_row_count_before") or 0,
+        "live_db_table_row_count_after": tx.get("live_db_table_row_count_after") or 0,
+        "inserted_row_count": tx.get("inserted_row_count") or 0,
+        "updated_row_count": tx.get("updated_row_count") or 0,
+        "noop_row_count": tx.get("noop_row_count") or 0,
+        "execution_result_rows": tx.get("execution_result_rows") or [],
+        "next_step": "Rerun Task234 Phase A against the same Task233 plan." if tx.get("commit_state_requires_reconciliation") else "Resolve Task234 blockers and rerun Phase A.",
+        "safe_hint": "Task234 failed closed without retaining tokens, credentials, or concrete target payloads.",
+    })
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_markdown(report: dict[str, Any]) -> str:
+    return "\n".join([
+        "# Task234 - Reviewed Materialized Fact and Complete Period Pair Controlled Staging Executor", "",
+        f"- Status: `{report.get('status', '')}` / `{report.get('controlled_staging_executor_status', '')}`",
+        f"- Challenge: `{report.get('controlled_staging_authorization_challenge_sha256', '')}`",
+        f"- Planned insert/update/noop: `{report.get('planned_insert_count', 0)}/{report.get('planned_update_count', 0)}/{report.get('planned_noop_count', 0)}`",
+        f"- Committed insert/update/noop: `{report.get('inserted_row_count', 0)}/{report.get('updated_row_count', 0)}/{report.get('noop_row_count', 0)}`",
+        f"- Table rows before/after: `{report.get('live_db_table_row_count_before', 0)}/{report.get('live_db_table_row_count_after', 0)}`",
+        f"- Transaction committed / reconciliation: `{str(report.get('transaction_committed', False)).lower()}/{str(report.get('commit_state_requires_reconciliation', False)).lower()}`",
+        f"- Task235 ready: `{str(report.get('ready_for_task235_controlled_staging_post_write_verification_gate', False)).lower()}`",
+        f"- Blockers / bad safety: `{report.get('blocker_count', 0)}/{report.get('bad_safety_count', 0)}`",
+        f"- Task234 SHA-256: `{report.get('multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_checksum_sha256', '')}`",
+        f"- Next step: `{report.get('next_step', '')}`", "",
+        "This report is sanitized. It contains no controlled values, company or metric identities, source details, natural-key plaintext, approval token, database URL, credentials, host data, SQL, or database-generated identifiers.", "",
+    ])
+
+
+def _task234_wrappers(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    envelope = {
+        "schema_version": report.get("schema_version", ""), "status": report.get("status", ""),
+        "controlled_staging_executor_status": report.get("controlled_staging_executor_status", ""),
+        "controlled_staging_executor_ready": report.get("controlled_staging_executor_ready", False),
+        "source_task233_checksum_sha256": report.get("source_task233_checksum_sha256", ""),
+        "controlled_staging_authorization_challenge_sha256": report.get("controlled_staging_authorization_challenge_sha256", ""),
+        "authorization_challenge_sha256": report.get("authorization_challenge_sha256", ""),
+        "planned_total_count": report.get("planned_total_count", 0), "planned_insert_count": report.get("planned_insert_count", 0),
+        "planned_update_count": report.get("planned_update_count", 0), "planned_noop_count": report.get("planned_noop_count", 0),
+        "transaction_committed": report.get("transaction_committed", False),
+        "commit_state_requires_reconciliation": report.get("commit_state_requires_reconciliation", False),
+        "ready_for_task235_controlled_staging_post_write_verification_gate": report.get("ready_for_task235_controlled_staging_post_write_verification_gate", False),
+        "blocker_count": report.get("blocker_count", 0), "bad_safety_count": report.get("bad_safety_count", 0),
+        "multi_issuer_controlled_staging_execution_results_checksum_sha256": report.get("multi_issuer_controlled_staging_execution_results_checksum_sha256", ""),
+        "multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_checksum_sha256": report.get("multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_checksum_sha256", ""),
+        "next_step": report.get("next_step", ""),
+    }
+    mappings = {
+        "checks_json": ("check_count", "check_rows"), "scope_json": ("scope_count", "scope_rows"),
+        "task233_validation_json": ("task233_validation_count", "task233_validation_rows"),
+        "lineage_json": ("lineage_count", "lineage_rows"),
+        "task233_artifact_validation_json": ("task233_artifact_validation_count", "task233_artifact_validation_rows"),
+        "authorization_challenge_json": ("authorization_challenge_count", "authorization_challenge_rows"),
+        "live_db_preflight_json": ("live_db_preflight_count", "live_db_preflight_rows"),
+        "planned_action_rows_json": ("planned_action_row_count", "planned_action_rows"),
+        "transaction_result_json": ("transaction_result_count", "transaction_result_rows"),
+        "execution_result_rows_json": ("execution_result_row_count", "execution_result_rows"),
+        "post_commit_verification_json": ("post_commit_verification_count", "post_commit_verification_rows"),
+        "idempotency_validation_json": ("idempotency_validation_count", "idempotency_validation_rows"),
+        "rollback_recovery_json": ("rollback_recovery_count", "rollback_recovery_rows"),
+        "containment_validation_json": ("concrete_data_non_retention_validation_count", "concrete_data_non_retention_validation_rows"),
+        "task235_readiness_json": ("task235_readiness_preview_count", "task235_readiness_preview_rows"),
+    }
+    payloads = {key: {**envelope, count: report.get(count, 0), rows: report.get(rows) or []} for key, (count, rows) in mappings.items()}
+    payloads["blockers_json"] = {**envelope, "blocker_rows": report.get("blocker_rows") or []}
+    payloads["next_tasks_json"] = {**envelope, "next_task_count": report.get("next_task_count", 0), "next_task_rows": report.get("next_task_rows") or [], "next_tasks_valid": report.get("next_tasks_valid", False)}
+    payloads["safety_json"] = {**envelope, "bad_safety_codes": report.get("bad_safety_codes") or [], **{field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ALWAYS_FALSE_FIELDS}}
+    return payloads
+
+
+_TASK234_TASK233_ROW_CORE_FIELDS = (
+    "source_task232_checksum_sha256", "source_task232_fact_review_checksum_sha256",
+    "source_task232_pair_review_checksum_sha256", "source_task231b_checksum_sha256",
+    "source_task231b_fact_set_checksum_sha256", "source_task231b_pair_set_checksum_sha256",
+    "source_fact_review_decision_checksum_sha256", "source_pair_review_decision_checksum_sha256",
+    "normalized_fact_id", "normalized_fact_checksum_sha256", "complete_period_pair_id",
+    "complete_period_pair_checksum_sha256", "issuer_binding_checksum_sha256",
+    "controlled_field_key", "target_table", "target_model", "target_operation",
+    "duplicate_policy", "target_value_storage_semantics",
+)
+_TASK234_TASK233_ROW_FIELDS = {
+    "controlled_staging_plan_row_id", "controlled_staging_plan_row_index",
+    *_TASK234_TASK233_ROW_CORE_FIELDS, "target_payload",
+    "controlled_staging_plan_row_core_checksum_sha256",
+    "controlled_staging_plan_row_checksum_sha256", "staging_planned",
+    "staging_executed", "database_write_authorized", "database_mutated",
+}
+
+
+def _task234_import_target_contract() -> tuple[Any, Any]:
+    from app.models.controlled_financial_statement_value import ControlledFinancialStatementValue
+    from app.services.controlled_financial_statement_value_service import ControlledFinancialStatementValueService
+    return ControlledFinancialStatementValue, ControlledFinancialStatementValueService
+
+
+def _task234_validate_task233(
+    task233: dict[str, Any], task233_path: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    blockers: list[str] = []
+    model, service = _task234_import_target_contract()
+    rows = task233.get("controlled_staging_plan_rows") if isinstance(task233.get("controlled_staging_plan_rows"), list) else []
+    allowed = [
+        row.get("task_id") for row in task233.get("next_task_rows") or []
+        if isinstance(row, dict) and row.get("allowed_now") is True
+    ]
+    lineage_rows = task233.get("lineage_rows") if isinstance(task233.get("lineage_rows"), list) else []
+    lineage_valid = bool(lineage_rows)
+    lineage_ids: list[str] = []
+    for index, row in enumerate(lineage_rows, 1):
+        row_valid = (
+            isinstance(row, dict)
+            and set(row) == {"lineage_index", "task_id", "checksum_sha256", "validated", "safe_hint"}
+            and row.get("lineage_index") == index
+            and isinstance(row.get("task_id"), str) and bool(row.get("task_id"))
+            and _task233_is_sha256(row.get("checksum_sha256"))
+            and row.get("validated") is True
+            and isinstance(row.get("safe_hint"), str) and bool(row.get("safe_hint"))
+        )
+        lineage_valid = lineage_valid and row_valid
+        if isinstance(row, dict): lineage_ids.append(str(row.get("task_id") or ""))
+    lineage_valid = (
+        lineage_valid and len(lineage_ids) == len(set(lineage_ids))
+        and lineage_ids[-1:] == ["Task232"]
+        and lineage_rows[-1].get("checksum_sha256") == task233.get("source_task232_checksum_sha256")
+        and task233.get("lineage_count") == len(lineage_rows)
+    )
+    contract_checks = (
+        ("mode", task233.get("mode") == RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_MODE),
+        ("schema", task233.get("schema_version") == RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_SCHEMA_VERSION),
+        ("warning_ready", task233.get("status") == "warning" and task233.get("reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_ready") is True),
+        ("aggregate_checksum", task233.get("multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_checksum_sha256") == _task233_checksum(task233)),
+        ("validation_complete", all(task233.get(field) is True for field in (
+            "task232_validation_completed", "task232_artifact_validation_completed", "task232_full_approval_validation_completed",
+            "task231b_direct_source_validation_completed", "task231b_fact_set_validation_completed", "task231b_pair_set_validation_completed",
+            "target_schema_contract_validation_completed", "target_metadata_input_validated", "target_metadata_binding_validation_completed",
+            "production_natural_key_contract_valid", "target_payload_contract_valid", "target_value_storage_contract_valid",
+            "controlled_staging_plan_created", "controlled_staging_plan_complete", "all_staging_plan_rows_valid",
+            "all_target_payloads_valid", "natural_keys_unique", "row_checksums_valid",
+        ))),
+        ("counts", bool(rows) and len(rows) == task233.get("planned_staging_row_count") == task233.get("planned_upsert_row_count") == task233.get("unique_natural_key_count")),
+        ("clean", task233.get("blocker_count") == 0 and task233.get("bad_safety_count") == 0),
+        ("pre_execution_safety", all(task233.get(field) is False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ALWAYS_FALSE_FIELDS)),
+        ("lineage", lineage_valid),
+        ("task234_only", task233.get("ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor") is True and task233.get("next_tasks_valid") is True and allowed == ["Task234"] and len(task233.get("next_task_rows") or []) == 1),
+        ("target_contract", getattr(model, "__tablename__", "") == "controlled_financial_statement_values"),
+    )
+    validation_rows = [{
+        "validation_index": index, "validation_key": key, "passed": bool(passed),
+        "validated": bool(passed), "status": "passed" if passed else "blocked",
+        "safe_hint": "Task233 immediate predecessor contract was recomputed without opening older gates.",
+    } for index, (key, passed) in enumerate(contract_checks, 1)]
+    blockers.extend(f"task233_{key}_invalid" for key, passed in contract_checks if not passed)
+
+    natural_hashes: list[str] = []
+    payload_hashes: list[str] = []
+    core_hashes: list[str] = []
+    row_validation: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, 1):
+        valid = isinstance(row, dict) and set(row) == _TASK234_TASK233_ROW_FIELDS
+        payload = row.get("target_payload") if isinstance(row, dict) and isinstance(row.get("target_payload"), dict) else {}
+        valid = valid and set(payload) == _TASK233_TARGET_PAYLOAD_FIELDS
+        payload_without_checksum = dict(payload); actual_payload_checksum = payload_without_checksum.pop("row_checksum_sha256", "")
+        valid = valid and not service.validate_controlled_value_payload(payload)
+        valid = valid and _task233_payload_base_valid(payload_without_checksum)
+        valid = valid and payload.get("plan_checksum_sha256") == task233.get("multi_issuer_controlled_staging_plan_identity_checksum_sha256")
+        valid = valid and payload.get("plan_rows_checksum_sha256") == task233.get("multi_issuer_controlled_staging_plan_rows_checksum_sha256")
+        valid = valid and payload.get("natural_key") == service.build_natural_key(payload)
+        valid = valid and payload.get("natural_key_sha256") == service.build_natural_key_sha256(payload)
+        valid = valid and actual_payload_checksum == service.build_row_checksum_sha256(payload_without_checksum)
+        valid = valid and payload.get("report_year") == 2025
+        valid = valid and _task233_decimal_compatible(payload.get("value_2025")) and _task233_decimal_compatible(payload.get("value_2024"))
+        valid = valid and payload.get("raw_value_2025") == payload.get("value_2025") and payload.get("raw_value_2024") == payload.get("value_2024")
+        valid = valid and row.get("controlled_staging_plan_row_index") == index
+        valid = valid and row.get("target_table") == "controlled_financial_statement_values" and row.get("target_model") == "ControlledFinancialStatementValue"
+        valid = valid and row.get("target_operation") == "upsert_by_natural_key" and row.get("duplicate_policy") == "natural_key_update_existing"
+        valid = valid and row.get("target_value_storage_semantics") == "reported_rub_million_exact_decimal"
+        valid = valid and row.get("staging_planned") is True and all(row.get(field) is False for field in ("staging_executed", "database_write_authorized", "database_mutated"))
+        payload_base = dict(payload_without_checksum)
+        payload_base["plan_checksum_sha256"] = ""; payload_base["plan_rows_checksum_sha256"] = ""
+        core = {field: row.get(field) for field in _TASK234_TASK233_ROW_CORE_FIELDS}
+        core["target_payload_base"] = payload_base
+        core_checksum = _rzd_controlled_values_import_plan_sha(core)
+        valid = valid and row.get("controlled_staging_plan_row_core_checksum_sha256") == core_checksum
+        expected_id = "task233_controlled_staging_plan_" + _rzd_controlled_values_import_plan_sha({
+            "normalized_fact_id": row.get("normalized_fact_id") or "",
+            "normalized_fact_checksum_sha256": row.get("normalized_fact_checksum_sha256") or "",
+            "complete_period_pair_id": row.get("complete_period_pair_id") or "",
+            "complete_period_pair_checksum_sha256": row.get("complete_period_pair_checksum_sha256") or "",
+            "natural_key_sha256": payload.get("natural_key_sha256") or "",
+        })[:16]
+        valid = valid and row.get("controlled_staging_plan_row_id") == expected_id
+        row_without_checksum = dict(row); actual_row_checksum = row_without_checksum.pop("controlled_staging_plan_row_checksum_sha256", "")
+        valid = valid and actual_row_checksum == _rzd_controlled_values_import_plan_sha(row_without_checksum)
+        natural_hashes.append(str(payload.get("natural_key_sha256") or "")); payload_hashes.append(str(actual_payload_checksum or "")); core_hashes.append(core_checksum)
+        row_validation.append({
+            "validation_index": index, "controlled_staging_plan_row_id": str(row.get("controlled_staging_plan_row_id") or ""),
+            "controlled_staging_plan_row_checksum_sha256": str(actual_row_checksum or ""), "validated": bool(valid),
+            "safe_hint": "Task233 row, target payload, natural key and checksums were recomputed exactly.",
+        })
+        if not valid: blockers.append(f"task233_staging_row_{index:03d}_invalid")
+    rows_checksum = _rzd_controlled_values_import_plan_sha({"ordered_row_core_checksums": core_hashes, "row_count": len(rows)})
+    plan_identity = _rzd_controlled_values_import_plan_sha({
+        "task232_checksum": task233.get("source_task232_checksum_sha256") or "",
+        "task231b_checksum": task233.get("source_task231b_checksum_sha256") or "",
+        "metadata_input_checksum": task233.get("source_target_metadata_checksum_sha256") or "",
+        "ordered_row_core_checksums": core_hashes, "row_count": len(rows),
+        "target_schema_contract": {
+            "table": "controlled_financial_statement_values", "model": "ControlledFinancialStatementValue",
+            "report_year": 2025, "current_period": 2024, "counterpart_period": 2025,
+            "numeric": "Numeric(24,2)", "storage": "reported_rub_million_exact_decimal",
+        },
+        "safety_boundary": {field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ALWAYS_FALSE_FIELDS},
+    })
+    payloads_checksum = _rzd_controlled_values_import_plan_sha({"ordered_target_payload_row_checksums": payload_hashes, "row_count": len(rows)})
+    if rows_checksum != task233.get("multi_issuer_controlled_staging_plan_rows_checksum_sha256"): blockers.append("task233_plan_rows_checksum_invalid")
+    if plan_identity != task233.get("multi_issuer_controlled_staging_plan_identity_checksum_sha256"): blockers.append("task233_plan_identity_checksum_invalid")
+    if payloads_checksum != task233.get("multi_issuer_controlled_staging_target_payloads_checksum_sha256"): blockers.append("task233_target_payloads_checksum_invalid")
+    if len(natural_hashes) != len(set(natural_hashes)) or len(payload_hashes) != len(set(payload_hashes)): blockers.append("task233_planned_hash_inventory_invalid")
+
+    expected = {
+        "staging_plan_json": task233,
+        "staging_plan_markdown": render_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_markdown(task233),
+        **_task233_wrappers(task233),
+    }
+    artifact_rows: list[dict[str, Any]] = []
+    for index, (key, name) in enumerate(RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ARTIFACT_NAMES.items(), 1):
+        path = task233_path if key == "staging_plan_json" else task233_path.parent / name
+        actual: Any = None
+        if path.is_file() and not _task234_path_has_symlink_parent(path):
+            actual = path.read_text(encoding="utf-8") if key == "staging_plan_markdown" else _task229_load_json(path)
+        valid = actual == expected[key]
+        artifact_rows.append({
+            "artifact_index": index, "artifact_key": key, "validated": valid,
+            "concrete_data_allowed": key in {"staging_plan_json", "controlled_staging_plan_rows_json"},
+            "safe_hint": "Task233 artifact matches the exact canonical projection and containment role.",
+        })
+        if not valid: blockers.append(f"task233_artifact_{key}_invalid")
+    actual_names = {entry.name for entry in task233_path.parent.iterdir() if entry.name.startswith("rzd_manual_official_pdf_multi_issuer_task233_")}
+    if actual_names != set(RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ARTIFACT_NAMES.values()):
+        blockers.append("task233_artifact_family_not_exact")
+    if not _task233_validate_projection(task233): blockers.append("task233_containment_invalid")
+    return validation_rows, artifact_rows, rows, list(dict.fromkeys(blockers))
+
+
+class _Task234Blocked(RuntimeError):
+    pass
+
+
+def _task234_database_adapter() -> dict[str, Any]:
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.engine import make_url
+        from app.core.config import settings
+    except Exception as exc:  # pragma: no cover - dependency guard
+        raise RuntimeError("task234_database_dependencies_unavailable") from exc
+    database_url = str(settings.DATABASE_URL or "")
+    if not database_url: raise _Task234Blocked("task234_database_url_missing")
+    try: url = make_url(database_url)
+    except Exception as exc: raise _Task234Blocked("task234_database_url_invalid") from exc
+    if not url.drivername.startswith("postgresql"):
+        raise _Task234Blocked("task234_database_dialect_unsupported")
+    engine = create_engine(
+        database_url, pool_pre_ping=True, isolation_level="SERIALIZABLE",
+        connect_args={"connect_timeout": 2},
+    )
+    return {"engine": engine, "production": True, "owns_engine": True}
+
+
+def _task234_schema_preflight(adapter: dict[str, Any]) -> dict[str, Any]:
+    from sqlalchemy import inspect
+    from sqlalchemy.sql.sqltypes import Numeric
+    from app.services.controlled_financial_statement_value_service import CONTROLLED_VALUE_NATURAL_KEY_FIELDS
+    model, _service = _task234_import_target_contract()
+    engine = adapter["engine"]; production = adapter.get("production") is True
+    if production and engine.dialect.name != "postgresql":
+        raise _Task234Blocked("task234_database_dialect_unsupported")
+    inspector = inspect(engine); table_name = "controlled_financial_statement_values"
+    table_exists = inspector.has_table(table_name)
+    columns = inspector.get_columns(table_name) if table_exists else []
+    column_names = [str(row.get("name") or "") for row in columns]
+    required = set(_TASK233_TARGET_PAYLOAD_FIELDS) | {"id", "created_at", "updated_at"}
+    unique_constraints = inspector.get_unique_constraints(table_name) if table_exists else []
+    indexes = inspector.get_indexes(table_name) if table_exists else []
+    unique_natural_key = any(
+        list(row.get("column_names") or []) == ["natural_key_sha256"]
+        for row in unique_constraints
+    ) or any(
+        row.get("unique") is True and list(row.get("column_names") or []) == ["natural_key_sha256"]
+        for row in indexes
+    )
+    numeric_columns = {str(row.get("name") or ""): row.get("type") for row in columns}
+    numeric_24_2 = all(
+        isinstance(numeric_columns.get(name), Numeric)
+        and numeric_columns[name].precision == 24 and numeric_columns[name].scale == 2
+        for name in ("value_2025", "value_2024")
+    )
+    checks = {
+        "dialect_valid": engine.dialect.name == "postgresql" if production else True,
+        "table_exists": table_exists,
+        "model_table_matches": getattr(model, "__tablename__", "") == table_name,
+        "required_columns_exist": required.issubset(set(column_names)),
+        "natural_key_unique": unique_natural_key,
+        "natural_key_order_valid": tuple(CONTROLLED_VALUE_NATURAL_KEY_FIELDS) == tuple(_TASK233_NATURAL_KEY_FIELDS),
+        "numeric_24_2_valid": numeric_24_2,
+    }
+    checksum = _rzd_controlled_values_import_plan_sha({
+        "target_table": table_name, "target_model": "ControlledFinancialStatementValue",
+        "dialect": "postgresql" if production else "isolated_test_adapter",
+        "columns": sorted(column_names), "required_columns": sorted(required),
+        "natural_key_fields": list(_TASK233_NATURAL_KEY_FIELDS),
+        "natural_key_unique": unique_natural_key, "numeric_24_2_valid": numeric_24_2,
+        "numeric_contract": "Numeric(24,2)",
+    })
+    return {**checks, "schema_contract_checksum_sha256": checksum, "column_count": len(column_names)}
+
+
+def _task234_payload_for_database(payload: dict[str, Any]) -> dict[str, Any]:
+    converted = dict(payload)
+    converted["value_2025"] = Decimal(str(payload["value_2025"]))
+    converted["value_2024"] = Decimal(str(payload["value_2024"]))
+    return converted
+
+
+def _task234_persisted_payload_exact(existing: dict[str, Any], payload: dict[str, Any]) -> bool:
+    for field in _TASK233_TARGET_PAYLOAD_FIELDS:
+        left = existing.get(field); right = payload.get(field)
+        if field in {"value_2025", "value_2024"}:
+            try:
+                if Decimal(str(left)) != Decimal(str(right)): return False
+            except (InvalidOperation, ValueError): return False
+        elif field in {"report_year", "statement_page", "page_number"}:
+            if isinstance(left, bool) or int(left) != int(right): return False
+        elif str(left if left is not None else "") != str(right if right is not None else ""):
+            return False
+    return True
+
+
+def _task234_existing_payload_valid(existing: dict[str, Any]) -> bool:
+    _model, service = _task234_import_target_contract()
+    payload = {field: existing.get(field) for field in _TASK233_TARGET_PAYLOAD_FIELDS}
+    try:
+        if Decimal(str(payload.get("value_2025"))) != Decimal(str(payload.get("raw_value_2025"))): return False
+        if Decimal(str(payload.get("value_2024"))) != Decimal(str(payload.get("raw_value_2024"))): return False
+    except (InvalidOperation, ValueError): return False
+    checksum_payload = dict(payload); actual_checksum = str(checksum_payload.pop("row_checksum_sha256", "") or "")
+    checksum_payload["value_2025"] = checksum_payload.get("raw_value_2025")
+    checksum_payload["value_2024"] = checksum_payload.get("raw_value_2024")
+    return (
+        _task233_payload_base_valid(checksum_payload)
+        and not service.validate_controlled_value_payload(payload)
+        and payload.get("natural_key") == service.build_natural_key(payload)
+        and payload.get("natural_key_sha256") == service.build_natural_key_sha256(payload)
+        and actual_checksum == service.build_row_checksum_sha256(checksum_payload)
+    )
+
+
+def _task234_fetch_and_classify(
+    connection: Any, plan_rows: list[dict[str, Any]], *, for_update: bool,
+) -> dict[str, Any]:
+    from sqlalchemy import func, select
+    model, _service = _task234_import_target_contract(); table = model.__table__
+    row_count = int(connection.execute(select(func.count()).select_from(table)).scalar_one())
+    keys = [str(row["target_payload"]["natural_key_sha256"]) for row in plan_rows]
+    statement = select(table).where(table.c.natural_key_sha256.in_(keys))
+    if for_update and connection.dialect.name == "postgresql": statement = statement.with_for_update()
+    found_rows = [dict(row) for row in connection.execute(statement).mappings().all()]
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    for row in found_rows: by_key.setdefault(str(row.get("natural_key_sha256") or ""), []).append(row)
+    blockers: list[str] = []; actions: list[dict[str, Any]] = []; states: list[dict[str, Any]] = []
+    for index, plan in enumerate(plan_rows, 1):
+        payload = plan["target_payload"]; key = str(payload["natural_key_sha256"]); matches = by_key.get(key, [])
+        if len(matches) > 1:
+            blockers.append("task234_existing_natural_key_not_unique"); existing = None; action = ""
+        elif not matches:
+            existing = None; action = "insert"
+        else:
+            existing = matches[0]
+            existing_payload_valid = _task234_existing_payload_valid(existing)
+            natural_components_match = all(
+                str(existing.get(field) if existing.get(field) is not None else "") == str(payload.get(field) if payload.get(field) is not None else "")
+                for field in _TASK233_NATURAL_KEY_FIELDS
+            ) and str(existing.get("natural_key") or "") == str(payload.get("natural_key") or "")
+            exact = _task234_persisted_payload_exact(existing, payload)
+            checksum_equal = str(existing.get("row_checksum_sha256") or "") == str(payload.get("row_checksum_sha256") or "")
+            if not existing_payload_valid:
+                blockers.append("task234_existing_payload_invalid"); action = ""
+            elif not natural_components_match:
+                blockers.append("task234_existing_natural_key_payload_inconsistency"); action = ""
+            elif checksum_equal and not exact:
+                blockers.append("existing_row_checksum_payload_inconsistency"); action = ""
+            elif exact:
+                action = "noop"
+            else:
+                action = "update"
+        states.append({
+            "natural_key_sha256": key, "existing": existing is not None,
+            "existing_row_checksum_sha256": str(existing.get("row_checksum_sha256") or "") if existing else "",
+        })
+        actions.append({
+            "action_index": index, "controlled_staging_plan_row_id": str(plan.get("controlled_staging_plan_row_id") or ""),
+            "controlled_staging_plan_row_checksum_sha256": str(plan.get("controlled_staging_plan_row_checksum_sha256") or ""),
+            "natural_key_sha256": key, "planned_row_checksum_sha256": str(payload.get("row_checksum_sha256") or ""),
+            "preexisting_row_found": existing is not None,
+            "preexisting_row_checksum_sha256": str(existing.get("row_checksum_sha256") or "") if existing else "",
+            "planned_action": action, "validated": bool(action),
+            "safe_hint": "Action classification contains hashes only; target payload remains transient.",
+        })
+    counts = {name: sum(row.get("planned_action") == name for row in actions) for name in ("insert", "update", "noop")}
+    return {
+        "row_count": row_count, "actions": actions, "states": states, "existing_by_key": {key: values[0] for key, values in by_key.items() if len(values) == 1},
+        "insert_count": counts["insert"], "update_count": counts["update"], "noop_count": counts["noop"],
+        "existing_count": len(found_rows), "missing_count": len(plan_rows) - len(found_rows),
+        "blockers": list(dict.fromkeys(blockers)),
+    }
+
+
+def _task234_authorization_challenge(
+    task233: dict[str, Any], schema_checksum: str, preflight: dict[str, Any],
+) -> tuple[str, str, str, dict[str, Any]]:
+    challenge_payload = {
+        "source_task233_checksum_sha256": task233.get("multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_checksum_sha256") or "",
+        "task233_plan_identity_checksum_sha256": task233.get("multi_issuer_controlled_staging_plan_identity_checksum_sha256") or "",
+        "task233_plan_rows_checksum_sha256": task233.get("multi_issuer_controlled_staging_plan_rows_checksum_sha256") or "",
+        "task233_target_payload_checksum_sha256": task233.get("multi_issuer_controlled_staging_target_payloads_checksum_sha256") or "",
+        "target_table": "controlled_financial_statement_values", "target_model": "ControlledFinancialStatementValue",
+        "table_row_count_before": int(preflight["row_count"]),
+        "ordered_planned_natural_key_sha256_values": [row["natural_key_sha256"] for row in preflight["actions"]],
+        "ordered_planned_row_checksum_sha256_values": [row["planned_row_checksum_sha256"] for row in preflight["actions"]],
+        "ordered_current_db_state": preflight["states"],
+        "ordered_action_classifications": [row["planned_action"] for row in preflight["actions"]],
+        "planned_insert_count": int(preflight["insert_count"]), "planned_update_count": int(preflight["update_count"]),
+        "planned_noop_count": int(preflight["noop_count"]), "planned_total_count": len(preflight["actions"]),
+        "schema_contract_checksum_sha256": schema_checksum,
+    }
+    challenge = _rzd_controlled_values_import_plan_sha(challenge_payload)
+    prefix = challenge[:16].upper()
+    token = f"APPLY_TASK234_{prefix}_{preflight['insert_count']}I_{preflight['update_count']}U_{preflight['noop_count']}N"
+    return challenge, prefix, token, challenge_payload
+
+
+def _task234_execution_row(action: dict[str, Any], *, attempted: bool, completed: bool, persisted: dict[str, Any] | None) -> dict[str, Any]:
+    row = {
+        "execution_row_index": int(action["action_index"]),
+        "controlled_staging_plan_row_id": action["controlled_staging_plan_row_id"],
+        "controlled_staging_plan_row_checksum_sha256": action["controlled_staging_plan_row_checksum_sha256"],
+        "natural_key_sha256": action["natural_key_sha256"], "planned_row_checksum_sha256": action["planned_row_checksum_sha256"],
+        "preexisting_row_found": action["preexisting_row_found"],
+        "preexisting_row_checksum_sha256": action["preexisting_row_checksum_sha256"],
+        "planned_action": action["planned_action"], "executed_action": action["planned_action"] if attempted else "",
+        "row_write_attempted": attempted and action["planned_action"] in {"insert", "update"},
+        "row_write_completed": completed and action["planned_action"] in {"insert", "update"},
+        "persisted_row_found": persisted is not None,
+        "persisted_row_checksum_sha256": str(persisted.get("row_checksum_sha256") or "") if persisted else "",
+        "persisted_payload_exact_match": bool(persisted and str(persisted.get("row_checksum_sha256") or "") == action["planned_row_checksum_sha256"]),
+    }
+    row["execution_row_result_checksum_sha256"] = _rzd_controlled_values_import_plan_sha({key: value for key, value in row.items() if key != "execution_row_index"})
+    return row
+
+
+def _task234_call_failure_hook(adapter: dict[str, Any], event: str, index: int = 0) -> None:
+    hook = adapter.get("failure_hook")
+    if callable(hook):
+        hook(event, index)
+
+
+def _task234_transactional_execute(
+    adapter: dict[str, Any], task233: dict[str, Any], plan_rows: list[dict[str, Any]],
+    schema_checksum: str, challenge: str, approved_token: str,
+) -> dict[str, Any]:
+    from sqlalchemy import insert, select, text, update
+    model, _service = _task234_import_target_contract(); table = model.__table__
+    connection = adapter["engine"].connect(); transaction = None
+    attempted: list[dict[str, Any]] = []; locked_actions: list[dict[str, Any]] = []; commit_attempted = False
+    try:
+        transaction = connection.begin()
+        if adapter.get("production") is True:
+            connection.execute(text("SET LOCAL lock_timeout = '5s'"))
+            connection.execute(text("SET LOCAL statement_timeout = '20s'"))
+            lock_value = int(str(task233["multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_checksum_sha256"])[:16], 16)
+            if lock_value >= 2 ** 63: lock_value -= 2 ** 64
+            connection.execute(text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": lock_value})
+        _task234_call_failure_hook(adapter, "transaction_started")
+        locked = _task234_fetch_and_classify(connection, plan_rows, for_update=True)
+        locked_actions = locked["actions"]
+        locked_challenge, _prefix, locked_token, _payload = _task234_authorization_challenge(task233, schema_checksum, locked)
+        if locked["blockers"]:
+            raise _Task234Blocked(locked["blockers"][0])
+        if not hmac.compare_digest(challenge, locked_challenge) or not hmac.compare_digest(approved_token, locked_token):
+            transaction.rollback()
+            return {
+                "outcome": "stale", "preflight": locked,
+                "execution_rows": [_task234_execution_row(action, attempted=False, completed=False, persisted=None) for action in locked_actions],
+                "transaction_started": True, "transaction_committed": False, "transaction_rolled_back": True,
+                "inserted_row_count": 0, "updated_row_count": 0, "noop_row_count": 0,
+            }
+        existing = locked["existing_by_key"]
+        for index, (plan, action) in enumerate(zip(plan_rows, locked["actions"]), 1):
+            _task234_call_failure_hook(adapter, "before_write", index)
+            payload = _task234_payload_for_database(plan["target_payload"])
+            planned_action = action["planned_action"]
+            if planned_action == "insert":
+                connection.execute(insert(table).values(**payload))
+            elif planned_action == "update":
+                result = connection.execute(
+                    update(table).where(table.c.natural_key_sha256 == action["natural_key_sha256"]).values(**payload)
+                )
+                if result.rowcount != 1: raise RuntimeError("task234_update_cardinality_invalid")
+            elif planned_action != "noop":
+                raise _Task234Blocked("task234_planned_action_invalid")
+            attempted.append(action)
+            _task234_call_failure_hook(adapter, "after_write", index)
+        _task234_call_failure_hook(adapter, "before_flush_verification")
+        verified = _task234_fetch_and_classify(connection, plan_rows, for_update=True)
+        expected_count = int(locked["row_count"]) + int(locked["insert_count"])
+        if verified["blockers"] or verified["row_count"] != expected_count or any(
+            row["planned_action"] != "noop" for row in verified["actions"]
+        ):
+            raise RuntimeError("task234_in_transaction_verification_failed")
+        persisted = verified["existing_by_key"]
+        execution_rows = [
+            _task234_execution_row(action, attempted=True, completed=True, persisted=persisted.get(action["natural_key_sha256"]))
+            for action in locked["actions"]
+        ]
+        _task234_call_failure_hook(adapter, "before_commit")
+        commit_attempted = True
+        _task234_call_failure_hook(adapter, "commit_attempt")
+        transaction.commit()
+        return {
+            "outcome": "committed", "preflight": locked, "execution_rows": execution_rows,
+            "transaction_started": True, "transaction_committed": True, "transaction_rolled_back": False,
+            "inserted_row_count": locked["insert_count"], "updated_row_count": locked["update_count"],
+            "noop_row_count": locked["noop_count"],
+        }
+    except _Task234Blocked as exc:
+        rollback_confirmed = False
+        if transaction is not None and transaction.is_active:
+            try:
+                transaction.rollback(); rollback_confirmed = True
+            except Exception:
+                rollback_confirmed = False
+        execution_rows = [_task234_execution_row(action, attempted=action in attempted, completed=False, persisted=None) for action in locked_actions]
+        return {
+            "outcome": "blocked", "code": str(exc), "execution_rows": execution_rows,
+            "transaction_started": transaction is not None, "transaction_committed": False,
+            "transaction_rolled_back": rollback_confirmed,
+            "inserted_row_count": 0, "updated_row_count": 0, "noop_row_count": 0,
+        }
+    except Exception:
+        rollback_confirmed = False
+        if transaction is not None and transaction.is_active:
+            try:
+                transaction.rollback(); rollback_confirmed = True
+            except Exception:
+                rollback_confirmed = False
+        execution_rows = [_task234_execution_row(action, attempted=action in attempted, completed=False, persisted=None) for action in locked_actions]
+        if commit_attempted:
+            return {
+                "outcome": "reconciliation", "code": "task234_commit_state_requires_reconciliation",
+                "execution_rows": execution_rows, "transaction_started": True,
+                "transaction_committed": False, "transaction_rolled_back": False,
+                "commit_state_requires_reconciliation": True,
+                "inserted_row_count": 0, "updated_row_count": 0, "noop_row_count": 0,
+            }
+        return {
+            "outcome": "failed", "code": "task234_transaction_failed", "execution_rows": execution_rows,
+            "transaction_started": transaction is not None, "transaction_committed": False,
+            "transaction_rolled_back": rollback_confirmed,
+            "inserted_row_count": 0, "updated_row_count": 0, "noop_row_count": 0,
+        }
+    finally:
+        connection.close()
+
+
+def _task234_post_commit_verify(
+    adapter: dict[str, Any], plan_rows: list[dict[str, Any]], expected_row_count: int,
+) -> dict[str, Any]:
+    connection = adapter["engine"].connect()
+    try:
+        _task234_call_failure_hook(adapter, "post_commit_verification")
+        result = _task234_fetch_and_classify(connection, plan_rows, for_update=False)
+        valid = (
+            not result["blockers"] and result["row_count"] == expected_row_count
+            and len(result["actions"]) == len(plan_rows)
+            and all(row["planned_action"] == "noop" for row in result["actions"])
+        )
+        return {"valid": valid, "row_count": result["row_count"], "preflight": result}
+    except Exception:
+        return {"valid": False, "row_count": 0, "preflight": None}
+    finally:
+        connection.close()
+
+
+_TASK234_FORBIDDEN_OUTPUT_KEYS = {
+    *_TASK233_CONCRETE_KEYS, "target_payload", "database_url", "approval_token", "expected_token",
+    "provided_token", "sql", "statement", "credential", "password", "access_token",
+}
+
+
+def _task234_contains_forbidden_output(value: Any) -> bool:
+    if isinstance(value, dict):
+        return any(
+            str(key).lower() in _TASK234_FORBIDDEN_OUTPUT_KEYS or _task234_contains_forbidden_output(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list): return any(_task234_contains_forbidden_output(item) for item in value)
+    if isinstance(value, str):
+        return bool(re.search(r"https?://", value, re.IGNORECASE) or re.match(r"^[A-Za-z]:[\\/]", value) or value.startswith("/") or value.startswith("\\\\"))
+    return False
+
+
+def _task234_validate_projection(report: dict[str, Any]) -> bool:
+    wrappers = _task234_wrappers(report)
+    expected = set(RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ARTIFACT_NAMES) - {"executor_json", "executor_markdown"}
+    return (
+        set(wrappers) == expected
+        and not _task234_contains_forbidden_output(report)
+        and not _task234_contains_forbidden_output(wrappers)
+        and not _task234_contains_forbidden_output(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_markdown(report)
+        )
+    )
+
+
+def _task234_write_direct(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    if artifacts.get("executor_json"): write_json_report(report, artifacts["executor_json"])
+    if artifacts.get("executor_markdown"):
+        artifacts["executor_markdown"].parent.mkdir(parents=True, exist_ok=True)
+        artifacts["executor_markdown"].write_text(
+            render_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor_markdown(report), encoding="utf-8",
+        )
+    for key, payload in _task234_wrappers(report).items():
+        if artifacts.get(key): write_json_report(payload, artifacts[key])
+
+
+class _Task234AtomicPublicationError(RuntimeError):
+    def __init__(self, rollback_validated: bool) -> None:
+        super().__init__("task234_atomic_publication_failed"); self.rollback_validated = rollback_validated
+
+
+def _task234_write_atomic(report: dict[str, Any], artifacts: dict[str, Path | None]) -> None:
+    targets = {key: path for key, path in artifacts.items() if isinstance(path, Path)}
+    roots: dict[Path, Path] = {}; staged: dict[str, Path] = {}; backups: dict[Path, Path] = {}
+    original_hashes: dict[Path, str | None] = {}; published: set[Path] = set()
+    try:
+        for index, (key, target) in enumerate(targets.items()):
+            parent = target.parent.parent; parent.mkdir(parents=True, exist_ok=True)
+            root = roots.get(parent)
+            if root is None:
+                root = Path(tempfile.mkdtemp(prefix=".task234-controlled-staging-executor-", dir=parent)); roots[parent] = root
+            staged[key] = root / f"{index:02d}{target.suffix}"
+        _task234_write_direct(report, staged)
+        for key, target in targets.items():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_file():
+                original_hashes[target] = hashlib.sha256(target.read_bytes()).hexdigest()
+                backup = staged[key].parent / f"backup-{key}{target.suffix}"; shutil.copy2(target, backup); backups[target] = backup
+            else: original_hashes[target] = None
+        for key, target in targets.items(): os.replace(staged[key], target); published.add(target)
+        for root in roots.values(): shutil.rmtree(root)
+        if any(root.exists() for root in roots.values()): raise OSError("task234_temporary_cleanup_unverified")
+    except Exception:
+        rollback_validated = True
+        for target in reversed(list(targets.values())):
+            if target not in published: continue
+            try:
+                if target in backups: os.replace(backups[target], target)
+                elif target.exists(): target.unlink()
+            except OSError: rollback_validated = False
+        for target, original_hash in original_hashes.items():
+            try:
+                restored = not target.exists() if original_hash is None else target.is_file() and not target.is_symlink() and hashlib.sha256(target.read_bytes()).hexdigest() == original_hash
+            except OSError: restored = False
+            if not restored: rollback_validated = False
+        for root in roots.values():
+            try:
+                if root.exists(): shutil.rmtree(root)
+            except OSError: rollback_validated = False
+            if root.exists(): rollback_validated = False
+        raise _Task234AtomicPublicationError(rollback_validated) from None
+
+
+def _task234_publish(report: dict[str, Any], artifacts: dict[str, Path | None]) -> dict[str, Any]:
+    try:
+        _task234_write_atomic(report, artifacts); return report
+    except Exception as exc:
+        rollback_validated = isinstance(exc, _Task234AtomicPublicationError) and exc.rollback_validated
+        committed = report.get("transaction_committed") is True
+        tx = {
+            "transaction_started": report.get("transaction_started") is True,
+            "transaction_committed": committed, "database_mutated": report.get("database_mutated") is True,
+            "database_connection_opened": report.get("database_connection_opened") is True,
+            "database_query_executed": report.get("database_query_executed") is True,
+            "database_write_authorized": report.get("database_write_authorized") is True,
+            "post_commit_verification_completed": report.get("post_commit_verification_completed") is True,
+            "post_commit_exact_match_valid": report.get("post_commit_exact_match_valid") is True,
+            "live_db_table_row_count_before": report.get("live_db_table_row_count_before") or 0,
+            "live_db_table_row_count_after": report.get("live_db_table_row_count_after") or 0,
+            "inserted_row_count": report.get("inserted_row_count") or 0, "updated_row_count": report.get("updated_row_count") or 0,
+            "noop_row_count": report.get("noop_row_count") or 0,
+            "execution_result_rows": report.get("execution_result_rows") or [],
+            "commit_state_requires_reconciliation": committed,
+        }
+        failed = _task234_empty_report(
+            "failed", executor_status="reconciliation_required" if committed else "failed",
+            errors=["task234_terminal_artifact_write_failed"],
+            bad_safety_codes=["task234_post_commit_reconciliation_required"] if committed else ([] if rollback_validated else ["task234_artifact_rollback_state_uncertain"]),
+            transaction=tx,
+        )
+        if not rollback_validated:
+            failed["write_outputs"] = False
+            return _task234_finalize(failed)
+        try:
+            _task234_write_atomic(failed, artifacts); return failed
+        except Exception:
+            failed["write_outputs"] = False
+            return _task234_finalize(failed)
+
+
+def _task234_base_report(
+    task233: dict[str, Any], task233_validation: list[dict[str, Any]], task233_artifacts: list[dict[str, Any]],
+    schema_preflight: dict[str, Any], preflight: dict[str, Any], challenge: str, prefix: str,
+) -> dict[str, Any]:
+    lineage = [
+        {"lineage_index": index, "task_id": str(row.get("task_id") or ""), "checksum_sha256": str(row.get("checksum_sha256") or ""), "validated": True, "safe_hint": "Checksum-bound lineage carried from Task233."}
+        for index, row in enumerate(task233.get("lineage_rows") or [], 1)
+    ]
+    lineage.append({"lineage_index": len(lineage) + 1, "task_id": "Task233", "checksum_sha256": task233["multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_checksum_sha256"], "validated": True, "safe_hint": "Immediate Task233 source checksum was recomputed."})
+    return {
+        "mode": RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_MODE,
+        "schema_version": RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_SCHEMA_VERSION,
+        "status": "warning", "controlled_staging_executor_status": "authorization_required",
+        "target_table": "controlled_financial_statement_values", "target_model": "ControlledFinancialStatementValue",
+        "source_task233_checksum_sha256": task233["multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_checksum_sha256"],
+        "source_task233_plan_rows_checksum_sha256": task233["multi_issuer_controlled_staging_plan_rows_checksum_sha256"],
+        "source_task233_plan_identity_checksum_sha256": task233["multi_issuer_controlled_staging_plan_identity_checksum_sha256"],
+        "source_task233_target_payloads_checksum_sha256": task233["multi_issuer_controlled_staging_target_payloads_checksum_sha256"],
+        "controlled_staging_authorization_challenge_sha256": challenge, "authorization_challenge_sha256": challenge,
+        "authorization_challenge_prefix": prefix,
+        "schema_contract_checksum_sha256": schema_preflight["schema_contract_checksum_sha256"],
+        "task233_validation_completed": True, "task233_artifact_validation_completed": True,
+        "task217_to_task233_lineage_validation_completed": True, "task233_staging_plan_validation_completed": True,
+        "task233_target_payload_validation_completed": True, "authorization_challenge_created": True,
+        "authorization_challenge_valid": True,
+        "database_connection_opened": True, "database_query_executed": True,
+        "live_db_table_row_count_before": preflight["row_count"], "live_db_table_row_count_after": preflight["row_count"],
+        "planned_total_count": len(preflight["actions"]), "planned_existing_natural_key_count": preflight["existing_count"],
+        "planned_missing_natural_key_count": preflight["missing_count"], "planned_insert_count": preflight["insert_count"],
+        "planned_update_count": preflight["update_count"], "planned_noop_count": preflight["noop_count"],
+        "scope_rows": [{"scope_index": index, "scope_key": key, "included": True, "safe_hint": "Task234 is restricted to checksum-bound controlled staging."} for index, key in enumerate(("task233_only", "fixed_target_table", "insert_update_noop_only", "two_phase_authorization", "single_atomic_transaction", "task235_only_handoff"), 1)],
+        "task233_validation_rows": task233_validation, "lineage_rows": lineage,
+        "task233_artifact_validation_rows": task233_artifacts,
+        "authorization_challenge_rows": [{"authorization_index": 1, "challenge_sha256": challenge, "challenge_prefix": prefix, "token_retained": False, "validated": True, "safe_hint": "Challenge binds the plan, schema, current hashes and planned classifications."}],
+        "live_db_preflight_rows": [{"preflight_index": 1, **{key: value for key, value in schema_preflight.items() if key != "schema_contract_checksum_sha256"}, "schema_contract_checksum_sha256": schema_preflight["schema_contract_checksum_sha256"], "table_row_count": preflight["row_count"], "validated": not preflight["blockers"], "safe_hint": "Only schema and sanitized count/hash state were retained."}],
+        "planned_action_rows": preflight["actions"], "transaction_result_rows": [], "execution_result_rows": [],
+        "post_commit_verification_rows": [],
+        "idempotency_validation_rows": [{"validation_index": 1, "all_noop": preflight["noop_count"] == len(preflight["actions"]), "validated": True, "safe_hint": "A fresh challenge can authorize an idempotent all-noop execution."}],
+        "rollback_recovery_rows": [{"recovery_index": 1, "rollback_required": False, "reconciliation_required": False, "validated": True, "safe_hint": "No transaction has started in Phase A."}],
+        "concrete_data_non_retention_validation_rows": [{"validation_index": 1, "all_task234_artifacts_sanitized": True, "token_retained": False, "credentials_retained": False, "payload_retained": False, "validated": True, "safe_hint": "Task234 retains only hashes, counts and execution state."}],
+        "task235_readiness_preview_rows": [{"readiness_index": 1, "task_id": "Task235", "allowed_now": False, "validated": True, "safe_hint": "Task235 remains locked until exact post-commit verification."}],
+        "next_task_rows": _task234_next_rows(False), "next_tasks_valid": True,
+        "check_rows": [{"check_index": index, "check_key": key, "passed": True, "status": "passed", "safe_hint": "Task234 preflight validation passed."} for index, key in enumerate(("task233_contract", "task233_artifacts", "target_schema", "action_classification", "challenge", "containment", "safety"), 1)],
+        "blocker_rows": [], "bad_safety_codes": [], "errors": [], "write_outputs": True,
+        "next_step": "Provide the checksum-bound Task234 challenge, approval token, and confirmation.",
+        "safe_hint": "Phase A is read-only and retains no concrete payload, token, credential, SQL, or database identity.",
+    }
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor(args: argparse.Namespace) -> dict[str, Any]:
+    inputs = _task234_inputs(args); artifacts = _task234_artifacts(args)
+    blockers = _task234_output_blockers(inputs, artifacts)
+    if blockers: return _task234_empty_report("blocked", blockers=blockers, write_outputs=False)
+    task233_path = inputs.get("task233")
+    if not isinstance(task233_path, Path) or not task233_path.exists():
+        return _task234_publish(_task234_empty_report("blocked", blockers=["task233_input_missing"]), artifacts)
+    if task233_path.is_symlink() or not task233_path.is_file() or _task234_path_has_symlink_parent(task233_path):
+        return _task234_publish(_task234_empty_report("blocked", blockers=["task233_input_path_invalid"]), artifacts)
+    adapter: dict[str, Any] | None = None
+    try:
+        task233 = _task229_load_json(task233_path)
+        task233_validation, task233_artifacts, plan_rows, validation_blockers = _task234_validate_task233(task233, task233_path)
+        if validation_blockers: return _task234_publish(_task234_empty_report("blocked", blockers=validation_blockers), artifacts)
+        adapter = _task234_database_adapter()
+        schema = _task234_schema_preflight(adapter)
+        if not all(schema[key] is True for key in (
+            "dialect_valid", "table_exists", "model_table_matches", "required_columns_exist",
+            "natural_key_unique", "natural_key_order_valid", "numeric_24_2_valid",
+        )):
+            return _task234_publish(_task234_empty_report("blocked", blockers=["task234_target_schema_contract_invalid"]), artifacts)
+        with adapter["engine"].connect() as connection:
+            preflight = _task234_fetch_and_classify(connection, plan_rows, for_update=False)
+        if preflight["blockers"]: return _task234_publish(_task234_empty_report("blocked", blockers=preflight["blockers"]), artifacts)
+        challenge, prefix, expected_token, _challenge_payload = _task234_authorization_challenge(task233, schema["schema_contract_checksum_sha256"], preflight)
+        report = _task234_base_report(task233, task233_validation, task233_artifacts, schema, preflight, challenge, prefix)
+        supplied_challenge = str(args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_authorization_challenge_sha256 or "")
+        supplied_token = str(args.rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_approved_token or "")
+        confirmed = args.confirm_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_execution is True
+        phase_b = bool(supplied_challenge or supplied_token or confirmed)
+        if not phase_b:
+            report = _task234_finalize(report)
+            if not _task234_validate_projection(report): return _task234_publish(_task234_empty_report("blocked", blockers=["task234_concrete_data_non_retention_invalid"]), artifacts)
+            return _task234_publish(report, artifacts)
+        report["approval_token_provided"] = bool(supplied_token); report["execution_confirmed"] = confirmed
+        report["approval_token_format_valid"] = bool(re.fullmatch(r"APPLY_TASK234_[0-9A-F]{16}_[0-9]+I_[0-9]+U_[0-9]+N", supplied_token))
+        report["authorization_challenge_valid"] = bool(re.fullmatch(r"[0-9a-f]{64}", supplied_challenge))
+        if not supplied_challenge or not supplied_token or not confirmed:
+            return _task234_publish(_task234_empty_report("blocked", blockers=["task234_authorization_inputs_incomplete"]), artifacts)
+        if not report["authorization_challenge_valid"]:
+            report.update({"status": "blocked", "controlled_staging_executor_status": "authorization_invalid",
+                           "blocker_rows": [{"blocker_index": 1, "code": "task234_authorization_challenge_format_invalid", "safe_hint": "Provide the exact lowercase SHA-256 produced by Phase A."}]})
+            return _task234_publish(_task234_finalize(report), artifacts)
+        if not hmac.compare_digest(supplied_challenge, challenge):
+            report.update({"status": "blocked", "controlled_staging_executor_status": "stale_authorization", "authorization_challenge_stale": True,
+                           "blocker_rows": [{"blocker_index": 1, "code": "task234_authorization_challenge_stale", "safe_hint": "Rerun Phase A against current database state."}],
+                           "next_step": "Rerun Task234 Phase A against the same Task233 plan."})
+            return _task234_publish(_task234_finalize(report), artifacts)
+        if not report["approval_token_format_valid"] or not hmac.compare_digest(supplied_token, expected_token):
+            report.update({"status": "blocked", "controlled_staging_executor_status": "authorization_invalid",
+                           "blocker_rows": [{"blocker_index": 1, "code": "task234_approval_token_invalid", "safe_hint": "Use the token derived from the current challenge and counts."}]})
+            return _task234_publish(_task234_finalize(report), artifacts)
+        report.update({"approval_token_valid": True, "authorization_challenge_valid": True, "database_write_authorized": True})
+        outcome = _task234_transactional_execute(adapter, task233, plan_rows, schema["schema_contract_checksum_sha256"], supplied_challenge, supplied_token)
+        report.update({key: outcome.get(key, report.get(key)) for key in (
+            "transaction_started", "transaction_committed", "transaction_rolled_back",
+            "commit_state_requires_reconciliation", "inserted_row_count", "updated_row_count", "noop_row_count"
+        )})
+        report["execution_result_rows"] = outcome.get("execution_rows") or []
+        report["row_write_attempted_count"] = sum(row.get("row_write_attempted") is True for row in report["execution_result_rows"])
+        report["transaction_result_rows"] = [{"transaction_index": 1, "started": report["transaction_started"], "committed": report["transaction_committed"], "rolled_back": report["transaction_rolled_back"], "outcome": outcome["outcome"], "safe_hint": "The transaction result contains no SQL, payload, token, credential or database-generated identifier."}]
+        if outcome["outcome"] == "stale":
+            report.update({"status": "blocked", "controlled_staging_executor_status": "stale_authorization", "authorization_challenge_stale": True,
+                           "blocker_rows": [{"blocker_index": 1, "code": "task234_authorization_became_stale_in_transaction", "safe_hint": "The race was rolled back; rerun Phase A."}],
+                           "rollback_recovery_rows": [{"recovery_index": 1, "rollback_required": True, "reconciliation_required": False, "validated": True, "safe_hint": "The stale transactional attempt was fully rolled back."}],
+                           "next_step": "Rerun Task234 Phase A against the same Task233 plan."})
+            return _task234_publish(_task234_finalize(report), artifacts)
+        if outcome["outcome"] == "reconciliation":
+            report.update({
+                "status": "failed", "controlled_staging_executor_status": "reconciliation_required",
+                "bad_safety_codes": ["task234_post_commit_reconciliation_required"],
+                "errors": [{"message": "task234_commit_state_requires_reconciliation"}],
+                "rollback_recovery_rows": [{
+                    "recovery_index": 1, "rollback_required": False, "reconciliation_required": True,
+                    "validated": False,
+                    "safe_hint": "Commit outcome is uncertain; rerun Phase A idempotently before any downstream action.",
+                }],
+                "next_step": "Rerun Task234 Phase A against the same Task233 plan.",
+            })
+            return _task234_publish(_task234_finalize(report), artifacts)
+        if outcome["outcome"] != "committed":
+            code = str(outcome.get("code") or "task234_transaction_failed")
+            report.update({"status": "blocked" if outcome["outcome"] == "blocked" else "failed", "controlled_staging_executor_status": outcome["outcome"],
+                           "blocker_rows": ([{"blocker_index": 1, "code": code, "safe_hint": "The complete transaction was rolled back."}] if outcome["outcome"] == "blocked" else []),
+                           "errors": ([{"message": code}] if outcome["outcome"] == "failed" else []),
+                           "rollback_recovery_rows": [{"recovery_index": 1, "rollback_required": True, "reconciliation_required": False, "validated": True, "safe_hint": "No inserts or updates were committed."}]})
+            return _task234_publish(_task234_finalize(report), artifacts)
+        expected_after = preflight["row_count"] + preflight["insert_count"]
+        post = _task234_post_commit_verify(adapter, plan_rows, expected_after)
+        report.update({"live_db_table_row_count_after": post["row_count"], "post_commit_verification_completed": True,
+                       "post_commit_exact_match_valid": post["valid"], "all_planned_rows_processed": True,
+                       "all_persisted_rows_verified": post["valid"], "database_mutated": bool(outcome["inserted_row_count"] or outcome["updated_row_count"]),
+                       "insert_executed": outcome["inserted_row_count"] > 0, "update_executed": outcome["updated_row_count"] > 0,
+                       "upsert_executed": bool(outcome["inserted_row_count"] or outcome["updated_row_count"]),
+                       "controlled_financial_values_created": outcome["inserted_row_count"] > 0,
+                       "controlled_values_staged": post["valid"]})
+        report["post_commit_verification_rows"] = [{"verification_index": 1, "expected_table_row_count": expected_after, "actual_table_row_count": post["row_count"], "all_rows_exact": post["valid"], "validated": post["valid"], "safe_hint": "A fresh connection verified exact checksums, uniqueness and table count."}]
+        if not post["valid"]:
+            report.update({"status": "failed", "controlled_staging_executor_status": "reconciliation_required", "commit_state_requires_reconciliation": True,
+                           "bad_safety_codes": ["task234_post_commit_reconciliation_required"],
+                           "rollback_recovery_rows": [{"recovery_index": 1, "rollback_required": False, "reconciliation_required": True, "validated": False, "safe_hint": "Committed state requires an idempotent Phase A reconciliation rerun."}],
+                           "next_step": "Rerun Task234 Phase A against the same Task233 plan."})
+            return _task234_publish(_task234_finalize(report), artifacts)
+        mutation = bool(outcome["inserted_row_count"] or outcome["updated_row_count"])
+        report.update({"status": "passed" if mutation else "warning", "controlled_staging_executor_status": "passed" if mutation else "already_applied",
+                       "ready_for_task235_controlled_staging_post_write_verification_gate": True,
+                       "next_task_rows": _task234_next_rows(True), "next_tasks_valid": True,
+                       "task235_readiness_preview_rows": [{"readiness_index": 1, "task_id": "Task235", "allowed_now": True, "validated": True, "safe_hint": "Exact committed or already-applied state is ready for independent verification."}],
+                       "next_step": "Task235 - Controlled Staging Post-Write Verification and Idempotency Gate",
+                       "safe_hint": "Task234 atomically applied or confirmed exact controlled staging and retained only sanitized evidence."})
+        report = _task234_finalize(report)
+        if not _task234_validate_projection(report):
+            report = _task234_empty_report("failed", executor_status="reconciliation_required", errors=["task234_concrete_data_non_retention_invalid"], bad_safety_codes=["task234_post_commit_reconciliation_required"], transaction={"transaction_started": True, "transaction_committed": True, "database_mutated": mutation, "inserted_row_count": outcome["inserted_row_count"], "updated_row_count": outcome["updated_row_count"], "commit_state_requires_reconciliation": True})
+        return _task234_publish(report, artifacts)
+    except UnicodeDecodeError:
+        return _task234_publish(_task234_empty_report("failed", errors=["task233_utf8_invalid"]), artifacts)
+    except json.JSONDecodeError:
+        return _task234_publish(_task234_empty_report("failed", errors=["task233_json_invalid"]), artifacts)
+    except _Task234Blocked as exc:
+        return _task234_publish(_task234_empty_report("blocked", blockers=[str(exc)]), artifacts)
+    except OSError:
+        return _task234_publish(_task234_empty_report("failed", errors=["task234_read_or_database_failed"]), artifacts)
+    except Exception:
+        return _task234_publish(_task234_empty_report("failed", errors=["task234_internal_validation_failed"]), artifacts)
+    finally:
+        if adapter and adapter.get("owns_engine") is True:
+            try: adapter["engine"].dispose()
+            except Exception: pass
 
 
 def _exact_document_draft_gate_row_safety_flags() -> dict[str, bool]:

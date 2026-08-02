@@ -35875,6 +35875,223 @@ def test_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_
         original_rmtree(temporary)
 
 
+def _write_task234_ready_task233(chain: Path, tmp_path: Path, monkeypatch) -> dict:
+    task231b, task232 = _write_task233_ready_task232(chain, tmp_path, monkeypatch)
+    metadata_path = tmp_path / f"{chain.name}-task234-metadata.json"
+    metadata_path.write_text(json.dumps(_task233_target_metadata(task232, task231b), ensure_ascii=False), encoding="utf-8")
+    task233 = _run_task233(chain, metadata_input=metadata_path)
+    assert task233["status"] == "warning"
+    assert task233["ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor"] is True
+    return task233
+
+
+def _task234_isolated_engine(path: Path):
+    from sqlalchemy import create_engine
+    from app.models.controlled_financial_statement_value import ControlledFinancialStatementValue
+
+    engine = create_engine(f"sqlite:///{path}")
+    ControlledFinancialStatementValue.__table__.create(engine)
+    return engine
+
+
+def _task234_db_payload(payload: dict) -> dict:
+    return assistant._task234_payload_for_database(payload)
+
+
+def _task234_unrelated_payload(seed: dict, index: int) -> dict:
+    from app.services.controlled_financial_statement_value_service import ControlledFinancialStatementValueService
+
+    payload = copy.deepcopy(seed)
+    payload.update({
+        "company_id": f"unrelated_{index:03d}", "company_name": f"Unrelated {index}",
+        "metric_key": f"unrelated_metric_{index:03d}", "metric_name_ru": f"Unrelated RU {index}",
+        "metric_name_en": f"Unrelated EN {index}", "raw_line": f"Unrelated source line {index}",
+        "source_pdf_sha256": hashlib.sha256(f"unrelated-{index}".encode()).hexdigest(),
+    })
+    payload["natural_key"] = ControlledFinancialStatementValueService.build_natural_key(payload)
+    payload["natural_key_sha256"] = ControlledFinancialStatementValueService.build_natural_key_sha256(payload)
+    payload.pop("row_checksum_sha256", None)
+    payload["row_checksum_sha256"] = ControlledFinancialStatementValueService.build_row_checksum_sha256(payload)
+    return payload
+
+
+def _task234_install_adapter(monkeypatch, engine, *, failure_hook=None) -> None:
+    monkeypatch.setattr(
+        assistant, "_task234_database_adapter",
+        lambda: {"engine": engine, "production": False, "owns_engine": False, "failure_hook": failure_hook},
+    )
+
+
+def _run_task234(
+    chain: Path, *, task233_input: Path | None = None, challenge: str = "", token: str = "",
+    confirmed: bool = False, extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode", "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-executor",
+        "--operator-resolution-chain-output-dir", str(chain),
+    ]
+    if task233_input is not None:
+        arguments.extend(["--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-executor-input", str(task233_input)])
+    if challenge:
+        arguments.extend(["--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-authorization-challenge-sha256", challenge])
+    if token:
+        arguments.extend(["--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-approved-token", token])
+    if confirmed:
+        arguments.append("--confirm-rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-execution")
+    arguments.extend(extra or [])
+    report, exit_code = assistant.run_assistant(assistant.parse_args(arguments))
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def _task234_token(report: dict) -> str:
+    return (
+        f"APPLY_TASK234_{report['controlled_staging_authorization_challenge_sha256'][:16].upper()}_"
+        f"{report['planned_insert_count']}I_{report['planned_update_count']}U_{report['planned_noop_count']}N"
+    )
+
+
+def test_controlled_staging_executor_phase_a_phase_b_and_idempotency_contract(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    from sqlalchemy import func, select
+    from app.models.controlled_financial_statement_value import ControlledFinancialStatementValue
+
+    chain = tmp_path / "chain"; chain.mkdir()
+    task233 = _write_task234_ready_task233(chain, tmp_path, monkeypatch)
+    engine = _task234_isolated_engine(tmp_path / "task234.db")
+    table = ControlledFinancialStatementValue.__table__
+    with engine.begin() as connection:
+        connection.execute(table.insert(), [_task234_db_payload(_task234_unrelated_payload(task233["controlled_staging_plan_rows"][0]["target_payload"], index)) for index in range(1, 25)])
+    _task234_install_adapter(monkeypatch, engine)
+
+    phase_a = _run_task234(chain)
+    assert phase_a["status"] == "warning" and phase_a["controlled_staging_executor_status"] == "authorization_required"
+    assert phase_a["planned_insert_count"] == 4 and phase_a["planned_update_count"] == phase_a["planned_noop_count"] == 0
+    assert phase_a["live_db_table_row_count_before"] == phase_a["live_db_table_row_count_after"] == 24
+    assert phase_a["transaction_started"] is False and phase_a["database_mutated"] is False
+    approved = _run_task234(chain, challenge=phase_a["controlled_staging_authorization_challenge_sha256"], token=_task234_token(phase_a), confirmed=True)
+    assert approved["status"] == "passed" and approved["controlled_staging_executor_status"] == "passed"
+    assert approved["transaction_started"] is approved["transaction_committed"] is True
+    assert approved["inserted_row_count"] == 4 and approved["updated_row_count"] == approved["noop_row_count"] == 0
+    assert approved["live_db_table_row_count_before"] == 24 and approved["live_db_table_row_count_after"] == 28
+    assert approved["ready_for_task235_controlled_staging_post_write_verification_gate"] is True
+    assert [row["task_id"] for row in approved["next_task_rows"] if row["allowed_now"]] == ["Task235"]
+
+    stale = _run_task234(chain, challenge=phase_a["controlled_staging_authorization_challenge_sha256"], token=_task234_token(phase_a), confirmed=True)
+    assert stale["status"] == "blocked" and stale["authorization_challenge_stale"] is True
+    assert stale["transaction_started"] is False
+    fresh = _run_task234(chain)
+    assert fresh["planned_noop_count"] == 4 and fresh["planned_insert_count"] == fresh["planned_update_count"] == 0
+    noop = _run_task234(chain, challenge=fresh["controlled_staging_authorization_challenge_sha256"], token=_task234_token(fresh), confirmed=True)
+    assert noop["status"] == "warning" and noop["controlled_staging_executor_status"] == "already_applied"
+    assert noop["noop_row_count"] == 4 and noop["live_db_table_row_count_after"] == 28
+    with engine.connect() as connection:
+        assert connection.execute(select(func.count()).select_from(table)).scalar_one() == 28
+    names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ARTIFACT_NAMES
+    assert len(names) == len(set(names.values())) == 20
+    for name in names.values():
+        text = (chain / name).read_text(encoding="utf-8")
+        assert all(f'"{key}"' not in text for key in ("target_payload", "company_id", "value_2025", "raw_line", "approval_token", "database_url"))
+    assert not list(tmp_path.glob(".task234-controlled-staging-executor-*"))
+    engine.dispose()
+
+
+def test_controlled_staging_executor_mixed_actions_and_blocked_contracts(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    from app.models.controlled_financial_statement_value import ControlledFinancialStatementValue
+    from app.services.controlled_financial_statement_value_service import ControlledFinancialStatementValueService
+
+    chain = tmp_path / "chain"; chain.mkdir()
+    task233 = _write_task234_ready_task233(chain, tmp_path, monkeypatch)
+    engine = _task234_isolated_engine(tmp_path / "mixed.db"); table = ControlledFinancialStatementValue.__table__
+    payloads = [copy.deepcopy(row["target_payload"]) for row in task233["controlled_staging_plan_rows"]]
+    update_payload = copy.deepcopy(payloads[2]); update_payload["raw_line"] = "Prior reviewed payload"
+    update_payload.pop("row_checksum_sha256")
+    update_payload["row_checksum_sha256"] = ControlledFinancialStatementValueService.build_row_checksum_sha256(update_payload)
+    with engine.begin() as connection:
+        connection.execute(table.insert(), [_task234_db_payload(payloads[0]), _task234_db_payload(payloads[1]), _task234_db_payload(update_payload)])
+    _task234_install_adapter(monkeypatch, engine)
+    phase_a = _run_task234(chain)
+    assert (phase_a["planned_insert_count"], phase_a["planned_update_count"], phase_a["planned_noop_count"]) == (1, 1, 2)
+    mixed = _run_task234(chain, challenge=phase_a["controlled_staging_authorization_challenge_sha256"], token=_task234_token(phase_a), confirmed=True)
+    assert mixed["status"] == "passed"
+    assert (mixed["inserted_row_count"], mixed["updated_row_count"], mixed["noop_row_count"]) == (1, 1, 2)
+    incomplete = _run_task234(chain, challenge="0" * 64)
+    assert incomplete["status"] == "blocked" and incomplete["transaction_started"] is False
+    invalid = _run_task234(chain, challenge="0" * 64, token="APPLY_TASK234_INVALID", confirmed=True)
+    assert invalid["status"] == "blocked" and invalid["transaction_started"] is False
+
+    corrupt = tmp_path / "corrupt"; shutil.copytree(chain, corrupt)
+    task233_name = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ARTIFACT_NAMES["staging_plan_json"]
+    document = json.loads((corrupt / task233_name).read_text(encoding="utf-8")); document["planned_staging_row_count"] += 1
+    (corrupt / task233_name).write_text(json.dumps(document), encoding="utf-8")
+    blocked = _run_task234(corrupt)
+    assert blocked["status"] == "blocked" and blocked["execution_result_rows"] == []
+
+    monkeypatch.setattr(assistant, "_task234_database_adapter", lambda: (_ for _ in ()).throw(assistant._Task234Blocked("task234_database_dialect_unsupported")))
+    dialect = _run_task234(chain)
+    assert dialect["status"] == "blocked" and dialect["database_mutated"] is False
+    engine.dispose()
+
+
+def test_controlled_staging_executor_failure_rollback_and_atomic_contracts(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    from sqlalchemy import func, select
+    from app.models.controlled_financial_statement_value import ControlledFinancialStatementValue
+
+    chain = tmp_path / "chain"; chain.mkdir()
+    _write_task234_ready_task233(chain, tmp_path, monkeypatch)
+    engine = _task234_isolated_engine(tmp_path / "rollback.db"); table = ControlledFinancialStatementValue.__table__
+    _task234_install_adapter(monkeypatch, engine)
+    phase_a = _run_task234(chain)
+    def fail_second_write(event: str, index: int) -> None:
+        if event == "before_write" and index == 2: raise RuntimeError("private second write failure")
+    _task234_install_adapter(monkeypatch, engine, failure_hook=fail_second_write)
+    failed = _run_task234(chain, challenge=phase_a["controlled_staging_authorization_challenge_sha256"], token=_task234_token(phase_a), confirmed=True)
+    assert failed["status"] == "failed" and failed["transaction_started"] is failed["transaction_rolled_back"] is True
+    assert failed["transaction_committed"] is False and failed["inserted_row_count"] == failed["updated_row_count"] == 0
+    assert failed["execution_result_rows"] and "private second write failure" not in json.dumps(failed)
+    with engine.connect() as connection:
+        assert connection.execute(select(func.count()).select_from(table)).scalar_one() == 0
+
+    def fail_ambiguous_commit(event: str, _index: int) -> None:
+        if event == "commit_attempt": raise RuntimeError("private ambiguous commit failure")
+    _task234_install_adapter(monkeypatch, engine, failure_hook=fail_ambiguous_commit)
+    ambiguous = _run_task234(chain, challenge=phase_a["controlled_staging_authorization_challenge_sha256"], token=_task234_token(phase_a), confirmed=True)
+    assert ambiguous["status"] == "failed" and ambiguous["controlled_staging_executor_status"] == "reconciliation_required"
+    assert ambiguous["transaction_started"] is True and ambiguous["transaction_committed"] is ambiguous["transaction_rolled_back"] is False
+    assert ambiguous["commit_state_requires_reconciliation"] is True
+    assert ambiguous["bad_safety_codes"] == ["task234_post_commit_reconciliation_required"]
+    assert ambiguous["ready_for_task235_controlled_staging_post_write_verification_gate"] is False
+    assert "private ambiguous commit failure" not in json.dumps(ambiguous)
+    with engine.connect() as connection:
+        assert connection.execute(select(func.count()).select_from(table)).scalar_one() == 0
+
+    _task234_install_adapter(monkeypatch, engine)
+    malformed = tmp_path / "malformed-task233.json"; malformed.write_text('{"schema_version": invalid', encoding="utf-8")
+    assert _run_task234(chain, task233_input=malformed)["status"] == "failed"
+    invalid_utf = tmp_path / "invalid-task233.json"; invalid_utf.write_bytes(b"\xff\xfe")
+    assert _run_task234(chain, task233_input=invalid_utf)["status"] == "failed"
+
+    original_replace = assistant.os.replace
+    def fail_publication(source, target):
+        if Path(source).name == "01.md" or Path(source).name.startswith("backup-"):
+            raise OSError("private task234 publication path")
+        return original_replace(source, target)
+    monkeypatch.setattr(assistant.os, "replace", fail_publication)
+    publication = _run_task234(chain)
+    monkeypatch.setattr(assistant.os, "replace", original_replace)
+    assert publication["status"] == "failed" and publication["write_outputs"] is False
+    assert publication["bad_safety_codes"] == ["task234_artifact_rollback_state_uncertain"]
+    assert "private task234 publication path" not in json.dumps(publication)
+    for temporary in tmp_path.glob(".task234-controlled-staging-executor-*"):
+        shutil.rmtree(temporary)
+    engine.dispose()
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
