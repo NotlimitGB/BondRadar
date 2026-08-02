@@ -35544,6 +35544,337 @@ def test_materialized_normalized_fact_and_complete_period_pair_review_gate_faile
     assert "private task232 rollback path" not in json.dumps(write_failed)
 
 
+def _task233_target_metadata(task232: dict, task231b: dict) -> dict:
+    companies: dict[str, tuple[str, str]] = {}
+    rows = []
+    for index, pair in enumerate(task231b["complete_period_pair_rows"], 1):
+        binding = pair["issuer_binding_checksum_sha256"]
+        if binding not in companies:
+            company_index = len(companies) + 1
+            companies[binding] = (f"company_{company_index}", f"Synthetic Company {company_index}")
+        company_id, company_name = companies[binding]
+        rows.append({
+            "complete_period_pair_id": pair["complete_period_pair_id"],
+            "complete_period_pair_checksum_sha256": pair["complete_period_pair_checksum_sha256"],
+            "normalized_fact_id": pair["normalized_fact_id"],
+            "normalized_fact_checksum_sha256": pair["normalized_fact_checksum_sha256"],
+            "issuer_binding_checksum_sha256": binding,
+            "company_id": company_id,
+            "company_name": company_name,
+            "report_standard": "IFRS",
+            "metric_name_ru": f"Синтетический показатель {pair['metric_key']}",
+            "metric_name_en": f"Synthetic metric {pair['metric_key']}",
+            "statement_page": 1,
+            "page_number": index,
+            "raw_line": f"Reviewed synthetic source line {index}",
+            "note_reference": "",
+            "source_pdf_sha256": hashlib.sha256(f"task233-source-{index}".encode()).hexdigest(),
+            "company_identity_binding_confirmed": True,
+            "metric_metadata_binding_confirmed": True,
+            "source_pdf_binding_confirmed": True,
+            "raw_line_binding_confirmed": True,
+        })
+    return {
+        "schema_version": "bondradar.multi_issuer_controlled_staging_target_metadata.v1",
+        "source_task232_checksum_sha256": task232["multi_issuer_materialized_normalized_fact_and_complete_period_pair_review_gate_checksum_sha256"],
+        "source_task231b_checksum_sha256": task231b["multi_issuer_reviewed_normalized_fact_and_complete_period_pair_assembly_executor_checksum_sha256"],
+        "target_table": "controlled_financial_statement_values",
+        "target_model": "ControlledFinancialStatementValue",
+        "target_metadata_rows": list(reversed(rows)),
+    }
+
+
+def _write_task233_ready_task232(chain: Path, tmp_path: Path, monkeypatch) -> tuple[dict, dict]:
+    _write_task231b_ready_task231a(chain, tmp_path, monkeypatch)
+    task231b = _run_task231b(chain)
+    review = tmp_path / f"{chain.name}-task232-review.json"
+    review.write_text(json.dumps(_task232_review_document(task231b)), encoding="utf-8")
+    task232 = _run_task232(chain, review_input=review)
+    assert task232["status"] == "warning"
+    assert task232["ready_for_task233_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan"] is True
+    return task231b, task232
+
+
+def _run_task233(
+    chain: Path,
+    *,
+    task232_input: Path | None = None,
+    metadata_input: Path | None = None,
+    confirmed: bool = True,
+    extra: list[str] | None = None,
+) -> dict:
+    arguments = [
+        "--mode",
+        "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-plan",
+        "--operator-resolution-chain-output-dir", str(chain),
+    ]
+    if task232_input is not None:
+        arguments.extend([
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-plan-input",
+            str(task232_input),
+        ])
+    if metadata_input is not None:
+        arguments.extend([
+            "--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-target-metadata-input",
+            str(metadata_input),
+        ])
+    if confirmed:
+        arguments.append("--confirm-rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-target-metadata")
+    arguments.extend(extra or [])
+    report, exit_code = assistant.run_assistant(assistant.parse_args(arguments))
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def test_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_success_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from app.services.controlled_financial_statement_value_service import ControlledFinancialStatementValueService
+
+    chain = tmp_path / "chain"; chain.mkdir()
+    task231b, task232 = _write_task233_ready_task232(chain, tmp_path, monkeypatch)
+    metadata = _task233_target_metadata(task232, task231b)
+    metadata_path = tmp_path / "target-metadata.json"
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False), encoding="utf-8")
+    metadata_before = metadata_path.read_bytes()
+    clone = tmp_path / "clone"; shutil.copytree(chain, clone)
+    clone_metadata = copy.deepcopy(metadata)
+    clone_metadata["target_metadata_rows"].reverse()
+    clone_metadata_path = tmp_path / "clone-target-metadata.json"
+    clone_metadata_path.write_text(json.dumps(clone_metadata, ensure_ascii=False), encoding="utf-8")
+    upstream_before = {path: path.read_bytes() for path in chain.rglob("*") if path.is_file()}
+
+    names232 = set(assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_MATERIALIZED_FACT_PAIR_REVIEW_GATE_ARTIFACT_NAMES.values())
+    names231b = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_FACT_PAIR_EXECUTOR_ARTIFACT_NAMES
+    allowed231b = {names231b["executor_json"], names231b["materialized_normalized_fact_rows_json"], names231b["complete_period_pair_rows_json"]}
+    names233 = set(assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ARTIFACT_NAMES.values())
+    metadata_paths = {metadata_path.resolve(), clone_metadata_path.resolve()}
+    original_open = Path.open
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Task233 must not access network or extraction")
+
+    def guarded_open(path: Path, *args, **kwargs):
+        mode = str(args[0] if args else kwargs.get("mode", "r"))
+        if "r" in mode:
+            resolved = path.resolve()
+            allowed_name = path.name in names232 | allowed231b | names233 | {
+                "controlled_financial_statement_value.py",
+                "controlled_financial_statement_value_service.py",
+            }
+            if not allowed_name and resolved not in metadata_paths:
+                raise AssertionError(f"Task233 reopened forbidden artifact: {path.name}")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(assistant, "_task222_controlled_http_get", forbidden)
+    monkeypatch.setattr(assistant, "_task222_extract_pdf", forbidden)
+    monkeypatch.setattr(Path, "open", guarded_open)
+    report = _run_task233(chain, metadata_input=metadata_path)
+    clone_report = _run_task233(clone, metadata_input=clone_metadata_path)
+    monkeypatch.setattr(Path, "open", original_open)
+
+    assert report["status"] == "warning", (report["blocker_rows"], report["errors"])
+    assert report["reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_ready"] is True
+    assert report["task232_validation_completed"] is True
+    assert report["task232_artifact_validation_completed"] is True
+    assert report["task232_full_approval_validation_completed"] is True
+    assert report["task231b_direct_source_validation_completed"] is True
+    assert report["target_metadata_input_validated"] is True
+    assert report["target_metadata_binding_validation_completed"] is True
+    assert report["controlled_staging_plan_created"] is True
+    assert report["controlled_staging_plan_complete"] is True
+    assert report["planned_staging_row_count"] == report["planned_upsert_row_count"] == 4
+    assert report["unique_natural_key_count"] == 4
+    assert report["target_value_storage_contract_valid"] is True
+    assert report["ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor"] is True
+    assert [row["task_id"] for row in report["next_task_rows"] if row["allowed_now"]] == ["Task234"]
+    assert all(report[field] is False for field in assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ALWAYS_FALSE_FIELDS)
+    pairs = {row["complete_period_pair_id"]: row for row in task231b["complete_period_pair_rows"]}
+    for row in report["controlled_staging_plan_rows"]:
+        source = pairs[row["complete_period_pair_id"]]
+        payload = row["target_payload"]
+        assert payload["report_year"] == 2025
+        assert payload["value_2025"] == payload["raw_value_2025"] == source["counterpart_value_numeric"]
+        assert payload["value_2024"] == payload["raw_value_2024"] == source["current_normalized_value"]
+        assert payload["natural_key"] == ControlledFinancialStatementValueService.build_natural_key(payload)
+        assert payload["natural_key_sha256"] == ControlledFinancialStatementValueService.build_natural_key_sha256(payload)
+        checksum_payload = dict(payload); expected_checksum = checksum_payload.pop("row_checksum_sha256")
+        assert expected_checksum == ControlledFinancialStatementValueService.build_row_checksum_sha256(checksum_payload)
+        assert ControlledFinancialStatementValueService.validate_controlled_value_payload(payload) == []
+    names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ARTIFACT_NAMES
+    assert len(names) == len(set(names.values())) == 20
+    concrete_roles = {"staging_plan_json", "controlled_staging_plan_rows_json"}
+    concrete_fields = {"company_id", "company_name", "value_2025", "value_2024", "raw_line", "source_pdf_sha256", "natural_key"}
+    for key, name in names.items():
+        text = (chain / name).read_text(encoding="utf-8")
+        if key not in concrete_roles:
+            assert all(f'"{field}"' not in text for field in concrete_fields)
+        assert "source_url" not in text and "evidence_candidate_id" not in text
+        assert (chain / name).read_bytes() == (clone / name).read_bytes()
+    for key, expected in assistant._task233_wrappers(report).items():
+        assert json.loads((chain / names[key]).read_text(encoding="utf-8")) == expected
+    assert (chain / names["staging_plan_markdown"]).read_text(encoding="utf-8") == assistant.render_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_markdown(report)
+    assert metadata_path.read_bytes() == metadata_before
+    assert {path: path.read_bytes() for path in upstream_before} == upstream_before
+    assert not list(tmp_path.glob(".task233-controlled-staging-plan-*"))
+
+
+def test_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_blocks_invalid_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task231b, task232 = _write_task233_ready_task232(chain, tmp_path, monkeypatch)
+    base = _task233_target_metadata(task232, task231b)
+    metadata_path = tmp_path / "metadata.json"; metadata_path.write_text(json.dumps(base), encoding="utf-8")
+    assert _run_task233(chain, metadata_input=None)["status"] == "blocked"
+    assert _run_task233(chain, metadata_input=metadata_path, confirmed=False)["status"] == "blocked"
+
+    mutations = (
+        lambda doc: doc["target_metadata_rows"].pop(),
+        lambda doc: doc["target_metadata_rows"].append(copy.deepcopy(doc["target_metadata_rows"][0])),
+        lambda doc: doc["target_metadata_rows"][0].update(issuer_binding_checksum_sha256="0" * 64),
+        lambda doc: doc["target_metadata_rows"][0].update(company_name=""),
+        lambda doc: doc["target_metadata_rows"][0].update(page_number=0),
+        lambda doc: doc["target_metadata_rows"][0].update(source_pdf_sha256="invalid"),
+        lambda doc: doc["target_metadata_rows"][0].update(raw_line_binding_confirmed=False),
+    )
+    for index, mutate in enumerate(mutations, 1):
+        document = copy.deepcopy(base); mutate(document)
+        path = tmp_path / f"invalid-metadata-{index}.json"; path.write_text(json.dumps(document), encoding="utf-8")
+        blocked = _run_task233(chain, metadata_input=path)
+        assert blocked["status"] == "blocked"
+        assert blocked["planned_staging_row_count"] == 0
+        assert blocked["ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor"] is False
+
+    duplicate = copy.deepcopy(base)
+    by_metric: dict[str, dict] = {}
+    for metadata_row in duplicate["target_metadata_rows"]:
+        pair = next(row for row in task231b["complete_period_pair_rows"] if row["complete_period_pair_id"] == metadata_row["complete_period_pair_id"])
+        prior = by_metric.get(pair["metric_key"])
+        if prior:
+            metadata_row["company_id"] = prior["company_id"]
+            metadata_row["company_name"] = prior["company_name"]
+            metadata_row["statement_page"] = prior["statement_page"]
+            break
+        by_metric[pair["metric_key"]] = metadata_row
+    duplicate_path = tmp_path / "duplicate-natural-key.json"; duplicate_path.write_text(json.dumps(duplicate), encoding="utf-8")
+    assert _run_task233(chain, metadata_input=duplicate_path)["status"] == "blocked"
+    for value in ("1.234", "12345678901234567890123.00", "1e2", "NaN", "Infinity"):
+        assert assistant._task233_decimal_compatible(value) is False
+
+    corrupt = tmp_path / "corrupt"; shutil.copytree(chain, corrupt)
+    names232 = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_MATERIALIZED_FACT_PAIR_REVIEW_GATE_ARTIFACT_NAMES
+    wrapper = corrupt / names232["checks_json"]
+    payload = json.loads(wrapper.read_text(encoding="utf-8")); payload["synthetic_corruption"] = True
+    wrapper.write_text(json.dumps(payload), encoding="utf-8")
+    assert _run_task233(corrupt, metadata_input=metadata_path)["status"] == "blocked"
+
+    extra_artifact = chain / "rzd_manual_official_pdf_multi_issuer_task233_unexpected.json"
+    extra_artifact.write_text("{}", encoding="utf-8")
+    exact_family_blocked = _run_task233(chain, metadata_input=metadata_path)
+    assert exact_family_blocked["status"] == "blocked"
+    assert exact_family_blocked["write_outputs"] is False
+    assert exact_family_blocked["controlled_staging_plan_rows"] == []
+    extra_artifact.unlink()
+
+    original_read_text = Path.read_text
+    def incompatible_model_source(path: Path, *args, **kwargs):
+        text = original_read_text(path, *args, **kwargs)
+        if path.name == "controlled_financial_statement_value.py":
+            return text.replace(
+                '__tablename__ = "controlled_financial_statement_values"',
+                '__tablename__ = "unexpected_controlled_values"',
+            )
+        return text
+    monkeypatch.setattr(Path, "read_text", incompatible_model_source)
+    schema_blocked = _run_task233(chain, metadata_input=metadata_path)
+    monkeypatch.setattr(Path, "read_text", original_read_text)
+    assert schema_blocked["status"] == "blocked"
+    assert schema_blocked["ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor"] is False
+
+
+def test_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan_failed_and_atomic_contracts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"; chain.mkdir()
+    task231b, task232 = _write_task233_ready_task232(chain, tmp_path, monkeypatch)
+    metadata_path = tmp_path / "metadata.json"; metadata_path.write_text(json.dumps(_task233_target_metadata(task232, task231b)), encoding="utf-8")
+    malformed = tmp_path / "malformed.json"; malformed.write_text('{"schema_version": invalid', encoding="utf-8")
+    assert _run_task233(chain, metadata_input=malformed)["status"] == "failed"
+    invalid_utf = tmp_path / "invalid-utf.json"; invalid_utf.write_bytes(b"\xff\xfe")
+    assert _run_task233(chain, metadata_input=invalid_utf)["status"] == "failed"
+
+    names232 = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_MATERIALIZED_FACT_PAIR_REVIEW_GATE_ARTIFACT_NAMES
+    collision_target = chain / names232["checks_json"]; collision_before = collision_target.read_bytes()
+    collision = _run_task233(chain, metadata_input=metadata_path, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-plan-safety-output",
+        str(collision_target),
+    ])
+    assert collision["status"] == "blocked" and collision["write_outputs"] is False
+    assert collision_target.read_bytes() == collision_before
+
+    older_target = chain / next(iter(
+        assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_SOURCE_CANDIDATE_SEED_REVIEW_GATE_ARTIFACT_NAMES.values()
+    ))
+    older_target.write_bytes(b"older-upstream-artifact")
+    older_collision = _run_task233(chain, metadata_input=metadata_path, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-plan-checks-output",
+        str(older_target),
+    ])
+    assert older_collision["status"] == "blocked" and older_collision["write_outputs"] is False
+    assert older_target.read_bytes() == b"older-upstream-artifact"
+
+    payload_root = chain / assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_EVIDENCE_EXTRACTION_DRY_RUN_EXECUTOR_PAYLOAD_DIR
+    payload_root.mkdir(exist_ok=True)
+    payload_output = payload_root / "forbidden-task233-output.json"
+    payload_collision = _run_task233(chain, metadata_input=metadata_path, extra=[
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-plan-scope-output",
+        str(payload_output),
+    ])
+    assert payload_collision["status"] == "blocked" and payload_collision["write_outputs"] is False
+    assert not payload_output.exists()
+    payload_metadata = payload_root / "forbidden-metadata.json"
+    payload_metadata.write_bytes(b"\xff\xfe")
+    forbidden_input = _run_task233(chain, metadata_input=payload_metadata)
+    assert forbidden_input["status"] == "blocked" and forbidden_input["write_outputs"] is False
+    symlink_parent = tmp_path / "payload-link"
+    try:
+        symlink_parent.symlink_to(payload_root, target_is_directory=True)
+    except OSError:
+        pass
+    else:
+        symlinked_input = _run_task233(chain, metadata_input=symlink_parent / payload_metadata.name)
+        assert symlinked_input["status"] == "blocked" and symlinked_input["write_outputs"] is False
+
+    original_replace = assistant.os.replace
+    def fail_mid_publication(source, target):
+        if Path(source).name == "01.md" or Path(source).name.startswith("backup-"):
+            raise OSError("private task233 rollback path must not leak")
+        return original_replace(source, target)
+    monkeypatch.setattr(assistant.os, "replace", fail_mid_publication)
+    failed = _run_task233(chain, metadata_input=metadata_path)
+    monkeypatch.setattr(assistant.os, "replace", original_replace)
+    assert failed["status"] == "failed" and failed["write_outputs"] is False
+    assert failed["bad_safety_codes"] == ["task233_artifact_rollback_state_uncertain"]
+    assert failed["controlled_staging_plan_created"] is False
+    assert failed["planned_staging_row_count"] == 0
+    assert "private task233 rollback path" not in json.dumps(failed)
+
+    original_rmtree = assistant.shutil.rmtree
+    monkeypatch.setattr(assistant.shutil, "rmtree", lambda *_args, **_kwargs: None)
+    cleanup_failed = _run_task233(chain, metadata_input=metadata_path)
+    monkeypatch.setattr(assistant.shutil, "rmtree", original_rmtree)
+    assert cleanup_failed["status"] == "failed" and cleanup_failed["write_outputs"] is False
+    assert cleanup_failed["bad_safety_codes"] == ["task233_artifact_rollback_state_uncertain"]
+    assert cleanup_failed["controlled_staging_plan_rows"] == []
+    assert cleanup_failed["ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor"] is False
+    for temporary in tmp_path.glob(".task233-controlled-staging-plan-*"):
+        original_rmtree(temporary)
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
