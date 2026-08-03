@@ -109555,8 +109555,33 @@ def _task227_template_validation_rows(
         ("workspace_template_checksum_exact", task226.get("multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256") == expected_task226.get("multi_issuer_normalization_and_period_pairing_workspace_template_checksum_sha256")),
         ("normalization_rows_exact", task226.get("normalization_workspace_rows") == expected_task226.get("normalization_workspace_rows")),
         ("counterpart_rows_exact", task226.get("counterpart_binding_rows") == expected_task226.get("counterpart_binding_rows")),
-        ("template_normalization_count", isinstance(template, dict) and template.get("expected_normalization_workspace_row_count") == 4),
-        ("template_counterpart_count", isinstance(template, dict) and template.get("expected_counterpart_binding_row_count") == 4),
+        (
+            "template_normalization_count",
+            # TASK227_DYNAMIC_WORKSPACE_COUNTS_FIX
+            isinstance(template, dict)
+            and template.get(
+                "expected_normalization_workspace_row_count"
+            )
+            == int(
+                task226.get(
+                    "normalization_workspace_row_count"
+                )
+                or 0
+            ),
+        ),
+        (
+            "template_counterpart_count",
+            isinstance(template, dict)
+            and template.get(
+                "expected_counterpart_binding_row_count"
+            )
+            == int(
+                task226.get(
+                    "counterpart_binding_row_count"
+                )
+                or 0
+            ),
+        ),
     )
     return [
         {
@@ -109882,8 +109907,18 @@ def _build_task227_report(
     )
     authorization_scope_valid = bool(
         authorization_scope_valid
-        and len(normalization_rows) == len(task226.get("normalization_workspace_rows") or []) == 4
-        and len(counterpart_rows) == len(task226.get("counterpart_binding_rows") or []) == 4
+        and len(normalization_rows)
+        == len(task226.get("normalization_workspace_rows") or [])
+        == int(
+            task226.get("normalization_workspace_row_count")
+            or 0
+        )
+        and len(counterpart_rows)
+        == len(task226.get("counterpart_binding_rows") or [])
+        == int(
+            task226.get("counterpart_binding_row_count")
+            or 0
+        )
         and len(normalization_field_rows) == len(RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_OPERATOR_FIELDS)
         and len(counterpart_field_rows) == len(RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_AUTH_GATE_COUNTERPART_FIELDS)
         and [row.get("field_name") for row in normalization_field_rows]
