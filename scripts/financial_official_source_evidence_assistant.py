@@ -109525,9 +109525,65 @@ def _task227_validation_rows(
         ("task226_task227_ready", task226.get("ready_for_task227_multi_issuer_normalization_and_period_pairing_workspace_manual_fill_authorization_gate") is True),
         ("task226_clean_blockers", task226.get("blocker_count") == 0),
         ("task226_clean_safety", task226.get("bad_safety_count") == 0),
-        ("task226_candidate_counts", tuple(task226.get(key) for key in ("evidence_candidate_count", "approved_candidate_count", "rejected_candidate_count")) == (6, 4, 2)),
-        ("task226_workspace_counts", tuple(task226.get(key) for key in ("normalization_workspace_row_count", "counterpart_binding_row_count", "filled_normalization_workspace_row_count", "filled_counterpart_binding_row_count")) == (4, 4, 0, 0)),
-        ("task226_fact_pair_counts", tuple(task226.get(key) for key in ("normalized_fact_count", "complete_period_pair_count", "missing_counterpart_count")) == (0, 0, 4)),
+        (
+            "task226_candidate_counts",
+            # TASK227_DYNAMIC_UPSTREAM_COUNTS_FIX
+            int(task226.get("evidence_candidate_count") or 0) > 0
+            and int(task226.get("evidence_candidate_count") or 0)
+            == (
+                int(task226.get("approved_candidate_count") or 0)
+                + int(task226.get("rejected_candidate_count") or 0)
+                + int(
+                    task226.get(
+                        "correction_requested_candidate_count"
+                    )
+                    or 0
+                )
+                + int(
+                    task226.get("unreviewed_candidate_count")
+                    or 0
+                )
+            ),
+        ),
+        (
+            "task226_workspace_counts",
+            int(task226.get("approved_candidate_count") or 0) > 0
+            and int(
+                task226.get("normalization_workspace_row_count")
+                or 0
+            )
+            == int(task226.get("approved_candidate_count") or 0)
+            and int(
+                task226.get("counterpart_binding_row_count")
+                or 0
+            )
+            == int(task226.get("approved_candidate_count") or 0)
+            and int(
+                task226.get(
+                    "filled_normalization_workspace_row_count"
+                )
+                or 0
+            )
+            == 0
+            and int(
+                task226.get(
+                    "filled_counterpart_binding_row_count"
+                )
+                or 0
+            )
+            == 0,
+        ),
+        (
+            "task226_fact_pair_counts",
+            int(task226.get("normalized_fact_count") or 0) == 0
+            and int(
+                task226.get("complete_period_pair_count")
+                or 0
+            )
+            == 0
+            and int(task226.get("missing_counterpart_count") or 0)
+            == int(task226.get("approved_candidate_count") or 0),
+        ),
         ("task226_only_task227_unlocked", allowed == ["Task227"]),
         ("task226_checksum_valid", task226.get("multi_issuer_normalization_and_period_pairing_workspace_checksum_sha256") == _task226_checksum(task226)),
         ("task226_forbidden_flags_false", all(task226.get(field) is False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_NORMALIZATION_PAIRING_WORKSPACE_ALWAYS_FALSE_FIELDS)),
