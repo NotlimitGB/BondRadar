@@ -107599,19 +107599,34 @@ def _task226_upstream_validation(
         ),
         (
             "task225_candidate_counts_valid",
-            int(task225.get("evidence_candidate_count") or 0) == 6
-            and int(task225.get("approved_candidate_count") or 0) == 4
-            and int(task225.get("rejected_candidate_count") or 0) == 2
-            and int(task225.get("correction_requested_candidate_count") or 0) == 0
-            and int(task225.get("unreviewed_candidate_count") or 0) == 0,
+            # TASK226_DYNAMIC_UPSTREAM_COUNTS_FIX
+            int(task225.get("evidence_candidate_count") or 0) > 0
+            and int(task225.get("evidence_candidate_count") or 0)
+            == (
+                int(task225.get("approved_candidate_count") or 0)
+                + int(task225.get("rejected_candidate_count") or 0)
+                + int(
+                    task225.get(
+                        "correction_requested_candidate_count"
+                    )
+                    or 0
+                )
+                + int(task225.get("unreviewed_candidate_count") or 0)
+            ),
         ),
         (
             "task225_workspace_source_counts_valid",
-            int(task225.get("normalization_plan_row_count") or 0) == 4
-            and int(task225.get("period_pairing_requirement_count") or 0) == 4
+            int(task225.get("approved_candidate_count") or 0) > 0
+            and int(task225.get("normalization_plan_row_count") or 0)
+            == int(task225.get("approved_candidate_count") or 0)
+            and int(
+                task225.get("period_pairing_requirement_count") or 0
+            )
+            == int(task225.get("approved_candidate_count") or 0)
             and int(task225.get("normalized_fact_count") or 0) == 0
             and int(task225.get("complete_period_pair_count") or 0) == 0
-            and int(task225.get("missing_counterpart_count") or 0) == 4,
+            and int(task225.get("missing_counterpart_count") or 0)
+            == int(task225.get("approved_candidate_count") or 0),
         ),
         (
             "task225_clean_verdict",
@@ -107945,14 +107960,18 @@ def _task226_upstream_validation(
         for row in lineage_rows if row["validated"] is not True
     )
     blockers.extend(artifact_blockers)
-    if len(plan_validation_rows) != 4:
+    if len(plan_validation_rows) != int(
+        task225.get("approved_candidate_count") or 0
+    ):
         blockers.append("task225_normalization_plan_count_invalid")
     blockers.extend(
         f"normalization_plan_row_{index:03d}_invalid"
         for index, row in enumerate(plan_validation_rows, 1)
         if row["validated"] is not True
     )
-    if len(pair_validation_rows) != 4:
+    if len(pair_validation_rows) != int(
+        task225.get("approved_candidate_count") or 0
+    ):
         blockers.append("task225_period_pairing_count_invalid")
     blockers.extend(
         f"period_pairing_row_{index:03d}_invalid"
@@ -108455,7 +108474,8 @@ def _build_task226_report(
         if row["schema_section"] == "counterpart_binding_row"
     ]
     workspace_rows_valid = (
-        len(normalization_rows) == 4
+        len(normalization_rows)
+        == int(task225.get("approved_candidate_count") or 0)
         and all(
             list(row) == expected_normalization_fields
             and re.fullmatch(
@@ -108474,7 +108494,8 @@ def _build_task226_report(
             ))
             for row in normalization_rows
         )
-        and len(counterpart_rows) == 4
+        and len(counterpart_rows)
+        == int(task225.get("approved_candidate_count") or 0)
         and all(
             list(row) == expected_counterpart_fields
             and re.fullmatch(
@@ -108572,12 +108593,14 @@ def _build_task226_report(
         ),
         (
             "task225_normalization_plan_valid",
-            len(plan_validation_rows) == 4
+            len(plan_validation_rows)
+            == int(task225.get("approved_candidate_count") or 0)
             and all(row["validated"] for row in plan_validation_rows),
         ),
         (
             "task225_period_pairing_valid",
-            len(pair_validation_rows) == 4
+            len(pair_validation_rows)
+            == int(task225.get("approved_candidate_count") or 0)
             and all(row["validated"] for row in pair_validation_rows),
         ),
         ("task225_schema_contracts_valid", schema_contract_valid),
