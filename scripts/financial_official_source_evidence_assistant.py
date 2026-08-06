@@ -101939,6 +101939,31 @@ def _task223_task222_validation_rows(
         for row in job_results if isinstance(row, dict)
     ]
     stages = task222.get("extraction_stage_result_rows") or []
+    cache_only_job_rows = task220.get("dry_run_job_rows") or []
+    cache_only_execution_path = (
+        len(cache_only_job_rows) == 3
+        and all(
+            isinstance(row, dict)
+            and row.get("source_type_key")
+                == "previously_cached_controlled_source"
+            and row.get("network_access_required") is False
+            and row.get("document_download_required") is False
+            and row.get("controlled_cache_lookup_required") is True
+            for row in cache_only_job_rows
+        )
+        and task221.get("network_access_authorized") is False
+        and task221.get("document_download_authorized") is False
+        and task221.get("controlled_cache_lookup_authorized") is True
+        and task222.get("dns_resolution_executed") is False
+        and task222.get("http_request_executed") is False
+        and task222.get("document_download_executed") is False
+        and task222.get("controlled_cache_lookup_executed") is True
+        and task222.get("source_access_executed") is True
+        and task222.get("evidence_extraction_executed") is True
+        and task222.get(
+            "evidence_candidate_generation_executed"
+        ) is True
+    )
     expected_stage_rows = [
         (job_id, slot, stage_id, stage_index)
         for job_id, slot in zip(expected_ids, expected_slots)
@@ -102032,9 +102057,20 @@ def _task223_task222_validation_rows(
             and task222.get("extraction_stage_row_count") == 36
             and actual_stage_rows == expected_stage_rows
             and all(
-                row.get("stage_status") == "completed"
-                and row.get("completed") is True
-                and not row.get("failure_code")
+                (
+                    row.get("stage_status") == "completed"
+                    and row.get("completed") is True
+                    and not row.get("failure_code")
+                )
+                or (
+                    cache_only_execution_path
+                    and row.get("stage_id")
+                        == "05_retrieve_document_when_required"
+                    and row.get("stage_status") == "not_required"
+                    and row.get("completed") is False
+                    and not row.get("failure_code")
+                    and row.get("started_side_effect") is False
+                )
                 for row in stages if isinstance(row, dict)
             ),
         ),
@@ -102048,12 +102084,20 @@ def _task223_task222_validation_rows(
         (
             "task222_execution_flags",
             all(task222.get(field) is True for field in (
-                "dns_resolution_executed", "http_request_executed",
-                "source_access_executed", "document_download_executed",
+                "source_access_executed",
                 "evidence_extraction_executed",
                 "evidence_candidate_generation_executed",
             ))
-            and task222.get("controlled_cache_lookup_executed") is False,
+            and (
+                (
+                    task222.get("dns_resolution_executed") is True
+                    and task222.get("http_request_executed") is True
+                    and task222.get("document_download_executed") is True
+                    and task222.get("controlled_cache_lookup_executed")
+                        is False
+                )
+                or cache_only_execution_path
+            ),
         ),
         (
             "task222_journal_checksum",

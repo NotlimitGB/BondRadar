@@ -52933,3 +52933,284 @@ def test_task222_v2_uses_nearest_unit_caption() -> None:
         "USD million",
         1_000_000,
     )
+
+def test_task223_validation_accepts_authorized_cache_only_task222_path(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Task223 accepts network and authorized cache-only paths."""
+    chain = tmp_path / "chain"
+    chain.mkdir()
+
+    task222, _, _ = _write_task223_ready_task222(
+        chain,
+        tmp_path,
+        monkeypatch,
+    )
+
+    def load_report(filename: str) -> dict:
+        return json.loads(
+            (chain / filename).read_text(encoding="utf-8")
+        )
+
+    task217 = load_report(
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "source_candidate_seed_manual_fill_authorization_gate_task217.json"
+    )
+    task218 = load_report(
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "source_candidate_seed_authorized_manual_draft_loader_task218.json"
+    )
+    task219 = load_report(
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "source_candidate_seed_validation_and_manual_review_task219.json"
+    )
+    task220 = load_report(
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "evidence_extraction_dry_run_plan_task220.json"
+    )
+    task221 = load_report(
+        "rzd_manual_official_pdf_controlled_values_multi_issuer_"
+        "evidence_extraction_dry_run_authorization_gate_task221.json"
+    )
+
+    def validation_by_key(
+        document: dict,
+        *,
+        plan: dict = task220,
+        authorization: dict = task221,
+    ) -> dict[str, dict]:
+        rows = assistant._task223_task222_validation_rows(
+            document,
+            authorization,
+            plan,
+            task219,
+            task218,
+            task217,
+        )
+
+        return {
+            row["validation_key"]: row
+            for row in rows
+        }
+
+    network_rows = validation_by_key(task222)
+
+    assert all(
+        row["passed"] is True
+        for row in network_rows.values()
+    )
+
+    cache_plan = copy.deepcopy(task220)
+
+    for row in cache_plan["dry_run_job_rows"]:
+        row.update({
+            "source_type_key":
+                "previously_cached_controlled_source",
+            "network_access_required": False,
+            "document_download_required": False,
+            "controlled_cache_lookup_required": True,
+        })
+
+    cache_authorization = copy.deepcopy(task221)
+
+    cache_authorization.update({
+        "network_access_authorized": False,
+        "document_download_authorized": False,
+        "controlled_cache_lookup_authorized": True,
+    })
+
+    cache_only = copy.deepcopy(task222)
+
+    cache_only.update({
+        "dns_resolution_executed": False,
+        "http_request_executed": False,
+        "document_download_executed": False,
+        "controlled_cache_lookup_executed": True,
+    })
+
+    retrieval_rows = [
+        row
+        for row in cache_only[
+            "extraction_stage_result_rows"
+        ]
+        if row["stage_id"]
+            == "05_retrieve_document_when_required"
+    ]
+
+    assert len(retrieval_rows) == 3
+
+    for row in retrieval_rows:
+        row.update({
+            "stage_status": "not_required",
+            "completed": False,
+            "failure_code": "",
+            "started_side_effect": False,
+        })
+
+    cache_rows = validation_by_key(
+        cache_only,
+        plan=cache_plan,
+        authorization=cache_authorization,
+    )
+
+    assert cache_rows[
+        "task222_exact_stage_contract"
+    ]["passed"] is True
+
+    assert cache_rows[
+        "task222_execution_flags"
+    ]["passed"] is True
+
+    invalid_cases = []
+
+    mixed_http = copy.deepcopy(cache_only)
+    mixed_http["http_request_executed"] = True
+    invalid_cases.append((
+        "mixed_http",
+        mixed_http,
+        cache_plan,
+        cache_authorization,
+        "task222_execution_flags",
+    ))
+
+    missing_cache_lookup = copy.deepcopy(cache_only)
+    missing_cache_lookup[
+        "controlled_cache_lookup_executed"
+    ] = False
+    invalid_cases.append((
+        "missing_cache_lookup",
+        missing_cache_lookup,
+        cache_plan,
+        cache_authorization,
+        "task222_execution_flags",
+    ))
+
+    unexpected_download = copy.deepcopy(cache_only)
+    unexpected_download[
+        "document_download_executed"
+    ] = True
+    invalid_cases.append((
+        "unexpected_download",
+        unexpected_download,
+        cache_plan,
+        cache_authorization,
+        "task222_execution_flags",
+    ))
+
+    wrong_authorization = copy.deepcopy(
+        cache_authorization
+    )
+    wrong_authorization[
+        "network_access_authorized"
+    ] = True
+    invalid_cases.append((
+        "wrong_authorization",
+        cache_only,
+        cache_plan,
+        wrong_authorization,
+        "task222_execution_flags",
+    ))
+
+    wrong_plan = copy.deepcopy(cache_plan)
+    wrong_plan[
+        "dry_run_job_rows"
+    ][0]["source_type_key"] = "official_pdf_url"
+    invalid_cases.append((
+        "wrong_plan",
+        cache_only,
+        wrong_plan,
+        cache_authorization,
+        "task222_execution_flags",
+    ))
+
+    wrong_stage_status = copy.deepcopy(cache_only)
+    next(
+        row
+        for row in wrong_stage_status[
+            "extraction_stage_result_rows"
+        ]
+        if row["stage_id"]
+            == "05_retrieve_document_when_required"
+    )["stage_status"] = "completed"
+    invalid_cases.append((
+        "wrong_stage_status",
+        wrong_stage_status,
+        cache_plan,
+        cache_authorization,
+        "task222_exact_stage_contract",
+    ))
+
+    started_retrieval = copy.deepcopy(cache_only)
+    next(
+        row
+        for row in started_retrieval[
+            "extraction_stage_result_rows"
+        ]
+        if row["stage_id"]
+            == "05_retrieve_document_when_required"
+    )["started_side_effect"] = True
+    invalid_cases.append((
+        "started_retrieval",
+        started_retrieval,
+        cache_plan,
+        cache_authorization,
+        "task222_exact_stage_contract",
+    ))
+
+    failed_retrieval = copy.deepcopy(cache_only)
+    next(
+        row
+        for row in failed_retrieval[
+            "extraction_stage_result_rows"
+        ]
+        if row["stage_id"]
+            == "05_retrieve_document_when_required"
+    )["failure_code"] = "synthetic_failure"
+    invalid_cases.append((
+        "failed_retrieval",
+        failed_retrieval,
+        cache_plan,
+        cache_authorization,
+        "task222_exact_stage_contract",
+    ))
+
+    wrong_stage = copy.deepcopy(cache_only)
+    non_retrieval_row = next(
+        row
+        for row in wrong_stage[
+            "extraction_stage_result_rows"
+        ]
+        if row["stage_id"]
+            != "05_retrieve_document_when_required"
+    )
+    non_retrieval_row.update({
+        "stage_status": "not_required",
+        "completed": False,
+        "failure_code": "",
+        "started_side_effect": False,
+    })
+    invalid_cases.append((
+        "wrong_not_required_stage",
+        wrong_stage,
+        cache_plan,
+        cache_authorization,
+        "task222_exact_stage_contract",
+    ))
+
+    for (
+        case,
+        changed,
+        changed_plan,
+        changed_authorization,
+        validation_key,
+    ) in invalid_cases:
+        changed_rows = validation_by_key(
+            changed,
+            plan=changed_plan,
+            authorization=changed_authorization,
+        )
+
+        assert changed_rows[
+            validation_key
+        ]["passed"] is False, case
