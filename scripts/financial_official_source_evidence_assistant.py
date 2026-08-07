@@ -98516,6 +98516,21 @@ def _task222_v2_term_position(
         if index < 0:
             continue
 
+        # "Net profit" can appear as the denominator/label of a
+        # ratio rather than as the financial-statement metric itself.
+        # Do not let "Dividend to net profit" become a net-profit
+        # evidence candidate; the standalone "Net profit" row remains
+        # eligible and is resolved separately.
+        if (
+            field_key == "net_profit"
+            and term == "net profit"
+            and re.search(
+                r"\bdividends?\s+to\s*$",
+                normalized[:index],
+            )
+        ):
+            continue
+
         if result is None or index < result[0]:
             result = index, term
 

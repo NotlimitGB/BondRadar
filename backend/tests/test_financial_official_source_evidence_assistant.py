@@ -52531,6 +52531,97 @@ def test_task222_v2_number_tokens_preserve_grouped_thousands() -> None:
     ] == [12, -493, -567, -896]
 
 
+def test_task222_v2_rejects_dividend_to_net_profit_false_positive() -> None:
+    false_line = (
+        "Dividend to net profit       "
+        "37/33                    61/54                    "
+        "45/70                    35/57                    56/49"
+    )
+
+    assert assistant._task222_v2_term_position(
+        false_line,
+        "net_profit",
+    ) is None
+
+    false_page = """
+    in millions of US dollars
+    Indicator 2024 2025
+    Dividend to net profit 37/33 61/54 45/70 35/57 56/49
+    """
+
+    false_candidate = assistant._task222_v2_resolve_row(
+        field_key="net_profit",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "net_profit",
+            "raw_line": false_line,
+            "page_number": 1,
+            "line_number": 3,
+            "line_number_on_page": 3,
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=false_page,
+        report_year=2024,
+    )
+
+    assert false_candidate is None
+
+    valid_line = "Net profit 1,815 2,470 36%"
+
+    assert assistant._task222_v2_term_position(
+        valid_line,
+        "net_profit",
+    ) == (0, "net profit")
+
+    valid_page = """
+    in millions of US dollars
+    Indicator 2024 2025
+    Net profit 1,815 2,470 36%
+    """
+
+    valid_candidate = assistant._task222_v2_resolve_row(
+        field_key="net_profit",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "net_profit",
+            "raw_line": valid_line,
+            "page_number": 1,
+            "line_number": 3,
+            "line_number_on_page": 3,
+            "extraction_method":
+                "primary_statement_table_row_parser",
+            "extraction_confidence": "high",
+        },
+        page_text=valid_page,
+        report_year=2024,
+    )
+
+    assert valid_candidate is not None
+    assert valid_candidate[
+        "_task222_v2_report_year"
+    ] == 2024
+    assert valid_candidate[
+        "_task222_v2_column_label"
+    ] == "2024"
+    assert valid_candidate[
+        "_task222_v2_raw_value_text"
+    ] == "1,815"
+    assert valid_candidate[
+        "_task222_v2_numeric_value"
+    ] == 1815
+    assert valid_candidate[
+        "_task222_v2_currency"
+    ] == "USD"
+    assert valid_candidate[
+        "_task222_v2_unit"
+    ] == "USD million"
+    assert valid_candidate[
+        "_task222_v2_scale"
+    ] == 1_000_000
+
+
 def test_task222_v2_resolves_two_and_three_year_columns() -> None:
     rosneft_page = """
     (in billions of Russian rubles)
