@@ -52531,6 +52531,94 @@ def test_task222_v2_number_tokens_preserve_grouped_thousands() -> None:
     ] == [12, -493, -567, -896]
 
 
+def test_task222_v2_rejects_preceding_label_net_profit_contamination() -> None:
+    contaminated_line = (
+        "     Revenue                                     "
+        "Profit for the year                             "
+        "2,870                  (1,016)               2,470"
+    )
+
+    assert assistant._task222_v2_term_position(
+        contaminated_line,
+        "net_profit",
+    ) is None
+
+    contaminated_page = """
+    in millions of US dollars
+    Indicator 2023 2024 2025
+    Revenue                                     Profit for the year                             2,870 (1,016) 2,470
+    """
+
+    contaminated = assistant._task222_v2_resolve_row(
+        field_key="net_profit",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "net_profit",
+            "raw_line": contaminated_line,
+            "page_number": 1,
+            "line_number": 3,
+            "line_number_on_page": 3,
+            "extraction_method":
+                "task222_v2_direct_field_line",
+            "extraction_confidence": "high",
+        },
+        page_text=contaminated_page,
+        report_year=2024,
+    )
+
+    assert contaminated is None
+
+    clean_line = (
+        "     Profit for the year                         "
+        "2,870                  1,815               2,470"
+    )
+
+    clean_position = assistant._task222_v2_term_position(
+        clean_line,
+        "net_profit",
+    )
+
+    assert clean_position is not None
+    assert clean_position[1] == "profit for the year"
+
+    clean_page = """
+    in millions of US dollars
+    Indicator 2023 2024 2025
+    Profit for the year 2,870 1,815 2,470
+    """
+
+    clean = assistant._task222_v2_resolve_row(
+        field_key="net_profit",
+        row={
+            "target_type": "profit_or_loss",
+            "metric_key": "net_profit",
+            "raw_line": clean_line,
+            "page_number": 1,
+            "line_number": 3,
+            "line_number_on_page": 3,
+            "extraction_method":
+                "task222_v2_direct_field_line",
+            "extraction_confidence": "high",
+        },
+        page_text=clean_page,
+        report_year=2024,
+    )
+
+    assert clean is not None
+    assert clean["_task222_v2_numeric_value"] == 1815
+    assert clean["_task222_v2_currency"] == "USD"
+    assert clean["_task222_v2_unit"] == "USD million"
+    assert clean["_task222_v2_scale"] == 1_000_000
+
+    # Non-alphabetic prefixes such as bullets must remain valid.
+    bullet_position = assistant._task222_v2_term_position(
+        "• Net profit 1,815",
+        "net_profit",
+    )
+    assert bullet_position is not None
+    assert bullet_position[1] == "net profit"
+
+
 def test_task222_v2_rejects_dividend_to_net_profit_false_positive() -> None:
     false_line = (
         "Dividend to net profit       "

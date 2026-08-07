@@ -98531,6 +98531,22 @@ def _task222_v2_term_position(
         ):
             continue
 
+        # PDF layout extraction can merge two unrelated table blocks
+        # onto one physical line, for example:
+        #   Revenue                    Profit for the year 2,870 1,815 2,470
+        # For net profit, a preceding alphabetic label means the matched
+        # term belongs to a neighbouring column/table rather than the row
+        # that starts this physical line. Leading whitespace or bullets
+        # remain allowed for genuine standalone metric rows.
+        if (
+            field_key == "net_profit"
+            and re.search(
+                r"[A-Za-zА-Яа-яЁё]",
+                normalized[:index],
+            )
+        ):
+            continue
+
         if result is None or index < result[0]:
             result = index, term
 
