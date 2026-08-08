@@ -63,5 +63,11 @@ class ControlledFinancialStatementValueService:
             "natural_key",
             "natural_key_sha256",
             "row_checksum_sha256",
+            "currency_2025",
+            "unit_2025",
+            "scale_2025",
+            "currency_2024",
+            "unit_2024",
+            "scale_2024",
         )
         return [field for field in required if payload.get(field) in (None, "")]

@@ -35841,6 +35841,12 @@ def test_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_
         assert payload["report_year"] == 2025
         assert payload["value_2025"] == payload["raw_value_2025"] == source["counterpart_value_numeric"]
         assert payload["value_2024"] == payload["raw_value_2024"] == source["current_normalized_value"]
+        assert payload["currency_2025"] == source["counterpart_currency"]
+        assert payload["unit_2025"] == source["counterpart_unit"]
+        assert payload["scale_2025"] == source["counterpart_scale"]
+        assert payload["currency_2024"] == source["current_currency"]
+        assert payload["unit_2024"] == source["current_unit"]
+        assert payload["scale_2024"] == source["current_scale"]
         assert payload["natural_key"] == ControlledFinancialStatementValueService.build_natural_key(payload)
         assert payload["natural_key_sha256"] == ControlledFinancialStatementValueService.build_natural_key_sha256(payload)
         checksum_payload = dict(payload); expected_checksum = checksum_payload.pop("row_checksum_sha256")
@@ -36017,6 +36023,44 @@ def test_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_
     assert cleanup_failed["ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor"] is False
     for temporary in tmp_path.glob(".task233-controlled-staging-plan-*"):
         original_rmtree(temporary)
+
+
+def test_task233_period_specific_storage_metadata_accepts_semantic_equivalence() -> None:
+    rub_pair = {
+        "current_report_period": 2024,
+        "counterpart_report_period": 2025,
+        "current_currency": "RUB",
+        "current_unit": "billion",
+        "current_scale": "1e9",
+        "counterpart_currency": "RUB",
+        "counterpart_unit": "RUB billion",
+        "counterpart_scale": "1000000000",
+    }
+
+    usd_pair = {
+        "current_report_period": 2024,
+        "counterpart_report_period": 2025,
+        "current_currency": "USD",
+        "current_unit": "million",
+        "current_scale": "1e6",
+        "counterpart_currency": "USD",
+        "counterpart_unit": "USD million",
+        "counterpart_scale": "1000000",
+    }
+
+    assert assistant._task233_pair_storage_semantics_supported(rub_pair)
+    assert assistant._task233_pair_storage_semantics_supported(usd_pair)
+
+    assert not assistant._task233_pair_storage_semantics_supported({
+        **usd_pair,
+        "counterpart_currency": "EUR",
+        "counterpart_unit": "EUR million",
+    })
+
+    assert not assistant._task233_pair_storage_semantics_supported({
+        **usd_pair,
+        "counterpart_scale": "1000000000",
+    })
 
 
 def _write_task234_ready_task233(chain: Path, tmp_path: Path, monkeypatch) -> dict:

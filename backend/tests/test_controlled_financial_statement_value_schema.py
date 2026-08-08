@@ -50,6 +50,12 @@ REQUIRED_CONTROLLED_VALUE_COLUMNS = {
     "row_checksum_sha256",
     "created_at",
     "updated_at",
+    "currency_2025",
+    "unit_2025",
+    "scale_2025",
+    "currency_2024",
+    "unit_2024",
+    "scale_2024",
 }
 
 
@@ -89,6 +95,46 @@ def test_controlled_financial_statement_value_migration_creates_table() -> None:
         "uq_controlled_financial_statement_values_natural_key_sha256",
     ):
         assert expected in text
+
+
+def test_controlled_financial_statement_value_period_metadata_columns() -> None:
+    table = ControlledFinancialStatementValue.__table__
+
+    expected_lengths = {
+        "currency_2025": 16,
+        "unit_2025": 64,
+        "scale_2025": 32,
+        "currency_2024": 16,
+        "unit_2024": 64,
+        "scale_2024": 32,
+    }
+
+    for field, expected_length in expected_lengths.items():
+        column = table.c[field]
+        assert column.nullable is False
+        assert column.type.length == expected_length
+
+
+def test_controlled_financial_statement_value_period_metadata_migration() -> None:
+    migration = (
+        ROOT / "backend" / "alembic" / "versions"
+        / "202608080001_controlled_financial_statement_value_period_metadata.py"
+    )
+    text = migration.read_text(encoding="utf-8")
+
+    for field in (
+        "currency_2025",
+        "unit_2025",
+        "scale_2025",
+        "currency_2024",
+        "unit_2024",
+        "scale_2024",
+    ):
+        assert f'"{field}"' in text
+
+    assert 'server_default="RUB"' in text
+    assert 'server_default="RUB million"' in text
+    assert 'server_default="1000000"' in text
 
 
 def test_controlled_financial_statement_value_checksum_helpers_are_deterministic() -> None:
@@ -159,6 +205,12 @@ def _controlled_value_payload() -> dict[str, object]:
         "value_2024": Decimal("90.00"),
         "raw_value_2025": "100",
         "raw_value_2024": "90",
+        "currency_2025": "RUB",
+        "unit_2025": "RUB million",
+        "scale_2025": "1000000",
+        "currency_2024": "RUB",
+        "unit_2024": "RUB million",
+        "scale_2024": "1000000",
         "raw_line": "Итого доходы 100 90",
         "note_reference": "",
         "source_pdf_sha256": "a" * 64,

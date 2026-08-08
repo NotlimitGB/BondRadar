@@ -118425,6 +118425,12 @@ _TASK233_TARGET_PAYLOAD_FIELDS = {
     "raw_line", "note_reference", "source_pdf_sha256", "plan_checksum_sha256",
     "plan_rows_checksum_sha256", "natural_key", "natural_key_sha256",
     "row_checksum_sha256",
+    "currency_2025",
+    "unit_2025",
+    "scale_2025",
+    "currency_2024",
+    "unit_2024",
+    "scale_2024",
 }
 
 
@@ -118933,6 +118939,12 @@ def _task233_validate_target_contract_sources() -> tuple[list[dict[str, Any]], l
         "source_pdf_sha256": 64, "plan_checksum_sha256": 64,
         "plan_rows_checksum_sha256": 64, "natural_key_sha256": 64,
         "row_checksum_sha256": 64,
+        "currency_2025": 16,
+        "unit_2025": 64,
+        "scale_2025": 32,
+        "currency_2024": 16,
+        "unit_2024": 64,
+        "scale_2024": 32,
     }
     lengths_valid = True
     for field, expected_length in expected_lengths.items():
@@ -119172,6 +119184,67 @@ def _task233_parse_metadata(
     return normalized, metadata_checksum, binding_rows, list(dict.fromkeys(blockers))
 
 
+def _task233_storage_metadata_value_valid(
+    currency: Any,
+    unit: Any,
+    scale: Any,
+) -> bool:
+    if not (
+        isinstance(currency, str)
+        and bool(currency.strip())
+        and len(currency) <= 16
+        and isinstance(unit, str)
+        and bool(unit.strip())
+        and len(unit) <= 64
+        and isinstance(scale, str)
+        and bool(scale.strip())
+        and len(scale) <= 32
+    ):
+        return False
+
+    return _task231a_raw_metadata_compatible(
+        currency.strip(),
+        unit.strip(),
+        scale.strip(),
+        currency.strip(),
+        unit.strip(),
+        scale.strip(),
+    )
+
+
+def _task233_pair_storage_semantics_supported(
+    source_pair: dict[str, Any],
+) -> bool:
+    current_currency = source_pair.get("current_currency")
+    current_unit = source_pair.get("current_unit")
+    current_scale = source_pair.get("current_scale")
+
+    counterpart_currency = source_pair.get("counterpart_currency")
+    counterpart_unit = source_pair.get("counterpart_unit")
+    counterpart_scale = source_pair.get("counterpart_scale")
+
+    return (
+        source_pair.get("current_report_period") == 2024
+        and source_pair.get("counterpart_report_period") == 2025
+        and _task233_storage_metadata_value_valid(
+            current_currency,
+            current_unit,
+            current_scale,
+        )
+        and _task233_storage_metadata_value_valid(
+            counterpart_currency,
+            counterpart_unit,
+            counterpart_scale,
+        )
+        and _task231a_raw_metadata_compatible(
+            str(counterpart_currency or ""),
+            str(counterpart_unit or ""),
+            str(counterpart_scale or ""),
+            current_currency,
+            current_unit,
+            current_scale,
+        )
+    )
 def _task233_payload_base_valid(payload: dict[str, Any]) -> bool:
     return (
         set(payload) == _TASK233_TARGET_PAYLOAD_FIELDS - {"row_checksum_sha256"}
@@ -119186,6 +119259,16 @@ def _task233_payload_base_valid(payload: dict[str, Any]) -> bool:
         and isinstance(payload.get("metric_name_en"), str) and 0 < len(payload["metric_name_en"]) <= 255
         and isinstance(payload.get("statement_page"), int) and not isinstance(payload.get("statement_page"), bool) and payload["statement_page"] > 0
         and isinstance(payload.get("page_number"), int) and not isinstance(payload.get("page_number"), bool) and payload["page_number"] > 0
+        and _task233_storage_metadata_value_valid(
+            payload.get("currency_2025"),
+            payload.get("unit_2025"),
+            payload.get("scale_2025"),
+        )
+        and _task233_storage_metadata_value_valid(
+            payload.get("currency_2024"),
+            payload.get("unit_2024"),
+            payload.get("scale_2024"),
+        )
         and _task233_decimal_compatible(payload.get("value_2025"))
         and _task233_decimal_compatible(payload.get("value_2024"))
         and payload.get("raw_value_2025") == payload.get("value_2025") and len(payload.get("raw_value_2025") or "") <= 64
@@ -119215,13 +119298,7 @@ def _task233_build_plan(
         metadata = metadata_by_pair.get(source_pair.get("complete_period_pair_id")) or {}
         fact_decision = fact_decisions.get(fact.get("normalized_fact_id")) or {}
         pair_decision = pair_decisions.get(source_pair.get("complete_period_pair_id")) or {}
-        supported = (
-            source_pair.get("current_report_period") == 2024
-            and source_pair.get("counterpart_report_period") == 2025
-            and source_pair.get("current_currency") == source_pair.get("counterpart_currency") == "RUB"
-            and source_pair.get("current_unit") == source_pair.get("counterpart_unit") == "RUB million"
-            and source_pair.get("current_scale") == source_pair.get("counterpart_scale") == "1000000"
-        )
+        supported = _task233_pair_storage_semantics_supported(source_pair)
         if not supported: blockers.append("target_value_storage_semantics_unsupported")
         current_value = source_pair.get("current_normalized_value")
         counterpart_value = source_pair.get("counterpart_value_numeric")
@@ -119254,6 +119331,12 @@ def _task233_build_plan(
             "note_reference": metadata.get("note_reference"), "source_pdf_sha256": metadata.get("source_pdf_sha256"),
             "plan_checksum_sha256": "", "plan_rows_checksum_sha256": "",
         }
+        payload["currency_2025"] = str(source_pair.get("counterpart_currency") or "")
+        payload["unit_2025"] = str(source_pair.get("counterpart_unit") or "")
+        payload["scale_2025"] = str(source_pair.get("counterpart_scale") or "")
+        payload["currency_2024"] = str(source_pair.get("current_currency") or "")
+        payload["unit_2024"] = str(source_pair.get("current_unit") or "")
+        payload["scale_2024"] = str(source_pair.get("current_scale") or "")
         payload["natural_key"] = _task233_build_natural_key(payload)
         payload["natural_key_sha256"] = _task233_build_natural_key_sha256(payload)
         core = {
@@ -119273,7 +119356,7 @@ def _task233_build_plan(
             "controlled_field_key": source_pair.get("controlled_field_key"),
             "target_table": "controlled_financial_statement_values", "target_model": "ControlledFinancialStatementValue",
             "target_operation": "upsert_by_natural_key", "duplicate_policy": "natural_key_update_existing",
-            "target_value_storage_semantics": "reported_rub_million_exact_decimal", "target_payload_base": payload,
+            "target_value_storage_semantics": "reported_value_with_period_specific_currency_unit_scale_exact_decimal", "target_payload_base": payload,
         }
         core_checksum = _rzd_controlled_values_import_plan_sha(core)
         row_id = "task233_controlled_staging_plan_" + _rzd_controlled_values_import_plan_sha({
@@ -119300,7 +119383,7 @@ def _task233_build_plan(
         "target_schema_contract": {
             "table": "controlled_financial_statement_values", "model": "ControlledFinancialStatementValue",
             "report_year": 2025, "current_period": 2024, "counterpart_period": 2025,
-            "numeric": "Numeric(24,2)", "storage": "reported_rub_million_exact_decimal",
+            "numeric": "Numeric(24,2)", "storage": "reported_value_with_period_specific_currency_unit_scale_exact_decimal",
         },
         "safety_boundary": {
             field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ALWAYS_FALSE_FIELDS
@@ -119355,6 +119438,12 @@ _TASK233_CONCRETE_KEYS = {
     "company_id", "company_name", "metric_name_ru", "metric_name_en", "statement_page",
     "page_number", "value_2025", "value_2024", "raw_value_2025", "raw_value_2024",
     "raw_line", "note_reference", "source_pdf_sha256", "natural_key",
+    "currency_2025",
+    "unit_2025",
+    "scale_2025",
+    "currency_2024",
+    "unit_2024",
+    "scale_2024",
 }
 
 
@@ -119563,7 +119652,7 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_material
         "summary_index": 1, "planned_staging_row_count": len(plan_rows),
         "planned_upsert_row_count": len(plan_rows), "unique_natural_key_count": len(plan_rows),
         "target_table": "controlled_financial_statement_values", "target_model": "ControlledFinancialStatementValue",
-        "target_value_storage_semantics": "reported_rub_million_exact_decimal",
+        "target_value_storage_semantics": "reported_value_with_period_specific_currency_unit_scale_exact_decimal",
         "controlled_staging_plan_complete": True,
         "safe_hint": "One approved complete period pair maps to one immutable upsert plan row.",
     }]
@@ -119588,7 +119677,7 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_material
         "ready_for_task234_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor": True,
         "next_tasks_valid": True, "write_outputs": True,
         "target_table": "controlled_financial_statement_values", "target_model": "ControlledFinancialStatementValue",
-        "target_value_storage_semantics": "reported_rub_million_exact_decimal",
+        "target_value_storage_semantics": "reported_value_with_period_specific_currency_unit_scale_exact_decimal",
         "unique_natural_key_count": len(plan_rows),
         "source_task232_checksum_sha256": task232["multi_issuer_materialized_normalized_fact_and_complete_period_pair_review_gate_checksum_sha256"],
         "source_task232_fact_review_checksum_sha256": task232["multi_issuer_materialized_normalized_fact_review_decisions_checksum_sha256"],
@@ -120027,6 +120116,13 @@ def _task234_validate_task233(
         valid = isinstance(row, dict) and set(row) == _TASK234_TASK233_ROW_FIELDS
         payload = row.get("target_payload") if isinstance(row, dict) and isinstance(row.get("target_payload"), dict) else {}
         valid = valid and set(payload) == _TASK233_TARGET_PAYLOAD_FIELDS
+        valid = valid and _task233_payload_base_valid(
+            {
+                key: value
+                for key, value in payload.items()
+                if key != "row_checksum_sha256"
+            }
+        )
         payload_without_checksum = dict(payload); actual_payload_checksum = payload_without_checksum.pop("row_checksum_sha256", "")
         valid = valid and not service.validate_controlled_value_payload(payload)
         valid = valid and _task233_payload_base_valid(payload_without_checksum)
@@ -120041,7 +120137,7 @@ def _task234_validate_task233(
         valid = valid and row.get("controlled_staging_plan_row_index") == index
         valid = valid and row.get("target_table") == "controlled_financial_statement_values" and row.get("target_model") == "ControlledFinancialStatementValue"
         valid = valid and row.get("target_operation") == "upsert_by_natural_key" and row.get("duplicate_policy") == "natural_key_update_existing"
-        valid = valid and row.get("target_value_storage_semantics") == "reported_rub_million_exact_decimal"
+        valid = valid and row.get("target_value_storage_semantics") == "reported_value_with_period_specific_currency_unit_scale_exact_decimal"
         valid = valid and row.get("staging_planned") is True and all(row.get(field) is False for field in ("staging_executed", "database_write_authorized", "database_mutated"))
         payload_base = dict(payload_without_checksum)
         payload_base["plan_checksum_sha256"] = ""; payload_base["plan_rows_checksum_sha256"] = ""
@@ -120075,7 +120171,7 @@ def _task234_validate_task233(
         "target_schema_contract": {
             "table": "controlled_financial_statement_values", "model": "ControlledFinancialStatementValue",
             "report_year": 2025, "current_period": 2024, "counterpart_period": 2025,
-            "numeric": "Numeric(24,2)", "storage": "reported_rub_million_exact_decimal",
+            "numeric": "Numeric(24,2)", "storage": "reported_value_with_period_specific_currency_unit_scale_exact_decimal",
         },
         "safety_boundary": {field: False for field in RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ALWAYS_FALSE_FIELDS},
     })

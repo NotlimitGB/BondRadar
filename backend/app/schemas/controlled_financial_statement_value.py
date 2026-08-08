@@ -22,6 +22,12 @@ class ControlledFinancialStatementValueBase(BaseModel):
     value_2024: Decimal
     raw_value_2025: str = Field(..., min_length=1, max_length=64)
     raw_value_2024: str = Field(..., min_length=1, max_length=64)
+    currency_2025: str = Field(..., min_length=1, max_length=16)
+    unit_2025: str = Field(..., min_length=1, max_length=64)
+    scale_2025: str = Field(..., min_length=1, max_length=32)
+    currency_2024: str = Field(..., min_length=1, max_length=16)
+    unit_2024: str = Field(..., min_length=1, max_length=64)
+    scale_2024: str = Field(..., min_length=1, max_length=32)
     raw_line: str = Field(..., min_length=1)
     note_reference: str = Field(default="", max_length=64)
     source_pdf_sha256: str = Field(..., min_length=64, max_length=64)
