@@ -35103,6 +35103,54 @@ def test_approved_counterpart_value_contract_snapshot_gate_failed_and_atomic_con
     assert "private synthetic path" not in json.dumps(write_failed)
 
 
+def test_task231b_executor_uses_semantic_counterpart_metadata_compatibility(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    chain = tmp_path / "chain"
+    chain.mkdir()
+
+    _, task230, _, _, _ = _write_task231b_ready_task231a(
+        chain,
+        tmp_path,
+        monkeypatch,
+    )
+
+    calls: list[tuple[object, ...]] = []
+
+    def reject_semantic_pair(*args):
+        calls.append(args)
+        return False
+
+    monkeypatch.setattr(
+        assistant,
+        "_task231a_raw_metadata_compatible",
+        reject_semantic_pair,
+    )
+
+    report = _run_task231b(chain)
+
+    assert report["status"] == "blocked"
+
+    assert len(calls) == len(
+        task230["period_pair_plan_rows"]
+    )
+
+    codes = {
+        row["code"]
+        for row in report["blocker_rows"]
+    }
+
+    assert all(
+        f"complete_period_pair_source_{index:03d}_invalid"
+        in codes
+        for index in range(
+            1,
+            len(task230["period_pair_plan_rows"]) + 1,
+        )
+    )
+
+
 def _run_task231b(
     chain: Path,
     *,

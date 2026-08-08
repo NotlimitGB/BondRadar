@@ -117228,10 +117228,13 @@ def run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_normaliz
             fact = fact_by_id.get(fact_plan_id) or {}
             contract = contracts_by_pair.get(pair_plan_id) or {}
             contract_checksum = str(contract.get("approved_counterpart_value_contract_checksum_sha256") or "")
-            compatible = (
-                fact.get("normalized_currency") == contract.get("approved_raw_currency")
-                and fact.get("normalized_unit") == contract.get("approved_raw_unit")
-                and fact.get("normalized_scale") == contract.get("approved_raw_scale")
+            compatible = _task231a_raw_metadata_compatible(
+                str(contract.get("approved_raw_currency") or ""),
+                str(contract.get("approved_raw_unit") or ""),
+                str(contract.get("approved_raw_scale") or ""),
+                fact.get("normalized_currency"),
+                fact.get("normalized_unit"),
+                fact.get("normalized_scale"),
             )
             valid = (
                 bool(pair_plan_id) and bool(fact) and bool(contract)
