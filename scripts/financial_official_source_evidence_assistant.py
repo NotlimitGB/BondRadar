@@ -115143,6 +115143,63 @@ def _task231a_next_rows(allowed: bool) -> list[dict[str, Any]]:
     }]
 
 
+def _task231a_raw_metadata_compatible(
+    raw_currency: str,
+    raw_unit: str,
+    raw_scale: str,
+    normalized_currency: Any,
+    normalized_unit: Any,
+    normalized_scale: Any,
+) -> bool:
+    from decimal import Decimal, InvalidOperation
+
+    raw_currency_text = str(raw_currency or "").strip()
+    normalized_currency_text = str(normalized_currency or "").strip()
+    raw_unit_text = " ".join(str(raw_unit or "").split())
+    normalized_unit_text = " ".join(str(normalized_unit or "").split())
+    raw_scale_text = str(raw_scale or "").strip()
+    normalized_scale_text = str(normalized_scale or "").strip()
+
+    if (
+        not raw_currency_text
+        or raw_currency_text != normalized_currency_text
+        or not raw_unit_text
+        or not normalized_unit_text
+        or not raw_scale_text
+        or not normalized_scale_text
+    ):
+        return False
+
+    normalized_currency_unit = " ".join(
+        part
+        for part in (
+            normalized_currency_text,
+            normalized_unit_text,
+        )
+        if part
+    )
+
+    if raw_unit_text not in {
+        normalized_unit_text,
+        normalized_currency_unit,
+    }:
+        return False
+
+    try:
+        raw_scale_value = Decimal(raw_scale_text)
+        normalized_scale_value = Decimal(
+            normalized_scale_text
+        )
+    except (InvalidOperation, ValueError):
+        return False
+
+    return (
+        raw_scale_value.is_finite()
+        and normalized_scale_value.is_finite()
+        and raw_scale_value == normalized_scale_value
+    )
+
+
 def _task231a_build_value_rows(
     task230: dict[str, Any], task228: dict[str, Any],
     task224_bindings: dict[str, Path], task225_bindings: dict[str, Path],
@@ -115385,9 +115442,14 @@ def _task231a_build_value_rows(
         raw_contract_valid = (
             candidate_shape_valid and _task228_decimal_valid(raw_numeric)
             and strings_valid
-            and raw_currency == current.get("normalized_currency")
-            and raw_unit == current.get("normalized_unit")
-            and raw_scale == current.get("normalized_scale")
+            and _task231a_raw_metadata_compatible(
+                raw_currency,
+                raw_unit,
+                raw_scale,
+                current.get("normalized_currency"),
+                current.get("normalized_unit"),
+                current.get("normalized_scale"),
+            )
         )
         valid = identity_valid and current_contract_valid and raw_contract_valid
         if candidate_id:

@@ -34791,6 +34791,67 @@ def _write_task231a_ready_task230(
     return task228, task230, task224_path, task225_path
 
 
+def test_task231a_raw_metadata_compatible_accepts_semantic_unit_and_scale_equivalence(
+) -> None:
+    assert assistant._task231a_raw_metadata_compatible(
+        "RUB",
+        "RUB billion",
+        "1000000000",
+        "RUB",
+        "billion",
+        "1e9",
+    )
+    assert assistant._task231a_raw_metadata_compatible(
+        "USD",
+        "USD million",
+        "1000000",
+        "USD",
+        "million",
+        "1e6",
+    )
+    assert assistant._task231a_raw_metadata_compatible(
+        "USD",
+        "USD million",
+        "1000000",
+        "USD",
+        "USD million",
+        "1000000",
+    )
+
+    assert not assistant._task231a_raw_metadata_compatible(
+        "USD",
+        "USD billion",
+        "1000000",
+        "USD",
+        "million",
+        "1e6",
+    )
+    assert not assistant._task231a_raw_metadata_compatible(
+        "EUR",
+        "EUR million",
+        "1000000",
+        "USD",
+        "million",
+        "1e6",
+    )
+    assert not assistant._task231a_raw_metadata_compatible(
+        "USD",
+        "USD million",
+        "1000000000",
+        "USD",
+        "million",
+        "1e6",
+    )
+    assert not assistant._task231a_raw_metadata_compatible(
+        "USD",
+        "USD million",
+        "Infinity",
+        "USD",
+        "million",
+        "Infinity",
+    )
+
+
 def test_approved_counterpart_value_contract_snapshot_gate_success_contract(
     tmp_path: Path,
     monkeypatch,
