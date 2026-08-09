@@ -154,6 +154,7 @@ MODE_CHOICES = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-materialized-normalized-fact-and-complete-period-pair-review-gate",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-plan",
     "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-fact-and-complete-period-pair-controlled-staging-executor",
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-post-write-verification-and-idempotency-gate",
     "source-trust-recovery-workspace-v2",
     "source-trust-recovery-validate-v2",
     "source-trust-recovery-apply-draft-v2",
@@ -13420,6 +13421,21 @@ RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_
     "ranking_executed", "recommendation_generated", "broker_api_called",
     "trading_executed", "paper_trading_executed", "production_export_executed",
 )
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_MODE = (
+    "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-post-write-verification-and-idempotency-gate"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_SCHEMA_VERSION = (
+    "bondradar.multi_issuer_controlled_staging_post_write_verification_gate.v1"
+)
+RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_ARTIFACT_NAMES = {
+    "verification_json": "rzd_manual_official_pdf_multi_issuer_task235_verification_gate.json",
+    "verification_markdown": "rzd_manual_official_pdf_multi_issuer_task235_verification_gate.md",
+    "checks_json": "rzd_manual_official_pdf_multi_issuer_task235_checks.json",
+    "blockers_json": "rzd_manual_official_pdf_multi_issuer_task235_blockers.json",
+    "live_db_json": "rzd_manual_official_pdf_multi_issuer_task235_db_verification.json",
+    "safety_json": "rzd_manual_official_pdf_multi_issuer_task235_safety.json",
+}
+
 RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_MODE = (
     "rzd-manual-official-pdf-controlled-values-multi-issuer-reviewed-materialized-"
     "fact-and-complete-period-pair-controlled-staging-executor"
@@ -15997,6 +16013,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=None,
     )
     parser.add_argument(
+        "--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-post-write-verification-and-idempotency-gate-input",
+        type=Path,
+        default=None,
+    )
+    parser.add_argument(
         "--rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-authorization-challenge-sha256",
         default="",
     )
@@ -16384,6 +16405,8 @@ def run_assistant(
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_plan(args)
     elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_MODE:
         report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_reviewed_materialized_fact_and_complete_period_pair_controlled_staging_executor(args)
+    elif args.mode == RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_MODE:
+        report = run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_post_write_verification_and_idempotency_gate(args)
     elif args.mode == "source-trust-recovery-workspace-v2":
         report = run_source_trust_recovery_workspace_v2(args)
     elif args.mode == "source-trust-recovery-validate-v2":
@@ -120730,6 +120753,758 @@ def _task234_publish(report: dict[str, Any], artifacts: dict[str, Path | None]) 
         except Exception:
             failed["write_outputs"] = False
             return _task234_finalize(failed)
+
+
+
+class _Task235Blocked(RuntimeError):
+    pass
+
+
+def _task235_database_adapter() -> dict[str, Any]:
+    return _task234_database_adapter()
+
+
+def _task235_artifacts(
+    args: argparse.Namespace,
+) -> dict[str, Path | None]:
+    chain_value = args.operator_resolution_chain_output_dir
+    chain = Path(chain_value) if chain_value is not None else None
+    return {
+        key: (chain / name if chain is not None else None)
+        for key, name in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_ARTIFACT_NAMES.items()
+    }
+
+
+def _task235_report(
+    status: str,
+    *,
+    blockers: list[str] | None = None,
+    errors: list[str] | None = None,
+    write_outputs: bool = True,
+) -> dict[str, Any]:
+    blocker_codes = list(dict.fromkeys(blockers or []))
+    error_codes = list(dict.fromkeys(errors or []))
+
+    return {
+        "mode": RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_MODE,
+        "schema_version": RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_SCHEMA_VERSION,
+        "status": status,
+        "controlled_staging_post_write_verification_gate_status": status,
+        "source_task234_checksum_sha256": "",
+        "source_task233_checksum_sha256": "",
+        "schema_contract_checksum_sha256": "",
+        "expected_table_row_count": 0,
+        "live_db_table_row_count": 0,
+        "verified_plan_row_count": 0,
+        "idempotency_insert_count": 0,
+        "idempotency_update_count": 0,
+        "idempotency_noop_count": 0,
+        "task234_validation_completed": False,
+        "task233_validation_completed": False,
+        "schema_validation_completed": False,
+        "read_only_database_verification_completed": False,
+        "read_only_transaction_enforced": False,
+        "all_target_rows_exact": False,
+        "idempotency_gate_passed": False,
+        "database_connection_opened": False,
+        "database_query_executed": False,
+        "database_write_authorized": False,
+        "database_mutated": False,
+        "write_statement_executed": False,
+        "network_executed": False,
+        "check_rows": [],
+        "blocker_rows": [
+            {
+                "blocker_index": index,
+                "code": code,
+                "safe_hint": "Task235 stopped without a database write.",
+            }
+            for index, code in enumerate(blocker_codes, 1)
+        ],
+        "live_db_verification_rows": [],
+        "bad_safety_codes": [],
+        "errors": [{"message": code} for code in error_codes],
+        "write_outputs": write_outputs,
+        "next_step": (
+            "Resolve Task235 verification blockers before downstream use."
+        ),
+    }
+
+
+def _task235_finalize(
+    report: dict[str, Any],
+) -> dict[str, Any]:
+    for field in (
+        "check_rows",
+        "blocker_rows",
+        "live_db_verification_rows",
+        "bad_safety_codes",
+        "errors",
+    ):
+        if not isinstance(report.get(field), list):
+            report[field] = []
+
+    report["check_count"] = len(report["check_rows"])
+    report["blocker_count"] = len(report["blocker_rows"])
+    report["live_db_verification_count"] = len(
+        report["live_db_verification_rows"]
+    )
+    report["bad_safety_count"] = len(report["bad_safety_codes"])
+    report["error_count"] = len(report["errors"])
+
+    for field in (
+        "task234_validation_completed",
+        "task233_validation_completed",
+        "schema_validation_completed",
+        "read_only_database_verification_completed",
+        "read_only_transaction_enforced",
+        "all_target_rows_exact",
+        "idempotency_gate_passed",
+        "database_connection_opened",
+        "database_query_executed",
+        "database_write_authorized",
+        "database_mutated",
+        "write_statement_executed",
+        "network_executed",
+        "write_outputs",
+    ):
+        report[field] = report.get(field) is True
+
+    for field in (
+        "expected_table_row_count",
+        "live_db_table_row_count",
+        "verified_plan_row_count",
+        "idempotency_insert_count",
+        "idempotency_update_count",
+        "idempotency_noop_count",
+    ):
+        report[field] = int(report.get(field) or 0)
+
+    report[
+        "multi_issuer_controlled_staging_post_write_verification_gate_checksum_sha256"
+    ] = _rzd_controlled_values_import_plan_sha({
+        "mode": report["mode"],
+        "schema_version": report["schema_version"],
+        "status": report["status"],
+        "source_task234_checksum_sha256": (
+            report["source_task234_checksum_sha256"]
+        ),
+        "source_task233_checksum_sha256": (
+            report["source_task233_checksum_sha256"]
+        ),
+        "schema_contract_checksum_sha256": (
+            report["schema_contract_checksum_sha256"]
+        ),
+        "expected_table_row_count": report["expected_table_row_count"],
+        "live_db_table_row_count": report["live_db_table_row_count"],
+        "verified_plan_row_count": report["verified_plan_row_count"],
+        "idempotency_insert_count": report["idempotency_insert_count"],
+        "idempotency_update_count": report["idempotency_update_count"],
+        "idempotency_noop_count": report["idempotency_noop_count"],
+        "all_target_rows_exact": report["all_target_rows_exact"],
+        "idempotency_gate_passed": report["idempotency_gate_passed"],
+        "check_rows": report["check_rows"],
+        "blocker_rows": report["blocker_rows"],
+        "bad_safety_codes": report["bad_safety_codes"],
+    })
+
+    return report
+
+
+def render_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_post_write_verification_and_idempotency_gate_markdown(
+    report: dict[str, Any],
+) -> str:
+    return "\n".join([
+        "# Task235 - Controlled Staging Post-Write Verification and Idempotency Gate",
+        "",
+        f"- Status: `{report.get('status', '')}`",
+        (
+            f"- Table rows expected/live: "
+            f"`{report.get('expected_table_row_count', 0)}/"
+            f"{report.get('live_db_table_row_count', 0)}`"
+        ),
+        (
+            f"- Idempotency insert/update/noop: "
+            f"`{report.get('idempotency_insert_count', 0)}/"
+            f"{report.get('idempotency_update_count', 0)}/"
+            f"{report.get('idempotency_noop_count', 0)}`"
+        ),
+        (
+            f"- Exact rows: "
+            f"`{str(report.get('all_target_rows_exact', False)).lower()}`"
+        ),
+        (
+            f"- Database mutated: "
+            f"`{str(report.get('database_mutated', False)).lower()}`"
+        ),
+        (
+            f"- Blockers / bad safety: "
+            f"`{report.get('blocker_count', 0)}/"
+            f"{report.get('bad_safety_count', 0)}`"
+        ),
+        "",
+        "Task235 is verification-only and authorizes no database write.",
+        "",
+    ])
+
+
+def _task235_payloads(
+    report: dict[str, Any],
+) -> dict[str, str]:
+    envelope = {
+        "schema_version": report["schema_version"],
+        "status": report["status"],
+        "source_task234_checksum_sha256": (
+            report["source_task234_checksum_sha256"]
+        ),
+        "source_task233_checksum_sha256": (
+            report["source_task233_checksum_sha256"]
+        ),
+        "schema_contract_checksum_sha256": (
+            report["schema_contract_checksum_sha256"]
+        ),
+        "expected_table_row_count": report["expected_table_row_count"],
+        "live_db_table_row_count": report["live_db_table_row_count"],
+        "verified_plan_row_count": report["verified_plan_row_count"],
+        "idempotency_insert_count": report["idempotency_insert_count"],
+        "idempotency_update_count": report["idempotency_update_count"],
+        "idempotency_noop_count": report["idempotency_noop_count"],
+        "all_target_rows_exact": report["all_target_rows_exact"],
+        "idempotency_gate_passed": report["idempotency_gate_passed"],
+        "database_mutated": False,
+        "write_statement_executed": False,
+        "multi_issuer_controlled_staging_post_write_verification_gate_checksum_sha256": (
+            report[
+                "multi_issuer_controlled_staging_post_write_verification_gate_checksum_sha256"
+            ]
+        ),
+    }
+
+    documents = {
+        "verification_json": report,
+        "checks_json": {
+            **envelope,
+            "check_count": report["check_count"],
+            "check_rows": report["check_rows"],
+        },
+        "blockers_json": {
+            **envelope,
+            "blocker_count": report["blocker_count"],
+            "blocker_rows": report["blocker_rows"],
+        },
+        "live_db_json": {
+            **envelope,
+            "live_db_verification_count": (
+                report["live_db_verification_count"]
+            ),
+            "live_db_verification_rows": (
+                report["live_db_verification_rows"]
+            ),
+        },
+        "safety_json": {
+            **envelope,
+            "bad_safety_count": report["bad_safety_count"],
+            "bad_safety_codes": report["bad_safety_codes"],
+            "database_write_authorized": False,
+            "database_mutated": False,
+            "write_statement_executed": False,
+            "network_executed": False,
+        },
+    }
+
+    payloads = {
+        key: (
+            json.dumps(
+                value,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n"
+        )
+        for key, value in documents.items()
+    }
+
+    payloads["verification_markdown"] = (
+        render_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_post_write_verification_and_idempotency_gate_markdown(
+            report
+        )
+    )
+
+    return payloads
+
+
+def _task235_publish(
+    report: dict[str, Any],
+    artifacts: dict[str, Path | None],
+) -> dict[str, Any]:
+    import shutil
+    import tempfile
+
+    report = _task235_finalize(report)
+
+    if not report["write_outputs"]:
+        return report
+
+    payloads = _task235_payloads(report)
+
+    if (
+        set(payloads) != set(RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_ARTIFACT_NAMES)
+        or _task234_contains_forbidden_output(report)
+        or _task234_contains_forbidden_output(payloads)
+    ):
+        failed = _task235_report(
+            "failed",
+            errors=["task235_sanitized_projection_invalid"],
+            write_outputs=False,
+        )
+        failed["bad_safety_codes"] = [
+            "task235_sanitized_projection_invalid"
+        ]
+        return _task235_finalize(failed)
+
+    targets = {
+        key: path
+        for key, path in artifacts.items()
+        if isinstance(path, Path)
+    }
+
+    if set(targets) != set(RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_ARTIFACT_NAMES):
+        return _task235_finalize(
+            _task235_report(
+                "failed",
+                errors=["task235_output_contract_invalid"],
+                write_outputs=False,
+            )
+        )
+
+    if any(path.exists() for path in targets.values()):
+        return _task235_finalize(
+            _task235_report(
+                "blocked",
+                blockers=["task235_output_family_already_exists"],
+                write_outputs=False,
+            )
+        )
+
+    chain = next(iter(targets.values())).parent
+    temporary = Path(
+        tempfile.mkdtemp(
+            prefix=".task235-verification-",
+            dir=chain,
+        )
+    )
+    published: list[Path] = []
+
+    try:
+        staged: dict[str, Path] = {}
+
+        for index, key in enumerate(RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_ARTIFACT_NAMES, 1):
+            path = temporary / f"{index:02d}"
+            path.write_text(payloads[key], encoding="utf-8")
+            staged[key] = path
+
+        for key in RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_ARTIFACT_NAMES:
+            os.replace(staged[key], targets[key])
+            published.append(targets[key])
+
+        return report
+
+    except Exception:
+        for path in reversed(published):
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
+        return _task235_finalize(
+            _task235_report(
+                "failed",
+                errors=["task235_terminal_artifact_write_failed"],
+                write_outputs=False,
+            )
+        )
+
+    finally:
+        shutil.rmtree(temporary, ignore_errors=True)
+
+
+def run_rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_post_write_verification_and_idempotency_gate(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    chain_value = args.operator_resolution_chain_output_dir
+    chain = Path(chain_value) if chain_value is not None else None
+    artifacts = _task235_artifacts(args)
+
+    if (
+        not isinstance(chain, Path)
+        or not chain.exists()
+        or not chain.is_dir()
+        or chain.is_symlink()
+        or _task234_path_has_symlink_parent(chain)
+    ):
+        return _task235_finalize(
+            _task235_report(
+                "blocked",
+                blockers=["task235_chain_invalid"],
+                write_outputs=False,
+            )
+        )
+
+    if any(
+        isinstance(path, Path) and path.exists()
+        for path in artifacts.values()
+    ):
+        return _task235_finalize(
+            _task235_report(
+                "blocked",
+                blockers=["task235_output_family_already_exists"],
+                write_outputs=False,
+            )
+        )
+
+    explicit = getattr(args, "rzd_manual_official_pdf_controlled_values_multi_issuer_controlled_staging_post_write_verification_and_idempotency_gate_input", None)
+
+    task234_path = (
+        Path(explicit)
+        if explicit is not None
+        else chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_EXECUTOR_ARTIFACT_NAMES[
+            "executor_json"
+        ]
+    )
+
+    task233_path = (
+        chain
+        / RZD_CONTROLLED_VALUES_MULTI_ISSUER_REVIEWED_MATERIALIZED_FACT_PAIR_STAGING_PLAN_ARTIFACT_NAMES[
+            "staging_plan_json"
+        ]
+    )
+
+    for path, code in (
+        (task234_path, "task235_task234_input_invalid"),
+        (task233_path, "task235_task233_input_invalid"),
+    ):
+        if (
+            not path.exists()
+            or not path.is_file()
+            or path.is_symlink()
+            or _task234_path_has_symlink_parent(path)
+        ):
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=[code],
+                ),
+                artifacts,
+            )
+
+    adapter: dict[str, Any] | None = None
+
+    try:
+        task234 = _task229_load_json(task234_path)
+        task233 = _task229_load_json(task233_path)
+
+        task234_checksum_key = (
+            "multi_issuer_reviewed_materialized_fact_and_complete_period_pair_"
+            "controlled_staging_executor_checksum_sha256"
+        )
+        task234_checksum = str(task234.get(task234_checksum_key) or "")
+
+        task234_valid = all((
+            task234.get("status") in {"passed", "warning"},
+            task234.get("controlled_staging_executor_status")
+            in {"passed", "already_applied"},
+            task234.get("transaction_committed") is True,
+            task234.get("transaction_rolled_back") is False,
+            task234.get("commit_state_requires_reconciliation") is False,
+            task234.get("post_commit_verification_completed") is True,
+            task234.get("post_commit_exact_match_valid") is True,
+            task234.get("all_persisted_rows_verified") is True,
+            task234.get(
+                "ready_for_task235_controlled_staging_post_write_verification_gate"
+            )
+            is True,
+            int(task234.get("blocker_count") or 0) == 0,
+            int(task234.get("bad_safety_count") or 0) == 0,
+            bool(re.fullmatch(r"[0-9a-f]{64}", task234_checksum)),
+            task234_checksum == _task234_aggregate_checksum(task234),
+        ))
+
+        if not task234_valid:
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=["task235_task234_final_contract_invalid"],
+                ),
+                artifacts,
+            )
+
+        (
+            _task233_validation,
+            _task233_artifacts,
+            plan_rows,
+            task233_blockers,
+        ) = _task234_validate_task233(
+            task233,
+            task233_path,
+        )
+
+        if task233_blockers:
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=["task235_task233_contract_invalid"],
+                ),
+                artifacts,
+            )
+
+        task233_checksum = str(
+            task233.get(
+                "multi_issuer_reviewed_materialized_fact_and_complete_period_pair_"
+                "controlled_staging_plan_checksum_sha256"
+            )
+            or ""
+        )
+
+        if task233_checksum != str(
+            task234.get("source_task233_checksum_sha256") or ""
+        ):
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=["task235_task233_binding_invalid"],
+                ),
+                artifacts,
+            )
+
+        if int(task234.get("planned_total_count") or 0) != len(plan_rows):
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=["task235_plan_count_binding_invalid"],
+                ),
+                artifacts,
+            )
+
+        expected_row_count = int(
+            task234.get("live_db_table_row_count_after") or 0
+        )
+
+        if expected_row_count <= 0:
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=["task235_expected_row_count_invalid"],
+                ),
+                artifacts,
+            )
+
+        adapter = _task235_database_adapter()
+        schema = _task234_schema_preflight(adapter)
+
+        schema_valid = all(
+            schema.get(key) is True
+            for key in (
+                "dialect_valid",
+                "table_exists",
+                "model_table_matches",
+                "required_columns_exist",
+                "natural_key_unique",
+                "natural_key_order_valid",
+                "numeric_24_2_valid",
+            )
+        )
+
+        if not schema_valid:
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=["task235_schema_contract_invalid"],
+                ),
+                artifacts,
+            )
+
+        connection = adapter["engine"].connect()
+        transaction = connection.begin()
+        read_only_enforced = False
+
+        try:
+            if adapter.get("production") is True:
+                if connection.dialect.name != "postgresql":
+                    raise _Task235Blocked(
+                        "task235_database_dialect_unsupported"
+                    )
+
+                connection.exec_driver_sql(
+                    "SET TRANSACTION READ ONLY"
+                )
+
+                value = connection.exec_driver_sql(
+                    "SHOW transaction_read_only"
+                ).scalar_one()
+
+                if str(value).lower() not in {"on", "true", "1"}:
+                    raise _Task235Blocked(
+                        "task235_read_only_transaction_not_enforced"
+                    )
+
+            read_only_enforced = True
+
+            preflight = _task234_fetch_and_classify(
+                connection,
+                plan_rows,
+                for_update=False,
+            )
+
+        finally:
+            transaction.rollback()
+            connection.close()
+
+        exact = all((
+            not preflight["blockers"],
+            preflight["row_count"] == expected_row_count,
+            len(preflight["actions"]) == len(plan_rows),
+            preflight["existing_count"] == len(plan_rows),
+            preflight["missing_count"] == 0,
+            preflight["insert_count"] == 0,
+            preflight["update_count"] == 0,
+            preflight["noop_count"] == len(plan_rows),
+            all(
+                row.get("planned_action") == "noop"
+                for row in preflight["actions"]
+            ),
+        ))
+
+        if not exact:
+            return _task235_publish(
+                _task235_report(
+                    "blocked",
+                    blockers=[
+                        "task235_live_db_state_not_exact_or_not_idempotent"
+                    ],
+                ),
+                artifacts,
+            )
+
+        report = _task235_report("passed")
+
+        report.update({
+            "source_task234_checksum_sha256": task234_checksum,
+            "source_task233_checksum_sha256": task233_checksum,
+            "schema_contract_checksum_sha256": str(
+                schema.get("schema_contract_checksum_sha256") or ""
+            ),
+            "expected_table_row_count": expected_row_count,
+            "live_db_table_row_count": int(preflight["row_count"]),
+            "verified_plan_row_count": len(plan_rows),
+            "idempotency_insert_count": int(preflight["insert_count"]),
+            "idempotency_update_count": int(preflight["update_count"]),
+            "idempotency_noop_count": int(preflight["noop_count"]),
+            "task234_validation_completed": True,
+            "task233_validation_completed": True,
+            "schema_validation_completed": True,
+            "read_only_database_verification_completed": True,
+            "read_only_transaction_enforced": read_only_enforced,
+            "all_target_rows_exact": True,
+            "idempotency_gate_passed": True,
+            "database_connection_opened": True,
+            "database_query_executed": True,
+            "database_write_authorized": False,
+            "database_mutated": False,
+            "write_statement_executed": False,
+            "network_executed": False,
+            "check_rows": [
+                {
+                    "check_index": index,
+                    "check_key": key,
+                    "passed": True,
+                    "status": "passed",
+                    "safe_hint": "Independent Task235 verification passed.",
+                }
+                for index, key in enumerate(
+                    (
+                        "task234_final_contract",
+                        "task234_checksum",
+                        "task233_contract_and_binding",
+                        "target_schema_contract",
+                        "exact_table_row_count",
+                        "exact_persisted_rows",
+                        "idempotency_all_noop",
+                        "read_only_transaction",
+                    ),
+                    1,
+                )
+            ],
+            "live_db_verification_rows": [
+                {
+                    "verification_index": 1,
+                    "expected_table_row_count": expected_row_count,
+                    "actual_table_row_count": int(preflight["row_count"]),
+                    "verified_plan_row_count": len(plan_rows),
+                    "all_rows_exact": True,
+                    "validated": True,
+                }
+            ],
+            "next_step": (
+                "Task235 verification complete; "
+                "this gate authorizes no database write."
+            ),
+        })
+
+        return _task235_publish(report, artifacts)
+
+    except UnicodeDecodeError:
+        return _task235_publish(
+            _task235_report(
+                "failed",
+                errors=["task235_utf8_invalid"],
+            ),
+            artifacts,
+        )
+
+    except json.JSONDecodeError:
+        return _task235_publish(
+            _task235_report(
+                "failed",
+                errors=["task235_json_invalid"],
+            ),
+            artifacts,
+        )
+
+    except _Task235Blocked as exc:
+        return _task235_publish(
+            _task235_report(
+                "blocked",
+                blockers=[str(exc)],
+            ),
+            artifacts,
+        )
+
+    except OSError:
+        return _task235_publish(
+            _task235_report(
+                "failed",
+                errors=["task235_read_or_database_failed"],
+            ),
+            artifacts,
+        )
+
+    except Exception:
+        return _task235_publish(
+            _task235_report(
+                "failed",
+                errors=["task235_internal_validation_failed"],
+            ),
+            artifacts,
+        )
+
+    finally:
+        if adapter and adapter.get("owns_engine") is True:
+            try:
+                adapter["engine"].dispose()
+            except Exception:
+                pass
 
 
 def _task234_base_report(

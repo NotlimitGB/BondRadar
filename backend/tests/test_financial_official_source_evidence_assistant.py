@@ -36280,6 +36280,207 @@ def test_controlled_staging_executor_failure_rollback_and_atomic_contracts(
     engine.dispose()
 
 
+
+def _task235_install_adapter(
+    monkeypatch,
+    engine,
+) -> None:
+    monkeypatch.setattr(
+        assistant,
+        "_task235_database_adapter",
+        lambda: {
+            "engine": engine,
+            "production": False,
+            "owns_engine": False,
+        },
+    )
+
+
+def _run_task235(chain: Path) -> dict:
+    report, exit_code = assistant.run_assistant(
+        assistant.parse_args([
+            "--mode",
+            "rzd-manual-official-pdf-controlled-values-multi-issuer-controlled-staging-post-write-verification-and-idempotency-gate",
+            "--operator-resolution-chain-output-dir",
+            str(chain),
+        ])
+    )
+    assert exit_code == (1 if report["status"] == "failed" else 0)
+    return report
+
+
+def test_controlled_staging_post_write_verification_gate_read_only_idempotency(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from sqlalchemy import select
+    from app.models.controlled_financial_statement_value import (
+        ControlledFinancialStatementValue,
+    )
+
+    chain = tmp_path / "chain"
+    chain.mkdir()
+
+    _write_task234_ready_task233(
+        chain,
+        tmp_path,
+        monkeypatch,
+    )
+
+    engine = _task234_isolated_engine(
+        tmp_path / "task235.db"
+    )
+    table = ControlledFinancialStatementValue.__table__
+
+    _task234_install_adapter(monkeypatch, engine)
+
+    phase_a = _run_task234(chain)
+    approved = _run_task234(
+        chain,
+        challenge=phase_a[
+            "controlled_staging_authorization_challenge_sha256"
+        ],
+        token=_task234_token(phase_a),
+        confirmed=True,
+    )
+
+    assert approved["status"] == "passed"
+
+    with engine.connect() as connection:
+        before = connection.execute(
+            select(
+                table.c.natural_key_sha256,
+                table.c.row_checksum_sha256,
+            ).order_by(table.c.natural_key_sha256)
+        ).all()
+
+    _task235_install_adapter(monkeypatch, engine)
+
+    verified = _run_task235(chain)
+
+    assert verified["status"] == "passed"
+    assert verified["all_target_rows_exact"] is True
+    assert verified["idempotency_gate_passed"] is True
+    assert verified["idempotency_insert_count"] == 0
+    assert verified["idempotency_update_count"] == 0
+    assert (
+        verified["idempotency_noop_count"]
+        == verified["verified_plan_row_count"]
+    )
+    assert verified["database_write_authorized"] is False
+    assert verified["database_mutated"] is False
+    assert verified["write_statement_executed"] is False
+    assert verified["blocker_count"] == 0
+    assert verified["bad_safety_count"] == 0
+
+    with engine.connect() as connection:
+        after = connection.execute(
+            select(
+                table.c.natural_key_sha256,
+                table.c.row_checksum_sha256,
+            ).order_by(table.c.natural_key_sha256)
+        ).all()
+
+    assert after == before
+
+    names = assistant.RZD_CONTROLLED_VALUES_MULTI_ISSUER_CONTROLLED_STAGING_POST_WRITE_VERIFICATION_GATE_ARTIFACT_NAMES
+    assert len(names) == len(set(names.values())) == 6
+
+    hashes = {
+        name: hashlib.sha256(
+            (chain / name).read_bytes()
+        ).hexdigest()
+        for name in names.values()
+    }
+
+    rerun = _run_task235(chain)
+
+    assert rerun["status"] == "blocked"
+    assert rerun["write_outputs"] is False
+    assert [
+        row["code"]
+        for row in rerun["blocker_rows"]
+    ] == [
+        "task235_output_family_already_exists"
+    ]
+
+    assert hashes == {
+        name: hashlib.sha256(
+            (chain / name).read_bytes()
+        ).hexdigest()
+        for name in names.values()
+    }
+
+    engine.dispose()
+
+
+def test_controlled_staging_post_write_verification_gate_blocks_tampered_state(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from sqlalchemy import select
+    from app.models.controlled_financial_statement_value import (
+        ControlledFinancialStatementValue,
+    )
+
+    chain = tmp_path / "chain"
+    chain.mkdir()
+
+    _write_task234_ready_task233(
+        chain,
+        tmp_path,
+        monkeypatch,
+    )
+
+    engine = _task234_isolated_engine(
+        tmp_path / "task235-tampered.db"
+    )
+    table = ControlledFinancialStatementValue.__table__
+
+    _task234_install_adapter(monkeypatch, engine)
+
+    phase_a = _run_task234(chain)
+    approved = _run_task234(
+        chain,
+        challenge=phase_a[
+            "controlled_staging_authorization_challenge_sha256"
+        ],
+        token=_task234_token(phase_a),
+        confirmed=True,
+    )
+
+    assert approved["status"] == "passed"
+
+    with engine.begin() as connection:
+        key = connection.execute(
+            select(table.c.natural_key_sha256)
+            .order_by(table.c.natural_key_sha256)
+            .limit(1)
+        ).scalar_one()
+
+        connection.execute(
+            table.update()
+            .where(table.c.natural_key_sha256 == key)
+            .values(raw_line="tampered after Task234")
+        )
+
+    _task235_install_adapter(monkeypatch, engine)
+
+    blocked = _run_task235(chain)
+
+    assert blocked["status"] == "blocked"
+    assert blocked["database_mutated"] is False
+    assert blocked["idempotency_gate_passed"] is False
+    assert [
+        row["code"]
+        for row in blocked["blocker_rows"]
+    ] == [
+        "task235_live_db_state_not_exact_or_not_idempotent"
+    ]
+
+    engine.dispose()
+
+
 def test_exact_document_draft_gate_resolves_controlled_source_pack_and_unblocks_rzd_source_trust(
     tmp_path: Path,
     monkeypatch,
