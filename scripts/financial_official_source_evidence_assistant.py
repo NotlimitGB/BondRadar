@@ -2097,6 +2097,39 @@ FINANCIAL_METRIC_ALIAS_REGISTRY = [
     _financial_metric_alias("default_or_restructuring_mention", "Default or restructuring", "en"), _financial_metric_alias("default_or_restructuring_mention", "Дефолт или реструктуризация", "ru"),
     _financial_metric_alias("related_party_debt_risk", "Related-party debt", "en"), _financial_metric_alias("related_party_debt_risk", "Задолженность перед связанными сторонами", "ru"),
 ]
+
+# Canonical bilingual display labels for controlled financial metrics.
+#
+# This is intentionally separate from FINANCIAL_METRIC_ALIAS_REGISTRY:
+# aliases are extraction/search vocabulary and may be ambiguous, while these
+# labels are deterministic metadata for controlled-value staging.
+FINANCIAL_METRIC_CANONICAL_BILINGUAL_NAMES = {
+    "total_equity": {
+        "metric_name_en": "Total equity",
+        "metric_name_ru": "Итого капитал",
+    },
+    "revenue": {
+        "metric_name_en": "Revenue",
+        "metric_name_ru": "Выручка",
+    },
+    "total_debt": {
+        "metric_name_en": "Total debt",
+        "metric_name_ru": "Общий долг",
+    },
+    "net_profit": {
+        "metric_name_en": "Net profit",
+        "metric_name_ru": "Чистая прибыль",
+    },
+    "operating_cash_flow": {
+        "metric_name_en": "Operating cash flow",
+        "metric_name_ru": "Денежные потоки от операционной деятельности",
+    },
+    "interest_expense": {
+        "metric_name_en": "Interest expense",
+        "metric_name_ru": "Процентные расходы",
+    },
+}
+
 FINANCIAL_METRIC_VALIDATION_RULES = [
     {"rule_id": "assets_equal_liabilities_plus_equity", "rule_name": "Assets equal liabilities plus equity", "rule_category": "reconciliation", "required_metric_ids": ["total_assets", "total_liabilities", "total_equity"], "optional_metric_ids": [], "severity": "error", "rule_description": "Balance sheet equation should reconcile.", "failure_status": "reconciliation_failed", "blocks_model_usage": True},
     {"rule_id": "net_debt_equals_total_debt_minus_cash", "rule_name": "Net debt equals total debt minus cash", "rule_category": "reconciliation", "required_metric_ids": ["net_debt", "total_debt", "cash_and_cash_equivalents"], "optional_metric_ids": [], "severity": "warning", "rule_description": "Reported net debt should be reconciled against total debt less cash.", "failure_status": "reconciliation_review_required", "blocks_model_usage": False},
@@ -21490,6 +21523,25 @@ def _financial_metric_registry_integrity_errors() -> list[dict[str, Any]]:
             for metric_id in [*row["required_metric_ids"], *row["optional_metric_ids"]]:
                 if metric_id not in metric_id_set:
                     errors.append({"message": f"unknown_{row_type}_metric_id:{row.get(id_field)}:{metric_id}"})
+    bilingual_metric_ids = set(FINANCIAL_METRIC_CANONICAL_BILINGUAL_NAMES)
+    unknown_bilingual_metric_ids = bilingual_metric_ids - metric_id_set
+    for metric_id in sorted(unknown_bilingual_metric_ids):
+        errors.append({"message": f"unknown_bilingual_metric_id:{metric_id}"})
+
+    metrics_by_id = {
+        str(metric.get("metric_id") or ""): metric
+        for metric in FINANCIAL_METRIC_REGISTRY
+    }
+    for metric_id, names in FINANCIAL_METRIC_CANONICAL_BILINGUAL_NAMES.items():
+        metric = metrics_by_id.get(metric_id) or {}
+        metric_name_en = names.get("metric_name_en")
+        metric_name_ru = names.get("metric_name_ru")
+        if not isinstance(metric_name_en, str) or not metric_name_en.strip():
+            errors.append({"message": f"invalid_bilingual_metric_name_en:{metric_id}"})
+        elif metric_name_en != metric.get("metric_name"):
+            errors.append({"message": f"bilingual_metric_name_en_mismatch:{metric_id}"})
+        if not isinstance(metric_name_ru, str) or not metric_name_ru.strip():
+            errors.append({"message": f"invalid_bilingual_metric_name_ru:{metric_id}"})
     return errors
 
 

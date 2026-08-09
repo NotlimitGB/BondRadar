@@ -53546,3 +53546,46 @@ def test_task223_validation_accepts_authorized_cache_only_task222_path(
         assert changed_rows[
             validation_key
         ]["passed"] is False, case
+
+def test_financial_metric_canonical_bilingual_names_cover_task233_six_metrics() -> None:
+    expected = {
+        "total_equity": {
+            "metric_name_en": "Total equity",
+            "metric_name_ru": "Итого капитал",
+        },
+        "revenue": {
+            "metric_name_en": "Revenue",
+            "metric_name_ru": "Выручка",
+        },
+        "total_debt": {
+            "metric_name_en": "Total debt",
+            "metric_name_ru": "Общий долг",
+        },
+        "net_profit": {
+            "metric_name_en": "Net profit",
+            "metric_name_ru": "Чистая прибыль",
+        },
+        "operating_cash_flow": {
+            "metric_name_en": "Operating cash flow",
+            "metric_name_ru": "Денежные потоки от операционной деятельности",
+        },
+        "interest_expense": {
+            "metric_name_en": "Interest expense",
+            "metric_name_ru": "Процентные расходы",
+        },
+    }
+
+    assert assistant.FINANCIAL_METRIC_CANONICAL_BILINGUAL_NAMES == expected
+
+    registry_by_id = {
+        row["metric_id"]: row
+        for row in assistant.FINANCIAL_METRIC_REGISTRY
+    }
+
+    for metric_id, names in expected.items():
+        assert metric_id in registry_by_id
+        assert names["metric_name_en"] == registry_by_id[metric_id]["metric_name"]
+        assert names["metric_name_en"].strip() == names["metric_name_en"]
+        assert names["metric_name_ru"].strip() == names["metric_name_ru"]
+
+    assert assistant._financial_metric_registry_integrity_errors() == []
