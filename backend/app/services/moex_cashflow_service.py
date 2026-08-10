@@ -22,6 +22,7 @@ from app.services.moex_iss_client import (
     MoexIssClient,
     MoexIssClientError,
 )
+from app.services.moex_normalization import canonicalize_moex_currency
 
 
 class MoexCashflowService:
@@ -265,7 +266,19 @@ class MoexCashflowService:
             )
             return None, warnings
 
-        currency = self._first_value(row, config["currency"])
+        raw_currency = self._first_value(row, config["currency"])
+        if self._has_value(raw_currency):
+            currency = canonicalize_moex_currency(raw_currency)
+        else:
+            currency = canonicalize_moex_currency(bond.currency)
+        if currency is None:
+            warnings.append(
+                self._warning(
+                    bond,
+                    f"MOEX {table_name} row skipped: bond_currency_unresolved",
+                )
+            )
+            return None, warnings
         mapping_notes = [
             f"normalized_table={table_name}",
             f"source_table={row.get('__moex_source_table') or table_name}",
@@ -277,7 +290,7 @@ class MoexCashflowService:
                 event_type=config["event_type"],
                 amount=amount,
                 amount_percent=amount_percent,
-                currency=str(currency or bond.currency or "RUB")[:3],
+                currency=currency,
                 source=self.SOURCE,
                 raw_payload={
                     "moex": self._raw_row(row),

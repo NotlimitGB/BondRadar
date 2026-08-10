@@ -21,6 +21,7 @@ from app.schemas.moex_bond_universe import (
 )
 from app.services.issuer_identity_service import IssuerIdentityService
 from app.services.moex_iss_client import MoexIssClient, MoexIssClientError
+from app.services.moex_normalization import canonicalize_moex_currency
 
 
 @dataclass
@@ -250,6 +251,38 @@ class MoexBondUniverseService:
                 )
             )
 
+        bond, conflict_error = self._find_existing_bond(secid=secid, isin=isin)
+        if conflict_error is not None:
+            return SecurityOutcome(
+                company_id=None,
+                company_action=None,
+                bond_action=None,
+                warnings=warnings,
+                error=conflict_error,
+            )
+
+        currency = canonicalize_moex_currency(metadata.get("currency"))
+        if currency is None:
+            warnings.append(
+                MoexBondUniverseSyncWarning(
+                    secid=secid,
+                    isin=isin,
+                    message="bond_currency_unresolved",
+                )
+            )
+            if bond is None:
+                return SecurityOutcome(
+                    company_id=None,
+                    company_action=None,
+                    bond_action=None,
+                    warnings=warnings,
+                    error=MoexBondUniverseSyncError(
+                        secid=secid,
+                        isin=isin,
+                        message="bond_currency_unresolved",
+                    ),
+                )
+
         company, company_action, company_error = self._resolve_company(
             metadata,
             request=request,
@@ -270,17 +303,9 @@ class MoexBondUniverseService:
             company_id=company.id,
             secid=secid,
             isin=isin,
+            currency=currency,
             warnings=warnings,
         )
-        bond, conflict_error = self._find_existing_bond(secid=secid, isin=isin)
-        if conflict_error is not None:
-            return SecurityOutcome(
-                company_id=company.id,
-                company_action=company_action,
-                bond_action=None,
-                warnings=warnings,
-                error=conflict_error,
-            )
 
         if bond is None:
             bond = Bond(**bond_values)
@@ -448,6 +473,7 @@ class MoexBondUniverseService:
         company_id: int,
         secid: str,
         isin: str | None,
+        currency: str | None,
         warnings: list[MoexBondUniverseSyncWarning],
     ) -> dict[str, Any]:
         name = (
@@ -455,7 +481,6 @@ class MoexBondUniverseService:
             or self._text(metadata.get("shortname"), max_length=255)
             or secid
         )
-        currency = self._currency(metadata.get("currency"), warnings, secid, isin)
         is_subordinated = self._bool_value(
             metadata.get("is_subordinated"),
             warnings=warnings,
@@ -712,27 +737,6 @@ class MoexBondUniverseService:
             )
             return None
         return inn
-
-    @staticmethod
-    def _currency(
-        value: Any,
-        warnings: list[MoexBondUniverseSyncWarning],
-        secid: str,
-        isin: str | None,
-    ) -> str:
-        currency = MoexBondUniverseService._text(value, upper=True)
-        if not currency:
-            return "RUB"
-        if len(currency) != 3:
-            warnings.append(
-                MoexBondUniverseSyncWarning(
-                    secid=secid,
-                    isin=isin,
-                    message="Bond currency is invalid and default RUB was used",
-                )
-            )
-            return "RUB"
-        return currency
 
     @staticmethod
     def _decimal_value(

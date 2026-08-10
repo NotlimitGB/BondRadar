@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.bond import Bond
@@ -73,13 +73,14 @@ def create_bond(
     *,
     isin: str | None = "RUCF0000001",
     secid: str | None = "RUCF0000001",
+    currency: str = "RUB",
 ) -> Bond:
     bond = Bond(
         company_id=company.id,
         isin=isin,
         secid=secid,
         name=f"MOEX Cashflow Bond {secid or isin}",
-        currency="RUB",
+        currency=currency,
         nominal_value=Decimal("1000.00"),
         coupon_rate=Decimal("10.000"),
         yield_to_maturity=Decimal("12.000"),
@@ -331,6 +332,108 @@ def test_invalid_rows_are_warnings_not_500(
     assert payload["created"] == 0
     assert payload["skipped"] == 3
     assert len(payload["warnings"]) == 3
+
+
+def test_cashflow_currency_is_canonical_shared_and_fail_closed(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    company = create_company(db_session, "MCFCUR1")
+    bond = create_bond(
+        db_session,
+        company,
+        isin="RUCF0000101",
+        secid="RUCF0000101",
+        currency="USD",
+    )
+    fake_client = FakeCashflowClient(
+        {
+            bond.secid: schedule(
+                coupons=[
+                    {
+                        "coupondate": "2026-01-15",
+                        "value": "10.00",
+                        "currencyid": "SUR",
+                    },
+                    {"coupondate": "2026-02-15", "value": "11.00"},
+                    {
+                        "coupondate": "2026-03-15",
+                        "value": "12.00",
+                        "currencyid": "CNY",
+                    },
+                    {
+                        "coupondate": "2026-04-15",
+                        "value": "13.00",
+                        "currencyid": "12X",
+                    },
+                ]
+            )
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_cashflow_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/cashflows/sync",
+        json=sync_payload(bond_ids=[bond.id]),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["created"] == 3
+    assert payload["skipped"] == 1
+    events = list(
+        db_session.execute(
+            select(BondCashflowEvent).order_by(BondCashflowEvent.event_date)
+        ).scalars()
+    )
+    assert [event.currency for event in events] == ["RUB", "USD", "CNY"]
+    assert payload["warnings"][-1]["message"] == (
+        "MOEX coupons row skipped: bond_currency_unresolved"
+    )
+
+
+def test_cashflow_missing_currency_skips_when_bond_currency_is_unresolved(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    company = create_company(db_session, "MCFCUR2")
+    bond = create_bond(
+        db_session,
+        company,
+        isin="RUCF0000102",
+        secid="RUCF0000102",
+        currency="12X",
+    )
+    fake_client = FakeCashflowClient(
+        {
+            bond.secid: schedule(
+                coupons=[{"coupondate": "2026-01-15", "value": "10.00"}]
+            )
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_cashflow_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/cashflows/sync",
+        json=sync_payload(bond_ids=[bond.id]),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["created"] == 0
+    assert payload["skipped"] == 1
+    assert payload["warnings"][0]["message"] == (
+        "MOEX coupons row skipped: bond_currency_unresolved"
+    )
+    assert db_session.scalar(select(func.count()).select_from(BondCashflowEvent)) == 0
 
 
 def test_date_filter_imports_only_matching_events(

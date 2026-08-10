@@ -12,6 +12,7 @@ from app.models.company import Company
 from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.enums import AnalysisSignal
 from app.services.moex_iss_client import MoexIssClient
+from app.services.moex_normalization import canonicalize_moex_currency
 
 
 class FakeResponse:
@@ -83,6 +84,7 @@ def description(
     coupon_rate: str | None = "12.5",
     maturity_date: str | None = "2030-01-01",
     nominal_value: str | None = "1000",
+    currency: Any = "RUB",
     is_traded: Any = 1,
 ) -> dict[str, Any]:
     return {
@@ -92,7 +94,7 @@ def description(
         "shortname": name[:20],
         "issuer_name": issuer_name,
         "issuer_inn": issuer_inn,
-        "currency": "RUB",
+        "currency": currency,
         "nominal_value": nominal_value,
         "coupon_rate": coupon_rate,
         "maturity_date": maturity_date,
@@ -142,13 +144,14 @@ def create_bond(
     secid: str = "RU000A100001",
     isin: str | None = "RU000A100001",
     name: str = "Old Bond",
+    currency: str = "RUB",
 ) -> Bond:
     bond = Bond(
         company_id=company.id,
         secid=secid,
         isin=isin,
         name=name,
-        currency="RUB",
+        currency=currency,
         nominal_value=Decimal("1000.00"),
         coupon_rate=Decimal("5.000"),
         maturity_date=date(2028, 1, 1),
@@ -165,6 +168,19 @@ def create_bond(
 
 def count(db: Session, model) -> int:
     return int(db.execute(select(func.count()).select_from(model)).scalar_one())
+
+
+def test_moex_currency_normalizer_is_explicit_and_fail_closed() -> None:
+    assert canonicalize_moex_currency("SUR") == "RUB"
+    assert canonicalize_moex_currency("sur") == "RUB"
+    assert canonicalize_moex_currency("RUB") == "RUB"
+    assert canonicalize_moex_currency("usd") == "USD"
+    assert canonicalize_moex_currency("CNY") == "CNY"
+    assert canonicalize_moex_currency(None) is None
+    assert canonicalize_moex_currency("") is None
+    assert canonicalize_moex_currency("RUBLE") is None
+    assert canonicalize_moex_currency("12X") is None
+    assert canonicalize_moex_currency("RUR") == "RUR"
 
 
 def test_client_parses_universe_table() -> None:
@@ -538,6 +554,124 @@ def test_missing_and_invalid_values_are_item_warnings_or_errors(
     assert "Bond nominal_value is invalid and was ignored" in messages
     assert "Bond maturity_date is invalid and was ignored" in messages
     assert "MOEX security is inactive and was skipped" in messages
+
+
+def test_sync_canonicalizes_sur_preserves_foreign_and_rejects_unknown_currency(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    currencies = {
+        "RU000A100101": "SUR",
+        "RU000A100102": "USD",
+        "RU000A100103": "CNY",
+        "RU000A100104": "EUR",
+        "RU000A100105": None,
+        "RU000A100106": "RUBLE",
+        "RU000A100107": "12X",
+    }
+    fake_client = FakeBondUniverseClient(
+        descriptions={
+            secid: description(secid=secid, isin=secid, currency=currency)
+            for secid, currency in currencies.items()
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=list(currencies)),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bonds_created"] == 4
+    assert payload["bonds_skipped"] == 3
+    assert [error["message"] for error in payload["errors"]] == [
+        "bond_currency_unresolved",
+        "bond_currency_unresolved",
+        "bond_currency_unresolved",
+    ]
+    stored = {
+        bond.secid: bond.currency
+        for bond in db_session.execute(select(Bond).order_by(Bond.secid)).scalars()
+    }
+    assert stored == {
+        "RU000A100101": "RUB",
+        "RU000A100102": "USD",
+        "RU000A100103": "CNY",
+        "RU000A100104": "EUR",
+    }
+
+
+def test_unresolved_currency_creates_nothing_and_does_not_corrupt_existing_bond(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    missing_secid = "RU000A100111"
+    missing_client = FakeBondUniverseClient(
+        descriptions={
+            missing_secid: description(
+                secid=missing_secid,
+                isin=missing_secid,
+                currency=None,
+            )
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: missing_client,
+    )
+
+    missing_response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[missing_secid]),
+    )
+    assert missing_response.status_code == 200
+    assert missing_response.json()["errors"][0]["message"] == (
+        "bond_currency_unresolved"
+    )
+    assert count(db_session, Company) == 0
+    assert count(db_session, Bond) == 0
+
+    company = create_company(db_session, ticker="MOEXCUR", inn="7700000111")
+    existing = create_bond(
+        db_session,
+        company,
+        secid="RU000A100112",
+        isin="RU000A100112",
+        currency="USD",
+    )
+    rebuild_client = FakeBondUniverseClient(
+        descriptions={
+            existing.secid: description(
+                secid=existing.secid,
+                isin=existing.isin,
+                issuer_name=company.name,
+                issuer_inn=company.inn,
+                currency=None,
+            )
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: rebuild_client,
+    )
+
+    rebuild_response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[existing.secid], rebuild_existing=True),
+    )
+    db_session.refresh(existing)
+    assert rebuild_response.status_code == 200
+    assert existing.currency == "USD"
+    assert "bond_currency_unresolved" in {
+        warning["message"] for warning in rebuild_response.json()["warnings"]
+    }
 
 
 def test_pagination_stops_on_empty_page(
