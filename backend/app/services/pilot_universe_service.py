@@ -109,7 +109,9 @@ class PilotUniverseService:
         bond_rows = self.db.execute(self._bond_identity_statement()).mappings().all()
         market_rows = {
             int(row["bond_id"]): row
-            for row in self.db.execute(self._latest_market_statement()).mappings()
+            for row in self.db.execute(
+                self._latest_market_statement(request.as_of_date)
+            ).mappings()
         }
         cashflow_rows: dict[int, list[_CashflowGroup]] = defaultdict(list)
         for row in self.db.execute(self._cashflow_statement()).mappings():
@@ -175,7 +177,7 @@ class PilotUniverseService:
         )
 
     @staticmethod
-    def _latest_market_statement():
+    def _latest_market_statement(as_of_date: date):
         source_priority = case((BondMarketSnapshot.source == "moex", 0), else_=1)
         ranked = (
             select(
@@ -191,6 +193,7 @@ class PilotUniverseService:
                 )
                 .label("row_number"),
             )
+            .where(BondMarketSnapshot.trade_date <= as_of_date)
             .subquery()
         )
         return (

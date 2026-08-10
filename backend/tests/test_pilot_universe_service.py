@@ -391,6 +391,60 @@ def test_market_selector_and_completeness_never_use_bond_fallback(
     ]
 
 
+def test_market_selector_excludes_future_rows_before_ranking(
+    db_session: Session,
+) -> None:
+    company = add_company(db_session, 2100)
+    add_profile(db_session, company)
+
+    historical_bond = add_bond(db_session, company, 2101)
+    add_market(
+        db_session,
+        historical_bond,
+        trade_date=date(2026, 8, 8),
+        source="moex",
+    )
+    add_market(
+        db_session,
+        historical_bond,
+        trade_date=date(2026, 8, 11),
+        source="moex",
+        dirty_price=None,
+        clean_price=None,
+        nkd=None,
+        yield_to_maturity=None,
+        duration_years=None,
+        volume=None,
+        liquidity_score=None,
+        spread_to_ofz=None,
+    )
+
+    future_only_bond = add_bond(
+        db_session,
+        company,
+        2102,
+        current_price=Decimal("101"),
+        yield_to_maturity=Decimal("11"),
+        duration_years=Decimal("2"),
+        volume=Decimal("1000"),
+        liquidity_score=90,
+    )
+    add_market(
+        db_session,
+        future_only_bond,
+        trade_date=date(2026, 8, 11),
+        source="moex",
+    )
+
+    result = evaluate(db_session)
+    assert by_id(result, historical_bond).market_gate == "PASS"
+    assert by_id(result, historical_bond).market_blockers == []
+    assert by_id(result, future_only_bond).market_gate == "FAIL"
+    assert by_id(result, future_only_bond).market_blockers == [
+        "MARKET_SNAPSHOT_MISSING"
+    ]
+
+
 def test_cashflow_semantics_candidate_intersection_and_determinism(
     db_session: Session,
 ) -> None:

@@ -45,9 +45,11 @@ unproven system capabilities.
 
 ## 7. Market gate
 
-The latest `BondMarketSnapshot` is selected by trade date descending, MOEX
-priority, then ID descending, matching Task236. Static Bond market fields never
-provide fallback. The selected row must be recent enough for the caller-supplied
+Snapshots with `trade_date > as_of_date` are excluded before latest-row
+ranking. Within that point-in-time subset, the latest `BondMarketSnapshot` is
+selected by trade date descending, MOEX priority, then ID descending, matching
+Task236. `FUTURE_MARKET_ALLOWED=false`. Static Bond market fields never provide
+fallback. The selected row must be recent enough for the caller-supplied
 required trade date, have MOEX as its source, prove dirty price or clean price
 plus NKD, and contain YTM, positive duration, nonnegative volume, liquidity,
 and spread to OFZ. Task238 performs no market calculation or refresh.
