@@ -6,24 +6,24 @@ from app.api.deps import get_db
 from app.crud import bonds as bonds_crud
 from app.crud import companies as companies_crud
 from app.models.enums import AnalysisSignal
-from app.schemas.bond import BondCreate, BondRead, BondUpdate
+from app.schemas.bond import BondCreate, BondProductRead, BondRead, BondUpdate
 from app.schemas.bond_score import BondScoreCalculationRead
+from app.services.bond_product_read_service import BondProductReadService
 from app.services.bond_score_service import BondScoreService
 
 
 router = APIRouter()
 
 
-@router.get("", response_model=list[BondRead])
+@router.get("", response_model=list[BondProductRead])
 def list_bonds(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=200),
     company_id: int | None = Query(default=None, ge=1),
     signal: AnalysisSignal | None = None,
     db: Session = Depends(get_db),
-) -> list[BondRead]:
-    return bonds_crud.list_bonds(
-        db,
+) -> list[BondProductRead]:
+    return BondProductReadService(db).list_product_bonds(
         skip=skip,
         limit=limit,
         company_id=company_id,
@@ -48,9 +48,9 @@ def create_bond(bond_in: BondCreate, db: Session = Depends(get_db)) -> BondRead:
         ) from exc
 
 
-@router.get("/{bond_id}", response_model=BondRead)
-def get_bond(bond_id: int, db: Session = Depends(get_db)) -> BondRead:
-    bond = bonds_crud.get_bond(db, bond_id)
+@router.get("/{bond_id}", response_model=BondProductRead)
+def get_bond(bond_id: int, db: Session = Depends(get_db)) -> BondProductRead:
+    bond = BondProductReadService(db).get_product_bond(bond_id)
     if bond is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

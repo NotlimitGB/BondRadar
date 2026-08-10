@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -70,3 +71,68 @@ class BondRead(BondBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+
+class BondIssuerRead(BaseModel):
+    id: int
+    name: str
+    ticker: str
+    sector: str | None
+    inn: str | None
+    country: str
+    credit_rating: str | None
+    signal: AnalysisSignal
+
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+
+class BondMarketRead(BaseModel):
+    id: int
+    trade_date: date
+    price: Decimal | None
+    clean_price: Decimal | None
+    dirty_price: Decimal | None
+    nkd: Decimal | None
+    yield_to_maturity: Decimal | None
+    duration_years: Decimal | None
+    volume: Decimal | None
+    liquidity_score: int | None
+    spread_to_ofz: Decimal | None
+    source: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BondRiskRead(BaseModel):
+    id: int
+    as_of_date: date
+    assessment_score: int
+    decision_status: str
+    risk_level: str
+    required_risk_premium: Decimal
+    yield_to_maturity: Decimal | None
+    coupon_rate: Decimal | None
+    duration_years: Decimal | None
+    liquidity_score: int | None
+    volume: Decimal | None
+    company_credit_status: str | None
+    company_credit_health_score: int | None
+    company_score: Decimal | None
+    bond_score: Decimal | None
+    gates: dict[str, str]
+    warnings: list[str]
+    blocking_reasons: list[str]
+    positive_factors: list[str]
+    negative_factors: list[str]
+    missing_data: list[str]
+    explanation: dict[str, Any]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BondProductRead(BondRead):
+    issuer: BondIssuerRead
+    latest_market: BondMarketRead | None
+    latest_risk: BondRiskRead | None
