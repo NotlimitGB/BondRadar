@@ -59,9 +59,33 @@ formula, outstanding nominal, and listing status remain unknown until an
 explicit supported source contract exists.
 
 The complete fetched cashflow schedule is inspected before persistence date
-filters. An observed amortization row proves `amortizing`; an observed offer row
-proves `present`. Empty tables do not prove `bullet` or `none`. Maturity and
-nominal are never used to synthesize a redemption event or residual payment.
+filters. The MOEX amortization table is treated as a principal-payment schedule,
+not as proof that a bond is structurally amortizing. Rows are usable only when
+they have a valid date and either a finite positive principal amount or an
+explicit finite percentage in `(0, 100]`. Classification then uses this exact
+precedence:
+
+1. any explicit partial percentage (`0 < percent < 100`) means `amortizing`;
+2. usable payments on two or more distinct dates mean `amortizing`;
+3. a usable payment before verified Security Master maturity means `amortizing`;
+4. exactly one usable payment at verified maturity, with explicit `percent=100`,
+   means `bullet`;
+5. every other schedule is ambiguous and creates no structural assertion.
+
+Maturity authority is exclusively a `BondSecurityMasterProfile` maturity whose
+state is `verified`. Legacy `Bond.maturity_date` and `Bond.nominal_value` are not
+evidence and are never consulted by the classifier. A table name alone is not
+structural evidence; an empty schedule does not mean bullet; an ambiguous single
+row does not mean bullet. Explicit source metadata false remains supported as a
+separate bullet assertion and participates in ordinary multi-source conflict
+resolution. An observed offer row continues to prove only
+`offer_structure=present`; offer absence proves nothing.
+
+Cashflow structural evidence retains only its classification basis, total
+observed row count, usable principal row count, and sorted source-table names.
+It never retains schedule rows. Maturity and nominal are never used to synthesize
+a redemption event or residual payment, including for a final 100% principal
+schedule.
 
 ## Research, strategy, and execution boundaries
 
@@ -85,6 +109,12 @@ construction, broker integration, and the official Shadow Test remain separate
 future tasks. Task241 performs no production backfill and does not wire the new
 profile into Task238 or the frozen paper stack.
 
+Evidence written before this correction is append-only and is not rewritten or
+automatically superseded. Any affected production sample must be handled by a
+separately authorized remediation sequence: identify fingerprint-bound faulty
+evidence, review the intended correction, apply it through an explicit controlled
+mutation, and rerun resolution. Task241 FIX1 performs none of those steps.
+
 Explicit Task241 invariants:
 
 ```text
@@ -92,6 +122,9 @@ LEGACY_BOND_FIELD_IS_PRIMARY_EVIDENCE=false
 ABSENCE_MEANS_VERIFIED_FALSE=false
 POINT_IN_TIME_EVIDENCE_PRESERVED=true
 REDEMPTION_SYNTHESIZED=false
+EMPTY_AMORTIZATION_TABLE_MEANS_BULLET=false
+AMBIGUOUS_SINGLE_ROW_MEANS_BULLET=false
+LEGACY_BOND_MATURITY_USED_AS_EVIDENCE=false
 PRODUCTION_BACKFILL_PERFORMED=false
 SHADOW_TEST_STARTED=false
 ```

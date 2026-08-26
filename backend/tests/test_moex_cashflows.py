@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -14,6 +14,7 @@ from app.models.company import Company
 from app.models.enums import AnalysisSignal
 from app.schemas.cashflow import BondTotalReturnLabelBuildRequest
 from app.schemas.ml_dataset import BondMarketSnapshotCreate
+from app.services.bond_security_master_service import BondSecurityMasterService
 from app.services.market_snapshot_service import MarketSnapshotService
 from app.services.moex_iss_client import MoexCashflowScheduleResult, MoexIssClient
 from app.services.total_return_label_service import TotalReturnLabelService
@@ -530,6 +531,65 @@ def test_complete_schedule_updates_structure_before_date_filter(
     assert profile.amortization_structure == "amortizing"
     assert profile.offer_structure == "present"
     assert db_session.scalar(select(func.count()).select_from(BondCashflowEvent)) == 0
+
+
+def test_final_100_percent_principal_is_bullet_without_synthetic_redemption(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    company = create_company(db_session, "MCFBULLET")
+    bond = create_bond(
+        db_session,
+        company,
+        isin="RUCF0000101",
+        secid="RUCF0000101",
+    )
+    maturity = date(2031, 4, 15)
+    BondSecurityMasterService(db_session).ingest_moex_metadata(
+        bond,
+        {"raw": {"maturity_date": maturity.isoformat()}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=datetime(2026, 8, 26, tzinfo=timezone.utc),
+    )
+    db_session.commit()
+    fake_client = FakeCashflowClient(
+        {
+            bond.secid: schedule(
+                amortizations=[
+                    {
+                        "amortdate": maturity.isoformat(),
+                        "value": "1000",
+                        "valueprc": "100",
+                        "__moex_source_table": "amortizations",
+                    }
+                ]
+            )
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_cashflow_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/cashflows/sync",
+        json=sync_payload(bond_ids=[bond.id]),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["created"] == 1
+    profile = db_session.execute(
+        select(BondSecurityMasterProfile).where(
+            BondSecurityMasterProfile.bond_id == bond.id
+        )
+    ).scalar_one()
+    assert profile.amortization_structure == "bullet"
+    events = list(db_session.execute(select(BondCashflowEvent)).scalars())
+    assert [event.event_type for event in events] == ["amortization"]
+    assert all(event.event_type != "redemption" for event in events)
 
 
 def test_invalid_date_range_returns_400(client: TestClient) -> None:

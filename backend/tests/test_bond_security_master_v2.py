@@ -211,6 +211,7 @@ def test_cashflow_presence_conflict_and_idempotency(
         amortizations=[
             {
                 "amortdate": "2030-01-01",
+                "valueprc": "5",
                 "__moex_source_table": "amortizations",
             }
         ],
@@ -239,6 +240,253 @@ def test_cashflow_presence_conflict_and_idempotency(
     assert first.amortization_structure == "conflict"
     assert first.offer_structure == "present"
     assert after == before
+    cashflow_evidence = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "amortization_structure",
+            BondSecurityMasterEvidence.source == "moex_cashflows",
+        )
+    ).scalar_one()
+    assert cashflow_evidence.normalized_value_json == {"value": "amortizing"}
+    assert cashflow_evidence.raw_value_json == {
+        "classification_basis": "partial_principal_percent",
+        "observed_row_count": 1,
+        "usable_principal_row_count": 1,
+        "source_tables": ["amortizations"],
+    }
+
+
+def _ingest_verified_maturity(
+    service: BondSecurityMasterService,
+    bond: Bond,
+    maturity: date,
+) -> None:
+    service.ingest_moex_metadata(
+        bond,
+        {"raw": {"maturity_date": maturity.isoformat()}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    )
+
+
+def _cashflow_amortization_evidence(
+    db_session: Session,
+    bond: Bond,
+) -> list[BondSecurityMasterEvidence]:
+    return list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence)
+            .where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name == "amortization_structure",
+                BondSecurityMasterEvidence.source == "moex_cashflows",
+            )
+            .order_by(BondSecurityMasterEvidence.id)
+        ).scalars()
+    )
+
+
+@pytest.mark.parametrize("with_offer", [False, True], ids=["without-offer", "with-offer"])
+def test_single_100_percent_at_verified_maturity_is_bullet(
+    db_session: Session,
+    with_offer: bool,
+) -> None:
+    bond = create_bond(db_session, f"40{int(with_offer)}")
+    service = BondSecurityMasterService(db_session)
+    maturity = date(2031, 4, 15)
+    _ingest_verified_maturity(service, bond, maturity)
+    rows = [
+        {
+            "AMORTIZATIONDATE": maturity.isoformat(),
+            "AMORTIZATION_VALUE": "1000",
+            "AMORTIZATION_PERCENT": "100",
+            "__moex_source_table": "amortization_schedule",
+        }
+    ]
+    offers = (
+        [{"offerdate": "2030-01-01", "__moex_source_table": "offers"}]
+        if with_offer
+        else []
+    )
+
+    profile = service.ingest_moex_cashflow_structure(
+        bond,
+        MoexCashflowScheduleResult(amortizations=rows, offers=offers),
+        observed_at=OBSERVED,
+    )
+
+    assert profile is not None
+    assert profile.amortization_structure == "bullet"
+    assert profile.offer_structure == ("present" if with_offer else "unknown")
+    evidence = _cashflow_amortization_evidence(db_session, bond)
+    assert len(evidence) == 1
+    assert evidence[0].raw_value_json == {
+        "classification_basis": "single_100pct_at_verified_maturity",
+        "observed_row_count": 1,
+        "usable_principal_row_count": 1,
+        "source_tables": ["amortization_schedule"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("rows", "maturity", "expected_basis"),
+    [
+        (
+            [{"amortdate": "2031-04-15", "valueprc": "25"}],
+            None,
+            "partial_principal_percent",
+        ),
+        (
+            [
+                {"amort_date": "2031-04-15", "amortvalue": "500"},
+                {"date": "2032-04-15", "value": "500"},
+            ],
+            None,
+            "multiple_principal_dates",
+        ),
+        (
+            [{"amortizationdate": "2030-04-15", "value": "1000"}],
+            date(2031, 4, 15),
+            "principal_before_verified_maturity",
+        ),
+    ],
+    ids=["partial-percent", "multiple-dates", "before-maturity"],
+)
+def test_genuine_principal_schedules_are_amortizing(
+    db_session: Session,
+    rows: list[dict[str, str]],
+    maturity: date | None,
+    expected_basis: str,
+) -> None:
+    suffix = {
+        "partial_principal_percent": "411",
+        "multiple_principal_dates": "412",
+        "principal_before_verified_maturity": "413",
+    }[expected_basis]
+    bond = create_bond(db_session, suffix)
+    service = BondSecurityMasterService(db_session)
+    if maturity is not None:
+        _ingest_verified_maturity(service, bond, maturity)
+    for row in rows:
+        row["__moex_source_table"] = "amortizations"
+
+    profile = service.ingest_moex_cashflow_structure(
+        bond,
+        MoexCashflowScheduleResult(amortizations=rows),
+        observed_at=OBSERVED,
+    )
+
+    assert profile is not None
+    assert profile.amortization_structure == "amortizing"
+    evidence = _cashflow_amortization_evidence(db_session, bond)
+    assert len(evidence) == 1
+    assert evidence[0].raw_value_json["classification_basis"] == expected_basis
+    assert evidence[0].raw_value_json["observed_row_count"] == len(rows)
+    assert evidence[0].raw_value_json["usable_principal_row_count"] == len(rows)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "rows", "verified_maturity"),
+    [
+        ("421", [], date(2031, 4, 15)),
+        ("422", [{"amortdate": "not-a-date", "valueprc": "25"}], date(2031, 4, 15)),
+        (
+            "423",
+            [
+                {"amortdate": "2031-04-15", "value": "0", "valueprc": "0"},
+                {"amortdate": "2031-04-15", "value": "-1", "valueprc": "-1"},
+                {"amortdate": "2031-04-15", "value": "NaN", "valueprc": "Infinity"},
+            ],
+            date(2031, 4, 15),
+        ),
+        ("424", [{"amortdate": "0001-01-01", "valueprc": "100"}], date(2031, 4, 15)),
+        ("425", [{"amortdate": "2031-04-15", "valueprc": "100"}], None),
+        ("426", [{"amortdate": "2031-04-15", "value": "1000"}], date(2031, 4, 15)),
+        ("427", [{"amortdate": "2032-04-15", "valueprc": "100"}], date(2031, 4, 15)),
+    ],
+    ids=[
+        "empty",
+        "malformed-date",
+        "non-positive-and-non-finite",
+        "placeholder-date",
+        "unknown-maturity",
+        "missing-percent",
+        "after-maturity",
+    ],
+)
+def test_ambiguous_or_unusable_principal_schedules_make_no_assertion(
+    db_session: Session,
+    suffix: str,
+    rows: list[dict[str, str]],
+    verified_maturity: date | None,
+) -> None:
+    bond = create_bond(db_session, suffix)
+    service = BondSecurityMasterService(db_session)
+    if verified_maturity is not None:
+        _ingest_verified_maturity(service, bond, verified_maturity)
+
+    profile = service.ingest_moex_cashflow_structure(
+        bond,
+        MoexCashflowScheduleResult(amortizations=rows),
+        observed_at=OBSERVED,
+    )
+
+    assert _cashflow_amortization_evidence(db_session, bond) == []
+    if profile is not None:
+        assert profile.amortization_structure == "unknown"
+
+
+def test_metadata_bullet_agrees_with_cashflow_bullet_and_legacy_terms_are_ignored(
+    db_session: Session,
+) -> None:
+    service = BondSecurityMasterService(db_session)
+    agreeing = create_bond(db_session, "431")
+    maturity = date(2031, 4, 15)
+    service.ingest_moex_metadata(
+        agreeing,
+        {"raw": {"maturity_date": maturity.isoformat(), "has_amortization": False}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    )
+    profile = service.ingest_moex_cashflow_structure(
+        agreeing,
+        MoexCashflowScheduleResult(
+            amortizations=[
+                {"amortdate": maturity.isoformat(), "value": "1000", "valueprc": "100"}
+            ]
+        ),
+        observed_at=OBSERVED,
+    )
+    assert profile is not None
+    assert profile.amortization_structure == "bullet"
+    assertions = list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.bond_id == agreeing.id,
+                BondSecurityMasterEvidence.field_name == "amortization_structure",
+            )
+        ).scalars()
+    )
+    assert {row.source for row in assertions} == {"moex_description", "moex_cashflows"}
+    assert {row.normalized_value_json["value"] for row in assertions} == {"bullet"}
+
+    legacy_only = create_bond(db_session, "432")
+    assert legacy_only.maturity_date == date(2035, 1, 1)
+    legacy_profile = service.ingest_moex_cashflow_structure(
+        legacy_only,
+        MoexCashflowScheduleResult(
+            amortizations=[
+                {"amortdate": "2035-01-01", "value": "1000", "valueprc": "100"}
+            ]
+        ),
+        observed_at=OBSERVED,
+    )
+    assert legacy_profile is None
+    assert _cashflow_amortization_evidence(db_session, legacy_only) == []
 
 
 def test_scalar_conflict_multi_source_and_point_in_time_history(

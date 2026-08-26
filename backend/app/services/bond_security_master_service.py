@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
@@ -32,6 +33,22 @@ from app.services.moex_normalization import canonicalize_moex_currency
 
 
 _BOARD_CODE = re.compile(r"[A-Z0-9._-]{1,32}")
+_PRINCIPAL_DATE_ALIASES = (
+    "amortdate",
+    "amortizationdate",
+    "amort_date",
+    "date",
+)
+_PRINCIPAL_AMOUNT_ALIASES = (
+    "value",
+    "amortvalue",
+    "amortization_value",
+)
+_PRINCIPAL_PERCENT_ALIASES = (
+    "valueprc",
+    "amortpercent",
+    "amortization_percent",
+)
 _METADATA_ALIASES = {
     "currency_code": ("currency", "CURRENCY", "currencyid", "CURRENCYID", "faceunit", "FACEUNIT"),
     "nominal_value": ("nominal_value", "NOMINAL_VALUE", "facevalue", "FACEVALUE", "faceval", "FACEVAL", "nominal", "NOMINAL"),
@@ -62,6 +79,22 @@ _CLASSIFICATION_FIELDS = {
     "offer_structure": OFFER_STRUCTURE_VALUES,
     "listing_status": LISTING_STATUS_VALUES,
 }
+
+
+@dataclass(frozen=True)
+class _UsablePrincipalPayment:
+    payment_date: date
+    amount: Decimal | None
+    percent: Decimal | None
+
+
+@dataclass(frozen=True)
+class _PrincipalScheduleClassification:
+    value: str
+    basis: str
+    observed_row_count: int
+    usable_row_count: int
+    source_tables: list[str]
 
 
 class BondSecurityMasterService:
@@ -224,38 +257,138 @@ class BondSecurityMasterService:
     ) -> BondSecurityMasterProfile | None:
         inserted = False
         source_key = bond.secid or bond.isin or str(bond.id)
-        for rows, field_name, value, logical_table in (
-            (schedule.amortizations, "amortization_structure", "amortizing", "amortizations"),
-            (schedule.offers, "offer_structure", "present", "offers"),
+        profile = self._profile_for_bond(bond.id)
+        verified_maturity = None
+        if (
+            profile is not None
+            and profile.maturity_state == "verified"
+            and profile.maturity_date is not None
         ):
-            if not rows:
-                continue
-            source_tables = sorted(
-                {
-                    str(row.get("__moex_source_table") or logical_table)
-                    for row in rows
-                }
-            )
-            source_table = ",".join(source_tables)
+            verified_maturity = profile.maturity_date
+
+        principal_classification = self._classify_moex_principal_schedule(
+            schedule.amortizations,
+            verified_maturity=verified_maturity,
+        )
+        if principal_classification is not None:
             _, created = self.record_assertion(
                 bond=bond,
-                field_name=field_name,
+                field_name="amortization_structure",
                 source="moex_cashflows",
                 assertion_type="classification",
-                normalized_value=value,
+                normalized_value=principal_classification.value,
                 observed_at=observed_at,
                 source_key=source_key,
-                source_table=source_table,
+                source_table=",".join(principal_classification.source_tables),
                 raw_value={
-                    "observed_row_count": len(rows),
+                    "classification_basis": principal_classification.basis,
+                    "observed_row_count": principal_classification.observed_row_count,
+                    "usable_principal_row_count": principal_classification.usable_row_count,
+                    "source_tables": principal_classification.source_tables,
+                },
+            )
+            inserted = inserted or created
+
+        if schedule.offers:
+            source_tables = sorted(
+                {
+                    str(row.get("__moex_source_table") or "offers")
+                    for row in schedule.offers
+                }
+            )
+            _, created = self.record_assertion(
+                bond=bond,
+                field_name="offer_structure",
+                source="moex_cashflows",
+                assertion_type="classification",
+                normalized_value="present",
+                observed_at=observed_at,
+                source_key=source_key,
+                source_table=",".join(source_tables),
+                raw_value={
+                    "observed_row_count": len(schedule.offers),
                     "source_tables": source_tables,
                 },
             )
             inserted = inserted or created
+
         profile = self._profile_for_bond(bond.id)
         if inserted or profile is None and self._has_evidence(bond.id):
             return self.resolve_profile(bond)
         return profile
+
+    @classmethod
+    def _classify_moex_principal_schedule(
+        cls,
+        rows: list[dict[str, Any]],
+        *,
+        verified_maturity: date | None,
+    ) -> _PrincipalScheduleClassification | None:
+        usable: list[_UsablePrincipalPayment] = []
+        for row in rows:
+            payment_date = cls._date(cls._row_value(row, _PRINCIPAL_DATE_ALIASES))
+            if payment_date is None:
+                continue
+            amount = cls._positive_decimal(
+                cls._row_value(row, _PRINCIPAL_AMOUNT_ALIASES)
+            )
+            percent = cls._positive_decimal(
+                cls._row_value(row, _PRINCIPAL_PERCENT_ALIASES),
+                maximum=Decimal("100"),
+            )
+            if amount is None and percent is None:
+                continue
+            usable.append(
+                _UsablePrincipalPayment(
+                    payment_date=payment_date,
+                    amount=amount,
+                    percent=percent,
+                )
+            )
+
+        if not usable:
+            return None
+
+        value: str | None = None
+        basis: str | None = None
+        if any(
+            row.percent is not None and Decimal("0") < row.percent < Decimal("100")
+            for row in usable
+        ):
+            value = "amortizing"
+            basis = "partial_principal_percent"
+        elif len({row.payment_date for row in usable}) >= 2:
+            value = "amortizing"
+            basis = "multiple_principal_dates"
+        elif verified_maturity is not None and any(
+            row.payment_date < verified_maturity for row in usable
+        ):
+            value = "amortizing"
+            basis = "principal_before_verified_maturity"
+        elif (
+            verified_maturity is not None
+            and len(usable) == 1
+            and usable[0].payment_date == verified_maturity
+            and usable[0].percent == Decimal("100")
+        ):
+            value = "bullet"
+            basis = "single_100pct_at_verified_maturity"
+
+        if value is None or basis is None:
+            return None
+        source_tables = sorted(
+            {
+                str(row.get("__moex_source_table") or "amortizations")
+                for row in rows
+            }
+        )
+        return _PrincipalScheduleClassification(
+            value=value,
+            basis=basis,
+            observed_row_count=len(rows),
+            usable_row_count=len(usable),
+            source_tables=source_tables,
+        )
 
     def resolve_profile(self, bond: Bond) -> BondSecurityMasterProfile:
         evidence_rows = list(
@@ -447,6 +580,29 @@ class BondSecurityMasterService:
     @staticmethod
     def _distinct(values: list[Any]) -> list[Any]:
         return sorted(set(values), key=lambda value: json.dumps(value, sort_keys=True))
+
+    @staticmethod
+    def _row_value(row: dict[str, Any], aliases: tuple[str, ...]) -> Any:
+        lowered = {str(key).lower(): value for key, value in row.items()}
+        for alias in aliases:
+            value = lowered.get(alias.lower())
+            if value is not None and (not isinstance(value, str) or value.strip()):
+                return value
+        return None
+
+    @classmethod
+    def _positive_decimal(
+        cls,
+        value: Any,
+        *,
+        maximum: Decimal | None = None,
+    ) -> Decimal | None:
+        parsed = cls._decimal(value)
+        if parsed is None or parsed <= 0:
+            return None
+        if maximum is not None and parsed > maximum:
+            return None
+        return parsed
 
     @staticmethod
     def _decimal(value: Any) -> Decimal | None:
