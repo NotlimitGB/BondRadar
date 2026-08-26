@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 import re
 from typing import Any
@@ -19,6 +19,7 @@ from app.schemas.moex_bond_universe import (
     MoexBondUniverseSyncResult,
     MoexBondUniverseSyncWarning,
 )
+from app.services.bond_security_master_service import BondSecurityMasterService
 from app.services.issuer_identity_service import IssuerIdentityService
 from app.services.moex_iss_client import MoexIssClient, MoexIssClientError
 from app.services.moex_normalization import canonicalize_moex_currency
@@ -31,6 +32,20 @@ class SecurityOutcome:
     bond_action: str | None
     warnings: list[MoexBondUniverseSyncWarning]
     error: MoexBondUniverseSyncError | None = None
+
+
+@dataclass(frozen=True)
+class SecurityMasterObservation:
+    source: str
+    metadata: dict[str, Any]
+    observed_at: datetime
+    board_observed: bool
+
+
+@dataclass(frozen=True)
+class FetchedSecurity:
+    metadata: dict[str, Any]
+    observations: tuple[SecurityMasterObservation, ...]
 
 
 class MoexBondUniverseService:
@@ -54,7 +69,8 @@ class MoexBondUniverseService:
         bonds_skipped = 0
 
         securities = self._fetch_securities(request, secids, errors, warnings)
-        for metadata in securities:
+        for fetched in securities:
+            metadata = fetched.metadata
             processed_securities += 1
             secid = self._text(metadata.get("secid"), upper=True)
             isin = self._valid_isin(metadata.get("isin"), warnings, secid)
@@ -75,6 +91,7 @@ class MoexBondUniverseService:
                     request=request,
                     secid=secid,
                     isin=isin,
+                    observations=fetched.observations,
                 )
                 warnings.extend(outcome.warnings)
                 if outcome.error is not None:
@@ -131,18 +148,33 @@ class MoexBondUniverseService:
         secids: list[str] | None,
         errors: list[MoexBondUniverseSyncError],
         warnings: list[MoexBondUniverseSyncWarning],
-    ) -> list[dict[str, Any]]:
+    ) -> list[FetchedSecurity]:
         if secids is not None:
-            securities: list[dict[str, Any]] = []
+            securities: list[FetchedSecurity] = []
             for secid in secids:
                 try:
                     metadata, item_warnings = self.moex_client.fetch_bond_description(
                         secid,
                         board=request.board,
                     )
+                    observed_at = datetime.now(timezone.utc)
                     metadata["secid"] = metadata.get("secid") or secid
                     warnings.extend(self._warnings(secid, metadata, item_warnings))
-                    securities.append(metadata)
+                    securities.append(
+                        FetchedSecurity(
+                            metadata=metadata,
+                            observations=(
+                                SecurityMasterObservation(
+                                    source="moex_description",
+                                    metadata=metadata,
+                                    observed_at=observed_at,
+                                    board_observed=bool(
+                                        metadata.get("__moex_board_observed")
+                                    ),
+                                ),
+                            ),
+                        )
+                    )
                 except Exception as exc:
                     errors.append(
                         MoexBondUniverseSyncError(
@@ -162,6 +194,7 @@ class MoexBondUniverseService:
                     start=start,
                     limit=request.page_size,
                 )
+                page_observed_at = datetime.now(timezone.utc)
             except Exception as exc:
                 errors.append(
                     MoexBondUniverseSyncError(
@@ -179,9 +212,24 @@ class MoexBondUniverseService:
                 break
 
             for row in rows:
+                observations = [
+                    SecurityMasterObservation(
+                        source="moex_universe",
+                        metadata=row,
+                        observed_at=page_observed_at,
+                        board_observed=bool(
+                            row.get("__moex_board_observed", True)
+                        ),
+                    )
+                ]
                 secid = self._text(row.get("secid"), upper=True)
                 if not secid:
-                    securities.append(row)
+                    securities.append(
+                        FetchedSecurity(
+                            metadata=row,
+                            observations=tuple(observations),
+                        )
+                    )
                     continue
                 try:
                     description, item_warnings = (
@@ -190,8 +238,24 @@ class MoexBondUniverseService:
                             board=request.board,
                         )
                     )
+                    description_observed_at = datetime.now(timezone.utc)
                     warnings.extend(self._warnings(secid, row, item_warnings))
-                    securities.append(self._merge_metadata(row, description))
+                    observations.append(
+                        SecurityMasterObservation(
+                            source="moex_description",
+                            metadata=description,
+                            observed_at=description_observed_at,
+                            board_observed=bool(
+                                description.get("__moex_board_observed")
+                            ),
+                        )
+                    )
+                    securities.append(
+                        FetchedSecurity(
+                            metadata=self._merge_metadata(row, description),
+                            observations=tuple(observations),
+                        )
+                    )
                 except Exception as exc:
                     warnings.append(
                         MoexBondUniverseSyncWarning(
@@ -209,7 +273,12 @@ class MoexBondUniverseService:
                             message=self._error_message(exc),
                         )
                     )
-                    securities.append(row)
+                    securities.append(
+                        FetchedSecurity(
+                            metadata=row,
+                            observations=tuple(observations),
+                        )
+                    )
             start += len(rows)
         else:
             warnings.append(
@@ -228,6 +297,7 @@ class MoexBondUniverseService:
         request: MoexBondUniverseSyncRequest,
         secid: str | None,
         isin: str | None,
+        observations: tuple[SecurityMasterObservation, ...],
     ) -> SecurityOutcome:
         warnings: list[MoexBondUniverseSyncWarning] = []
         if not secid:
@@ -311,12 +381,23 @@ class MoexBondUniverseService:
             bond = Bond(**bond_values)
             self.db.add(bond)
             self.db.flush()
+            self._ingest_security_master(
+                bond,
+                observations=observations,
+                board=request.board,
+            )
             return SecurityOutcome(
                 company_id=company.id,
                 company_action=company_action,
                 bond_action="created",
                 warnings=warnings,
             )
+
+        self._ingest_security_master(
+            bond,
+            observations=observations,
+            board=request.board,
+        )
 
         if not request.rebuild_existing:
             return SecurityOutcome(
@@ -336,6 +417,24 @@ class MoexBondUniverseService:
             bond_action="updated" if changed else "skipped",
             warnings=warnings,
         )
+
+    def _ingest_security_master(
+        self,
+        bond: Bond,
+        *,
+        observations: tuple[SecurityMasterObservation, ...],
+        board: str,
+    ) -> None:
+        service = BondSecurityMasterService(self.db)
+        for observation in observations:
+            service.ingest_moex_metadata(
+                bond,
+                observation.metadata,
+                source=observation.source,
+                board=board,
+                board_observed=observation.board_observed,
+                observed_at=observation.observed_at,
+            )
 
     def _resolve_company(
         self,

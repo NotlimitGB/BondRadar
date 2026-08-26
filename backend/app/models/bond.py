@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Boolean,
@@ -18,6 +19,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.enums import ANALYSIS_SIGNAL_SQL, AnalysisSignal
+
+if TYPE_CHECKING:
+    from app.models.bond_security_master_evidence import BondSecurityMasterEvidence
+    from app.models.bond_security_master_profile import BondSecurityMasterProfile
 
 
 class Bond(Base):
@@ -69,6 +74,17 @@ class Bond(Base):
 
     company: Mapped["Company"] = relationship(back_populates="bonds")
     scores: Mapped[list["BondScore"]] = relationship(
+        back_populates="bond",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    security_master_profile: Mapped["BondSecurityMasterProfile | None"] = relationship(
+        back_populates="bond",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
+    security_master_evidence: Mapped[list["BondSecurityMasterEvidence"]] = relationship(
         back_populates="bond",
         cascade="all, delete-orphan",
         passive_deletes=True,

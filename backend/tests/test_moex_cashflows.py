@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.bond import Bond
 from app.models.bond_cashflow_event import BondCashflowEvent
+from app.models.bond_security_master_profile import BondSecurityMasterProfile
 from app.models.bond_return_label import BondReturnLabel
 from app.models.company import Company
 from app.models.enums import AnalysisSignal
@@ -471,6 +472,64 @@ def test_date_filter_imports_only_matching_events(
     assert response.json()["created"] == 1
     event = db_session.execute(select(BondCashflowEvent)).scalar_one()
     assert event.event_date == date(2026, 3, 15)
+
+
+def test_complete_schedule_updates_structure_before_date_filter(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    company = create_company(db_session, "MCFSTRUCT")
+    bond = create_bond(
+        db_session,
+        company,
+        isin="RUCF0000100",
+        secid="RUCF0000100",
+    )
+    fake_client = FakeCashflowClient(
+        {
+            bond.secid: schedule(
+                amortizations=[
+                    {
+                        "amortdate": "2030-02-15",
+                        "valueprc": "5.0",
+                        "__moex_source_table": "amortizations",
+                    }
+                ],
+                offers=[
+                    {
+                        "offerdate": "2030-03-15",
+                        "price": "100.0",
+                        "__moex_source_table": "offers",
+                    }
+                ],
+            )
+        }
+    )
+    monkeypatch.setattr(
+        "app.services.moex_cashflow_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/cashflows/sync",
+        json=sync_payload(
+            bond_ids=[bond.id],
+            date_from="2026-01-01",
+            date_to="2026-12-31",
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["created"] == 0
+    profile = db_session.execute(
+        select(BondSecurityMasterProfile).where(
+            BondSecurityMasterProfile.bond_id == bond.id
+        )
+    ).scalar_one()
+    assert profile.amortization_structure == "amortizing"
+    assert profile.offer_structure == "present"
+    assert db_session.scalar(select(func.count()).select_from(BondCashflowEvent)) == 0
 
 
 def test_invalid_date_range_returns_400(client: TestClient) -> None:

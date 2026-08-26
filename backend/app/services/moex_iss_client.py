@@ -87,6 +87,12 @@ class MoexIssClient:
             "COUPONPERCENT",
             "coupon_rate_percent",
         ),
+        "is_floating_coupon": (
+            "is_floating_coupon",
+            "IS_FLOATING_COUPON",
+            "floating_coupon",
+            "FLOATING_COUPON",
+        ),
         "maturity_date": (
             "maturity_date",
             "MATURITY_DATE",
@@ -265,7 +271,10 @@ class MoexIssClient:
         if table_name is None:
             return [], [f"MOEX securities table is missing for board {board}"]
         rows = self._parse_named_table(payload, table_name)
-        return [self._normalize_bond_metadata_row(row) for row in rows], []
+        normalized_rows = [self._normalize_bond_metadata_row(row) for row in rows]
+        for row in normalized_rows:
+            row["__moex_board_observed"] = True
+        return normalized_rows, []
 
     def fetch_bond_market_history(
         self,
@@ -308,6 +317,7 @@ class MoexIssClient:
         payload = self._request_json(path, params=params)
         warnings: list[str] = []
         raw: dict[str, Any] = {}
+        board_observed = False
 
         description_table = self._find_table_name(payload, ("description",))
         if description_table is not None:
@@ -321,6 +331,7 @@ class MoexIssClient:
             security_rows = self._parse_named_table(payload, securities_table)
             if security_rows:
                 raw.update(security_rows[0])
+                board_observed = board is not None
 
         if not raw:
             warnings.append(f"No MOEX metadata rows found for {secid}")
@@ -328,7 +339,9 @@ class MoexIssClient:
         elif not self._has_value(self._first_value(raw, ("secid", "SECID"))):
             raw["SECID"] = secid
 
-        return self._normalize_bond_metadata_row(raw), warnings
+        normalized = self._normalize_bond_metadata_row(raw)
+        normalized["__moex_board_observed"] = board_observed
+        return normalized, warnings
 
     def _fetch_page(
         self,

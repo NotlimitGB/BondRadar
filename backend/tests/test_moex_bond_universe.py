@@ -8,6 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.bond import Bond
+from app.models.bond_security_master_evidence import BondSecurityMasterEvidence
+from app.models.bond_security_master_profile import BondSecurityMasterProfile
 from app.models.company import Company
 from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.enums import AnalysisSignal
@@ -320,6 +322,50 @@ def test_repeated_sync_skips_existing_by_default(
     assert second.json()["companies_skipped"] == 1
     assert count(db_session, Company) == 1
     assert count(db_session, Bond) == 1
+
+
+def test_universe_sync_records_source_evidence_idempotently(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    metadata = description()
+    metadata["raw"] = {
+        "currency": "SUR",
+        "nominal_value": "1000",
+        "coupon_rate": "12.5",
+        "maturity_date": "2030-01-01",
+        "is_floating_coupon": False,
+        "has_amortization": False,
+        "is_subordinated": False,
+        "is_perpetual": False,
+    }
+    metadata["__moex_board_observed"] = True
+    fake_client = FakeBondUniverseClient(
+        descriptions={"RU000A100001": metadata}
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    first = client.post("/api/market-data/moex/bonds/sync", json=sync_payload())
+    evidence_count = count(db_session, BondSecurityMasterEvidence)
+    second = client.post("/api/market-data/moex/bonds/sync", json=sync_payload())
+
+    assert first.status_code == 200 and second.status_code == 200
+    profile = db_session.execute(select(BondSecurityMasterProfile)).scalar_one()
+    assert profile.currency_code == "RUB"
+    assert profile.coupon_structure == "fixed"
+    assert profile.amortization_structure == "bullet"
+    assert profile.subordination_structure == "senior"
+    assert profile.perpetual_structure == "dated"
+    assert profile.trading_board == "TQCB"
+    assert count(db_session, BondSecurityMasterEvidence) == evidence_count
+    assert {
+        row.source
+        for row in db_session.execute(select(BondSecurityMasterEvidence)).scalars()
+    } == {"moex_description"}
 
 
 def test_rebuild_existing_updates_safe_metadata(
@@ -672,6 +718,15 @@ def test_unresolved_currency_creates_nothing_and_does_not_corrupt_existing_bond(
     assert "bond_currency_unresolved" in {
         warning["message"] for warning in rebuild_response.json()["warnings"]
     }
+    security_master = db_session.execute(
+        select(BondSecurityMasterProfile).where(
+            BondSecurityMasterProfile.bond_id == existing.id
+        )
+    ).scalar_one()
+    assert security_master.currency_state == "unknown"
+    assert security_master.currency_code is None
+    assert security_master.nominal_state == "verified"
+    assert security_master.maturity_state == "verified"
 
 
 def test_pagination_stops_on_empty_page(

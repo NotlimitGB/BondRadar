@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -17,6 +17,7 @@ from app.schemas.moex import (
     MoexCashflowSyncWarning,
 )
 from app.services.bond_cashflow_service import BondCashflowService
+from app.services.bond_security_master_service import BondSecurityMasterService
 from app.services.moex_iss_client import (
     MoexCashflowScheduleResult,
     MoexIssClient,
@@ -132,6 +133,27 @@ class MoexCashflowService:
                     for message in schedule.warnings
                 )
             except Exception as exc:
+                skipped_bonds += 1
+                errors.append(
+                    MoexCashflowSyncError(
+                        bond_id=bond.id,
+                        secid=bond.secid,
+                        message=self._error_message(exc),
+                    )
+                )
+                continue
+
+            try:
+                BondSecurityMasterService(
+                    self.db
+                ).ingest_moex_cashflow_structure(
+                    bond,
+                    schedule,
+                    observed_at=datetime.now(timezone.utc),
+                )
+                self.db.commit()
+            except Exception as exc:
+                self.db.rollback()
                 skipped_bonds += 1
                 errors.append(
                     MoexCashflowSyncError(

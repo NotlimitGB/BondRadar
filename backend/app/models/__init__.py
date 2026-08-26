@@ -3,6 +3,8 @@ from app.models.bond_cashflow_event import BondCashflowEvent
 from app.models.bond_feature_snapshot import BondFeatureSnapshot
 from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.models.bond_risk_assessment import BondRiskAssessment
+from app.models.bond_security_master_evidence import BondSecurityMasterEvidence
+from app.models.bond_security_master_profile import BondSecurityMasterProfile
 from app.models.bond_return_label import BondReturnLabel
 from app.models.bond_score import BondScore
 from app.models.company import Company
@@ -37,6 +39,8 @@ __all__ = [
     "BondFeatureSnapshot",
     "BondMarketSnapshot",
     "BondRiskAssessment",
+    "BondSecurityMasterEvidence",
+    "BondSecurityMasterProfile",
     "BondReturnLabel",
     "BondScore",
     "Company",
