@@ -8,10 +8,15 @@ production data, complete the security master, or qualify any pilot bond.
 
 ## Proven currency contract
 
-MOEX `FaceUnit=SUR` denotes the Russian ruble. New MOEX mappings therefore use
-the explicit storage rule `SUR -> RUB`. `RUB` remains `RUB`; other valid ASCII
-three-letter currency codes are uppercased and preserved. No FX conversion is
-performed and no speculative `RUR -> RUB` mapping exists.
+MOEX `FACEUNIT` is the bond face-value/nominal currency. `CURRENCYID` is the
+trading currency and is not a nominal-currency substitute. Bond metadata keeps
+the compatible normalized key `currency`, but it is populated only from
+`FACEUNIT`; `CURRENCYID` alone leaves nominal currency unresolved.
+
+`FACEUNIT=SUR` denotes the Russian ruble. New nominal-currency mappings therefore
+use the explicit storage rule `SUR -> RUB`. `RUB` remains `RUB`; other valid
+ASCII three-letter currency codes are uppercased and preserved. No FX
+conversion is performed and no speculative `RUR -> RUB` mapping exists.
 
 Missing, empty, numeric, non-ASCII, or malformed codes are unresolved. They are
 never replaced with RUB. New universe rows fail with
@@ -51,6 +56,12 @@ canonical currency, maturity and offer values, explicit structural fields,
 cashflow counts, recognized source-table names, evidence states, and sanitized
 warnings. Results are ordered by SECID. The report never contains the complete
 MOEX payload or arbitrary unrelated raw description fields.
+
+The probe's normalized currency is FACEUNIT-based nominal currency. Its bounded
+raw-key inventory may still expose `CURRENCYID` as observed trading-currency
+evidence, but the probe does not promote that field into nominal currency.
+Historical market-row currency remains a separate market/trading-evidence
+contract with legacy ambiguity and is outside Task241 FIX3.
 
 ## Amortization semantics
 
@@ -99,6 +110,10 @@ Task239 implementation and tests use fake source clients only:
 The probe is intentionally network-capable for a later authorized VDS run, but
 Task239 does not run it live. It adds no model, migration, dependency, security
 classification, issuer recovery, or production rebuild.
+
+Task241 FIX3 does not rewrite evidence created under the earlier conflated
+currency aliases. Identification and remediation of any affected persisted
+evidence requires a separate authorized operation.
 
 ## Task240 boundary
 

@@ -196,6 +196,7 @@ def test_client_parses_universe_table() -> None:
                         "SHORTNAME",
                         "SECNAME",
                         "FACEVALUE",
+                        "CURRENCYID",
                         "FACEUNIT",
                     ],
                     "data": [
@@ -205,7 +206,8 @@ def test_client_parses_universe_table() -> None:
                             "Short",
                             "Full Bond Name",
                             "1000",
-                            "RUB",
+                            "SUR",
+                            "USD",
                         ]
                     ],
                 }
@@ -221,11 +223,31 @@ def test_client_parses_universe_table() -> None:
     assert rows[0]["isin"] == "RU000A100001"
     assert rows[0]["name"] == "Full Bond Name"
     assert rows[0]["nominal_value"] == "1000"
+    assert rows[0]["currency"] == "USD"
+    assert rows[0]["raw"]["CURRENCYID"] == "SUR"
+    assert rows[0]["raw"]["FACEUNIT"] == "USD"
     assert http_client.calls[0]["path"].endswith(
         "/iss/engines/stock/markets/bonds/boards/TQCB/securities.json"
     )
     assert http_client.calls[0]["params"]["start"] == 0
     assert http_client.calls[0]["params"]["limit"] == 50
+
+
+def test_client_nominal_currency_uses_faceunit_without_trading_fallback() -> None:
+    foreign = MoexIssClient._normalize_bond_metadata_row(
+        {"SECID": "FOREIGN", "CURRENCYID": "SUR", "FACEUNIT": "CNY"}
+    )
+    rub = MoexIssClient._normalize_bond_metadata_row(
+        {"SECID": "RUB", "CURRENCYID": "USD", "FACEUNIT": "SUR"}
+    )
+    trading_only = MoexIssClient._normalize_bond_metadata_row(
+        {"SECID": "TRADING", "CURRENCYID": "SUR"}
+    )
+
+    assert foreign["currency"] == "CNY"
+    assert rub["currency"] == "SUR"
+    assert trading_only["currency"] is None
+    assert trading_only["raw"] == {"SECID": "TRADING", "CURRENCYID": "SUR"}
 
 
 def test_client_parses_description_alternate_columns() -> None:
@@ -239,6 +261,8 @@ def test_client_parses_description_alternate_columns() -> None:
                         ["ISINCODE", "ISIN", "RU000A100002"],
                         ["EMITENT_TITLE", "Issuer", "Alternate Issuer"],
                         ["EMITENT_INN", "INN", "7700000002"],
+                        ["CURRENCYID", "Trading currency", "SUR"],
+                        ["FACEUNIT", "Nominal currency", "USD"],
                         ["COUPONPERCENT", "Coupon", "9.75"],
                         ["MATDATE", "Maturity", "2031-05-20"],
                     ],
@@ -255,6 +279,9 @@ def test_client_parses_description_alternate_columns() -> None:
     assert metadata["isin"] == "RU000A100002"
     assert metadata["issuer_name"] == "Alternate Issuer"
     assert metadata["issuer_inn"] == "7700000002"
+    assert metadata["currency"] == "USD"
+    assert metadata["raw"]["CURRENCYID"] == "SUR"
+    assert metadata["raw"]["FACEUNIT"] == "USD"
     assert metadata["coupon_rate"] == "9.75"
     assert metadata["maturity_date"] == "2031-05-20"
 
@@ -331,7 +358,7 @@ def test_universe_sync_records_source_evidence_idempotently(
 ) -> None:
     metadata = description()
     metadata["raw"] = {
-        "currency": "SUR",
+        "FACEUNIT": "SUR",
         "nominal_value": "1000",
         "coupon_rate": "12.5",
         "maturity_date": "2030-01-01",
@@ -366,6 +393,74 @@ def test_universe_sync_records_source_evidence_idempotently(
         row.source
         for row in db_session.execute(select(BondSecurityMasterEvidence)).scalars()
     } == {"moex_description"}
+
+
+def test_universe_and_description_use_faceunit_for_legacy_and_security_master(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    secid = "RU000A100113"
+    universe = description(
+        secid=secid,
+        isin=secid,
+        issuer_inn="7700000113",
+        currency="USD",
+    )
+    universe["raw"] = {
+        "SECID": secid,
+        "ISIN": secid,
+        "CURRENCYID": "SUR",
+        "FACEUNIT": "USD",
+    }
+    description_metadata = description(
+        secid=secid,
+        isin=secid,
+        issuer_inn="7700000113",
+        currency="USD",
+    )
+    description_metadata["raw"] = {
+        "SECID": secid,
+        "ISIN": secid,
+        "FACEUNIT": "USD",
+    }
+    fake_client = FakeBondUniverseClient(
+        pages=[[universe], []],
+        descriptions={secid: description_metadata},
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=None),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["bonds_created"] == 1
+    bond = db_session.execute(select(Bond)).scalar_one()
+    profile = db_session.execute(select(BondSecurityMasterProfile)).scalar_one()
+    currency_evidence = list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.field_name == "currency_code"
+            )
+        ).scalars()
+    )
+    assert bond.currency == "USD"
+    assert profile.currency_state == "verified"
+    assert profile.currency_code == "USD"
+    assert len(currency_evidence) == 2
+    assert {row.source for row in currency_evidence} == {
+        "moex_universe",
+        "moex_description",
+    }
+    assert all(
+        row.raw_value_json == {"source_field": "FACEUNIT", "value": "USD"}
+        for row in currency_evidence
+    )
 
 
 def test_rebuild_existing_updates_safe_metadata(
@@ -659,14 +754,14 @@ def test_unresolved_currency_creates_nothing_and_does_not_corrupt_existing_bond(
     monkeypatch,
 ) -> None:
     missing_secid = "RU000A100111"
+    missing_metadata = description(
+        secid=missing_secid,
+        isin=missing_secid,
+        currency=None,
+    )
+    missing_metadata["raw"] = {"CURRENCYID": "SUR"}
     missing_client = FakeBondUniverseClient(
-        descriptions={
-            missing_secid: description(
-                secid=missing_secid,
-                isin=missing_secid,
-                currency=None,
-            )
-        }
+        descriptions={missing_secid: missing_metadata}
     )
     monkeypatch.setattr(
         "app.services.moex_bond_universe_service.MoexIssClient",
@@ -692,16 +787,16 @@ def test_unresolved_currency_creates_nothing_and_does_not_corrupt_existing_bond(
         isin="RU000A100112",
         currency="USD",
     )
+    rebuild_metadata = description(
+        secid=existing.secid,
+        isin=existing.isin,
+        issuer_name=company.name,
+        issuer_inn=company.inn,
+        currency=None,
+    )
+    rebuild_metadata["raw"] = {"CURRENCYID": "SUR"}
     rebuild_client = FakeBondUniverseClient(
-        descriptions={
-            existing.secid: description(
-                secid=existing.secid,
-                isin=existing.isin,
-                issuer_name=company.name,
-                issuer_inn=company.inn,
-                currency=None,
-            )
-        }
+        descriptions={existing.secid: rebuild_metadata}
     )
     monkeypatch.setattr(
         "app.services.moex_bond_universe_service.MoexIssClient",

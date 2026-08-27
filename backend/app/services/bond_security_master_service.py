@@ -51,7 +51,7 @@ _PRINCIPAL_PERCENT_ALIASES = (
     "amortization_percent",
 )
 _METADATA_ALIASES = {
-    "currency_code": ("currency", "CURRENCY", "currencyid", "CURRENCYID", "faceunit", "FACEUNIT"),
+    "currency_code": ("faceunit", "FACEUNIT"),
     "nominal_value": ("nominal_value", "NOMINAL_VALUE", "facevalue", "FACEVALUE", "faceval", "FACEVAL", "nominal", "NOMINAL"),
     "coupon_rate": ("coupon_rate", "COUPON_RATE", "couponpercent", "COUPONPERCENT", "coupon_rate_percent"),
     "maturity_date": ("maturity_date", "MATURITY_DATE", "matdate", "MATDATE", "maturitydate", "MATURITYDATE"),

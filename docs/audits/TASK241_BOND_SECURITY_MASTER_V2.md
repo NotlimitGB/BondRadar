@@ -49,14 +49,17 @@ fail-closed until a later explicitly authorized reconciliation design exists.
 
 Task239 currency normalization is reused unchanged: `SUR` becomes `RUB`, valid
 foreign ISO-like three-letter codes remain uppercase, and malformed or missing
-currency remains unknown. It never defaults to RUB.
+currency remains unknown. It never defaults to RUB. For MOEX bond metadata,
+only `FACEUNIT` is accepted as nominal/security currency evidence. `CURRENCYID`
+is trading currency; it cannot create or resolve `currency_code`, and missing
+`FACEUNIT` remains unknown.
 
-Metadata assertions are created only from source-present currency, nominal,
-coupon rate, maturity, explicit floating/amortization/subordination/perpetual
-booleans, explicit offer date, and an actually observed board. Explicit false
-is evidence; a missing or null flag is not. Lot size, coupon frequency, coupon
-formula, outstanding nominal, and listing status remain unknown until an
-explicit supported source contract exists.
+Metadata assertions are created only from source-present FACEUNIT currency,
+nominal, coupon rate, maturity, explicit floating/amortization/subordination/
+perpetual booleans, explicit offer date, and an actually observed board.
+Explicit false is evidence; a missing or null flag is not. Lot size, coupon
+frequency, coupon formula, outstanding nominal, and listing status remain
+unknown until an explicit supported source contract exists.
 
 The complete fetched cashflow schedule is inspected before persistence date
 filters. The MOEX amortization table is treated as a principal-payment schedule,
@@ -114,6 +117,10 @@ automatically superseded. Any affected production sample must be handled by a
 separately authorized remediation sequence: identify fingerprint-bound faulty
 evidence, review the intended correction, apply it through an explicit controlled
 mutation, and rerun resolution. Task241 FIX1 performs none of those steps.
+
+Task241 FIX3 likewise does not rewrite earlier nominal-currency assertions that
+were sourced from `CURRENCYID` or generic currency aliases. Those rows remain a
+separate audit and controlled-remediation concern.
 
 Explicit Task241 invariants:
 

@@ -82,7 +82,7 @@ def test_one_profile_per_bond_and_bond_delete_cascades(
     service = BondSecurityMasterService(db_session)
     service.ingest_moex_metadata(
         bond,
-        {"raw": {"currency": "RUB"}},
+        {"raw": {"FACEUNIT": "RUB"}},
         source="moex_description",
         board=None,
         board_observed=False,
@@ -113,7 +113,7 @@ def test_missing_source_flags_remain_unknown_and_explicit_flags_resolve(
         missing,
         {
             "raw": {
-                "currency": "SUR",
+                "FACEUNIT": "SUR",
                 "nominal_value": "1000",
                 "coupon_rate": "0",
                 "maturity_date": "2035-01-01",
@@ -185,6 +185,130 @@ def test_missing_source_flags_remain_unknown_and_explicit_flags_resolve(
     assert positive_profile.subordination_structure == "subordinated"
     assert positive_profile.perpetual_structure == "perpetual"
     assert positive_profile.offer_structure == "present"
+
+
+def test_faceunit_nominal_currency_agrees_across_sources_and_is_idempotent(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "14")
+    service = BondSecurityMasterService(db_session)
+    universe_metadata = {
+        "raw": {"CURRENCYID": "SUR", "FACEUNIT": "USD"}
+    }
+
+    service.ingest_moex_metadata(
+        bond,
+        universe_metadata,
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    )
+    first_count = db_session.scalar(
+        select(func.count())
+        .select_from(BondSecurityMasterEvidence)
+        .where(BondSecurityMasterEvidence.bond_id == bond.id)
+    )
+    service.ingest_moex_metadata(
+        bond,
+        universe_metadata,
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=datetime(2026, 8, 27, 8, 0, tzinfo=timezone.utc),
+    )
+    service.ingest_moex_metadata(
+        bond,
+        {"raw": {"FACEUNIT": "USD"}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=datetime(2026, 8, 27, 9, 0, tzinfo=timezone.utc),
+    )
+
+    profile = service.resolve_profile(bond)
+    evidence_rows = list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence)
+            .where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name == "currency_code",
+            )
+            .order_by(BondSecurityMasterEvidence.source)
+        ).scalars()
+    )
+    assert first_count == 1
+    assert len(evidence_rows) == 2
+    assert {row.source for row in evidence_rows} == {
+        "moex_universe",
+        "moex_description",
+    }
+    assert {row.normalized_value_json["value"] for row in evidence_rows} == {
+        "USD"
+    }
+    assert all(
+        row.raw_value_json == {"source_field": "FACEUNIT", "value": "USD"}
+        for row in evidence_rows
+    )
+    assert profile.currency_state == "verified"
+    assert profile.currency_code == "USD"
+
+
+def test_faceunit_is_the_only_security_master_nominal_currency_source(
+    db_session: Session,
+) -> None:
+    service = BondSecurityMasterService(db_session)
+
+    foreign = create_bond(db_session, "15")
+    foreign_profile = service.ingest_moex_metadata(
+        foreign,
+        {"raw": {"CURRENCYID": "USD", "FACEUNIT": "CNY"}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    )
+    assert foreign_profile is not None
+    assert foreign_profile.currency_code == "CNY"
+
+    rub = create_bond(db_session, "16")
+    rub_profile = service.ingest_moex_metadata(
+        rub,
+        {"raw": {"CURRENCYID": "USD", "FACEUNIT": "SUR"}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    )
+    assert rub_profile is not None
+    assert rub_profile.currency_code == "RUB"
+
+    trading_only = create_bond(db_session, "17")
+    assert service.ingest_moex_metadata(
+        trading_only,
+        {"raw": {"CURRENCYID": "SUR"}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    ) is None
+
+    generic_only = create_bond(db_session, "18")
+    assert service.ingest_moex_metadata(
+        generic_only,
+        {"raw": {"currency": "RUB"}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    ) is None
+
+    blocked_bond_ids = {trading_only.id, generic_only.id}
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(BondSecurityMasterEvidence)
+        .where(BondSecurityMasterEvidence.bond_id.in_(blocked_bond_ids))
+    ) == 0
 
 
 def test_cashflow_presence_conflict_and_idempotency(
@@ -496,7 +620,7 @@ def test_scalar_conflict_multi_source_and_point_in_time_history(
     service = BondSecurityMasterService(db_session)
     service.ingest_moex_metadata(
         bond,
-        {"raw": {"currency": "RUB"}},
+        {"raw": {"FACEUNIT": "RUB"}},
         source="moex_universe",
         board=None,
         board_observed=False,
@@ -504,7 +628,7 @@ def test_scalar_conflict_multi_source_and_point_in_time_history(
     )
     service.ingest_moex_metadata(
         bond,
-        {"raw": {"currency": "RUB"}},
+        {"raw": {"FACEUNIT": "RUB"}},
         source="moex_description",
         board=None,
         board_observed=False,
@@ -521,7 +645,7 @@ def test_scalar_conflict_multi_source_and_point_in_time_history(
 
     service.ingest_moex_metadata(
         bond,
-        {"raw": {"currency": "USD"}},
+        {"raw": {"FACEUNIT": "USD"}},
         source="moex_description",
         board=None,
         board_observed=False,

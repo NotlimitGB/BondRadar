@@ -62,14 +62,7 @@ class MoexIssClient:
             "inn",
             "INN",
         ),
-        "currency": (
-            "currency",
-            "CURRENCY",
-            "currencyid",
-            "CURRENCYID",
-            "faceunit",
-            "FACEUNIT",
-        ),
+        "currency": ("faceunit", "FACEUNIT"),
         "nominal_value": (
             "nominal_value",
             "NOMINAL_VALUE",

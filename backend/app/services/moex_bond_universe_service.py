@@ -331,8 +331,8 @@ class MoexBondUniverseService:
                 error=conflict_error,
             )
 
-        currency = canonicalize_moex_currency(metadata.get("currency"))
-        if currency is None:
+        nominal_currency = canonicalize_moex_currency(metadata.get("currency"))
+        if nominal_currency is None:
             warnings.append(
                 MoexBondUniverseSyncWarning(
                     secid=secid,
@@ -373,7 +373,7 @@ class MoexBondUniverseService:
             company_id=company.id,
             secid=secid,
             isin=isin,
-            currency=currency,
+            nominal_currency=nominal_currency,
             warnings=warnings,
         )
 
@@ -572,7 +572,7 @@ class MoexBondUniverseService:
         company_id: int,
         secid: str,
         isin: str | None,
-        currency: str | None,
+        nominal_currency: str | None,
         warnings: list[MoexBondUniverseSyncWarning],
     ) -> dict[str, Any]:
         name = (
@@ -606,7 +606,7 @@ class MoexBondUniverseService:
             "secid": secid,
             "isin": isin,
             "name": name,
-            "currency": currency,
+            "currency": nominal_currency,
             "nominal_value": self._decimal_value(
                 metadata.get("nominal_value"),
                 warnings=warnings,
