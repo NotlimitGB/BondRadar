@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
+from math import isfinite
 import re
 from typing import Any
 
@@ -681,8 +682,12 @@ class BondSecurityMasterService:
         return normalized
 
     @staticmethod
-    def _json_scalar(value: Any) -> str | int | bool | None:
+    def _json_scalar(value: Any) -> str | int | float | bool | None:
         if value is None or isinstance(value, (str, int, bool)):
+            return value
+        if isinstance(value, float):
+            if not isfinite(value):
+                raise ValueError("Security-master raw evidence value must be scalar")
             return value
         if isinstance(value, (Decimal, date, datetime)):
             return str(value)

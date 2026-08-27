@@ -561,6 +561,156 @@ def test_scalar_conflict_multi_source_and_point_in_time_history(
     assert all(row.ingestion_at not in {row.observed_at, row.effective_at} for row in history)
 
 
+def test_moex_universe_float_metadata_is_preserved_and_idempotent(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "61")
+    service = BondSecurityMasterService(db_session)
+
+    first_profile = service.ingest_moex_metadata(
+        bond,
+        {"raw": {"COUPONPERCENT": 7.625}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    )
+    first_evidence = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_rate",
+        )
+    ).scalar_one()
+    first_fingerprint = first_evidence.evidence_fingerprint
+    first_observed_at = first_evidence.observed_at
+
+    second_profile = service.ingest_moex_metadata(
+        bond,
+        {"raw": {"COUPONPERCENT": 7.625}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=datetime(2026, 8, 27, 10, 0, tzinfo=timezone.utc),
+    )
+    db_session.flush()
+    db_session.expire_all()
+    evidence_rows = list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name == "coupon_rate",
+            )
+        ).scalars()
+    )
+
+    assert first_profile is not None and second_profile is not None
+    assert first_profile.coupon_rate == Decimal("7.625")
+    assert first_profile.coupon_rate_state == "verified"
+    assert second_profile.coupon_rate == Decimal("7.625")
+    assert second_profile.coupon_rate_state == "verified"
+    assert len(evidence_rows) == 1
+    assert evidence_rows[0].source == "moex_universe"
+    assert evidence_rows[0].normalized_value_json == {"value": "7.625"}
+    assert evidence_rows[0].raw_value_json == {
+        "source_field": "COUPONPERCENT",
+        "value": 7.625,
+    }
+    assert evidence_rows[0].evidence_fingerprint == first_fingerprint
+    assert evidence_rows[0].observed_at == first_observed_at
+
+
+@pytest.mark.parametrize("raw_float", [7.625, 1000.0, 0.0, -1.25])
+def test_record_assertion_accepts_finite_float_raw_scalars(
+    db_session: Session,
+    raw_float: float,
+) -> None:
+    bond = create_bond(db_session, "62")
+    evidence, created = BondSecurityMasterService(db_session).record_assertion(
+        bond=bond,
+        field_name="coupon_rate",
+        source="moex_universe",
+        assertion_type="scalar_value",
+        normalized_value="1",
+        observed_at=OBSERVED,
+        source_key=bond.secid,
+        raw_value={"source_field": "COUPONPERCENT", "value": raw_float},
+    )
+
+    assert created is True
+    assert evidence.raw_value_json == {
+        "source_field": "COUPONPERCENT",
+        "value": raw_float,
+    }
+    assert isinstance(evidence.raw_value_json["value"], float)
+
+
+@pytest.mark.parametrize(
+    "raw_float",
+    [float("nan"), float("inf"), float("-inf")],
+    ids=["nan", "positive-infinity", "negative-infinity"],
+)
+def test_record_assertion_rejects_non_finite_float_raw_scalars(
+    db_session: Session,
+    raw_float: float,
+) -> None:
+    bond = create_bond(db_session, "63")
+    service = BondSecurityMasterService(db_session)
+
+    with pytest.raises(
+        ValueError,
+        match="Security-master raw evidence value must be scalar",
+    ):
+        service.record_assertion(
+            bond=bond,
+            field_name="coupon_rate",
+            source="moex_universe",
+            assertion_type="scalar_value",
+            normalized_value="1",
+            observed_at=OBSERVED,
+            source_key=bond.secid,
+            raw_value={"source_field": "COUPONPERCENT", "value": raw_float},
+        )
+
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence)
+    ) == 0
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    [
+        {"value": {"nested": "not-allowed"}},
+        {"value": object()},
+        {"value": [7.625]},
+        {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5},
+        {"x" * 65: "too-long"},
+    ],
+    ids=["nested-dict", "arbitrary-object", "float-list", "too-many-fields", "long-key"],
+)
+def test_record_assertion_preserves_narrow_raw_evidence_rejections(
+    db_session: Session,
+    raw_value: dict[str, object],
+) -> None:
+    bond = create_bond(db_session, "64")
+    service = BondSecurityMasterService(db_session)
+
+    with pytest.raises(ValueError):
+        service.record_assertion(
+            bond=bond,
+            field_name="coupon_rate",
+            source="moex_universe",
+            assertion_type="scalar_value",
+            normalized_value="1",
+            observed_at=OBSERVED,
+            source_key=bond.secid,
+            raw_value=raw_value,
+        )
+
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence)
+    ) == 0
+
+
 def qualified_profile() -> BondSecurityMasterProfile:
     return BondSecurityMasterProfile(
         bond_id=1,
