@@ -28,6 +28,19 @@ class MoexCashflowScheduleResult:
     warnings: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class MoexSecurityReferenceCandidate:
+    secid: str | None
+    isin: str | None
+    short_name: str | None
+    full_name: str | None
+    primary_board: str | None
+    issuer_id: str | None
+    issuer_title: str | None
+    issuer_inn: str | None
+    issuer_okpo: str | None
+
+
 class MoexIssClient:
     MAX_PAGES = 100
     BOND_UNIVERSE_PATH_TEMPLATE = (
@@ -36,6 +49,18 @@ class MoexIssClient:
     BOND_DESCRIPTION_PATH_TEMPLATE = "/iss/securities/{secid}.json"
     CASHFLOW_PATH_TEMPLATE = (
         "/iss/statistics/engines/stock/markets/bonds/bondization/{secid}.json"
+    )
+    SECURITY_REFERENCE_PATH = "/iss/securities.json"
+    SECURITY_REFERENCE_COLUMNS = (
+        "secid",
+        "isin",
+        "shortname",
+        "name",
+        "primary_boardid",
+        "emitent_id",
+        "emitent_title",
+        "emitent_inn",
+        "emitent_okpo",
     )
     BOND_METADATA_ALIASES = {
         "secid": ("secid", "SECID"),
@@ -336,6 +361,49 @@ class MoexIssClient:
         normalized["__moex_board_observed"] = board_observed
         return normalized, warnings
 
+    def fetch_security_reference_candidates(
+        self,
+        query: str,
+        *,
+        limit: int = 100,
+    ) -> list[MoexSecurityReferenceCandidate]:
+        normalized_query = str(query or "").strip().upper()
+        if not normalized_query or len(normalized_query) > 64:
+            raise ValueError("Invalid MOEX security reference query")
+        if (
+            not isinstance(limit, int)
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 100
+        ):
+            raise ValueError("Invalid MOEX security reference page limit")
+
+        candidates: list[MoexSecurityReferenceCandidate] = []
+        start = 0
+        for _page in range(self.max_pages):
+            payload = self._request_json(
+                self.SECURITY_REFERENCE_PATH,
+                params={
+                    "q": normalized_query,
+                    "iss.meta": "off",
+                    "iss.only": "securities",
+                    "start": start,
+                    "limit": limit,
+                    "securities.columns": ",".join(
+                        self.SECURITY_REFERENCE_COLUMNS
+                    ),
+                },
+            )
+            rows = self._parse_security_reference_table(payload)
+            candidates.extend(
+                self._normalize_security_reference_row(row) for row in rows
+            )
+            if len(rows) < limit:
+                return candidates
+            start += len(rows)
+        raise MoexIssClientError(
+            "MOEX security reference pagination max_pages reached"
+        )
+
     def _fetch_page(
         self,
         *,
@@ -492,6 +560,81 @@ class MoexIssClient:
                 )
             rows.append(dict(zip(columns, raw_row, strict=False)))
         return rows
+
+    @classmethod
+    def _parse_security_reference_table(
+        cls,
+        payload: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        table_name = cls._find_table_name(payload, ("securities",))
+        if table_name is None:
+            raise MoexIssClientError(
+                "Invalid MOEX response: securities table is missing"
+            )
+        table = payload.get(table_name)
+        if not isinstance(table, dict):
+            raise MoexIssClientError(
+                "Invalid MOEX response: securities table is invalid"
+            )
+        columns = table.get("columns")
+        data = table.get("data")
+        if not isinstance(columns, list) or not all(
+            isinstance(column, str) for column in columns
+        ):
+            raise MoexIssClientError(
+                "Invalid MOEX response: securities columns are invalid"
+            )
+        if not isinstance(data, list):
+            raise MoexIssClientError(
+                "Invalid MOEX response: securities data is invalid"
+            )
+        normalized_columns = {column.lower() for column in columns}
+        missing_columns = set(cls.SECURITY_REFERENCE_COLUMNS) - normalized_columns
+        if missing_columns:
+            raise MoexIssClientError(
+                "Invalid MOEX response: securities columns are incomplete"
+            )
+        rows: list[dict[str, Any]] = []
+        for raw_row in data:
+            if not isinstance(raw_row, list) or len(raw_row) != len(columns):
+                raise MoexIssClientError(
+                    "Invalid MOEX response: securities row shape is invalid"
+                )
+            rows.append(dict(zip(columns, raw_row, strict=True)))
+        return rows
+
+    @classmethod
+    def _normalize_security_reference_row(
+        cls,
+        row: dict[str, Any],
+    ) -> MoexSecurityReferenceCandidate:
+        return MoexSecurityReferenceCandidate(
+            secid=cls._reference_text(row, "secid", upper=True),
+            isin=cls._reference_text(row, "isin", upper=True),
+            short_name=cls._reference_text(row, "shortname"),
+            full_name=cls._reference_text(row, "name"),
+            primary_board=cls._reference_text(row, "primary_boardid", upper=True),
+            issuer_id=cls._reference_text(row, "emitent_id"),
+            issuer_title=cls._reference_text(row, "emitent_title"),
+            issuer_inn=cls._reference_text(row, "emitent_inn"),
+            issuer_okpo=cls._reference_text(row, "emitent_okpo"),
+        )
+
+    @staticmethod
+    def _reference_text(
+        row: dict[str, Any],
+        field_name: str,
+        *,
+        upper: bool = False,
+    ) -> str | None:
+        lowered = {str(key).lower(): value for key, value in row.items()}
+        value = lowered.get(field_name.lower())
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        return text.upper() if upper else text
 
     @classmethod
     def _normalize_bond_metadata_row(cls, row: dict[str, Any]) -> dict[str, Any]:
