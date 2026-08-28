@@ -685,6 +685,237 @@ def test_scalar_conflict_multi_source_and_point_in_time_history(
     assert all(row.ingestion_at not in {row.observed_at, row.effective_at} for row in history)
 
 
+def test_latest_same_source_scalar_evidence_supersedes_history(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "51")
+    service = BondSecurityMasterService(db_session)
+    first_observed = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+    latest_observed = datetime(2026, 8, 28, 8, 0, tzinfo=timezone.utc)
+
+    service.ingest_moex_metadata(
+        bond,
+        {"raw": {"FACEVALUE": "432.55", "COUPONPERCENT": "16.11"}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=first_observed,
+    )
+    profile = service.ingest_moex_metadata(
+        bond,
+        {"raw": {"FACEVALUE": "414.73", "COUPONPERCENT": "15.86"}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=latest_observed,
+    )
+
+    evidence = list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name.in_(
+                    {"nominal_value", "coupon_rate"}
+                ),
+            )
+        ).scalars()
+    )
+    assert profile is not None
+    assert profile.nominal_state == "verified"
+    assert profile.nominal_value == Decimal("414.73")
+    assert profile.coupon_rate_state == "verified"
+    assert profile.coupon_rate == Decimal("15.86")
+    assert len(evidence) == 4
+    assert {
+        (row.field_name, row.normalized_value_json["value"])
+        for row in evidence
+    } == {
+        ("nominal_value", "432.55"),
+        ("nominal_value", "414.73"),
+        ("coupon_rate", "16.11"),
+        ("coupon_rate", "15.86"),
+    }
+    latest_ingestion = max(
+        row.ingestion_at.replace(tzinfo=timezone.utc)
+        if row.ingestion_at.tzinfo is None
+        else row.ingestion_at.astimezone(timezone.utc)
+        for row in evidence
+    )
+    resolved_at = (
+        profile.last_resolved_at.replace(tzinfo=timezone.utc)
+        if profile.last_resolved_at.tzinfo is None
+        else profile.last_resolved_at.astimezone(timezone.utc)
+    )
+    assert resolved_at == latest_ingestion
+
+
+def test_latest_per_source_agreement_and_older_source_disagreement(
+    db_session: Session,
+) -> None:
+    service = BondSecurityMasterService(db_session)
+    first_observed = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+    second_observed = datetime(2026, 8, 28, 8, 0, tzinfo=timezone.utc)
+    third_observed = datetime(2026, 8, 28, 9, 0, tzinfo=timezone.utc)
+    agreeing = create_bond(db_session, "52")
+
+    service.ingest_moex_metadata(
+        agreeing,
+        {"raw": {"FACEVALUE": "432.55", "COUPONPERCENT": "16.11"}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=first_observed,
+    )
+    service.ingest_moex_metadata(
+        agreeing,
+        {"raw": {"FACEVALUE": "414.73", "COUPONPERCENT": "15.86"}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=second_observed,
+    )
+    profile = service.ingest_moex_metadata(
+        agreeing,
+        {"raw": {"FACEVALUE": "414.73", "COUPONPERCENT": "15.86"}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=third_observed,
+    )
+    assert profile is not None
+    assert profile.nominal_state == "verified"
+    assert profile.nominal_value == Decimal("414.73")
+    assert profile.coupon_rate_state == "verified"
+    assert profile.coupon_rate == Decimal("15.86")
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(BondSecurityMasterEvidence)
+        .where(BondSecurityMasterEvidence.bond_id == agreeing.id)
+    ) == 6
+
+    disagreeing = create_bond(db_session, "53")
+    service.ingest_moex_metadata(
+        disagreeing,
+        {"raw": {"FACEVALUE": "432.55"}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=first_observed,
+    )
+    conflict = service.ingest_moex_metadata(
+        disagreeing,
+        {"raw": {"FACEVALUE": "414.73"}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=third_observed,
+    )
+    assert conflict is not None
+    assert conflict.nominal_state == "conflict"
+    assert conflict.nominal_value is None
+
+
+def test_latest_timestamp_ties_fail_closed_and_identical_history_verifies(
+    db_session: Session,
+) -> None:
+    service = BondSecurityMasterService(db_session)
+    tied = create_bond(db_session, "54")
+    tied_observed = datetime(2026, 8, 28, 8, 0, tzinfo=timezone.utc)
+    for value in ("414.73", "432.55"):
+        service.record_assertion(
+            bond=tied,
+            field_name="nominal_value",
+            source="moex_description",
+            assertion_type="scalar_value",
+            normalized_value=value,
+            observed_at=tied_observed,
+            source_key=tied.secid,
+            raw_value={"source_field": "FACEVALUE", "value": value},
+        )
+    tied_profile = service.resolve_profile(tied)
+    assert tied_profile.nominal_state == "conflict"
+    assert tied_profile.nominal_value is None
+
+    identical = create_bond(db_session, "55")
+    for observed_at, effective_at in (
+        (
+            datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc),
+            datetime(2027, 1, 1, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2026, 8, 28, 8, 0, tzinfo=timezone.utc),
+            datetime(2028, 1, 1, tzinfo=timezone.utc),
+        ),
+    ):
+        service.record_assertion(
+            bond=identical,
+            field_name="coupon_rate",
+            source="moex_description",
+            assertion_type="scalar_value",
+            normalized_value="15.86",
+            observed_at=observed_at,
+            effective_at=effective_at,
+            source_key=identical.secid,
+            raw_value={"source_field": "COUPONPERCENT", "value": "15.86"},
+        )
+    identical_profile = service.resolve_profile(identical)
+    assert identical_profile.coupon_rate_state == "verified"
+    assert identical_profile.coupon_rate == Decimal("15.86")
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(BondSecurityMasterEvidence)
+        .where(BondSecurityMasterEvidence.bond_id == identical.id)
+    ) == 2
+
+
+def test_latest_per_source_classification_resolution_is_generic(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "56")
+    service = BondSecurityMasterService(db_session)
+    first_observed = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+    second_observed = datetime(2026, 8, 28, 8, 0, tzinfo=timezone.utc)
+    third_observed = datetime(2026, 8, 28, 9, 0, tzinfo=timezone.utc)
+
+    service.ingest_moex_metadata(
+        bond,
+        {"raw": {"is_floating_coupon": False}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=first_observed,
+    )
+    superseded = service.ingest_moex_metadata(
+        bond,
+        {"raw": {"is_floating_coupon": True}},
+        source="moex_description",
+        board=None,
+        board_observed=False,
+        observed_at=second_observed,
+    )
+    assert superseded is not None
+    assert superseded.coupon_structure == "floating"
+
+    conflict = service.ingest_moex_metadata(
+        bond,
+        {"raw": {"is_floating_coupon": False}},
+        source="moex_universe",
+        board=None,
+        board_observed=False,
+        observed_at=third_observed,
+    )
+    assert conflict is not None
+    assert conflict.coupon_structure == "conflict"
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(BondSecurityMasterEvidence)
+        .where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_structure",
+        )
+    ) == 3
+
+
 def test_moex_universe_float_metadata_is_preserved_and_idempotent(
     db_session: Session,
 ) -> None:

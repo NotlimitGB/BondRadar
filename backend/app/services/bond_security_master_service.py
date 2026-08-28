@@ -398,6 +398,8 @@ class BondSecurityMasterService:
                 .where(BondSecurityMasterEvidence.bond_id == bond.id)
                 .order_by(
                     BondSecurityMasterEvidence.field_name,
+                    BondSecurityMasterEvidence.source,
+                    BondSecurityMasterEvidence.observed_at,
                     BondSecurityMasterEvidence.evidence_fingerprint,
                 )
             ).scalars()
@@ -410,16 +412,7 @@ class BondSecurityMasterService:
             )
             self.db.add(profile)
 
-        by_field: dict[str, list[Any]] = {}
-        for evidence in evidence_rows:
-            if not isinstance(evidence.normalized_value_json, dict):
-                raise ValueError("Invalid persisted security-master evidence")
-            canonical = self._validated_canonical_value(
-                evidence.field_name,
-                evidence.assertion_type,
-                evidence.normalized_value_json.get("value"),
-            )
-            by_field.setdefault(evidence.field_name, []).append(canonical)
+        by_field = self._current_values_by_field(evidence_rows)
 
         for field_name, (state_name, target_type) in _SCALAR_FIELDS.items():
             values = self._distinct(by_field.get(field_name, []))
@@ -456,6 +449,35 @@ class BondSecurityMasterService:
         self.db.add(profile)
         self.db.flush()
         return profile
+
+    @classmethod
+    def _current_values_by_field(
+        cls,
+        evidence_rows: list[BondSecurityMasterEvidence],
+    ) -> dict[str, list[Any]]:
+        latest_by_source: dict[tuple[str, str], datetime] = {}
+        values_by_source: dict[tuple[str, str], list[Any]] = {}
+        for evidence in evidence_rows:
+            if not isinstance(evidence.normalized_value_json, dict):
+                raise ValueError("Invalid persisted security-master evidence")
+            canonical = cls._validated_canonical_value(
+                evidence.field_name,
+                evidence.assertion_type,
+                evidence.normalized_value_json.get("value"),
+            )
+            observed_at = cls._persisted_utc_timestamp(evidence.observed_at)
+            key = (evidence.field_name, evidence.source)
+            latest = latest_by_source.get(key)
+            if latest is None or observed_at > latest:
+                latest_by_source[key] = observed_at
+                values_by_source[key] = [canonical]
+            elif observed_at == latest:
+                values_by_source[key].append(canonical)
+
+        by_field: dict[str, list[Any]] = {}
+        for (field_name, _source), values in sorted(values_by_source.items()):
+            by_field.setdefault(field_name, []).extend(values)
+        return by_field
 
     def _profile_for_bond(self, bond_id: int) -> BondSecurityMasterProfile | None:
         return self.db.execute(
@@ -649,6 +671,14 @@ class BondSecurityMasterService:
     def _aware_timestamp(value: datetime, field_name: str) -> datetime:
         if not isinstance(value, datetime) or value.tzinfo is None:
             raise ValueError(f"{field_name} must be timezone-aware")
+        return value.astimezone(timezone.utc)
+
+    @staticmethod
+    def _persisted_utc_timestamp(value: datetime) -> datetime:
+        if not isinstance(value, datetime):
+            raise ValueError("Invalid persisted security-master observation timestamp")
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
         return value.astimezone(timezone.utc)
 
     @staticmethod

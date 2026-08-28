@@ -38,12 +38,28 @@ research, but Task241 does not implement historical selection.
 
 ## Resolution and conflicts
 
-The resolver considers all retained assertions deterministically. No evidence
-means `unknown`; one distinct valid value means `verified`; incompatible values
-mean `conflict`, with the resolved scalar set to NULL. Classifications follow
-the same rule. Agreeing independent sources remain as separate provenance rows.
-There is no source priority or last-write-wins reconciliation. A conflict stays
-fail-closed until a later explicitly authorized reconciliation design exists.
+The current-state resolver groups retained assertions by field and source. Each
+source contributes every assertion tied at its latest persisted `observed_at`
+for that field; older observations from the same source remain append-only
+history and no longer compete with that source's newer observation. No current
+evidence means `unknown`; one distinct current value means `verified`;
+incompatible current values mean `conflict`, with the resolved scalar set to
+NULL. Classifications follow the same rule.
+
+There is no source priority, freshness window, or ingestion-time precedence.
+Sources observed at different times still participate, so disagreement between
+their latest persisted assertions remains fail-closed. Contradictory assertions
+from one source tied at its latest observation time also remain `conflict`.
+`last_resolved_at` continues to derive from the latest evidence ingestion time
+and does not establish economic precedence.
+
+The evidence identity contract intentionally excludes `observed_at`. Therefore
+a repeated logical assertion remains fingerprint-idempotent and retains its
+first observation. In an `A -> B -> A` source sequence, the final repeated A
+does not create a new persisted observation, so this current-state resolver can
+only use the chronology represented by persisted evidence rows. Capturing every
+re-observation and complete point-in-time/as-of resolution remain separate
+future evidence-model work.
 
 ## MOEX mapping
 
