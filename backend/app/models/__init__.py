@@ -25,6 +25,8 @@ from app.models.dataset_build_run import DatasetBuildRun
 from app.models.financial_report import FinancialReport
 from app.models.financial_report_import_run import FinancialReportImportRun
 from app.models.financial_report_source_document import FinancialReportSourceDocument
+from app.models.legal_issuer import LegalIssuer
+from app.models.legal_issuer_evidence import LegalIssuerEvidence
 from app.models.external_risk_regime import ExternalRiskRegime
 from app.models.ml_model_run import MLModelRun
 from app.models.ml_prediction import MLPrediction
@@ -59,6 +61,8 @@ __all__ = [
     "FinancialReport",
     "FinancialReportImportRun",
     "FinancialReportSourceDocument",
+    "LegalIssuer",
+    "LegalIssuerEvidence",
     "ExternalRiskRegime",
     "MLModelRun",
     "MLPrediction",
