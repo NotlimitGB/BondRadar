@@ -21,6 +21,8 @@ from app.db.base import Base
 from app.models.enums import ANALYSIS_SIGNAL_SQL, AnalysisSignal
 
 if TYPE_CHECKING:
+    from app.models.bond_legal_issuer_evidence import BondLegalIssuerEvidence
+    from app.models.bond_legal_issuer_profile import BondLegalIssuerProfile
     from app.models.bond_security_master_evidence import BondSecurityMasterEvidence
     from app.models.bond_security_master_profile import BondSecurityMasterProfile
 
@@ -85,6 +87,17 @@ class Bond(Base):
         uselist=False,
     )
     security_master_evidence: Mapped[list["BondSecurityMasterEvidence"]] = relationship(
+        back_populates="bond",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    legal_issuer_profile: Mapped["BondLegalIssuerProfile | None"] = relationship(
+        back_populates="bond",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
+    legal_issuer_evidence: Mapped[list["BondLegalIssuerEvidence"]] = relationship(
         back_populates="bond",
         cascade="all, delete-orphan",
         passive_deletes=True,
