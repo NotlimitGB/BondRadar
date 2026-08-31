@@ -259,19 +259,41 @@ Measured current REGN sets are:
 102_SUBJECTS=212
 123_SUBJECTS=352
 135_SUBJECTS=345
-ALL_FOUR_INTERSECTION=170
+ALL_FOUR_INTERSECTION=211
 101_102_INTERSECTION=212
-101_123_INTERSECTION=285
+101_123_INTERSECTION=352
 101_135_INTERSECTION=345
-102_123_INTERSECTION=170
+102_123_INTERSECTION=211
 102_135_INTERSECTION=211
-123_135_INTERSECTION=278
+123_135_INTERSECTION=345
 ```
 
-Exact exclusive combinations are: only-123 `67`; 101+135 `26`; 101+123 `7`;
-101+123+135 `108`; 101+102 `1`; 101+102+135 `41`; all four `170`. No other
-combination is observed. Missing membership is diagnostic and may reflect
-applicability, schedule, bank status, disclosure policy or source timing.
+Exact exclusive combinations are: 101+102 `1`; 101+123 `7`; 101+123+135
+`134`; all four `211`. Every other exact combination has count `0`. Missing
+membership is diagnostic and may reflect applicability, schedule, bank status,
+disclosure policy or source timing.
+
+```text
+TASK250_POST_IMPLEMENTATION_CORRECTION=true
+CORRECTION_SOURCE=TASK251_EXACT_IMMUTABLE_FIXTURE_VALUE_MEMBER_AUDIT
+PREVIOUS_ALL_FOUR_INTERSECTION=170
+CORRECTED_ALL_FOUR_INTERSECTION=211
+VALUE_MEMBER_101=072026B1.dbf
+VALUE_MEMBER_102=072026_P1.dbf
+VALUE_MEMBER_123=072026_123D.dbf
+VALUE_MEMBER_135=072026_135_3.dbf
+SUBJECT_SET_HASH_101=692b9d3d9363eec48585ceee3a55a1de1326464dad71508616a7c1fa850be3cd
+SUBJECT_SET_HASH_102=90597ce74009c57587355c15088af63b23d46f5adf5f1028c117fbc94e67f1e8
+SUBJECT_SET_HASH_123=5dc0b52ec11e505dcbb868bac2760dc247982de03b89d9f150c798ad0cbc5ecc
+SUBJECT_SET_HASH_135=660686ab74aef07f773a7001874d3d82567cb236a5f28ab1f55362b0e120c619
+```
+
+This post-implementation correction was derived from the exact immutable
+Task251 fixtures by reading only the named value-bearing member for each form
+and admitting a REGN only when at least one bound financial value was non-null.
+The earlier documentation-only projection retained neither fixtures, member
+roles, subject-set hashes nor a reproducible member-level diagnostic. The
+corrected values do not change the source decision or engineering gate.
 
 ## 22. Artifact Identity
 

@@ -159,26 +159,41 @@ def test_task250_regn_bridge_and_cross_form_coverage_are_measured() -> None:
         "102_SUBJECTS=212",
         "123_SUBJECTS=352",
         "135_SUBJECTS=345",
-        "ALL_FOUR_INTERSECTION=170",
+        "ALL_FOUR_INTERSECTION=211",
         "101_102_INTERSECTION=212",
-        "101_123_INTERSECTION=285",
+        "101_123_INTERSECTION=352",
         "101_135_INTERSECTION=345",
-        "102_123_INTERSECTION=170",
+        "102_123_INTERSECTION=211",
         "102_135_INTERSECTION=211",
-        "123_135_INTERSECTION=278",
+        "123_135_INTERSECTION=345",
     ):
         assert count in text
 
     for combination in (
-        "only-123 `67`",
-        "101+135 `26`",
-        "101+123 `7`",
-        "101+123+135 `108`",
         "101+102 `1`",
-        "101+102+135 `41`",
-        "all four `170`",
+        "101+123 `7`",
+        "101+123+135\n`134`",
+        "all four `211`",
     ):
         assert combination in text
+
+    for correction in (
+        "TASK250_POST_IMPLEMENTATION_CORRECTION=true",
+        "CORRECTION_SOURCE=TASK251_EXACT_IMMUTABLE_FIXTURE_VALUE_MEMBER_AUDIT",
+        "PREVIOUS_ALL_FOUR_INTERSECTION=170",
+        "CORRECTED_ALL_FOUR_INTERSECTION=211",
+        "VALUE_MEMBER_101=072026B1.dbf",
+        "VALUE_MEMBER_102=072026_P1.dbf",
+        "VALUE_MEMBER_123=072026_123D.dbf",
+        "VALUE_MEMBER_135=072026_135_3.dbf",
+        "SUBJECT_SET_HASH_101=692b9d3d9363eec48585ceee3a55a1de1326464dad71508616a7c1fa850be3cd",
+        "SUBJECT_SET_HASH_102=90597ce74009c57587355c15088af63b23d46f5adf5f1028c117fbc94e67f1e8",
+        "SUBJECT_SET_HASH_123=5dc0b52ec11e505dcbb868bac2760dc247982de03b89d9f150c798ad0cbc5ecc",
+        "SUBJECT_SET_HASH_135=660686ab74aef07f773a7001874d3d82567cb236a5f28ab1f55362b0e120c619",
+    ):
+        assert correction in text
+
+    assert "Every other exact combination has count `0`" in text
 
 
 def test_task250_units_period_pit_failures_and_runtime_are_fail_closed() -> None:
