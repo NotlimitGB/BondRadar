@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <SearchByOGRNsResponse xmlns="http://web.cbr.ru/">
+      <SearchByOGRNsResult>
+        <DS>
+          <Record><Id>10</Id><OGRN>1027700132195</OGRN><INN>7707083893</INN><Name>Банк А</Name><Status>Действующая</Status><ErrorText /></Record>
+        </DS>
+        <Error />
+        <IsSucess>true</IsSucess>
+      </SearchByOGRNsResult>
+    </SearchByOGRNsResponse>
+  </soap:Body>
+</soap:Envelope>

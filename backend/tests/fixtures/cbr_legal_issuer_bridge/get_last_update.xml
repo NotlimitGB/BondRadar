@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body><GetLastUpdateResponse xmlns="http://web.cbr.ru/"><GetLastUpdateResult>2026-08-30T04:30:00+03:00</GetLastUpdateResult></GetLastUpdateResponse></soap:Body>
+</soap:Envelope>
