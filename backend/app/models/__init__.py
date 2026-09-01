@@ -16,6 +16,14 @@ from app.models.company_identity_duplicate_candidate import (
 )
 from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.company_score import CompanyScore
+from app.models.cbr_bank_financial_evidence import (
+    CbrBankRawObservation,
+    CbrBankReportSnapshot,
+    CbrBankReportingSubject,
+    CbrBankSourceArtifact,
+    CbrBankSubjectLegalIssuerEvidence,
+    CbrBankSubjectLegalIssuerProfile,
+)
 from app.models.controlled_financial_statement_value import (
     ControlledFinancialStatementValue,
 )
@@ -54,6 +62,12 @@ __all__ = [
     "CompanyIdentityDuplicateCandidate",
     "CompanyIdentityProfile",
     "CompanyScore",
+    "CbrBankRawObservation",
+    "CbrBankReportSnapshot",
+    "CbrBankReportingSubject",
+    "CbrBankSourceArtifact",
+    "CbrBankSubjectLegalIssuerEvidence",
+    "CbrBankSubjectLegalIssuerProfile",
     "ControlledFinancialStatementValue",
     "DataPipelineRun",
     "DataPipelineStepRun",
