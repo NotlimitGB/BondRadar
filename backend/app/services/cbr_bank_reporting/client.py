@@ -167,6 +167,26 @@ class CbrBankRegulatoryClient:
                 CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION,
                 "artifact identity is not approved for Task251 v1",
             )
+        return self._fetch_artifact(reference, expected_identity=expected)
+
+    def fetch_discovered_artifact(
+        self, reference: CbrArtifactReference
+    ) -> CbrBankArtifact:
+        """Fetch a discovered artifact without assigning it a trusted identity.
+
+        Recurring ingestion freezes the returned hash and size in a manifest only
+        after the existing archive, DBF, and approved-schema checks succeed.  The
+        original ``fetch_artifact`` contract remains the approved-fixture path.
+        """
+        _validate_https_cbr_url(reference.source_url)
+        return self._fetch_artifact(reference, expected_identity=None)
+
+    def _fetch_artifact(
+        self,
+        reference: CbrArtifactReference,
+        *,
+        expected_identity: tuple[int, str] | None,
+    ) -> CbrBankArtifact:
         remaining = MAX_TOTAL_ARTIFACT_BYTES - self._artifact_bytes_downloaded
         if remaining <= 0:
             raise CbrSourceError(
@@ -177,7 +197,7 @@ class CbrBankRegulatoryClient:
         )
         self._artifact_bytes_downloaded += len(data)
         digest = hashlib.sha256(data).hexdigest()
-        if (len(data), digest) != expected:
+        if expected_identity is not None and (len(data), digest) != expected_identity:
             raise CbrSourceError(
                 CbrSourceStatus.ARTIFACT_MUTATED, "artifact identity changed"
             )
