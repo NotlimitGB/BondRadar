@@ -1,0 +1,20 @@
+FROM bondradar-backend
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libarchive-tools \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY vendor/cbr_runner_wheels/ /opt/cbr_runner_wheels/
+RUN cd /opt/cbr_runner_wheels \
+    && sha256sum --check SHA256SUMS \
+    && python -m pip install \
+        --no-cache-dir \
+        --no-index \
+        --find-links=/opt/cbr_runner_wheels \
+        --require-hashes \
+        --no-deps \
+        --force-reinstall \
+        -r /opt/cbr_runner_wheels/requirements.offline.txt \
+    && rm -rf /opt/cbr_runner_wheels
+
+COPY . .
