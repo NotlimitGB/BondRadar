@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -10,13 +12,23 @@ import httpx
 import pytest
 
 from app.services.cbr_bank_financial_evidence import historical_audit as audit
+from app.services.cbr_bank_financial_evidence.lexical import (
+    extract_exact_form_evidence,
+)
+from app.services.cbr_bank_reporting import client as reporting_client
 from app.services.cbr_bank_reporting.client import CbrBankRegulatoryClient
 from app.services.cbr_bank_reporting.contracts import (
+    ArchiveMember,
     CbrArtifactReference,
     CbrBankArtifact,
     CbrBankForm,
     CbrSourceError,
     CbrSourceStatus,
+)
+from app.services.cbr_bank_reporting.dbf import read_dbf_member
+from app.services.cbr_bank_reporting.parsers import (
+    parse_form,
+    resolve_data_member,
 )
 
 
@@ -48,9 +60,11 @@ class _Source:
         references: tuple[CbrArtifactReference, ...],
         *,
         discovery_error: CbrSourceError | None = None,
+        fetch_error_form: CbrBankForm | None = None,
     ) -> None:
         self.references = references
         self.discovery_error = discovery_error
+        self.fetch_error_form = fetch_error_form
         self.catalog_calls = 0
         self.fetch_calls: list[CbrArtifactReference] = []
 
@@ -60,9 +74,11 @@ class _Source:
             raise self.discovery_error
         return self.references
 
-    def fetch_discovered_artifact(
+    def fetch_discovered_artifact_historical(
         self, reference: CbrArtifactReference
     ) -> CbrBankArtifact:
+        if reference.form == self.fetch_error_form:
+            raise CbrSourceError(CbrSourceStatus.TIMEOUT, "password=secret")
         self.fetch_calls.append(reference)
         content = f"{reference.form.value}:{reference.report_date}".encode("ascii")
         return CbrBankArtifact(
@@ -85,9 +101,17 @@ class _BundleService:
         self.failures = failures or {}
         self.calls: list[date] = []
 
-    def build_snapshot(self, *, report_date, artifacts, enforce_approved_schema):
+    def build_snapshot(
+        self,
+        *,
+        report_date,
+        artifacts,
+        enforce_approved_schema,
+        allow_dynamic_value_member,
+    ):
         self.calls.append(report_date)
         assert enforce_approved_schema is False
+        assert allow_dynamic_value_member is True
         if report_date in self.failures:
             raise CbrSourceError(self.failures[report_date], "password=secret")
         forms = tuple(
@@ -108,8 +132,14 @@ class _BundleService:
 def _extractor_calls():
     calls: list[tuple[date, CbrBankForm]] = []
 
-    def extract(result, *, archive_executable=None):
+    def extract(
+        result,
+        *,
+        archive_executable=None,
+        allow_dynamic_value_member=False,
+    ):
         assert archive_executable is None
+        assert allow_dynamic_value_member is True
         calls.append((result.artifact.reference.report_date, result.form))
         fingerprints = tuple(
             SimpleNamespace(
@@ -130,6 +160,64 @@ def _extractor_calls():
     return extract, calls
 
 
+def _dbf_bytes(
+    fields: tuple[tuple[str, str, int, int], ...],
+    rows: tuple[tuple[str, ...], ...],
+) -> bytes:
+    header_length = 32 + 32 * len(fields) + 1
+    record_length = 1 + sum(item[2] for item in fields)
+    header = bytearray(header_length)
+    header[0] = 0x03
+    header[1:4] = bytes((126, 8, 1))
+    header[4:8] = len(rows).to_bytes(4, "little")
+    header[8:10] = header_length.to_bytes(2, "little")
+    header[10:12] = record_length.to_bytes(2, "little")
+    header[29] = 0
+    field_offset = 1
+    for index, (name, field_type, length, decimal_count) in enumerate(fields):
+        offset = 32 + index * 32
+        encoded_name = name.encode("ascii")
+        header[offset : offset + len(encoded_name)] = encoded_name
+        header[offset + 11] = ord(field_type)
+        header[offset + 12 : offset + 16] = field_offset.to_bytes(4, "little")
+        header[offset + 16] = length
+        header[offset + 17] = decimal_count
+        field_offset += length
+    header[-1] = 0x0D
+    body = bytearray()
+    for row in rows:
+        body.extend(b" ")
+        for value, (_name, field_type, length, _decimal_count) in zip(row, fields):
+            encoded = value.encode("ascii")
+            if len(encoded) > length:
+                raise AssertionError("synthetic DBF value exceeds field width")
+            body.extend(
+                encoded.rjust(length, b" ")
+                if field_type in {"N", "F"}
+                else encoded.ljust(length, b" ")
+            )
+    return bytes(header + body + b"\x1a")
+
+
+def _renamed_123_member(name: str = "062023_123d.dbf"):
+    content = _dbf_bytes(
+        (
+            ("REGN", "C", 5, 0),
+            ("C1", "C", 5, 0),
+            ("C3", "N", 12, 3),
+        ),
+        (("1", "102", "123.450"),),
+    )
+    archive_member = ArchiveMember(
+        name=name,
+        normalized_name=name.upper(),
+        compressed_size=len(content),
+        uncompressed_size=len(content),
+        crc32=None,
+    )
+    return archive_member, content, read_dbf_member(archive_member, content)
+
+
 def test_client_catalog_fetches_one_bounded_source_page() -> None:
     html = "<html><body>" + "".join(
         f'<a href="{item.source_href}">{item.artifact_filename}</a>'
@@ -148,6 +236,178 @@ def test_client_catalog_fetches_one_bounded_source_page() -> None:
     assert len(requests) == 1
     assert all(request.method == "GET" for request in requests)
     http_client.close()
+
+
+def test_historical_fetch_has_separate_bounded_budget() -> None:
+    payload = b"R" * (reporting_client.MAX_ARTIFACT_BYTES + 1)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=payload,
+            headers={"content-type": "application/vnd.rar"},
+            request=request,
+        )
+
+    client = CbrBankRegulatoryClient(
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+        now=lambda: NOW,
+    )
+    reference = _reference(CbrBankForm.FORM_101, DATE_1)
+    with pytest.raises(CbrSourceError) as error:
+        client.fetch_discovered_artifact(reference)
+    assert error.value.code == CbrSourceStatus.ARTIFACT_TOO_LARGE
+
+    artifact = client.fetch_discovered_artifact_historical(reference)
+    assert artifact.content == payload
+    assert reporting_client.MAX_ARTIFACT_BYTES == 2 * 1024 * 1024
+    assert reporting_client.MAX_TOTAL_ARTIFACT_BYTES == 8 * 1024 * 1024
+    assert reporting_client.HISTORICAL_MAX_ARTIFACT_BYTES == 32 * 1024 * 1024
+    assert reporting_client.HISTORICAL_MAX_TOTAL_ARTIFACT_BYTES == 512 * 1024 * 1024
+    client.http_client.close()
+
+
+def test_historical_fetch_enforces_per_artifact_and_total_limits(monkeypatch) -> None:
+    reference = _reference(CbrBankForm.FORM_101, DATE_1)
+
+    def oversized(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={
+                "content-length": str(
+                    reporting_client.HISTORICAL_MAX_ARTIFACT_BYTES + 1
+                )
+            },
+            request=request,
+        )
+
+    client = CbrBankRegulatoryClient(
+        http_client=httpx.Client(transport=httpx.MockTransport(oversized))
+    )
+    with pytest.raises(CbrSourceError) as error:
+        client.fetch_discovered_artifact_historical(reference)
+    assert error.value.code == CbrSourceStatus.ARTIFACT_TOO_LARGE
+    client.http_client.close()
+
+    monkeypatch.setattr(reporting_client, "HISTORICAL_MAX_ARTIFACT_BYTES", 5)
+    monkeypatch.setattr(reporting_client, "HISTORICAL_MAX_TOTAL_ARTIFACT_BYTES", 8)
+
+    def five_bytes(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"12345", request=request)
+
+    cumulative = CbrBankRegulatoryClient(
+        http_client=httpx.Client(transport=httpx.MockTransport(five_bytes))
+    )
+    cumulative.fetch_discovered_artifact_historical(reference)
+    with pytest.raises(CbrSourceError) as error:
+        cumulative.fetch_discovered_artifact_historical(reference)
+    assert error.value.code == CbrSourceStatus.ARTIFACT_TOO_LARGE
+    cumulative.http_client.close()
+
+
+@pytest.mark.parametrize(
+    "location",
+    (
+        "http://www.cbr.ru/vfs/credit/forms/101-20260601.rar",
+        "https://example.com/101-20260601.rar",
+    ),
+)
+def test_historical_fetch_rejects_unsafe_redirects(location) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": location}, request=request)
+
+    client = CbrBankRegulatoryClient(
+        http_client=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    with pytest.raises(CbrSourceError) as error:
+        client.fetch_discovered_artifact_historical(
+            _reference(CbrBankForm.FORM_101, DATE_1)
+        )
+    assert error.value.code == CbrSourceStatus.INVALID_CONTENT
+    client.http_client.close()
+
+
+def test_dynamic_value_member_resolution_is_explicit_and_unique() -> None:
+    _archive_member, _content, renamed = _renamed_123_member()
+    artifact = CbrBankArtifact(
+        reference=_reference(CbrBankForm.FORM_123, DATE_1),
+        content=b"synthetic-rar",
+        content_sha256=hashlib.sha256(b"synthetic-rar").hexdigest(),
+        compressed_size=len(b"synthetic-rar"),
+        content_type="application/vnd.rar",
+        retrieved_at=NOW,
+    )
+    with pytest.raises(CbrSourceError) as error:
+        parse_form(
+            CbrBankForm.FORM_123,
+            artifact,
+            (renamed,),
+            enforce_approved_schema=False,
+        )
+    assert error.value.code == CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION
+
+    result = parse_form(
+        CbrBankForm.FORM_123,
+        artifact,
+        (renamed,),
+        enforce_approved_schema=False,
+        allow_dynamic_value_member=True,
+    )
+    assert result.records[0].source_member == "062023_123d.dbf"
+    assert result.records[0].source_value == Decimal("123.450")
+
+    no_candidate = replace(
+        renamed,
+        fields=tuple(field for field in renamed.fields if field.name != "C3"),
+    )
+    with pytest.raises(CbrSourceError) as error:
+        resolve_data_member(
+            CbrBankForm.FORM_123,
+            (no_candidate,),
+            allow_dynamic_value_member=True,
+        )
+    assert error.value.code == CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION
+
+    second_candidate = replace(renamed, name="OTHER.DBF")
+    with pytest.raises(CbrSourceError) as error:
+        resolve_data_member(
+            CbrBankForm.FORM_123,
+            (renamed, second_candidate),
+            allow_dynamic_value_member=True,
+        )
+    assert error.value.code == CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION
+
+
+def test_dynamic_parser_and_lexical_extractor_select_same_member(monkeypatch) -> None:
+    archive_member, content, renamed = _renamed_123_member()
+    artifact_content = b"synthetic-rar"
+    artifact = CbrBankArtifact(
+        reference=_reference(CbrBankForm.FORM_123, DATE_1),
+        content=artifact_content,
+        content_sha256=hashlib.sha256(artifact_content).hexdigest(),
+        compressed_size=len(artifact_content),
+        content_type="application/vnd.rar",
+        retrieved_at=NOW,
+    )
+    result = parse_form(
+        CbrBankForm.FORM_123,
+        artifact,
+        (renamed,),
+        enforce_approved_schema=False,
+        allow_dynamic_value_member=True,
+    )
+    monkeypatch.setattr(
+        "app.services.cbr_bank_financial_evidence.lexical.extract_archive_members",
+        lambda _artifact, executable=None: ((archive_member, content),),
+    )
+    exact = extract_exact_form_evidence(
+        result,
+        allow_dynamic_value_member=True,
+    )
+    assert exact.value_member_name == "062023_123d.dbf"
+    assert exact.observations[0].record.source_member == exact.value_member_name
+    assert exact.observations[0].raw_value_text == "123.450"
+    assert exact.observations[0].parsed_decimal_value == Decimal("123.450")
 
 
 def test_catalog_groups_filters_and_reports_exact_missing_forms() -> None:
@@ -221,8 +481,11 @@ def test_probe_absent_and_incomplete_dates_download_nothing() -> None:
     assert source.fetch_calls == []
     by_date = {item["report_date"]: item for item in report["probe_results"]}
     assert by_date["2026-06-01"]["state"] == "INCOMPLETE_BUNDLE"
+    assert by_date["2026-06-01"]["failed_stage"] == "CATALOG_RESOLUTION"
+    assert by_date["2026-06-01"]["downloaded_artifact_count"] == 0
     assert by_date["2026-06-01"]["missing_forms"] == ["0409123", "0409135"]
     assert by_date["2026-07-01"]["state"] == "ARTIFACT_NOT_FOUND"
+    assert by_date["2026-07-01"]["failed_stage"] == "CATALOG_RESOLUTION"
     assert by_date["2026-07-01"]["missing_forms"] == [
         form.value for form in CbrBankForm
     ]
@@ -270,6 +533,11 @@ def test_probe_projects_ready_months_and_aggregates_schema_drift() -> None:
     assert report["artifact_downloads"] == 8
     assert report["ready_dates"] == 2
     assert len(calls) == 8
+    assert all(item["failed_stage"] is None for item in report["probe_results"])
+    assert all(
+        item["downloaded_artifact_count"] == 4
+        for item in report["probe_results"]
+    )
     assert all(len(item["forms"]) == 4 for item in report["probe_results"])
     assert all(
         len(form["source_row_fingerprint_set_sha256"]) == 64
@@ -303,6 +571,27 @@ def test_probe_classifies_month_failure_without_exception_text(code, state) -> N
     result = report["probe_results"][0]
     assert result["state"] == state
     assert result["source_error_code"] == code.value
+    assert result["failed_stage"] == "BUNDLE_PARSE"
+    assert result["downloaded_artifact_count"] == 4
+    assert "secret" not in json.dumps(report)
+
+
+def test_probe_reports_partial_historical_download_failure() -> None:
+    source = _Source(
+        _complete_references(DATE_1),
+        fetch_error_form=CbrBankForm.FORM_102,
+    )
+    report = audit.run_probe(
+        client=source,
+        generated_at=NOW,
+        probe_dates=(DATE_1,),
+    )
+    result = report["probe_results"][0]
+    assert report["artifact_downloads"] == 1
+    assert result["state"] == "SOURCE_ERROR"
+    assert result["source_error_code"] == CbrSourceStatus.TIMEOUT.value
+    assert result["failed_stage"] == "ARTIFACT_DOWNLOAD"
+    assert result["downloaded_artifact_count"] == 1
     assert "secret" not in json.dumps(report)
 
 

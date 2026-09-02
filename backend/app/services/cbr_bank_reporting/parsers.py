@@ -104,13 +104,28 @@ def _date(value: RawScalar) -> date | None:
     return value
 
 
-def _data_member(form: CbrBankForm, members: tuple[DbfMember, ...]) -> DbfMember:
+def resolve_data_member(
+    form: CbrBankForm,
+    members: tuple[DbfMember, ...],
+    *,
+    allow_dynamic_value_member: bool = False,
+) -> DbfMember:
     required = REQUIRED_DATA_FIELDS[form]
-    expected_name = FORM_VALUE_MEMBERS[form]
-    candidates = [member for member in members if member.name.upper() == expected_name]
-    if len(candidates) != 1 or not required.issubset(
-        {field.name for field in candidates[0].fields}
-    ):
+    if allow_dynamic_value_member:
+        candidates = [
+            member
+            for member in members
+            if required.issubset({field.name.upper() for field in member.fields})
+        ]
+    else:
+        expected_name = FORM_VALUE_MEMBERS[form]
+        candidates = [
+            member
+            for member in members
+            if member.name.upper() == expected_name
+            and required.issubset({field.name.upper() for field in member.fields})
+        ]
+    if len(candidates) != 1:
         raise CbrSourceError(
             CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION,
             "required form value member is missing or invalid",
@@ -199,6 +214,7 @@ def parse_form(
     members: tuple[DbfMember, ...],
     *,
     enforce_approved_schema: bool = True,
+    allow_dynamic_value_member: bool = False,
 ) -> CbrFormResult:
     fingerprint = compute_form_schema_fingerprint(members)
     approved = APPROVED_FORM_SCHEMA_FINGERPRINTS.get(form)
@@ -207,7 +223,11 @@ def parse_form(
             CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION,
             "unapproved CBR form schema",
         )
-    data_member = _data_member(form, members)
+    data_member = resolve_data_member(
+        form,
+        members,
+        allow_dynamic_value_member=allow_dynamic_value_member,
+    )
     dates_by_regn = _source_dates(members)
     labels_by_code, nomenclature_rows = _nomenclature(form, members)
     records: list[CbrRawRecord] = []

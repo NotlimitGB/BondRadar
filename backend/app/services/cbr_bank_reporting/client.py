@@ -26,6 +26,8 @@ ARTIFACT_RE = re.compile(r"^(101|102|123|135)-(\d{8})\.rar$", re.IGNORECASE)
 MAX_SOURCE_PAGE_BYTES = 2 * 1024 * 1024
 MAX_ARTIFACT_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_ARTIFACT_BYTES = 8 * 1024 * 1024
+HISTORICAL_MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
+HISTORICAL_MAX_TOTAL_ARTIFACT_BYTES = 512 * 1024 * 1024
 EXPECTED_CURRENT = {
     (CbrBankForm.FORM_101, date(2026, 8, 1)): (
         360046,
@@ -128,6 +130,7 @@ class CbrBankRegulatoryClient:
         self._now = now or (lambda: datetime.now(timezone.utc))
         self._sleep = sleep or time.sleep
         self._artifact_bytes_downloaded = 0
+        self._historical_artifact_bytes_downloaded = 0
 
     def discover_artifacts(
         self, *, form: CbrBankForm, report_date: date
@@ -171,7 +174,13 @@ class CbrBankRegulatoryClient:
                 CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION,
                 "artifact identity is not approved for Task251 v1",
             )
-        return self._fetch_artifact(reference, expected_identity=expected)
+        return self._fetch_artifact(
+            reference,
+            expected_identity=expected,
+            max_artifact_bytes=MAX_ARTIFACT_BYTES,
+            max_total_artifact_bytes=MAX_TOTAL_ARTIFACT_BYTES,
+            historical_budget=False,
+        )
 
     def fetch_discovered_artifact(
         self, reference: CbrArtifactReference
@@ -183,23 +192,53 @@ class CbrBankRegulatoryClient:
         original ``fetch_artifact`` contract remains the approved-fixture path.
         """
         _validate_https_cbr_url(reference.source_url)
-        return self._fetch_artifact(reference, expected_identity=None)
+        return self._fetch_artifact(
+            reference,
+            expected_identity=None,
+            max_artifact_bytes=MAX_ARTIFACT_BYTES,
+            max_total_artifact_bytes=MAX_TOTAL_ARTIFACT_BYTES,
+            historical_budget=False,
+        )
+
+    def fetch_discovered_artifact_historical(
+        self, reference: CbrArtifactReference
+    ) -> CbrBankArtifact:
+        """Fetch one catalog artifact under the bounded historical-audit budget."""
+        _validate_https_cbr_url(reference.source_url)
+        return self._fetch_artifact(
+            reference,
+            expected_identity=None,
+            max_artifact_bytes=HISTORICAL_MAX_ARTIFACT_BYTES,
+            max_total_artifact_bytes=HISTORICAL_MAX_TOTAL_ARTIFACT_BYTES,
+            historical_budget=True,
+        )
 
     def _fetch_artifact(
         self,
         reference: CbrArtifactReference,
         *,
         expected_identity: tuple[int, str] | None,
+        max_artifact_bytes: int,
+        max_total_artifact_bytes: int,
+        historical_budget: bool,
     ) -> CbrBankArtifact:
-        remaining = MAX_TOTAL_ARTIFACT_BYTES - self._artifact_bytes_downloaded
+        downloaded = (
+            self._historical_artifact_bytes_downloaded
+            if historical_budget
+            else self._artifact_bytes_downloaded
+        )
+        remaining = max_total_artifact_bytes - downloaded
         if remaining <= 0:
             raise CbrSourceError(
                 CbrSourceStatus.ARTIFACT_TOO_LARGE, "total artifact budget exceeded"
             )
         data, headers = self._get_bytes(
-            reference.source_url, min(MAX_ARTIFACT_BYTES, remaining)
+            reference.source_url, min(max_artifact_bytes, remaining)
         )
-        self._artifact_bytes_downloaded += len(data)
+        if historical_budget:
+            self._historical_artifact_bytes_downloaded += len(data)
+        else:
+            self._artifact_bytes_downloaded += len(data)
         digest = hashlib.sha256(data).hexdigest()
         if expected_identity is not None and (len(data), digest) != expected_identity:
             raise CbrSourceError(

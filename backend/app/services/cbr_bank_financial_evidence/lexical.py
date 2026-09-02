@@ -12,7 +12,7 @@ from app.services.cbr_bank_reporting.contracts import (
     DbfFieldDefinition,
 )
 from app.services.cbr_bank_reporting.dbf import read_dbf_member
-from app.services.cbr_bank_reporting.parsers import FORM_VALUE_MEMBERS
+from app.services.cbr_bank_reporting.parsers import resolve_data_member
 
 from .contracts import CONTRACT_VERSION, ExactFormEvidence, ExactLexicalObservation
 from .fingerprints import json_scalar, sha256_canonical
@@ -120,8 +120,8 @@ def extract_exact_form_evidence(
     form_result: CbrFormResult,
     *,
     archive_executable: str | None = None,
+    allow_dynamic_value_member: bool = False,
 ) -> ExactFormEvidence:
-    expected_member_name = FORM_VALUE_MEMBERS[form_result.form]
     extracted = extract_archive_members(
         form_result.artifact, executable=archive_executable
     )
@@ -137,10 +137,15 @@ def extract_exact_form_evidence(
             CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION,
             "Task251 member schema inventory changed",
         )
+    data_member = resolve_data_member(
+        form_result.form,
+        dbf_members,
+        allow_dynamic_value_member=allow_dynamic_value_member,
+    )
     matches = [
         (member, payload)
         for (archive_member, payload), member in zip(extracted, dbf_members)
-        if archive_member.name.upper() == expected_member_name
+        if member is data_member
     ]
     if len(matches) != 1:
         raise CbrSourceError(
@@ -148,6 +153,7 @@ def extract_exact_form_evidence(
             "Task251 value member is not unique",
         )
     member, content = matches[0]
+    expected_member_name = member.name.upper()
     header_length, record_length, record_count, fields = _dbf_layout(content)
     if tuple(item.definition for item in fields) != member.fields:
         raise CbrSourceError(
@@ -230,6 +236,6 @@ def extract_exact_form_evidence(
     return ExactFormEvidence(
         form=form_result.form.value,
         report_date=form_result.artifact.reference.report_date,
-        value_member_name=member.name.upper(),
+        value_member_name=member.name,
         observations=tuple(observations),
     )

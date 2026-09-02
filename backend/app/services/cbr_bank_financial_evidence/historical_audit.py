@@ -215,11 +215,15 @@ def _failure_result(
     state: str,
     missing_forms: Sequence[CbrBankForm] = (),
     source_error_code: str | None = None,
+    failed_stage: str | None = None,
+    downloaded_artifact_count: int = 0,
 ) -> dict[str, Any]:
     return {
         "report_date": report_date.isoformat(),
         "state": state,
         "source_error_code": source_error_code,
+        "failed_stage": failed_stage,
+        "downloaded_artifact_count": downloaded_artifact_count,
         "missing_forms": [form.value for form in missing_forms],
         "forms": [],
     }
@@ -271,6 +275,8 @@ def _ready_result(
         "report_date": report_date.isoformat(),
         "state": "READY",
         "source_error_code": None,
+        "failed_stage": None,
+        "downloaded_artifact_count": len(artifacts),
         "missing_forms": [],
         "forms": forms,
     }
@@ -349,6 +355,7 @@ def run_probe(
                     state="ARTIFACT_NOT_FOUND",
                     missing_forms=REQUIRED_FORMS,
                     source_error_code=CbrSourceStatus.ARTIFACT_NOT_FOUND.value,
+                    failed_stage="CATALOG_RESOLUTION",
                 )
             )
             continue
@@ -358,21 +365,34 @@ def run_probe(
                     report_date,
                     state="INCOMPLETE_BUNDLE",
                     missing_forms=missing,
+                    failed_stage="CATALOG_RESOLUTION",
                 )
             )
             continue
+        downloaded_artifact_count = 0
+        failed_stage = "ARTIFACT_DOWNLOAD"
         try:
             artifacts = []
             for reference in references:
-                artifacts.append(client.fetch_discovered_artifact(reference))
+                artifacts.append(
+                    client.fetch_discovered_artifact_historical(reference)
+                )
+                downloaded_artifact_count += 1
                 artifact_downloads += 1
+            failed_stage = "BUNDLE_PARSE"
             bundle = service.build_snapshot(
                 report_date=report_date,
                 artifacts=tuple(artifacts),
                 enforce_approved_schema=False,
+                allow_dynamic_value_member=True,
             )
+            failed_stage = "LEXICAL_EXTRACTION"
             exact_forms = tuple(
-                exact_extractor(item, archive_executable=archive_executable)
+                exact_extractor(
+                    item,
+                    archive_executable=archive_executable,
+                    allow_dynamic_value_member=True,
+                )
                 for item in sorted(bundle.forms, key=lambda item: item.form.value)
             )
             results.append(
@@ -389,6 +409,8 @@ def run_probe(
                     report_date,
                     state=_probe_state(exc.code),
                     source_error_code=exc.code.value,
+                    failed_stage=failed_stage,
+                    downloaded_artifact_count=downloaded_artifact_count,
                 )
             )
         except Exception:
@@ -397,6 +419,8 @@ def run_probe(
                     report_date,
                     state="SOURCE_ERROR",
                     source_error_code=CbrSourceStatus.SOURCE_ERROR.value,
+                    failed_stage=failed_stage,
+                    downloaded_artifact_count=downloaded_artifact_count,
                 )
             )
 

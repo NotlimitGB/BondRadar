@@ -73,6 +73,7 @@ class CbrBankRegulatoryBundleService:
         report_date: date,
         artifacts: tuple[CbrBankArtifact, ...],
         enforce_approved_schema: bool = True,
+        allow_dynamic_value_member: bool = False,
     ) -> CbrBankRegulatoryBundleSnapshot:
         if not artifacts or len(artifacts) > 4:
             raise ValueError("one to four artifacts are required")
@@ -98,6 +99,7 @@ class CbrBankRegulatoryBundleService:
                 artifact,
                 dbfs,
                 enforce_approved_schema=enforce_approved_schema,
+                allow_dynamic_value_member=allow_dynamic_value_member,
             )
             record_count += len(result.records)
             if record_count > MAX_BUNDLE_RECORDS:
