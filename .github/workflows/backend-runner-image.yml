@@ -1,0 +1,78 @@
+name: Backend Runner Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/backend-runner-image.yml"
+      - "backend/Dockerfile"
+      - "backend/.dockerignore"
+      - "backend/requirements.txt"
+      - "backend/requirements-dev.txt"
+      - "backend/app/**"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/notlimitgb/bondradar-backend-runner
+  IMAGE_TAG: ghcr.io/notlimitgb/bondradar-backend-runner:sha-${{ github.sha }}
+
+jobs:
+  build-verify-publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build immutable runner image
+        run: |
+          printf '%s' "$GITHUB_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/NotlimitGB/BondRadar" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --tag "${IMAGE_TAG}" \
+            backend
+
+      - name: Verify runner runtime without network
+        run: |
+          docker run --rm --network none "${IMAGE_TAG}" sh -ec '
+            python -c "import rarfile, dbfread; print(\"PY_DEPS=PASS\")"
+            command -v bsdtar
+            bsdtar --version
+            python -c "from app.services.cbr_bank_financial_evidence import monthly_runner; print(\"MONTHLY_RUNNER_SCHEMA=\" + monthly_runner.SCHEMA_VERSION)"
+            set +e
+            output="$(python -m app.services.cbr_bank_financial_evidence.monthly_runner 2>&1)"
+            status=$?
+            set -e
+            printf "%s\n" "$output"
+            test "$status" -eq 2
+            printf "%s" "$output" | python -c "import json, sys; value = json.load(sys.stdin); assert value[\"schema\"] == \"bondradar.cbr_bank_monthly_ingestion_runner.v1\"; assert value[\"status\"] == \"failed\"; assert value[\"error_code\"] == \"INVALID_ARGUMENTS\""
+            echo "NETWORK_NONE_RUNTIME=PASS"
+          '
+
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Push immutable runner image
+        run: docker push "${IMAGE_TAG}"
+
+      - name: Record pushed image digest
+        run: |
+          repo_digest="$(docker image inspect "${IMAGE_TAG}" --format '{{index .RepoDigests 0}}')"
+          printf '%s\n' "$repo_digest" | grep -Eq "^${IMAGE_REPOSITORY}@sha256:[0-9a-f]{64}$"
+          digest="${repo_digest#*@}"
+          echo "IMAGE_TAG=${IMAGE_TAG}"
+          echo "IMAGE_DIGEST=${digest}"
+          {
+            echo "## Backend runner image"
+            echo
+            echo "IMAGE_TAG=${IMAGE_TAG}"
+            echo "IMAGE_DIGEST=${digest}"
+          } >> "$GITHUB_STEP_SUMMARY"
