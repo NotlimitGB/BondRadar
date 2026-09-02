@@ -135,9 +135,8 @@ class CbrBankRegulatoryClient:
         references = self.discover_requested(forms=(form,), report_date=report_date)
         return references
 
-    def discover_requested(
-        self, *, forms: tuple[CbrBankForm, ...], report_date: date
-    ) -> tuple[CbrArtifactReference, ...]:
+    def discover_catalog(self) -> tuple[CbrArtifactReference, ...]:
+        """Return every supported artifact reference exposed by the source page."""
         content, _headers = self._get_bytes(SOURCE_PAGE, MAX_SOURCE_PAGE_BYTES)
         try:
             html = content.decode("utf-8", errors="strict")
@@ -145,9 +144,14 @@ class CbrBankRegulatoryClient:
             raise CbrSourceError(
                 CbrSourceStatus.INVALID_CONTENT, "invalid source page encoding"
             ) from exc
+        return discover_artifacts_from_html(html, discovered_at=self._now())
+
+    def discover_requested(
+        self, *, forms: tuple[CbrBankForm, ...], report_date: date
+    ) -> tuple[CbrArtifactReference, ...]:
         by_key = {
             (item.form, item.report_date): item
-            for item in discover_artifacts_from_html(html, discovered_at=self._now())
+            for item in self.discover_catalog()
         }
         result: list[CbrArtifactReference] = []
         for form in forms:
