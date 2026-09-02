@@ -5,7 +5,11 @@ import json
 from datetime import date
 from itertools import combinations
 
-from .archive import extract_archive_members
+from .archive import (
+    MAX_MEMBER_BYTES,
+    MAX_TOTAL_UNCOMPRESSED_BYTES,
+    extract_archive_members,
+)
 from .client import CbrBankRegulatoryClient
 from .contracts import (
     CbrBankArtifact,
@@ -74,6 +78,8 @@ class CbrBankRegulatoryBundleService:
         artifacts: tuple[CbrBankArtifact, ...],
         enforce_approved_schema: bool = True,
         allow_dynamic_value_member: bool = False,
+        max_archive_member_bytes: int = MAX_MEMBER_BYTES,
+        max_archive_total_uncompressed_bytes: int = MAX_TOTAL_UNCOMPRESSED_BYTES,
     ) -> CbrBankRegulatoryBundleSnapshot:
         if not artifacts or len(artifacts) > 4:
             raise ValueError("one to four artifacts are required")
@@ -91,7 +97,10 @@ class CbrBankRegulatoryBundleService:
         for form in sorted(by_form, key=lambda item: item.value):
             artifact = by_form[form]
             extracted = extract_archive_members(
-                artifact, executable=self.archive_executable
+                artifact,
+                executable=self.archive_executable,
+                max_member_bytes=max_archive_member_bytes,
+                max_total_uncompressed_bytes=max_archive_total_uncompressed_bytes,
             )
             dbfs = tuple(read_dbf_member(member, content) for member, content in extracted)
             result = parse_form(

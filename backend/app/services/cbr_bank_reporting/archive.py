@@ -20,6 +20,8 @@ from .contracts import (
 MAX_ARCHIVE_MEMBERS = 16
 MAX_MEMBER_BYTES = 16 * 1024 * 1024
 MAX_TOTAL_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+HISTORICAL_MAX_MEMBER_BYTES = 96 * 1024 * 1024
+HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES = 128 * 1024 * 1024
 EXTRACTION_TIMEOUT_SECONDS = 20
 RAR_SIGNATURES = (b"Rar!\x1a\x07\x00", b"Rar!\x1a\x07\x01\x00")
 
@@ -68,7 +70,12 @@ def resolve_libarchive_executable(explicit: str | None = None) -> str:
     return str(candidate)
 
 
-def inspect_archive_bytes(content: bytes) -> tuple[ArchiveMember, ...]:
+def inspect_archive_bytes(
+    content: bytes,
+    *,
+    max_member_bytes: int = MAX_MEMBER_BYTES,
+    max_total_uncompressed_bytes: int = MAX_TOTAL_UNCOMPRESSED_BYTES,
+) -> tuple[ArchiveMember, ...]:
     if not content.startswith(RAR_SIGNATURES):
         raise CbrSourceError(CbrSourceStatus.INVALID_ARCHIVE, "invalid RAR signature")
     with tempfile.TemporaryDirectory(prefix="bondradar-task251-rar-") as directory:
@@ -142,13 +149,13 @@ def inspect_archive_bytes(content: bytes) -> tuple[ArchiveMember, ...]:
             )
         size = int(info.file_size)
         compressed_size = int(info.compress_size)
-        if size < 0 or compressed_size < 0 or size > MAX_MEMBER_BYTES:
+        if size < 0 or compressed_size < 0 or size > max_member_bytes:
             raise CbrSourceError(
                 CbrSourceStatus.ARCHIVE_MEMBER_TOO_LARGE,
                 "archive member exceeds size limit",
             )
         total += size
-        if total > MAX_TOTAL_UNCOMPRESSED_BYTES:
+        if total > max_total_uncompressed_bytes:
             raise CbrSourceError(
                 CbrSourceStatus.ARCHIVE_TOTAL_TOO_LARGE,
                 "archive exceeds total size limit",
@@ -169,8 +176,14 @@ def extract_archive_members(
     artifact: CbrBankArtifact,
     *,
     executable: str | None = None,
+    max_member_bytes: int = MAX_MEMBER_BYTES,
+    max_total_uncompressed_bytes: int = MAX_TOTAL_UNCOMPRESSED_BYTES,
 ) -> tuple[tuple[ArchiveMember, bytes], ...]:
-    members = inspect_archive_bytes(artifact.content)
+    members = inspect_archive_bytes(
+        artifact.content,
+        max_member_bytes=max_member_bytes,
+        max_total_uncompressed_bytes=max_total_uncompressed_bytes,
+    )
     tool = resolve_libarchive_executable(executable)
     with tempfile.TemporaryDirectory(prefix="bondradar-task251-extract-") as directory:
         archive_path = Path(directory) / "source.rar"
@@ -191,7 +204,7 @@ def extract_archive_members(
                     ) from exc
                 deadline = time.monotonic() + EXTRACTION_TIMEOUT_SECONDS
                 while process.poll() is None:
-                    if time.monotonic() >= deadline or output.tell() > MAX_MEMBER_BYTES:
+                    if time.monotonic() >= deadline or output.tell() > max_member_bytes:
                         process.kill()
                         process.wait(timeout=5)
                         raise CbrSourceError(
@@ -199,13 +212,13 @@ def extract_archive_members(
                             "archive member extraction exceeded limits",
                         )
                     time.sleep(0.01)
-                if process.returncode != 0 or output.tell() > MAX_MEMBER_BYTES:
+                if process.returncode != 0 or output.tell() > max_member_bytes:
                     raise CbrSourceError(
                         CbrSourceStatus.INVALID_ARCHIVE,
                         "archive member extraction failed",
                     )
                 output.seek(0)
-                payload = output.read(MAX_MEMBER_BYTES + 1)
+                payload = output.read(max_member_bytes + 1)
                 if len(payload) != member.uncompressed_size:
                     raise CbrSourceError(
                         CbrSourceStatus.INVALID_ARCHIVE,

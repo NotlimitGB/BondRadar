@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -69,6 +70,23 @@ def compute_form_schema_fingerprint(members: tuple[DbfMember, ...]) -> str:
     return hashlib.sha256(
         json.dumps(projection, separators=(",", ":"), ensure_ascii=True).encode("ascii")
     ).hexdigest()
+
+
+def compute_structural_schema_fingerprint(
+    schema_fingerprints: Iterable[str],
+) -> str:
+    projection = sorted(str(item) for item in schema_fingerprints)
+    return hashlib.sha256(
+        json.dumps(projection, separators=(",", ":"), ensure_ascii=True).encode("ascii")
+    ).hexdigest()
+
+
+def compute_form_structural_schema_fingerprint(
+    members: tuple[DbfMember, ...],
+) -> str:
+    return compute_structural_schema_fingerprint(
+        member.schema_fingerprint for member in members
+    )
 
 
 def _row_dict(row: tuple[tuple[str, RawScalar], ...]) -> dict[str, RawScalar]:

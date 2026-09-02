@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
-from app.services.cbr_bank_reporting.archive import extract_archive_members
+from app.services.cbr_bank_reporting.archive import (
+    MAX_MEMBER_BYTES,
+    MAX_TOTAL_UNCOMPRESSED_BYTES,
+    extract_archive_members,
+)
 from app.services.cbr_bank_reporting.contracts import (
     CbrBankForm,
     CbrFormResult,
@@ -121,9 +125,14 @@ def extract_exact_form_evidence(
     *,
     archive_executable: str | None = None,
     allow_dynamic_value_member: bool = False,
+    max_archive_member_bytes: int = MAX_MEMBER_BYTES,
+    max_archive_total_uncompressed_bytes: int = MAX_TOTAL_UNCOMPRESSED_BYTES,
 ) -> ExactFormEvidence:
     extracted = extract_archive_members(
-        form_result.artifact, executable=archive_executable
+        form_result.artifact,
+        executable=archive_executable,
+        max_member_bytes=max_archive_member_bytes,
+        max_total_uncompressed_bytes=max_archive_total_uncompressed_bytes,
     )
     dbf_members = tuple(
         read_dbf_member(member, payload) for member, payload in extracted

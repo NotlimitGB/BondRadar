@@ -13,6 +13,10 @@ from app.services.cbr_bank_financial_evidence.fingerprints import (
 from app.services.cbr_bank_financial_evidence.lexical import (
     extract_exact_form_evidence,
 )
+from app.services.cbr_bank_reporting.archive import (
+    HISTORICAL_MAX_MEMBER_BYTES,
+    HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES,
+)
 from app.services.cbr_bank_reporting.bundle import (
     CbrBankRegulatoryBundleService,
     subject_set_sha256,
@@ -23,6 +27,9 @@ from app.services.cbr_bank_reporting.contracts import (
     CbrBankForm,
     CbrSourceError,
     CbrSourceStatus,
+)
+from app.services.cbr_bank_reporting.parsers import (
+    compute_structural_schema_fingerprint,
 )
 
 
@@ -255,6 +262,15 @@ def _ready_result(
         artifact = artifact_by_form[key]
         result = result_by_form[key]
         exact = exact_by_form[key]
+        member_schema_by_name = dict(result.member_schema_fingerprints)
+        value_member_schema_fingerprint = member_schema_by_name.get(
+            exact.value_member_name.upper()
+        )
+        if value_member_schema_fingerprint is None:
+            raise CbrSourceError(
+                CbrSourceStatus.UNSUPPORTED_SCHEMA_VERSION,
+                "historical value member schema fingerprint is missing",
+            )
         forms.append(
             {
                 "form": key,
@@ -265,7 +281,14 @@ def _ready_result(
                 "subject_count": len(result.subjects),
                 "subject_set_sha256": subject_set_sha256(set(result.subjects)),
                 "value_member_name": exact.value_member_name,
+                "value_member_schema_fingerprint": value_member_schema_fingerprint,
                 "form_schema_fingerprint": result.form_schema_fingerprint,
+                "form_structural_schema_fingerprint": (
+                    compute_structural_schema_fingerprint(
+                        fingerprint
+                        for _member_name, fingerprint in result.member_schema_fingerprints
+                    )
+                ),
                 "source_row_fingerprint_set_sha256": ordered_fingerprints_sha256(
                     [item.source_row_fingerprint for item in exact.observations]
                 ),
@@ -314,6 +337,72 @@ def build_schema_drift(probe_results: Sequence[Mapping[str, Any]]) -> list[dict[
                     }
                     for fingerprint in fingerprints
                 ],
+            }
+        )
+    return report
+
+
+def _fingerprint_history(entries: Mapping[str, Sequence[str]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "fingerprint": fingerprint,
+            "first_seen_report_date": min(entries[fingerprint]),
+            "last_seen_report_date": max(entries[fingerprint]),
+        }
+        for fingerprint in sorted(entries)
+    ]
+
+
+def build_structural_schema_drift(
+    probe_results: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    form_history: dict[str, dict[str, list[str]]] = {
+        form.value: {} for form in REQUIRED_FORMS
+    }
+    value_history: dict[str, dict[str, list[str]]] = {
+        form.value: {} for form in REQUIRED_FORMS
+    }
+    for month in probe_results:
+        if month["state"] != "READY":
+            continue
+        report_date = str(month["report_date"])
+        for form in month["forms"]:
+            form_key = str(form["form"])
+            form_fingerprint = str(form["form_structural_schema_fingerprint"])
+            value_fingerprint = str(form["value_member_schema_fingerprint"])
+            form_history[form_key].setdefault(form_fingerprint, []).append(report_date)
+            value_history[form_key].setdefault(value_fingerprint, []).append(report_date)
+
+    report: list[dict[str, Any]] = []
+    for form in REQUIRED_FORMS:
+        form_entries = form_history[form.value]
+        value_entries = value_history[form.value]
+        all_dates = sorted(
+            report_date
+            for dates in form_entries.values()
+            for report_date in dates
+        )
+        form_fingerprints = sorted(form_entries)
+        value_fingerprints = sorted(value_entries)
+        report.append(
+            {
+                "form": form.value,
+                "distinct_form_structural_schema_fingerprint_count": len(
+                    form_fingerprints
+                ),
+                "form_structural_schema_fingerprints": form_fingerprints,
+                "distinct_value_member_schema_fingerprint_count": len(
+                    value_fingerprints
+                ),
+                "value_member_schema_fingerprints": value_fingerprints,
+                "first_seen_report_date": all_dates[0] if all_dates else None,
+                "last_seen_report_date": all_dates[-1] if all_dates else None,
+                "form_structural_fingerprint_history": _fingerprint_history(
+                    form_entries
+                ),
+                "value_member_fingerprint_history": _fingerprint_history(
+                    value_entries
+                ),
             }
         )
     return report
@@ -385,6 +474,10 @@ def run_probe(
                 artifacts=tuple(artifacts),
                 enforce_approved_schema=False,
                 allow_dynamic_value_member=True,
+                max_archive_member_bytes=HISTORICAL_MAX_MEMBER_BYTES,
+                max_archive_total_uncompressed_bytes=(
+                    HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+                ),
             )
             failed_stage = "LEXICAL_EXTRACTION"
             exact_forms = tuple(
@@ -392,6 +485,10 @@ def run_probe(
                     item,
                     archive_executable=archive_executable,
                     allow_dynamic_value_member=True,
+                    max_archive_member_bytes=HISTORICAL_MAX_MEMBER_BYTES,
+                    max_archive_total_uncompressed_bytes=(
+                        HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+                    ),
                 )
                 for item in sorted(bundle.forms, key=lambda item: item.form.value)
             )
@@ -436,6 +533,7 @@ def run_probe(
         "finding_dates": len(results) - ready_count,
         "probe_results": results,
         "schema_drift": build_schema_drift(results),
+        "structural_schema_drift": build_structural_schema_drift(results),
     }
 
 

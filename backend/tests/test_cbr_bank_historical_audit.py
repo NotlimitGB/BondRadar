@@ -15,7 +15,12 @@ from app.services.cbr_bank_financial_evidence import historical_audit as audit
 from app.services.cbr_bank_financial_evidence.lexical import (
     extract_exact_form_evidence,
 )
+from app.services.cbr_bank_reporting import archive as reporting_archive
 from app.services.cbr_bank_reporting import client as reporting_client
+from app.services.cbr_bank_reporting.archive import (
+    extract_archive_members,
+    inspect_archive_bytes,
+)
 from app.services.cbr_bank_reporting.client import CbrBankRegulatoryClient
 from app.services.cbr_bank_reporting.contracts import (
     ArchiveMember,
@@ -27,6 +32,9 @@ from app.services.cbr_bank_reporting.contracts import (
 )
 from app.services.cbr_bank_reporting.dbf import read_dbf_member
 from app.services.cbr_bank_reporting.parsers import (
+    compute_form_schema_fingerprint,
+    compute_form_structural_schema_fingerprint,
+    compute_structural_schema_fingerprint,
     parse_form,
     resolve_data_member,
 )
@@ -95,9 +103,14 @@ class _BundleService:
     def __init__(
         self,
         fingerprints: dict[tuple[date, CbrBankForm], str] | None = None,
+        member_inventories: dict[
+            tuple[date, CbrBankForm], tuple[tuple[str, str], ...]
+        ]
+        | None = None,
         failures: dict[date, CbrSourceStatus] | None = None,
     ) -> None:
         self.fingerprints = fingerprints or {}
+        self.member_inventories = member_inventories or {}
         self.failures = failures or {}
         self.calls: list[date] = []
 
@@ -108,10 +121,17 @@ class _BundleService:
         artifacts,
         enforce_approved_schema,
         allow_dynamic_value_member,
+        max_archive_member_bytes,
+        max_archive_total_uncompressed_bytes,
     ):
         self.calls.append(report_date)
         assert enforce_approved_schema is False
         assert allow_dynamic_value_member is True
+        assert max_archive_member_bytes == reporting_archive.HISTORICAL_MAX_MEMBER_BYTES
+        assert (
+            max_archive_total_uncompressed_bytes
+            == reporting_archive.HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+        )
         if report_date in self.failures:
             raise CbrSourceError(self.failures[report_date], "password=secret")
         forms = tuple(
@@ -120,6 +140,10 @@ class _BundleService:
                 artifact=artifact,
                 records=(object(), object()),
                 subjects=("1", "2"),
+                member_schema_fingerprints=self.member_inventories.get(
+                    (report_date, artifact.reference.form),
+                    ((f"{artifact.reference.form.short_code}_VALUE.DBF", "c" * 64),),
+                ),
                 form_schema_fingerprint=self.fingerprints.get(
                     (report_date, artifact.reference.form), "a" * 64
                 ),
@@ -137,9 +161,16 @@ def _extractor_calls():
         *,
         archive_executable=None,
         allow_dynamic_value_member=False,
+        max_archive_member_bytes=None,
+        max_archive_total_uncompressed_bytes=None,
     ):
         assert archive_executable is None
         assert allow_dynamic_value_member is True
+        assert max_archive_member_bytes == reporting_archive.HISTORICAL_MAX_MEMBER_BYTES
+        assert (
+            max_archive_total_uncompressed_bytes
+            == reporting_archive.HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+        )
         calls.append((result.artifact.reference.report_date, result.form))
         fingerprints = tuple(
             SimpleNamespace(
@@ -153,7 +184,7 @@ def _extractor_calls():
         )
         return SimpleNamespace(
             form=result.form.value,
-            value_member_name=f"{result.form.short_code}_VALUE.DBF",
+            value_member_name=result.member_schema_fingerprints[0][0],
             observations=fingerprints,
         )
 
@@ -216,6 +247,47 @@ def _renamed_123_member(name: str = "062023_123d.dbf"):
         crc32=None,
     )
     return archive_member, content, read_dbf_member(archive_member, content)
+
+
+class _ArchiveInfo:
+    def __init__(self, name: str, size: int) -> None:
+        self.filename = name
+        self.file_size = size
+        self.compress_size = max(1, size // 2)
+        self.CRC = None
+        self.volume = 0
+        self.file_redir = None
+
+    def is_file(self) -> bool:
+        return True
+
+    def is_symlink(self) -> bool:
+        return False
+
+    def needs_password(self) -> bool:
+        return False
+
+
+class _ArchiveRar:
+    infos: tuple[_ArchiveInfo, ...] = ()
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def is_solid(self) -> bool:
+        return False
+
+    def volumelist(self):
+        return ("source.rar",)
+
+    def infolist(self):
+        return self.infos
 
 
 def test_client_catalog_fetches_one_bounded_source_page() -> None:
@@ -327,6 +399,119 @@ def test_historical_fetch_rejects_unsafe_redirects(location) -> None:
     client.http_client.close()
 
 
+def test_historical_archive_limits_are_explicit_and_bounded(monkeypatch) -> None:
+    monkeypatch.setattr(reporting_archive.rarfile, "RarFile", _ArchiveRar)
+    content = b"Rar!\x1a\x07\x00synthetic"
+    between_limits = reporting_archive.MAX_MEMBER_BYTES + 1
+    _ArchiveRar.infos = (_ArchiveInfo("VALUE.DBF", between_limits),)
+
+    with pytest.raises(CbrSourceError) as error:
+        inspect_archive_bytes(content)
+    assert error.value.code == CbrSourceStatus.ARCHIVE_MEMBER_TOO_LARGE
+
+    accepted = inspect_archive_bytes(
+        content,
+        max_member_bytes=reporting_archive.HISTORICAL_MAX_MEMBER_BYTES,
+        max_total_uncompressed_bytes=(
+            reporting_archive.HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+        ),
+    )
+    assert accepted[0].uncompressed_size == between_limits
+
+    _ArchiveRar.infos = (
+        _ArchiveInfo(
+            "VALUE.DBF", reporting_archive.HISTORICAL_MAX_MEMBER_BYTES + 1
+        ),
+    )
+    with pytest.raises(CbrSourceError) as error:
+        inspect_archive_bytes(
+            content,
+            max_member_bytes=reporting_archive.HISTORICAL_MAX_MEMBER_BYTES,
+            max_total_uncompressed_bytes=(
+                reporting_archive.HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+            ),
+        )
+    assert error.value.code == CbrSourceStatus.ARCHIVE_MEMBER_TOO_LARGE
+
+    half_total = reporting_archive.HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES // 2 + 1
+    _ArchiveRar.infos = (
+        _ArchiveInfo("A.DBF", half_total),
+        _ArchiveInfo("B.DBF", half_total),
+    )
+    with pytest.raises(CbrSourceError) as error:
+        inspect_archive_bytes(
+            content,
+            max_member_bytes=reporting_archive.HISTORICAL_MAX_MEMBER_BYTES,
+            max_total_uncompressed_bytes=(
+                reporting_archive.HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+            ),
+        )
+    assert error.value.code == CbrSourceStatus.ARCHIVE_TOTAL_TOO_LARGE
+
+    assert reporting_archive.MAX_MEMBER_BYTES == 16 * 1024 * 1024
+    assert reporting_archive.MAX_TOTAL_UNCOMPRESSED_BYTES == 64 * 1024 * 1024
+    assert reporting_archive.HISTORICAL_MAX_MEMBER_BYTES == 96 * 1024 * 1024
+    assert (
+        reporting_archive.HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES
+        == 128 * 1024 * 1024
+    )
+
+
+def test_selected_member_limit_reaches_actual_extraction(monkeypatch) -> None:
+    artifact = CbrBankArtifact(
+        reference=_reference(CbrBankForm.FORM_123, DATE_1),
+        content=b"synthetic-rar",
+        content_sha256=hashlib.sha256(b"synthetic-rar").hexdigest(),
+        compressed_size=len(b"synthetic-rar"),
+        content_type="application/vnd.rar",
+        retrieved_at=NOW,
+    )
+    member = ArchiveMember(
+        name="VALUE.DBF",
+        normalized_name="VALUE.DBF",
+        compressed_size=3,
+        uncompressed_size=5,
+        crc32=None,
+    )
+    inspected_limits: list[tuple[int, int]] = []
+
+    def inspect(_content, *, max_member_bytes, max_total_uncompressed_bytes):
+        inspected_limits.append((max_member_bytes, max_total_uncompressed_bytes))
+        return (member,)
+
+    class Process:
+        def __init__(self, _args, *, stdout, stderr) -> None:
+            del stderr
+            stdout.write(b"12345")
+            self.returncode = 0
+
+        def poll(self):
+            return self.returncode
+
+    monkeypatch.setattr(reporting_archive, "inspect_archive_bytes", inspect)
+    monkeypatch.setattr(
+        reporting_archive, "resolve_libarchive_executable", lambda _value=None: "bsdtar"
+    )
+    monkeypatch.setattr(reporting_archive.subprocess, "Popen", Process)
+
+    extracted = extract_archive_members(
+        artifact,
+        max_member_bytes=5,
+        max_total_uncompressed_bytes=9,
+    )
+    assert extracted == ((member, b"12345"),)
+    assert inspected_limits == [(5, 9)]
+
+    with pytest.raises(CbrSourceError) as error:
+        extract_archive_members(
+            artifact,
+            max_member_bytes=4,
+            max_total_uncompressed_bytes=9,
+        )
+    assert error.value.code == CbrSourceStatus.INVALID_ARCHIVE
+    assert inspected_limits[-1] == (4, 9)
+
+
 def test_dynamic_value_member_resolution_is_explicit_and_unique() -> None:
     _archive_member, _content, renamed = _renamed_123_member()
     artifact = CbrBankArtifact(
@@ -398,7 +583,7 @@ def test_dynamic_parser_and_lexical_extractor_select_same_member(monkeypatch) ->
     )
     monkeypatch.setattr(
         "app.services.cbr_bank_financial_evidence.lexical.extract_archive_members",
-        lambda _artifact, executable=None: ((archive_member, content),),
+        lambda _artifact, **_kwargs: ((archive_member, content),),
     )
     exact = extract_exact_form_evidence(
         result,
@@ -408,6 +593,45 @@ def test_dynamic_parser_and_lexical_extractor_select_same_member(monkeypatch) ->
     assert exact.observations[0].record.source_member == exact.value_member_name
     assert exact.observations[0].raw_value_text == "123.450"
     assert exact.observations[0].parsed_decimal_value == Decimal("123.450")
+
+
+def test_structural_fingerprints_separate_names_fields_and_multiplicity() -> None:
+    _archive_member, _content, original = _renamed_123_member("062023_123D.DBF")
+    renamed = replace(original, name="072026_123D.DBF")
+    assert compute_form_schema_fingerprint((original,)) != compute_form_schema_fingerprint(
+        (renamed,)
+    )
+    assert compute_form_structural_schema_fingerprint(
+        (original,)
+    ) == compute_form_structural_schema_fingerprint((renamed,))
+    assert original.schema_fingerprint == renamed.schema_fingerprint
+
+    changed_content = _dbf_bytes(
+        (
+            ("REGN", "C", 5, 0),
+            ("C1", "C", 5, 0),
+            ("C3", "N", 13, 4),
+        ),
+        (("1", "102", "123.4500"),),
+    )
+    changed_archive_member = ArchiveMember(
+        name="072026_123D.DBF",
+        normalized_name="072026_123D.DBF",
+        compressed_size=len(changed_content),
+        uncompressed_size=len(changed_content),
+        crc32=None,
+    )
+    changed = read_dbf_member(changed_archive_member, changed_content)
+    assert changed.schema_fingerprint != original.schema_fingerprint
+    assert compute_form_structural_schema_fingerprint(
+        (changed,)
+    ) != compute_form_structural_schema_fingerprint((original,))
+
+    one = compute_structural_schema_fingerprint((original.schema_fingerprint,))
+    two = compute_structural_schema_fingerprint(
+        (original.schema_fingerprint, original.schema_fingerprint)
+    )
+    assert one != two
 
 
 def test_catalog_groups_filters_and_reports_exact_missing_forms() -> None:
@@ -518,7 +742,15 @@ def test_probe_projects_ready_months_and_aggregates_schema_drift() -> None:
     )
     source = _Source(tuple(reversed(references)))
     service = _BundleService(
-        fingerprints={(DATE_2, CbrBankForm.FORM_101): "b" * 64}
+        fingerprints={(DATE_2, CbrBankForm.FORM_101): "b" * 64},
+        member_inventories={
+            (DATE_2, CbrBankForm.FORM_101): (
+                ("RENAMED_101_VALUE.DBF", "c" * 64),
+            ),
+            (DATE_2, CbrBankForm.FORM_102): (
+                ("102_VALUE.DBF", "d" * 64),
+            ),
+        },
     )
     extractor, calls = _extractor_calls()
     report = audit.run_probe(
@@ -544,12 +776,45 @@ def test_probe_projects_ready_months_and_aggregates_schema_drift() -> None:
         for item in report["probe_results"]
         for form in item["forms"]
     )
+    assert all(
+        len(form["value_member_schema_fingerprint"]) == 64
+        and len(form["form_structural_schema_fingerprint"]) == 64
+        for item in report["probe_results"]
+        for form in item["forms"]
+    )
     drift = {item["form"]: item for item in report["schema_drift"]}
     assert drift["0409101"]["distinct_schema_fingerprint_count"] == 2
     assert drift["0409101"]["schema_fingerprints"] == ["a" * 64, "b" * 64]
     assert drift["0409102"]["distinct_schema_fingerprint_count"] == 1
     assert drift["0409102"]["first_seen_report_date"] == "2026-06-01"
     assert drift["0409102"]["last_seen_report_date"] == "2026-07-01"
+    structural = {
+        item["form"]: item for item in report["structural_schema_drift"]
+    }
+    assert (
+        structural["0409101"][
+            "distinct_form_structural_schema_fingerprint_count"
+        ]
+        == 1
+    )
+    assert (
+        structural["0409101"]["distinct_value_member_schema_fingerprint_count"]
+        == 1
+    )
+    assert (
+        structural["0409102"][
+            "distinct_form_structural_schema_fingerprint_count"
+        ]
+        == 2
+    )
+    assert (
+        structural["0409102"]["distinct_value_member_schema_fingerprint_count"]
+        == 2
+    )
+    assert structural["0409102"]["first_seen_report_date"] == "2026-06-01"
+    assert structural["0409102"]["last_seen_report_date"] == "2026-07-01"
+    assert len(structural["0409102"]["form_structural_fingerprint_history"]) == 2
+    assert len(structural["0409102"]["value_member_fingerprint_history"]) == 2
 
 
 @pytest.mark.parametrize(
