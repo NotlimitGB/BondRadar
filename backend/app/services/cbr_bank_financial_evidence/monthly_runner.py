@@ -49,6 +49,10 @@ from app.services.cbr_bank_financial_evidence.production_runner import (
 from app.services.cbr_bank_financial_evidence.store import (
     CbrBankRawFinancialEvidenceStore,
 )
+from app.services.cbr_bank_reporting.archive import (
+    MAX_MEMBER_BYTES,
+    MAX_TOTAL_UNCOMPRESSED_BYTES,
+)
 from app.services.cbr_bank_reporting.bundle import CbrBankRegulatoryBundleService
 from app.services.cbr_bank_reporting.client import (
     ALLOWED_HOSTS,
@@ -363,13 +367,17 @@ def _artifact_manifest_projection(
     return tuple(projection)
 
 
-def _prepare_artifacts(
+def prepare_artifacts(
     *,
     report_date: date,
     evidence_observed_at: datetime,
     artifacts: tuple[CbrBankArtifact, ...],
     archive_executable: str | None = None,
     bundle_service: CbrBankRegulatoryBundleService | None = None,
+    enforce_approved_schema: bool = True,
+    allow_dynamic_value_member: bool = False,
+    max_archive_member_bytes: int = MAX_MEMBER_BYTES,
+    max_archive_total_uncompressed_bytes: int = MAX_TOTAL_UNCOMPRESSED_BYTES,
 ) -> PreparedMonthlyEvidence:
     if tuple(sorted((item.reference.form for item in artifacts), key=lambda item: item.value)) != REQUIRED_FORMS:
         raise RunnerError("FOUR_FORM_BUNDLE_REQUIRED")
@@ -377,9 +385,26 @@ def _prepare_artifacts(
         archive_executable=archive_executable
     )
     try:
-        bundle = service.build_snapshot(report_date=report_date, artifacts=artifacts)
+        bundle = service.build_snapshot(
+            report_date=report_date,
+            artifacts=artifacts,
+            enforce_approved_schema=enforce_approved_schema,
+            allow_dynamic_value_member=allow_dynamic_value_member,
+            max_archive_member_bytes=max_archive_member_bytes,
+            max_archive_total_uncompressed_bytes=(
+                max_archive_total_uncompressed_bytes
+            ),
+        )
         exact_forms = tuple(
-            extract_exact_form_evidence(item, archive_executable=archive_executable)
+            extract_exact_form_evidence(
+                item,
+                archive_executable=archive_executable,
+                allow_dynamic_value_member=allow_dynamic_value_member,
+                max_archive_member_bytes=max_archive_member_bytes,
+                max_archive_total_uncompressed_bytes=(
+                    max_archive_total_uncompressed_bytes
+                ),
+            )
             for item in sorted(bundle.forms, key=lambda result: result.form.value)
         )
     except CbrSourceError as exc:
@@ -430,6 +455,24 @@ def _prepare_artifacts(
         exact_forms=exact_forms,
         artifacts=artifacts,
         report=report,
+    )
+
+
+def _prepare_artifacts(
+    *,
+    report_date: date,
+    evidence_observed_at: datetime,
+    artifacts: tuple[CbrBankArtifact, ...],
+    archive_executable: str | None = None,
+    bundle_service: CbrBankRegulatoryBundleService | None = None,
+) -> PreparedMonthlyEvidence:
+    """Compatibility wrapper retaining the strict monthly-source contract."""
+    return prepare_artifacts(
+        report_date=report_date,
+        evidence_observed_at=evidence_observed_at,
+        artifacts=artifacts,
+        archive_executable=archive_executable,
+        bundle_service=bundle_service,
     )
 
 
@@ -721,6 +764,20 @@ def _classify_month_state(
         len(exact_artifacts),
         len(target),
         observation_total,
+    )
+
+
+def classify_month_database_state(
+    session: Session,
+    manifest: MonthlyIngestionManifest,
+    *,
+    verify_observation_checksums: bool = False,
+) -> MonthlyDatabaseInspection:
+    """Expose the existing read-only monthly classification without changing it."""
+    return _classify_month_state(
+        session,
+        manifest,
+        verify_observation_checksums=verify_observation_checksums,
     )
 
 
