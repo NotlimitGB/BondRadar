@@ -831,7 +831,9 @@ def _complete_source_reobservation(
             or snapshot.subject_count != item.subject_count
             or snapshot.subject_set_sha256 != item.subject_set_sha256
             or snapshot.form_schema_fingerprint != item.form_schema_fingerprint
-            or snapshot.value_member_name != item.value_member_name
+            # Exact artifact identity is already proven; compare case only,
+            # without rewriting either stored or manifest provenance.
+            or snapshot.value_member_name.casefold() != item.value_member_name.casefold()
         ):
             return HistoricalMonthDecision(
                 manifest.report_date,

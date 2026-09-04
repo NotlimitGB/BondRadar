@@ -498,6 +498,131 @@ def _month_at(current_month, observed_at: datetime):
     return replace(current_month, monthly_manifest=monthly)
 
 
+@pytest.fixture(scope="module")
+def case_only_engine(tmp_path_factory, current_prepared):
+    engine = _sqlite_engine(tmp_path_factory.mktemp("case-only"), "evidence.db")
+    _persist_current(engine, current_prepared, T1)
+    table = production_runner.CbrBankReportSnapshot.__table__
+    with engine.begin() as connection:
+        for row in connection.execute(select(table.c.id, table.c.value_member_name)):
+            connection.execute(
+                table.update().where(table.c.id == row.id).values(
+                    value_member_name=row.value_member_name.upper()
+                )
+            )
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def case_only_session(case_only_engine):
+    with case_only_engine.connect() as connection:
+        transaction = connection.begin()
+        with Session(bind=connection, autoflush=False) as session:
+            try:
+                yield session
+            finally:
+                transaction.rollback()
+
+
+@pytest.fixture
+def case_only_month(current_month):
+    monthly = MonthlyIngestionManifest.create(
+        report_date=current_month.report_date,
+        evidence_observed_at=T2,
+        artifacts=tuple(
+            replace(item, value_member_name=item.value_member_name[:-4] + ".dbf")
+            for item in current_month.monthly_manifest.artifacts
+        ),
+    )
+    return replace(current_month, monthly_manifest=monthly)
+
+
+def test_case_only_reobservation_preserves_provenance_and_full_lineage(
+    case_only_session, case_only_month
+) -> None:
+    session = case_only_session
+    table = production_runner.CbrBankReportSnapshot.__table__
+    before = list(session.execute(select(table).order_by(table.c.id)))
+    manifest_before = _batch(case_only_month).to_dict()
+    expected = {
+        item.form: item.value_member_name
+        for item in case_only_month.monthly_manifest.artifacts
+    }
+    assert len(before) == 4
+    for row in before:
+        assert row.value_member_name.endswith(".DBF")
+        assert expected[row.form].endswith(".dbf")
+        assert row.value_member_name != expected[row.form]
+        assert row.value_member_name.casefold() == expected[row.form].casefold()
+
+    statements = []
+
+    def capture(connection, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    connection = session.connection()
+    event.listen(connection, "before_cursor_execute", capture)
+    try:
+        decision = runner.classify_backfill_month(session, case_only_month)
+    finally:
+        event.remove(connection, "before_cursor_execute", capture)
+    assert decision.backfill_action == "SKIP_EXACT_SOURCE"
+    assert decision.matching_artifacts == decision.matching_snapshots == 4
+    assert decision.matching_observations == 38_842
+    assert statements and all(s.lstrip().upper().startswith("SELECT") for s in statements)
+    assert list(session.execute(select(table).order_by(table.c.id))) == before
+    assert _batch(case_only_month).to_dict() == manifest_before
+    # This task must not relax same-observation monthly comparison.
+    assert runner.classify_backfill_month(
+        session, _month_at(case_only_month, T1)
+    ).backfill_action == "BLOCK_PARTIAL_STATE"
+
+
+@pytest.mark.parametrize("stored_name", [
+    "072026B2.DBF",
+    "072026_DIFFERENT.dbf",
+    "foo/072026B1.DBF",
+    "foo\\072026B1.DBF",
+    "072026B1.DBF.bak",
+    " 072026B1.DBF",
+    "072026B1.DBF ",
+])
+def test_non_case_member_difference_blocks_reobservation(
+    case_only_session, case_only_month, stored_name
+) -> None:
+    table = production_runner.CbrBankReportSnapshot.__table__
+    case_only_session.execute(
+        table.update().where(table.c.form == "0409101").values(value_member_name=stored_name)
+    )
+    decision = runner.classify_backfill_month(case_only_session, case_only_month)
+    assert decision.backfill_action == "BLOCK_PARTIAL_STATE"
+
+
+@pytest.mark.parametrize("damage", ["missing_row", "checksum_same_count"])
+def test_case_only_reobservation_still_checks_raw_count_and_checksum(
+    case_only_session, case_only_month, damage
+) -> None:
+    table = production_runner.CbrBankRawObservation.__table__
+    row_id = case_only_session.scalar(select(table.c.id).order_by(table.c.id).limit(1))
+    ids_before = list(case_only_session.scalars(select(table.c.id).order_by(table.c.id)))
+    assert len(ids_before) == 38_842
+    if damage == "missing_row":
+        case_only_session.execute(table.delete().where(table.c.id == row_id))
+    else:
+        original = case_only_session.scalar(
+            select(table.c.source_row_fingerprint).where(table.c.id == row_id)
+        )
+        corrupted = hashlib.sha256(b"case-only-corrupt-source-row").hexdigest()
+        assert corrupted != original
+        case_only_session.execute(
+            table.update().where(table.c.id == row_id).values(source_row_fingerprint=corrupted)
+        )
+        assert list(case_only_session.scalars(select(table.c.id).order_by(table.c.id))) == ids_before
+    decision = runner.classify_backfill_month(case_only_session, case_only_month)
+    assert decision.backfill_action == "BLOCK_PARTIAL_STATE"
+
+
 def test_database_classification_exact_month_and_exact_source(
     tmp_path: Path, current_prepared, current_month
 ) -> None:
