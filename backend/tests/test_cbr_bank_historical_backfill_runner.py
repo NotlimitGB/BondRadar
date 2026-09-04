@@ -990,15 +990,39 @@ def small_history(tmp_path, monkeypatch, small_dbf_templates):
     return SimpleNamespace(batch=batch, root=root, months=prepared_months, calls=extraction_calls)
 
 
+def _assert_production_action_truth(report):
+    assert report["publication_status"] == "UNKNOWN"
+    assert report["publication_at"] is None
+    for flag in ("historical_availability_proven", "pit_ready", "normalization", "scoring"):
+        assert report[flag] is False
+    if report.get("commit_outcome_unknown", False):
+        assert report["production_actions"] == "CBR_HISTORICAL_BACKFILL_APPLY_OUTCOME_UNKNOWN"
+        expected_mutation = True if report["committed_report_dates"] else None
+        assert report["database_mutation_executed"] is expected_mutation
+        assert report["database_persistence"] is expected_mutation
+    elif report.get("committed_report_dates", []):
+        assert report["production_actions"] == "CBR_HISTORICAL_BACKFILL_APPLY"
+        assert report["database_mutation_executed"] is True
+        assert report["database_persistence"] is True
+    else:
+        assert report["production_actions"] == "NONE"
+        assert report["database_mutation_executed"] is False
+        assert report["database_persistence"] is False
+
+
 def _preflight_for_apply(engine, prepared):
-    return runner.execute_preflight(
+    report = runner.execute_preflight(
         engine, prepared=prepared, schema_reader=lambda session: _schema_state(),
         allow_non_postgresql=True, read_only_enforcer=lambda session: None,
     )
+    _assert_production_action_truth(report)
+    assert report["transaction_read_only"] is True
+    assert report["transaction_rolled_back"] is True
+    return report
 
 
 def _apply_for_test(engine, history, scope_hash=None, **kwargs):
-    return runner.execute_apply(
+    report = runner.execute_apply(
         engine, prepared=history.batch, artifact_dir=history.root,
         expected_batch_manifest_sha256=history.batch.manifest.batch_manifest_sha256,
         expected_apply_scope_sha256=scope_hash or _preflight_for_apply(engine, history.batch)["apply_scope_sha256"],
@@ -1006,6 +1030,8 @@ def _apply_for_test(engine, history, scope_hash=None, **kwargs):
         allow_non_postgresql=True, read_only_enforcer=lambda session: None,
         **({"lock_tables": lambda session: None} | kwargs),
     )
+    _assert_production_action_truth(report)
+    return report
 
 
 def _stored_counts(engine):
@@ -1249,6 +1275,7 @@ def test_apply_cli_rejects_missing_or_contradictory_authorization(change, capsys
     captured = capsys.readouterr()
     output = json.loads(captured.out)
     assert output["error_code"] == "INVALID_ARGUMENTS"
+    _assert_production_action_truth(output)
     assert set(runner._apply_progress()).issubset(output)
     assert output["committed_report_dates"] == []
     assert output["before_task255_counts"] is None
@@ -1293,6 +1320,7 @@ def test_apply_offline_failures_precede_environment_engine_and_network(tmp_path,
         "missing_artifact": "ARTIFACT_CACHE_UNAVAILABLE",
         "changed_artifact": "ARTIFACT_IDENTITY_MISMATCH",
     }[damage]
+    _assert_production_action_truth(report)
     assert report["database_accessed"] is False
     assert report["database_mutation_executed"] is False
     assert report["reconciliation_required"] is False

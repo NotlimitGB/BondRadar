@@ -84,6 +84,9 @@ BATCH_MANIFEST_CONTRACT_VERSION = (
 )
 EXPECTED_ALEMBIC_REVISION = "202609010001"
 PUBLICATION_STATUS = "UNKNOWN"
+PRODUCTION_ACTION_NONE = "NONE"
+PRODUCTION_ACTION_HISTORICAL_APPLY = "CBR_HISTORICAL_BACKFILL_APPLY"
+PRODUCTION_ACTION_HISTORICAL_APPLY_OUTCOME_UNKNOWN = "CBR_HISTORICAL_BACKFILL_APPLY_OUTCOME_UNKNOWN"
 HISTORICAL_BACKFILL_MIN_REPORT_DATE = date(2023, 7, 1)
 MAX_BACKFILL_COMPLETE_DATES = 32
 MAX_BACKFILL_ARTIFACTS = 128
@@ -1277,6 +1280,11 @@ def execute_apply(
     failed = report["status"] == "failed"
     report.update(
         commit_outcome_unknown=uncertain,
+        production_actions=(
+            PRODUCTION_ACTION_HISTORICAL_APPLY_OUTCOME_UNKNOWN if uncertain
+            else PRODUCTION_ACTION_HISTORICAL_APPLY if committed
+            else PRODUCTION_ACTION_NONE
+        ),
         database_mutation_executed=True if committed else (None if uncertain else False),
         database_persistence=True if committed else (None if uncertain else False),
         partial_batch_committed=failed and committed,
