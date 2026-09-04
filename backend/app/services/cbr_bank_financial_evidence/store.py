@@ -24,6 +24,7 @@ from app.models.cbr_bank_financial_evidence import (
 )
 from app.models.legal_issuer import LegalIssuer
 from app.services.cbr_bank_reporting.bundle import subject_set_sha256
+from app.services.cbr_bank_reporting.archive import MAX_MEMBER_BYTES, MAX_TOTAL_UNCOMPRESSED_BYTES
 from app.services.cbr_bank_reporting.contracts import (
     CbrBankRegulatoryBundleSnapshot,
     CbrFormResult,
@@ -82,9 +83,15 @@ class CbrBankRawFinancialEvidenceStore:
         session: Session,
         *,
         archive_executable: str | None = None,
+        allow_dynamic_value_member: bool = False,
+        max_archive_member_bytes: int = MAX_MEMBER_BYTES,
+        max_archive_total_uncompressed_bytes: int = MAX_TOTAL_UNCOMPRESSED_BYTES,
     ) -> None:
         self.session = session
         self.archive_executable = archive_executable
+        self.allow_dynamic_value_member = allow_dynamic_value_member
+        self.max_archive_member_bytes = max_archive_member_bytes
+        self.max_archive_total_uncompressed_bytes = max_archive_total_uncompressed_bytes
 
     def _checkpoint(self, name: str) -> None:
         """Test seam for proving caller-owned rollback; production path is a no-op."""
@@ -136,7 +143,11 @@ class CbrBankRawFinancialEvidenceStore:
 
         exact_forms = tuple(
             extract_exact_form_evidence(
-                item, archive_executable=self.archive_executable
+                item,
+                archive_executable=self.archive_executable,
+                allow_dynamic_value_member=self.allow_dynamic_value_member,
+                max_archive_member_bytes=self.max_archive_member_bytes,
+                max_archive_total_uncompressed_bytes=self.max_archive_total_uncompressed_bytes,
             )
             for item in sorted(bundle.forms, key=lambda value: value.form.value)
         )

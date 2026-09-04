@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import copy
+import zlib
 from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -16,6 +18,8 @@ from app.db.base import Base
 from app.services.cbr_bank_financial_evidence import historical_backfill_runner as runner
 from app.services.cbr_bank_financial_evidence import monthly_runner
 from app.services.cbr_bank_financial_evidence import production_runner
+from app.services.cbr_bank_financial_evidence import lexical, store as store_module
+from app.services.cbr_bank_reporting import bundle as bundle_module
 from app.services.cbr_bank_financial_evidence.monthly_runner import (
     MonthlyArtifactManifest,
     MonthlyIngestionManifest,
@@ -730,7 +734,7 @@ class _NoEnvironment(dict):
         raise AssertionError("PLAN read a database environment variable")
 
 
-def test_cli_plan_is_offline_apply_is_rejected_and_failures_are_sanitized(
+def test_cli_plan_is_offline_unconfirmed_apply_is_rejected_and_failures_are_sanitized(
     tmp_path: Path, current_prepared, current_month, capsys
 ) -> None:
     artifact_root = tmp_path / "cli-cache"
@@ -760,7 +764,7 @@ def test_cli_plan_is_offline_apply_is_rejected_and_failures_are_sanitized(
     assert "password" not in failure.casefold()
 
 
-def test_cli_contract_accepts_only_discover_plan_and_read_only_preflight() -> None:
+def test_cli_contract_preserves_discover_plan_and_read_only_preflight() -> None:
     discover = runner._parser().parse_args(
         [
             "--mode",
@@ -850,13 +854,9 @@ def test_unknown_monthly_state_is_blocked(monkeypatch: pytest.MonkeyPatch) -> No
     assert decision.backfill_action == "BLOCK_PARTIAL_STATE"
 
 
-def test_runner_has_no_apply_store_or_database_mutation_surface() -> None:
+def test_apply_reuses_store_and_keeps_network_and_uncontrolled_surfaces_absent() -> None:
     source = Path(runner.__file__).read_text(encoding="utf-8")
     forbidden = (
-        "CbrBankRawFinancialEvidenceStore",
-        "persist_bundle",
-        "execute_apply",
-        '"apply"',
         ".commit(",
         "session.flush(",
         ".add(",
@@ -867,3 +867,581 @@ def test_runner_has_no_apply_store_or_database_mutation_surface() -> None:
     assert all(item not in source for item in forbidden)
     assert "SET TRANSACTION READ ONLY" not in source
     assert "_enforce_read_only" in source
+    apply_source = inspect.getsource(runner.execute_apply)
+    assert "persist_bundle" in apply_source
+    assert "_commit_transaction" in apply_source
+    assert all(value not in apply_source for value in ("CbrBankRegulatoryClient", "discover_catalog", "fetch_"))
+
+
+def _empty_counts():
+    return {name: 0 for name in production_runner._TASK255_TABLES}
+
+
+def _candidate(month):
+    return runner.HistoricalMonthDecision(
+        month.report_date, "EMPTY", "FIRST_OBSERVATION", "INSERT_CANDIDATE", 0, 0, 0
+    )
+
+
+def test_apply_scope_hash_is_canonical_and_semantically_sensitive():
+    months = (_fake_month(DATE_1), _fake_month(DATE_3))
+    batch = runner.HistoricalBackfillBatchManifest.create(
+        requested_from_date=DATE_1, requested_to_date=DATE_3,
+        evidence_observed_at=T1, incomplete_report_dates=(), months=months,
+    )
+    decisions = [_candidate(month) for month in months]
+    scope = runner.build_apply_scope(batch, decisions, _empty_counts())
+    digest = runner.sha256_canonical(scope)
+    reordered = runner.build_apply_scope(batch, list(reversed(decisions)), dict(reversed(list(_empty_counts().items()))))
+    assert digest == runner.sha256_canonical(reordered)
+    assert digest == runner.sha256_canonical(json.loads(json.dumps(scope, indent=4)))
+    for field in (
+        "batch_manifest_sha256", "insert_candidate_months", "skip_exact_months",
+        "skip_exact_source_months", "blocked_months", "candidate_artifacts",
+        "candidate_snapshots", "candidate_observations",
+    ):
+        changed = copy.deepcopy(scope)
+        changed[field] = "0" * 64 if field == "batch_manifest_sha256" else changed[field] + 1
+        assert runner.sha256_canonical(changed) != digest
+    for field in (
+        "monthly_state", "source_observation", "backfill_action", "matching_artifacts",
+        "matching_snapshots", "matching_observations", "report_date",
+    ):
+        changed = copy.deepcopy(scope)
+        changed["months"][0][field] = "changed" if isinstance(changed["months"][0][field], str) else 1
+        assert runner.sha256_canonical(changed) != digest
+    changed = copy.deepcopy(scope)
+    changed["current_task255_counts"]["cbr_bank_reporting_subjects"] = 1
+    assert runner.sha256_canonical(changed) != digest
+    with pytest.raises(runner.RunnerError, match="UNKNOWN_DATABASE_STATE"):
+        runner.build_apply_scope(batch, [replace(decisions[0], monthly_state="NEW"), decisions[1]], _empty_counts())
+
+
+@pytest.fixture(scope="module")
+def small_dbf_templates(current_prepared):
+    # Real DBF descriptors/lexical bytes; only the test archive transport is synthetic.
+    result = {}
+    for form in current_prepared.bundle.forms:
+        members = []
+        for member, content in reporting_archive.extract_archive_members(form.artifact):
+            header = int.from_bytes(content[8:10], "little")
+            length = int.from_bytes(content[10:12], "little")
+            rows = min(1, int.from_bytes(content[4:8], "little"))
+            bounded = bytearray(content[:header + rows * length])
+            bounded[4:8] = rows.to_bytes(4, "little")
+            bounded.append(0x1a)
+            members.append((member, bytes(bounded)))
+        result[form.form] = tuple(members)
+    return result
+
+
+@pytest.fixture
+def small_history(tmp_path, monkeypatch, small_dbf_templates):
+    archive_inventory = {}
+    extraction_calls = []
+
+    def extract(artifact, **kwargs):
+        extraction_calls.append(kwargs)
+        assert hashlib.sha256(artifact.content).hexdigest() == artifact.content_sha256
+        return archive_inventory[artifact.content_sha256]
+
+    monkeypatch.setattr(bundle_module, "extract_archive_members", extract)
+    monkeypatch.setattr(lexical, "extract_archive_members", extract)
+    root = tmp_path / "historical-cache"
+    root.mkdir()
+    months, prepared_months = [], {}
+    # Input order is intentionally not chronological; authorization/execution must be.
+    for report_date in (DATE_3, DATE_1, DATE_2):
+        folder = root / report_date.isoformat()
+        folder.mkdir()
+        artifacts = []
+        for form in CbrBankForm:
+            members = []
+            for member, content in small_dbf_templates[form]:
+                # All names change, proving store historical opt-in rather than August fallback.
+                name = report_date.strftime("%Y%m") + "_" + member.name
+                members.append((replace(
+                    member, name=name, normalized_name=name.upper(),
+                    uncompressed_size=len(content), compressed_size=len(content),
+                    crc32=zlib.crc32(content) & 0xffffffff,
+                ), content))
+            content = report_date.isoformat().encode() + b"".join(
+                member.name.encode() + payload for member, payload in members
+            )
+            artifact = replace(
+                _artifact(form, report_date), content=content,
+                compressed_size=len(content), content_sha256=hashlib.sha256(content).hexdigest(),
+            )
+            archive_inventory[artifact.content_sha256] = tuple(members)
+            artifacts.append(artifact)
+            (folder / artifact.reference.artifact_filename).write_bytes(content)
+        prepared = runner._historical_prepare(
+            report_date=report_date, evidence_observed_at=T1,
+            artifacts=tuple(artifacts), archive_executable=None,
+        )
+        structural, value = runner._structural_projection(prepared)
+        months.append(runner.HistoricalMonthManifest(report_date, prepared.manifest, structural, value))
+        prepared_months[report_date] = prepared
+    manifest = runner.HistoricalBackfillBatchManifest.create(
+        requested_from_date=DATE_1, requested_to_date=DATE_3, evidence_observed_at=T1,
+        incomplete_report_dates=(), months=tuple(months),
+    )
+    batch = runner.prepare_batch_from_manifest(manifest=manifest, artifact_dir=root)
+    return SimpleNamespace(batch=batch, root=root, months=prepared_months, calls=extraction_calls)
+
+
+def _preflight_for_apply(engine, prepared):
+    return runner.execute_preflight(
+        engine, prepared=prepared, schema_reader=lambda session: _schema_state(),
+        allow_non_postgresql=True, read_only_enforcer=lambda session: None,
+    )
+
+
+def _apply_for_test(engine, history, scope_hash=None, **kwargs):
+    return runner.execute_apply(
+        engine, prepared=history.batch, artifact_dir=history.root,
+        expected_batch_manifest_sha256=history.batch.manifest.batch_manifest_sha256,
+        expected_apply_scope_sha256=scope_hash or _preflight_for_apply(engine, history.batch)["apply_scope_sha256"],
+        ingested_at=T2, schema_reader=lambda session: _schema_state(),
+        allow_non_postgresql=True, read_only_enforcer=lambda session: None,
+        **({"lock_tables": lambda session: None} | kwargs),
+    )
+
+
+def _stored_counts(engine):
+    with Session(engine) as session:
+        return runner._task255_counts(session)
+
+
+def test_historical_opt_in_real_persistence_order_readback_and_skip(tmp_path, small_history, monkeypatch):
+    engine = _sqlite_engine(tmp_path, "small-apply.db")
+    events, timestamps = [], []
+    real_commit = runner._commit_transaction
+
+    def commit(transaction):
+        events.append("commit")
+        real_commit(transaction)
+
+    class RecordingStore(CbrBankRawFinancialEvidenceStore):
+        def persist_bundle(self, bundle, **kwargs):
+            events.append(bundle.report_date)
+            timestamps.append(kwargs)
+            return super().persist_bundle(bundle, **kwargs)
+
+    monkeypatch.setattr(runner, "_commit_transaction", commit)
+    def locks(session):
+        events.append("locks")
+
+    # Existing current subject timestamps may expand backwards; no fixed final subject total.
+    regn = small_history.months[DATE_1].bundle.forms[0].records[0].regn
+    with Session(engine) as session:
+        CbrBankRawFinancialEvidenceStore(session)._persist_subjects({regn, "99999999"}, observed_at=T2)
+        session.commit()
+    report = _apply_for_test(engine, small_history, store_factory=RecordingStore, lock_tables=locks)
+    assert report["status"] == "complete", report
+    assert events == ["locks", DATE_1, "commit", "locks", DATE_2, "commit", "locks", DATE_3, "commit"]
+    assert report["committed_report_dates"] == [day.isoformat() for day in (DATE_1, DATE_2, DATE_3)]
+    assert report["task255_count_deltas"]["cbr_bank_source_artifacts"] == 12
+    assert report["task255_count_deltas"]["cbr_bank_report_snapshots"] == 12
+    assert report["task255_count_deltas"]["cbr_bank_raw_observations"] == 12
+    assert all(value["observed_at"] == T1 and value["ingested_at"] == T2 for value in timestamps)
+    assert all(value["publication_status"] == "UNKNOWN" and value["publication_at"] is None and value["identity_snapshot"] is None for value in timestamps)
+    with Session(engine) as session:
+        subject = session.scalar(select(store_module.CbrBankReportingSubject).where(
+            store_module.CbrBankReportingSubject.subject_regn == regn
+        ))
+        assert runner.utc_datetime(subject.first_observed_at, field_name="first") == T1
+        assert runner.utc_datetime(subject.last_observed_at, field_name="last") == T2
+        assert all(value is None for value in session.scalars(select(production_runner.CbrBankReportSnapshot.publication_at)))
+    counts = _stored_counts(engine)
+    no_store = lambda *a, **k: pytest.fail("SKIP called store")
+    exact = _apply_for_test(engine, small_history, store_factory=no_store)
+    assert exact["status"] == "complete", exact
+    assert len(exact["skipped_exact_month_report_dates"]) == 3
+    assert exact["committed_report_dates"] == []
+    assert not exact["database_mutation_executed"]
+    months = tuple(_month_at(month, T2) for month in small_history.batch.manifest.months)
+    new_manifest = runner.HistoricalBackfillBatchManifest.create(
+        requested_from_date=DATE_1, requested_to_date=DATE_3, evidence_observed_at=T2,
+        incomplete_report_dates=(), months=months,
+    )
+    later = SimpleNamespace(
+        root=small_history.root,
+        batch=runner.prepare_batch_from_manifest(manifest=new_manifest, artifact_dir=small_history.root),
+    )
+    source = _apply_for_test(engine, later, store_factory=no_store)
+    assert source["status"] == "complete", source
+    assert len(source["skipped_exact_source_report_dates"]) == 3
+    assert _stored_counts(engine) == counts
+    assert all(call["max_member_bytes"] == 96 * 1024 * 1024 for call in small_history.calls)
+    engine.dispose()
+
+
+def test_store_defaults_reject_historical_member_and_opt_in_remains_explicit(tmp_path, small_history):
+    signature = inspect.signature(CbrBankRawFinancialEvidenceStore).parameters
+    assert signature["allow_dynamic_value_member"].default is False
+    assert signature["max_archive_member_bytes"].default == 16 * 1024 * 1024
+    assert signature["max_archive_total_uncompressed_bytes"].default == 64 * 1024 * 1024
+    engine = _sqlite_engine(tmp_path, "strict-store.db")
+    with Session(engine) as session:
+        with pytest.raises(Exception) as caught:
+            CbrBankRawFinancialEvidenceStore(session).persist_bundle(
+                small_history.months[DATE_1].bundle, observed_at=T1, ingested_at=T2
+            )
+        assert getattr(caught.value, "code", None).value == "UNSUPPORTED_SCHEMA_VERSION"
+        session.rollback()
+    assert _stored_counts(engine) == _empty_counts()
+    engine.dispose()
+
+
+@pytest.mark.parametrize("failure", ["first_readback", "second_store", "second_readback", "second_commit", "first_commit", "changed_scope", "final_readback"])
+def test_apply_failure_reconciliation_and_no_later_month(tmp_path, small_history, monkeypatch, failure):
+    engine = _sqlite_engine(tmp_path, "failure.db")
+    calls, commits = [], []
+    real_commit = runner._commit_transaction
+    real_readback = runner._validate_apply_readback
+    real_scope = runner._read_apply_scope
+    expected = _preflight_for_apply(engine, small_history.batch)["apply_scope_sha256"]
+    unknown = failure in {"first_commit", "second_commit"}
+
+    class FailingStore(CbrBankRawFinancialEvidenceStore):
+        def persist_bundle(self, bundle, **kwargs):
+            calls.append(bundle.report_date)
+            if failure == "second_store" and len(calls) == 2:
+                raise RuntimeError("password=DO_NOT_LEAK")
+            return super().persist_bundle(bundle, **kwargs)
+
+    def readback(*args, **kwargs):
+        if (failure == "first_readback" and len(calls) == 1) or (failure == "second_readback" and len(calls) == 2):
+            raise RuntimeError("postgresql://private:password@server/db")
+        return real_readback(*args, **kwargs)
+
+    def commit(transaction):
+        commits.append(len(calls))
+        if (failure == "first_commit" and len(commits) == 1) or (failure == "second_commit" and len(commits) == 2):
+            # Simulate a lost acknowledgement after the DB really committed.
+            real_commit(transaction)
+            raise RuntimeError("commit password must not leak")
+        real_commit(transaction)
+
+    def locks(session):
+        if failure == "changed_scope" and len(commits) == 1:
+            # Concurrent count change before next candidate's gate, not a reauthorization.
+            session.info["changed_scope"] = True
+
+    def scope(session, manifest):
+        result = real_scope(session, manifest)
+        if session.info.get("changed_scope"):
+            result["months"][1]["backfill_action"] = "SKIP_EXACT_MONTH"
+        if failure == "final_readback" and len(commits) == 3:
+            result["current_task255_counts"]["cbr_bank_subject_legal_issuer_profiles"] += 1
+        return result
+
+    monkeypatch.setattr(runner, "_commit_transaction", commit)
+    monkeypatch.setattr(runner, "_read_apply_scope", scope)
+    report = _apply_for_test(engine, small_history, scope_hash=expected, store_factory=FailingStore,
+                             readback_validator=readback, lock_tables=locks)
+    assert report["status"] == "failed"
+    assert "password" not in json.dumps(report) and "server" not in json.dumps(report)
+    first_failed = failure in {"first_readback", "first_commit"}
+    known = [] if first_failed else ([DATE_1.isoformat()] if failure != "final_readback" else [day.isoformat() for day in (DATE_1, DATE_2, DATE_3)])
+    assert report["committed_report_dates"] == known
+    assert report["commit_outcome_unknown"] is unknown
+    assert report["reconciliation_required"] is (bool(known) or unknown)
+    assert report["partial_batch_committed"] is bool(known)
+    assert report["database_mutation_executed"] is (True if known else (None if unknown else False))
+    if failure != "final_readback":
+        assert DATE_3 not in calls
+    if unknown:
+        assert report["error_code"] == "COMMIT_OUTCOME_UNKNOWN"
+        assert report["last_attempted_report_date"] == (DATE_1 if first_failed else DATE_2).isoformat()
+    if not unknown:
+        assert _stored_counts(engine)["cbr_bank_raw_observations"] == len(known) * 4
+    engine.dispose()
+
+
+@pytest.mark.parametrize("state", ["stale_counts", "partial", "conflict", "unknown", "lock_timeout"])
+def test_authorization_and_full_batch_gate_prevent_first_write(tmp_path, small_history, monkeypatch, state):
+    engine = _sqlite_engine(tmp_path, "blocked.db")
+    before = _preflight_for_apply(engine, small_history.batch)
+    scope_hash = before["apply_scope_sha256"]
+    if state == "stale_counts":
+        with Session(engine) as session:
+            CbrBankRawFinancialEvidenceStore(session)._persist_subjects({"99999999"}, observed_at=T1)
+            session.commit()
+    if state in {"partial", "conflict"}:
+        with Session(engine) as session:
+            source = small_history.months[DATE_2].bundle.forms[0]
+            if state == "conflict":
+                payload = source.artifact.content + b"different"
+                source = replace(source, artifact=replace(source.artifact, content=payload,
+                    compressed_size=len(payload), content_sha256=hashlib.sha256(payload).hexdigest()))
+            CbrBankRawFinancialEvidenceStore(session)._persist_artifact(source, ingested_at=T1)
+            session.commit()
+        blocked = _preflight_for_apply(engine, small_history.batch)
+        assert blocked["status"] == "blocked"
+        assert blocked["blocked_months"] == 1
+        scope_hash = blocked["apply_scope_sha256"]
+    if state == "unknown":
+        real = runner.classify_backfill_month
+        monkeypatch.setattr(runner, "classify_backfill_month", lambda session, month:
+            replace(real(session, month), monthly_state="NEW_UNKNOWN_STATE") if month.report_date == DATE_2 else real(session, month))
+    def locks(session):
+        if state == "lock_timeout":
+            error = RuntimeError("postgresql://password@private")
+            error.orig = SimpleNamespace(sqlstate="55P03")
+            raise error
+    counts = _stored_counts(engine)
+    report = _apply_for_test(engine, small_history, scope_hash=scope_hash, lock_tables=locks,
+        store_factory=lambda *a, **k: pytest.fail("blocked batch invoked store"))
+    assert report["status"] == "failed"
+    assert report["database_mutation_executed"] is False
+    assert report["reconciliation_required"] is False
+    assert report["committed_report_dates"] == []
+    assert _stored_counts(engine) == counts
+    assert report["error_code"] == {
+        "stale_counts": "APPLY_SCOPE_HASH_MISMATCH", "partial": "BATCH_STATE_BLOCKED",
+        "conflict": "BATCH_STATE_BLOCKED", "unknown": "UNKNOWN_DATABASE_STATE",
+        "lock_timeout": "DATABASE_LOCK_TIMEOUT",
+    }[state]
+    assert "password" not in json.dumps(report)
+    engine.dispose()
+
+
+def test_lock_sql_is_fixed_order_and_bounded():
+    statements = []
+    runner._lock_task255_tables(SimpleNamespace(execute=lambda statement: statements.append(str(statement))))
+    assert statements == [
+        "SET LOCAL lock_timeout = '5s'",
+        "LOCK TABLE " + ", ".join(sorted(production_runner._TASK255_TABLES)) + " IN SHARE ROW EXCLUSIVE MODE",
+    ]
+
+
+def _apply_args(batch_path, root, batch_hash, scope_hash="0" * 64):
+    return [
+        "--mode", "apply", "--batch-manifest", str(batch_path), "--artifact-dir", str(root),
+        "--database-url-env", "DATABASE_URL", "--confirm-write",
+        "--expected-batch-manifest-sha256", batch_hash, "--expected-apply-scope-sha256", scope_hash,
+    ]
+
+
+@pytest.mark.parametrize("change", [
+    "no_write", "no_batch_hash", "no_scope_hash", "uppercase_hash", "read_only",
+    "from_date", "to_date", "observation", "output", "raw_url", "resume",
+])
+def test_apply_cli_rejects_missing_or_contradictory_authorization(change, capsys):
+    args = _apply_args("batch.json", "cache", "a" * 64)
+    removal = {"no_write": "--confirm-write", "no_batch_hash": "--expected-batch-manifest-sha256", "no_scope_hash": "--expected-apply-scope-sha256"}
+    if change in removal:
+        index = args.index(removal[change])
+        del args[index:index + (1 if change == "no_write" else 2)]
+    elif change == "uppercase_hash":
+        args[args.index("--expected-batch-manifest-sha256") + 1] = "A" * 64
+    else:
+        args += {
+            "read_only": ["--confirm-read-only"], "from_date": ["--from-date", "2023-07-01"],
+            "to_date": ["--to-date", "2026-08-01"], "observation": ["--evidence-observed-at", "2026-09-03T10:00:00Z"],
+            "output": ["--batch-manifest-output", "other.json"],
+            "raw_url": ["--database-url", "postgresql://password@private"], "resume": ["--resume"],
+        }[change]
+    assert runner.main(args, environ=_NoEnvironment(),
+        engine_factory=lambda *a, **k: pytest.fail("invalid args created engine")) == 2
+    captured = capsys.readouterr()
+    output = json.loads(captured.out)
+    assert output["error_code"] == "INVALID_ARGUMENTS"
+    assert set(runner._apply_progress()).issubset(output)
+    assert output["committed_report_dates"] == []
+    assert output["before_task255_counts"] is None
+    assert captured.err == ""
+    assert "password" not in captured.out
+
+
+@pytest.mark.parametrize("mode", ["discover", "plan", "preflight"])
+def test_non_apply_modes_reject_write_authorization(mode):
+    args = runner._parser().parse_args([
+        "--mode", mode, "--artifact-dir", "cache", "--confirm-write",
+        "--expected-batch-manifest-sha256", "a" * 64,
+    ])
+    with pytest.raises(runner.RunnerError, match="INVALID_ARGUMENTS"):
+        runner._validate_args(args)
+
+
+@pytest.mark.parametrize("damage", ["batch_hash", "missing_artifact", "changed_artifact"])
+def test_apply_offline_failures_precede_environment_engine_and_network(tmp_path, small_history, capsys, monkeypatch, damage):
+    manifest = small_history.batch.manifest
+    path = tmp_path / "batch.json"
+    path.write_bytes(runner._manifest_bytes(manifest))
+    supplied = manifest.batch_manifest_sha256
+    if damage == "batch_hash":
+        supplied = "0" * 64
+    else:
+        item = manifest.months[0].monthly_manifest.artifacts[0]
+        artifact = small_history.root / DATE_1.isoformat() / item.artifact_filename
+        if damage == "missing_artifact":
+            artifact.unlink()
+        else:
+            content = bytearray(artifact.read_bytes())
+            content[-1] ^= 1
+            artifact.write_bytes(content)
+    monkeypatch.setattr(bundle_module, "CbrBankRegulatoryClient", lambda *a, **k: pytest.fail("HTTP transport created"))
+    assert runner.main(_apply_args(path, small_history.root, supplied), environ=_NoEnvironment(),
+        client_factory=lambda *a, **k: pytest.fail("network client created"),
+        engine_factory=lambda *a, **k: pytest.fail("offline failure created engine")) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["error_code"] == {
+        "batch_hash": "BATCH_MANIFEST_HASH_MISMATCH",
+        "missing_artifact": "ARTIFACT_CACHE_UNAVAILABLE",
+        "changed_artifact": "ARTIFACT_IDENTITY_MISMATCH",
+    }[damage]
+    assert report["database_accessed"] is False
+    assert report["database_mutation_executed"] is False
+    assert report["reconciliation_required"] is False
+    assert report["publication_status"] == "UNKNOWN" and report["publication_at"] is None
+    assert report["historical_availability_proven"] is report["pit_ready"] is False
+
+
+def test_valid_apply_cli_has_no_transport_and_disposes_engine(tmp_path, small_history, capsys, monkeypatch):
+    path = tmp_path / "batch.json"
+    path.write_bytes(runner._manifest_bytes(small_history.batch.manifest))
+    calls = []
+    monkeypatch.setattr(bundle_module, "CbrBankRegulatoryClient", lambda *a, **k: pytest.fail("HTTP transport created"))
+    def apply(engine, **kwargs):
+        calls.append(kwargs)
+        return {**runner._failure("APPLY_SCOPE_HASH_MISMATCH", mode="apply"), "database_accessed": True}
+    monkeypatch.setattr(runner, "execute_apply", apply)
+    assert runner.main(_apply_args(path, small_history.root, small_history.batch.manifest.batch_manifest_sha256),
+        environ={"DATABASE_URL": "postgresql://private:password@localhost/db"},
+        engine_factory=lambda *a, **k: SimpleNamespace(dispose=lambda: calls.append("disposed")),
+        client_factory=lambda *a, **k: pytest.fail("network client created"), clock=lambda: T2) == 1
+    captured = capsys.readouterr()
+    assert captured.err == "" and "password" not in captured.out
+    assert calls[0]["ingested_at"] == T2 and calls[-1] == "disposed"
+
+
+def test_full_approved_fixture_apply_readback(tmp_path, current_prepared, current_month, monkeypatch):
+    root = tmp_path / "real-cache"
+    root.mkdir()
+    _write_current_cache(root, current_prepared)
+    # These are the immutable RAR fixtures, not the synthetic archive seam above.
+    monkeypatch.setattr(bundle_module, "CbrBankRegulatoryClient", lambda *a, **k: pytest.fail("offline parser created HTTP client"))
+    batch = runner.prepare_batch_from_manifest(manifest=_batch(current_month), artifact_dir=root)
+    engine = _sqlite_engine(tmp_path, "full-apply.db")
+    report = _apply_for_test(engine, SimpleNamespace(batch=batch, root=root))
+    assert report["status"] == "complete", report
+    assert report["after_task255_counts"] == {
+        "cbr_bank_reporting_subjects": 353, "cbr_bank_source_artifacts": 4,
+        "cbr_bank_report_snapshots": 4, "cbr_bank_raw_observations": 38_842,
+        "cbr_bank_subject_legal_issuer_evidence": 0, "cbr_bank_subject_legal_issuer_profiles": 0,
+    }
+    assert report["committed_report_dates"] == [DATE_3.isoformat()]
+    assert report["reconciliation_required"] is False
+    assert report["pit_ready"] is report["historical_availability_proven"] is False
+    engine.dispose()
+
+
+@pytest.mark.parametrize("tamper", ["raw_checksum", "snapshot_metadata", "insert_count", "identity_count"])
+def test_independent_readback_rejects_store_result_or_lineage_corruption(tmp_path, small_history, monkeypatch, tamper):
+    engine = _sqlite_engine(tmp_path, "tamper.db")
+    persisted = []
+    real_counts = runner._task255_counts
+
+    def counts(session):
+        values = real_counts(session)
+        if persisted and tamper == "identity_count":
+            values["cbr_bank_subject_legal_issuer_evidence"] += 1
+        return values
+
+    monkeypatch.setattr(runner, "_task255_counts", counts)
+    class TamperingStore(CbrBankRawFinancialEvidenceStore):
+        def persist_bundle(self, bundle, **kwargs):
+            result = super().persist_bundle(bundle, **kwargs)
+            persisted.append(bundle.report_date)
+            if tamper == "raw_checksum":
+                table = production_runner.CbrBankRawObservation.__table__
+                row_id = self.session.scalar(select(table.c.id).limit(1))
+                self.session.execute(table.update().where(table.c.id == row_id).values(
+                    source_row_fingerprint=hashlib.sha256(b"tampered readback").hexdigest()
+                ))
+            elif tamper == "snapshot_metadata":
+                table = production_runner.CbrBankReportSnapshot.__table__
+                self.session.execute(table.update().values(subject_count=999))
+            elif tamper == "insert_count":
+                result = replace(result, artifacts=replace(result.artifacts, inserted=3))
+            return result
+    report = _apply_for_test(engine, small_history, store_factory=TamperingStore)
+    assert report["status"] == "failed"
+    assert report["committed_report_dates"] == []
+    assert report["database_mutation_executed"] is report["reconciliation_required"] is False
+    assert persisted == [DATE_1]
+    persisted.clear()
+    assert _stored_counts(engine) == _empty_counts()
+    engine.dispose()
+
+
+def test_preflight_uses_repeatable_read_and_preserves_set_show_order(monkeypatch):
+    events = []
+    batch = _batch(_fake_month(DATE_3))
+    class Transaction:
+        is_active = True
+        def rollback(self):
+            events.append("rollback")
+            self.is_active = False
+    class Connection:
+        dialect = SimpleNamespace(name="postgresql")
+        def execution_options(self, **kwargs):
+            events.append(kwargs)
+            return self
+        def begin(self):
+            events.append("begin")
+            return Transaction()
+        def close(self):
+            events.append("close_connection")
+    class FakeSession:
+        def __init__(self, **kwargs):
+            assert kwargs["autoflush"] is False
+        def execute(self, statement):
+            events.append(str(statement))
+            return SimpleNamespace(scalar_one=lambda: "on")
+        def close(self):
+            events.append("close_session")
+    def schema(session):
+        events.append("SELECT schema")
+        return _schema_state()
+    monkeypatch.setattr(runner, "Session", FakeSession)
+    monkeypatch.setattr(runner, "classify_backfill_month", lambda session, month: _candidate(month))
+    monkeypatch.setattr(runner, "_task255_counts", lambda session: _empty_counts())
+    report = runner.execute_preflight(
+        SimpleNamespace(connect=lambda: Connection()),
+        prepared=runner.PreparedHistoricalBatch(batch, runner._batch_report(batch, mode="plan")),
+        schema_reader=schema,
+    )
+    assert events[:5] == [
+        {"isolation_level": "REPEATABLE READ"}, "begin",
+        "SET TRANSACTION READ ONLY", "SHOW transaction_read_only", "SELECT schema",
+    ]
+    assert events[-3:] == ["rollback", "close_session", "close_connection"]
+    assert runner._valid_digest(report["apply_scope_sha256"])
+    assert report["transaction_read_only"] is report["database_read_only"] is True
+
+
+def test_apply_cleanup_failure_does_not_erase_known_commit(tmp_path, small_history, monkeypatch):
+    engine = _sqlite_engine(tmp_path, "cleanup.db")
+    original_commit = runner._commit_transaction
+    original_close = runner.Session.close
+    commits = []
+    def commit(transaction):
+        original_commit(transaction)
+        commits.append(True)
+    def close(session):
+        original_close(session)
+        if commits:
+            raise RuntimeError("password in cleanup")
+    monkeypatch.setattr(runner, "_commit_transaction", commit)
+    monkeypatch.setattr(runner.Session, "close", close)
+    report = _apply_for_test(engine, small_history)
+    assert report["error_code"] == "TRANSACTION_CLEANUP_FAILED"
+    assert report["committed_report_dates"] == [DATE_1.isoformat()]
+    assert report["reconciliation_required"] is True
+    assert report["database_mutation_executed"] is True
+    assert report["last_attempted_report_date"] == DATE_1.isoformat()
+    engine.dispose()

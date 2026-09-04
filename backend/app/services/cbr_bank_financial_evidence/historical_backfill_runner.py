@@ -6,14 +6,15 @@ import hmac
 import json
 import os
 import re
+import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -32,13 +33,17 @@ from app.services.cbr_bank_financial_evidence.historical_audit import build_cata
 from app.services.cbr_bank_financial_evidence.monthly_runner import (
     MANIFEST_CONTRACT_VERSION,
     MonthlyIngestionManifest,
+    _validate_apply_readback,
     classify_month_database_state,
     prepare_artifacts,
 )
 from app.services.cbr_bank_financial_evidence.production_runner import (
     RunnerError,
+    CommitOutcomeUnknown,
     _ArgumentParser,
     _DatabaseState,
+    _TASK255_TABLES,
+    _commit_transaction,
     _database_url,
     _enforce_postgresql,
     _enforce_read_only,
@@ -46,10 +51,12 @@ from app.services.cbr_bank_financial_evidence.production_runner import (
     _task255_counts,
     _validate_schema_state,
 )
+from app.services.cbr_bank_financial_evidence.store import CbrBankRawFinancialEvidenceStore
 from app.services.cbr_bank_reporting.archive import (
     HISTORICAL_MAX_MEMBER_BYTES,
     HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES,
 )
+from app.services.cbr_bank_reporting.bundle import CbrBankRegulatoryBundleService
 from app.services.cbr_bank_reporting.client import (
     HISTORICAL_MAX_ARTIFACT_BYTES,
     HISTORICAL_MAX_TOTAL_ARTIFACT_BYTES,
@@ -60,6 +67,7 @@ from app.services.cbr_bank_reporting.contracts import (
     CbrBankArtifact,
     CbrBankForm,
     CbrSourceError,
+    CbrSourceStatus,
 )
 from app.services.cbr_bank_reporting.parsers import (
     compute_structural_schema_fingerprint,
@@ -67,6 +75,7 @@ from app.services.cbr_bank_reporting.parsers import (
 
 
 SCHEMA_VERSION = "bondradar.cbr_bank_historical_backfill_runner.v1"
+APPLY_SCOPE_SCHEMA_VERSION = "bondradar.cbr_bank_historical_backfill_apply_scope.v1"
 BATCH_MANIFEST_SCHEMA_VERSION = (
     "bondradar.cbr_bank_historical_backfill_batch_manifest.v1"
 )
@@ -89,6 +98,19 @@ _READY_ACTIONS = frozenset(
 _BLOCK_ACTIONS = frozenset(
     {"BLOCK_PARTIAL_STATE", "BLOCK_CONFLICTING_SOURCE"}
 )
+_APPLY_ERROR_CODES = frozenset({
+    "INVALID_ARGUMENTS", "BATCH_MANIFEST_HASH_MISMATCH", "APPLY_SCOPE_HASH_MISMATCH",
+    "UNKNOWN_DATABASE_STATE", "BATCH_STATE_BLOCKED", "CANDIDATE_STATE_CHANGED",
+    "POSTGRESQL_REQUIRED", "READ_ONLY_VERIFICATION_FAILED", "TASK255_SCHEMA_PARTIAL",
+    "TASK255_SCHEMA_MISSING", "ALEMBIC_REVISION_MISMATCH", "LEGACY_SCHEMA_MISSING",
+    "ARTIFACT_CACHE_UNAVAILABLE", "ARTIFACT_IDENTITY_MISMATCH",
+    "MONTHLY_MANIFEST_PLAN_MISMATCH", "STRUCTURAL_SCHEMA_PLAN_MISMATCH",
+    "MONTHLY_SOURCE_VALIDATION_FAILED", "POST_WRITE_COUNT_MISMATCH",
+    "POST_WRITE_READBACK_MISMATCH", "IDENTITY_TABLE_MUTATION_DETECTED",
+    "TRANSACTION_CLEANUP_FAILED", "POST_COMMIT_READBACK_MISMATCH",
+    "FINAL_BATCH_READBACK_MISMATCH", "FINAL_BATCH_COUNT_MISMATCH",
+    "COMMIT_OUTCOME_UNKNOWN", "DATABASE_LOCK_TIMEOUT", "NETWORK_FORBIDDEN",
+}) | frozenset(item.value for item in CbrSourceStatus)
 
 
 def _iso(value: datetime) -> str:
@@ -412,6 +434,13 @@ class HistoricalMonthDecision:
         }
 
 
+class _OfflineSource:
+    """Prevent the reusable bundle service from constructing a network transport."""
+
+    def __getattr__(self, name: str) -> Any:
+        raise RunnerError("NETWORK_FORBIDDEN")
+
+
 def _historical_prepare(
     *,
     report_date: date,
@@ -424,6 +453,9 @@ def _historical_prepare(
         evidence_observed_at=evidence_observed_at,
         artifacts=artifacts,
         archive_executable=archive_executable,
+        bundle_service=CbrBankRegulatoryBundleService(
+            client=_OfflineSource(), archive_executable=archive_executable
+        ),
         enforce_approved_schema=False,
         allow_dynamic_value_member=True,
         max_archive_member_bytes=HISTORICAL_MAX_MEMBER_BYTES,
@@ -717,59 +749,65 @@ def prepare_batch_from_manifest(
     if not artifact_dir.is_dir():
         raise RunnerError("ARTIFACT_CACHE_UNAVAILABLE")
     for month in manifest.months:
-        artifacts: list[CbrBankArtifact] = []
-        for item in month.monthly_manifest.artifacts:
-            path = _artifact_path(
-                artifact_dir, month.report_date, item.artifact_filename
-            )
-            try:
-                if path.stat().st_size != item.artifact_size:
-                    raise RunnerError("ARTIFACT_IDENTITY_MISMATCH")
-                with path.open("rb") as handle:
-                    content = handle.read(item.artifact_size + 1)
-            except OSError as exc:
-                raise RunnerError("ARTIFACT_CACHE_UNAVAILABLE") from exc
-            digest = hashlib.sha256(content).hexdigest()
-            if len(content) != item.artifact_size or digest != item.artifact_sha256:
-                raise RunnerError("ARTIFACT_IDENTITY_MISMATCH")
-            form = CbrBankForm.parse(item.form)
-            artifacts.append(
-                CbrBankArtifact(
-                    reference=CbrArtifactReference(
-                        form=form,
-                        source_href=item.source_href,
-                        source_url=item.source_url,
-                        artifact_filename=item.artifact_filename,
-                        report_date=month.report_date,
-                        discovered_at=manifest.evidence_observed_at,
-                    ),
-                    content=content,
-                    content_sha256=digest,
-                    compressed_size=len(content),
-                    content_type=item.content_type,
-                    retrieved_at=manifest.evidence_observed_at,
-                )
-            )
-        try:
-            prepared = _historical_prepare(
-                report_date=month.report_date,
-                evidence_observed_at=manifest.evidence_observed_at,
-                artifacts=tuple(artifacts),
-                archive_executable=archive_executable,
-            )
-        except CbrSourceError as exc:
-            raise RunnerError(exc.code.value) from exc
-        if prepared.manifest.to_dict() != month.monthly_manifest.to_dict():
-            raise RunnerError("MONTHLY_MANIFEST_PLAN_MISMATCH")
-        form_structural, value_member = _structural_projection(prepared)
-        if (
-            form_structural != month.form_structural_schema_fingerprint_by_form
-            or value_member != month.value_member_schema_fingerprint_by_form
-        ):
-            raise RunnerError("STRUCTURAL_SCHEMA_PLAN_MISMATCH")
+        _prepare_cached_month(month, artifact_dir, archive_executable=archive_executable)
     return PreparedHistoricalBatch(
         manifest=manifest, report=_batch_report(manifest, mode="plan")
     )
+
+
+def _prepare_cached_month(
+    month: HistoricalMonthManifest,
+    artifact_dir: Path,
+    *,
+    archive_executable: str | None = None,
+) -> Any:
+    artifacts: list[CbrBankArtifact] = []
+    observed = month.monthly_manifest.evidence_observed_at
+    for item in month.monthly_manifest.artifacts:
+        path = _artifact_path(artifact_dir, month.report_date, item.artifact_filename)
+        try:
+            if path.stat().st_size != item.artifact_size:
+                raise RunnerError("ARTIFACT_IDENTITY_MISMATCH")
+            with path.open("rb") as handle:
+                content = handle.read(item.artifact_size + 1)
+        except OSError as exc:
+            raise RunnerError("ARTIFACT_CACHE_UNAVAILABLE") from exc
+        digest = hashlib.sha256(content).hexdigest()
+        if len(content) != item.artifact_size or digest != item.artifact_sha256:
+            raise RunnerError("ARTIFACT_IDENTITY_MISMATCH")
+        artifacts.append(CbrBankArtifact(
+            reference=CbrArtifactReference(
+                form=CbrBankForm.parse(item.form),
+                source_href=item.source_href,
+                source_url=item.source_url,
+                artifact_filename=item.artifact_filename,
+                report_date=month.report_date,
+                discovered_at=observed,
+            ),
+            content=content,
+            content_sha256=digest,
+            compressed_size=len(content),
+            content_type=item.content_type,
+            retrieved_at=observed,
+        ))
+    try:
+        prepared = _historical_prepare(
+            report_date=month.report_date,
+            evidence_observed_at=observed,
+            artifacts=tuple(artifacts),
+            archive_executable=archive_executable,
+        )
+    except CbrSourceError as exc:
+        raise RunnerError(exc.code.value) from exc
+    if prepared.manifest.to_dict() != month.monthly_manifest.to_dict():
+        raise RunnerError("MONTHLY_MANIFEST_PLAN_MISMATCH")
+    form_structural, value_member = _structural_projection(prepared)
+    if (
+        form_structural != month.form_structural_schema_fingerprint_by_form
+        or value_member != month.value_member_schema_fingerprint_by_form
+    ):
+        raise RunnerError("STRUCTURAL_SCHEMA_PLAN_MISMATCH")
+    return prepared
 
 
 def _complete_source_reobservation(
@@ -927,6 +965,326 @@ def classify_backfill_month(
     )
 
 
+def build_apply_scope(
+    manifest: HistoricalBackfillBatchManifest,
+    decisions: Sequence[HistoricalMonthDecision],
+    counts: Mapping[str, int],
+) -> dict[str, Any]:
+    ordered = sorted(decisions, key=lambda item: item.report_date)
+    if (
+        [item.report_date for item in ordered] != sorted(item.report_date for item in manifest.months)
+        or len({item.report_date for item in ordered}) != len(ordered)
+        or set(counts) != set(_TASK255_TABLES)
+        or any(type(value) is not int or value < 0 for value in counts.values())
+    ):
+        raise RunnerError("UNKNOWN_DATABASE_STATE")
+    ready_states = {
+        "INSERT_CANDIDATE": ("EMPTY", "FIRST_OBSERVATION"),
+        "SKIP_EXACT_MONTH": ("EXACT_ALREADY_PRESENT", "EXACT_REOBSERVATION"),
+        "SKIP_EXACT_SOURCE": ("EXACT_SOURCE_ALREADY_PRESENT", "EXACT_REOBSERVATION"),
+    }
+    for item in ordered:
+        if (
+            item.backfill_action not in _READY_ACTIONS | _BLOCK_ACTIONS
+            or item.monthly_state not in {
+                "EMPTY", "EXACT_ALREADY_PRESENT", "EXACT_SOURCE_ALREADY_PRESENT",
+                "PARTIAL_STATE", "CONFLICTING_ARTIFACT",
+            }
+            or item.source_observation not in {"FIRST_OBSERVATION", "EXACT_REOBSERVATION", "CHANGED_SOURCE_BYTES"}
+            or (item.backfill_action in ready_states and
+                (item.monthly_state, item.source_observation) != ready_states[item.backfill_action])
+            or any(type(value) is not int or value < 0 for value in (
+                item.matching_artifacts, item.matching_snapshots, item.matching_observations
+            ))
+        ):
+            raise RunnerError("UNKNOWN_DATABASE_STATE")
+    candidate_dates = {item.report_date for item in ordered if item.backfill_action == "INSERT_CANDIDATE"}
+    candidates = [item for item in manifest.months if item.report_date in candidate_dates]
+    return {
+        "schema": APPLY_SCOPE_SCHEMA_VERSION,
+        "batch_manifest_sha256": manifest.batch_manifest_sha256,
+        "current_task255_counts": dict(sorted(counts.items())),
+        "months": [item.to_dict() for item in ordered],
+        "insert_candidate_months": len(candidates),
+        "skip_exact_months": sum(item.backfill_action == "SKIP_EXACT_MONTH" for item in ordered),
+        "skip_exact_source_months": sum(item.backfill_action == "SKIP_EXACT_SOURCE" for item in ordered),
+        "blocked_months": sum(item.backfill_action in _BLOCK_ACTIONS for item in ordered),
+        "candidate_artifacts": sum(len(item.monthly_manifest.artifacts) for item in candidates),
+        "candidate_snapshots": sum(len(item.monthly_manifest.artifacts) for item in candidates),
+        "candidate_observations": sum(
+            artifact.record_count for item in candidates for artifact in item.monthly_manifest.artifacts
+        ),
+    }
+
+
+def _read_apply_scope(session: Session, manifest: HistoricalBackfillBatchManifest) -> dict[str, Any]:
+    return build_apply_scope(
+        manifest,
+        tuple(classify_backfill_month(session, month) for month in manifest.months),
+        _task255_counts(session),
+    )
+
+
+def _lock_task255_tables(session: Session) -> None:
+    # Fixed internal table identifiers, never CLI/input-derived SQL.
+    session.execute(text("SET LOCAL lock_timeout = '5s'"))
+    session.execute(text(
+        "LOCK TABLE " + ", ".join(sorted(_TASK255_TABLES)) + " IN SHARE ROW EXCLUSIVE MODE"
+    ))
+
+
+def _readonly_apply_scope(
+    engine: Engine,
+    manifest: HistoricalBackfillBatchManifest,
+    *,
+    schema_reader: Callable,
+    allow_non_postgresql: bool,
+    read_only_enforcer: Callable,
+) -> dict[str, Any]:
+    with engine.connect() as connection:
+        _enforce_postgresql(connection, allow_non_postgresql=allow_non_postgresql)
+        if connection.dialect.name == "postgresql":
+            connection = connection.execution_options(isolation_level="REPEATABLE READ")
+        with connection.begin() as transaction:
+            with Session(bind=connection, autoflush=False) as session:
+                read_only_enforcer(session)
+                _validate_schema_state(schema_reader(session))
+                scope = _read_apply_scope(session, manifest)
+                transaction.rollback()
+                return scope
+
+
+def _apply_progress() -> dict[str, Any]:
+    return {
+        "before_task255_counts": None,
+        "after_task255_counts": None,
+        "task255_count_deltas": None,
+        "apply_scope_sha256": None,
+        "batch_manifest_sha256": None,
+        "batch_ingested_at": None,
+        "attempted_report_dates": [],
+        "committed_report_dates": [],
+        "skipped_exact_month_report_dates": [],
+        "skipped_exact_source_report_dates": [],
+        "failed_report_date": None,
+        "last_attempted_report_date": None,
+        "partial_batch_committed": False,
+        "commit_outcome_unknown": False,
+        "reconciliation_required": False,
+        "database_accessed": False,
+        "database_mutation_executed": False,
+        "database_persistence": False,
+        "network_accessed": False,
+    }
+
+
+def execute_apply(
+    engine: Engine,
+    *,
+    prepared: PreparedHistoricalBatch,
+    artifact_dir: Path,
+    expected_batch_manifest_sha256: str,
+    expected_apply_scope_sha256: str,
+    ingested_at: datetime,
+    schema_reader: Callable = _read_postgresql_schema_state,
+    allow_non_postgresql: bool = False,
+    read_only_enforcer: Callable = _enforce_read_only,
+    lock_tables: Callable = _lock_task255_tables,
+    store_factory: Callable = CbrBankRawFinancialEvidenceStore,
+    readback_validator: Callable = _validate_apply_readback,
+    archive_executable: str | None = None,
+) -> dict[str, Any]:
+    report = _failure("APPLY_FAILED", mode="apply")
+    manifest = prepared.manifest
+    report["batch_manifest_sha256"] = manifest.batch_manifest_sha256
+    expected_scope = None
+    authorized_scope = None
+    candidates: list[HistoricalMonthManifest] = []
+    next_index = 0
+    uncertain = False
+    final_verification_started = False
+    current_date = None
+    try:
+        if not _valid_digest(expected_batch_manifest_sha256) or not _valid_digest(expected_apply_scope_sha256):
+            raise RunnerError("INVALID_ARGUMENTS")
+        if not hmac.compare_digest(manifest.batch_manifest_sha256, expected_batch_manifest_sha256):
+            raise RunnerError("BATCH_MANIFEST_HASH_MISMATCH")
+        report["batch_ingested_at"] = _iso(_strict_utc(ingested_at))
+        while True:
+            connection = transaction = session = None
+            commit_attempted = False
+            try:
+                report["database_accessed"] = True
+                connection = engine.connect()
+                _enforce_postgresql(connection, allow_non_postgresql=allow_non_postgresql)
+                # Fresh snapshots after table locks, even for engines with a different default.
+                if connection.dialect.name == "postgresql":
+                    connection = connection.execution_options(isolation_level="READ COMMITTED")
+                transaction = connection.begin()
+                session = Session(bind=connection, autoflush=False, expire_on_commit=False)
+                lock_tables(session)
+                _validate_schema_state(schema_reader(session))
+                scope = _read_apply_scope(session, manifest)
+                if expected_scope is None:
+                    report["apply_scope_sha256"] = sha256_canonical(scope)
+                    if not hmac.compare_digest(report["apply_scope_sha256"], expected_apply_scope_sha256):
+                        raise RunnerError("APPLY_SCOPE_HASH_MISMATCH")
+                    if scope["blocked_months"]:
+                        raise RunnerError("BATCH_STATE_BLOCKED")
+                    authorized_scope = expected_scope = scope
+                    report["before_task255_counts"] = dict(scope["current_task255_counts"])
+                    actions = {item["report_date"]: item["backfill_action"] for item in scope["months"]}
+                    candidates = sorted(
+                        (month for month in manifest.months if actions[month.report_date.isoformat()] == "INSERT_CANDIDATE"),
+                        key=lambda month: month.report_date,
+                    )
+                    for action, field in (
+                        ("SKIP_EXACT_MONTH", "skipped_exact_month_report_dates"),
+                        ("SKIP_EXACT_SOURCE", "skipped_exact_source_report_dates"),
+                    ):
+                        report[field] = sorted(day for day, value in actions.items() if value == action)
+                    if not candidates:
+                        transaction.rollback()
+                        break
+                elif not hmac.compare_digest(sha256_canonical(scope), sha256_canonical(expected_scope)):
+                    raise RunnerError("APPLY_SCOPE_HASH_MISMATCH")
+
+                month = candidates[next_index]
+                current_date = month.report_date.isoformat()
+                if current_date not in report["attempted_report_dates"]:
+                    report["attempted_report_dates"].append(current_date)
+                report["last_attempted_report_date"] = current_date
+                current = next(item for item in scope["months"] if item["report_date"] == current_date)
+                if current["backfill_action"] != "INSERT_CANDIDATE":
+                    raise RunnerError("CANDIDATE_STATE_CHANGED")
+                month_prepared = _prepare_cached_month(
+                    month, artifact_dir, archive_executable=archive_executable
+                )
+                result = store_factory(
+                    session,
+                    archive_executable=archive_executable,
+                    allow_dynamic_value_member=True,
+                    max_archive_member_bytes=HISTORICAL_MAX_MEMBER_BYTES,
+                    max_archive_total_uncompressed_bytes=HISTORICAL_MAX_TOTAL_UNCOMPRESSED_BYTES,
+                ).persist_bundle(
+                    month_prepared.bundle,
+                    observed_at=manifest.evidence_observed_at,
+                    ingested_at=ingested_at,
+                    publication_status=PUBLICATION_STATUS,
+                    publication_at=None,
+                    identity_snapshot=None,
+                )
+                after, inspection = readback_validator(
+                    session, prepared=month_prepared,
+                    before_counts=scope["current_task255_counts"], result=result,
+                )
+                row_count = sum(item.record_count for item in month.monthly_manifest.artifacts)
+                if (
+                    inspection.state != "EXACT_ALREADY_PRESENT"
+                    or result.artifacts.inserted != 4 or result.snapshots.inserted != 4
+                    or result.observations.inserted != row_count
+                    or result.identity_evidence.inserted or result.identity_evidence.updated
+                    or result.identity_profiles.inserted or result.identity_profiles.updated
+                ):
+                    raise RunnerError("POST_WRITE_READBACK_MISMATCH")
+                terminal_decisions = []
+                for item in scope["months"]:
+                    values = dict(item)
+                    values["report_date"] = date.fromisoformat(values["report_date"])
+                    decision = HistoricalMonthDecision(**values)
+                    if decision.report_date == month.report_date:
+                        decision = replace(
+                            decision, monthly_state="EXACT_ALREADY_PRESENT",
+                            source_observation="EXACT_REOBSERVATION", backfill_action="SKIP_EXACT_MONTH",
+                            matching_artifacts=4, matching_snapshots=4, matching_observations=row_count,
+                        )
+                    terminal_decisions.append(decision)
+                next_scope = build_apply_scope(manifest, terminal_decisions, after)
+                if sha256_canonical(_read_apply_scope(session, manifest)) != sha256_canonical(next_scope):
+                    raise RunnerError("POST_WRITE_READBACK_MISMATCH")
+                commit_attempted = True
+                try:
+                    _commit_transaction(transaction)
+                except Exception as exc:
+                    uncertain = True
+                    raise CommitOutcomeUnknown() from exc
+                # Record success before cleanup/readback can fail.
+                report["committed_report_dates"].append(current_date)
+                expected_scope = next_scope
+                del month_prepared
+            finally:
+                # Never replace the primary failure or infer a commit outcome from cleanup.
+                active_error = sys.exc_info()[0] is not None
+                cleanup_failed = False
+                for cleanup in (
+                    lambda: transaction.rollback() if transaction is not None and transaction.is_active and not commit_attempted else None,
+                    lambda: session.close() if session is not None else None,
+                    lambda: connection.close() if connection is not None else None,
+                ):
+                    try:
+                        cleanup()
+                    except Exception:
+                        cleanup_failed = True
+                if cleanup_failed and not active_error:
+                    raise RunnerError("TRANSACTION_CLEANUP_FAILED")
+            verified = _readonly_apply_scope(
+                engine, manifest, schema_reader=schema_reader,
+                allow_non_postgresql=allow_non_postgresql, read_only_enforcer=read_only_enforcer,
+            )
+            if sha256_canonical(verified) != sha256_canonical(expected_scope):
+                raise RunnerError("POST_COMMIT_READBACK_MISMATCH")
+            next_index += 1
+            if next_index == len(candidates):
+                break
+            current_date = candidates[next_index].report_date.isoformat()
+            report["last_attempted_report_date"] = current_date
+            report["attempted_report_dates"].append(current_date)
+
+        final_verification_started = True
+        final = _readonly_apply_scope(
+            engine, manifest, schema_reader=schema_reader,
+            allow_non_postgresql=allow_non_postgresql, read_only_enforcer=read_only_enforcer,
+        )
+        if (sha256_canonical(final) != sha256_canonical(expected_scope)
+                or final["blocked_months"] or final["insert_candidate_months"]):
+            raise RunnerError("FINAL_BATCH_READBACK_MISMATCH")
+        before = report["before_task255_counts"]
+        after = final["current_task255_counts"]
+        deltas = {table: after[table] - before[table] for table in sorted(before)}
+        for table, field in (
+            ("cbr_bank_source_artifacts", "candidate_artifacts"),
+            ("cbr_bank_report_snapshots", "candidate_snapshots"),
+            ("cbr_bank_raw_observations", "candidate_observations"),
+        ):
+            if deltas[table] != authorized_scope[field]:
+                raise RunnerError("FINAL_BATCH_COUNT_MISMATCH")
+        if any(deltas[table] != 0 for table in (
+            "cbr_bank_subject_legal_issuer_evidence", "cbr_bank_subject_legal_issuer_profiles"
+        )):
+            raise RunnerError("IDENTITY_TABLE_MUTATION_DETECTED")
+        report.update(status="complete", error_code=None, after_task255_counts=after,
+                      task255_count_deltas=deltas)
+    except Exception as exc:
+        code = "APPLY_FAILED"
+        if isinstance(exc, RunnerError) and exc.code in _APPLY_ERROR_CODES:
+            code = exc.code
+        elif isinstance(exc, CbrSourceError):
+            code = exc.code.value
+        elif getattr(getattr(exc, "orig", None), "sqlstate", None) == "55P03" or getattr(getattr(exc, "orig", None), "pgcode", None) == "55P03":
+            code = "DATABASE_LOCK_TIMEOUT"
+        report.update(status="failed", error_code=code, failed_report_date=current_date)
+    committed = bool(report["committed_report_dates"])
+    failed = report["status"] == "failed"
+    report.update(
+        commit_outcome_unknown=uncertain,
+        database_mutation_executed=True if committed else (None if uncertain else False),
+        database_persistence=True if committed else (None if uncertain else False),
+        partial_batch_committed=failed and committed,
+        reconciliation_required=failed and (committed or uncertain or final_verification_started),
+    )
+    return report
+
+
 def execute_preflight(
     engine: Engine,
     *,
@@ -939,6 +1297,8 @@ def execute_preflight(
     rolled_back = False
     try:
         connection = engine.connect()
+        if connection.dialect.name == "postgresql":
+            connection = connection.execution_options(isolation_level="REPEATABLE READ")
         transaction = connection.begin()
         session = Session(bind=connection, autoflush=False, expire_on_commit=False)
         _enforce_postgresql(connection, allow_non_postgresql=allow_non_postgresql)
@@ -955,6 +1315,7 @@ def execute_preflight(
         if unknown:
             raise RunnerError("UNKNOWN_DATABASE_STATE")
         counts = _task255_counts(session)
+        scope = build_apply_scope(prepared.manifest, decisions, counts)
         transaction.rollback()
         rolled_back = True
         blocked = [item for item in decisions if item.backfill_action in _BLOCK_ACTIONS]
@@ -990,6 +1351,7 @@ def execute_preflight(
                 for artifact in item.monthly_manifest.artifacts
             ),
             current_task255_counts=counts,
+            apply_scope_sha256=sha256_canonical(scope),
             transaction_read_only=True,
             database_read_only=True,
             transaction_rolled_back=True,
@@ -1009,7 +1371,7 @@ def execute_preflight(
 
 def _parser() -> argparse.ArgumentParser:
     parser = _ArgumentParser(prog="cbr-bank-historical-backfill-runner")
-    parser.add_argument("--mode", choices=("discover", "plan", "preflight"), required=True)
+    parser.add_argument("--mode", choices=("discover", "plan", "preflight", "apply"), required=True)
     parser.add_argument("--from-date")
     parser.add_argument("--to-date")
     parser.add_argument("--evidence-observed-at")
@@ -1018,11 +1380,18 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--artifact-dir")
     parser.add_argument("--database-url-env")
     parser.add_argument("--confirm-read-only", action="store_true")
+    parser.add_argument("--confirm-write", action="store_true")
+    parser.add_argument("--expected-batch-manifest-sha256")
+    parser.add_argument("--expected-apply-scope-sha256")
     return parser
 
 
 def _validate_args(args: argparse.Namespace) -> tuple[date | None, date | None]:
     if not args.artifact_dir:
+        raise RunnerError("INVALID_ARGUMENTS")
+    if args.mode != "apply" and (
+        args.confirm_write or args.expected_batch_manifest_sha256 or args.expected_apply_scope_sha256
+    ):
         raise RunnerError("INVALID_ARGUMENTS")
     if args.mode == "discover":
         if (
@@ -1057,6 +1426,13 @@ def _validate_args(args: argparse.Namespace) -> tuple[date | None, date | None]:
         or not args.confirm_read_only
     ):
         raise RunnerError("INVALID_ARGUMENTS")
+    if args.mode == "apply" and (
+        not args.database_url_env or _ENV_NAME.fullmatch(args.database_url_env) is None
+        or not args.confirm_write or args.confirm_read_only
+        or not _valid_digest(args.expected_batch_manifest_sha256)
+        or not _valid_digest(args.expected_apply_scope_sha256)
+    ):
+        raise RunnerError("INVALID_ARGUMENTS")
     return None, None
 
 
@@ -1075,7 +1451,9 @@ def _failure(code: str, *, mode: str | None = None) -> dict[str, Any]:
         "scoring": False,
         "production_actions": "NONE",
     }
-    if mode in {"discover", "plan", "preflight"}:
+    if mode == "apply":
+        result.update(_apply_progress())
+    if mode in {"discover", "plan", "preflight", "apply"}:
         result["mode"] = mode
     return result
 
@@ -1094,12 +1472,23 @@ def main(
     schema_reader: Callable[[Session], _DatabaseState] = _read_postgresql_schema_state,
     allow_non_postgresql_test_adapter: bool = False,
     read_only_enforcer: Callable[[Session], None] = _enforce_read_only,
+    clock: Callable[[], datetime] | None = None,
 ) -> int:
+    # Preserve the APPLY failure shape even when argparse rejects an unknown flag.
+    raw_args = list(sys.argv[1:] if argv is None else argv)
+    mode_hint = None
+    for index, value in enumerate(raw_args):
+        candidate = (
+            raw_args[index + 1] if value == "--mode" and index + 1 < len(raw_args)
+            else value.removeprefix("--mode=") if value.startswith("--mode=") else None
+        )
+        if candidate in {"discover", "plan", "preflight", "apply"}:
+            mode_hint = candidate
     try:
-        args = _parser().parse_args(argv)
+        args = _parser().parse_args(raw_args)
         from_date, to_date = _validate_args(args)
     except (RunnerError, SystemExit):
-        _emit(_failure("INVALID_ARGUMENTS"))
+        _emit(_failure("INVALID_ARGUMENTS", mode=mode_hint))
         return 2
     try:
         if args.mode == "discover":
@@ -1121,6 +1510,10 @@ def main(
             _emit(prepared.report)
             return 0
         manifest = _read_batch_manifest(Path(args.batch_manifest))
+        if args.mode == "apply" and not hmac.compare_digest(
+            manifest.batch_manifest_sha256, args.expected_batch_manifest_sha256
+        ):
+            raise RunnerError("BATCH_MANIFEST_HASH_MISMATCH")
         prepared = prepare_batch_from_manifest(
             manifest=manifest,
             artifact_dir=Path(args.artifact_dir),
@@ -1134,15 +1527,27 @@ def main(
         engine: Engine | None = None
         try:
             engine = (engine_factory or create_engine)(database_url, pool_pre_ping=True)
-            report = execute_preflight(
-                engine,
-                prepared=prepared,
-                schema_reader=schema_reader,
-                allow_non_postgresql=allow_non_postgresql_test_adapter,
-                read_only_enforcer=read_only_enforcer,
-            )
+            if args.mode == "apply":
+                report = execute_apply(
+                    engine, prepared=prepared, artifact_dir=Path(args.artifact_dir),
+                    expected_batch_manifest_sha256=args.expected_batch_manifest_sha256,
+                    expected_apply_scope_sha256=args.expected_apply_scope_sha256,
+                    ingested_at=(clock or (lambda: datetime.now(timezone.utc)))(),
+                    schema_reader=schema_reader,
+                    allow_non_postgresql=allow_non_postgresql_test_adapter,
+                    read_only_enforcer=read_only_enforcer,
+                    archive_executable=archive_executable,
+                )
+            else:
+                report = execute_preflight(
+                    engine,
+                    prepared=prepared,
+                    schema_reader=schema_reader,
+                    allow_non_postgresql=allow_non_postgresql_test_adapter,
+                    read_only_enforcer=read_only_enforcer,
+                )
             _emit(report)
-            return 0 if report["status"] == "ready" else 1
+            return 0 if report["status"] in {"ready", "complete"} else 1
         finally:
             if engine is not None:
                 try:
