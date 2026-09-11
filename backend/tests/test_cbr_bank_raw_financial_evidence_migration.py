@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, func, inspect, select
@@ -207,6 +208,94 @@ def test_task260b_migration_bootstraps_availability_without_raw_rewrite(
     command.upgrade(config, "head")
     with engine.connect() as connection:
         assert connection.scalar(select(func.count()).select_from(evidence_table)) == 1
+    engine.dispose()
+
+
+def test_task260b_sqlite_precreated_metadata_table_is_validated_and_bootstrapped(
+    tmp_path: Path, monkeypatch
+) -> None:
+    database_path = tmp_path / "task260b-precreated.db"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    config = Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    engine = create_engine(database_url)
+    Base.metadata.create_all(engine)
+    artifacts = Base.metadata.tables["cbr_bank_source_artifacts"]
+    evidence = Base.metadata.tables["cbr_bank_artifact_availability_evidence"]
+    observed = datetime(2026, 9, 3, 12, tzinfo=timezone.utc)
+
+    with engine.begin() as connection:
+        artifact_ids = []
+        for index, digest in enumerate(("a" * 64, "b" * 64), start=1):
+            artifact_ids.append(
+                connection.execute(
+                    artifacts.insert().values(
+                        source_url=f"https://www.cbr.ru/{index}.rar",
+                        artifact_filename=f"{index}.rar",
+                        form="0409102",
+                        report_date=date(2024, index, 1),
+                        content_bytes=bytes([index]),
+                        content_sha256=digest,
+                        compressed_size=1,
+                        content_type="application/octet-stream",
+                        first_discovered_at=observed,
+                        first_retrieved_at=observed,
+                        ingested_at=observed,
+                        parser_contract_version="task251-test",
+                        archive_runtime_contract="test",
+                        artifact_fingerprint=str(index) * 64,
+                    )
+                ).inserted_primary_key[0]
+            )
+        connection.execute(
+            evidence.insert().values(
+                artifact_id=artifact_ids[0],
+                evidence_source="CBR_DIRECT",
+                observed_at=observed,
+                exact_payload_bound=True,
+                source_reference="https://www.cbr.ru/1.rar",
+            )
+        )
+
+    command.stamp(config, "202609010001")
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        rows = connection.execute(
+            select(evidence).order_by(evidence.c.artifact_id)
+        ).mappings().all()
+        assert len(rows) == 2
+        assert [row["artifact_id"] for row in rows] == artifact_ids
+        assert all(row["evidence_source"] == "CBR_DIRECT" for row in rows)
+        assert all(row["exact_payload_bound"] is True for row in rows)
+
+    command.downgrade(config, "202609010001")
+    assert "cbr_bank_artifact_availability_evidence" not in inspect(engine).get_table_names()
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(evidence)) == 2
+    engine.dispose()
+
+
+def test_task260b_sqlite_precreated_partial_table_fails_closed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    database_path = tmp_path / "task260b-partial.db"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    config = Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    engine = create_engine(database_url)
+    Base.metadata.create_all(engine)
+    Base.metadata.tables["cbr_bank_artifact_availability_evidence"].drop(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE cbr_bank_artifact_availability_evidence "
+            "(id INTEGER PRIMARY KEY, artifact_id INTEGER NOT NULL)"
+        )
+    command.stamp(config, "202609010001")
+    with pytest.raises(RuntimeError, match="Partial or incompatible"):
+        command.upgrade(config, "head")
     engine.dispose()
 
 
