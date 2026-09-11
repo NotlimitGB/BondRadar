@@ -29,6 +29,7 @@ from app.services.cbr_bank_reporting.contracts import (
     CbrBankRegulatoryBundleSnapshot,
     CbrFormResult,
 )
+from app.services.cbr_bank_financial_evidence.historical_versioning import EvidenceSource
 from app.services.cbr_legal_issuer_bridge.contracts import (
     CONTRACT_VERSION as TASK252_CONTRACT_VERSION,
     CbrBridgeState,
@@ -53,6 +54,9 @@ from .fingerprints import (
     utc_datetime,
 )
 from .lexical import extract_exact_form_evidence
+from .historical_versioning_persistence import (
+    persist_artifact_availability_evidence,
+)
 
 
 _TASK252_STATE_PROJECTION = {
@@ -170,6 +174,14 @@ class CbrBankRawFinancialEvidenceStore:
             exact = exact_by_form[form_result.form.value]
             artifact, inserted = self._persist_artifact(
                 form_result, ingested_at=ingested
+            )
+            persist_artifact_availability_evidence(
+                self.session,
+                artifact=artifact,
+                evidence_source=EvidenceSource.CBR_DIRECT,
+                observed_at=form_result.artifact.retrieved_at,
+                exact_payload_bound=True,
+                source_reference=form_result.artifact.reference.source_url,
             )
             artifact_count = replace(
                 artifact_count,

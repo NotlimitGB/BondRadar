@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -27,6 +28,9 @@ from app.db.base import Base
 
 
 CBR_BANK_RAW_EVIDENCE_CONTRACT_VERSION = "cbr-bank-raw-financial-evidence-v1"
+CBR_BANK_ARTIFACT_AVAILABILITY_CONTRACT_VERSION = (
+    "cbr-bank-artifact-availability-evidence-v1"
+)
 CBR_BANK_SOURCE = "CBR_BANK_REPORTING"
 CBR_REPORTING_SUBJECT_SOURCE = "CBR"
 CBR_REPORTING_SUBJECT_TYPE = "CREDIT_ORGANIZATION_REGN"
@@ -46,6 +50,12 @@ CBR_DISCLOSURE_STATES = (
     "SUPPRESSED_OR_REDUCED",
     "NOT_PRESENT_IN_CURRENT_PUBLIC_ARTIFACT",
     "UNKNOWN",
+)
+CBR_ARTIFACT_AVAILABILITY_SOURCES = (
+    "CBR_DIRECT",
+    "WAYBACK",
+    "COMMON_CRAWL",
+    "OTHER_ARCHIVE",
 )
 
 JSON_DOCUMENT = JSONB().with_variant(JSON(), "sqlite")
@@ -198,6 +208,64 @@ class CbrBankSourceArtifact(Base):
 
     snapshots: Mapped[list["CbrBankReportSnapshot"]] = relationship(
         back_populates="artifact", passive_deletes=True
+    )
+    availability_evidence: Mapped[
+        list["CbrBankArtifactAvailabilityEvidence"]
+    ] = relationship(back_populates="artifact", passive_deletes=True)
+
+
+class CbrBankArtifactAvailabilityEvidence(Base):
+    __tablename__ = "cbr_bank_artifact_availability_evidence"
+    __table_args__ = (
+        UniqueConstraint(
+            "artifact_id",
+            "evidence_source",
+            "observed_at",
+            "exact_payload_bound",
+            "source_reference",
+            name="uq_cbr_artifact_availability_evidence_identity",
+        ),
+        Index(
+            "ix_cbr_artifact_availability_evidence_artifact_observed",
+            "artifact_id",
+            "observed_at",
+        ),
+        CheckConstraint(
+            "contract_version = 'cbr-bank-artifact-availability-evidence-v1'",
+            name="cbr_artifact_availability_evidence_contract_valid",
+        ),
+        CheckConstraint(
+            "evidence_source in ('CBR_DIRECT', 'WAYBACK', 'COMMON_CRAWL', "
+            "'OTHER_ARCHIVE')",
+            name="cbr_artifact_availability_evidence_source_valid",
+        ),
+        CheckConstraint(
+            "length(source_reference) > 0",
+            name="cbr_artifact_availability_evidence_reference_valid",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    artifact_id: Mapped[int] = mapped_column(
+        ForeignKey("cbr_bank_source_artifacts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    contract_version: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default=CBR_BANK_ARTIFACT_AVAILABILITY_CONTRACT_VERSION,
+        server_default=CBR_BANK_ARTIFACT_AVAILABILITY_CONTRACT_VERSION,
+    )
+    evidence_source: Mapped[str] = mapped_column(String(32), nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    exact_payload_bound: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    source_reference: Mapped[str] = mapped_column(String(2048), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    artifact: Mapped["CbrBankSourceArtifact"] = relationship(
+        back_populates="availability_evidence"
     )
 
 

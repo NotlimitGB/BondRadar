@@ -17,6 +17,7 @@ from app.models.company_identity_duplicate_candidate import (
 from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.company_score import CompanyScore
 from app.models.cbr_bank_financial_evidence import (
+    CbrBankArtifactAvailabilityEvidence,
     CbrBankRawObservation,
     CbrBankReportSnapshot,
     CbrBankReportingSubject,
@@ -62,6 +63,7 @@ __all__ = [
     "CompanyIdentityDuplicateCandidate",
     "CompanyIdentityProfile",
     "CompanyScore",
+    "CbrBankArtifactAvailabilityEvidence",
     "CbrBankRawObservation",
     "CbrBankReportSnapshot",
     "CbrBankReportingSubject",
