@@ -96,6 +96,18 @@ def _counts(engine):
         )
 
 
+def test_monthly_runner_uses_shared_task260b_schema_revision_guard() -> None:
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609110001"
+    assert (
+        runner.EXPECTED_ALEMBIC_REVISION
+        == production_runner.EXPECTED_ALEMBIC_REVISION
+    )
+    runner._validate_schema_state(_full_state())
+
+    with pytest.raises(runner.RunnerError, match="ALEMBIC_REVISION_MISMATCH"):
+        runner._validate_schema_state(_full_state("202609010001"))
+
+
 def _write_manifest(tmp_path: Path, prepared) -> tuple[Path, Path]:
     manifest = tmp_path / "manifest.json"
     manifest.write_text(

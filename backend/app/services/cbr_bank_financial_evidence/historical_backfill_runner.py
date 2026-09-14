@@ -38,8 +38,9 @@ from app.services.cbr_bank_financial_evidence.monthly_runner import (
     prepare_artifacts,
 )
 from app.services.cbr_bank_financial_evidence.production_runner import (
-    RunnerError,
     CommitOutcomeUnknown,
+    EXPECTED_ALEMBIC_REVISION,
+    RunnerError,
     _ArgumentParser,
     _DatabaseState,
     _TASK255_TABLES,
@@ -82,7 +83,6 @@ BATCH_MANIFEST_SCHEMA_VERSION = (
 BATCH_MANIFEST_CONTRACT_VERSION = (
     "cbr-bank-historical-backfill-batch-manifest-v1"
 )
-EXPECTED_ALEMBIC_REVISION = "202609010001"
 PUBLICATION_STATUS = "UNKNOWN"
 PRODUCTION_ACTION_NONE = "NONE"
 PRODUCTION_ACTION_HISTORICAL_APPLY = "CBR_HISTORICAL_BACKFILL_APPLY"

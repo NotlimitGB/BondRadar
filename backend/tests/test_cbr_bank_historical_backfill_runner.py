@@ -197,6 +197,23 @@ def _schema_state():
     )
 
 
+def test_historical_runner_uses_shared_task260b_schema_revision_guard() -> None:
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609110001"
+    assert (
+        runner.EXPECTED_ALEMBIC_REVISION
+        == production_runner.EXPECTED_ALEMBIC_REVISION
+    )
+    runner._validate_schema_state(_schema_state())
+
+    stale = production_runner._DatabaseState(
+        revisions=("202609010001",),
+        tables=_schema_state().tables,
+        counts={},
+    )
+    with pytest.raises(runner.RunnerError, match="ALEMBIC_REVISION_MISMATCH"):
+        runner._validate_schema_state(stale)
+
+
 def test_request_boundaries_and_monthly_defaults_remain_strict() -> None:
     assert runner.HISTORICAL_BACKFILL_MIN_REPORT_DATE == date(2023, 7, 1)
     assert runner.MAX_BACKFILL_COMPLETE_DATES == 32

@@ -34,6 +34,7 @@ from app.services.cbr_bank_financial_evidence.lexical import (
 )
 from app.services.cbr_bank_financial_evidence.production_runner import (
     CommitOutcomeUnknown,
+    EXPECTED_ALEMBIC_REVISION,
     RunnerError,
     _ArgumentParser,
     _DatabaseState,
@@ -72,7 +73,6 @@ from app.services.cbr_bank_reporting.contracts import (
 SCHEMA_VERSION = "bondradar.cbr_bank_monthly_ingestion_runner.v1"
 MANIFEST_SCHEMA_VERSION = "bondradar.cbr_bank_monthly_ingestion_manifest.v1"
 MANIFEST_CONTRACT_VERSION = "cbr-bank-monthly-ingestion-manifest-v1"
-EXPECTED_ALEMBIC_REVISION = "202609010001"
 PUBLICATION_STATUS = "UNKNOWN"
 REQUIRED_FORMS = tuple(CbrBankForm)
 

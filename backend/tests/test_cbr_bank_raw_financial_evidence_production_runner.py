@@ -87,6 +87,43 @@ def _counts(engine):
         )
 
 
+def test_task260b_schema_revision_guard_accepts_only_current_head() -> None:
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609110001"
+    runner._validate_schema_state(_full_state())
+
+    for revisions in (
+        ("202609010001",),
+        ("999999999999",),
+        (),
+        ("202609010001", runner.EXPECTED_ALEMBIC_REVISION),
+    ):
+        state = runner._DatabaseState(
+            revisions=revisions,
+            tables=_full_state().tables,
+            counts={},
+        )
+        with pytest.raises(runner.RunnerError, match="ALEMBIC_REVISION_MISMATCH"):
+            runner._validate_schema_state(state)
+
+
+def test_unreadable_schema_revision_fails_before_mutation(tmp_path: Path) -> None:
+    engine = _sqlite_engine(tmp_path, "unreadable-revision.db")
+    before = _counts(engine)
+
+    def unreadable(_session):
+        raise RuntimeError("schema revision unavailable")
+
+    with pytest.raises(RuntimeError, match="schema revision unavailable"):
+        runner._execute_preflight(
+            engine,
+            schema_reader=unreadable,
+            allow_non_postgresql=True,
+            read_only_enforcer=lambda _session: None,
+        )
+    assert _counts(engine) == before
+    engine.dispose()
+
+
 def test_plan_proves_exact_fixtures_lexical_counts_and_no_side_effects(
     prepared,
 ) -> None:
