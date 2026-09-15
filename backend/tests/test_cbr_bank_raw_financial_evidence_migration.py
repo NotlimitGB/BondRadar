@@ -8,6 +8,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, func, inspect, select
+from sqlalchemy.exc import IntegrityError
 
 from app import models  # noqa: F401
 from app.core.config import settings
@@ -600,3 +601,177 @@ def test_task262_revision_is_schema_only_without_backfill() -> None:
     assert "op.alter_column" not in migration
     assert "from_select" not in migration
     assert "op.execute" not in migration
+
+
+def _task262_fix1_database(database_path: Path, monkeypatch):
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    config = Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    engine = create_engine(database_url)
+    Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
+    command.stamp(config, "202609140001")
+    command.upgrade(config, "202609150001")
+    return config, engine
+
+
+def _metric_values(*, normalized_id: int, source_code: str) -> dict:
+    if source_code == "N18":
+        metric_key = "CBR_135_N18"
+        source_form = "0409135"
+        family = "REGULATORY_RATIO"
+        unit = "PERCENT"
+    else:
+        metric_key = "CBR_123_000"
+        source_form = "0409123"
+        family = "REGULATORY_CAPITAL"
+        unit = "RUB"
+    return {
+        "normalized_observation_id": normalized_id,
+        "subject_regn": "1",
+        "report_date": date(2026, 8, 1),
+        "metric_key": metric_key,
+        "metric_family": family,
+        "source_form": source_form,
+        "source_code": source_code,
+        "metric_value": Decimal("123.456"),
+        "metric_unit": unit,
+        "metric_fingerprint": str(normalized_id % 10) * 64,
+    }
+
+
+def _task262_schema_structure(engine) -> dict:
+    inspector = inspect(engine)
+    return {
+        "columns": tuple(
+            (item["name"], str(item["type"]), bool(item["nullable"]))
+            for item in inspector.get_columns(TASK262_TABLE)
+        ),
+        "foreign_keys": tuple(
+            (
+                tuple(item.get("constrained_columns") or ()),
+                item.get("referred_table"),
+                tuple(item.get("referred_columns") or ()),
+                item.get("options", {}).get("ondelete"),
+            )
+            for item in inspector.get_foreign_keys(TASK262_TABLE)
+        ),
+        "uniques": frozenset(
+            tuple(item.get("column_names") or ())
+            for item in inspector.get_unique_constraints(TASK262_TABLE)
+        ),
+        "indexes": frozenset(
+            (
+                item.get("name"),
+                tuple(item.get("column_names") or ()),
+                bool(item.get("unique")),
+            )
+            for item in inspector.get_indexes(TASK262_TABLE)
+        ),
+        "checks": frozenset(
+            item.get("name")
+            for item in inspector.get_check_constraints(TASK262_TABLE)
+        ),
+    }
+
+
+def test_task262_fix1_migration_allows_n18_and_safe_downgrade(
+    tmp_path: Path, monkeypatch
+) -> None:
+    config, engine = _task262_fix1_database(
+        tmp_path / "task262-fix1.db", monkeypatch
+    )
+    metrics = Base.metadata.tables[TASK262_TABLE]
+    original_structure = _task262_schema_structure(engine)
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 0
+
+    command.upgrade(config, "head")
+    assert _task262_schema_structure(engine) == original_structure
+    with engine.connect() as connection:
+        transaction = connection.begin()
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 0
+        connection.execute(
+            metrics.insert().values(
+                **_metric_values(normalized_id=1, source_code="N18")
+            )
+        )
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 1
+        transaction.rollback()
+    with engine.begin() as connection:
+        connection.execute(
+            metrics.insert().values(
+                **_metric_values(normalized_id=2, source_code="000")
+            )
+        )
+
+    command.downgrade(config, "202609150001")
+    assert _task262_schema_structure(engine) == original_structure
+    with engine.connect() as connection:
+        transaction = connection.begin()
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 1
+        with pytest.raises(IntegrityError):
+            connection.execute(
+                metrics.insert().values(
+                    **_metric_values(normalized_id=3, source_code="N18")
+                )
+            )
+        transaction.rollback()
+
+    command.upgrade(config, "head")
+    assert _task262_schema_structure(engine) == original_structure
+    with engine.begin() as connection:
+        connection.execute(
+            metrics.insert().values(
+                **_metric_values(normalized_id=3, source_code="N18")
+            )
+        )
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 2
+    engine.dispose()
+
+
+def test_task262_fix1_downgrade_blocks_existing_n18_without_deleting_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    config, engine = _task262_fix1_database(
+        tmp_path / "task262-fix1-blocked.db", monkeypatch
+    )
+    metrics = Base.metadata.tables[TASK262_TABLE]
+    command.upgrade(config, "head")
+    with engine.begin() as connection:
+        connection.execute(
+            metrics.insert().values(
+                **_metric_values(normalized_id=4, source_code="N18")
+            )
+        )
+
+    with pytest.raises(RuntimeError, match="while N18 metrics exist"):
+        command.downgrade(config, "202609150001")
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 1
+        assert connection.exec_driver_sql(
+            "SELECT version_num FROM alembic_version"
+        ).scalar_one() == "202609150002"
+    engine.dispose()
+
+
+def test_task262_fix1_revision_changes_only_the_mapping_constraint() -> None:
+    migration = (
+        ROOT
+        / "backend"
+        / "alembic"
+        / "versions"
+        / "202609150002_cbr_bank_credit_metrics_n18.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision = "202609150002"' in migration
+    assert 'down_revision = "202609150001"' in migration
+    assert "batch_alter_table" in migration
+    assert "drop_constraint" in migration
+    assert "create_check_constraint" in migration
+    assert "op.create_table" not in migration
+    assert "op.drop_table" not in migration
+    assert "INSERT" not in migration.upper()
+    assert "DELETE" not in migration.upper()
+    assert "UPDATE" not in migration.upper()

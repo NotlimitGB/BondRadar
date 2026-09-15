@@ -117,9 +117,29 @@ def test_unavailable_is_not_zero_and_irrelevant_forms_are_not_projected() -> Non
     assert project_credit_metric(_normalized(form="0409102", source_code="1")) is None
 
 
+def test_n18_percent_decimal_is_copied_without_rescaling() -> None:
+    draft = project_credit_metric(
+        _normalized(
+            form="0409135",
+            source_code="N18",
+            value=Decimal("123.456"),
+        )
+    )
+    assert draft is not None
+    assert draft.metric_key == "CBR_135_N18"
+    assert draft.metric_family is CreditMetricFamily.REGULATORY_RATIO
+    assert draft.metric_unit == "PERCENT"
+    assert draft.metric_value == Decimal("123.456")
+    assert draft.metric_value.as_tuple().exponent == -3
+
+
 def test_unknown_public_code_and_invalid_semantics_fail_closed() -> None:
     with pytest.raises(UnsupportedMetricSource):
         project_credit_metric(_normalized(source_code="999"))
+    with pytest.raises(UnsupportedMetricSource):
+        project_credit_metric(
+            _normalized(form="0409135", source_code="N999", value=Decimal("1"))
+        )
 
     malformed = _normalized(source_code="000")
     malformed.normalized_value = 1.0

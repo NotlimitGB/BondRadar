@@ -179,6 +179,23 @@ def test_unknown_public_code_blocks_preflight_without_mutation(metrics_engine) -
         assert session.scalar(select(func.count()).select_from(CbrBankCreditMetric)) == 0
 
 
+def test_n18_is_ready_and_counted_by_metric_key(metrics_engine) -> None:
+    with Session(metrics_engine) as session, session.begin():
+        session.add(
+            _normalized(
+                1,
+                form="0409135",
+                source_code="N18",
+                value=Decimal("123.456"),
+            )
+        )
+    plan = runner.execute_plan(metrics_engine, **_common())
+    assert plan["ready"] is True
+    assert plan["supported_value_rows"] == 1
+    assert plan["unsupported_metric_source_rows"] == 0
+    assert plan["rows_by_metric_key"]["CBR_135_N18"] == 1
+
+
 def test_schema_guards_and_read_only_order_fail_closed(metrics_engine) -> None:
     _seed(metrics_engine, include_unavailable=False, include_irrelevant=False)
     events: list[str] = []
@@ -204,7 +221,7 @@ def test_schema_guards_and_read_only_order_fail_closed(metrics_engine) -> None:
         "SELECT schema",
     ]
     for revisions in (
-        ("202609140001",),
+        ("202609150001",),
         ("209901010001",),
         (),
         (runner.EXPECTED_ALEMBIC_REVISION, "209901010001"),
@@ -340,4 +357,4 @@ def test_runner_has_no_network_artifact_pit_or_scoring_surface() -> None:
     for forbidden in ("httpx", "requests", "cbr.ru", "rarfile", "dbfread", "safe_known_from"):
         assert forbidden not in text_value
     assert runner.BATCH_SIZE == 2_000
-    assert runner.EXPECTED_ALEMBIC_REVISION == "202609150001"
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609150002"

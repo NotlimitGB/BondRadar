@@ -647,6 +647,7 @@ class CbrBankCreditMetric(Base):
             "or (source_code = 'N16' and metric_key = 'CBR_135_N16') "
             "or (source_code = 'N16.1' and metric_key = 'CBR_135_N16_1') "
             "or (source_code = 'N16.2' and metric_key = 'CBR_135_N16_2') "
+            "or (source_code = 'N18' and metric_key = 'CBR_135_N18') "
             "or (source_code = 'N27' and metric_key = 'CBR_135_N27'))))",
             name="cbr_bank_credit_metrics_mapping_valid",
         ),

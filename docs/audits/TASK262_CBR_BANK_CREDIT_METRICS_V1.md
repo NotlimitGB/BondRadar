@@ -16,6 +16,27 @@ SUPPORTED_FORMS=0409123,0409135
 PIT_READY=false
 ```
 
+## Task262-FIX1 post-production correction
+
+```text
+TASK262_FIX1=true
+PRODUCTION_PLAN_DISCOVERED_N18=true
+N18_PRODUCTION_ROWS=6
+N18_SUPPORTED=true
+N18_METRIC_KEY=CBR_135_N18
+N18_UNIT=PERCENT
+N18_PERCENT_RESCALING=false
+```
+
+The count of six is operator-provided prior evidence from a read-only
+production PLAN; Task262-FIX1 does not access or independently remeasure the
+production database. Task250 correctly recorded `N18` as
+`DISCLOSABLE_BY_RULE` while the then-inspected current artifact had
+`ACTUAL_STATE=UNKNOWN_NOT_OBSERVED`. The operator-provided production PLAN
+reports that later historical normalized observations contain this code, so it
+is now added to the explicit source mapping without rewriting the earlier
+Task250 conclusion.
+
 The immutable lineage is:
 
 ```text
@@ -62,6 +83,7 @@ N15.1 → CBR_135_N15_1
 N16   → CBR_135_N16
 N16.1 → CBR_135_N16_1
 N16.2 → CBR_135_N16_2
+N18   → CBR_135_N18
 N27   → CBR_135_N27
 family=REGULATORY_RATIO
 unit=PERCENT

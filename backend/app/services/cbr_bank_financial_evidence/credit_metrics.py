@@ -43,6 +43,7 @@ FORM_135_METRIC_KEYS = {
     "N16": "CBR_135_N16",
     "N16.1": "CBR_135_N16_1",
     "N16.2": "CBR_135_N16_2",
+    "N18": "CBR_135_N18",
     "N27": "CBR_135_N27",
 }
 ALL_METRIC_KEYS = tuple(
