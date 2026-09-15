@@ -31,6 +31,9 @@ CBR_BANK_RAW_EVIDENCE_CONTRACT_VERSION = "cbr-bank-raw-financial-evidence-v1"
 CBR_BANK_ARTIFACT_AVAILABILITY_CONTRACT_VERSION = (
     "cbr-bank-artifact-availability-evidence-v1"
 )
+CBR_BANK_NORMALIZED_OBSERVATION_CONTRACT_VERSION = (
+    "cbr-bank-normalized-financial-observation-v1"
+)
 CBR_BANK_SOURCE = "CBR_BANK_REPORTING"
 CBR_REPORTING_SUBJECT_SOURCE = "CBR"
 CBR_REPORTING_SUBJECT_TYPE = "CREDIT_ORGANIZATION_REGN"
@@ -59,6 +62,16 @@ CBR_ARTIFACT_AVAILABILITY_SOURCES = (
 )
 
 JSON_DOCUMENT = JSONB().with_variant(JSON(), "sqlite")
+
+
+def _lower_hex_sha256_sql(column: str) -> str:
+    remainder = column
+    for character in "0123456789abcdef":
+        remainder = f"replace({remainder}, '{character}', '')"
+    return (
+        f"length({column}) = 64 and {column} = lower({column}) "
+        f"and length({remainder}) = 0"
+    )
 
 
 class CbrBankReportingSubject(Base):
@@ -443,6 +456,128 @@ class CbrBankRawObservation(Base):
     )
     reporting_subject: Mapped["CbrBankReportingSubject"] = relationship(
         back_populates="observations"
+    )
+    normalized_observation: Mapped["CbrBankNormalizedObservation | None"] = (
+        relationship(
+            back_populates="raw_observation",
+            passive_deletes=True,
+            uselist=False,
+        )
+    )
+
+
+class CbrBankNormalizedObservation(Base):
+    __tablename__ = "cbr_bank_normalized_observations"
+    __table_args__ = (
+        UniqueConstraint(
+            "raw_observation_id",
+            name="uq_cbr_bank_normalized_observations_raw_observation",
+        ),
+        UniqueConstraint(
+            "normalization_fingerprint",
+            name="uq_cbr_bank_normalized_observations_fingerprint",
+        ),
+        Index(
+            "ix_cbr_bank_normalized_observations_subject_report",
+            "subject_regn",
+            "report_date",
+        ),
+        Index(
+            "ix_cbr_bank_normalized_observations_form_code_report",
+            "form",
+            "source_code",
+            "report_date",
+        ),
+        Index(
+            "ix_cbr_bank_normalized_observations_item_fingerprint",
+            "item_fingerprint",
+        ),
+        CheckConstraint(
+            "contract_version = 'cbr-bank-normalized-financial-observation-v1'",
+            name="cbr_bank_normalized_observations_contract_valid",
+        ),
+        CheckConstraint(
+            "form in ('0409101', '0409102', '0409123', '0409135')",
+            name="cbr_bank_normalized_observations_form_valid",
+        ),
+        CheckConstraint(
+            "cast(cast(subject_regn as bigint) as varchar) = subject_regn "
+            "and cast(subject_regn as bigint) > 0",
+            name="cbr_bank_normalized_observations_regn_canonical",
+        ),
+        CheckConstraint(
+            "source_code <> ''",
+            name="cbr_bank_normalized_observations_source_code_present",
+        ),
+        CheckConstraint(
+            "source_disclosure_state in ('PUBLIC_VALUE', 'PUBLIC_VALUE_BLANK', "
+            "'SUPPRESSED_OR_REDUCED', 'NOT_PRESENT_IN_CURRENT_PUBLIC_ARTIFACT', "
+            "'UNKNOWN')",
+            name="cbr_bank_normalized_observations_disclosure_valid",
+        ),
+        CheckConstraint(
+            "value_state in ('VALUE', 'SOURCE_VALUE_UNAVAILABLE') and "
+            "((value_state = 'VALUE' and normalized_value is not null "
+            "and source_disclosure_state = 'PUBLIC_VALUE') or "
+            "(value_state = 'SOURCE_VALUE_UNAVAILABLE' "
+            "and normalized_value is null "
+            "and source_disclosure_state <> 'PUBLIC_VALUE'))",
+            name="cbr_bank_normalized_observations_value_state_valid",
+        ),
+        CheckConstraint(
+            "transformation_kind in ('SCALE_BY_SOURCE_MULTIPLIER', 'IDENTITY')",
+            name="cbr_bank_normalized_observations_transformation_valid",
+        ),
+        CheckConstraint(
+            "((form in ('0409101', '0409102', '0409123') "
+            "and normalized_unit = 'RUB' and normalized_currency = 'RUB' "
+            "and transformation_kind = 'SCALE_BY_SOURCE_MULTIPLIER' "
+            "and applied_multiplier = 1000) or "
+            "(form = '0409135' and normalized_unit = 'PERCENT' "
+            "and normalized_currency is null and transformation_kind = 'IDENTITY' "
+            "and applied_multiplier is null))",
+            name="cbr_bank_normalized_observations_form_semantics_valid",
+        ),
+        CheckConstraint(
+            f"{_lower_hex_sha256_sql('item_fingerprint')} and "
+            f"{_lower_hex_sha256_sql('normalization_fingerprint')}",
+            name="cbr_bank_normalized_observations_hashes_valid",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contract_version: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default=CBR_BANK_NORMALIZED_OBSERVATION_CONTRACT_VERSION,
+        server_default=CBR_BANK_NORMALIZED_OBSERVATION_CONTRACT_VERSION,
+    )
+    raw_observation_id: Mapped[int] = mapped_column(
+        ForeignKey("cbr_bank_raw_observations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    form: Mapped[str] = mapped_column(String(8), nullable=False)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False)
+    subject_regn: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_date: Mapped[date | None] = mapped_column(Date)
+    source_code: Mapped[str] = mapped_column(String(128), nullable=False)
+    source_subcode: Mapped[str | None] = mapped_column(String(128))
+    source_dimensions: Mapped[list[Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    source_disclosure_state: Mapped[str] = mapped_column(String(64), nullable=False)
+    value_state: Mapped[str] = mapped_column(String(32), nullable=False)
+    normalized_value: Mapped[Decimal | None] = mapped_column(Numeric(asdecimal=True))
+    normalized_unit: Mapped[str] = mapped_column(String(32), nullable=False)
+    normalized_currency: Mapped[str | None] = mapped_column(String(16))
+    transformation_kind: Mapped[str] = mapped_column(String(64), nullable=False)
+    applied_multiplier: Mapped[int | None] = mapped_column(BigInteger)
+    item_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    normalization_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    raw_observation: Mapped["CbrBankRawObservation"] = relationship(
+        back_populates="normalized_observation"
     )
 
 

@@ -23,6 +23,7 @@ TASK255_TABLES = {
     "cbr_bank_subject_legal_issuer_evidence",
     "cbr_bank_subject_legal_issuer_profiles",
 }
+TASK261_TABLE = "cbr_bank_normalized_observations"
 
 
 def test_task255_migration_upgrade_downgrade_reupgrade(
@@ -35,6 +36,7 @@ def test_task255_migration_upgrade_downgrade_reupgrade(
     config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK261_TABLE].drop(engine)
     Base.metadata.tables["cbr_bank_artifact_availability_evidence"].drop(engine)
     for table_name in (
         "cbr_bank_subject_legal_issuer_profiles",
@@ -49,6 +51,7 @@ def test_task255_migration_upgrade_downgrade_reupgrade(
     command.upgrade(config, "head")
     inspector = inspect(engine)
     assert TASK255_TABLES.issubset(set(inspector.get_table_names()))
+    assert TASK261_TABLE in inspector.get_table_names()
     assert "financial_reports" in inspector.get_table_names()
     snapshot_fks = inspector.get_foreign_keys("cbr_bank_report_snapshots")
     assert snapshot_fks[0]["options"].get("ondelete") == "RESTRICT"
@@ -65,11 +68,13 @@ def test_task255_migration_upgrade_downgrade_reupgrade(
     command.downgrade(config, "202608280002")
     remaining = set(inspect(engine).get_table_names())
     assert not TASK255_TABLES.intersection(remaining)
+    assert TASK261_TABLE not in remaining
     assert {"legal_issuers", "financial_reports", "companies", "bonds"}.issubset(
         remaining
     )
     command.upgrade(config, "head")
     assert TASK255_TABLES.issubset(set(inspect(engine).get_table_names()))
+    assert TASK261_TABLE in inspect(engine).get_table_names()
     engine.dispose()
 
 
@@ -333,3 +338,149 @@ def test_task255_revision_and_scope_are_schema_only() -> None:
     assert "op.execute" not in migration
     for table in TASK255_TABLES:
         assert table in migration
+
+
+def test_task261_schema_only_migration_cycle_and_precreated_metadata(
+    tmp_path: Path, monkeypatch
+) -> None:
+    database_path = tmp_path / "task261.db"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    config = Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    engine = create_engine(database_url)
+    Base.metadata.create_all(engine)
+    subjects = Base.metadata.tables["cbr_bank_reporting_subjects"]
+    artifacts = Base.metadata.tables["cbr_bank_source_artifacts"]
+    snapshots = Base.metadata.tables["cbr_bank_report_snapshots"]
+    raw = Base.metadata.tables["cbr_bank_raw_observations"]
+    normalized = Base.metadata.tables[TASK261_TABLE]
+    observed = datetime(2026, 9, 14, 12, tzinfo=timezone.utc)
+    with engine.begin() as connection:
+        subject_id = connection.execute(
+            subjects.insert().values(
+                subject_regn="1",
+                first_observed_at=observed,
+                last_observed_at=observed,
+            )
+        ).inserted_primary_key[0]
+        artifact_id = connection.execute(
+            artifacts.insert().values(
+                source_url="https://www.cbr.ru/task261.rar",
+                artifact_filename="task261.rar",
+                form="0409102",
+                report_date=date(2026, 8, 1),
+                content_bytes=b"x",
+                content_sha256="a" * 64,
+                compressed_size=1,
+                content_type="application/octet-stream",
+                first_discovered_at=observed,
+                first_retrieved_at=observed,
+                ingested_at=observed,
+                parser_contract_version="task251-test",
+                archive_runtime_contract="test",
+                artifact_fingerprint="b" * 64,
+            )
+        ).inserted_primary_key[0]
+        snapshot_id = connection.execute(
+            snapshots.insert().values(
+                artifact_id=artifact_id,
+                form="0409102",
+                report_date=date(2026, 8, 1),
+                value_member_name="VALUE.DBF",
+                member_schema_inventory=[],
+                form_schema_fingerprint="c" * 64,
+                parser_contract_version="task251-test",
+                observed_at=observed,
+                retrieved_at=observed,
+                ingested_at=observed,
+                publication_status="UNKNOWN",
+                publication_at=None,
+                record_count=1,
+                subject_count=1,
+                subject_set_sha256="d" * 64,
+                observation_set_sha256="e" * 64,
+                snapshot_fingerprint="f" * 64,
+            )
+        ).inserted_primary_key[0]
+        connection.execute(
+            raw.insert().values(
+                snapshot_id=snapshot_id,
+                reporting_subject_id=subject_id,
+                form="0409102",
+                report_date=date(2026, 8, 1),
+                subject_regn="1",
+                archive_member_name="VALUE.DBF",
+                source_row_number=1,
+                source_row_fingerprint="1" * 64,
+                source_value_field="SIM_ITOGO",
+                source_code="1",
+                source_dimensions=[["CODE", "1"]],
+                source_fields_sha256="2" * 64,
+                raw_value_text="1.230",
+                parsed_decimal_value=Decimal("1.230"),
+                disclosure_state="PUBLIC_VALUE",
+                source_unit="RUB_THOUSANDS",
+                source_currency="RUB",
+                source_multiplier=1000,
+                source_date=None,
+                parser_contract_version="task251-test",
+                ingested_at=observed,
+                observation_fingerprint="3" * 64,
+            )
+        )
+    command.stamp(config, "202609110001")
+
+    command.upgrade(config, "head")
+    assert TASK261_TABLE in inspect(engine).get_table_names()
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(raw)) == 1
+        assert connection.scalar(select(func.count()).select_from(normalized)) == 0
+
+    command.downgrade(config, "202609110001")
+    assert TASK261_TABLE not in inspect(engine).get_table_names()
+    assert raw.name in inspect(engine).get_table_names()
+    command.upgrade(config, "head")
+    assert TASK261_TABLE in inspect(engine).get_table_names()
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(normalized)) == 0
+    engine.dispose()
+
+
+def test_task261_precreated_partial_sqlite_table_fails_closed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    database_path = tmp_path / "task261-partial.db"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    config = Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    engine = create_engine(database_url)
+    Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK261_TABLE].drop(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE cbr_bank_normalized_observations "
+            "(id INTEGER PRIMARY KEY, raw_observation_id INTEGER NOT NULL)"
+        )
+    command.stamp(config, "202609110001")
+    with pytest.raises(RuntimeError, match="Partial or incompatible Task261"):
+        command.upgrade(config, "head")
+    engine.dispose()
+
+
+def test_task261_revision_is_schema_only_without_backfill() -> None:
+    migration = (
+        ROOT
+        / "backend"
+        / "alembic"
+        / "versions"
+        / "202609140001_cbr_bank_normalized_financial_observations_v1.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision = "202609140001"' in migration
+    assert 'down_revision = "202609110001"' in migration
+    assert "op.create_table(" in migration
+    assert "op.add_column" not in migration
+    assert "op.alter_column" not in migration
+    assert "from_select" not in migration
+    assert "op.execute" not in migration

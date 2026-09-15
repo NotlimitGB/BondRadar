@@ -198,7 +198,7 @@ def _schema_state():
 
 
 def test_historical_runner_uses_shared_task260b_schema_revision_guard() -> None:
-    assert runner.EXPECTED_ALEMBIC_REVISION == "202609110001"
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609140001"
     assert (
         runner.EXPECTED_ALEMBIC_REVISION
         == production_runner.EXPECTED_ALEMBIC_REVISION

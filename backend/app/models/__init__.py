@@ -18,6 +18,7 @@ from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.company_score import CompanyScore
 from app.models.cbr_bank_financial_evidence import (
     CbrBankArtifactAvailabilityEvidence,
+    CbrBankNormalizedObservation,
     CbrBankRawObservation,
     CbrBankReportSnapshot,
     CbrBankReportingSubject,
@@ -64,6 +65,7 @@ __all__ = [
     "CompanyIdentityProfile",
     "CompanyScore",
     "CbrBankArtifactAvailabilityEvidence",
+    "CbrBankNormalizedObservation",
     "CbrBankRawObservation",
     "CbrBankReportSnapshot",
     "CbrBankReportingSubject",
