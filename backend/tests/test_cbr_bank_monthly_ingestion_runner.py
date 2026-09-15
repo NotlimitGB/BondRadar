@@ -96,8 +96,8 @@ def _counts(engine):
         )
 
 
-def test_monthly_runner_uses_shared_task260b_schema_revision_guard() -> None:
-    assert runner.EXPECTED_ALEMBIC_REVISION == "202609140001"
+def test_monthly_runner_uses_shared_task262_schema_revision_guard() -> None:
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609150001"
     assert (
         runner.EXPECTED_ALEMBIC_REVISION
         == production_runner.EXPECTED_ALEMBIC_REVISION

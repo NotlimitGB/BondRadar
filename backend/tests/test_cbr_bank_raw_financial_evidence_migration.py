@@ -24,6 +24,7 @@ TASK255_TABLES = {
     "cbr_bank_subject_legal_issuer_profiles",
 }
 TASK261_TABLE = "cbr_bank_normalized_observations"
+TASK262_TABLE = "cbr_bank_credit_metrics"
 
 
 def test_task255_migration_upgrade_downgrade_reupgrade(
@@ -36,6 +37,7 @@ def test_task255_migration_upgrade_downgrade_reupgrade(
     config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
     Base.metadata.tables[TASK261_TABLE].drop(engine)
     Base.metadata.tables["cbr_bank_artifact_availability_evidence"].drop(engine)
     for table_name in (
@@ -88,6 +90,7 @@ def test_task260b_migration_bootstraps_availability_without_raw_rewrite(
     config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
     evidence_table = Base.metadata.tables["cbr_bank_artifact_availability_evidence"]
     evidence_table.drop(engine)
     command.stamp(config, "202609010001")
@@ -226,6 +229,7 @@ def test_task260b_sqlite_precreated_metadata_table_is_validated_and_bootstrapped
     config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
     artifacts = Base.metadata.tables["cbr_bank_source_artifacts"]
     evidence = Base.metadata.tables["cbr_bank_artifact_availability_evidence"]
     observed = datetime(2026, 9, 3, 12, tzinfo=timezone.utc)
@@ -292,6 +296,7 @@ def test_task260b_sqlite_precreated_partial_table_fails_closed(
     config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
     Base.metadata.tables["cbr_bank_artifact_availability_evidence"].drop(engine)
     with engine.begin() as connection:
         connection.exec_driver_sql(
@@ -350,6 +355,7 @@ def test_task261_schema_only_migration_cycle_and_precreated_metadata(
     config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
     subjects = Base.metadata.tables["cbr_bank_reporting_subjects"]
     artifacts = Base.metadata.tables["cbr_bank_source_artifacts"]
     snapshots = Base.metadata.tables["cbr_bank_report_snapshots"]
@@ -457,6 +463,7 @@ def test_task261_precreated_partial_sqlite_table_fails_closed(
     config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
     engine = create_engine(database_url)
     Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
     Base.metadata.tables[TASK261_TABLE].drop(engine)
     with engine.begin() as connection:
         connection.exec_driver_sql(
@@ -479,6 +486,115 @@ def test_task261_revision_is_schema_only_without_backfill() -> None:
     ).read_text(encoding="utf-8")
     assert 'revision = "202609140001"' in migration
     assert 'down_revision = "202609110001"' in migration
+    assert "op.create_table(" in migration
+    assert "op.add_column" not in migration
+    assert "op.alter_column" not in migration
+    assert "from_select" not in migration
+    assert "op.execute" not in migration
+
+
+def test_task262_schema_only_migration_cycle_and_precreated_metadata(
+    tmp_path: Path, monkeypatch
+) -> None:
+    database_path = tmp_path / "task262.db"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    config = Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    engine = create_engine(database_url)
+    Base.metadata.create_all(engine)
+    metrics = Base.metadata.tables[TASK262_TABLE]
+    normalized = Base.metadata.tables[TASK261_TABLE]
+    metrics.drop(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            normalized.insert().values(
+                raw_observation_id=999,
+                form="0409123",
+                report_date=date(2026, 8, 1),
+                subject_regn="1",
+                source_code="000",
+                source_dimensions=[["C1", "000"]],
+                source_disclosure_state="PUBLIC_VALUE",
+                value_state="VALUE",
+                normalized_value=Decimal("1000"),
+                normalized_unit="RUB",
+                normalized_currency="RUB",
+                transformation_kind="SCALE_BY_SOURCE_MULTIPLIER",
+                applied_multiplier=1000,
+                item_fingerprint="1" * 64,
+                normalization_fingerprint="2" * 64,
+            )
+        )
+    command.stamp(config, "202609140001")
+
+    command.upgrade(config, "head")
+    inspector = inspect(engine)
+    assert TASK262_TABLE in inspector.get_table_names()
+    assert inspector.get_foreign_keys(TASK262_TABLE)[0]["options"]["ondelete"] == (
+        "RESTRICT"
+    )
+    assert len(inspector.get_unique_constraints(TASK262_TABLE)) == 2
+    assert {item["name"] for item in inspector.get_indexes(TASK262_TABLE)} == {
+        "ix_cbr_bank_credit_metrics_key_report",
+        "ix_cbr_bank_credit_metrics_subject_report",
+    }
+    assert inspector.get_check_constraints(TASK262_TABLE)
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(normalized)) == 1
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 0
+
+    command.downgrade(config, "202609140001")
+    assert TASK262_TABLE not in inspect(engine).get_table_names()
+    assert TASK261_TABLE in inspect(engine).get_table_names()
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        assert connection.scalar(select(func.count()).select_from(metrics)) == 0
+    engine.dispose()
+
+    precreated_path = tmp_path / "task262-precreated.db"
+    precreated_url = f"sqlite:///{precreated_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", precreated_url)
+    precreated = create_engine(precreated_url)
+    Base.metadata.create_all(precreated)
+    command.stamp(config, "202609140001")
+    command.upgrade(config, "head")
+    assert TASK262_TABLE in inspect(precreated).get_table_names()
+    precreated.dispose()
+
+
+def test_task262_precreated_partial_sqlite_table_fails_closed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    database_path = tmp_path / "task262-partial.db"
+    database_url = f"sqlite:///{database_path.as_posix()}"
+    monkeypatch.setattr(settings, "DATABASE_URL", database_url)
+    config = Config(str(ROOT / "backend" / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "backend" / "alembic"))
+    engine = create_engine(database_url)
+    Base.metadata.create_all(engine)
+    Base.metadata.tables[TASK262_TABLE].drop(engine)
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "CREATE TABLE cbr_bank_credit_metrics "
+            "(id INTEGER PRIMARY KEY, normalized_observation_id INTEGER NOT NULL)"
+        )
+    command.stamp(config, "202609140001")
+    with pytest.raises(RuntimeError, match="Partial or incompatible Task262"):
+        command.upgrade(config, "head")
+    engine.dispose()
+
+
+def test_task262_revision_is_schema_only_without_backfill() -> None:
+    migration = (
+        ROOT
+        / "backend"
+        / "alembic"
+        / "versions"
+        / "202609150001_cbr_bank_credit_metrics_v1.py"
+    ).read_text(encoding="utf-8")
+    assert 'revision = "202609150001"' in migration
+    assert 'down_revision = "202609140001"' in migration
     assert "op.create_table(" in migration
     assert "op.add_column" not in migration
     assert "op.alter_column" not in migration

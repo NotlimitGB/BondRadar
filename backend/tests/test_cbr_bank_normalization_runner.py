@@ -427,4 +427,4 @@ def test_runner_has_no_network_or_pit_selection_surface() -> None:
     for forbidden in ("httpx", "requests", "cbr.ru", "safe_known_from"):
         assert forbidden not in text_value
     assert runner.BATCH_SIZE == 2_000
-    assert runner.EXPECTED_ALEMBIC_REVISION == "202609140001"
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609150001"

@@ -34,6 +34,7 @@ CBR_BANK_ARTIFACT_AVAILABILITY_CONTRACT_VERSION = (
 CBR_BANK_NORMALIZED_OBSERVATION_CONTRACT_VERSION = (
     "cbr-bank-normalized-financial-observation-v1"
 )
+CBR_BANK_CREDIT_METRIC_CONTRACT_VERSION = "cbr-bank-credit-metric-v1"
 CBR_BANK_SOURCE = "CBR_BANK_REPORTING"
 CBR_REPORTING_SUBJECT_SOURCE = "CBR"
 CBR_REPORTING_SUBJECT_TYPE = "CREDIT_ORGANIZATION_REGN"
@@ -578,6 +579,109 @@ class CbrBankNormalizedObservation(Base):
 
     raw_observation: Mapped["CbrBankRawObservation"] = relationship(
         back_populates="normalized_observation"
+    )
+    credit_metric: Mapped["CbrBankCreditMetric | None"] = relationship(
+        back_populates="normalized_observation",
+        passive_deletes=True,
+        uselist=False,
+    )
+
+
+class CbrBankCreditMetric(Base):
+    __tablename__ = "cbr_bank_credit_metrics"
+    __table_args__ = (
+        UniqueConstraint(
+            "normalized_observation_id",
+            name="uq_cbr_bank_credit_metrics_normalized_observation",
+        ),
+        UniqueConstraint(
+            "metric_fingerprint",
+            name="uq_cbr_bank_credit_metrics_fingerprint",
+        ),
+        Index(
+            "ix_cbr_bank_credit_metrics_subject_report",
+            "subject_regn",
+            "report_date",
+        ),
+        Index(
+            "ix_cbr_bank_credit_metrics_key_report",
+            "metric_key",
+            "report_date",
+        ),
+        CheckConstraint(
+            "contract_version = 'cbr-bank-credit-metric-v1'",
+            name="cbr_bank_credit_metrics_contract_valid",
+        ),
+        CheckConstraint(
+            "cast(cast(subject_regn as bigint) as varchar) = subject_regn "
+            "and cast(subject_regn as bigint) > 0",
+            name="cbr_bank_credit_metrics_regn_canonical",
+        ),
+        CheckConstraint(
+            "metric_key <> '' and source_code <> ''",
+            name="cbr_bank_credit_metrics_identity_present",
+        ),
+        CheckConstraint(
+            "metric_family in ('REGULATORY_CAPITAL', 'REGULATORY_RATIO')",
+            name="cbr_bank_credit_metrics_family_valid",
+        ),
+        CheckConstraint(
+            "((source_form = '0409123' "
+            "and metric_family = 'REGULATORY_CAPITAL' and metric_unit = 'RUB' "
+            "and ((source_code = '000' and metric_key = 'CBR_123_000') "
+            "or (source_code = '102' and metric_key = 'CBR_123_102') "
+            "or (source_code = '105' and metric_key = 'CBR_123_105') "
+            "or (source_code = '203' and metric_key = 'CBR_123_203'))) "
+            "or (source_form = '0409135' "
+            "and metric_family = 'REGULATORY_RATIO' "
+            "and metric_unit = 'PERCENT' "
+            "and ((source_code = 'N1.0' and metric_key = 'CBR_135_N1_0') "
+            "or (source_code = 'N1.1' and metric_key = 'CBR_135_N1_1') "
+            "or (source_code = 'N1.2' and metric_key = 'CBR_135_N1_2') "
+            "or (source_code = 'N1.3' and metric_key = 'CBR_135_N1_3') "
+            "or (source_code = 'N2' and metric_key = 'CBR_135_N2') "
+            "or (source_code = 'N3' and metric_key = 'CBR_135_N3') "
+            "or (source_code = 'N4' and metric_key = 'CBR_135_N4') "
+            "or (source_code = 'N15' and metric_key = 'CBR_135_N15') "
+            "or (source_code = 'N15.1' and metric_key = 'CBR_135_N15_1') "
+            "or (source_code = 'N16' and metric_key = 'CBR_135_N16') "
+            "or (source_code = 'N16.1' and metric_key = 'CBR_135_N16_1') "
+            "or (source_code = 'N16.2' and metric_key = 'CBR_135_N16_2') "
+            "or (source_code = 'N27' and metric_key = 'CBR_135_N27'))))",
+            name="cbr_bank_credit_metrics_mapping_valid",
+        ),
+        CheckConstraint(
+            _lower_hex_sha256_sql("metric_fingerprint"),
+            name="cbr_bank_credit_metrics_fingerprint_valid",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    contract_version: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default=CBR_BANK_CREDIT_METRIC_CONTRACT_VERSION,
+        server_default=CBR_BANK_CREDIT_METRIC_CONTRACT_VERSION,
+    )
+    normalized_observation_id: Mapped[int] = mapped_column(
+        ForeignKey("cbr_bank_normalized_observations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    subject_regn: Mapped[str] = mapped_column(String(16), nullable=False)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False)
+    metric_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    metric_family: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_form: Mapped[str] = mapped_column(String(8), nullable=False)
+    source_code: Mapped[str] = mapped_column(String(128), nullable=False)
+    metric_value: Mapped[Decimal] = mapped_column(Numeric(asdecimal=True), nullable=False)
+    metric_unit: Mapped[str] = mapped_column(String(32), nullable=False)
+    metric_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    normalized_observation: Mapped["CbrBankNormalizedObservation"] = relationship(
+        back_populates="credit_metric"
     )
 
 

@@ -14,38 +14,41 @@ from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session
 
 from app.models.cbr_bank_financial_evidence import (
-    CBR_BANK_NORMALIZED_OBSERVATION_CONTRACT_VERSION,
+    CBR_BANK_CREDIT_METRIC_CONTRACT_VERSION,
+    CbrBankCreditMetric,
     CbrBankNormalizedObservation,
-    CbrBankRawObservation,
 )
 
+from .credit_metrics import (
+    ALL_METRIC_KEYS,
+    FORM_123_METRIC_KEYS,
+    FORM_135_METRIC_KEYS,
+    SUPPORTED_CREDIT_FORMS,
+    CbrBankCreditMetricStore,
+    CreditMetricSemanticCollision,
+    UnsupportedMetricSource,
+    assert_credit_metric_matches,
+    project_credit_metric,
+)
 from .fingerprints import canonical_json_bytes, sha256_canonical
-from .normalization import (
-    CbrBankNormalizedObservationStore,
-    NormalizationSemanticCollision,
-    UnsupportedNormalizationInput,
-    assert_normalized_observation_matches,
-    normalize_raw_observation,
-)
 
 
-SCHEMA_VERSION = "bondradar.cbr_bank_normalization_runner.v1"
+SCHEMA_VERSION = "bondradar.cbr_bank_credit_metrics_runner.v1"
 EXPECTED_ALEMBIC_REVISION = "202609150001"
 BATCH_SIZE = 2_000
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _REQUIRED_TABLES = (
     "alembic_version",
-    "cbr_bank_reporting_subjects",
     "cbr_bank_source_artifacts",
-    "cbr_bank_artifact_availability_evidence",
     "cbr_bank_report_snapshots",
     "cbr_bank_raw_observations",
     "cbr_bank_normalized_observations",
+    "cbr_bank_credit_metrics",
 )
 
 
-class NormalizationRunnerError(RuntimeError):
+class CreditMetricsRunnerError(RuntimeError):
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -63,18 +66,18 @@ class _SchemaState:
 
 class _ArgumentParser(argparse.ArgumentParser):
     def error(self, message: str) -> None:
-        raise NormalizationRunnerError("INVALID_ARGUMENTS")
+        raise CreditMetricsRunnerError("INVALID_ARGUMENTS")
 
 
 def _enforce_postgresql(connection: Any, *, allow_non_postgresql: bool) -> None:
     if not allow_non_postgresql and connection.dialect.name != "postgresql":
-        raise NormalizationRunnerError("POSTGRESQL_REQUIRED")
+        raise CreditMetricsRunnerError("POSTGRESQL_REQUIRED")
 
 
 def _enforce_read_only(session: Session) -> None:
     session.execute(text("SET TRANSACTION READ ONLY"))
     if session.execute(text("SHOW transaction_read_only")).scalar_one() != "on":
-        raise NormalizationRunnerError("READ_ONLY_VERIFICATION_FAILED")
+        raise CreditMetricsRunnerError("READ_ONLY_VERIFICATION_FAILED")
 
 
 def _read_schema_state(session: Session) -> _SchemaState:
@@ -100,116 +103,142 @@ def _read_schema_state(session: Session) -> _SchemaState:
 
 def _validate_schema_state(state: _SchemaState) -> None:
     if state.revisions != (EXPECTED_ALEMBIC_REVISION,):
-        raise NormalizationRunnerError("ALEMBIC_REVISION_MISMATCH")
+        raise CreditMetricsRunnerError("ALEMBIC_REVISION_MISMATCH")
     if not set(_REQUIRED_TABLES).issubset(state.tables):
-        raise NormalizationRunnerError("NORMALIZATION_SCHEMA_MISSING")
+        raise CreditMetricsRunnerError("CREDIT_METRIC_SCHEMA_MISSING")
 
 
 def _load_existing(
-    session: Session, raw_ids: list[int]
-) -> dict[int, CbrBankNormalizedObservation]:
-    if not raw_ids:
+    session: Session, normalized_ids: list[int]
+) -> dict[int, CbrBankCreditMetric]:
+    if not normalized_ids:
         return {}
     rows = session.execute(
-        select(CbrBankNormalizedObservation).where(
-            CbrBankNormalizedObservation.raw_observation_id.in_(raw_ids)
+        select(CbrBankCreditMetric).where(
+            CbrBankCreditMetric.normalized_observation_id.in_(normalized_ids)
         )
     ).scalars()
-    return {row.raw_observation_id: row for row in rows}
+    return {row.normalized_observation_id: row for row in rows}
 
 
-def _raw_batch(
+def _normalized_batch(
     session: Session, *, after_id: int, through_id: int
-) -> list[CbrBankRawObservation]:
+) -> list[CbrBankNormalizedObservation]:
     return list(
         session.execute(
-            select(CbrBankRawObservation)
+            select(CbrBankNormalizedObservation)
             .where(
-                CbrBankRawObservation.id > after_id,
-                CbrBankRawObservation.id <= through_id,
+                CbrBankNormalizedObservation.id > after_id,
+                CbrBankNormalizedObservation.id <= through_id,
+                CbrBankNormalizedObservation.form.in_(SUPPORTED_CREDIT_FORMS),
             )
-            .order_by(CbrBankRawObservation.id)
+            .order_by(CbrBankNormalizedObservation.id)
             .limit(BATCH_SIZE)
         ).scalars()
     )
 
 
+def _reviewed_key(form: str, source_code: str) -> str | None:
+    mapping = FORM_123_METRIC_KEYS if form == "0409123" else FORM_135_METRIC_KEYS
+    return mapping.get(source_code)
+
+
 def _plan_body(session: Session, *, through_id: int | None = None) -> dict[str, Any]:
-    current_max = int(session.scalar(select(func.max(CbrBankRawObservation.id))) or 0)
+    current_max = int(
+        session.scalar(select(func.max(CbrBankNormalizedObservation.id))) or 0
+    )
     boundary = current_max if through_id is None else through_id
     if not isinstance(boundary, int) or isinstance(boundary, bool) or boundary < 0:
-        raise NormalizationRunnerError("INVALID_RAW_BOUNDARY")
+        raise CreditMetricsRunnerError("INVALID_NORMALIZED_BOUNDARY")
     if boundary > current_max:
-        raise NormalizationRunnerError("RAW_BOUNDARY_UNAVAILABLE")
+        raise CreditMetricsRunnerError("NORMALIZED_BOUNDARY_UNAVAILABLE")
 
-    rows_by_form = {form: 0 for form in ("0409101", "0409102", "0409123", "0409135")}
-    raw_rows = already = candidates = unsupported = collisions = 0
-    value_rows = unavailable_rows = 0
-    unsupported_by_code: dict[str, int] = {}
+    rows_by_form = {form: 0 for form in SUPPORTED_CREDIT_FORMS}
+    rows_by_metric_key = {key: 0 for key in ALL_METRIC_KEYS}
+    unsupported_by_source: dict[tuple[str, str], int] = {}
+    normalized_rows = supported_values = unavailable_supported = 0
+    unreviewed_unavailable = already = candidates = unsupported = collisions = 0
     scope_hasher = hashlib.sha256()
     last_id = 0
     while True:
-        raw_batch = _raw_batch(session, after_id=last_id, through_id=boundary)
-        if not raw_batch:
+        batch = _normalized_batch(session, after_id=last_id, through_id=boundary)
+        if not batch:
             break
-        existing = _load_existing(session, [row.id for row in raw_batch])
-        for raw in raw_batch:
-            raw_rows += 1
-            rows_by_form[raw.form] = rows_by_form.get(raw.form, 0) + 1
-            status = "INSERT_CANDIDATE"
-            normalized_fingerprint: str | None = None
-            try:
-                draft = normalize_raw_observation(raw)
-                normalized_fingerprint = draft.normalization_fingerprint
-                if draft.normalized_value is None:
-                    unavailable_rows += 1
+        existing = _load_existing(session, [row.id for row in batch])
+        for normalized in batch:
+            normalized_rows += 1
+            rows_by_form[normalized.form] += 1
+            reviewed_key = _reviewed_key(normalized.form, normalized.source_code)
+            status = "UNREVIEWED_VALUE_UNAVAILABLE"
+            metric_fingerprint: str | None = None
+            if normalized.value_state == "SOURCE_VALUE_UNAVAILABLE":
+                if reviewed_key is not None:
+                    unavailable_supported += 1
+                    status = "SUPPORTED_VALUE_UNAVAILABLE"
                 else:
-                    value_rows += 1
-                normalized = existing.get(raw.id)
-                if normalized is None:
-                    candidates += 1
-                else:
-                    try:
-                        assert_normalized_observation_matches(normalized, draft)
-                        already += 1
-                        status = "ALREADY_NORMALIZED"
-                    except NormalizationSemanticCollision:
-                        collisions += 1
-                        status = "SEMANTIC_COLLISION"
-            except UnsupportedNormalizationInput as exc:
-                unsupported += 1
-                code = exc.code
-                unsupported_by_code[code] = unsupported_by_code.get(code, 0) + 1
-                status = code
+                    unreviewed_unavailable += 1
+            else:
+                try:
+                    draft = project_credit_metric(normalized)
+                    if draft is None:
+                        raise UnsupportedMetricSource("metric projection unavailable")
+                    supported_values += 1
+                    rows_by_metric_key[draft.metric_key] += 1
+                    metric_fingerprint = draft.metric_fingerprint
+                    metric = existing.get(normalized.id)
+                    if metric is None:
+                        candidates += 1
+                        status = "INSERT_CANDIDATE"
+                    else:
+                        try:
+                            assert_credit_metric_matches(metric, draft)
+                            already += 1
+                            status = "ALREADY_MATERIALIZED"
+                        except CreditMetricSemanticCollision:
+                            collisions += 1
+                            status = "SEMANTIC_COLLISION"
+                except UnsupportedMetricSource:
+                    unsupported += 1
+                    source = (normalized.form, normalized.source_code)
+                    unsupported_by_source[source] = (
+                        unsupported_by_source.get(source, 0) + 1
+                    )
+                    status = "UNSUPPORTED_METRIC_SOURCE"
             scope_hasher.update(
                 canonical_json_bytes(
                     {
-                        "raw_observation_id": raw.id,
-                        "raw_observation_fingerprint": raw.observation_fingerprint,
+                        "normalized_observation_id": normalized.id,
+                        "normalization_fingerprint": (
+                            normalized.normalization_fingerprint
+                        ),
                         "status": status,
-                        "normalization_fingerprint": normalized_fingerprint,
+                        "metric_fingerprint": metric_fingerprint,
                     }
                 )
             )
             scope_hasher.update(b"\n")
-        last_id = raw_batch[-1].id
+        last_id = batch[-1].id
 
+    unsupported_sources = [
+        {"form": form, "source_code": source_code, "count": count}
+        for (form, source_code), count in sorted(unsupported_by_source.items())
+    ]
     body = {
         "schema_revision": EXPECTED_ALEMBIC_REVISION,
-        "normalization_contract_version": (
-            CBR_BANK_NORMALIZED_OBSERVATION_CONTRACT_VERSION
-        ),
-        "through_raw_observation_id": boundary,
-        "raw_rows_in_scope": raw_rows,
-        "already_normalized_rows": already,
+        "credit_metric_contract_version": CBR_BANK_CREDIT_METRIC_CONTRACT_VERSION,
+        "through_normalized_observation_id": boundary,
+        "normalized_rows_in_scope": normalized_rows,
+        "supported_value_rows": supported_values,
+        "unavailable_supported_rows": unavailable_supported,
+        "unreviewed_unavailable_rows": unreviewed_unavailable,
+        "already_materialized_rows": already,
         "insert_candidate_rows": candidates,
-        "unsupported_input_rows": unsupported,
+        "unsupported_metric_source_rows": unsupported,
         "semantic_collision_rows": collisions,
         "rows_by_form": dict(sorted(rows_by_form.items())),
-        "value_rows": value_rows,
-        "unavailable_value_rows": unavailable_rows,
-        "unsupported_by_code": dict(sorted(unsupported_by_code.items())),
-        "raw_scope_sha256": scope_hasher.hexdigest(),
+        "rows_by_metric_key": dict(sorted(rows_by_metric_key.items())),
+        "unsupported_metric_sources": unsupported_sources,
+        "scope_sha256": scope_hasher.hexdigest(),
     }
     body["plan_hash"] = sha256_canonical(body)
     return body
@@ -247,14 +276,14 @@ def _safety(*, database_accessed: bool) -> dict[str, Any]:
     return {
         "database_accessed": database_accessed,
         "database_mutation_executed": False,
-        "normalization_executed": False,
-        "normalization_network_required": False,
+        "credit_metric_materialization_executed": False,
         "network_accessed": False,
+        "artifact_parsing_executed": False,
         "pit_selection_executed": False,
         "pit_ready": False,
         "legal_issuer_inference": False,
-        "credit_metrics_calculated": False,
         "scoring": False,
+        "cfa_implemented": False,
         "production_actions": "NONE",
     }
 
@@ -274,7 +303,9 @@ def execute_plan(
         read_only_enforcer=read_only_enforcer,
         allow_non_postgresql=allow_non_postgresql,
     )
-    ready = not body["unsupported_input_rows"] and not body["semantic_collision_rows"]
+    ready = not body["unsupported_metric_source_rows"] and not body[
+        "semantic_collision_rows"
+    ]
     return {
         "schema": SCHEMA_VERSION,
         "status": "complete",
@@ -303,11 +334,11 @@ def execute_preflight(
         allow_non_postgresql=allow_non_postgresql,
     )
     if not hmac.compare_digest(body["plan_hash"], expected_plan_hash):
-        raise NormalizationRunnerError("PLAN_HASH_MISMATCH")
-    if body["unsupported_input_rows"]:
-        raise NormalizationRunnerError("UNSUPPORTED_NORMALIZATION_INPUT")
+        raise CreditMetricsRunnerError("PLAN_HASH_MISMATCH")
+    if body["unsupported_metric_source_rows"]:
+        raise CreditMetricsRunnerError("UNSUPPORTED_METRIC_SOURCE")
     if body["semantic_collision_rows"]:
-        raise NormalizationRunnerError("NORMALIZATION_SEMANTIC_COLLISION")
+        raise CreditMetricsRunnerError("CREDIT_METRIC_SEMANTIC_COLLISION")
     return {
         "schema": SCHEMA_VERSION,
         "status": "ready",
@@ -327,6 +358,7 @@ def _apply_failure(
     through_id: int,
     expected_plan_hash: str,
     inserted_rows: int,
+    reused_rows: int,
     committed_batches: int,
     committed_through_id: int | None,
     commit_outcome_unknown: bool = False,
@@ -338,10 +370,13 @@ def _apply_failure(
         "mode": "apply",
         "error_code": code,
         "ready": False,
-        "through_raw_observation_id": through_id,
+        "through_normalized_observation_id": through_id,
         "expected_plan_hash": expected_plan_hash,
+        "inserted_rows": inserted_rows,
+        "reused_rows": reused_rows,
         "committed_batches": committed_batches,
-        "committed_through_raw_observation_id": committed_through_id,
+        "committed_through_normalized_observation_id": committed_through_id,
+        "post_credit_metric_rows": None,
         "commit_outcome_unknown": commit_outcome_unknown,
         "partial_apply": known_mutation or commit_outcome_unknown,
         "reconciliation_required": known_mutation or commit_outcome_unknown,
@@ -349,18 +384,20 @@ def _apply_failure(
         "database_mutation_executed": (
             True if known_mutation else (None if commit_outcome_unknown else False)
         ),
-        "normalization_executed": known_mutation or commit_outcome_unknown,
-        "normalization_network_required": False,
+        "credit_metric_materialization_executed": (
+            known_mutation or commit_outcome_unknown
+        ),
         "network_accessed": False,
+        "artifact_parsing_executed": False,
         "pit_selection_executed": False,
         "pit_ready": False,
         "legal_issuer_inference": False,
-        "credit_metrics_calculated": False,
         "scoring": False,
+        "cfa_implemented": False,
         "production_actions": (
-            "CBR_BANK_NORMALIZATION_APPLY_OUTCOME_UNKNOWN"
+            "CBR_BANK_CREDIT_METRICS_APPLY_OUTCOME_UNKNOWN"
             if commit_outcome_unknown
-            else ("CBR_BANK_NORMALIZATION_APPLY" if known_mutation else "NONE")
+            else ("CBR_BANK_CREDIT_METRICS_APPLY" if known_mutation else "NONE")
         ),
     }
 
@@ -373,8 +410,8 @@ def execute_apply(
     schema_reader: Callable[[Session], _SchemaState] = _read_schema_state,
     read_only_enforcer: Callable[[Session], None] = _enforce_read_only,
     allow_non_postgresql: bool = False,
-    store_factory: Callable[[Session], CbrBankNormalizedObservationStore] = (
-        CbrBankNormalizedObservationStore
+    store_factory: Callable[[Session], CbrBankCreditMetricStore] = (
+        CbrBankCreditMetricStore
     ),
     commit_transaction: Callable[[Any], None] = lambda transaction: transaction.commit(),
 ) -> dict[str, Any]:
@@ -398,24 +435,27 @@ def execute_apply(
             session = Session(bind=connection, autoflush=False, expire_on_commit=False)
             _enforce_postgresql(connection, allow_non_postgresql=allow_non_postgresql)
             _validate_schema_state(schema_reader(session))
-            raw_batch = _raw_batch(session, after_id=after_id, through_id=through_id)
-            if not raw_batch:
+            batch = _normalized_batch(
+                session, after_id=after_id, through_id=through_id
+            )
+            if not batch:
                 transaction.rollback()
                 break
-            existing = _load_existing(session, [row.id for row in raw_batch])
+            existing = _load_existing(session, [row.id for row in batch])
             drafts = []
             batch_reused = 0
-            for raw in raw_batch:
-                draft = normalize_raw_observation(raw)
-                row = existing.get(raw.id)
-                if row is None:
+            for normalized in batch:
+                draft = project_credit_metric(normalized)
+                if draft is None:
+                    continue
+                metric = existing.get(normalized.id)
+                if metric is None:
                     drafts.append(draft)
                 else:
-                    assert_normalized_observation_matches(row, draft)
+                    assert_credit_metric_matches(metric, draft)
                     batch_reused += 1
             counts = store_factory(session).persist(drafts)
-            if counts.reused:
-                batch_reused += counts.reused
+            batch_reused += counts.reused
             commit_attempted = True
             try:
                 commit_transaction(transaction)
@@ -424,14 +464,15 @@ def execute_apply(
             committed_batches += 1
             inserted += counts.inserted
             reused += batch_reused
-            committed_through_id = raw_batch[-1].id
-            after_id = raw_batch[-1].id
+            committed_through_id = batch[-1].id
+            after_id = batch[-1].id
         except CommitOutcomeUnknown:
             return _apply_failure(
                 "COMMIT_OUTCOME_UNKNOWN",
                 through_id=through_id,
                 expected_plan_hash=expected_plan_hash,
                 inserted_rows=inserted,
+                reused_rows=reused,
                 committed_batches=committed_batches,
                 committed_through_id=committed_through_id,
                 commit_outcome_unknown=True,
@@ -439,21 +480,18 @@ def execute_apply(
         except Exception as exc:
             if transaction is not None and transaction.is_active:
                 transaction.rollback()
-            code = getattr(exc, "code", "NORMALIZATION_APPLY_FAILED")
+            code = getattr(exc, "code", "CREDIT_METRICS_APPLY_FAILED")
             return _apply_failure(
                 str(code),
                 through_id=through_id,
                 expected_plan_hash=expected_plan_hash,
                 inserted_rows=inserted,
+                reused_rows=reused,
                 committed_batches=committed_batches,
                 committed_through_id=committed_through_id,
             )
         finally:
-            if (
-                transaction is not None
-                and not commit_attempted
-                and transaction.is_active
-            ):
+            if transaction is not None and not commit_attempted and transaction.is_active:
                 transaction.rollback()
             if session is not None:
                 session.close()
@@ -474,20 +512,22 @@ def execute_apply(
             through_id=through_id,
             expected_plan_hash=expected_plan_hash,
             inserted_rows=inserted,
+            reused_rows=reused,
             committed_batches=committed_batches,
             committed_through_id=committed_through_id,
         )
     if (
         final["insert_candidate_rows"]
-        or final["unsupported_input_rows"]
+        or final["unsupported_metric_source_rows"]
         or final["semantic_collision_rows"]
-        or final["already_normalized_rows"] != final["raw_rows_in_scope"]
+        or final["already_materialized_rows"] != final["supported_value_rows"]
     ):
         return _apply_failure(
             "FINAL_READBACK_FAILED",
             through_id=through_id,
             expected_plan_hash=expected_plan_hash,
             inserted_rows=inserted,
+            reused_rows=reused,
             committed_batches=committed_batches,
             committed_through_id=committed_through_id,
         )
@@ -498,54 +538,52 @@ def execute_apply(
         "mode": "apply",
         "error_code": None,
         "ready": True,
-        "through_raw_observation_id": through_id,
+        "through_normalized_observation_id": through_id,
         "expected_plan_hash": expected_plan_hash,
         "inserted_rows": inserted,
         "reused_rows": reused,
         "committed_batches": committed_batches,
-        "committed_through_raw_observation_id": committed_through_id,
-        "post_normalized_rows": final["already_normalized_rows"],
+        "committed_through_normalized_observation_id": committed_through_id,
+        "post_credit_metric_rows": final["already_materialized_rows"],
         "commit_outcome_unknown": False,
         "partial_apply": False,
         "reconciliation_required": False,
         "database_accessed": True,
         "database_mutation_executed": mutated,
-        "normalization_executed": mutated,
-        "normalization_network_required": False,
+        "credit_metric_materialization_executed": mutated,
         "network_accessed": False,
+        "artifact_parsing_executed": False,
         "pit_selection_executed": False,
         "pit_ready": False,
         "legal_issuer_inference": False,
-        "credit_metrics_calculated": False,
         "scoring": False,
-        "production_actions": (
-            "CBR_BANK_NORMALIZATION_APPLY" if mutated else "NONE"
-        ),
+        "cfa_implemented": False,
+        "production_actions": "CBR_BANK_CREDIT_METRICS_APPLY" if mutated else "NONE",
     }
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = _ArgumentParser(prog="cbr-bank-normalization-runner")
+    parser = _ArgumentParser(prog="cbr-bank-credit-metrics-runner")
     parser.add_argument("--mode", choices=("plan", "preflight", "apply"), required=True)
     parser.add_argument("--database-url-env", required=True)
     parser.add_argument("--confirm-read-only", action="store_true")
     parser.add_argument("--confirm-write", action="store_true")
-    parser.add_argument("--through-raw-observation-id", type=int)
+    parser.add_argument("--through-normalized-observation-id", type=int)
     parser.add_argument("--expected-plan-hash")
     return parser
 
 
 def _validate_args(args: argparse.Namespace) -> None:
     if not _ENV_NAME.fullmatch(args.database_url_env or ""):
-        raise NormalizationRunnerError("INVALID_ARGUMENTS")
-    frozen = args.through_raw_observation_id is not None and bool(
+        raise CreditMetricsRunnerError("INVALID_ARGUMENTS")
+    frozen = args.through_normalized_observation_id is not None and bool(
         args.expected_plan_hash and _SHA256.fullmatch(args.expected_plan_hash)
     )
     if args.mode == "plan":
         valid = (
             args.confirm_read_only
             and not args.confirm_write
-            and args.through_raw_observation_id is None
+            and args.through_normalized_observation_id is None
             and args.expected_plan_hash is None
         )
     elif args.mode == "preflight":
@@ -553,23 +591,23 @@ def _validate_args(args: argparse.Namespace) -> None:
     else:
         valid = args.confirm_write and not args.confirm_read_only and frozen
     if not valid or (
-        args.through_raw_observation_id is not None
-        and args.through_raw_observation_id < 0
+        args.through_normalized_observation_id is not None
+        and args.through_normalized_observation_id < 0
     ):
-        raise NormalizationRunnerError("INVALID_ARGUMENTS")
+        raise CreditMetricsRunnerError("INVALID_ARGUMENTS")
 
 
 def _database_url(env_name: str, environment: Mapping[str, str]) -> str:
     value = environment.get(env_name)
     if not value:
-        raise NormalizationRunnerError("DATABASE_CONFIGURATION_UNAVAILABLE")
+        raise CreditMetricsRunnerError("DATABASE_CONFIGURATION_UNAVAILABLE")
     try:
         if make_url(value).get_backend_name() != "postgresql":
-            raise NormalizationRunnerError("DATABASE_CONFIGURATION_INVALID")
-    except NormalizationRunnerError:
+            raise CreditMetricsRunnerError("DATABASE_CONFIGURATION_INVALID")
+    except CreditMetricsRunnerError:
         raise
     except Exception as exc:
-        raise NormalizationRunnerError("DATABASE_CONFIGURATION_INVALID") from exc
+        raise CreditMetricsRunnerError("DATABASE_CONFIGURATION_INVALID") from exc
     return value
 
 
@@ -602,7 +640,7 @@ def main(
     try:
         args = _parser().parse_args(argv)
         _validate_args(args)
-    except (NormalizationRunnerError, SystemExit):
+    except (CreditMetricsRunnerError, SystemExit):
         _emit(_failure("INVALID_ARGUMENTS"))
         return 2
     mode = args.mode
@@ -610,7 +648,7 @@ def main(
     try:
         database_url = _database_url(args.database_url_env, environment)
         engine = engine_factory(database_url, pool_pre_ping=True)
-    except NormalizationRunnerError as exc:
+    except CreditMetricsRunnerError as exc:
         _emit(_failure(exc.code, mode=mode))
         return 1
     except Exception:
@@ -627,28 +665,24 @@ def main(
         elif mode == "preflight":
             result = execute_preflight(
                 engine,
-                through_id=args.through_raw_observation_id,
+                through_id=args.through_normalized_observation_id,
                 expected_plan_hash=args.expected_plan_hash,
                 **common,
             )
         else:
             result = execute_apply(
                 engine,
-                through_id=args.through_raw_observation_id,
+                through_id=args.through_normalized_observation_id,
                 expected_plan_hash=args.expected_plan_hash,
                 **common,
             )
         _emit(result)
         return 0 if result["status"] in {"complete", "ready"} else 1
-    except NormalizationRunnerError as exc:
+    except CreditMetricsRunnerError as exc:
         _emit(_failure(exc.code, mode=mode, database_accessed=True))
         return 1
     except Exception:
-        _emit(
-            _failure(
-                "NORMALIZATION_RUNNER_FAILED", mode=mode, database_accessed=True
-            )
-        )
+        _emit(_failure("CREDIT_METRICS_RUNNER_FAILED", mode=mode, database_accessed=True))
         return 1
     finally:
         engine.dispose()

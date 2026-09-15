@@ -48,7 +48,7 @@ from app.services.cbr_bank_reporting.contracts import (
 
 
 SCHEMA_VERSION = "bondradar.cbr_raw_financial_evidence_production_runner.v1"
-EXPECTED_ALEMBIC_REVISION = "202609140001"
+EXPECTED_ALEMBIC_REVISION = "202609150001"
 APPROVED_REPORT_DATE = date(2026, 8, 1)
 PUBLICATION_STATUS = "UNKNOWN"
 RUNNER_CONTRACT_VERSION = "cbr-controlled-production-ingestion-runner-v1"

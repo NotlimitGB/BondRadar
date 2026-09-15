@@ -15,6 +15,13 @@ from .normalization import (
     NormalizationTransformationKind,
     normalize_raw_observation,
 )
+from .credit_metrics import (
+    CbrBankCreditMetricStore,
+    CreditMetricDraft,
+    CreditMetricFamily,
+    CreditMetricWriteCounts,
+    project_credit_metric,
+)
 
 __all__ = [
     "CbrIdentityLinkState",
@@ -30,4 +37,9 @@ __all__ = [
     "NormalizedValueState",
     "NormalizationTransformationKind",
     "normalize_raw_observation",
+    "CbrBankCreditMetricStore",
+    "CreditMetricDraft",
+    "CreditMetricFamily",
+    "CreditMetricWriteCounts",
+    "project_credit_metric",
 ]
