@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 from decimal import Decimal
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,21 @@ TASK255_TABLES = {
 }
 TASK261_TABLE = "cbr_bank_normalized_observations"
 TASK262_TABLE = "cbr_bank_credit_metrics"
+
+
+def _task262_fix2_migration_module():
+    path = (
+        ROOT
+        / "backend"
+        / "alembic"
+        / "versions"
+        / "202609150002_cbr_bank_credit_metrics_n18.py"
+    )
+    spec = importlib.util.spec_from_file_location("task262_fix2_migration", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_task255_migration_upgrade_downgrade_reupgrade(
@@ -775,3 +791,38 @@ def test_task262_fix1_revision_changes_only_the_mapping_constraint() -> None:
     assert "INSERT" not in migration.upper()
     assert "DELETE" not in migration.upper()
     assert "UPDATE" not in migration.upper()
+
+
+def test_task262_fix2_selects_production_truncated_constraint_semantically() -> None:
+    migration = _task262_fix2_migration_module()
+    physical_name = (
+        "ck_cbr_bank_credit_metrics_cbr_bank_credit_metrics_mapp_2db8"
+    )
+    for include_n18 in (False, True):
+        sqltext = migration._mapping_check_sql(include_n18=include_n18)
+        reflected_sql = sqltext.upper().replace(
+            "SOURCE_CODE", '"SOURCE_CODE"'
+        )
+        constraints = [
+            {"name": "ck_unrelated", "sqltext": "metric_value is not null"},
+            {"name": physical_name, "sqltext": reflected_sql},
+        ]
+        assert migration._select_mapping_constraint(constraints) == physical_name
+
+
+def test_task262_fix2_constraint_discovery_fails_closed() -> None:
+    migration = _task262_fix2_migration_module()
+    predicate = migration._mapping_check_sql(include_n18=True)
+
+    with pytest.raises(RuntimeError, match="missing or ambiguous"):
+        migration._select_mapping_constraint(
+            [{"name": "ck_unrelated", "sqltext": "metric_value is not null"}]
+        )
+
+    with pytest.raises(RuntimeError, match="missing or ambiguous"):
+        migration._select_mapping_constraint(
+            [
+                {"name": "ck_mapping_a", "sqltext": predicate},
+                {"name": "ck_mapping_b", "sqltext": predicate},
+            ]
+        )

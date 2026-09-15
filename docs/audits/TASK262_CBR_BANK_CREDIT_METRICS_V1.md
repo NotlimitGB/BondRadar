@@ -37,6 +37,27 @@ reports that later historical normalized observations contain this code, so it
 is now added to the explicit source mapping without rewriting the earlier
 Task250 conclusion.
 
+## Task262-FIX2 PostgreSQL migration correction
+
+```text
+TASK262_FIX2=true
+PRODUCTION_MIGRATION_ATTEMPT_202609150002=FAILED_SAFE
+FAILURE_REASON=POSTGRESQL_PHYSICAL_CHECK_NAME_WAS_TRUNCATED_AND_HASHED
+PRODUCTION_REVISION_AFTER_FAILURE=202609150001
+PRODUCTION_CREDIT_METRIC_ROWS_AFTER_FAILURE=0
+TRANSACTIONAL_ROLLBACK_VERIFIED=true
+FIX=SEMANTIC_REFLECTED_CHECK_DISCOVERY
+```
+
+These production facts are operator-provided evidence; Task262-FIX2 does not
+access or independently inspect production. PostgreSQL shortened the physical
+CHECK name generated from the repository naming convention, so suffix matching
+against the untruncated logical name could not locate it. The corrected
+migration identifies exactly one reflected CHECK by the invariant Task262
+mapping semantics and then uses its actual reflected physical name. Zero or
+multiple semantic matches fail closed. No new Alembic revision is created,
+because `202609150002` did not advance successfully in production.
+
 The immutable lineage is:
 
 ```text

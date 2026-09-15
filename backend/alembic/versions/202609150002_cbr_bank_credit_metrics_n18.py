@@ -5,6 +5,9 @@ Revises: 202609150001
 """
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -15,7 +18,19 @@ branch_labels = None
 depends_on = None
 
 TABLE = "cbr_bank_credit_metrics"
-MAPPING_CONSTRAINT_SUFFIX = "cbr_bank_credit_metrics_mapping_valid"
+MAPPING_CONSTRAINT_SENTINELS = (
+    "source_form",
+    "source_code",
+    "metric_key",
+    "metric_family",
+    "metric_unit",
+    "0409123",
+    "0409135",
+    "REGULATORY_CAPITAL",
+    "REGULATORY_RATIO",
+    "CBR_123_000",
+    "CBR_135_N27",
+)
 
 
 def _mapping_check_sql(*, include_n18: bool) -> str:
@@ -50,15 +65,27 @@ def _mapping_check_sql(*, include_n18: bool) -> str:
     )
 
 
-def _mapping_constraint_name(bind: sa.Connection) -> str:
+def _select_mapping_constraint(
+    constraints: Sequence[Mapping[str, Any]],
+) -> str:
     matches = [
         item.get("name")
-        for item in sa.inspect(bind).get_check_constraints(TABLE)
-        if str(item.get("name") or "").endswith(MAPPING_CONSTRAINT_SUFFIX)
+        for item in constraints
+        if isinstance(item.get("sqltext"), str)
+        and all(
+            sentinel.casefold() in item["sqltext"].casefold()
+            for sentinel in MAPPING_CONSTRAINT_SENTINELS
+        )
     ]
-    if len(matches) != 1 or not isinstance(matches[0], str):
+    if len(matches) != 1 or not isinstance(matches[0], str) or not matches[0]:
         raise RuntimeError("Task262 mapping constraint is missing or ambiguous")
     return matches[0]
+
+
+def _mapping_constraint_name(bind: sa.Connection) -> str:
+    return _select_mapping_constraint(
+        sa.inspect(bind).get_check_constraints(TABLE)
+    )
 
 
 def _replace_mapping_constraint(*, include_n18: bool) -> None:
