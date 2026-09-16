@@ -264,3 +264,89 @@ Verification:
 
 `PRODUCTION_ACTIONS=NONE`, `PRODUCTION_DB_MUTATION=false`,
 `LIVE_CBR_REQUESTS=NONE`, `PIT_READY=false`.
+
+## Task265-FIX3 — Explicit empty initial-search result
+
+Baseline: clean `main@4ae20724e1fea40f7a81e4d4a75237efccc5d053`.
+No model, migration, schema revision, generic INN, FIX2 eligibility or persistence
+behavior changes. Alembic remains `202609160001`.
+
+### Operator-provided production evidence
+
+These facts are prior evidence supplied by the operator, not independently
+verified through production DB access or live requests during FIX3:
+
+- FIX2 deployment PASS; code SHA `4ae20724e1fea40f7a81e4d4a75237efccc5d053`, DB revision `202609160001`.
+- Backend healthy, restart_count `0`, production smoke PASS.
+- Full universe: issuer `496`, bond `2995`; eligible issuer queries `494`, ineligible `2`.
+- Failed PLAN: `BITRIX_SOURCE_ERROR`, HTTP requests `5`, database accessed and transaction read-only; mutation/persistence false, source bundle not written, production actions NONE, PIT readiness false.
+- Artifact/rating/default evidence counts before and after the failed PLAN: `0|0|0`. No successful production source bundle exists yet.
+
+| Context | INN | Source result |
+| --- | --- | --- |
+| PLAN request 3, searchRating | `0261012138` | success, itemCount 1 |
+| PLAN request 4, searchRating | `0268008010` | success, itemCount 4 |
+| PLAN request 5, searchRating | `0273086494` | HTTP 200, error, data null, errors exactly code 0/message Array |
+| Same-session controlled comparison | `0273086494` | HTTP 200, error/Array/null |
+| Same-session controlled comparison | `0274051582` | success, itemCount 18, pageCount 1, pageNumber 1 |
+| Same-session controlled comparison | `0274062111` | success, itemCount 3, pageCount 1, pageNumber 1 |
+
+The accepted adapter interpretation is that this exact signature represents an
+empty initial search for at least the observed valid issuer. It is not a general
+rule that Bitrix errors mean no ratings; no live confirmation was performed here.
+
+### Action-specific contract
+
+All parsing first shares the existing bounded, strict UTF-8 JSON decode,
+duplicate-key/non-finite/depth/size inspection, CAPTCHA and secret guards.
+Generic `envelope()` continues requiring success, an empty errors list and dict
+data. Only `searchRating` recognizes a top-level object with exactly
+`status/data/errors`, status `error`, data null, one error with exactly
+`code/message`, a real integer code `0` and exact message `Array`.
+Boolean, float or string code, missing/extra fields, multiple errors, non-null
+data, whitespace/case message variants and other errors remain fatal.
+Navigation/history, transport/HTTP failures, access blocks, pagination, agency
+and identity failures remain fail-closed.
+
+Only the internal page is normalized: itemCount/pageCount/pageNumber `0`,
+pageSize `25`, objectName/ascending, empty rows. Exact response bytes are never
+rewritten to synthetic success JSON. The client continues the next eligible
+query; no object, rating candidate or history request comes from the empty issuer.
+
+`issuer_queries_no_results` counts only this recognized signature, not ordinary
+successful zero-row pages. Such queries still increment attempted/succeeded:
+on complete discovery both equal eligible count, and no-results lies between
+zero and succeeded. The full universe/hash and overall coverage denominator
+remain unchanged; FIX2 ineligible identifiers are still skipped.
+
+Raw no-result responses participate in response entries, SHA, frozen byte size,
+plan hash and unique URL/payload source-artifact counts, without creating rating
+events. Repeated identical empty response bytes may deduplicate as one artifact
+while remaining separate query entries/counts. Offline PREFLIGHT rederives this
+contract; rehashed count tampering is rejected. Bundle schema v1 is retained for
+the pre-first-success production correction. Future artifact persistence follows
+the unchanged Task265 store; no new APPLY test or production APPLY was executed.
+
+### Verification and handoff
+
+- `python -m pytest -q backend/tests/test_cbr_rating_repository.py backend/tests/test_cbr_rating_repository_runner.py`: **86 passed, 0 failed**, exit 0; one existing pytest cache permission warning.
+- Synthetic/mock tests prove exact and near-miss signatures, strict generic/navigation/history errors, HTTP failures, JSON/CAPTCHA/secret guards, success-empty-success continuation, zero histories for empty results, counts, unchanged FIX2 universe/eligibility, exact raw frozen bytes, mixed/all-empty deterministic round-trip, offline PREFLIGHT and rehashed count rejection.
+- Existing focused regressions retain nullable scale, exact identity, agency mapping, semantic re-observation/collisions and disposable-DB transaction safety. Runtime writes are limited to existing disposable test databases; no production operation occurs.
+- `python -m compileall backend/app`: PASS.
+- `python -m alembic heads` (from backend): sole `202609160001 (head)`.
+- `git diff --check`: PASS. Scope: parser/client/runner, their two focused test modules and this audit only.
+- `BROAD_BACKEND=SKIPPED_BY_DESIGN`; exact-commit CI is queried at most once without waiting/polling.
+
+The sole handoff is independent external review. Production PLAN/migration/APPLY
+requires separate authorization and is not unlocked automatically.
+
+```text
+EMPTY_SEARCH_ACTION_ONLY=true
+GENERIC_ENVELOPE_STRICT=true
+RAW_NO_RESULT_RESPONSE_PRESERVED=true
+DB_MIGRATION_ADDED=false
+PRODUCTION_ACTIONS=NONE
+PRODUCTION_DB_MUTATION=false
+LIVE_CBR_REQUESTS=NONE
+PIT_READY=false
+```

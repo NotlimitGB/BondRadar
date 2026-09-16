@@ -168,7 +168,10 @@ class CbrRatingsClient:
         body = urlencode({"sessid": self.sessid, **{"fields[" + k + "]": str(v) for k, v in fields.items()}}).encode("ascii")
         payload, content_type = self._request("POST", action_url(action), body=body)
         try:
-            envelope(payload)
+            if action == "searchRating":
+                parse_search(payload, action=action)
+            else:
+                envelope(payload)
             if self.sessid.encode("ascii") in payload:
                 raise RepositoryError("SECRET_BEARING_RESPONSE")
         except RepositoryError as e:
@@ -186,7 +189,7 @@ class CbrRatingsClient:
         for inn in eligible_issuer_inns(universe["issuer_inns"]):
             self.referer = BASE + "/?" + urlencode({"formSearh": "advanced", "inn": inn, "disclaimer": "1"})
             response = self.action("searchRating", search_fields(inn)); responses.append(response)
-            first = parse_search(response.content)
+            first = parse_search(response.content, action=response.action)
             if first.page_number not in ((1,) if first.item_count else (0, 1)):
                 raise RepositoryError("INVALID_PAGINATION")
             if first.page_count > MAX_SEARCH_PAGES:
@@ -195,7 +198,7 @@ class CbrRatingsClient:
             for number in range(2, first.page_count + 1):
                 response = self.action("searchRatingNavigation", {"pageSize": first.page_size, "pageNumber": number,
                     "sortingField": first.sorting_field, "sortingDirection": first.sorting_direction})
-                page = parse_search(response.content)
+                page = parse_search(response.content, action=response.action)
                 if page.page_number != number or (page.item_count, page.page_count, page.page_size,
                     page.sorting_field, page.sorting_direction) != (first.item_count, first.page_count,
                     first.page_size, first.sorting_field, first.sorting_direction):

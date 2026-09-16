@@ -25,6 +25,8 @@ NOW = datetime(2026, 9, 16, tzinfo=timezone.utc)
 INN = "7707083893"
 ISIN = "RU000A123456"
 UNIVERSE = {"issuer_inns": [INN], "bond_isins": [ISIN]}
+EMPTY_SEARCH_INNS = ("0261012138", "0273086494", "0274051582")
+EMPTY_SEARCH_BYTES = b'{\n "status": "error", "data": null, "errors": [{"code": 0, "message": "Array"}]\n}'
 
 
 def row(**updates):
@@ -59,6 +61,65 @@ def fixture_responses(rows=None, histories=None):
     for obj in sorted(histories, key=int):
         result.append(response("searchObjectHistory", {"objectId": obj}, json_bytes({"title": "History", "table": histories[obj]})))
     return tuple(result)
+
+
+def empty_search_responses():
+    first, empty, last = EMPTY_SEARCH_INNS
+    return (
+        response("searchRating", search_fields(first), search_bytes([row(inn=first)])),
+        response("searchRating", search_fields(empty), EMPTY_SEARCH_BYTES),
+        response("searchRating", search_fields(last), search_bytes([row(inn=last, objectId="125")])),
+        response("searchObjectHistory", {"objectId": "123"}, json_bytes({"title": "History", "table": []})),
+        response("searchObjectHistory", {"objectId": "125"}, json_bytes({"title": "History", "table": []})),
+    )
+
+
+def test_explicit_empty_search_page_raw_bytes_and_strict_generic_envelope():
+    page = parse_search(EMPTY_SEARCH_BYTES, action="searchRating")
+    assert (page.item_count, page.page_count, page.page_number, page.page_size) == (0, 0, 0, 25)
+    assert (page.sorting_field, page.sorting_direction, page.rows) == ("objectName", "ascending", ())
+    with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+        envelope(EMPTY_SEARCH_BYTES)
+    candidates, counts, retained = derive(empty_search_responses(),
+        {"issuer_inns": list(EMPTY_SEARCH_INNS), "bond_isins": []})
+    assert counts["issuer_queries_attempted"] == counts["issuer_queries_succeeded"] == 3
+    assert counts["issuer_queries_no_results"] == 1
+    assert {c.value.source_issuer_inn for c in candidates} == {EMPTY_SEARCH_INNS[0], EMPTY_SEARCH_INNS[2]}
+    assert len(candidates) == 2 and retained == {"123", "125"}
+    # Ordinary successful zero-row pages are not the explicit error-envelope diagnostic.
+    candidates, counts, _ = derive(fixture_responses(rows=[]), UNIVERSE)
+    assert not candidates and counts["issuer_queries_no_results"] == 0
+    assert counts["issuer_queries_succeeded"] == 1
+
+
+@pytest.mark.parametrize("changes", [
+    {"status": "Error"}, {"status": "success"}, {"data": {}}, {"data": []},
+    {"extra": None}, {"errors": []}, {"errors": {}}, {"errors": [None]},
+    {"errors": [{"message": "Array"}]}, {"errors": [{"code": 0}]},
+    {"errors": [{"code": 0, "message": "Array", "extra": None}]},
+    {"errors": [{"code": 0, "message": "Array"}, {"code": 0, "message": "Other"}]},
+    *({"errors": [{"code": code, "message": "Array"}]} for code in (1, "0", 0.0, False, None)),
+    *({"errors": [{"code": 0, "message": message}]} for message in ("array", " Array ", "Other", None)),
+])
+def test_empty_search_signature_deviations_fail_closed(changes):
+    payload = json.loads(EMPTY_SEARCH_BYTES)
+    payload.update(changes)
+    with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+        parse_search(json.dumps(payload).encode(), action="searchRating")
+
+
+@pytest.mark.parametrize("payload, code", [
+    (b'{"status":"error","errors":[{"code":0,"message":"Array"}]}', "BITRIX_SOURCE_ERROR"),
+    (b'{"status":"error","status":"error","data":null,"errors":[{"code":0,"message":"Array"}]}', "DUPLICATE_JSON_KEY"),
+    (b'{"status":"error","data":null,"errors":[{"code":NaN,"message":"Array"}]}', "INVALID_SOURCE_JSON"),
+    (b'{"status":"error","data":null,"errors":[{"code":1e999,"message":"Array"}]}', "INVALID_SOURCE_JSON"),
+    (b'{"status":"error","data":null,"errors":[{"code":0,"message":"Array"}],"captchaResult":false}', "CAPTCHA_REQUIRED"),
+    (b'{"status":"error","data":null,"errors":[{"code":0,"message":"Array"}],"sessid":"secret"}', "SECRET_BEARING_RESPONSE"),
+    (b'not json', "INVALID_SOURCE_JSON"),
+])
+def test_search_specific_path_keeps_json_and_secret_guards(payload, code):
+    with pytest.raises(RepositoryError, match=code):
+        parse_search(payload, action="searchRating")
 
 
 @pytest.mark.parametrize("label", list(AGENCIES))
@@ -162,6 +223,90 @@ def test_client_queries_only_eligible_full_universe_and_empty_scope(with_eligibl
         client.close()
 
 
+def test_client_continues_after_empty_search_and_preserves_session_payload():
+    searches, histories = [], []
+    expected = empty_search_responses()
+    payloads = {dict(r.fields)["inn"]: r.content for r in expected[:3]}
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.method == "GET":
+            return httpx.Response(200, text='<input name="sessid" value="'+'a'*32+'">',
+                headers={"content-type": "text/html", "set-cookie": "session=test; Path=/"})
+        assert "session=test" in request.headers["cookie"]
+        fields = parse_qs(request.content.decode(), keep_blank_values=True)
+        assert fields["sessid"] == ["a"*32]
+        if request.url.params["action"] == "searchRating":
+            inn = fields["fields[inn]"][0]; searches.append(inn)
+            payload = payloads[inn]
+        else:
+            assert request.url.params["action"] == "searchObjectHistory"
+            histories.append(fields["fields[objectId]"][0])
+            payload = json_bytes({"title": "History", "table": []})
+        return httpx.Response(200, content=payload, headers={"content-type": "application/json"})
+    client, _ = make_client(handler)
+    universe = {"issuer_inns": sorted(["0010000025", *EMPTY_SEARCH_INNS]), "bond_isins": []}
+    try:
+        responses = client.collect(universe)
+        assert tuple(searches) == EMPTY_SEARCH_INNS and histories == ["123", "125"]
+        assert client.requests == 7 and responses[1].content == EMPTY_SEARCH_BYTES
+        assert all("sessid" not in dict(r.fields) for r in responses)
+        candidates, counts, _ = derive(responses, universe)
+        assert counts["issuer_queries_attempted"] == counts["issuer_queries_succeeded"] == 3
+        assert counts["issuer_queries_no_results"] == 1 and len(candidates) == 2
+        assert counts["issuer_query_ineligible_count"] == 1
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("action, fields", [
+    ("searchRatingNavigation", {"pageSize": 25, "pageNumber": 2, "sortingField": "objectName", "sortingDirection": "ascending"}),
+    ("searchObjectHistory", {"objectId": "123"}),
+])
+def test_empty_signature_is_fatal_for_navigation_and_history_client_and_offline(action, fields):
+    with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+        if action == "searchRatingNavigation":
+            parse_search(EMPTY_SEARCH_BYTES, action=action)
+        else:
+            envelope(EMPTY_SEARCH_BYTES)
+    source = empty_search_responses()
+    failing = response(action, fields, EMPTY_SEARCH_BYTES)
+    responses = (source[0], failing) if action == "searchRatingNavigation" else (*source[:3], failing)
+    with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+        derive(responses, {"issuer_inns": list(EMPTY_SEARCH_INNS), "bond_isins": []})
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.method == "GET":
+            return httpx.Response(200, text='<input name="sessid" value="'+'a'*32+'">',
+                                  headers={"content-type": "text/html"})
+        return httpx.Response(200, content=EMPTY_SEARCH_BYTES, headers={"content-type": "application/json"})
+    client, _ = make_client(handler)
+    try:
+        client.bootstrap()
+        with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+            client.action(action, fields)
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("status, code", [(400, "SOURCE_ACCESS_BLOCKED"), (503, "TRANSIENT_SOURCE_FAILURE")])
+def test_empty_signature_never_normalizes_http_failure(status, code):
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.method == "GET":
+            return httpx.Response(200, text='<input name="sessid" value="'+'a'*32+'">',
+                                  headers={"content-type": "text/html"})
+        return httpx.Response(status, content=EMPTY_SEARCH_BYTES, headers={"content-type": "application/json"})
+    client, _ = make_client(handler)
+    try:
+        with pytest.raises(RepositoryError, match=code):
+            client.collect(UNIVERSE)
+    finally:
+        client.close()
+
+
 def test_missing_eligible_and_recorded_ineligible_search_fail_closed():
     assert is_russian_legal_entity_inn("7736050003")
     with pytest.raises(RepositoryError, match="INCOMPLETE_DISCOVERY"):
@@ -180,7 +325,7 @@ def test_valid_russian_inn_bitrix_error_is_still_fatal():
             return httpx.Response(200, text='<input name="sessid" value="'+'a'*32+'">',
                                   headers={"content-type": "text/html"})
         searches.append(parse_qs(request.content.decode())["fields[inn]"][0])
-        return httpx.Response(200, content=b'{"status":"error","data":{},"errors":[{"code":0,"message":"Array"}]}',
+        return httpx.Response(200, content=b'{"status":"error","data":null,"errors":[{"code":123,"message":"Internal source failure"}]}',
                               headers={"content-type": "application/json"})
     client, _ = make_client(handler)
     try:

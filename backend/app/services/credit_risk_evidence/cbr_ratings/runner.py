@@ -32,7 +32,7 @@ from .client import CbrRatingsClient
 from .parser import derive, _pairs
 
 COUNT_KEYS = ("issuer_universe_count bond_universe_count issuer_query_eligible_count issuer_query_ineligible_count "
-    "issuer_queries_attempted issuer_queries_succeeded "
+    "issuer_queries_attempted issuer_queries_succeeded issuer_queries_no_results "
     "search_pages_fetched search_rows_seen unique_object_ids_seen issuer_objects_in_universe "
     "bond_objects_in_universe bond_objects_outside_universe object_histories_fetched history_rows_seen "
     "agency_acra_events agency_expert_ra_events agency_nra_events agency_nkr_events unknown_agency_rows "

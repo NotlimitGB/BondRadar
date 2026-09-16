@@ -43,20 +43,39 @@ def _inspect(value, depth=0):
         raise RepositoryError("INVALID_SOURCE_JSON")
 
 
-def envelope(content):
+def _decode_payload(content):
     if not isinstance(content, bytes) or not 0 < len(content) <= MAX_RESPONSE_BYTES:
         raise RepositoryError("INVALID_SOURCE_JSON")
     try:
         payload = json.loads(content.decode("utf-8", "strict"), object_pairs_hook=_pairs,
                              parse_constant=lambda _: (_ for _ in ()).throw(RepositoryError("INVALID_SOURCE_JSON")))
         _inspect(payload)
-        if not isinstance(payload, dict) or payload.get("status") != "success" or payload.get("errors") != [] or not isinstance(payload.get("data"), dict):
-            raise RepositoryError("BITRIX_SOURCE_ERROR")
-        return payload["data"]
+        return payload
     except (ValueError, UnicodeError, RecursionError) as error:
         if isinstance(error, RepositoryError):
             raise
         raise RepositoryError("INVALID_SOURCE_JSON") from None
+
+
+def _success_data(payload):
+    if not isinstance(payload, dict) or payload.get("status") != "success" or payload.get("errors") != [] or not isinstance(payload.get("data"), dict):
+        raise RepositoryError("BITRIX_SOURCE_ERROR")
+    return payload["data"]
+
+
+def envelope(content):
+    return _success_data(_decode_payload(content))
+
+
+def _is_explicit_empty_search(payload):
+    if not isinstance(payload, dict) or set(payload) != {"status", "data", "errors"}:
+        return False
+    errors = payload["errors"]
+    if payload["status"] != "error" or payload["data"] is not None or not isinstance(errors, list) or len(errors) != 1:
+        return False
+    error = errors[0]
+    return (isinstance(error, dict) and set(error) == {"code", "message"}
+            and type(error["code"]) is int and error["code"] == 0 and error["message"] == "Array")
 
 
 def text(value, *, optional=False, limit=512):
@@ -82,8 +101,14 @@ def agency(value):
         raise RepositoryError("UNKNOWN_RATING_AGENCY") from None
 
 
-def parse_search(content):
-    data = envelope(content)
+def _parse_search_result(content, *, action):
+    if action not in ("searchRating", "searchRatingNavigation"):
+        raise RepositoryError("UNSUPPORTED_ACTION")
+    payload = _decode_payload(content)
+    if action == "searchRating" and _is_explicit_empty_search(payload):
+        # Only the derived page is synthetic; the source response bytes stay intact.
+        return SearchPage(0, 0, 0, 25, "objectName", "ascending", ()), True
+    data = _success_data(payload)
     for key, minimum in (("itemCount", 0), ("pageCount", 0), ("pageNumber", 0), ("pageSize", 1)):
         if type(data.get(key)) is not int or data[key] < minimum:
             raise RepositoryError("INVALID_PAGINATION")
@@ -109,7 +134,11 @@ def parse_search(content):
             raise RepositoryError("INVALID_OBJECT_ID")
         agency(row["kraName"])
         rows.append(fields)
-    return SearchPage(count, pages, number, size, data["sortingField"], data["sortingDirection"], tuple(rows))
+    return SearchPage(count, pages, number, size, data["sortingField"], data["sortingDirection"], tuple(rows)), False
+
+
+def parse_search(content, *, action="searchRating"):
+    return _parse_search_result(content, action=action)[0]
 
 
 def _event(row, identity, object_id, *, history=False):
@@ -136,7 +165,7 @@ def derive(responses, universe):
     objects, current, history, completed = {}, [], [], set()
     eligible = set(eligible_issuer_inns(universe["issuer_inns"]))
     seen_inns, active, next_page, config, seen_rows = set(), None, None, None, 0
-    counts = {k: 0 for k in ("issuer_queries_attempted", "issuer_queries_succeeded", "search_pages_fetched",
+    counts = {k: 0 for k in ("issuer_queries_attempted", "issuer_queries_succeeded", "issuer_queries_no_results", "search_pages_fetched",
         "search_rows_seen", "unique_object_ids_seen", "issuer_objects_in_universe", "bond_objects_in_universe",
         "bond_objects_outside_universe", "object_histories_fetched", "history_rows_seen", "current_history_duplicates")}
     counts.update(issuer_query_eligible_count=len(eligible),
@@ -155,7 +184,7 @@ def derive(responses, universe):
             if set(fields) != {"objectId"} or not re.fullmatch(r"[1-9][0-9]{0,19}", fields["objectId"]):
                 raise RepositoryError("INVALID_REQUEST_METADATA")
         if response.action in ("searchRating", "searchRatingNavigation"):
-            page = parse_search(response.content)
+            page, explicit_empty = _parse_search_result(response.content, action=response.action)
             if response.action == "searchRating":
                 inn = canonical_inn(fields.get("inn"))
                 if inn not in eligible or inn in seen_inns or next_page is not None:
@@ -165,6 +194,7 @@ def derive(responses, universe):
                 if page.page_number not in ((1,) if page.item_count else (0, 1)):
                     raise RepositoryError("INVALID_PAGINATION")
                 counts["issuer_queries_attempted"] += 1
+                counts["issuer_queries_no_results"] += int(explicit_empty)
             else:
                 if next_page is None or int(fields["pageNumber"]) != next_page or page.page_number != next_page or (page.item_count, page.page_count, page.page_size, page.sorting_field, page.sorting_direction) != config:
                     raise RepositoryError("PAGINATION_CONTEXT_CONFLICT")

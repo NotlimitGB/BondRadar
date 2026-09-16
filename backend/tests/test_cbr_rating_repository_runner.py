@@ -10,6 +10,7 @@ from app.services.credit_risk_evidence.cbr_ratings import runner
 from app.services.credit_risk_evidence.cbr_ratings.contracts import RepositoryError
 from test_credit_risk_evidence import _seed_issuer
 from test_cbr_rating_repository import NOW, UNIVERSE, fixture_responses, json_bytes, row, response, search_fields, INN
+from test_cbr_rating_repository import EMPTY_SEARCH_BYTES, EMPTY_SEARCH_INNS, empty_search_responses
 
 
 @pytest.fixture
@@ -163,6 +164,54 @@ def test_mixed_full_universe_bundle_counts_coverage_and_offline_preflight(tmp_pa
         (directory/"manifest.json").write_text(json.dumps(tampered))
         with pytest.raises(RepositoryError, match="DERIVED_COUNT_MISMATCH"):
             runner.load_bundle(directory)
+
+
+@pytest.mark.parametrize("all_empty", [False, True])
+def test_empty_search_frozen_round_trip_counts_raw_artifacts_and_offline_preflight(tmp_path, setup, all_empty):
+    from sqlalchemy.orm import Session
+    from app.models import LegalIssuer
+    engine, source, adapter = setup
+    with Session(engine) as session:
+        session.scalar(select(LegalIssuer)).issuer_inn = EMPTY_SEARCH_INNS[0]
+        for inn in (*EMPTY_SEARCH_INNS[1:], "0010000025"):
+            _seed_issuer(session, source_id="issuer-"+inn).issuer_inn = inn
+        session.commit()
+    responses = (tuple(response("searchRating", search_fields(inn), EMPTY_SEARCH_BYTES)
+                       for inn in EMPTY_SEARCH_INNS) if all_empty else empty_search_responses())
+    source.collect = lambda u: responses
+    source.requests = 2 + len(responses)
+    directory, planned = plan(tmp_path, setup)
+    manifest, loaded, candidates, counts = runner.load_bundle(directory)
+    assert manifest["universe"]["issuer_inns"] == sorted(["0010000025", *EMPTY_SEARCH_INNS])
+    assert tuple(r.content for r in loaded) == tuple(r.content for r in responses)
+    assert manifest["universe_sha256"] == runner.canonical_json_sha256(manifest["universe"])
+    assert counts["issuer_queries_attempted"] == counts["issuer_queries_succeeded"] == counts["issuer_query_eligible_count"] == 3
+    assert counts["issuer_queries_no_results"] == (3 if all_empty else 1)
+    assert counts["issuer_universe_count"] == 4 and counts["issuer_query_ineligible_count"] == 1
+    assert counts["issuer_rating_events_candidate"] == len(candidates) == (0 if all_empty else 2)
+    assert counts["identity_unresolved_rows"] == counts["identity_ambiguous_rows"] == counts["semantic_collision_rows"] == 0
+    empty_sha = runner.hashlib.sha256(EMPTY_SEARCH_BYTES).hexdigest()
+    assert (directory/"responses"/(empty_sha+".json")).read_bytes() == EMPTY_SEARCH_BYTES
+    assert sum(entry["sha256"] == empty_sha for entry in manifest["responses"]) == counts["issuer_queries_no_results"]
+    expected_artifacts = {(r.source_url, runner.hashlib.sha256(r.content).hexdigest()) for r in responses}
+    assert counts["source_artifacts_candidate"] == len(expected_artifacts) == (1 if all_empty else 4)
+    assert planned["transaction_read_only"] and not planned["database_mutation_executed"] and not planned["database_persistence"]
+    assert planned["production_actions"] == "NONE" and not planned["pit_ready"]
+    _, repeated = plan(tmp_path, setup, "repeated")
+    assert repeated["plan_hash"] == planned["plan_hash"]
+    source.collect = lambda u: pytest.fail("offline preflight attempted source access")
+    preflight = runner.execute("preflight", bundle_dir=directory, engine=engine, _adapter=adapter,
+                               expected_plan_hash=planned["plan_hash"])
+    assert preflight["ready"] and preflight["counts"] == planned["counts"]
+    assert preflight["transaction_read_only"] and not preflight["network_accessed"] and not preflight["database_mutation_executed"]
+    assert preflight["production_actions"] == "NONE" and not preflight["pit_ready"]
+    with Session(engine) as session:
+        assert runner._totals(session) == {"artifacts": 0, "ratings": 0, "defaults": 0}
+    manifest["counts"]["issuer_queries_no_results"] += 1
+    manifest["plan_hash"] = runner.canonical_json_sha256({k: v for k, v in manifest.items() if k != "plan_hash"})
+    (directory/"manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(RepositoryError, match="DERIVED_COUNT_MISMATCH"):
+        runner.load_bundle(directory)
 
 
 def test_universe_change_blocks_offline_apply(tmp_path, setup):
