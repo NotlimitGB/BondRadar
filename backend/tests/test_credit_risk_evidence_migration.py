@@ -65,6 +65,11 @@ def test_task263_sqlite_accepts_exact_precreated_schema(tmp_path, monkeypatch) -
     config = _config(url)
     engine = create_engine(url)
     Base.metadata.create_all(engine)
+    # Validate the Task263 pre-created contract, not today's additive metadata.
+    for table in reversed(TABLES):
+        Base.metadata.tables[table].drop(engine)
+    command.stamp(config, "202609150002")
+    command.upgrade(config, "202609150003")
     command.stamp(config, "202609150002")
     command.upgrade(config, "head")
     assert set(TABLES).issubset(inspect(engine).get_table_names())

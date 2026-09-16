@@ -10,6 +10,7 @@ from typing import Any
 
 
 class SourceProvider(StrEnum):
+    CBR_RATINGS = "CBR_RATINGS"
     ACRA = "ACRA"
     EXPERT_RA = "EXPERT_RA"
     NRA = "NRA"
@@ -18,11 +19,19 @@ class SourceProvider(StrEnum):
 
 
 class SourceKind(StrEnum):
+    RATING_REPOSITORY_RESPONSE = "RATING_REPOSITORY_RESPONSE"
     RATING_ISSUER_PAGE = "RATING_ISSUER_PAGE"
     RATING_ISSUE_PAGE = "RATING_ISSUE_PAGE"
     RATING_RELEASE = "RATING_RELEASE"
     DEFAULT_INFORMATION = "DEFAULT_INFORMATION"
     OTHER = "OTHER"
+
+
+class RatingAgency(StrEnum):
+    ACRA = "ACRA"
+    EXPERT_RA = "EXPERT_RA"
+    NRA = "NRA"
+    NKR = "NKR"
 
 
 class RatingTarget(StrEnum):
@@ -69,7 +78,7 @@ class SourceArtifactInput:
 
 @dataclass(frozen=True, slots=True)
 class RatingEventInput:
-    agency: SourceProvider
+    agency: RatingAgency
     target: RatingTarget
     source_object_id: str
     source_issuer_inn: str | None
@@ -79,7 +88,7 @@ class RatingEventInput:
     publication_precision: PublicationPrecision
     publication_date: date | None
     publication_at: datetime | None
-    rating_scale_raw: str
+    rating_scale_raw: str | None
     rating_value_raw: str | None = None
     rating_outlook_raw: str | None = None
     rating_watch_raw: str | None = None

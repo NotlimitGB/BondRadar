@@ -63,12 +63,12 @@ class CreditRiskSourceArtifact(Base):
             name="credit_risk_source_artifacts_contract_valid",
         ),
         CheckConstraint(
-            "source_provider in ('ACRA', 'EXPERT_RA', 'NRA', 'NKR', 'MOEX')",
+            "source_provider in ('ACRA', 'EXPERT_RA', 'NRA', 'NKR', 'MOEX', 'CBR_RATINGS')",
             name="credit_risk_source_artifacts_provider_valid",
         ),
         CheckConstraint(
             "source_kind in ('RATING_ISSUER_PAGE', 'RATING_ISSUE_PAGE', "
-            "'RATING_RELEASE', 'DEFAULT_INFORMATION', 'OTHER')",
+            "'RATING_RELEASE', 'DEFAULT_INFORMATION', 'OTHER', 'RATING_REPOSITORY_RESPONSE')",
             name="credit_risk_source_artifacts_kind_valid",
         ),
         CheckConstraint(
@@ -148,7 +148,7 @@ class CreditRatingEvent(Base):
             name="credit_rating_events_target_link_valid",
         ),
         CheckConstraint(
-            "length(rating_scale_raw) > 0 and "
+            "(rating_scale_raw is null or length(rating_scale_raw) > 0) and "
             "(rating_value_raw is not null or rating_outlook_raw is not null "
             "or rating_watch_raw is not null or rating_action_raw is not null)",
             name="credit_rating_events_raw_rating_valid",
@@ -185,7 +185,7 @@ class CreditRatingEvent(Base):
     publication_precision: Mapped[str] = mapped_column(String(16), nullable=False)
     publication_date: Mapped[date | None] = mapped_column(Date)
     publication_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    rating_scale_raw: Mapped[str] = mapped_column(String(128), nullable=False)
+    rating_scale_raw: Mapped[str | None] = mapped_column(String(128), nullable=True)
     rating_value_raw: Mapped[str | None] = mapped_column(String(128))
     rating_outlook_raw: Mapped[str | None] = mapped_column(String(256))
     rating_watch_raw: Mapped[str | None] = mapped_column(String(256))

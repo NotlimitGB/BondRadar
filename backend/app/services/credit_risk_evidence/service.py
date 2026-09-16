@@ -26,6 +26,7 @@ from app.services.credit_risk_evidence.contracts import (
     PublicationPrecision,
     RatingEventInput,
     RatingEventDraft,
+    RatingAgency,
     RatingTarget,
     SourceArtifactInput,
     SourceKind,
@@ -140,18 +141,34 @@ class CreditRiskEvidenceStore:
         if artifact.id is None:
             raise CreditRiskEvidenceError("artifact must be persisted first")
         draft = self.preview_rating_event(artifact, value)
-        return self._persist_event(CreditRatingEvent, draft.to_values())
+        ignore = {"artifact_id", "source_name_raw"} if artifact.source_provider == "CBR_RATINGS" else None
+        result = self._persist_event(CreditRatingEvent, draft.to_values(), ignore=ignore)
+        if ignore is not None and result.row.artifact.source_provider != "CBR_RATINGS":
+            raise CreditRiskEvidenceCollision("invalid CBR semantic lineage")
+        return result
 
     def preview_rating_event(
         self, artifact: CreditRiskSourceArtifact, value: RatingEventInput
     ) -> RatingEventDraft:
         """Resolve and validate with SELECT only; transient artifacts are allowed."""
         try:
-            agency = SourceProvider(value.agency)
+            agency = RatingAgency(value.agency)
             target = RatingTarget(value.target)
         except (TypeError, ValueError) as exc:
             raise CreditRiskEvidenceError("unsupported rating enum") from exc
-        if agency is SourceProvider.MOEX or artifact.source_provider != agency.value:
+        try:
+            provider = SourceProvider(artifact.source_provider)
+            kind = (
+                None if artifact.id is None and artifact.source_kind is None
+                and provider is not SourceProvider.CBR_RATINGS else SourceKind(artifact.source_kind)
+            )
+        except (TypeError, ValueError) as exc:
+            raise CreditRiskEvidenceError("invalid rating artifact") from exc
+        if provider is SourceProvider.MOEX or kind is SourceKind.DEFAULT_INFORMATION:
+            raise CreditRiskEvidenceError("default artifact cannot supply ratings")
+        if provider is SourceProvider.CBR_RATINGS and kind is not SourceKind.RATING_REPOSITORY_RESPONSE:
+            raise CreditRiskEvidenceError("CBR ratings require repository responses")
+        if provider is not SourceProvider.CBR_RATINGS and provider.value != agency.value:
             raise CreditRiskEvidenceError("rating agency must match the source artifact")
         source_object_id = nonempty(value.source_object_id, "source_object_id", limit=256)
         source_name = optional_text(value.source_name_raw, "source_name_raw", limit=512)
@@ -159,7 +176,13 @@ class CreditRiskEvidenceStore:
         publication_date, publication_at = validate_publication(
             value.publication_precision, value.publication_date, value.publication_at
         )
-        scale = nonempty(value.rating_scale_raw, "rating_scale_raw", limit=128)
+        scale = (
+            optional_text(value.rating_scale_raw, "rating_scale_raw", limit=128)
+            if provider is SourceProvider.CBR_RATINGS else
+            nonempty(value.rating_scale_raw, "rating_scale_raw", limit=128)
+        )
+        if provider is SourceProvider.CBR_RATINGS and scale is not None:
+            raise CreditRiskEvidenceError("CBR repository does not declare rating scales")
         rating_value = optional_text(value.rating_value_raw, "rating_value_raw", limit=128)
         outlook = optional_text(value.rating_outlook_raw, "rating_outlook_raw", limit=256)
         watch = optional_text(value.rating_watch_raw, "rating_watch_raw", limit=256)
@@ -200,6 +223,13 @@ class CreditRiskEvidenceStore:
             "rating_watch_raw": watch,
             "rating_action_raw": action,
         }
+        if provider is SourceProvider.CBR_RATINGS:
+            # Only the new CBR namespace is artifact-independent. Legacy hashes
+            # above remain byte-for-byte unchanged. Resolution is checked below,
+            # not hashed, so changed canonical linkage hard-fails on exact replay.
+            semantic.pop("artifact")
+            semantic.pop("source_name_raw")
+            semantic["source_namespace"] = "CBR_RATINGS_SEMANTIC_EVENT_V1"
         expected = {
             "artifact_id": artifact.id,
             "rating_agency": agency.value,
@@ -289,14 +319,14 @@ class CreditRiskEvidenceStore:
         }
         return self._persist_event(CreditDefaultEvent, expected)
 
-    def _persist_event(self, model, expected: dict) -> PersistResult:
+    def _persist_event(self, model, expected: dict, *, ignore=None) -> PersistResult:
         query = select(model).where(model.event_fingerprint == expected["event_fingerprint"])
         with self.session.no_autoflush:
             row = self.session.execute(query).scalar_one_or_none()
         if row is not None:
-            self._assert_match(row, expected)
+            self._assert_match(row, expected, ignore=ignore)
             return PersistResult(row=row, inserted=False)
-        return self._insert_or_reload(model(**expected), query, expected)
+        return self._insert_or_reload(model(**expected), query, expected, ignore=ignore)
 
     def _insert_or_reload(
         self, row, query, expected: dict, *, ignore: set[str] | None = None
