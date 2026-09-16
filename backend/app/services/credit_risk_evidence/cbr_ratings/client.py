@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from app.services.credit_risk_evidence.contracts import canonical_inn, canonical_isin
 from .contracts import (
     BASE, SEARCH_FIELDS, MAX_REQUESTS, MAX_RESPONSE_BYTES, MAX_SEARCH_PAGES,
-    MAX_OBJECTS, MAX_BUNDLE_BYTES, SourceResponse, RepositoryError, safe_url, action_url,
+    MAX_OBJECTS, MAX_BUNDLE_BYTES, SourceResponse, RepositoryError, safe_url, action_url, eligible_issuer_inns,
 )
 from .parser import envelope, parse_search, derive
 
@@ -183,7 +183,7 @@ class CbrRatingsClient:
     def collect(self, universe):
         self.bootstrap()
         responses, retained = [], set()
-        for inn in universe["issuer_inns"]:
+        for inn in eligible_issuer_inns(universe["issuer_inns"]):
             self.referer = BASE + "/?" + urlencode({"formSearh": "advanced", "inn": inn, "disclaimer": "1"})
             response = self.action("searchRating", search_fields(inn)); responses.append(response)
             first = parse_search(response.content)

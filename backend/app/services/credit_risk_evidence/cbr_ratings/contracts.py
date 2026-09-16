@@ -28,6 +28,20 @@ ITEM_FIELDS = ("objectId", "objectName", "subjectName", "country", "objectType",
 SHA = re.compile(r"[0-9a-f]{64}")
 
 
+def is_russian_legal_entity_inn(value: str) -> bool:
+    """Source-query eligibility only; not the canonical evidence identity rule."""
+    if not isinstance(value, str) or re.fullmatch(r"[0-9]{10}", value) is None:
+        return False
+    weights = (2, 4, 10, 3, 5, 9, 4, 6, 8)
+    control = sum(int(digit) * weight for digit, weight in zip(value[:9], weights)) % 11 % 10
+    return control == int(value[9])
+
+
+def eligible_issuer_inns(issuer_inns):
+    """Recompute the ordered query scope from the full frozen issuer universe."""
+    return tuple(sorted({value for value in issuer_inns if is_russian_legal_entity_inn(value)}))
+
+
 class RepositoryError(ValueError):
     def __init__(self, code):
         self.code = code

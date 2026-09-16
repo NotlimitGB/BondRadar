@@ -195,3 +195,72 @@ permission warnings; no new warning category was introduced by this fix.
 FIX1 scope: this historical migration's validator, its focused migration test,
 and this audit only. Production/VDS/source network are not used.
 `PRODUCTION_ACTIONS=NONE`, `PRODUCTION_DB_MUTATION=false`, `PIT_READY=false`.
+
+## Task265-FIX2 — Source-specific Russian INN query eligibility
+
+Baseline: `main@171cc9bba3171c65e3ca8bacc6cee3d763f46d48`.
+
+```text
+TASK265_FIX2_ROOT_CAUSE=CBR repository INN search received non-Russian 10-digit LegalIssuer identifiers
+GLOBAL_CANONICAL_INN_UNCHANGED=true
+FULL_UNIVERSE_PRESERVED=true
+SOURCE_QUERY_ELIGIBILITY_ADDED=true
+FOREIGN_ISIN_SEARCH_ADDED=false
+DB_MIGRATION_ADDED=false
+ALEMBIC_HEAD=202609160001
+```
+
+The following are operator-provided prior production evidence, not independently
+verified by this fix. Production code/revision and health were aligned before
+the first CBR PLAN. Evidence tables were empty. That PLAN returned
+`BITRIX_SOURCE_ERROR` after 3 HTTP requests in a verified read-only transaction;
+it caused no DB mutation/persistence and wrote no source bundle.
+
+| Identifier | Operator-provided issuer | Russian INN checksum | Bitrix result |
+| --- | --- | --- | --- |
+| `0010000025` | Republic of Belarus, Ministry of Finance | false | HTTP 200, status error, code 0/message Array |
+| `7707083893` | PJSC Sberbank of Russia | true | HTTP 200, status success, itemCount 60, pageCount 3 |
+
+Generic and issuer-specific bootstrap returned the same error for `0010000025`.
+These observations support a query-input eligibility defect, not a demonstrated
+TLS/session/Referer/outage/CAPTCHA/WAF/DB defect. No live CBR request or production
+DB check was made during FIX2.
+
+The CBR-only helper requires a string of exactly 10 ASCII digits and checksum
+weights `2,4,10,3,5,9,4,6,8`, with control `(sum % 11) % 10`.
+It tests this source field's eligibility, not issuer nationality. No country,
+title or hard-coded issuer exception is used. Generic canonical evidence INN
+validation remains exactly 10 digits, including `0010000025`.
+
+Client collection and parser completion recompute the same eligible set from
+the full frozen universe. Ineligible identifiers are not queried and are not
+represented as failed searches or as measured absence of ratings. Missing
+eligible searches still block completion; recorded ineligible queries are
+rejected. Eligible-INN Bitrix errors remain fatal, with all existing CAPTCHA,
+pagination, agency and identity gates unchanged.
+
+Counts now include `issuer_query_eligible_count` and
+`issuer_query_ineligible_count`; their sum equals `issuer_universe_count`.
+Successful attempted/succeeded search counts equal the eligible count. Overall
+issuer coverage keeps the full universe denominator and its existing string
+percentage representation. Full universe serialization/hash remains unchanged.
+The pre-first-production-bundle correction keeps bundle schema v1 and requires
+both new counts during offline rederivation; rehashed tampering is rejected.
+
+Foreign/query-ineligible issuer bonds may remain undiscovered through this
+issuer-INN strategy. Exact ISIN search is deferred, not implemented; no name or
+fuzzy fallback is introduced. Production PLAN/PREFLIGHT/APPLY requires separate
+operator authorization; this fix does not execute them.
+
+Verification:
+
+- `python -m pytest -q backend/tests/test_cbr_rating_repository.py backend/tests/test_cbr_rating_repository_runner.py`: **50 passed, 0 failed**, 1 existing pytest cache permission warning.
+- Synthetic tests cover checksum/ASCII/type failures, mixed and zero-eligible scopes, actual mock HTTP search filtering, missing eligible completion, valid-INN Bitrix failure, full-universe coverage, deterministic bundle round-trip and rehashed count tampering.
+- Existing focused tests retain pagination/history, exact INN/ISIN, agency/scale, immutable re-observation/collision, disposable-DB rollback/commit uncertainty and offline mode safety coverage. No live source or production APPLY is used.
+- `python -m compileall backend/app`: PASS.
+- `python -m alembic heads` (from backend): sole `202609160001 (head)`.
+- `git diff --check`: PASS. Exact scope: four CBR Ratings package files, its two focused test modules and this audit.
+- `BROAD_BACKEND=SKIPPED_BY_DESIGN`; broad regression remains exact-commit CI-owned, with at most one snapshot and no waiting/polling.
+
+`PRODUCTION_ACTIONS=NONE`, `PRODUCTION_DB_MUTATION=false`,
+`LIVE_CBR_REQUESTS=NONE`, `PIT_READY=false`.

@@ -14,7 +14,7 @@ from test_cbr_rating_repository import NOW, UNIVERSE, fixture_responses, json_by
 
 @pytest.fixture
 def setup(db_session):
-    _seed_issuer(db_session)
+    _seed_issuer(db_session).issuer_inn = INN
     db_session.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(32))"))
     db_session.execute(text("INSERT INTO alembic_version VALUES ('202609160001')"))
     db_session.commit()
@@ -118,6 +118,51 @@ def test_deterministic_hash_and_manifest_tampering(tmp_path, setup):
     (directory/"manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(RepositoryError, match="BUNDLE_HASH_MISMATCH"):
         runner.load_bundle(directory)
+
+
+@pytest.mark.parametrize("with_eligible", [True, False])
+def test_mixed_full_universe_bundle_counts_coverage_and_offline_preflight(tmp_path, setup, with_eligible):
+    from sqlalchemy.orm import Session
+    from app.models import LegalIssuer
+    engine, source, adapter = setup
+    with Session(engine) as session:
+        if with_eligible:
+            _seed_issuer(session, source_id="foreign", state="verified").issuer_inn = "0010000025"
+        else:
+            session.scalar(select(LegalIssuer)).issuer_inn = "0010000025"
+            source.collect = lambda u: ()
+            source.requests = 2
+        session.commit()
+    directory, planned = plan(tmp_path, setup)
+    manifest, responses, candidates, counts = runner.load_bundle(directory)
+    expected_inns = sorted(["0010000025"] + ([INN] if with_eligible else []))
+    assert manifest["universe"]["issuer_inns"] == expected_inns
+    assert manifest["universe_sha256"] == runner.canonical_json_sha256(manifest["universe"])
+    assert counts["issuer_universe_count"] == len(expected_inns)
+    assert counts["issuer_query_eligible_count"] == int(with_eligible)
+    assert counts["issuer_query_ineligible_count"] == 1
+    assert counts["issuer_queries_attempted"] == counts["issuer_queries_succeeded"] == int(with_eligible)
+    assert counts["issuer_query_eligible_count"] + counts["issuer_query_ineligible_count"] == counts["issuer_universe_count"]
+    assert planned["coverage"]["issuer_coverage_pct"] == ("50" if with_eligible else "0")
+    assert planned["network_accessed"] and planned["transaction_read_only"]
+    assert not planned["database_mutation_executed"] and not planned["database_persistence"]
+    assert planned["production_actions"] == "NONE" and not planned["pit_ready"]
+    _, repeated = plan(tmp_path, setup, "repeated")
+    assert repeated["plan_hash"] == planned["plan_hash"]
+    source.collect = lambda u: pytest.fail("offline preflight attempted source access")
+    preflight = runner.execute("preflight", bundle_dir=directory, engine=engine, _adapter=adapter,
+                               expected_plan_hash=planned["plan_hash"])
+    assert preflight["ready"] and preflight["transaction_read_only"] and not preflight["network_accessed"]
+    assert preflight["counts"] == planned["counts"] and not preflight["database_mutation_executed"]
+    assert preflight["production_actions"] == "NONE" and not preflight["pit_ready"]
+    # Rehash the tampered body to prove derivation, not merely the outer hash, rejects it.
+    for key in ("issuer_query_eligible_count", "issuer_query_ineligible_count"):
+        tampered = json.loads(json.dumps(manifest))
+        tampered["counts"][key] += 1
+        tampered["plan_hash"] = runner.canonical_json_sha256({k: v for k, v in tampered.items() if k != "plan_hash"})
+        (directory/"manifest.json").write_text(json.dumps(tampered))
+        with pytest.raises(RepositoryError, match="DERIVED_COUNT_MISMATCH"):
+            runner.load_bundle(directory)
 
 
 def test_universe_change_blocks_offline_apply(tmp_path, setup):

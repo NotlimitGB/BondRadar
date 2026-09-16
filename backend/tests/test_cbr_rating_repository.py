@@ -15,13 +15,14 @@ from app.services.credit_risk_evidence.contracts import (
 from app.services.credit_risk_evidence.service import CreditRiskEvidenceStore
 from app.services.credit_risk_evidence.cbr_ratings.contracts import (
     SourceResponse, RepositoryError, ITEM_FIELDS, AGENCIES, BASE,
+    is_russian_legal_entity_inn, eligible_issuer_inns,
 )
 from app.services.credit_risk_evidence.cbr_ratings.client import CbrRatingsClient, search_fields
 from app.services.credit_risk_evidence.cbr_ratings.parser import parse_search, envelope, source_date, derive
 from test_credit_risk_evidence import _seed_issuer, _rating_input, _artifact_input
 
 NOW = datetime(2026, 9, 16, tzinfo=timezone.utc)
-INN = "7701234567"
+INN = "7707083893"
 ISIN = "RU000A123456"
 UNIVERSE = {"issuer_inns": [INN], "bond_isins": [ISIN]}
 
@@ -118,6 +119,76 @@ def make_client(handler):
         tick[0] += seconds
     return CbrRatingsClient(client=httpx.Client(transport=httpx.MockTransport(handler)),
         clock=lambda: NOW, monotonic=lambda: tick[0], sleep=sleep), tick
+
+
+@pytest.mark.parametrize("value, expected", [
+    ("7707083893", True), ("7736050003", True), ("0010000025", False),
+    ("7707083894", False), ("770708389", False), ("77070838933", False),
+    ("770708389X", False), ("７７０７０８３８９３", False), ("770708389٣", False),
+    (" 7707083893", False), (7707083893, False), (True, False), (None, False),
+])
+def test_source_specific_russian_inn_checksum(value, expected):
+    assert is_russian_legal_entity_inn(value) is expected
+    from app.services.credit_risk_evidence.contracts import canonical_inn
+    assert canonical_inn("0010000025") == "0010000025"
+
+
+@pytest.mark.parametrize("with_eligible", [True, False])
+def test_client_queries_only_eligible_full_universe_and_empty_scope(with_eligible):
+    universe = {"issuer_inns": sorted(["0010000025"] + ([INN] if with_eligible else [])), "bond_isins": []}
+    original = json.loads(json.dumps(universe))
+    searches = []
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.method == "GET":
+            return httpx.Response(200, text='<input name="sessid" value="'+'a'*32+'">',
+                                  headers={"content-type": "text/html"})
+        assert request.url.params["action"] == "searchRating"
+        searches.append(parse_qs(request.content.decode())["fields[inn]"][0])
+        return httpx.Response(200, content=search_bytes([]), headers={"content-type": "application/json"})
+    client, _ = make_client(handler)
+    try:
+        responses = client.collect(universe)
+        candidates, counts, retained = derive(responses, universe)
+        assert searches == ([INN] if with_eligible else [])
+        assert eligible_issuer_inns(reversed(universe["issuer_inns"])) == tuple(searches)
+        assert client.requests == 2 + len(searches)
+        assert counts["issuer_query_eligible_count"] == len(searches)
+        assert counts["issuer_query_ineligible_count"] == 1
+        assert counts["issuer_queries_attempted"] == counts["issuer_queries_succeeded"] == len(searches)
+        assert not candidates and not retained and universe == original
+    finally:
+        client.close()
+
+
+def test_missing_eligible_and_recorded_ineligible_search_fail_closed():
+    assert is_russian_legal_entity_inn("7736050003")
+    with pytest.raises(RepositoryError, match="INCOMPLETE_DISCOVERY"):
+        derive(fixture_responses(), {"issuer_inns": sorted([INN, "7736050003"]), "bond_isins": [ISIN]})
+    with pytest.raises(RepositoryError, match="SEARCH_CONTEXT_CONFLICT"):
+        derive((response("searchRating", search_fields("0010000025"), search_bytes([])),),
+               {"issuer_inns": ["0010000025", INN], "bond_isins": []})
+
+
+def test_valid_russian_inn_bitrix_error_is_still_fatal():
+    searches = []
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.method == "GET":
+            return httpx.Response(200, text='<input name="sessid" value="'+'a'*32+'">',
+                                  headers={"content-type": "text/html"})
+        searches.append(parse_qs(request.content.decode())["fields[inn]"][0])
+        return httpx.Response(200, content=b'{"status":"error","data":{},"errors":[{"code":0,"message":"Array"}]}',
+                              headers={"content-type": "application/json"})
+    client, _ = make_client(handler)
+    try:
+        with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+            client.collect({"issuer_inns": ["0010000025", INN], "bond_isins": []})
+        assert searches == [INN] and client.requests == 3
+    finally:
+        client.close()
 
 
 def test_wire_session_pagination_and_outside_bond_history_skipped():

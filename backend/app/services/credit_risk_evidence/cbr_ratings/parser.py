@@ -6,7 +6,7 @@ import re
 from app.services.credit_risk_evidence.contracts import (
     RatingEventInput, RatingTarget, PublicationPrecision, canonical_inn, canonical_isin,
 )
-from .contracts import AGENCIES, ITEM_FIELDS, SEARCH_FIELDS, MAX_OBJECTS, MAX_RESPONSE_BYTES, RepositoryError, SearchPage, Candidate
+from .contracts import AGENCIES, ITEM_FIELDS, SEARCH_FIELDS, MAX_OBJECTS, MAX_RESPONSE_BYTES, RepositoryError, SearchPage, Candidate, eligible_issuer_inns
 
 
 def _pairs(items):
@@ -134,10 +134,13 @@ def logical_key(value):
 
 def derive(responses, universe):
     objects, current, history, completed = {}, [], [], set()
+    eligible = set(eligible_issuer_inns(universe["issuer_inns"]))
     seen_inns, active, next_page, config, seen_rows = set(), None, None, None, 0
     counts = {k: 0 for k in ("issuer_queries_attempted", "issuer_queries_succeeded", "search_pages_fetched",
         "search_rows_seen", "unique_object_ids_seen", "issuer_objects_in_universe", "bond_objects_in_universe",
         "bond_objects_outside_universe", "object_histories_fetched", "history_rows_seen", "current_history_duplicates")}
+    counts.update(issuer_query_eligible_count=len(eligible),
+                  issuer_query_ineligible_count=len(universe["issuer_inns"]) - len(eligible))
     for index, response in enumerate(responses):
         fields = dict(response.fields)
         if len(fields) != len(response.fields) or response.fields != tuple(sorted(response.fields)):
@@ -155,7 +158,7 @@ def derive(responses, universe):
             page = parse_search(response.content)
             if response.action == "searchRating":
                 inn = canonical_inn(fields.get("inn"))
-                if inn not in universe["issuer_inns"] or inn in seen_inns or next_page is not None:
+                if inn not in eligible or inn in seen_inns or next_page is not None:
                     raise RepositoryError("SEARCH_CONTEXT_CONFLICT")
                 seen_inns.add(inn); active = inn
                 config = (page.item_count, page.page_count, page.page_size, page.sorting_field, page.sorting_direction)
@@ -208,7 +211,7 @@ def derive(responses, universe):
         else:
             raise RepositoryError("UNSUPPORTED_ACTION")
     retained = {obj for obj, item in objects.items() if item[2]}
-    if next_page is not None or seen_inns != set(universe["issuer_inns"]) or completed != retained:
+    if next_page is not None or seen_inns != eligible or completed != retained:
         raise RepositoryError("INCOMPLETE_DISCOVERY")
     keys = {logical_key(c.value) for c in current}
     counts["current_history_duplicates"] = sum(logical_key(c.value) in keys for c in history)
