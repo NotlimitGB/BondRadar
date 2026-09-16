@@ -350,3 +350,49 @@ PRODUCTION_DB_MUTATION=false
 LIVE_CBR_REQUESTS=NONE
 PIT_READY=false
 ```
+
+## Task265-FIX4 — Optional null customData in empty-search error
+
+Baseline: clean `main@a9d22703d04fbd255e5403deaa3bd12af9a4356c`.
+The following production/probe facts are operator-provided prior evidence;
+no production DB check or live CBR request was performed during FIX4.
+
+- FIX3 deployed at that SHA, DB revision `202609160001`; backend healthy, restart_count `0`, smoke PASS.
+- Artifact/rating/default evidence counts `0|0|0`; failed PLAN `BITRIX_SOURCE_ERROR` after 5 HTTP requests, mutation/persistence false, source bundle not written, PIT readiness false.
+- Structural probe for INN `0273086494`: 3 HTTP requests, content type `application/json; charset=UTF-8`, payload bytes `88`.
+- Reported payload SHA-256: `ec1554a0d785b2499b59cf745b46d8d7ca10842786307608fcca071608598201`.
+- Top-level keys exactly `data,errors,status`; status string `error`, data null, one dict error with keys `code,customData,message`, integer code `0`, null customData, exact string message `Array`.
+- `FIX3_EXPLICIT_EMPTY_MATCH=false`; `FIX3_PARSE_SEARCH=BITRIX_SOURCE_ERROR`.
+
+Root cause: FIX3 omitted the source-observed nullable `customData` field from
+its exact error-key allowlist. The preceding sanitized diagnostic exposed only
+code/message, hiding that structural difference. FIX3 history above is retained.
+
+Only the explicit matcher changes. It permits exactly `code/message` or
+`code/message/customData`, and requires absent-or-`is None` customData.
+All non-null values, including false/zero/empty containers/empty strings, and
+any fourth error key remain fatal. Top-level keys, one-error cardinality,
+real integer zero and exact Array message requirements remain unchanged.
+The exception remains initial-search-only; generic envelope, navigation/history,
+JSON/security guards and HTTP/transport behavior are untouched.
+
+Exact response bytes remain immutable; the synthetic empty page is only derived
+interpretation. Existing no-result/attempted/succeeded counts are reused; there
+is no new count, schema, bundle version or persistence behavior.
+Tests use synthetic equivalent JSON, not a claim to possess or independently
+verify the operator's exact 88-byte payload/SHA.
+
+Verification:
+
+- Focused repository/parser/client and runner modules: **99 passed, 0 failed**, exit 0; one existing pytest cache permission warning.
+- Both shapes cover canonical empty parsing, strict generic/navigation/history rejection, mock-session continuation, no objects/history/events for the empty issuer, deterministic frozen PLAN/PREFLIGHT, unchanged raw bytes/counts and rehashed tampering rejection.
+- Added non-null customData and fourth-key negative tests. Existing FIX2/FIX3 identity, eligibility, security, pagination and disposable-DB regressions remain passing.
+- `python -m compileall backend/app`: PASS.
+- `python -m alembic heads` (from backend): sole `202609160001 (head)`.
+- `git diff --check`: PASS; exact scope is matcher/parser, two focused test modules and this audit.
+- Client/runner/contracts/models/migrations unchanged; broad suite skipped by design. At most one exact-commit CI snapshot, no waiting/polling.
+
+`NEW_COUNT_ADDED=false`, `DB_MIGRATION_ADDED=false`, `PRODUCTION_ACTIONS=NONE`,
+`PRODUCTION_DB_MUTATION=false`, `LIVE_CBR_REQUESTS=NONE`, `PIT_READY=false`.
+The sole next step is independent external review; production PLAN/APPLY is not
+automatically authorized by code acceptance.

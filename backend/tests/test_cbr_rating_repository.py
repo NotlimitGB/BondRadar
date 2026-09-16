@@ -27,6 +27,7 @@ ISIN = "RU000A123456"
 UNIVERSE = {"issuer_inns": [INN], "bond_isins": [ISIN]}
 EMPTY_SEARCH_INNS = ("0261012138", "0273086494", "0274051582")
 EMPTY_SEARCH_BYTES = b'{\n "status": "error", "data": null, "errors": [{"code": 0, "message": "Array"}]\n}'
+NULL_CUSTOM_DATA_BYTES = b'{"status":"error","data":null,"errors":[{"code":0,"message":"Array","customData":null}]}'
 
 
 def row(**updates):
@@ -63,24 +64,25 @@ def fixture_responses(rows=None, histories=None):
     return tuple(result)
 
 
-def empty_search_responses():
+def empty_search_responses(empty_payload=EMPTY_SEARCH_BYTES):
     first, empty, last = EMPTY_SEARCH_INNS
     return (
         response("searchRating", search_fields(first), search_bytes([row(inn=first)])),
-        response("searchRating", search_fields(empty), EMPTY_SEARCH_BYTES),
+        response("searchRating", search_fields(empty), empty_payload),
         response("searchRating", search_fields(last), search_bytes([row(inn=last, objectId="125")])),
         response("searchObjectHistory", {"objectId": "123"}, json_bytes({"title": "History", "table": []})),
         response("searchObjectHistory", {"objectId": "125"}, json_bytes({"title": "History", "table": []})),
     )
 
 
-def test_explicit_empty_search_page_raw_bytes_and_strict_generic_envelope():
-    page = parse_search(EMPTY_SEARCH_BYTES, action="searchRating")
+@pytest.mark.parametrize("empty_payload", [EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES])
+def test_explicit_empty_search_page_raw_bytes_and_strict_generic_envelope(empty_payload):
+    page = parse_search(empty_payload, action="searchRating")
     assert (page.item_count, page.page_count, page.page_number, page.page_size) == (0, 0, 0, 25)
     assert (page.sorting_field, page.sorting_direction, page.rows) == ("objectName", "ascending", ())
     with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
-        envelope(EMPTY_SEARCH_BYTES)
-    candidates, counts, retained = derive(empty_search_responses(),
+        envelope(empty_payload)
+    candidates, counts, retained = derive(empty_search_responses(empty_payload),
         {"issuer_inns": list(EMPTY_SEARCH_INNS), "bond_isins": []})
     assert counts["issuer_queries_attempted"] == counts["issuer_queries_succeeded"] == 3
     assert counts["issuer_queries_no_results"] == 1
@@ -90,6 +92,21 @@ def test_explicit_empty_search_page_raw_bytes_and_strict_generic_envelope():
     candidates, counts, _ = derive(fixture_responses(rows=[]), UNIVERSE)
     assert not candidates and counts["issuer_queries_no_results"] == 0
     assert counts["issuer_queries_succeeded"] == 1
+
+
+@pytest.mark.parametrize("custom_data", [{}, [], "", 0, False, "anything"])
+def test_non_null_custom_data_empty_search_remains_fatal(custom_data):
+    payload = json.loads(NULL_CUSTOM_DATA_BYTES)
+    payload["errors"][0]["customData"] = custom_data
+    with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+        parse_search(json.dumps(payload).encode(), action="searchRating")
+
+
+def test_null_custom_data_does_not_allow_extra_error_keys():
+    payload = json.loads(NULL_CUSTOM_DATA_BYTES)
+    payload["errors"][0]["extra"] = None
+    with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
+        parse_search(json.dumps(payload).encode(), action="searchRating")
 
 
 @pytest.mark.parametrize("changes", [
@@ -223,9 +240,10 @@ def test_client_queries_only_eligible_full_universe_and_empty_scope(with_eligibl
         client.close()
 
 
-def test_client_continues_after_empty_search_and_preserves_session_payload():
+@pytest.mark.parametrize("empty_payload", [EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES])
+def test_client_continues_after_empty_search_and_preserves_session_payload(empty_payload):
     searches, histories = [], []
-    expected = empty_search_responses()
+    expected = empty_search_responses(empty_payload)
     payloads = {dict(r.fields)["inn"]: r.content for r in expected[:3]}
     def handler(request):
         if request.url.path == "/robots.txt":
@@ -249,7 +267,7 @@ def test_client_continues_after_empty_search_and_preserves_session_payload():
     try:
         responses = client.collect(universe)
         assert tuple(searches) == EMPTY_SEARCH_INNS and histories == ["123", "125"]
-        assert client.requests == 7 and responses[1].content == EMPTY_SEARCH_BYTES
+        assert client.requests == 7 and responses[1].content == empty_payload
         assert all("sessid" not in dict(r.fields) for r in responses)
         candidates, counts, _ = derive(responses, universe)
         assert counts["issuer_queries_attempted"] == counts["issuer_queries_succeeded"] == 3
@@ -263,14 +281,15 @@ def test_client_continues_after_empty_search_and_preserves_session_payload():
     ("searchRatingNavigation", {"pageSize": 25, "pageNumber": 2, "sortingField": "objectName", "sortingDirection": "ascending"}),
     ("searchObjectHistory", {"objectId": "123"}),
 ])
-def test_empty_signature_is_fatal_for_navigation_and_history_client_and_offline(action, fields):
+@pytest.mark.parametrize("empty_payload", [EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES])
+def test_empty_signature_is_fatal_for_navigation_and_history_client_and_offline(action, fields, empty_payload):
     with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
         if action == "searchRatingNavigation":
-            parse_search(EMPTY_SEARCH_BYTES, action=action)
+            parse_search(empty_payload, action=action)
         else:
-            envelope(EMPTY_SEARCH_BYTES)
-    source = empty_search_responses()
-    failing = response(action, fields, EMPTY_SEARCH_BYTES)
+            envelope(empty_payload)
+    source = empty_search_responses(empty_payload)
+    failing = response(action, fields, empty_payload)
     responses = (source[0], failing) if action == "searchRatingNavigation" else (*source[:3], failing)
     with pytest.raises(RepositoryError, match="BITRIX_SOURCE_ERROR"):
         derive(responses, {"issuer_inns": list(EMPTY_SEARCH_INNS), "bond_isins": []})
@@ -280,7 +299,7 @@ def test_empty_signature_is_fatal_for_navigation_and_history_client_and_offline(
         if request.method == "GET":
             return httpx.Response(200, text='<input name="sessid" value="'+'a'*32+'">',
                                   headers={"content-type": "text/html"})
-        return httpx.Response(200, content=EMPTY_SEARCH_BYTES, headers={"content-type": "application/json"})
+        return httpx.Response(200, content=empty_payload, headers={"content-type": "application/json"})
     client, _ = make_client(handler)
     try:
         client.bootstrap()

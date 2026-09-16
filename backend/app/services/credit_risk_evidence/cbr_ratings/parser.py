@@ -74,7 +74,8 @@ def _is_explicit_empty_search(payload):
     if payload["status"] != "error" or payload["data"] is not None or not isinstance(errors, list) or len(errors) != 1:
         return False
     error = errors[0]
-    return (isinstance(error, dict) and set(error) == {"code", "message"}
+    return (isinstance(error, dict) and set(error) in ({"code", "message"}, {"code", "message", "customData"})
+            and error.get("customData") is None
             and type(error["code"]) is int and error["code"] == 0 and error["message"] == "Array")
 
 

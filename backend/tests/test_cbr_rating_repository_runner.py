@@ -10,7 +10,7 @@ from app.services.credit_risk_evidence.cbr_ratings import runner
 from app.services.credit_risk_evidence.cbr_ratings.contracts import RepositoryError
 from test_credit_risk_evidence import _seed_issuer
 from test_cbr_rating_repository import NOW, UNIVERSE, fixture_responses, json_bytes, row, response, search_fields, INN
-from test_cbr_rating_repository import EMPTY_SEARCH_BYTES, EMPTY_SEARCH_INNS, empty_search_responses
+from test_cbr_rating_repository import EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES, EMPTY_SEARCH_INNS, empty_search_responses
 
 
 @pytest.fixture
@@ -167,7 +167,8 @@ def test_mixed_full_universe_bundle_counts_coverage_and_offline_preflight(tmp_pa
 
 
 @pytest.mark.parametrize("all_empty", [False, True])
-def test_empty_search_frozen_round_trip_counts_raw_artifacts_and_offline_preflight(tmp_path, setup, all_empty):
+@pytest.mark.parametrize("empty_payload", [EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES])
+def test_empty_search_frozen_round_trip_counts_raw_artifacts_and_offline_preflight(tmp_path, setup, all_empty, empty_payload):
     from sqlalchemy.orm import Session
     from app.models import LegalIssuer
     engine, source, adapter = setup
@@ -176,8 +177,8 @@ def test_empty_search_frozen_round_trip_counts_raw_artifacts_and_offline_preflig
         for inn in (*EMPTY_SEARCH_INNS[1:], "0010000025"):
             _seed_issuer(session, source_id="issuer-"+inn).issuer_inn = inn
         session.commit()
-    responses = (tuple(response("searchRating", search_fields(inn), EMPTY_SEARCH_BYTES)
-                       for inn in EMPTY_SEARCH_INNS) if all_empty else empty_search_responses())
+    responses = (tuple(response("searchRating", search_fields(inn), empty_payload)
+                       for inn in EMPTY_SEARCH_INNS) if all_empty else empty_search_responses(empty_payload))
     source.collect = lambda u: responses
     source.requests = 2 + len(responses)
     directory, planned = plan(tmp_path, setup)
@@ -190,8 +191,8 @@ def test_empty_search_frozen_round_trip_counts_raw_artifacts_and_offline_preflig
     assert counts["issuer_universe_count"] == 4 and counts["issuer_query_ineligible_count"] == 1
     assert counts["issuer_rating_events_candidate"] == len(candidates) == (0 if all_empty else 2)
     assert counts["identity_unresolved_rows"] == counts["identity_ambiguous_rows"] == counts["semantic_collision_rows"] == 0
-    empty_sha = runner.hashlib.sha256(EMPTY_SEARCH_BYTES).hexdigest()
-    assert (directory/"responses"/(empty_sha+".json")).read_bytes() == EMPTY_SEARCH_BYTES
+    empty_sha = runner.hashlib.sha256(empty_payload).hexdigest()
+    assert (directory/"responses"/(empty_sha+".json")).read_bytes() == empty_payload
     assert sum(entry["sha256"] == empty_sha for entry in manifest["responses"]) == counts["issuer_queries_no_results"]
     expected_artifacts = {(r.source_url, runner.hashlib.sha256(r.content).hexdigest()) for r in responses}
     assert counts["source_artifacts_candidate"] == len(expected_artifacts) == (1 if all_empty else 4)
