@@ -25,6 +25,7 @@ from app.services.credit_risk_evidence.contracts import (
     PersistResult,
     PublicationPrecision,
     RatingEventInput,
+    RatingEventDraft,
     RatingTarget,
     SourceArtifactInput,
     SourceKind,
@@ -138,6 +139,13 @@ class CreditRiskEvidenceStore:
     ) -> PersistResult:
         if artifact.id is None:
             raise CreditRiskEvidenceError("artifact must be persisted first")
+        draft = self.preview_rating_event(artifact, value)
+        return self._persist_event(CreditRatingEvent, draft.to_values())
+
+    def preview_rating_event(
+        self, artifact: CreditRiskSourceArtifact, value: RatingEventInput
+    ) -> RatingEventDraft:
+        """Resolve and validate with SELECT only; transient artifacts are allowed."""
         try:
             agency = SourceProvider(value.agency)
             target = RatingTarget(value.target)
@@ -214,7 +222,7 @@ class CreditRiskEvidenceStore:
             "rating_action_raw": action,
             "event_fingerprint": canonical_json_sha256(semantic),
         }
-        return self._persist_event(CreditRatingEvent, expected)
+        return RatingEventDraft(tuple(sorted(expected.items())))
 
     def persist_default_event(
         self, artifact: CreditRiskSourceArtifact, value: DefaultEventInput

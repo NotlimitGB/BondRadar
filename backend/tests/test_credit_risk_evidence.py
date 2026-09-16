@@ -260,3 +260,14 @@ def test_store_flushes_without_committing_and_caller_can_roll_back(db_session) -
     assert db_session.in_transaction()
     db_session.rollback()
     assert db_session.execute(select(CreditRiskSourceArtifact)).scalars().all() == []
+
+
+def test_rating_preview_is_select_only_and_matches_existing_store_fingerprint(db_session):
+    _seed_issuer(db_session)
+    store = CreditRiskEvidenceStore(db_session)
+    artifact = store.persist_source_artifact(_artifact_input()).row
+    draft = store.preview_rating_event(artifact, _rating_input())
+    assert db_session.execute(select(CreditRatingEvent)).scalars().all() == []
+    written = store.persist_rating_event(artifact, _rating_input()).row
+    assert draft.event_fingerprint == written.event_fingerprint
+    assert draft.to_values()["rating_value_raw"] == "AA(RU)"

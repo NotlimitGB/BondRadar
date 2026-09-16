@@ -116,6 +116,20 @@ class PersistResult:
     inserted: bool
 
 
+@dataclass(frozen=True, slots=True)
+class RatingEventDraft:
+    """Immutable preview; constructing it performs no persistence."""
+
+    fields: tuple[tuple[str, Any], ...]
+
+    def to_values(self) -> dict[str, Any]:
+        return dict(self.fields)
+
+    @property
+    def event_fingerprint(self) -> str:
+        return dict(self.fields)["event_fingerprint"]
+
+
 class CreditRiskEvidenceError(ValueError):
     pass
 
