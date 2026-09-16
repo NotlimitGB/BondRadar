@@ -215,7 +215,11 @@ def _validate_sqlite(inspector: sa.Inspector) -> None:
             if not isinstance(columns[name]["type"], expected_type):
                 raise RuntimeError("Incompatible Task263 SQLite column types exist")
             expected_nullable = name in nullable_columns[table]
-            if bool(columns[name]["nullable"]) != expected_nullable:
+            # Current Task265 metadata may precreate this one column nullable.
+            # Historical creation above stays NOT NULL; all other columns stay exact.
+            if bool(columns[name]["nullable"]) != expected_nullable and not (
+                table == RATINGS and name == "rating_scale_raw"
+            ):
                 raise RuntimeError("Incompatible Task263 SQLite nullability exists")
         if inspector.get_pk_constraint(table).get("constrained_columns") != ["id"]:
             raise RuntimeError("Incompatible Task263 SQLite primary key exists")

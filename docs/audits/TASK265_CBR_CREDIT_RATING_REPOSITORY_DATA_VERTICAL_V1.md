@@ -159,3 +159,39 @@ Only handoff: independent external review. Production backup, migration and CBR
 PLAN/PREFLIGHT/APPLY require separate explicit authorization. Code acceptance is
 not production source or ingestion acceptance. One exact-commit CI snapshot only,
 with PENDING/SNAPSHOT_UNAVAILABLE reported honestly; no polling or waiting.
+
+## Task265-FIX1 — historical SQLite metadata compatibility
+
+```text
+TASK265_FIX1_REASON=current ORM metadata made rating_scale_raw nullable, exposing Task263 SQLite precreated-metadata validator incompatibility
+CI_FAILED_RUN=35095834867
+CI_FAILED_TESTS=9
+CI_PASSED_TESTS=2562
+```
+
+CI counts/run are operator-provided prior evidence. The same exception was
+independently reproduced in the Task255 historical migration regression at
+`d5d248807fdd2351770115242a7ec6c749193ace` before this fix.
+
+Only Task263 SQLite precreated validation accepts both nullability shapes for
+`credit_rating_events.rating_scale_raw`. Its type and every other column's exact
+nullability remain checked. Historical Task263 creation still emits NOT NULL;
+PostgreSQL DDL, Task265 nullable semantics, migration IDs and downgrade guards are
+unchanged. No schema revision or migration was added; no data is changed by the fix.
+
+Focused verification: 26 PASS across Task263, Task265 and historical bank-evidence
+migration modules. Tests assert historical creation NOT NULL, current metadata
+compatibility, unrelated required-column drift rejection, final nullable state,
+upgrade/downgrade/re-upgrade preservation and CBR/null-scale downgrade refusal.
+Compileall PASS; single Alembic head remains `202609160001`.
+Full backend suite: `python -m pytest backend/tests -q` completed with
+**2572 passed, 1 skipped, 0 failed, 68 warnings**, exit 0, in 3190.45s.
+The sole skip is the existing Windows symlink-unavailable branch in
+`test_ops_retention.py`; no test skip or assertion was added/weakened by FIX1.
+Warnings are existing Alembic path_separator deprecations and pytest cache-write
+permission warnings; no new warning category was introduced by this fix.
+`python -m compileall backend/app` and `git diff --check` PASS.
+
+FIX1 scope: this historical migration's validator, its focused migration test,
+and this audit only. Production/VDS/source network are not used.
+`PRODUCTION_ACTIONS=NONE`, `PRODUCTION_DB_MUTATION=false`, `PIT_READY=false`.
