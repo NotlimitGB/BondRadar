@@ -34,7 +34,7 @@ from .fingerprints import canonical_json_bytes, sha256_canonical
 
 
 SCHEMA_VERSION = "bondradar.cbr_bank_credit_metrics_runner.v1"
-EXPECTED_ALEMBIC_REVISION = "202609150002"
+EXPECTED_ALEMBIC_REVISION = "202609150003"
 BATCH_SIZE = 2_000
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")

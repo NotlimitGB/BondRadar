@@ -30,6 +30,11 @@ from app.models.cbr_bank_financial_evidence import (
 from app.models.controlled_financial_statement_value import (
     ControlledFinancialStatementValue,
 )
+from app.models.credit_risk_evidence import (
+    CreditDefaultEvent,
+    CreditRatingEvent,
+    CreditRiskSourceArtifact,
+)
 from app.models.data_pipeline_run import DataPipelineRun
 from app.models.data_pipeline_step_run import DataPipelineStepRun
 from app.models.dataset_build_run import DatasetBuildRun
@@ -75,6 +80,9 @@ __all__ = [
     "CbrBankSubjectLegalIssuerEvidence",
     "CbrBankSubjectLegalIssuerProfile",
     "ControlledFinancialStatementValue",
+    "CreditDefaultEvent",
+    "CreditRatingEvent",
+    "CreditRiskSourceArtifact",
     "DataPipelineRun",
     "DataPipelineStepRun",
     "DatasetBuildRun",

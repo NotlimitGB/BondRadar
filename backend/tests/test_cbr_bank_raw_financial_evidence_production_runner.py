@@ -88,7 +88,7 @@ def _counts(engine):
 
 
 def test_task262_schema_revision_guard_accepts_only_current_head() -> None:
-    assert runner.EXPECTED_ALEMBIC_REVISION == "202609150002"
+    assert runner.EXPECTED_ALEMBIC_REVISION == "202609150003"
     runner._validate_schema_state(_full_state())
 
     for revisions in (
