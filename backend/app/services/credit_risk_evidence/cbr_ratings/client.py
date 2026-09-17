@@ -207,10 +207,15 @@ class CbrRatingsClient:
             for page in pages:
                 for fields in page.rows:
                     row = dict(fields)
-                    if row["inn"] and canonical_inn(row["inn"]) != inn:
-                        raise RepositoryError("FOREIGN_ISSUER_INN")
                     if row["isin"]:
                         canonical_isin(row["isin"])
+                        if row["inn"]:
+                            canonical_inn(row["inn"])
+                    elif row["inn"]:
+                        if canonical_inn(row["inn"]) != inn:
+                            raise RepositoryError("FOREIGN_ISSUER_INN")
+                    else:
+                        raise RepositoryError("UNRESOLVED_SOURCE_IDENTITY")
                     if not row["isin"] or row["isin"] in universe["bond_isins"]:
                         retained.add(row["objectId"])
             if len(retained) > MAX_OBJECTS:

@@ -396,3 +396,71 @@ Verification:
 `PRODUCTION_DB_MUTATION=false`, `LIVE_CBR_REQUESTS=NONE`, `PIT_READY=false`.
 The sole next step is independent external review; production PLAN/APPLY is not
 automatically authorized by code acceptance.
+
+## Task265-FIX5 — Bond identity by exact ISIN across issuer succession
+
+Baseline: clean `main@1f372710a2e12e52cd8eed502f106ea044d44a9e`;
+actual `origin/main` matched before editing. The following deployment, trace
+and corporate-action details are **operator-provided prior evidence**, not
+independent production/source verification performed by this task.
+
+- FIX4 deployed at that SHA; DB revision `202609160001`, backend running/healthy, restart count `0`, smoke PASS.
+- Artifact/rating/default counts before and after failed PLAN: `0|0|0`. PLAN failed with `FOREIGN_ISSUER_INN` after `83` requests; verified read-only transaction, no mutation/persistence or source bundle, PIT readiness false.
+- Full universe: `496` issuer identifiers, `494` eligible and `2` ineligible issuer queries; `2995` bond ISINs.
+- Trace: query index `78`, active query INN `4401116480`, page `1`, row `7`, object ID `222534`, source INN `7735057951`, ISIN `RU000A103760` (in universe), object type `TBND - облигационный займ`, agency `АКРА (АО)`, country `РОССИЯ`.
+- Source subject: ООО “Хоум Кредит энд Финанс Банк”; object: ООО “ХКФ Банк”, БО-04.
+- Operator-researched MOEX evidence: issue organization changed from HCF Bank to Sovcombank effective `2025-04-10`; Sovcombank succeeded HCF Bank rights/obligations from `2025-04-07`. Historical HCF INN `7735057951` differs from current Sovcombank INN `4401116480`.
+
+Root cause confirmed by inspection: client and offline derive compared source
+INN with active query INN before distinguishing a bond row by its ISIN.
+An exact bond identity must not depend on the current issuer query context.
+
+Only the identity branching changes, in client and parser. A nonempty ISIN
+must pass the existing canonical validator and defines `BOND` by exact ISIN.
+Its optional source INN remains generically format-validated (10 ASCII digits),
+without query-equality or Russian checksum eligibility requirements. An empty
+source INN is valid for an exact bond. Out-of-universe valid bonds remain
+excluded from histories/candidates and use the existing outside-universe count.
+For issuer rows without ISIN, exact query-INN equality remains mandatory;
+both identifiers empty remains `UNRESOLVED_SOURCE_IDENTITY`.
+
+The existing object binding still includes canonical target, exact returned
+source INN and ISIN. Changed source-INN/ISIN/target bindings fail with
+`OBJECT_IDENTITY_COLLISION`. Consistent duplicate bond objects across eligible
+queries retain one history request and one final semantic event. No issuer
+rating inheritance, succession inference, corporate-action master, name-based
+matching or production special case is introduced.
+
+Exact response bytes, full universe/hash, FIX2 query eligibility, FIX4 explicit
+empty-search handling, count keys, manifest/hash algorithm, schema v1,
+resolution/store/APPLY behavior and revision `202609160001` are unchanged.
+Frozen PLAN/load/PREFLIGHT rederive the same exact bond target and preserve the
+historical source INN as raw provenance, never as an inferred issuer target.
+
+Verification:
+
+- Focused parser/client and frozen runner suites: **114 passed, 0 failed**, exit `0`; one existing pytest cache permission warning.
+- Synthetic/mock cases cover cross-INN/same-INN/empty-INN bonds, format-valid checksum-ineligible source metadata, outside-universe history exclusion, issuer mismatch, malformed INN/ISIN, both-empty identity, duplicate objects and conflicting bindings. Frozen disposable-DB PLAN/load/PREFLIGHT prove raw-byte preservation, deterministic hash/counts, exact ISIN resolution and offline read-only behavior. Existing FIX2/FIX3/FIX4 and disposable transaction regressions remain passing.
+- `python -m compileall backend/app`: PASS.
+- `python -m alembic heads` (backend directory): sole `202609160001 (head)`.
+- `git diff --check`: PASS. Exact scope: client, parser, two existing focused test modules and this audit; no contracts/models/migrations/runner implementation change.
+- `BROAD_BACKEND=SKIPPED_BY_DESIGN`. At most one exact-commit CI snapshot; no waiting/polling.
+
+```text
+BOND_IDENTITY_BY_ISIN=true
+BOND_QUERY_INN_MISMATCH_ALLOWED=true
+BOND_SOURCE_INN_FORMAT_VALIDATED=true
+ISSUER_QUERY_INN_MISMATCH_FATAL=true
+OBJECT_IDENTITY_COLLISION_STRICT=true
+ISSUER_TO_BOND_INHERITANCE=false
+ISSUER_SUCCESSION_INHERITANCE=false
+NEW_COUNT_ADDED=false
+DB_MIGRATION_ADDED=false
+PRODUCTION_ACTIONS=NONE
+PRODUCTION_DB_MUTATION=false
+LIVE_CBR_REQUESTS=NONE
+PIT_READY=false
+```
+
+The sole handoff is independent external review. Production PLAN/APPLY requires
+separate explicit authorization; code readiness does not authorize it.

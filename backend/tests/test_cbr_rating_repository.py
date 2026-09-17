@@ -164,6 +164,110 @@ def test_identifiers_object_join_and_unknown_agency_fail_closed():
         derive(fixture_responses([row(isin="bad")]), UNIVERSE)
 
 
+SUCCESSOR_INN = "4401116480"
+PREDECESSOR_INN = "7735057951"
+SUCCESSION_ISIN = "RU000A103760"
+
+
+def bond_search_responses(searches):
+    result = [response("searchRating", search_fields(inn), search_bytes(rows))
+              for inn, rows in searches.items()]
+    retained = {r["objectId"] for rows in searches.values() for r in rows
+                if r["isin"] == SUCCESSION_ISIN}
+    result.extend(response("searchObjectHistory", {"objectId": obj},
+        json_bytes({"title": "History", "table": []})) for obj in sorted(retained, key=int))
+    return tuple(result)
+
+
+def collect_bond_searches(searches, universe):
+    histories = []
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.method == "GET":
+            return httpx.Response(200, text='<input name="sessid" value="' + 'a'*32 + '">',
+                                  headers={"content-type": "text/html"})
+        fields = parse_qs(request.content.decode(), keep_blank_values=True)
+        if request.url.params["action"] == "searchRating":
+            payload = search_bytes(searches[fields["fields[inn]"][0]])
+        else:
+            assert request.url.params["action"] == "searchObjectHistory"
+            histories.append(fields["fields[objectId]"][0])
+            payload = json_bytes({"title": "History", "table": []})
+        return httpx.Response(200, content=payload, headers={"content-type": "application/json"})
+    client, _ = make_client(handler)
+    try:
+        return client.collect(universe), histories
+    finally:
+        client.close()
+
+
+@pytest.mark.parametrize("source_inn", [PREDECESSOR_INN, SUCCESSOR_INN, "0010000025", ""])
+def test_bond_exact_isin_not_query_inn_identity(source_inn):
+    searches = {SUCCESSOR_INN: [row(objectId="222534", inn=source_inn, isin=SUCCESSION_ISIN)]}
+    universe = {"issuer_inns": [SUCCESSOR_INN], "bond_isins": [SUCCESSION_ISIN]}
+    responses, histories = collect_bond_searches(searches, universe)
+    candidates, counts, retained = derive(responses, universe)
+    assert histories == ["222534"] and retained == {"222534"}
+    assert len(candidates) == 1 and counts["bond_objects_in_universe"] == 1
+    value = candidates[0].value
+    assert value.target.value == "BOND" and value.source_bond_isin == SUCCESSION_ISIN
+    assert value.source_issuer_inn is None
+    assert parse_search(responses[0].content).rows[0] == tuple(row(
+        objectId="222534", inn=source_inn, isin=SUCCESSION_ISIN).items())
+
+
+def test_outside_universe_cross_inn_bond_has_no_history_or_candidate():
+    searches = {SUCCESSOR_INN: [row(inn=PREDECESSOR_INN, isin=SUCCESSION_ISIN)]}
+    universe = {"issuer_inns": [SUCCESSOR_INN], "bond_isins": []}
+    responses, histories = collect_bond_searches(searches, universe)
+    candidates, counts, retained = derive(responses, universe)
+    assert histories == [] and candidates == () and retained == set()
+    assert counts["bond_objects_outside_universe"] == 1
+    assert counts["issuer_queries_succeeded"] == 1
+
+
+@pytest.mark.parametrize("updates, error", [
+    ({"inn": PREDECESSOR_INN, "isin": ""}, "FOREIGN_ISSUER_INN"),
+    ({"inn": "", "isin": ""}, "UNRESOLVED_SOURCE_IDENTITY"),
+    ({"inn": "bad", "isin": SUCCESSION_ISIN}, None),
+    ({"inn": "７７３５０５７９５１", "isin": SUCCESSION_ISIN}, None),
+    ({"inn": PREDECESSOR_INN, "isin": "bad"}, None),
+])
+def test_bond_and_issuer_identity_fail_closed_in_client_and_derive(updates, error):
+    searches = {SUCCESSOR_INN: [row(**updates)]}
+    universe = {"issuer_inns": [SUCCESSOR_INN], "bond_isins": [SUCCESSION_ISIN]}
+    exception = RepositoryError if error else CreditRiskEvidenceError
+    for operation in (lambda: collect_bond_searches(searches, universe),
+                      lambda: derive(bond_search_responses(searches), universe)):
+        with pytest.raises(exception, match=error):
+            operation()
+
+
+def test_consistent_bond_object_across_queries_has_one_history_and_event():
+    source_row = row(inn=PREDECESSOR_INN, isin=SUCCESSION_ISIN)
+    searches = {INN: [source_row], SUCCESSOR_INN: [source_row]}
+    universe = {"issuer_inns": sorted(searches), "bond_isins": [SUCCESSION_ISIN]}
+    responses, histories = collect_bond_searches(searches, universe)
+    candidates, counts, retained = derive(responses, universe)
+    assert histories == ["123"] and retained == {"123"} and len(candidates) == 1
+    assert counts["issuer_queries_succeeded"] == 2 and counts["search_rows_seen"] == 2
+    assert counts["unique_object_ids_seen"] == counts["object_histories_fetched"] == 1
+
+
+@pytest.mark.parametrize("updates", [
+    {"inn": INN}, {"isin": ISIN}, {"inn": SUCCESSOR_INN, "isin": ""},
+])
+def test_cross_query_bond_binding_conflict_remains_collision(updates):
+    source_row = row(inn=PREDECESSOR_INN, isin=SUCCESSION_ISIN)
+    searches = {INN: [source_row], SUCCESSOR_INN: [{**source_row, **updates}]}
+    universe = {"issuer_inns": sorted(searches), "bond_isins": [SUCCESSION_ISIN, ISIN]}
+    for operation in (lambda: collect_bond_searches(searches, universe),
+                      lambda: derive(bond_search_responses(searches), universe)):
+        with pytest.raises(RepositoryError, match="OBJECT_IDENTITY_COLLISION"):
+            operation()
+
+
 def test_withdrawal_date_only_and_exact_raw_strings():
     candidates, _, _ = derive(fixture_responses([row(ratingValue="Рейтинг отозван", ratingAction="WD", releaseDate="02.06.2026 12:30:00")]), UNIVERSE)
     current = next(c.value for c in candidates if c.value.event_date.year == 2026)

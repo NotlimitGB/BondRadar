@@ -205,12 +205,14 @@ def derive(responses, universe):
             for pairs in page.rows:
                 row = dict(pairs); seen_rows += 1
                 inn, isin = row["inn"], row["isin"]
-                if inn and canonical_inn(inn) != active:
-                    raise RepositoryError("FOREIGN_ISSUER_INN")
                 if isin:
                     canonical_isin(isin)
+                    if inn:
+                        canonical_inn(inn)
                     identity = ("BOND", None, isin, row["objectName"] or None)
                 elif inn:
+                    if canonical_inn(inn) != active:
+                        raise RepositoryError("FOREIGN_ISSUER_INN")
                     identity = ("LEGAL_ISSUER", canonical_inn(inn), None, row["objectName"] or None)
                 else:
                     raise RepositoryError("UNRESOLVED_SOURCE_IDENTITY")

@@ -8,9 +8,10 @@ from sqlalchemy import select, text, func
 from app.models.credit_risk_evidence import CreditRatingEvent, CreditRiskSourceArtifact, CreditDefaultEvent
 from app.services.credit_risk_evidence.cbr_ratings import runner
 from app.services.credit_risk_evidence.cbr_ratings.contracts import RepositoryError
-from test_credit_risk_evidence import _seed_issuer
+from test_credit_risk_evidence import _seed_issuer, _seed_bond
 from test_cbr_rating_repository import NOW, UNIVERSE, fixture_responses, json_bytes, row, response, search_fields, INN
 from test_cbr_rating_repository import EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES, EMPTY_SEARCH_INNS, empty_search_responses
+from test_cbr_rating_repository import SUCCESSOR_INN, PREDECESSOR_INN, SUCCESSION_ISIN, bond_search_responses
 
 
 @pytest.fixture
@@ -51,6 +52,44 @@ def test_plan_preflight_apply_replay_and_full_bytes_readback(tmp_path, setup):
         assert s.scalar(select(func.count()).select_from(CreditDefaultEvent)) == 0
         assert {a.content_bytes for a in s.scalars(select(CreditRiskSourceArtifact))} == {r.content for r in fixture_responses()}
         assert all(e.rating_scale_raw is None and e.publication_at is None for e in s.scalars(select(CreditRatingEvent)))
+
+
+def test_cross_inn_bond_frozen_plan_load_and_offline_preflight(tmp_path, setup):
+    from sqlalchemy.orm import Session
+    from app.models import LegalIssuer
+    engine, source, adapter = setup
+    with Session(engine) as session:
+        session.scalar(select(LegalIssuer)).issuer_inn = SUCCESSOR_INN
+        _seed_bond(session).isin = SUCCESSION_ISIN
+        session.commit()
+    raw = bond_search_responses({SUCCESSOR_INN: [row(objectId="222534",
+        inn=PREDECESSOR_INN, isin=SUCCESSION_ISIN)]})
+    source.collect = lambda universe: raw
+    directory, planned = plan(tmp_path, setup)
+    _, repeated = plan(tmp_path, setup, "repeated")
+    assert planned["plan_hash"] == repeated["plan_hash"]
+    manifest, responses, candidates, counts = runner.load_bundle(directory)
+    assert responses == raw and counts["bond_rating_events_candidate"] == 1
+    assert counts["issuer_rating_events_candidate"] == 0
+    assert counts["identity_unresolved_rows"] == counts["identity_ambiguous_rows"] == 0
+    assert manifest["universe"] == {"issuer_inns": [SUCCESSOR_INN], "bond_isins": [SUCCESSION_ISIN]}
+    assert counts["issuer_query_eligible_count"] == counts["issuer_queries_succeeded"] == 1
+    assert candidates[0].value.source_bond_isin == SUCCESSION_ISIN
+    assert candidates[0].value.source_issuer_inn is None
+    assert candidates[0].value.target.value == "BOND"
+    assert json.loads(responses[0].content)["data"]["itemList"][0]["inn"] == PREDECESSOR_INN
+    def forbidden(*args, **kwargs):
+        raise AssertionError("offline PREFLIGHT attempted source access")
+    source.collect = forbidden
+    preflight = runner.execute("preflight", bundle_dir=directory, engine=engine,
+        client=source, _adapter=adapter, expected_plan_hash=planned["plan_hash"])
+    assert preflight["ready"] and preflight["transaction_read_only"]
+    assert preflight["counts"] == planned["counts"]
+    assert not preflight["network_accessed"] and not preflight["database_mutation_executed"]
+    assert not preflight["database_persistence"] and not preflight["pit_ready"]
+    assert preflight["production_actions"] == "NONE"
+    with Session(engine) as session:
+        assert runner._totals(session) == {"artifacts": 0, "ratings": 0, "defaults": 0}
 
 
 def test_changed_response_reuses_logical_events_and_new_facts_insert(tmp_path, setup):
