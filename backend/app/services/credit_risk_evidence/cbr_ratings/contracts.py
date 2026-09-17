@@ -33,10 +33,10 @@ ORGANIZATION_OBJECT_TYPES = frozenset({
 
 
 def object_type_code(value):
-    """Recognize only the source's explicit uppercase CODE - description shape."""
+    """Recognize uppercase CODE with only the observed hyphen or EN DASH separator."""
     if not isinstance(value, str):
         return None
-    match = re.fullmatch(r"([A-Z]{2,4}) - (\S(?:[^\r\n]*\S)?)", value)
+    match = re.fullmatch(r"([A-Z]{2,4}) (?:-|–) (\S(?:[^\r\n]*\S)?)", value)
     return match.group(1) if match else None
 
 

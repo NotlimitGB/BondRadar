@@ -13,6 +13,7 @@ from test_cbr_rating_repository import NOW, UNIVERSE, fixture_responses, json_by
 from test_cbr_rating_repository import EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES, EMPTY_SEARCH_INNS, empty_search_responses
 from test_cbr_rating_repository import SUCCESSOR_INN, PREDECESSOR_INN, SUCCESSION_ISIN, bond_search_responses
 from test_cbr_rating_repository import CONTEXT_INN, context_issuer_responses
+from test_cbr_rating_repository import RUSAL_INN, context_issuer_row, rusal_context_row
 
 
 @pytest.fixture
@@ -93,14 +94,17 @@ def test_cross_inn_bond_frozen_plan_load_and_offline_preflight(tmp_path, setup):
         assert runner._totals(session) == {"artifacts": 0, "ratings": 0, "defaults": 0}
 
 
-def test_query_context_issuer_frozen_bytes_metadata_and_offline_preflight(tmp_path, setup):
+@pytest.mark.parametrize("query_inn,source_row", [
+    (CONTEXT_INN, context_issuer_row()), (RUSAL_INN, rusal_context_row()),
+])
+def test_query_context_issuer_frozen_bytes_metadata_and_offline_preflight(tmp_path, setup, query_inn, source_row):
     from sqlalchemy.orm import Session
     from app.models import LegalIssuer
     engine, source, adapter = setup
     with Session(engine) as session:
-        session.scalar(select(LegalIssuer)).issuer_inn = CONTEXT_INN
+        session.scalar(select(LegalIssuer)).issuer_inn = query_inn
         session.commit()
-    raw = context_issuer_responses()
+    raw = context_issuer_responses(query_inn, [source_row])
     source.collect = lambda universe: raw
     directory, planned = plan(tmp_path, setup)
     _, repeated = plan(tmp_path, setup, "repeated")
@@ -109,13 +113,15 @@ def test_query_context_issuer_frozen_bytes_metadata_and_offline_preflight(tmp_pa
     assert responses == raw and counts["issuer_rating_events_candidate"] == 1
     assert counts["issuer_objects_in_universe"] == counts["issuer_queries_succeeded"] == 1
     assert counts["bond_rating_events_candidate"] == counts["identity_unresolved_rows"] == 0
-    assert manifest["universe"] == {"issuer_inns": [CONTEXT_INN], "bond_isins": []}
+    assert manifest["universe"] == {"issuer_inns": [query_inn], "bond_isins": []}
     assert candidates[0].value.target.value == "LEGAL_ISSUER"
-    assert candidates[0].value.source_issuer_inn == CONTEXT_INN
-    assert dict(responses[0].fields)["inn"] == CONTEXT_INN
+    assert candidates[0].value.source_issuer_inn == query_inn
+    assert dict(responses[0].fields)["inn"] == query_inn
     assert dict(responses[0].fields)["formSearh"] == "advanced"
-    source_row = json.loads(responses[0].content)["data"]["itemList"][0]
-    assert source_row["inn"] == source_row["isin"] == source_row["koNumber"] == ""
+    frozen_row = json.loads(responses[0].content)["data"]["itemList"][0]
+    assert frozen_row == source_row
+    assert frozen_row["inn"] == frozen_row["isin"] == frozen_row["koNumber"] == ""
+    assert manifest["responses"][0]["sha256"] == runner.hashlib.sha256(raw[0].content).hexdigest()
     assert (directory / "responses" / (runner.hashlib.sha256(raw[0].content).hexdigest()+".json")).read_bytes() == raw[0].content
     def forbidden(*args, **kwargs):
         raise AssertionError("offline PREFLIGHT attempted network")

@@ -553,3 +553,56 @@ PIT_READY=false
 
 The sole handoff is independent external review. Production PLAN/APPLY remains
 separately authorized; implementation readiness grants no production execution.
+
+## Task265-FIX7 — Explicit EN DASH objectType separator
+
+Baseline: clean `main@2e386b6cfa16322e938adfe15b2f55e8f1dfcfe8`;
+actual `origin/main` matched before editing. All production, source-probe and
+external MOEX facts below are **operator-provided prior evidence**; FIX7 performs
+no independent live source or production verification.
+
+- FIX6 code SHA `2e386b6cfa16322e938adfe15b2f55e8f1dfcfe8`, DB revision `202609160001`; backend running, restart count `0`, health/smoke PASS.
+- Evidence before/after PLAN `0|0|0`; PLAN failed `UNRESOLVED_SOURCE_IDENTITY` after `72` HTTP requests. Verified read-only transaction, mutation/persistence false, source bundle not written, production actions NONE, PIT readiness false.
+- Probe range query indexes `64..100`, `41` HTTP requests, no histories or DB mutation; exactly one unresolved row/type: `BNFC – нефинансовая компания`.
+- Row: query index `67`, active INN `3906394938`, page `1`, row `1`, object ID `221567`, objectTypeCode null under FIX6, empty INN/ISIN/koNumber and subject name, country `Международные компании САР (остров Русский, остров Октябрьский)`.
+- Object name: `МЕЖДУНАРОДНАЯ КОМПАНИЯ ПУБЛИЧНОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО "ОБЪЕДИНЁННАЯ КОМПАНИЯ "РУСАЛ""`; agency `АКРА (АО)`, rating `A+(RU)`, outlook `STA – стабильный`, release date `26.03.2026`.
+- Operator-researched MOEX evidence identifies MKPAO UC RUSAL with INN `3906394938` and ACRA `A+(RU)` dated `26.03.2026`. No production-name special case is introduced.
+
+Root cause confirmed by inspection: FIX6 recognized only the ASCII ` - `
+separator. The source-observed ` – ` uses EN DASH U+2013, so the same BNFC
+organization code failed lexical recognition. **FIX7 changes lexical recognition
+only. Organization taxonomy and identity semantics are unchanged.**
+
+`object_type_code()` now accepts exactly U+002D HYPHEN-MINUS or U+2013 EN DASH,
+each surrounded by one ASCII space. Uppercase ASCII code length 2–4, nonempty
+single-line description and leading/trailing strictness remain intact. No
+Unicode normalization, punctuation rewriting, whitespace stripping or fuzzy
+matching is added. U+2014, U+2212, U+2011 and U+2010 remain rejected. Instruments
+and sovereign codes may be recognized lexically but never enter the unchanged
+13-code organization allowlist.
+
+Client/parser production logic is unchanged: ISIN precedence, explicit issuer
+INN equality, eligible advanced-query context, navigation and object collision
+guards retain FIX5/FIX6 behavior. Raw objectType, prediction, ratingAction,
+names and response bytes are untouched; no count, bundle version, model,
+schema revision, migration or store change is made. The preceding FIX6 audit
+describes its historical ASCII-only contract; this section supersedes only that
+separator restriction.
+
+Verification:
+
+- Both existing Task265 focused modules: **212 passed, 0 failed**, exit `0`; one existing pytest cache permission warning.
+- All 13 organization codes cover both separators through the actual mock client and offline derive. Near-miss punctuation/spacing/case/newline/null inputs remain rejected; EN DASH TBND/SCO without identifiers remain fatal. The synthetic RUSAL case requests history, derives the exact query issuer and preserves EN DASH source fields. Synthetic EN DASH ratingAction is a preservation test, not a claim to possess the production action value.
+- Frozen PLAN/load/offline PREFLIGHT cover ASCII and EN DASH cases, deterministic plan hash/counts, exact raw bytes and manifest response SHA, no offline source access and no evidence writes. Existing FIX2/FIX4/FIX5/FIX6 and disposable transaction regressions pass.
+- `python -m compileall backend/app`: PASS.
+- `python -m alembic heads` (backend directory): sole `202609160001 (head)`.
+- `git diff --check`: PASS. Exact scope: contracts helper, two existing focused test modules and this audit. Client/parser/store/models/migrations unchanged.
+- `BROAD_BACKEND=SKIPPED_BY_DESIGN`; at most one exact-commit CI snapshot, no waiting/polling.
+
+`ORGANIZATION_ALLOWLIST_UNCHANGED=true`, `IDENTITY_SEMANTICS_UNCHANGED=true`,
+`RAW_SOURCE_BYTES_PRESERVED=true`, `NEW_COUNT_ADDED=false`,
+`DB_MIGRATION_ADDED=false`, `PRODUCTION_ACTIONS=NONE`,
+`PRODUCTION_DB_MUTATION=false`, `LIVE_CBR_REQUESTS=NONE`, `PIT_READY=false`.
+
+The sole next step is independent external review. Production PLAN/APPLY is not
+executed or automatically authorized by this code delivery.

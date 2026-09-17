@@ -270,6 +270,7 @@ def test_cross_query_bond_binding_conflict_remains_collision(updates):
 
 
 CONTEXT_INN = "3900045916"
+RUSAL_INN = "3906394938"
 ORGANIZATION_CODES = ("CBNK", "FINS", "FNPF", "FMFO", "FLSG", "FFCT", "FMC",
                       "FDEP", "FOFO", "BNFC", "BNFH", "CGRP", "CO")
 
@@ -281,6 +282,14 @@ def context_issuer_row(**updates):
         prediction="STA - стабильный", releaseDate="17.11.2025"), **updates})
 
 
+def rusal_context_row():
+    return context_issuer_row(objectId="221567", objectType="BNFC – нефинансовая компания",
+        objectName='МЕЖДУНАРОДНАЯ КОМПАНИЯ ПУБЛИЧНОЕ АКЦИОНЕРНОЕ ОБЩЕСТВО "ОБЪЕДИНЁННАЯ КОМПАНИЯ "РУСАЛ""',
+        country="Международные компании САР (остров Русский, остров Октябрьский)",
+        kraName="АКРА (АО)", ratingValue="A+(RU)", prediction="STA – стабильный",
+        ratingAction="NW – synthetic action", releaseDate="26.03.2026")
+
+
 def context_issuer_responses(query_inn=CONTEXT_INN, rows=None):
     rows = [context_issuer_row()] if rows is None else rows
     return (response("searchRating", search_fields(query_inn), search_bytes(rows)), *(
@@ -289,9 +298,10 @@ def context_issuer_responses(query_inn=CONTEXT_INN, rows=None):
 
 
 @pytest.mark.parametrize("code", ORGANIZATION_CODES)
-def test_allowlisted_organization_uses_exact_query_context_without_changing_raw_row(code):
+@pytest.mark.parametrize("separator", [" - ", " – "])
+def test_allowlisted_organization_uses_exact_query_context_without_changing_raw_row(code, separator):
     assert ORGANIZATION_OBJECT_TYPES == frozenset(ORGANIZATION_CODES)
-    object_type = code + " - synthetic organization"
+    object_type = code + separator + "synthetic organization"
     assert object_type_code(object_type) == code and organization_object_type(object_type)
     source_row = context_issuer_row(objectType=object_type, objectName="Unrelated diagnostic name",
                                    country="", koNumber="not-an-identity")
@@ -307,6 +317,52 @@ def test_allowlisted_organization_uses_exact_query_context_without_changing_raw_
     assert dict(parse_search(responses[0].content).rows[0])["inn"] == ""
     assert dict(parse_search(responses[0].content).rows[0])["isin"] == ""
     assert source_row["inn"] == source_row["isin"] == ""
+
+
+def test_rusal_en_dash_context_preserves_all_raw_fields_and_requests_history():
+    source_row = rusal_context_row()
+    universe = {"issuer_inns": [RUSAL_INN], "bond_isins": []}
+    responses, histories = collect_bond_searches({RUSAL_INN: [source_row]}, universe)
+    assert responses == context_issuer_responses(RUSAL_INN, [source_row])
+    assert responses[0].content == search_bytes([source_row])
+    assert dict(parse_search(responses[0].content).rows[0]) == source_row
+    assert object_type_code(source_row["objectType"]) == "BNFC"
+    candidates, counts, retained = derive(responses, universe)
+    assert histories == ["221567"] and retained == {"221567"} and len(candidates) == 1
+    event = candidates[0].value
+    assert event.target.value == "LEGAL_ISSUER" and event.source_issuer_inn == RUSAL_INN
+    assert event.agency == RatingAgency.ACRA and event.rating_value_raw == "A+(RU)"
+    assert event.event_date == date(2026, 3, 26)
+    assert event.rating_outlook_raw == source_row["prediction"] == "STA – стабильный"
+    assert event.rating_action_raw == source_row["ratingAction"] == "NW – synthetic action"
+    assert source_row["inn"] == source_row["isin"] == source_row["koNumber"] == ""
+    assert counts["issuer_objects_in_universe"] == 1
+
+
+@pytest.mark.parametrize("value", [
+    *("BNFC " + dash + " company" for dash in ("\u2014", "\u2212", "\u2011", "\u2010")),
+    "BNFC", "BNFC company", None,
+    *(value for dash in ("-", "–") for value in (
+        f"bnfc {dash} company", f"BNFC{dash} company", f"BNFC {dash}company",
+        f"BNFC  {dash} company", f"BNFC {dash}  company", f" BNFC {dash} company",
+        f"BNFC {dash} company ", f"BNFC {dash} company\n", f"BNFC {dash} company\r",
+        f"BNFC {dash} com\npany", f"BNFC {dash} ", f"BNFC\t{dash} company",
+        f"BNFC\u00a0{dash} company")),
+])
+def test_object_type_separator_and_shape_near_misses_remain_rejected(value):
+    assert object_type_code(value) is None and organization_object_type(value) is False
+
+
+@pytest.mark.parametrize("code", ["TBND", "SCO"])
+def test_nonorganization_en_dash_empty_identifiers_remain_fatal(code):
+    object_type = code + " – synthetic description"
+    assert object_type_code(object_type) == code and not organization_object_type(object_type)
+    source_row = context_issuer_row(objectType=object_type)
+    universe = {"issuer_inns": [CONTEXT_INN], "bond_isins": []}
+    for operation in (lambda: collect_bond_searches({CONTEXT_INN: [source_row]}, universe),
+                      lambda: derive(context_issuer_responses(rows=[source_row]), universe)):
+        with pytest.raises(RepositoryError, match="UNRESOLVED_SOURCE_IDENTITY"):
+            operation()
 
 
 def test_production_style_bnfc_context_case_and_explicit_same_inn():
