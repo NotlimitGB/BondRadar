@@ -464,3 +464,92 @@ PIT_READY=false
 
 The sole handoff is independent external review. Production PLAN/APPLY requires
 separate explicit authorization; code readiness does not authorize it.
+
+## Task265-FIX6 — Issuer identity from exact INN query context
+
+Baseline: clean `main@d33922ef1203c4f6d4a67da0d13e3f41932d118c`;
+actual remote `origin/main` matched before editing. The following deployment,
+trace, taxonomy and external identity facts are **operator-provided prior
+evidence**, not independently fetched or production-verified during FIX6.
+
+- FIX5 production code SHA `d33922ef1203c4f6d4a67da0d13e3f41932d118c`; DB revision `202609160001`. Backend running/healthy, restart count `0`, health and smoke PASS.
+- Artifact/rating/default counts before and after failed PLAN: `0|0|0`. No successful production Task265 bundle exists. Failed PLAN: `UNRESOLVED_SOURCE_IDENTITY`, `69` HTTP requests, verified read-only transaction, mutation/persistence false, source bundle not written, production actions NONE, PIT readiness false.
+- Universe: `496` issuers, `494` query-eligible issuer INNs, `2995` bond ISINs; FIX2 eligibility remains mandatory.
+- Diagnostic: query index `64`, active exact INN `3900045916`, page `1`, row `2`, object ID `221711`, type `BNFC - нефинансовая компания`.
+- Raw row: object name `Международная компания Публичное акционерное общество Озон`, empty subject name, country `Международные компании САР (остров Русский, остров Октябрьский)`, empty INN/ISIN/koNumber, agency `АО "Эксперт РА"`, rating `ruA`, outlook `STA - стабильный`, date `17.11.2025`.
+- Operator-researched MOEX identity for MKPAO Ozon and Expert RA's same-issuer/same-date `ruA` record both identify INN `3900045916`; CBR taxonomy identifies BNFC as a non-financial organization. These facts explain the source contract but introduce no name-specific production rule.
+
+Root cause: an exact-INN issuer search can return an organization-level object
+whose result row omits its redundant INN. The previous absent-INN/ISIN branch
+therefore blocked a source-context-identifiable issuer. FIX6 supersedes only
+that branch of FIX5; it does not treat every identifier-free object as an issuer.
+
+The shared source-contract allowlist is exactly:
+`CBNK|FINS|FNPF|FMFO|FLSG|FFCT|FMC|FDEP|FOFO|BNFC|BNFH|CGRP|CO`.
+The helper recognizes only an uppercase ASCII code of 2–4 letters followed by
+the literal ` - ` separator and a nonempty single-line description. It performs
+no stripping, case conversion, fuzzy/description/name matching or country-based
+inference. Malformed shapes, unknown codes, instruments and public authorities
+are not organizations for fallback purposes.
+
+Identity precedence remains explicit:
+
+1. Nonempty ISIN: BOND by exact canonical ISIN, optional source INN format-only validation, no query-INN equality, retain only in-universe bonds (unchanged FIX5).
+2. No ISIN, explicit INN: LEGAL_ISSUER by canonical row INN, exact active query equality required; contradictions remain `FOREIGN_ISSUER_INN`.
+3. Both absent: only an allowlisted organization may use the active exact eligible query INN. Otherwise `UNRESOLVED_SOURCE_IDENTITY` remains fatal.
+
+Client traversal establishes the context through `searchRating` with the fixed
+`formSearh=advanced` request and FIX2-eligible INN; its navigation belongs to that
+same query. Offline derive independently validates exact request keys, advanced
+mode, eligibility and pagination before applying the fallback. Navigation
+without a valid pending search cannot supply identity. No history response,
+unknown source context or ineligible query can initiate the fallback.
+
+For this branch `RatingEventInput.source_issuer_inn` is derived deterministically
+from exact request metadata, **not copied from `itemList[].inn`**. The original
+row remains `inn=""`, `isin=""`; frozen exact response bytes are never rewritten.
+The request's INN and advanced-query metadata remain separately preserved.
+Object name, subject name, country, agency and koNumber do not resolve identity.
+No bank REGN mapping, issuer succession or issuer-to-bond inheritance is added.
+
+Object collision binding is unchanged: canonical target plus raw returned INN
+and ISIN. The same blank-identifier object under different query INNs collides;
+even a later explicit INN with the same canonical target retains the strict raw
+binding check. Repeated consistent page rows use existing semantic deduplication.
+
+No new count is added. Existing issuer-object/event counts naturally include
+resolved organizational rows. Full universe/hash, query eligibility, Bitrix/
+CAPTCHA/security/empty-search guards, bundle schema v1, fingerprints, store,
+APPLY transactions, models and migrations remain unchanged.
+
+Verification:
+
+- `python -m pytest -q backend/tests/test_cbr_rating_repository.py backend/tests/test_cbr_rating_repository_runner.py`: **162 passed, 0 failed**, exit `0`; one existing pytest cache permission warning.
+- Synthetic/mock tests cover the exact production-style BNFC case, every allowlisted code, raw empty identifiers, explicit same/conflicting INN, bond precedence, all excluded instrument/sovereign/unknown types, malformed/null object types, advanced/eligible context guards, page-2 context, cross-query non-leakage/collisions and repeated-row deduplication.
+- Disposable-DB frozen PLAN/load/PREFLIGHT prove exact bytes and request metadata, deterministic plan hashes/counts, unchanged issuer target, no offline network access and no evidence writes. Existing FIX2/FIX3/FIX4/FIX5 and disposable transaction regressions remain passing.
+- `python -m compileall backend/app`: PASS.
+- `python -m alembic heads` (backend directory): sole `202609160001 (head)`.
+- `git diff --check`: PASS. Exact scope: CBR contracts/helper, client, parser, two existing focused test modules and this audit.
+- `BROAD_BACKEND=SKIPPED_BY_DESIGN`; at most one exact-commit CI snapshot, no waiting/polling.
+
+```text
+EXACT_QUERY_CONTEXT_ISSUER_IDENTITY=true
+ORGANIZATION_ALLOWLIST_STRICT=true
+RAW_ROW_IDENTIFIERS_UNCHANGED=true
+EXPLICIT_ISSUER_INN_MISMATCH_FATAL=true
+BOND_IDENTITY_BY_ISIN_PRESERVED=true
+OBJECT_IDENTITY_COLLISION_STRICT=true
+NO_NAME_MATCHING=true
+KO_NUMBER_IDENTITY_ADDED=false
+ISSUER_TO_BOND_INHERITANCE=false
+ISSUER_SUCCESSION_INHERITANCE=false
+NEW_COUNT_ADDED=false
+DB_MIGRATION_ADDED=false
+PRODUCTION_ACTIONS=NONE
+PRODUCTION_DB_MUTATION=false
+LIVE_CBR_REQUESTS=NONE
+PIT_READY=false
+```
+
+The sole handoff is independent external review. Production PLAN/APPLY remains
+separately authorized; implementation readiness grants no production execution.

@@ -12,6 +12,7 @@ from test_credit_risk_evidence import _seed_issuer, _seed_bond
 from test_cbr_rating_repository import NOW, UNIVERSE, fixture_responses, json_bytes, row, response, search_fields, INN
 from test_cbr_rating_repository import EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTES, EMPTY_SEARCH_INNS, empty_search_responses
 from test_cbr_rating_repository import SUCCESSOR_INN, PREDECESSOR_INN, SUCCESSION_ISIN, bond_search_responses
+from test_cbr_rating_repository import CONTEXT_INN, context_issuer_responses
 
 
 @pytest.fixture
@@ -88,6 +89,43 @@ def test_cross_inn_bond_frozen_plan_load_and_offline_preflight(tmp_path, setup):
     assert not preflight["network_accessed"] and not preflight["database_mutation_executed"]
     assert not preflight["database_persistence"] and not preflight["pit_ready"]
     assert preflight["production_actions"] == "NONE"
+    with Session(engine) as session:
+        assert runner._totals(session) == {"artifacts": 0, "ratings": 0, "defaults": 0}
+
+
+def test_query_context_issuer_frozen_bytes_metadata_and_offline_preflight(tmp_path, setup):
+    from sqlalchemy.orm import Session
+    from app.models import LegalIssuer
+    engine, source, adapter = setup
+    with Session(engine) as session:
+        session.scalar(select(LegalIssuer)).issuer_inn = CONTEXT_INN
+        session.commit()
+    raw = context_issuer_responses()
+    source.collect = lambda universe: raw
+    directory, planned = plan(tmp_path, setup)
+    _, repeated = plan(tmp_path, setup, "repeated")
+    assert planned["plan_hash"] == repeated["plan_hash"]
+    manifest, responses, candidates, counts = runner.load_bundle(directory)
+    assert responses == raw and counts["issuer_rating_events_candidate"] == 1
+    assert counts["issuer_objects_in_universe"] == counts["issuer_queries_succeeded"] == 1
+    assert counts["bond_rating_events_candidate"] == counts["identity_unresolved_rows"] == 0
+    assert manifest["universe"] == {"issuer_inns": [CONTEXT_INN], "bond_isins": []}
+    assert candidates[0].value.target.value == "LEGAL_ISSUER"
+    assert candidates[0].value.source_issuer_inn == CONTEXT_INN
+    assert dict(responses[0].fields)["inn"] == CONTEXT_INN
+    assert dict(responses[0].fields)["formSearh"] == "advanced"
+    source_row = json.loads(responses[0].content)["data"]["itemList"][0]
+    assert source_row["inn"] == source_row["isin"] == source_row["koNumber"] == ""
+    assert (directory / "responses" / (runner.hashlib.sha256(raw[0].content).hexdigest()+".json")).read_bytes() == raw[0].content
+    def forbidden(*args, **kwargs):
+        raise AssertionError("offline PREFLIGHT attempted network")
+    source.collect = forbidden
+    result = runner.execute("preflight", bundle_dir=directory, engine=engine, client=source,
+        _adapter=adapter, expected_plan_hash=planned["plan_hash"])
+    assert result["ready"] and result["counts"] == planned["counts"]
+    assert result["transaction_read_only"] and not result["network_accessed"]
+    assert not result["database_mutation_executed"] and not result["database_persistence"]
+    assert result["production_actions"] == "NONE" and not result["pit_ready"]
     with Session(engine) as session:
         assert runner._totals(session) == {"artifacts": 0, "ratings": 0, "defaults": 0}
 

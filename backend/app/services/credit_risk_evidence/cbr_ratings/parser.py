@@ -7,6 +7,7 @@ from app.services.credit_risk_evidence.contracts import (
     RatingEventInput, RatingTarget, PublicationPrecision, canonical_inn, canonical_isin,
 )
 from .contracts import AGENCIES, ITEM_FIELDS, SEARCH_FIELDS, MAX_OBJECTS, MAX_RESPONSE_BYTES, RepositoryError, SearchPage, Candidate, eligible_issuer_inns
+from .contracts import organization_object_type
 
 
 def _pairs(items):
@@ -214,6 +215,9 @@ def derive(responses, universe):
                     if canonical_inn(inn) != active:
                         raise RepositoryError("FOREIGN_ISSUER_INN")
                     identity = ("LEGAL_ISSUER", canonical_inn(inn), None, row["objectName"] or None)
+                elif organization_object_type(row["objectType"]):
+                    # Only the validated active exact eligible INN search supplies identity.
+                    identity = ("LEGAL_ISSUER", active, None, row["objectName"] or None)
                 else:
                     raise RepositoryError("UNRESOLVED_SOURCE_IDENTITY")
                 obj = row["objectId"]

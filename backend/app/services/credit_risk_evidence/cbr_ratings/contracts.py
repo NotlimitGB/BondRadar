@@ -26,6 +26,22 @@ SEARCH_FIELDS = ("formSearh", "captchaCode", "dateFrom", "dateTo", "ratingName",
 ITEM_FIELDS = ("objectId", "objectName", "subjectName", "country", "objectType", "inn", "isin",
                "koNumber", "ratingValue", "prediction", "kraName", "releaseDate", "ratingAction", "releaseUrl")
 SHA = re.compile(r"[0-9a-f]{64}")
+ORGANIZATION_OBJECT_TYPES = frozenset({
+    "CBNK", "FINS", "FNPF", "FMFO", "FLSG", "FFCT", "FMC", "FDEP",
+    "FOFO", "BNFC", "BNFH", "CGRP", "CO",
+})
+
+
+def object_type_code(value):
+    """Recognize only the source's explicit uppercase CODE - description shape."""
+    if not isinstance(value, str):
+        return None
+    match = re.fullmatch(r"([A-Z]{2,4}) - (\S(?:[^\r\n]*\S)?)", value)
+    return match.group(1) if match else None
+
+
+def organization_object_type(value):
+    return object_type_code(value) in ORGANIZATION_OBJECT_TYPES
 
 
 def is_russian_legal_entity_inn(value: str) -> bool:

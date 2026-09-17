@@ -16,6 +16,7 @@ from app.services.credit_risk_evidence.service import CreditRiskEvidenceStore
 from app.services.credit_risk_evidence.cbr_ratings.contracts import (
     SourceResponse, RepositoryError, ITEM_FIELDS, AGENCIES, BASE,
     is_russian_legal_entity_inn, eligible_issuer_inns,
+    ORGANIZATION_OBJECT_TYPES, object_type_code, organization_object_type,
 )
 from app.services.credit_risk_evidence.cbr_ratings.client import CbrRatingsClient, search_fields
 from app.services.credit_risk_evidence.cbr_ratings.parser import parse_search, envelope, source_date, derive
@@ -266,6 +267,156 @@ def test_cross_query_bond_binding_conflict_remains_collision(updates):
                       lambda: derive(bond_search_responses(searches), universe)):
         with pytest.raises(RepositoryError, match="OBJECT_IDENTITY_COLLISION"):
             operation()
+
+
+CONTEXT_INN = "3900045916"
+ORGANIZATION_CODES = ("CBNK", "FINS", "FNPF", "FMFO", "FLSG", "FFCT", "FMC",
+                      "FDEP", "FOFO", "BNFC", "BNFH", "CGRP", "CO")
+
+
+def context_issuer_row(**updates):
+    return row(**{**dict(objectId="221711", objectType="BNFC - нефинансовая компания",
+        objectName="Международная компания Публичное акционерное общество Озон",
+        inn="", isin="", koNumber="", kraName='АО "Эксперт РА"', ratingValue="ruA",
+        prediction="STA - стабильный", releaseDate="17.11.2025"), **updates})
+
+
+def context_issuer_responses(query_inn=CONTEXT_INN, rows=None):
+    rows = [context_issuer_row()] if rows is None else rows
+    return (response("searchRating", search_fields(query_inn), search_bytes(rows)), *(
+        response("searchObjectHistory", {"objectId": obj}, json_bytes({"title": "History", "table": []}))
+        for obj in sorted({r["objectId"] for r in rows}, key=int)))
+
+
+@pytest.mark.parametrize("code", ORGANIZATION_CODES)
+def test_allowlisted_organization_uses_exact_query_context_without_changing_raw_row(code):
+    assert ORGANIZATION_OBJECT_TYPES == frozenset(ORGANIZATION_CODES)
+    object_type = code + " - synthetic organization"
+    assert object_type_code(object_type) == code and organization_object_type(object_type)
+    source_row = context_issuer_row(objectType=object_type, objectName="Unrelated diagnostic name",
+                                   country="", koNumber="not-an-identity")
+    universe = {"issuer_inns": [CONTEXT_INN], "bond_isins": []}
+    responses, histories = collect_bond_searches({CONTEXT_INN: [source_row]}, universe)
+    assert responses == context_issuer_responses(rows=[source_row])
+    candidates, counts, retained = derive(responses, universe)
+    assert histories == ["221711"] and retained == {"221711"}
+    assert len(candidates) == 1 and candidates[0].value.target.value == "LEGAL_ISSUER"
+    assert candidates[0].value.source_issuer_inn == CONTEXT_INN
+    assert candidates[0].value.source_bond_isin is None
+    assert counts["issuer_objects_in_universe"] == counts["issuer_queries_succeeded"] == 1
+    assert dict(parse_search(responses[0].content).rows[0])["inn"] == ""
+    assert dict(parse_search(responses[0].content).rows[0])["isin"] == ""
+    assert source_row["inn"] == source_row["isin"] == ""
+
+
+def test_production_style_bnfc_context_case_and_explicit_same_inn():
+    universe = {"issuer_inns": [CONTEXT_INN], "bond_isins": []}
+    for source_inn in ("", CONTEXT_INN):
+        responses, histories = collect_bond_searches({CONTEXT_INN: [context_issuer_row(inn=source_inn)]}, universe)
+        candidates, _, _ = derive(responses, universe)
+        assert histories == ["221711"] and len(candidates) == 1
+        event = candidates[0].value
+        assert event.source_issuer_inn == CONTEXT_INN and event.rating_value_raw == "ruA"
+        assert event.event_date == date(2025, 11, 17) and event.agency == RatingAgency.EXPERT_RA
+        assert json.loads(responses[0].content)["data"]["itemList"][0]["inn"] == source_inn
+
+
+@pytest.mark.parametrize("object_type", [
+    "", "UNKNOWN", "ZZZZ - unknown", "O - прочие объекты",
+    *(code + " - instrument" for code in ("TBND", "TMGB", "TMGS", "TMNB", "TSCB")),
+    *(code + " - authority" for code in ("SCO", "SF", "SCG", "SFG", "SMF", "SNU", "IFO", "SO")),
+    "BNFC", " bnfc - company", "BNFC company", "TBND - BNFC", "BNFC- company",
+    "BNFC - ", " BNFC - company", "BNFC - company\n", None,
+])
+def test_nonorganization_or_malformed_empty_identity_remains_fatal(object_type):
+    assert not organization_object_type(object_type)
+    source_row = context_issuer_row(objectType=object_type)
+    universe = {"issuer_inns": [CONTEXT_INN], "bond_isins": []}
+    error = "INVALID_SOURCE_FIELD" if object_type is None else "UNRESOLVED_SOURCE_IDENTITY"
+    for operation in (lambda: collect_bond_searches({CONTEXT_INN: [source_row]}, universe),
+                      lambda: derive(context_issuer_responses(rows=[source_row]), universe)):
+        with pytest.raises(RepositoryError, match=error):
+            operation()
+
+
+def test_allowlisted_organization_explicit_conflicting_inn_still_fatal():
+    source_row = context_issuer_row(inn=INN)
+    universe = {"issuer_inns": [CONTEXT_INN], "bond_isins": []}
+    for operation in (lambda: collect_bond_searches({CONTEXT_INN: [source_row]}, universe),
+                      lambda: derive(context_issuer_responses(rows=[source_row]), universe)):
+        with pytest.raises(RepositoryError, match="FOREIGN_ISSUER_INN"):
+            operation()
+
+
+@pytest.mark.parametrize("source_inn", ["", INN, PREDECESSOR_INN])
+def test_isin_precedes_organization_type_and_query_context(source_inn):
+    universe = {"issuer_inns": [INN], "bond_isins": [SUCCESSION_ISIN]}
+    responses, _ = collect_bond_searches({INN: [context_issuer_row(inn=source_inn, isin=SUCCESSION_ISIN)]}, universe)
+    candidates, _, _ = derive(responses, universe)
+    assert len(candidates) == 1 and candidates[0].value.target.value == "BOND"
+    assert candidates[0].value.source_bond_isin == SUCCESSION_ISIN
+    assert candidates[0].value.source_issuer_inn is None
+
+
+def test_query_context_cannot_bypass_exact_search_metadata_or_eligibility():
+    first, history = context_issuer_responses()
+    for fields, error in (({**dict(first.fields), "formSearh": "simple"}, "INVALID_REQUEST_METADATA"),
+                          ({**dict(first.fields), "inn": "0010000025"}, "SEARCH_CONTEXT_CONFLICT")):
+        with pytest.raises(RepositoryError, match=error):
+            derive((replace(first, fields=tuple(sorted(fields.items()))), history),
+                   {"issuer_inns": [CONTEXT_INN, "0010000025"], "bond_isins": []})
+    navigation = response("searchRatingNavigation", dict(pageSize=25, pageNumber=2,
+        sortingField="objectName", sortingDirection="ascending"), search_bytes([context_issuer_row()], count=26, number=2))
+    with pytest.raises(RepositoryError, match="PAGINATION_CONTEXT_CONFLICT"):
+        derive((navigation,), {"issuer_inns": [CONTEXT_INN], "bond_isins": []})
+
+
+def test_navigation_query_context_duplicate_dedup_and_no_issuer_context_leakage():
+    first_row = context_issuer_row()
+    second_row = context_issuer_row(objectId="333333")
+    raw = (
+        response("searchRating", search_fields(CONTEXT_INN), search_bytes([first_row]*25, count=26)),
+        response("searchRatingNavigation", dict(pageSize=25, pageNumber=2, sortingField="objectName",
+            sortingDirection="ascending"), search_bytes([first_row], count=26, number=2)),
+        *context_issuer_responses(INN, [second_row])[:1],
+        context_issuer_responses()[1], context_issuer_responses(INN, [second_row])[1],
+    )
+    pending = list(raw)
+    def handler(request):
+        if request.url.path == "/robots.txt":
+            return httpx.Response(404)
+        if request.method == "GET":
+            return httpx.Response(200, text='<input name="sessid" value="' + 'a'*32 + '">',
+                                  headers={"content-type": "text/html"})
+        expected = pending.pop(0)
+        fields = parse_qs(request.content.decode(), keep_blank_values=True)
+        assert request.url.params["action"] == expected.action
+        assert {k[7:-1]: v[0] for k, v in fields.items() if k.startswith("fields[")} == dict(expected.fields)
+        return httpx.Response(200, content=expected.content, headers={"content-type": "application/json"})
+    universe = {"issuer_inns": [CONTEXT_INN, INN], "bond_isins": []}
+    client, _ = make_client(handler)
+    try:
+        responses = client.collect(universe)
+    finally:
+        client.close()
+    assert not pending and responses == raw
+    candidates, counts, _ = derive(responses, universe)
+    assert len(candidates) == 2 and {c.value.source_issuer_inn for c in candidates} == {CONTEXT_INN, INN}
+    assert counts["search_rows_seen"] == 27 and counts["object_histories_fetched"] == 2
+
+
+def test_context_issuer_collision_across_queries_and_raw_binding_change():
+    source_row = context_issuer_row()
+    universe = {"issuer_inns": [CONTEXT_INN, INN], "bond_isins": []}
+    raw = (*context_issuer_responses()[:1], *context_issuer_responses(INN)[:1], context_issuer_responses()[1])
+    with pytest.raises(RepositoryError, match="OBJECT_IDENTITY_COLLISION"):
+        derive(raw, universe)
+    with pytest.raises(RepositoryError, match="OBJECT_IDENTITY_COLLISION"):
+        collect_bond_searches({CONTEXT_INN: [source_row], INN: [source_row]}, universe)
+    # The same canonical issuer but incompatible raw identifier binding still collides.
+    with pytest.raises(RepositoryError, match="OBJECT_IDENTITY_COLLISION"):
+        derive(context_issuer_responses(rows=[source_row, context_issuer_row(inn=CONTEXT_INN)]),
+               {"issuer_inns": [CONTEXT_INN], "bond_isins": []})
 
 
 def test_withdrawal_date_only_and_exact_raw_strings():

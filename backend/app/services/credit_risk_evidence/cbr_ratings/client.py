@@ -13,6 +13,7 @@ from app.services.credit_risk_evidence.contracts import canonical_inn, canonical
 from .contracts import (
     BASE, SEARCH_FIELDS, MAX_REQUESTS, MAX_RESPONSE_BYTES, MAX_SEARCH_PAGES,
     MAX_OBJECTS, MAX_BUNDLE_BYTES, SourceResponse, RepositoryError, safe_url, action_url, eligible_issuer_inns,
+    organization_object_type,
 )
 from .parser import envelope, parse_search, derive
 
@@ -214,7 +215,7 @@ class CbrRatingsClient:
                     elif row["inn"]:
                         if canonical_inn(row["inn"]) != inn:
                             raise RepositoryError("FOREIGN_ISSUER_INN")
-                    else:
+                    elif not organization_object_type(row["objectType"]):
                         raise RepositoryError("UNRESOLVED_SOURCE_IDENTITY")
                     if not row["isin"] or row["isin"] in universe["bond_isins"]:
                         retained.add(row["objectId"])
