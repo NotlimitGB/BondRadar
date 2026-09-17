@@ -606,3 +606,81 @@ Verification:
 
 The sole next step is independent external review. Production PLAN/APPLY is not
 executed or automatically authorized by this code delivery.
+
+## Task265-FIX8 — Canonical objectId binding; raw INN is evidence metadata
+
+Baseline: clean `main@052a629b0a2954398a5b010bb4d3e295c81cb7d7`;
+actual remote matched before editing. All deployment, full-universe diagnostic
+and external corporate-action facts below are **operator-provided prior
+evidence**, not independently production/source-verified during FIX8.
+
+- FIX7 deployed at that SHA; DB revision `202609160001`, backend running, restart count `0`, health/smoke PASS. Evidence `0|0|0`; full read-only PLAN failed `OBJECT_IDENTITY_COLLISION` after `2108` HTTP requests. Mutation/persistence false, source bundle not written, no APPLY, production actions NONE, PIT readiness false.
+- Universe: `496` issuer identifiers, `494` eligible and `2` ineligible queries, `2995` bond ISINs.
+- Completed search-only diagnostic (no histories): `HTTP_REQUESTS=549`, `ISSUER_QUERIES_COMPLETED=494`, `SEARCH_PAGES_FETCHED=547`, `SEARCH_ROWS_SEEN=3351`, `UNIQUE_OBJECT_IDS=2397`, `REPEATED_OBJECT_IDS=850`.
+- `TRUE_CANONICAL_TARGET_COLLISION_COUNT=0`, `MULTIPLE_NONEMPTY_SOURCE_INN_SAME_TARGET_COUNT=3`, `MULTIPLE_NONEMPTY_SOURCE_ISIN_SAME_TARGET_COUNT=0`, `OPTIONAL_SOURCE_INN_OMISSION_COUNT=19`.
+- Diagnostic safety: `HISTORY_REQUESTS=0`, mutation/persistence false, source bundle not written, production actions NONE, PIT readiness false.
+
+The complete current source-search universe contained no observed objectId
+mapping to more than one canonical target, according to the operator's audit.
+This empirical observation is **not an assumption encoded in production code**;
+future canonical disagreements remain fatal.
+
+Optional-INN examples: object `222180`, bond `RU000A0JXR43`, empty or
+`1435027673`; object `222228`, bond `RU000A10BF48`, empty or `3900019850`;
+issuer object `221711`, canonical INN `3900045916`, explicit or absent row INN.
+The three multiple-nonempty-INN cases are:
+
+- `222534 / RU000A103760`: `7735057951 → 4401116480`.
+- `222546 / RU000A102RF3`: `7735057951 → 4401116480`.
+- `224117 / RU000A100YT4`: `7729065633 → 7708397772`.
+
+Operator-researched official MOEX evidence documents HCF Bank → Sovcombank
+issuer-parameter changes while retaining both ISINs. Historical MOEX evidence
+places `RU000A100YT4` with ООО Экспобанк (2019) and АО Экспобанк (2022), while
+CBR documents the legal-entity transformation/replacement. These facts explain
+legitimate source INN variation; no succession inference, issuer propagation
+or special-cased identifier is added to production code.
+
+**Post-implementation correction:** FIX5/FIX6 sections above historically
+required identical raw identifier bindings. Production evidence invalidated
+that assumption; those sections are preserved, not silently rewritten.
+The corrected rule is:
+
+> objectId collision safety is defined by disagreement in canonical resolved
+> target identity, not differences in redundant/raw source identifier fields.
+
+The only production change replaces `(identity[:3], inn, isin)` with
+`identity[:3]`: BOND/None/exact ISIN or LEGAL_ISSUER/exact resolved INN/None.
+Different bond ISINs, different canonical issuers and bond-versus-issuer targets
+still raise `OBJECT_IDENTITY_COLLISION`. Raw source identifiers remain immutable
+evidence, not the target binding. ISIN is still included in canonical bond
+identity; only its redundant raw copy is removed from the collision key.
+
+Source-row validation and `_event()` are unchanged. Bond INNs remain optional
+but format-validated when present; explicit issuer INN mismatch stays fatal;
+absent identifiers require the unchanged organization allowlist and exact
+eligible advanced-query context. EN DASH parsing, pagination, unknown-agency,
+history and object-limit guards remain intact. Client still requests one
+history per retained object; distinct agency/current facts remain candidates,
+and the existing semantic dedupe handles identical facts. Bond events never
+promote raw issuer INN; issuer events use canonical resolved INN as before.
+
+Verification:
+
+- Both existing Task265 focused modules: **228 passed, 0 failed**, exit `0`; one existing pytest cache permission warning.
+- Synthetic cases cover both omission/presence examples, all three historical bond shapes, Ozon/RUSAL explicit/omitted issuer rows in both orders, distinct current agency facts, history target lineage, one history per object and canonical order independence. True different-ISIN/target-kind/issuer collisions, malformed metadata and explicit issuer mismatch remain fatal. Existing event dedupe and object-limit guards pass.
+- Frozen PLAN/load/offline PREFLIGHT combine optional bond INN, historical nonempty bond INNs and blank/explicit issuer context. Exact response bytes/manifest SHA, deterministic plan hash/canonical events, no offline network and no evidence writes are proven on disposable SQLite.
+- New test iterations exposed duplicate synthetic company ticker and an object-limit fixture reaching the earlier shared JSON list guard; both test setups were corrected within scope, without bypassing guards or changing production behavior. The complete final focused rerun passes.
+- `python -m compileall backend/app`: PASS.
+- `python -m alembic heads` (backend directory): sole `202609160001 (head)`.
+- `git diff --check`: PASS; exact scope parser, two existing focused test modules and this audit. Client/contracts/store/models/migrations unchanged; no schema/contract/bundle/count version change.
+- `BROAD_BACKEND=SKIPPED_BY_DESIGN`; at most one exact-commit CI snapshot, no waiting/polling.
+
+`OBJECT_ID_BINDING_CANONICAL_TARGET_ONLY=true`,
+`TRUE_CANONICAL_COLLISION_STILL_FATAL=true`, `RAW_SOURCE_BYTES_PRESERVED=true`,
+`RATING_EVENT_IDENTITY_UNCHANGED=true`, `NEW_COUNT_ADDED=false`,
+`DB_MIGRATION_ADDED=false`, `PRODUCTION_ACTIONS=NONE`,
+`PRODUCTION_DB_MUTATION=false`, `LIVE_CBR_REQUESTS=NONE`, `PIT_READY=false`.
+
+The sole handoff is independent external review. Production PLAN/APPLY and
+subsequent ingestion require separate explicit authorization.

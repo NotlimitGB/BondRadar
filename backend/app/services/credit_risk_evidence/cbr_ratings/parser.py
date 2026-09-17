@@ -221,8 +221,9 @@ def derive(responses, universe):
                 else:
                     raise RepositoryError("UNRESOLVED_SOURCE_IDENTITY")
                 obj = row["objectId"]
-                # Retain the source INN as well as canonical target; it is collision lineage for bonds.
-                binding = (identity[:3], inn, isin)
+                # objectId binds to the canonical resolved target.
+                # Raw source identifiers remain immutable evidence, not target identity.
+                binding = identity[:3]
                 if obj in objects and objects[obj][1] != binding:
                     raise RepositoryError("OBJECT_IDENTITY_COLLISION")
                 retained = not isin or isin in universe["bond_isins"]

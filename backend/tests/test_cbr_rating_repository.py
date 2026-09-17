@@ -180,7 +180,7 @@ def bond_search_responses(searches):
     return tuple(result)
 
 
-def collect_bond_searches(searches, universe):
+def collect_bond_searches(searches, universe, *, history_rows=()):
     histories = []
     def handler(request):
         if request.url.path == "/robots.txt":
@@ -194,7 +194,7 @@ def collect_bond_searches(searches, universe):
         else:
             assert request.url.params["action"] == "searchObjectHistory"
             histories.append(fields["fields[objectId]"][0])
-            payload = json_bytes({"title": "History", "table": []})
+            payload = json_bytes({"title": "History", "table": list(history_rows)})
         return httpx.Response(200, content=payload, headers={"content-type": "application/json"})
     client, _ = make_client(handler)
     try:
@@ -257,7 +257,7 @@ def test_consistent_bond_object_across_queries_has_one_history_and_event():
 
 
 @pytest.mark.parametrize("updates", [
-    {"inn": INN}, {"isin": ISIN}, {"inn": SUCCESSOR_INN, "isin": ""},
+    {"isin": ISIN}, {"inn": SUCCESSOR_INN, "isin": ""},
 ])
 def test_cross_query_bond_binding_conflict_remains_collision(updates):
     source_row = row(inn=PREDECESSOR_INN, isin=SUCCESSION_ISIN)
@@ -461,7 +461,7 @@ def test_navigation_query_context_duplicate_dedup_and_no_issuer_context_leakage(
     assert counts["search_rows_seen"] == 27 and counts["object_histories_fetched"] == 2
 
 
-def test_context_issuer_collision_across_queries_and_raw_binding_change():
+def test_context_issuer_collision_across_different_canonical_query_targets():
     source_row = context_issuer_row()
     universe = {"issuer_inns": [CONTEXT_INN, INN], "bond_isins": []}
     raw = (*context_issuer_responses()[:1], *context_issuer_responses(INN)[:1], context_issuer_responses()[1])
@@ -469,10 +469,97 @@ def test_context_issuer_collision_across_queries_and_raw_binding_change():
         derive(raw, universe)
     with pytest.raises(RepositoryError, match="OBJECT_IDENTITY_COLLISION"):
         collect_bond_searches({CONTEXT_INN: [source_row], INN: [source_row]}, universe)
-    # The same canonical issuer but incompatible raw identifier binding still collides.
-    with pytest.raises(RepositoryError, match="OBJECT_IDENTITY_COLLISION"):
-        derive(context_issuer_responses(rows=[source_row, context_issuer_row(inn=CONTEXT_INN)]),
-               {"issuer_inns": [CONTEXT_INN], "bond_isins": []})
+
+
+@pytest.mark.parametrize("object_id,isin,source_inns", [
+    ("222180", "RU000A0JXR43", ("", "1435027673")),
+    ("222228", "RU000A10BF48", ("", "3900019850")),
+    ("222534", "RU000A103760", ("7735057951", "4401116480")),
+    ("222546", "RU000A102RF3", ("7735057951", "4401116480")),
+    ("224117", "RU000A100YT4", ("7729065633", "7708397772")),
+])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_same_canonical_bond_accepts_raw_inn_variants_preserves_agencies_and_history(object_id, isin, source_inns, reverse):
+    source_rows = [row(objectId=object_id, isin=isin, inn=source_inns[0]),
+                  row(objectId=object_id, isin=isin, inn=source_inns[1],
+                      kraName='АО "Эксперт РА"', ratingValue="AA")]
+    if reverse:
+        source_rows.reverse()
+    history = dict(kraName="АКРА (АО)", ratingValue="A(RU)", releaseDate="01.01.2024")
+    universe = {"issuer_inns": [INN], "bond_isins": [isin]}
+    responses, histories = collect_bond_searches({INN: source_rows}, universe, history_rows=[history])
+    assert histories == [object_id]
+    assert responses[0].content == search_bytes(source_rows)
+    assert [dict(fields) for fields in parse_search(responses[0].content).rows] == source_rows
+    candidates, counts, retained = derive(responses, universe)
+    assert retained == {object_id} and len(candidates) == 3
+    assert counts["unique_object_ids_seen"] == counts["object_histories_fetched"] == 1
+    assert counts["bond_objects_in_universe"] == 1
+    assert all(c.value.target.value == "BOND" and c.value.source_bond_isin == isin
+               and c.value.source_issuer_inn is None for c in candidates)
+    current = [c.value for c in candidates if c.value.event_date == date(2026, 6, 2)]
+    assert {c.agency for c in current} == {RatingAgency.ACRA, RatingAgency.EXPERT_RA}
+    assert {c.rating_value_raw for c in current} == {"AAA(RU)", "AA"}
+    # Reordering raw metadata variants does not change canonical event semantics.
+    other, _, _ = derive((replace(responses[0], content=search_bytes(list(reversed(source_rows)))),
+                          responses[1]), universe)
+    assert [c.value for c in candidates] == [c.value for c in other]
+
+
+@pytest.mark.parametrize("query_inn,source_row", [
+    (CONTEXT_INN, context_issuer_row()), (RUSAL_INN, rusal_context_row()),
+])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_same_canonical_issuer_accepts_explicit_and_omitted_raw_inn(query_inn, source_row, reverse):
+    source_rows = [{**source_row, "inn": query_inn},
+                   {**source_row, "inn": "", "kraName": "АКРА (АО)", "ratingValue": "A(RU)"}]
+    if reverse:
+        source_rows.reverse()
+    universe = {"issuer_inns": [query_inn], "bond_isins": []}
+    responses, histories = collect_bond_searches({query_inn: source_rows}, universe)
+    candidates, counts, retained = derive(responses, universe)
+    assert histories == [source_row["objectId"]] and retained == {source_row["objectId"]}
+    assert len(candidates) == 2 and counts["issuer_objects_in_universe"] == 1
+    assert counts["object_histories_fetched"] == 1
+    assert all(c.value.target.value == "LEGAL_ISSUER" and c.value.source_issuer_inn == query_inn
+               and c.value.source_bond_isin is None for c in candidates)
+    assert responses[0].content == search_bytes(source_rows)
+    assert [dict(fields) for fields in parse_search(responses[0].content).rows] == source_rows
+
+
+def canonical_binding_bundle_responses():
+    source_rows = [
+        row(objectId="222228", isin="RU000A10BF48", inn=""),
+        row(objectId="222228", isin="RU000A10BF48", inn="3900019850", kraName='АО "Эксперт РА"'),
+        row(objectId="222534", isin=SUCCESSION_ISIN, inn=PREDECESSOR_INN),
+        row(objectId="222534", isin=SUCCESSION_ISIN, inn=SUCCESSOR_INN, kraName='АО "Эксперт РА"'),
+        context_issuer_row(inn=CONTEXT_INN),
+        context_issuer_row(inn="", kraName="АКРА (АО)"),
+    ]
+    return context_issuer_responses(CONTEXT_INN, source_rows)
+
+
+def test_canonical_binding_raw_metadata_variants_use_existing_event_deduplication():
+    source_rows = [row(isin=SUCCESSION_ISIN, inn=PREDECESSOR_INN),
+                   row(isin=SUCCESSION_ISIN, inn=SUCCESSOR_INN)]
+    universe = {"issuer_inns": [INN], "bond_isins": [SUCCESSION_ISIN]}
+    responses, histories = collect_bond_searches({INN: source_rows}, universe)
+    candidates, counts, _ = derive(responses, universe)
+    assert len(candidates) == 1 and histories == ["123"]
+    assert counts["search_rows_seen"] == 2 and counts["unique_object_ids_seen"] == 1
+    assert responses[0].content == search_bytes(source_rows)
+
+
+def test_canonical_binding_does_not_merge_distinct_objects_or_weaken_object_limit(monkeypatch):
+    from app.services.credit_risk_evidence.cbr_ratings import parser
+    # Keep the JSON itemFields inventory inside the shared list cap; exceed only
+    # the cumulative object inventory through two individually valid searches.
+    source_rows = [context_issuer_row(objectId=str(100+index)) for index in range(14)]
+    raw = (*context_issuer_responses(rows=source_rows)[:1],
+           *context_issuer_responses(INN, [context_issuer_row(objectId="114")])[:1])
+    monkeypatch.setattr(parser, "MAX_OBJECTS", 14)
+    with pytest.raises(RepositoryError, match="OBJECT_LIMIT"):
+        derive(raw, {"issuer_inns": [CONTEXT_INN, INN], "bond_isins": []})
 
 
 def test_withdrawal_date_only_and_exact_raw_strings():

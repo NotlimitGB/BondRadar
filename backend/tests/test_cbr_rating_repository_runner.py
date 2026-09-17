@@ -14,6 +14,7 @@ from test_cbr_rating_repository import EMPTY_SEARCH_BYTES, NULL_CUSTOM_DATA_BYTE
 from test_cbr_rating_repository import SUCCESSOR_INN, PREDECESSOR_INN, SUCCESSION_ISIN, bond_search_responses
 from test_cbr_rating_repository import CONTEXT_INN, context_issuer_responses
 from test_cbr_rating_repository import RUSAL_INN, context_issuer_row, rusal_context_row
+from test_cbr_rating_repository import canonical_binding_bundle_responses
 
 
 @pytest.fixture
@@ -125,6 +126,48 @@ def test_query_context_issuer_frozen_bytes_metadata_and_offline_preflight(tmp_pa
     assert (directory / "responses" / (runner.hashlib.sha256(raw[0].content).hexdigest()+".json")).read_bytes() == raw[0].content
     def forbidden(*args, **kwargs):
         raise AssertionError("offline PREFLIGHT attempted network")
+    source.collect = forbidden
+    result = runner.execute("preflight", bundle_dir=directory, engine=engine, client=source,
+        _adapter=adapter, expected_plan_hash=planned["plan_hash"])
+    assert result["ready"] and result["counts"] == planned["counts"]
+    assert result["transaction_read_only"] and not result["network_accessed"]
+    assert not result["database_mutation_executed"] and not result["database_persistence"]
+    assert result["production_actions"] == "NONE" and not result["pit_ready"]
+    with Session(engine) as session:
+        assert runner._totals(session) == {"artifacts": 0, "ratings": 0, "defaults": 0}
+
+
+def test_canonical_binding_metadata_variants_frozen_plan_and_offline_preflight(tmp_path, setup):
+    from sqlalchemy.orm import Session
+    from app.models import LegalIssuer, Bond
+    engine, source, adapter = setup
+    with Session(engine) as session:
+        session.scalar(select(LegalIssuer)).issuer_inn = CONTEXT_INN
+        bond = _seed_bond(session)
+        bond.isin = SUCCESSION_ISIN
+        session.add(Bond(company_id=bond.company_id, isin="RU000A10BF48", name="Second synthetic bond"))
+        session.commit()
+    raw = canonical_binding_bundle_responses()
+    source.collect = lambda universe: raw
+    directory, planned = plan(tmp_path, setup)
+    _, repeated = plan(tmp_path, setup, "repeated")
+    assert planned["plan_hash"] == repeated["plan_hash"]
+    manifest, responses, candidates, counts = runner.load_bundle(directory)
+    assert responses == raw
+    assert counts["bond_rating_events_candidate"] == 4 and counts["issuer_rating_events_candidate"] == 2
+    assert counts["object_histories_fetched"] == counts["unique_object_ids_seen"] == 3
+    assert counts["identity_unresolved_rows"] == counts["identity_ambiguous_rows"] == 0
+    assert {c.value.source_bond_isin for c in candidates if c.value.target.value == "BOND"} == {SUCCESSION_ISIN, "RU000A10BF48"}
+    assert all(c.value.source_issuer_inn is None for c in candidates if c.value.target.value == "BOND")
+    assert {c.value.source_issuer_inn for c in candidates if c.value.target.value == "LEGAL_ISSUER"} == {CONTEXT_INN}
+    for entry, original in zip(manifest["responses"], raw, strict=True):
+        digest = runner.hashlib.sha256(original.content).hexdigest()
+        assert entry["sha256"] == digest
+        assert (directory / "responses" / (digest+".json")).read_bytes() == original.content
+    assert [r["inn"] for r in json.loads(responses[0].content)["data"]["itemList"]] == [
+        "", "3900019850", PREDECESSOR_INN, SUCCESSOR_INN, CONTEXT_INN, ""]
+    def forbidden(*args, **kwargs):
+        raise AssertionError("offline PREFLIGHT attempted source access")
     source.collect = forbidden
     result = runner.execute("preflight", bundle_dir=directory, engine=engine, client=source,
         _adapter=adapter, expected_plan_hash=planned["plan_hash"])
