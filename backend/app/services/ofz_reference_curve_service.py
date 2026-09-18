@@ -18,6 +18,7 @@ from app.schemas.ofz_reference_curve import (
     OfzReferenceCurveView,
 )
 from app.services.bond_market_feature_service import BondMarketFeatureService
+from app.services.moex_duration_semantics import normalize_moex_duration
 
 
 def _validate(as_of_date: date, market_source: str, **ages: int) -> None:
@@ -92,6 +93,7 @@ class OfzReferenceCurveService:
                     select(
                         BondMarketSnapshot.id, BondMarketSnapshot.trade_date,
                         BondMarketSnapshot.yield_to_maturity, BondMarketSnapshot.duration_years,
+                        BondMarketSnapshot.raw_payload,
                     ).where(
                         BondMarketSnapshot.bond_id == bond.id,
                         BondMarketSnapshot.source == market_source,
@@ -105,12 +107,20 @@ class OfzReferenceCurveService:
                 counts["with_market_snapshot_count"] += 1
                 ytm = _finite(snapshot.yield_to_maturity)
                 duration = _finite(snapshot.duration_years)
+                duration_status = None
+                if market_source == "moex":
+                    normalized = normalize_moex_duration(
+                        snapshot.raw_payload, stored_duration_years=snapshot.duration_years,
+                    )
+                    duration = normalized.duration_years
+                    duration_status = normalized.status
                 if ytm is None:
                     reason = "missing" if snapshot.yield_to_maturity is None else "invalid"
                     counts[f"excluded_{reason}_yield_count"] += 1
                     continue
                 if duration is None:
-                    reason = "missing" if snapshot.duration_years is None else "invalid"
+                    reason = ("missing" if duration_status == "RAW_DURATION_MISSING"
+                              or (duration_status is None and snapshot.duration_years is None) else "invalid")
                     counts[f"excluded_{reason}_duration_count"] += 1
                     continue
                 if duration <= 0:

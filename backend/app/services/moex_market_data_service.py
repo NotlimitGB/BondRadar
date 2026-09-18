@@ -25,6 +25,7 @@ from app.schemas.moex_market_history import (
     MoexBondMarketHistoryBackfillWarning,
 )
 from app.services.market_snapshot_service import MarketSnapshotService
+from app.services.moex_duration_semantics import MOEX_DURATION_MAPPING_NOTE, normalize_moex_duration
 from app.services.moex_iss_client import MoexIssClient, MoexIssClientError
 
 
@@ -593,10 +594,12 @@ class MoexMarketDataService:
             warnings,
             bond.secid,
         )
-        duration = self._decimal(row.get("DURATION"), "DURATION", warnings, bond.secid)
-        if duration is not None and duration > Decimal("50"):
-            duration = duration / Decimal("365")
-            mapping_notes.append("DURATION looked like days and was divided by 365")
+        normalized_duration = normalize_moex_duration({"moex": row})
+        duration = normalized_duration.duration_years
+        if normalized_duration.status == "READY":
+            mapping_notes.append(MOEX_DURATION_MAPPING_NOTE)
+        elif normalized_duration.status != "RAW_DURATION_MISSING":
+            warnings.append(f"Invalid numeric value for DURATION in {bond.secid}: {normalized_duration.status}")
 
         volume = self._decimal(row.get("VOLUME"), "VOLUME", warnings, bond.secid)
         if volume is None and self._has_value(row.get("VALUE")):
@@ -706,17 +709,18 @@ class MoexMarketDataService:
             secid=effective_secid,
             trade_date=trade_date,
         )
-        duration = self._history_decimal(
-            row.get("duration"),
-            "duration",
-            warnings=warnings,
-            bond_id=bond.id,
-            secid=effective_secid,
-            trade_date=trade_date,
-        )
-        if duration is not None and duration > Decimal("50"):
-            duration = duration / Decimal("365")
-            mapping_notes.append("DURATION looked like days and was divided by 365")
+        normalized_duration = normalize_moex_duration({
+            "moex": row.get("raw") or dict(row),
+            "canonical": {key: value for key, value in row.items() if key != "raw"},
+        })
+        duration = normalized_duration.duration_years
+        if normalized_duration.status == "READY":
+            mapping_notes.append(MOEX_DURATION_MAPPING_NOTE)
+        elif normalized_duration.status != "RAW_DURATION_MISSING":
+            warnings.append(MoexBondMarketHistoryBackfillWarning(
+                bond_id=bond.id, secid=effective_secid, trade_date=trade_date,
+                message="Invalid numeric value for duration; field was ignored",
+            ))
         volume = self._history_decimal(
             row.get("volume"),
             "volume",

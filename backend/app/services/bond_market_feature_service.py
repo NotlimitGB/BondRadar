@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.bond import Bond
 from app.models.bond_cashflow_event import BondCashflowEvent
+from app.services.moex_duration_semantics import LEGACY_DURATION_MAPPING_NOTE, normalize_moex_duration
 from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.schemas.bond_market_features import (
     BondMarketFeatureAvailability,
@@ -18,7 +19,7 @@ from app.schemas.bond_market_features import (
 )
 
 _VOLUME_NOTE = "VALUE was used as volume fallback"
-_DURATION_NOTE = "DURATION looked like days and was divided by 365"
+_DURATION_NOTE = LEGACY_DURATION_MAPPING_NOTE
 
 
 def _raw_number(value: Any, *, integer: bool = False) -> Decimal | int | None:
@@ -146,6 +147,13 @@ class BondMarketFeatureService:
             )
         }
         volume, value, trades = _liquidity(snapshot.raw_payload if snapshot else None, flags)
+        if source == "moex":
+            duration = normalize_moex_duration(
+                snapshot.raw_payload if snapshot else None,
+                stored_duration_years=snapshot.duration_years if snapshot else None,
+            )
+            market["duration_years"] = duration.duration_years
+            flags.update(duration.quality_flags)
         market.update(trade_volume=volume, turnover_value=value, num_trades=trades)
         for field, flag in (
             ("price", "PRICE_MISSING"), ("yield_to_maturity_pct", "YIELD_MISSING"),

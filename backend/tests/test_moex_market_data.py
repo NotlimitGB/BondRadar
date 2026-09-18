@@ -2,6 +2,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+import pytest
+
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,6 +12,9 @@ from app.models.bond import Bond
 from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.models.company import Company
 from app.models.enums import AnalysisSignal
+from app.services.moex_market_data_service import MoexMarketDataService
+from app.services.moex_duration_semantics import MOEX_DURATION_MAPPING_NOTE
+from app.schemas.moex import MoexMarketDataSyncRequest
 from app.services.moex_iss_client import (
     MoexHistoryResult,
     MoexIssClient,
@@ -204,7 +209,7 @@ def test_moex_sync_creates_market_snapshots(
     assert snapshot.price == Decimal("101.000000")
     assert snapshot.duration_years == Decimal("2.000")
     assert snapshot.raw_payload["mapping_notes"] == [
-        "DURATION looked like days and was divided by 365"
+        MOEX_DURATION_MAPPING_NOTE
     ]
 
 
@@ -368,3 +373,68 @@ def test_no_ml_dependencies_added() -> None:
     forbidden = ("pandas", "numpy", "xgboost", "catboost", "tensorflow", "torch")
 
     assert all(package not in requirements for package in forbidden)
+
+
+@pytest.mark.parametrize("days", [730, 365, 50, 30, 1, 0])
+@pytest.mark.parametrize("historical", [False, True])
+def test_task271_ingestion_normalizes_every_duration_and_new_note(db_session, days, historical):
+    company = create_company(db_session, "DURATION271")
+    bond = create_bond(db_session, company)
+    fake = FakeMoexClient({bond.secid: [{"TRADEDATE": "2026-01-10", "CLOSE": 100, "DURATION": days}]})
+    service = MoexMarketDataService(db_session, moex_client=fake)
+    if historical:
+        mapped, warnings, error = service._map_history_row(
+            bond, secid=bond.secid, row={"secid": bond.secid, "trade_date": "2026-01-10",
+                "close_price": 100, "duration": days, "raw": {"DURATION": days}},
+            board="TQCB", source="moex",
+        )
+        assert not warnings and error is None
+        assert mapped.duration_years == Decimal(days) / Decimal(365)
+        row, action = service._upsert_history_snapshot(mapped, rebuild_existing=False)
+        assert action == "created"
+    else:
+        result = service.sync(MoexMarketDataSyncRequest(**sync_payload(bond_ids=[bond.id])))
+        assert result.created == 1
+        row = db_session.execute(select(BondMarketSnapshot)).scalar_one()
+    # Existing Numeric(7,3) precision applies only at persistence.
+    assert abs(row.duration_years - Decimal(days) / Decimal(365)) <= Decimal("0.0005")
+    assert row.raw_payload["moex"]["DURATION"] == days
+    assert MOEX_DURATION_MAPPING_NOTE in row.raw_payload["mapping_notes"]
+    assert "DURATION looked like days and was divided by 365" not in row.raw_payload["mapping_notes"]
+
+
+@pytest.mark.parametrize("bad", [True, -1, "NaN", "Infinity", "broken"])
+@pytest.mark.parametrize("historical", [False, True])
+def test_task271_ingestion_invalid_duration_keeps_warning_shape(db_session, bad, historical):
+    bond = create_bond(db_session, create_company(db_session, "INVALID271"))
+    service = MoexMarketDataService(db_session, moex_client=FakeMoexClient())
+    if historical:
+        mapped, warnings, error = service._map_history_row(
+            bond, secid=bond.secid, row={"secid": bond.secid, "trade_date": "2026-01-10",
+                                       "close_price": 100, "duration": bad}, board="TQCB", source="moex")
+        assert warnings and warnings[0].bond_id == bond.id
+    else:
+        mapped, warnings, error = service._map_row(
+            bond, {"TRADEDATE": "2026-01-10", "CLOSE": 100, "DURATION": bad})
+        assert warnings and isinstance(warnings[0], str)
+    assert error is None and mapped.duration_years is None
+    assert MOEX_DURATION_MAPPING_NOTE not in mapped.raw_payload.get("mapping_notes", [])
+
+
+def test_task271_history_raw_canonical_conflict_not_hidden(db_session):
+    bond = create_bond(db_session, create_company(db_session, "CONFLICT271"))
+    service = MoexMarketDataService(db_session, moex_client=FakeMoexClient())
+    mapped, warnings, error = service._map_history_row(
+        bond, secid=bond.secid, row={"secid": bond.secid, "trade_date": "2026-01-10",
+            "close_price": 100, "duration": 30, "raw": {"DURATION": 50}}, board="TQCB", source="moex")
+    assert mapped.duration_years is None and warnings and error is None
+
+
+def test_task271_no_duration_threshold_in_mapping():
+    import ast
+    from pathlib import Path
+    import app.services.moex_market_data_service as module
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Compare) and "duration" in ast.unparse(node).lower():
+            assert 'Decimal("50")' not in ast.unparse(node) and "Decimal('50')" not in ast.unparse(node)

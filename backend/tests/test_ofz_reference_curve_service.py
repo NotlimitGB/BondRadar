@@ -53,6 +53,8 @@ def factory(db_session):
                 duration_years=D(duration) if duration is not None else None,
                 yield_to_maturity=D(ytm) if ytm is not None else None,
                 spread_to_ofz=D("999.999"),
+                raw_payload={"moex": {"DURATION": str(D(duration) * D(365))}}
+                    if duration is not None and source == "moex" else None,
             ))
         db_session.commit()
         return bond
@@ -63,7 +65,9 @@ def add_market(db, bond, when=DAY, source="moex", duration="2", ytm="12"):
     row = BondMarketSnapshot(bond_id=bond.id, trade_date=when, source=source,
                              duration_years=D(duration) if duration is not None else None,
                              yield_to_maturity=D(ytm) if ytm is not None else None,
-                             spread_to_ofz=D("-777"))
+                             spread_to_ofz=D("-777"),
+                             raw_payload={"moex": {"DURATION": str(D(duration) * D(365))}}
+                                 if duration is not None and source == "moex" else None)
     db.add(row)
     db.commit()
     return row
@@ -210,7 +214,7 @@ def test_invalid_newer_date_does_not_set_curve_date(db_session, factory):
 
 @pytest.mark.parametrize("ytm,duration,reason", [(None, "2", "missing_yield"),
     ("12", None, "missing_duration"), ("12", "0", "nonpositive_duration"),
-    ("12", "-2", "nonpositive_duration"), (None, None, "missing_yield")])
+    ("12", "-2", "invalid_duration"), (None, None, "missing_yield")])
 def test_invalid_numbers_exclusive_diagnostics(db_session, factory, ytm, duration, reason):
     factory(ytm=ytm, duration=duration)
     result = curve(db_session)
@@ -235,10 +239,13 @@ def test_curve_nonfinite_source_diagnostics(db_session, factory, monkeypatch, co
     original = db_session.execute
     def execute(statement, *args, **kwargs):
         result = original(statement, *args, **kwargs)
-        if len(statement.column_descriptions) == 4:
+        if len(statement.column_descriptions) == 5:
             row = result.first()
             values = dict(row._mapping)
-            values[column] = D(number)
+            if column == "duration_years":
+                values["raw_payload"] = {"moex": {"DURATION": number}}
+            else:
+                values[column] = D(number)
             return SimpleNamespace(first=lambda: SimpleNamespace(**values))
         return result
     monkeypatch.setattr(db_session, "execute", execute)
@@ -388,7 +395,7 @@ def test_target_unavailable_states(db_session, factory, ready, args, status):
     result = evaluate(db_session, target)
     assert_unavailable(result, status)
     assert result.model_dump_json() == evaluate(db_session, target).model_dump_json()
-    if args.get("duration") in ("0", "-1"):
+    if args.get("duration") == "0":
         assert "TARGET_DURATION_NONPOSITIVE" in result.quality_flags
 
 
@@ -534,3 +541,56 @@ def test_production_surface_no_writes_network_or_prohibited_fields(db_session, f
             for member in value:
                 check(member)
     check(result.model_dump())
+
+
+def test_task271_short_ofz_nodes_and_target_share_raw_semantics(db_session, factory):
+    low = factory(duration="30", ytm="12")
+    high = factory(duration="50", ytm="14")
+    target = factory(name="Corporate", duration="40", ytm="15")
+    for bond, days in ((low, 30), (high, 50), (target, 40)):
+        row = db_session.query(BondMarketSnapshot).filter_by(bond_id=bond.id).one()
+        row.raw_payload = {"moex": {"DURATION": days}}
+    db_session.commit()
+    before = [(r.id, r.duration_years, r.raw_payload) for r in db_session.query(BondMarketSnapshot).all()]
+    reference = curve(db_session)
+    assert [n.duration_years for n in reference.nodes] == [D(30) / D(365), D(50) / D(365)]
+    result = evaluate(db_session, target)
+    assert result.status == "READY" and result.interpolation_method == "LINEAR_INTERPOLATION"
+    assert result.target_duration_years == D(40) / D(365)
+    with localcontext() as context:
+        context.prec = 28
+        expected = D(12) + (D(40)/D(365) - D(30)/D(365)) * D(2) / (D(50)/D(365) - D(30)/D(365))
+    assert result.reference_ofz_yield_pct == expected
+    assert [(r.id, r.duration_years, r.raw_payload) for r in db_session.query(BondMarketSnapshot).all()] == before
+    assert not db_session.new and not db_session.dirty and not db_session.deleted
+
+
+@pytest.mark.parametrize("payload,reason", [
+    ({}, "missing_duration"), ({"moex": {"DURATION": "NaN"}}, "invalid_duration"),
+    ({"moex": {"DURATION": 30}, "canonical": {"duration": 50}}, "invalid_duration"),
+    ({"moex": {"DURATION": 0}}, "nonpositive_duration"),
+])
+def test_task271_unavailable_raw_node_never_uses_stored(db_session, factory, payload, reason):
+    bond = factory(duration="30")
+    row = db_session.query(BondMarketSnapshot).filter_by(bond_id=bond.id).one()
+    row.raw_payload = payload
+    db_session.commit()
+    result = curve(db_session)
+    assert result.node_count == 0
+    assert getattr(result.diagnostics, f"excluded_{reason}_count") == 1
+    assert row.duration_years == 30
+    assert_counts(result)
+
+
+def test_task271_ofz_missing_stored_valid_raw_and_manual_compatibility(db_session, factory):
+    first = factory(duration="2")
+    second = factory(duration="4")
+    for bond in (first, second):
+        row = db_session.query(BondMarketSnapshot).filter_by(bond_id=bond.id).one()
+        row.duration_years = None
+    db_session.commit()
+    assert [node.duration_years for node in curve(db_session).nodes] == [D(2), D(4)]
+    factory(source="manual", duration="30")
+    factory(source="manual", duration="50")
+    manual = curve(db_session, market_source="manual")
+    assert [node.duration_years for node in manual.nodes] == [D(30), D(50)]

@@ -1,6 +1,6 @@
 from copy import deepcopy
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import Context, Decimal, ROUND_DOWN, ROUND_HALF_EVEN, localcontext
 from pathlib import Path
 
 import pytest
@@ -14,6 +14,7 @@ from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.models.company import Company
 from app.schemas.bond_market_features import BondMarketFeatureView
 from app.services.bond_market_feature_service import BondMarketFeatureService, _raw_number
+from app.services.moex_duration_semantics import normalize_moex_duration
 
 DAY = date(2026, 9, 17)
 
@@ -84,7 +85,8 @@ def test_no_snapshot_or_legacy_market_fallback(db_session, bond):
                                                   (0, 0, "FRESH"), (1, 0, "STALE")])
 def test_freshness_keeps_values(db_session, bond, age, threshold, status):
     snapshot(db_session, bond, when=DAY - timedelta(days=age), price=Decimal("90.5"),
-             yield_to_maturity=Decimal("11.250"), duration_years=Decimal("2.125"))
+             yield_to_maturity=Decimal("11.250"), duration_years=Decimal("2.125"),
+             raw_payload={"moex": {"DURATION": "775.625"}})
     result = build(db_session, bond, max_market_age_days=threshold)
     assert result.market_status == status
     assert result.market_age_days == age
@@ -117,7 +119,7 @@ def test_existing_raw_shapes_exact_liquidity_and_no_payload_mutation(db_session,
 def test_volume_fallback_is_not_promoted_and_duration_lineage(db_session, bond):
     row = snapshot(db_session, bond, volume=Decimal("1000"), duration_years=Decimal("2"),
                    liquidity_score=99, spread_to_ofz=Decimal("5"),
-                   raw_payload={"moex": {"VALUE": "1000"}, "mapping_notes": [
+                   raw_payload={"moex": {"VALUE": "1000", "DURATION": "730"}, "mapping_notes": [
                        "VALUE was used as volume fallback",
                        "DURATION looked like days and was divided by 365"]})
     result = build(db_session, bond)
@@ -127,7 +129,7 @@ def test_volume_fallback_is_not_promoted_and_duration_lineage(db_session, bond):
     assert result.spread_to_ofz is None
     assert "VOLUME_VALUE_FALLBACK_NOT_PROMOTED" in result.quality_flags
     assert "DURATION_LEGACY_DAY_NORMALIZATION" in result.quality_flags
-    row.raw_payload = {**row.raw_payload, "moex": {"VOLUME": 0, "VALUE": "1000"}}
+    row.raw_payload = {**row.raw_payload, "moex": {"VOLUME": 0, "VALUE": "1000", "DURATION": "730"}}
     db_session.commit()
     assert build(db_session, bond).trade_volume == Decimal("0")
 
@@ -200,7 +202,7 @@ def test_malformed_representation_blocks_other_valid_representation(db_session, 
 def test_zero_availability_and_deterministic_contract(db_session, bond):
     snapshot(db_session, bond, price=Decimal("0"), clean_price=Decimal("0"), nkd=Decimal("0"),
              yield_to_maturity=Decimal("0"), duration_years=Decimal("0"),
-             raw_payload={"moex": {"VOLUME": 0, "VALUE": 0, "NUMTRADES": 0}})
+             raw_payload={"moex": {"VOLUME": 0, "VALUE": 0, "NUMTRADES": 0, "DURATION": 0}})
     result = build(db_session, bond)
     for name, available in result.availability.model_dump().items():
         if name != "has_cashflow_schedule":
@@ -296,7 +298,8 @@ def test_absent_terms_and_schedule_do_not_infer_mismatch(db_session, bond):
 
 
 def test_select_only_and_no_autoflush_with_pending_changes(db_session, bond, monkeypatch):
-    snapshot(db_session, bond, price=Decimal("91"))
+    snapshot(db_session, bond, price=Decimal("91"), duration_years=Decimal(30),
+             raw_payload={"moex": {"DURATION": 30}})
     # Preserve all caller-owned pending state, even with autoflush enabled.
     deletion = Company(name="Pending caller deletion", ticker="DELETE")
     db_session.add(deletion)
@@ -322,6 +325,8 @@ def test_select_only_and_no_autoflush_with_pending_changes(db_session, bond, mon
             patch.setattr(db_session, "commit", forbidden)
             result = BondMarketFeatureService(db_session).build_for_bond(bond_id, DAY)
             assert result.price == Decimal("91")
+            assert result.duration_years == Decimal(30) / Decimal(365)
+            assert "STORED_DURATION_MISMATCH" in result.quality_flags
             with pytest.raises(HTTPException):
                 BondMarketFeatureService(db_session).build_for_bond(999999, DAY)
         assert before == (set(db_session.new), set(db_session.dirty), set(db_session.deleted))
@@ -367,3 +372,118 @@ def test_production_service_has_no_unsafe_dependencies_or_write_surface():
     assert not any(any(token in name for token in
                       ("score", "financial_report", "feature_snapshot", "moex_iss", "httpx",
                        "credit_risk", "cbr_bank")) for name in imports)
+
+
+@pytest.mark.parametrize("days", [730, 365, 50, 30, 1, 0, Decimal("30.125"), "30", "30,5", 30.5])
+def test_task271_source_days_and_decimal_context(days):
+    parsed = Decimal(str(days).replace(",", "."))
+    with localcontext(Context(prec=28, rounding=ROUND_HALF_EVEN)):
+        expected = parsed / Decimal(365)
+    with localcontext(Context(prec=3, rounding=ROUND_DOWN)) as context:
+        result = normalize_moex_duration({"moex": {"DURATION": days}})
+        assert context.prec == 3 and context.rounding == ROUND_DOWN
+    assert result.status == "READY" and result.duration_years == expected
+    assert result.source_duration_days == parsed
+    assert type(result.duration_years) is Decimal
+
+
+@pytest.mark.parametrize("bad", [True, False, -1, Decimal("NaN"), Decimal("sNaN"),
+    Decimal("Infinity"), float("nan"), float("inf"), "-Infinity", "wrong", [], {}])
+def test_task271_malformed_cannot_hide_behind_valid(bad):
+    result = normalize_moex_duration({"moex": {"DURATION": bad}, "canonical": {"duration": 365}})
+    assert result.status == "MALFORMED_RAW_DURATION"
+    assert result.duration_years is result.source_duration_days is None
+    assert result.quality_flags == ("MALFORMED_RAW_DURATION",)
+
+
+@pytest.mark.parametrize("payload", [
+    {"moex": {"DURATION": "365"}}, {"moex": {"duration": 365}},
+    {"canonical": {"duration": "365"}},
+    {"moex": {"DURATION": "365.00", "duration": 365}, "canonical": {"duration": "365,0"}},
+    {"moex": {"DURATION": None, "duration": ""}, "canonical": {"duration": 365}},
+])
+def test_task271_known_raw_shapes_and_agreement(payload):
+    before = deepcopy(payload)
+    result = normalize_moex_duration(payload, stored_duration_years=Decimal(1))
+    assert result.duration_years == 1 and not result.quality_flags
+    assert payload == before
+
+
+@pytest.mark.parametrize("payload", [None, [], {}, {"DURATION": 365},
+    {"other": {"DURATION": 365}}, {"canonical": {"DURATION": 365}},
+    {"moex": {"DURATION": None, "duration": "  "}},
+    {"mapping_notes": ["DURATION looked like days and was divided by 365"]}])
+def test_task271_missing_evidence_has_no_stored_fallback(payload):
+    result = normalize_moex_duration(payload, stored_duration_years=Decimal(2))
+    assert result.status == "RAW_DURATION_MISSING" and result.duration_years is None
+    assert result.quality_flags == ("DURATION_RAW_MISSING",)
+
+
+def test_task271_conflict_and_multiple_limitations():
+    result = normalize_moex_duration({"moex": {"DURATION": 30, "duration": 50}})
+    assert result.status == "CONFLICTING_RAW_DURATION" and result.duration_years is None
+    result = normalize_moex_duration({"moex": {"DURATION": 30, "duration": 50},
+                                      "canonical": {"duration": "broken"}})
+    assert result.status == "MALFORMED_RAW_DURATION"
+    assert result.quality_flags == ("CONFLICTING_RAW_DURATION", "MALFORMED_RAW_DURATION")
+
+
+@pytest.mark.parametrize("stored,days,mismatch", [
+    (Decimal(2), 730, False), (None, 30, False), (Decimal(30), 30, True),
+    (Decimal("0.082"), 30, True), (Decimal("NaN"), 30, True),
+])
+def test_task271_stored_compatibility_exact_diagnostic(stored, days, mismatch):
+    result = normalize_moex_duration({"moex": {"DURATION": days}}, stored_duration_years=stored)
+    assert result.duration_years == Decimal(days) / Decimal(365)
+    assert ("STORED_DURATION_MISMATCH" in result.quality_flags) is mismatch
+
+
+def test_task271_market_raw_authority_preserves_other_features(db_session, bond):
+    payload = {"moex": {"DURATION": 30, "VOLUME": "2.5", "VALUE": "100.25", "NUMTRADES": 4}}
+    row = snapshot(db_session, bond, duration_years=Decimal(30), price=Decimal("99.5"),
+                   yield_to_maturity=Decimal("12.5"), raw_payload=payload)
+    before = deepcopy(row.raw_payload)
+    result = build(db_session, bond)
+    assert result.duration_years == Decimal(30) / Decimal(365)
+    assert result.market_snapshot_id == row.id and result.market_trade_date == DAY
+    assert result.market_status == "FRESH" and result.price == Decimal("99.5")
+    assert result.yield_to_maturity_pct == Decimal("12.5")
+    assert (result.trade_volume, result.turnover_value, result.num_trades) == (Decimal("2.5"), Decimal("100.25"), 4)
+    assert result.availability.has_duration and "STORED_DURATION_MISMATCH" in result.quality_flags
+    assert row.duration_years == 30 and row.raw_payload == before
+    assert not db_session.new and not db_session.dirty and not db_session.deleted
+
+
+@pytest.mark.parametrize("payload,flag", [
+    ({}, "DURATION_RAW_MISSING"), ({"moex": {"DURATION": "NaN"}}, "MALFORMED_RAW_DURATION"),
+    ({"moex": {"DURATION": 30}, "canonical": {"duration": 50}}, "CONFLICTING_RAW_DURATION"),
+])
+def test_task271_market_unavailable_duration_and_stored_unchanged(db_session, bond, payload, flag):
+    row = snapshot(db_session, bond, duration_years=Decimal(30), raw_payload=payload)
+    result = build(db_session, bond)
+    assert result.duration_years is None and not result.availability.has_duration
+    assert {flag, "DURATION_MISSING"} <= set(result.quality_flags)
+    assert row.duration_years == 30
+
+
+def test_task271_non_moex_duration_not_divided(db_session, bond):
+    snapshot(db_session, bond, source="manual", duration_years=Decimal(30),
+             raw_payload={"moex": {"DURATION": 365}})
+    result = build(db_session, bond, market_source="manual")
+    assert result.duration_years == 30
+    assert not {"STORED_DURATION_MISMATCH", "DURATION_RAW_MISSING"} & set(result.quality_flags)
+
+
+def test_task271_helper_frozen_pure_and_no_threshold():
+    import ast
+    from dataclasses import FrozenInstanceError
+    import app.services.moex_duration_semantics as module
+    result = normalize_moex_duration({"moex": {"DURATION": 365}})
+    with pytest.raises(FrozenInstanceError):
+        result.duration_years = Decimal(2)
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    imports = " ".join(ast.unparse(n) for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom)))
+    assert not any(word in imports for word in ("sqlalchemy", "models", "http", "client", "requests", "strategy"))
+    assert not any(isinstance(n, ast.Constant) and isinstance(n.value, float) for n in ast.walk(tree))
+    assert not any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                   and n.func.attr in {"commit", "flush", "delete", "execute"} for n in ast.walk(tree))
