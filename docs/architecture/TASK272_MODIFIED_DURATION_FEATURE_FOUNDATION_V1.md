@@ -75,9 +75,10 @@ Use a fresh local Decimal context, precision 28 and ROUND_HALF_EVEN, independent
 and without changing caller context. No float intermediate/conversion, epsilon,
 clamping or presentation rounding is introduced. Pydantic JSON retains Decimal strings.
 
-Duration must be a finite nonnegative Decimal. Under the accepted Task272 clarification,
-zero duration remains valid and produces zero MD when all other gates pass. Negative
-or nonfinite duration fails closed. Finite invalid negative inputs may remain in
+Task272 v1 requires a finite nonnegative Decimal Macaulay duration. Zero duration is
+valid input and produces zero modified duration when all other eligibility gates pass
+and the denominator is positive. Negative or nonfinite duration fails closed.
+Finite invalid negative inputs may remain in
 diagnostic fields; nonfinite or unsupported synthetic inputs are returned as null
 with invalid flags, preserving stable JSON serialization.
 
@@ -99,7 +100,7 @@ boundary is inclusive as defined by Task267; no extra snapshot selection is adde
 
 ## 10. Availability and quality flags
 
-Typed status uses the accepted Evidence-first priority:
+Task272 v1 uses the following deterministic status precedence:
 
 ```text
 MARKET_DATA_MISSING → MARKET_DATA_STALE
