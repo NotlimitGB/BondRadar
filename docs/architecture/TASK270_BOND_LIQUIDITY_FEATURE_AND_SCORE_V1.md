@@ -100,7 +100,7 @@ caching or database materialization.
 
 ## 9. Percentile contract
 
-For N eligible bonds, let worse_count count strictly worse values and equal_count
+For N > 1 eligible bonds, let worse_count count strictly worse values and equal_count
 count equal values, including target. The exact Decimal formula is:
 
 ```text
@@ -108,10 +108,12 @@ percentile = 100 × (worse_count + (equal_count − 1) / 2) / (N − 1)
 ```
 
 Greater turnover and trade count are better; smaller age is better. Percentiles
-remain in 0..100. As explicitly clarified by the user, unique extrema receive
-0/100, tied extrema receive group midrank, and a fully tied component receives 50.
-The formula is not stretched to make tied extrema 0/100. Equal values receive
-equal percentiles; insertion and query order do not affect results.
+remain in 0..100. Unique worst and best values receive 0 and 100, respectively.
+Tied extrema receive their shared empirical midrank; a completely tied component
+receives 50. The simplified "worst = 0 / best = 100" applies to unique extrema.
+The explicit midrank equation governs tie behavior; tied extrema are not stretched
+to 0 or 100. Equal values receive equal percentiles; insertion and query order do
+not affect results.
 
 ## 10. Liquidity Score v1
 
