@@ -18,6 +18,7 @@ from app.models.company import Company
 from app.schemas.ofz_reference_curve import BondRelativeValueView, OfzReferenceCurveView
 from app.services.bond_market_feature_service import BondMarketFeatureService
 from app.services.ofz_reference_curve_service import OfzReferenceCurveService, _finite
+from app.services.ofz_relative_value_evaluator import evaluate_market_against_ofz_curve
 
 DAY = date(2026, 9, 17)
 D = Decimal
@@ -109,6 +110,69 @@ def assert_counts(view):
     assert c.with_valid_yield_duration_count == c.fresh_market_count + c.excluded_stale_count
     assert c.fresh_market_count == c.curve_date_member_count + c.excluded_curve_date_mismatch_count
     assert c.distinct_duration_node_count == view.node_count == len(view.nodes)
+
+
+def test_evaluate_bond_delegates_once(db_session, factory, ready, monkeypatch):
+    import app.services.ofz_reference_curve_service as module
+    target = factory(name="Corporate", duration="3", ytm="15")
+    original = module.evaluate_market_against_ofz_curve
+    calls = []
+    def spy(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original(*args, **kwargs)
+    monkeypatch.setattr(module, "evaluate_market_against_ofz_curve", spy)
+    result = OfzReferenceCurveService(db_session).evaluate_bond(target.id, DAY)
+    assert result.status == "READY"
+    assert len(calls) == 1
+    assert calls[0][0][0].bond_id == target.id
+    assert calls[0][0][1].status == "READY"
+    assert calls[0][1] == {"as_of_date": DAY, "market_source": "moex"}
+
+
+@pytest.mark.parametrize("target_args", [
+    {"duration": "2", "ytm": "15"},
+    {"duration": "3", "ytm": "15"},
+    {"market": False},
+    {"when": DAY - timedelta(days=8)},
+    {"when": DAY - timedelta(days=1)},
+    {"duration": "1"},
+])
+def test_direct_evaluator_complete_equivalence(db_session, factory, ready, target_args):
+    target = factory(name="Corporate", **target_args)
+    service = OfzReferenceCurveService(db_session)
+    target_view = BondMarketFeatureService(db_session).build_for_bond(target.id, DAY)
+    curve_view = service.build_curve(DAY)
+    direct = evaluate_market_against_ofz_curve(
+        target_view, curve_view, as_of_date=DAY, market_source="moex",
+    )
+    delegated = service.evaluate_bond(target.id, DAY)
+    assert delegated.model_dump() == direct.model_dump()
+
+
+def test_direct_evaluator_curve_unavailable_equivalence(db_session, factory):
+    target = factory(name="Corporate", duration="3", ytm="15")
+    service = OfzReferenceCurveService(db_session)
+    target_view = BondMarketFeatureService(db_session).build_for_bond(target.id, DAY)
+    curve_view = service.build_curve(DAY)
+    assert curve_view.status == "NO_ELIGIBLE_OFZ"
+    direct = evaluate_market_against_ofz_curve(
+        target_view, curve_view, as_of_date=DAY, market_source="moex",
+    )
+    assert service.evaluate_bond(target.id, DAY).model_dump() == direct.model_dump()
+
+
+def test_evaluate_bond_contains_no_duplicate_interpolation_implementation():
+    import app.services.ofz_reference_curve_service as module
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    method = next(node for node in ast.walk(tree)
+                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                  and node.name == "evaluate_bond")
+    calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)]
+    assert sum(isinstance(node.func, ast.Name)
+               and node.func.id == "evaluate_market_against_ofz_curve" for node in calls) == 1
+    constants = {node.value for node in ast.walk(method)
+                 if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+    assert not constants & {"EXACT_NODE", "LINEAR_INTERPOLATION"}
 
 
 @pytest.mark.parametrize("name,isin", [("ОФЗ 26200", None), ("ofz 26200", None),

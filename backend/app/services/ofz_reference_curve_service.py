@@ -11,7 +11,6 @@ from app.models.bond import Bond
 from app.models.bond_market_snapshot import BondMarketSnapshot
 from app.models.bond_security_master_profile import BondSecurityMasterProfile
 from app.schemas.ofz_reference_curve import (
-    BondRelativeValueProvenance,
     BondRelativeValueView,
     OfzCurveDiagnostics,
     OfzCurveNode,
@@ -19,6 +18,7 @@ from app.schemas.ofz_reference_curve import (
 )
 from app.services.bond_market_feature_service import BondMarketFeatureService
 from app.services.moex_duration_semantics import normalize_moex_duration
+from app.services.ofz_relative_value_evaluator import evaluate_market_against_ofz_curve
 
 
 def _validate(as_of_date: date, market_source: str, **ages: int) -> None:
@@ -189,73 +189,6 @@ class OfzReferenceCurveService:
             )
             curve = self.build_curve(as_of_date, market_source=market_source,
                                      max_curve_age_days=max_curve_age_days)
-        ytm = _finite(target.yield_to_maturity_pct)
-        duration = _finite(target.duration_years)
-        failures = []
-        flags = set()
-        conditions = (
-            (target.market_status == "MISSING", "TARGET_MARKET_MISSING"),
-            (target.market_status == "STALE", "TARGET_MARKET_STALE"),
-            (ytm is None, "TARGET_YIELD_MISSING"),
-            (duration is None or duration <= 0, "TARGET_DURATION_MISSING"),
-            (curve.status != "READY", "CURVE_NOT_READY"),
-            (target.market_trade_date is not None and curve.curve_trade_date is not None
-             and target.market_trade_date != curve.curve_trade_date,
-             "TARGET_CURVE_DATE_MISMATCH"),
-            (curve.status == "READY" and duration is not None and duration > 0
-             and (duration < curve.min_duration_years or duration > curve.max_duration_years),
-             "TARGET_DURATION_OUTSIDE_CURVE"),
-        )
-        for condition, status in conditions:
-            if condition:
-                failures.append(status)
-                flags.add(status)
-        if duration is not None and duration <= 0:
-            flags.add("TARGET_DURATION_NONPOSITIVE")
-        if target.yield_to_maturity_pct is not None and ytm is None:
-            flags.add("TARGET_YIELD_INVALID")
-        if target.duration_years is not None and duration is None:
-            flags.add("TARGET_DURATION_INVALID")
-        if curve.status != "READY":
-            flags.add(f"CURVE_{curve.status}")
-        if any(node.aggregation_method == "MEDIAN" for node in curve.nodes):
-            flags.add("CURVE_DUPLICATE_DURATION_AGGREGATED")
-        provenance = dict(
-            target_market_snapshot_id=target.market_snapshot_id,
-            target_market_trade_date=target.market_trade_date,
-            curve_trade_date=curve.curve_trade_date,
-        )
-        reference = spread = bps = method = None
-        if not failures:
-            exact = next((n for n in curve.nodes if n.duration_years == duration), None)
-            if exact is not None:
-                lower = upper = exact
-                method = "EXACT_NODE"
-                reference = exact.yield_to_maturity_pct
-            else:
-                lower = next(n for n in reversed(curve.nodes) if n.duration_years < duration)
-                upper = next(n for n in curve.nodes if n.duration_years > duration)
-                method = "LINEAR_INTERPOLATION"
-            with localcontext(Context(prec=28, rounding=ROUND_HALF_EVEN)):
-                if reference is None:
-                    reference = lower.yield_to_maturity_pct + (
-                        (duration - lower.duration_years)
-                        * (upper.yield_to_maturity_pct - lower.yield_to_maturity_pct)
-                        / (upper.duration_years - lower.duration_years)
-                    )
-                spread = ytm - reference
-                bps = spread * Decimal(100)
-            for side, node in (("lower", lower), ("upper", upper)):
-                provenance[f"{side}_curve_duration_years"] = node.duration_years
-                provenance[f"{side}_curve_yield_pct"] = node.yield_to_maturity_pct
-                provenance[f"{side}_component_snapshot_ids"] = node.component_snapshot_ids
-        return BondRelativeValueView(
-            bond_id=target.bond_id, isin=target.isin, secid=target.secid,
-            as_of_date=as_of_date, market_source=market_source,
-            status=failures[0] if failures else "READY",
-            target_yield_to_maturity_pct=ytm, target_duration_years=duration,
-            reference_ofz_yield_pct=reference, spread_to_ofz_pp=spread,
-            spread_to_ofz_bps=bps, interpolation_method=method,
-            curve=curve, provenance=BondRelativeValueProvenance(**provenance),
-            quality_flags=sorted(flags),
+        return evaluate_market_against_ofz_curve(
+            target, curve, as_of_date=as_of_date, market_source=market_source,
         )
