@@ -1,6 +1,7 @@
 """Task274 A–AD composition, contract-drift and SELECT-only integration acceptance."""
 
 import ast
+import inspect
 from copy import deepcopy
 from datetime import date, datetime, timedelta
 from decimal import Context, Decimal, ROUND_DOWN, localcontext
@@ -20,6 +21,10 @@ from app.schemas.bond_liquidity_features import BondLiquidityFeatureView, BondLi
 from app.schemas.bond_liquidity_relative_value import BondLiquidityAwareRelativeValueView
 from app.schemas.ofz_reference_curve import BondRelativeValueView
 from app.services.bond_liquidity_feature_service import BondLiquidityFeatureService
+from app.services.bond_liquidity_relative_value_composer import (
+    compose_bond_liquidity_aware_relative_value,
+)
+import app.services.bond_liquidity_relative_value_service as service_module
 from app.services.bond_liquidity_relative_value_service import BondLiquidityAwareRelativeValueService
 from app.services.ofz_reference_curve_service import OfzReferenceCurveService
 
@@ -87,6 +92,44 @@ def evidence(monkeypatch):
 
 def build(db, **kwargs):
     return BondLiquidityAwareRelativeValueService(db).build_for_bond(1, DAY, **kwargs)
+
+
+def test_service_delegates_once_and_matches_direct_composer(db_session, evidence, monkeypatch):
+    expected = compose_bond_liquidity_aware_relative_value(
+        evidence.relative,
+        evidence.liquidity,
+        bond_id=1,
+        as_of_date=DAY,
+        market_source="moex",
+    )
+    calls = []
+
+    def tracked(relative, liquidity, **kwargs):
+        calls.append((relative, liquidity, kwargs))
+        return compose_bond_liquidity_aware_relative_value(relative, liquidity, **kwargs)
+
+    monkeypatch.setattr(service_module, "compose_bond_liquidity_aware_relative_value", tracked)
+    result = build(db_session)
+    assert result.model_dump() == expected.model_dump()
+    assert evidence.calls == [
+        ("RELATIVE", (1, DAY), {"market_source": "moex", "max_market_age_days": 7,
+                                "max_curve_age_days": 7}),
+        ("LIQUIDITY", (1, DAY), {"market_source": "moex", "lookback_calendar_days": 30,
+                                 "min_observation_days": 5}),
+    ]
+    assert calls == [(evidence.relative, evidence.liquidity, {
+        "bond_id": 1, "as_of_date": DAY, "market_source": "moex",
+    })]
+
+
+def test_public_signature_is_unchanged():
+    assert str(inspect.signature(BondLiquidityAwareRelativeValueService.build_for_bond)) == (
+        "(self, bond_id: int, as_of_date: datetime.date, *, market_source: str = 'moex', "
+        'max_market_age_days: int = 7, max_curve_age_days: int = 7, '
+        'liquidity_lookback_calendar_days: int = 30, '
+        'liquidity_min_observation_days: int = 5) '
+        '-> app.schemas.bond_liquidity_relative_value.BondLiquidityAwareRelativeValueView'
+    )
 
 
 def unavailable(result, status):
@@ -492,6 +535,13 @@ def test_narrow_static_safety_no_calculations_direct_rows_or_network():
     imports = " ".join(ast.unparse(n) for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom)))
     assert not any(word in imports for word in ("app.models", "requests", "httpx", "urllib", "moex_iss",
         "strategy", "portfolio", "risk_engine", "broker", "_midrank", "_liquidity" + " import"))
+    assert "bond_liquidity_relative_value_composer" in imports
+    assert sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+               and node.func.id == "compose_bond_liquidity_aware_relative_value"
+               for node in ast.walk(tree)) == 1
+    forbidden_names = {"_finite", "_score_value", "_liquidity_provenance_valid",
+                       "relative_numbers_valid", "liquidity_numbers_valid", "conditions", "failures"}
+    assert not forbidden_names & {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Attribute):
@@ -504,10 +554,7 @@ def test_narrow_static_safety_no_calculations_direct_rows_or_network():
         if isinstance(node, ast.Attribute):
             assert node.attr not in {"liquidity_score", "volume", "spread_to_ofz", "raw_payload", "nodes", "num_trades"}
         if isinstance(node, ast.BinOp):
-            if isinstance(node.op, ast.BitOr):
-                assert ast.unparse(node) == "Decimal | None"
-            else:
-                assert isinstance(node.op, ast.Sub)
-                assert ast.unparse(node) in {"as_of_date - timedelta(days=liquidity_lookback_calendar_days - 1)",
-                                             "liquidity_lookback_calendar_days - 1"}
+            assert isinstance(node.op, ast.Sub)
+            assert ast.unparse(node) in {"as_of_date - timedelta(days=liquidity_lookback_calendar_days - 1)",
+                                         "liquidity_lookback_calendar_days - 1"}
         assert not isinstance(node, ast.Constant) or not isinstance(node.value, float)
