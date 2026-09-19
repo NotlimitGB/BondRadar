@@ -25,6 +25,9 @@ from app.schemas.bond_credit_cohort_relative_value import BondCreditCohortRelati
 from app.schemas.bond_credit_comparability import BondCreditComparabilityView, RatingComparabilityEntry
 from app.schemas.ofz_reference_curve import BondRelativeValueView
 from app.services.bond_credit_cohort_relative_value_service import BondCreditCohortRelativeValueMemberService
+from app.services.bond_credit_cohort_relative_value_composer import (
+    compose_credit_cohort_relative_value_member,
+)
 from app.services.bond_credit_comparability_service import BondCreditComparabilityService
 from app.services.ofz_reference_curve_service import OfzReferenceCurveService
 
@@ -105,6 +108,53 @@ def unavailable(result, status):
     assert result.pit_ready is False
     assert result.quality_flags == sorted(set(result.quality_flags))
     assert BondCreditCohortRelativeValueMemberView.model_validate_json(result.model_dump_json()) == result
+
+
+def test_task279_service_delegates_composition_once(db_session, evidence, monkeypatch):
+    import app.services.bond_credit_cohort_relative_value_service as module
+    original = module.compose_credit_cohort_relative_value_member
+    calls = []
+    def spy(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original(*args, **kwargs)
+    monkeypatch.setattr(module, "compose_credit_cohort_relative_value_member", spy)
+    result = build(db_session)
+    assert result.status == "READY" and len(calls) == 1
+    assert calls[0][0] == (evidence.credit, evidence.relative)
+    assert calls[0][1] == dict(
+        bond_id=1, as_of_date=DAY, target_kind="BOND",
+        rating_agency="ACRA", market_source="moex")
+
+
+@pytest.mark.parametrize("state", [
+    "READY", "SELECTED_COHORT_MISSING", "SELECTED_COHORT_UNAVAILABLE",
+    "CREDIT_COHORT_EVIDENCE_INVALID", "CREDIT_COMPARABILITY_UNAVAILABLE",
+    "RELATIVE_VALUE_UNAVAILABLE", "RELATIVE_VALUE_EVIDENCE_INVALID",
+    "DEPENDENCY_IDENTITY_MISMATCH",
+])
+def test_task279_direct_composer_full_equivalence(db_session, evidence, state):
+    if state == "SELECTED_COHORT_MISSING":
+        evidence.credit = evidence.credit.model_copy(update={"bond_rating_entries": []})
+    elif state == "SELECTED_COHORT_UNAVAILABLE":
+        evidence.credit = evidence.credit.model_copy(update={"bond_rating_entries": [
+            rating_entry().model_copy(update={"status": "RATING_VALUE_MISSING", "cohort_key": None})]})
+    elif state == "CREDIT_COHORT_EVIDENCE_INVALID":
+        evidence.credit = evidence.credit.model_copy(update={"bond_rating_entries": [
+            rating_entry(), rating_entry(event_id=99)]})
+    elif state == "CREDIT_COMPARABILITY_UNAVAILABLE":
+        evidence.credit = evidence.credit.model_copy(update={"status": "DEPENDENCY_EVIDENCE_INVALID"})
+    elif state == "RELATIVE_VALUE_UNAVAILABLE":
+        evidence.relative = evidence.relative.model_copy(update={"status": "CURVE_NOT_READY"})
+    elif state == "RELATIVE_VALUE_EVIDENCE_INVALID":
+        evidence.relative = evidence.relative.model_copy(update={"spread_to_ofz_bps": D("NaN")})
+    elif state == "DEPENDENCY_IDENTITY_MISMATCH":
+        evidence.relative = evidence.relative.model_copy(update={"bond_id": 2})
+    direct = compose_credit_cohort_relative_value_member(
+        evidence.credit, evidence.relative, bond_id=1, as_of_date=DAY,
+        target_kind="BOND", rating_agency="ACRA", market_source="moex")
+    delegated = build(db_session)
+    assert direct.status == state
+    assert delegated.model_dump() == direct.model_dump()
 
 
 @pytest.mark.parametrize("target,event_id", [("BOND", 17), ("LEGAL_ISSUER", 18)])
@@ -572,6 +622,10 @@ def test_aj_to_ap_as_static_safety():
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
     assert sum(isinstance(n.func, ast.Attribute) and n.func.attr == "build_for_bond" for n in calls) == 1
     assert sum(isinstance(n.func, ast.Attribute) and n.func.attr == "evaluate_bond" for n in calls) == 1
+    assert sum(isinstance(n.func, ast.Name)
+               and n.func.id == "compose_credit_cohort_relative_value_member" for n in calls) == 1
+    assert "_key_valid" not in source
+    assert "BondCreditCohortRelativeValueMemberProvenance" not in source
     # PEP 604 type unions use BinOp(BitOr); they are annotations, not arithmetic.
     assert not any(isinstance(n, ast.BinOp) and not isinstance(n.op, ast.BitOr) for n in ast.walk(tree))
     assert not any(isinstance(n, ast.Dict) and n.keys for n in ast.walk(tree))
