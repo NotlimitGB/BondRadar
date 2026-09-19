@@ -19,6 +19,7 @@ from app.schemas.bond_liquidity_features import BondLiquidityFeatureView
 from app.services.bond_liquidity_feature_service import (
     BondLiquidityFeatureService, _midrank_percentile, _select_daily, _summarize,
 )
+import app.services.bond_liquidity_feature_service as liquidity_service_module
 
 DAY = date(2026, 9, 17)
 D = Decimal
@@ -436,6 +437,24 @@ def test_select_only_preserves_caller_state_with_autoflush(db_session, seed, mon
     assert all(statement.lstrip().upper().startswith("SELECT") for statement in statements)
     assert "raw_payload" in statements[1] and "liquidity_score" not in statements[1]
     assert tuple(set(items) for items in (db_session.new, db_session.dirty, db_session.deleted)) == state
+
+
+def test_delegates_shared_evaluator_exactly_once(db_session, seed, monkeypatch):
+    seed.universe(tied=True)
+    original = liquidity_service_module.evaluate_liquidity_features
+    calls = []
+
+    def capture(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        liquidity_service_module, "evaluate_liquidity_features", capture
+    )
+    result = build(db_session, seed)
+    assert result.score_status == "READY"
+    assert len(calls) == 1
+    assert len(calls[0][0][0]) == 1
 
 
 @pytest.mark.parametrize("kwargs", [
