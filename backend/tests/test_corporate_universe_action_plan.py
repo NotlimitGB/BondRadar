@@ -201,6 +201,33 @@ def test_include_ofz_expands_working_universe(
     assert payload["local_working_bond_count"] == 3
 
 
+def test_ru_isin_with_ofz_name_remains_corporate(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, 7001)
+    bond = create_bond(
+        db_session,
+        company,
+        7001,
+        name="СберИОС 001Р-795R 3Y1M ОФЗ",
+        isin="RU000A10EXY2",
+        secid="RU000A10EXY2",
+    )
+    db_session.commit()
+
+    payload = client.get(
+        ACTION_PLAN_URL,
+        params={"minimum_corporate_bonds": 1},
+    ).json()
+
+    assert payload["local_total_bond_count"] == 1
+    assert payload["local_corporate_bond_count"] == 1
+    assert payload["local_ofz_bond_count"] == 0
+    assert payload["local_working_bond_count"] == 1
+    assert payload["sample_corporate_bonds"][0]["id"] == bond.id
+
+
 def test_missing_metadata_creates_warnings_and_needs_sync(
     client: TestClient,
     db_session: Session,

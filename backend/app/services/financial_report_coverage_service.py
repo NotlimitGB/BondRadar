@@ -18,6 +18,7 @@ from app.schemas.financial_report_coverage import (
     FinancialReportCoverageWarning,
     FinancialReportFeatureSnapshotCoverage,
 )
+from app.services.ofz_identity import is_ofz_instrument
 
 
 IMPORTANT_FINANCIAL_REPORT_FIELDS = (
@@ -70,7 +71,8 @@ class FinancialReportCoverageService:
         target_date = as_of_date or date.today()
         bonds = list(self.db.execute(select(Bond).order_by(Bond.id.asc())).scalars())
         working_bonds = [
-            bond for bond in bonds if not active_only or not self._is_ofz_bond(bond)
+            bond for bond in bonds
+            if not active_only or not is_ofz_instrument(isin=bond.isin, secid=bond.secid)
         ]
         working_bond_ids = [bond.id for bond in working_bonds]
         working_company_ids = sorted({bond.company_id for bond in working_bonds})
@@ -374,18 +376,3 @@ class FinancialReportCoverageService:
         if denominator == 0:
             return None
         return Decimal(numerator) / Decimal(denominator)
-
-    @staticmethod
-    def _is_ofz_bond(bond: Bond) -> bool:
-        fields = " ".join(
-            value
-            for value in [bond.name, bond.secid or "", bond.isin or ""]
-            if value
-        ).upper()
-        isin = (bond.isin or "").upper()
-        return (
-            "РћР¤Р—" in fields
-            or "OFZ" in fields
-            or "FEDERAL LOAN BOND" in fields
-            or isin.startswith("SU")
-        )

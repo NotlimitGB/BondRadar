@@ -17,6 +17,7 @@ from app.models.bond_security_master_profile import BondSecurityMasterProfile
 from app.models.company import Company
 from app.schemas.ofz_reference_curve import BondRelativeValueView, OfzReferenceCurveView
 from app.services.bond_market_feature_service import BondMarketFeatureService
+from app.services.ofz_identity import is_ofz_instrument
 from app.services.ofz_reference_curve_service import OfzReferenceCurveService, _finite
 from app.services.ofz_relative_value_evaluator import evaluate_market_against_ofz_curve
 
@@ -32,11 +33,14 @@ def factory(db_session):
     sequence = 0
 
     def make(*, name="ОФЗ-ПД", profile=True, terms=None, market=True,
-             duration="2", ytm="12", when=DAY, source="moex", isin=None):
+             duration="2", ytm="12", when=DAY, source="moex", ofz=True,
+             isin=None, secid=None):
         nonlocal sequence
         sequence += 1
-        bond = Bond(company_id=company.id, name=name, secid=f"CURVE{sequence}",
-                    isin=isin, maturity_date=DAY + timedelta(days=100),
+        resolved_isin = f"SU{sequence:010d}" if ofz and isin is None else isin
+        resolved_secid = secid or f"CURVE{sequence}"
+        bond = Bond(company_id=company.id, name=name, secid=resolved_secid,
+                    isin=resolved_isin, maturity_date=DAY + timedelta(days=100),
                     is_floating_coupon=False, is_perpetual=False, amortization=False,
                     yield_to_maturity=D("99"), duration_years=D("99"))
         db_session.add(bond)
@@ -114,7 +118,7 @@ def assert_counts(view):
 
 def test_evaluate_bond_delegates_once(db_session, factory, ready, monkeypatch):
     import app.services.ofz_reference_curve_service as module
-    target = factory(name="Corporate", duration="3", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="3", ytm="15")
     original = module.evaluate_market_against_ofz_curve
     calls = []
     def spy(*args, **kwargs):
@@ -138,7 +142,7 @@ def test_evaluate_bond_delegates_once(db_session, factory, ready, monkeypatch):
     {"duration": "1"},
 ])
 def test_direct_evaluator_complete_equivalence(db_session, factory, ready, target_args):
-    target = factory(name="Corporate", **target_args)
+    target = factory(ofz=False, name="Corporate", **target_args)
     service = OfzReferenceCurveService(db_session)
     target_view = BondMarketFeatureService(db_session).build_for_bond(target.id, DAY)
     curve_view = service.build_curve(DAY)
@@ -150,7 +154,7 @@ def test_direct_evaluator_complete_equivalence(db_session, factory, ready, targe
 
 
 def test_direct_evaluator_curve_unavailable_equivalence(db_session, factory):
-    target = factory(name="Corporate", duration="3", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="3", ytm="15")
     service = OfzReferenceCurveService(db_session)
     target_view = BondMarketFeatureService(db_session).build_for_bond(target.id, DAY)
     curve_view = service.build_curve(DAY)
@@ -175,14 +179,76 @@ def test_evaluate_bond_contains_no_duplicate_interpolation_implementation():
     assert not constants & {"EXACT_NODE", "LINEAR_INTERPOLATION"}
 
 
-@pytest.mark.parametrize("name,isin", [("ОФЗ 26200", None), ("ofz 26200", None),
-    ("Federal Loan Bond", None), ("Government instrument", "SU0000000001")])
-def test_identity_compatible_boundary(db_session, factory, name, isin):
-    factory(name=name, isin=isin)
-    factory(name="Corporate issuer")
+def test_canonical_identity_helper_is_pure_and_consumers_delegate():
+    root = Path(__file__).resolve().parents[2]
+    helper_path = root / "backend/app/services/ofz_identity.py"
+    helper_tree = ast.parse(helper_path.read_text(encoding="utf-8"))
+    imported_roots = {
+        node.module.split(".")[0]
+        for node in ast.walk(helper_tree)
+        if isinstance(node, ast.ImportFrom) and node.module
+    } | {
+        alias.name.split(".")[0]
+        for node in ast.walk(helper_tree)
+        if isinstance(node, ast.Import)
+        for alias in node.names
+    }
+    assert not imported_roots & {
+        "sqlalchemy", "app", "requests", "httpx", "urllib", "socket",
+    }
+
+    consumers = [
+        root / "backend/app/services/ofz_reference_curve_service.py",
+        root / "backend/app/services/corporate_universe_action_plan_service.py",
+        root / "backend/app/services/live_data_readiness_service.py",
+        root / "backend/app/services/financial_report_coverage_service.py",
+        root / "scripts/financial_report_target_issuers.py",
+    ]
+    for path in consumers:
+        source = path.read_text(encoding="utf-8")
+        assert "from app.services.ofz_identity import is_ofz_instrument" in source
+        assert "FEDERAL LOAN BOND" not in source
+        assert "def _is_ofz_bond" not in source
+        assert "def _is_corporate_bond" not in source
+
+
+@pytest.mark.parametrize(("isin", "secid", "expected"), [
+    ("RU000A10EXY2", "RU000A10EXY2", False),
+    ("RU000A10EF94", "RU000A10EF94", False),
+    ("SU26238RMFS4", None, True),
+    (None, "SU26238RMFS4", True),
+    ("RU000A000000", "SU26238RMFS4", False),
+    (None, None, False),
+    ("RU000A000001", "RU000A000001", False),
+    ("  su26238rmfs4  ", None, True),
+    ("   ", "  su26238rmfs4  ", True),
+])
+def test_canonical_ofz_identity_v2(isin, secid, expected):
+    assert is_ofz_instrument(isin=isin, secid=secid) is expected
+
+
+@pytest.mark.parametrize("name", ["ОФЗ 26200", "ofz 26200", "Federal Loan Bond"])
+def test_name_only_identity_fails_closed(db_session, factory, name):
+    factory(name=name, ofz=False, isin=None, secid=f"NAME-{name}")
+    result = curve(db_session)
+    assert result.status == "NO_ELIGIBLE_OFZ"
+    assert result.diagnostics.ofz_identity_count == 0
+    assert result.node_count == 0
+    assert_counts(result)
+
+
+@pytest.mark.parametrize(("name", "isin"), [
+    ("СберИОС 001Р-795R 3Y1M ОФЗ", "RU000A10EXY2"),
+    ("СберИОС 001Р-782R 1Г ОФЗ ДИС", "RU000A10EF94"),
+])
+def test_non_su_false_positive_never_enters_curve(db_session, factory, name, isin):
+    false_positive = factory(name=name, ofz=False, isin=isin, secid=isin)
+    genuine = factory(duration="4", ytm="14")
     result = curve(db_session)
     assert result.diagnostics.ofz_identity_count == 1
     assert result.node_count == 1
+    assert result.nodes[0].component_bond_ids == [genuine.id]
+    assert false_positive.id not in result.nodes[0].component_bond_ids
     assert_counts(result)
 
 
@@ -322,7 +388,7 @@ def test_curve_nonfinite_source_diagnostics(db_session, factory, monkeypatch, co
 @pytest.mark.parametrize("field,status", [("yield_to_maturity_pct", "TARGET_YIELD_MISSING"),
     ("duration_years", "TARGET_DURATION_MISSING")])
 def test_target_nonfinite_defensive_gate(db_session, factory, ready, monkeypatch, field, status):
-    target = factory(name="Corporate")
+    target = factory(ofz=False, name="Corporate")
     original = BondMarketFeatureService.build_for_bond
     def build(self, *args, **kwargs):
         return original(self, *args, **kwargs).model_copy(update={field: D("NaN")})
@@ -332,7 +398,7 @@ def test_target_nonfinite_defensive_gate(db_session, factory, ready, monkeypatch
 
 
 def test_target_corrupt_input_rejected_by_task267_schema(db_session, factory, ready):
-    target = factory(name="Corporate")
+    target = factory(ofz=False, name="Corporate")
     market = db_session.query(BondMarketSnapshot).filter_by(bond_id=target.id).one()
     market.yield_to_maturity = D("NaN")
     # Identity-map corruption never reaches a spread; do not persist NaN to SQLite.
@@ -343,7 +409,7 @@ def test_target_corrupt_input_rejected_by_task267_schema(db_session, factory, re
 def test_interpolation_local_decimal_context(db_session, factory):
     factory(duration="1", ytm="12")
     factory(duration="4", ytm="13")
-    target = factory(name="Corporate", duration="2", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="2", ytm="15")
     expected = evaluate(db_session, target)
     assert expected.reference_ofz_yield_pct == D("12.33333333333333333333333333")
     with localcontext() as context:
@@ -365,9 +431,9 @@ def test_duplicate_median_and_all_provenance(db_session, factory, values, expect
     assert node.component_yields_pct == [D(y) for y in values]
     assert len(node.component_snapshot_ids) == len(values)
     assert node.component_secids == [b.secid for b in bonds]
-    assert node.component_isins == [None] * len(values)
+    assert node.component_isins == [b.isin for b in bonds]
     assert_counts(result)
-    target = factory(name="Corporate", duration="2", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="2", ytm="15")
     spread = evaluate(db_session, target)
     assert "CURVE_DUPLICATE_DURATION_AGGREGATED" in spread.quality_flags
     assert spread.provenance.lower_component_snapshot_ids == node.component_snapshot_ids
@@ -401,7 +467,7 @@ def test_zero_candidates_and_missing_snapshot(db_session, factory):
 @pytest.mark.parametrize("duration,reference,method", [("2", "12", "EXACT_NODE"),
     ("4", "14", "EXACT_NODE"), ("3", "13", "LINEAR_INTERPOLATION")])
 def test_spread_arithmetic_and_provenance(db_session, factory, ready, duration, reference, method):
-    target = factory(name="Corporate", profile=False, duration=duration, ytm="15")
+    target = factory(ofz=False, name="Corporate", profile=False, duration=duration, ytm="15")
     target.yield_to_maturity = D("80")
     target.duration_years = D("80")
     db_session.commit()
@@ -427,7 +493,7 @@ def test_spread_arithmetic_and_provenance(db_session, factory, ready, duration, 
 
 @pytest.mark.parametrize("yield_value,pp", [("11", "-2"), ("13", "0"), ("15.4", "2.4")])
 def test_signed_spreads_no_semantic_promotion(db_session, factory, ready, yield_value, pp):
-    result = evaluate(db_session, factory(name="Corporate", duration="3", ytm=yield_value))
+    result = evaluate(db_session, factory(ofz=False, name="Corporate", duration="3", ytm=yield_value))
     assert result.spread_to_ofz_pp == D(pp)
     assert result.spread_to_ofz_bps == D(pp) * D("100")
     assert result.quality_flags == []
@@ -436,14 +502,14 @@ def test_signed_spreads_no_semantic_promotion(db_session, factory, ready, yield_
 def test_negative_ofz_yield_allowed(db_session, factory):
     factory(duration="2", ytm="-2")
     factory(duration="4", ytm="-1")
-    result = evaluate(db_session, factory(name="Corporate", duration="3", ytm="0"))
+    result = evaluate(db_session, factory(ofz=False, name="Corporate", duration="3", ytm="0"))
     assert result.reference_ofz_yield_pct == D("-1.5")
     assert result.spread_to_ofz_bps == D("150")
 
 
 @pytest.mark.parametrize("duration", ["1", "5"])
 def test_no_extrapolation(db_session, factory, ready, duration):
-    assert_unavailable(evaluate(db_session, factory(name="Corporate", duration=duration)),
+    assert_unavailable(evaluate(db_session, factory(ofz=False, name="Corporate", duration=duration)),
                        "TARGET_DURATION_OUTSIDE_CURVE")
 
 
@@ -455,7 +521,7 @@ def test_no_extrapolation(db_session, factory, ready, duration):
     ({"duration": "-1"}, "TARGET_DURATION_MISSING"),
     ({"when": DAY - timedelta(days=1)}, "TARGET_CURVE_DATE_MISMATCH")])
 def test_target_unavailable_states(db_session, factory, ready, args, status):
-    target = factory(name="Corporate", **args)
+    target = factory(ofz=False, name="Corporate", **args)
     result = evaluate(db_session, target)
     assert_unavailable(result, status)
     assert result.model_dump_json() == evaluate(db_session, target).model_dump_json()
@@ -464,18 +530,18 @@ def test_target_unavailable_states(db_session, factory, ready, args, status):
 
 
 def test_curve_unavailable_and_gate_priority_all_flags(db_session, factory):
-    target = factory(name="Corporate", ytm=None, duration="0", when=DAY - timedelta(days=8))
+    target = factory(ofz=False, name="Corporate", ytm=None, duration="0", when=DAY - timedelta(days=8))
     result = evaluate(db_session, target)
     assert_unavailable(result, "TARGET_MARKET_STALE")
     assert set(result.quality_flags) == {"TARGET_MARKET_STALE", "TARGET_YIELD_MISSING",
         "TARGET_DURATION_MISSING", "TARGET_DURATION_NONPOSITIVE", "CURVE_NOT_READY",
         "CURVE_NO_ELIGIBLE_OFZ"}
-    target2 = factory(name="Corporate")
+    target2 = factory(ofz=False, name="Corporate")
     assert_unavailable(evaluate(db_session, target2), "CURVE_NOT_READY")
 
 
 def test_target_task267_reused_source_future_and_config(db_session, factory, ready, monkeypatch):
-    target = factory(name="Corporate", duration="3", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="3", ytm="15")
     manual = add_market(db_session, target, source="manual", duration="3", ytm="88")
     add_market(db_session, target, when=DAY + timedelta(days=1), duration="3", ytm="99")
     original = BondMarketFeatureService.build_for_bond
@@ -494,7 +560,7 @@ def test_target_task267_reused_source_future_and_config(db_session, factory, rea
 
 
 def test_no_mutation_select_only_and_preserved_pending_state(db_session, factory, ready, monkeypatch):
-    target = factory(name="Corporate", duration="3", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="3", ytm="15")
     target_id = target.id
     deletion = Company(name="Caller-owned deletion", ticker="DELETE268")
     db_session.add(deletion)
@@ -528,7 +594,7 @@ def test_no_mutation_select_only_and_preserved_pending_state(db_session, factory
 
 
 def test_clean_session_and_legacy_spread_unchanged(db_session, factory, ready):
-    target = factory(name="Corporate", duration="3", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="3", ytm="15")
     before = db_session.query(BondMarketSnapshot).all()
     stored = [(r.id, r.spread_to_ofz) for r in before]
     curve(db_session)
@@ -564,7 +630,7 @@ def test_missing_bond_preserves_404(db_session):
 
 
 def test_contracts_frozen_extra_forbidden_pit_false(db_session, factory, ready):
-    result = evaluate(db_session, factory(name="Corporate"))
+    result = evaluate(db_session, factory(ofz=False, name="Corporate"))
     for view in (result, result.curve):
         assert view.pit_ready is False
         with pytest.raises(ValidationError):
@@ -595,7 +661,7 @@ def test_production_surface_no_writes_network_or_prohibited_fields(db_session, f
     forbidden_fields = {"buy", "sell", "hold", "best", "worst", "attractive", "unattractive",
         "undervalued", "overvalued", "expected_return", "alpha", "signal", "rank", "score",
         "recommendation", "portfolio_weight"}
-    result = evaluate(db_session, factory(name="Corporate"))
+    result = evaluate(db_session, factory(ofz=False, name="Corporate"))
     def check(value):
         if isinstance(value, dict):
             assert not forbidden_fields & value.keys()
@@ -610,7 +676,7 @@ def test_production_surface_no_writes_network_or_prohibited_fields(db_session, f
 def test_task271_short_ofz_nodes_and_target_share_raw_semantics(db_session, factory):
     low = factory(duration="30", ytm="12")
     high = factory(duration="50", ytm="14")
-    target = factory(name="Corporate", duration="40", ytm="15")
+    target = factory(ofz=False, name="Corporate", duration="40", ytm="15")
     for bond, days in ((low, 30), (high, 50), (target, 40)):
         row = db_session.query(BondMarketSnapshot).filter_by(bond_id=bond.id).one()
         row.raw_payload = {"moex": {"DURATION": days}}

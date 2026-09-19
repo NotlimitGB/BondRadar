@@ -18,6 +18,7 @@ from app.schemas.corporate_universe_action_plan import (
     CorporateUniverseQualityCheck,
     CorporateUniverseSyncPayloadPreview,
 )
+from app.services.ofz_identity import is_ofz_instrument
 
 
 class CorporateUniverseActionPlanService:
@@ -46,8 +47,14 @@ class CorporateUniverseActionPlanService:
         )
         bonds = list(self.db.execute(select(Bond).order_by(Bond.id.asc())).scalars())
         companies = list(self.db.execute(select(Company)).scalars())
-        corporate_bonds = [bond for bond in bonds if not self._is_ofz_bond(bond)]
-        ofz_bonds = [bond for bond in bonds if self._is_ofz_bond(bond)]
+        corporate_bonds = [
+            bond for bond in bonds
+            if not is_ofz_instrument(isin=bond.isin, secid=bond.secid)
+        ]
+        ofz_bonds = [
+            bond for bond in bonds
+            if is_ofz_instrument(isin=bond.isin, secid=bond.secid)
+        ]
         working_bonds = bonds if include_ofz else corporate_bonds
 
         bonds_with_secid_count = sum(1 for bond in working_bonds if self._has_text(bond.secid))
@@ -162,21 +169,6 @@ class CorporateUniverseActionPlanService:
                 detail="sample_limit must be between 1 and 100",
             )
         return clean_board
-
-    @staticmethod
-    def _is_ofz_bond(bond: Bond) -> bool:
-        fields = " ".join(
-            value
-            for value in [bond.name, bond.secid or "", bond.isin or ""]
-            if value
-        ).upper()
-        isin = (bond.isin or "").upper()
-        return (
-            "ОФЗ" in fields
-            or "OFZ" in fields
-            or "FEDERAL LOAN BOND" in fields
-            or isin.startswith("SU")
-        )
 
     @staticmethod
     def _has_text(value: str | None) -> bool:

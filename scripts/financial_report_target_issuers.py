@@ -8,6 +8,12 @@ import urllib.parse
 from pathlib import Path
 from typing import Any, Sequence
 
+ROOT = Path(__file__).resolve().parents[1]
+BACKEND_DIR = ROOT / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from app.services.ofz_identity import is_ofz_instrument  # noqa: E402
 from financial_report_import import HttpResult, http_json, write_json_report
 
 
@@ -403,7 +409,7 @@ def _bond_universe_targets(
     bonds = _fetch_bonds(backend, http_request, max_bonds=2000)
     grouped: dict[int, dict[str, Any]] = {}
     for bond in bonds:
-        if not _is_corporate_bond(bond):
+        if is_ofz_instrument(isin=bond.get("isin"), secid=bond.get("secid")):
             continue
         company_id = bond.get("company_id")
         if company_id is None:
@@ -876,18 +882,6 @@ def _safe_get_json(http_request: Any, url: str, default: Any = None) -> Any:
         return _get_json(http_request, url)
     except Exception:
         return default
-
-
-def _is_corporate_bond(bond: dict[str, Any]) -> bool:
-    text = " ".join(
-        str(bond.get(field) or "").upper()
-        for field in ("name", "secid", "isin")
-    )
-    if "ОФЗ" in text or "OFZ" in text:
-        return False
-    if str(bond.get("secid") or "").upper().startswith("SU"):
-        return False
-    return True
 
 
 def _parse_int_list(value: str) -> list[int]:

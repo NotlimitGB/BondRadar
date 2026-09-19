@@ -50,6 +50,49 @@ def test_target_export_empty_report_writes_outputs(tmp_path: Path) -> None:
     assert "# BondRadar Financial Report Target Issuers" in markdown_output.read_text(encoding="utf-8")
 
 
+def test_bond_universe_uses_canonical_ofz_identity_v2() -> None:
+    bonds = [
+        {
+            "id": 1,
+            "company_id": 10,
+            "isin": "RU000A10EXY2",
+            "secid": "RU000A10EXY2",
+            "name": "СберИОС 001Р-795R 3Y1M ОФЗ",
+        },
+        {
+            "id": 2,
+            "company_id": 20,
+            "isin": "RU000A10EF94",
+            "secid": "RU000A10EF94",
+            "name": "СберИОС 001Р-782R 1Г ОФЗ ДИС",
+        },
+        {
+            "id": 3,
+            "company_id": 30,
+            "isin": "SU26238RMFS4",
+            "secid": "SU26238RMFS4",
+            "name": "Ordinary name",
+        },
+    ]
+
+    def fake_http(method: str, url: str, payload=None):
+        data = bonds if "/api/bonds?skip=0&limit=200" in url else []
+        return import_script.HttpResult(ok=True, status_code=200, data=data)
+
+    rows, warnings = targets._bond_universe_targets(
+        "http://testserver",
+        argparse.Namespace(limit=10),
+        fake_http,
+    )
+
+    assert warnings == []
+    assert {row["company_id"] for row in rows} == {10, 20}
+    assert {name for row in rows for name in row["sample_bond_names"]} == {
+        "СберИОС 001Р-795R 3Y1M ОФЗ",
+        "СберИОС 001Р-782R 1Г ОФЗ ДИС",
+    }
+
+
 def test_target_export_deduplicates_companies_and_enriches_coverage() -> None:
     responses = {
         "/api/bonds?skip=0&limit=200": [

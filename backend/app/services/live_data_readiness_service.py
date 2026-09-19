@@ -21,6 +21,7 @@ from app.schemas.live_data_readiness import (
     LiveDataReadinessWarning,
 )
 from app.services.financial_report_coverage_service import FinancialReportCoverageService
+from app.services.ofz_identity import is_ofz_instrument
 
 
 class LiveDataReadinessService:
@@ -50,8 +51,14 @@ class LiveDataReadinessService:
         as_of = datetime.now(timezone.utc)
         recent_cutoff = as_of.date() - timedelta(days=recent_days)
         bonds = list(self.db.execute(select(Bond).order_by(Bond.id.asc())).scalars())
-        corporate_bonds = [bond for bond in bonds if not self._is_ofz_bond(bond)]
-        ofz_bonds = [bond for bond in bonds if self._is_ofz_bond(bond)]
+        corporate_bonds = [
+            bond for bond in bonds
+            if not is_ofz_instrument(isin=bond.isin, secid=bond.secid)
+        ]
+        ofz_bonds = [
+            bond for bond in bonds
+            if is_ofz_instrument(isin=bond.isin, secid=bond.secid)
+        ]
         working_bonds = bonds if include_ofz else corporate_bonds
         working_bond_ids = [bond.id for bond in working_bonds]
 
@@ -148,21 +155,6 @@ class LiveDataReadinessService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"{name} must be non-negative",
                 )
-
-    @staticmethod
-    def _is_ofz_bond(bond: Bond) -> bool:
-        fields = " ".join(
-            value
-            for value in [bond.name, bond.secid or "", bond.isin or ""]
-            if value
-        ).upper()
-        isin = (bond.isin or "").upper()
-        return (
-            "ОФЗ" in fields
-            or "OFZ" in fields
-            or "FEDERAL LOAN BOND" in fields
-            or isin.startswith("SU")
-        )
 
     @staticmethod
     def _company_count(bonds: list[Bond]) -> int:

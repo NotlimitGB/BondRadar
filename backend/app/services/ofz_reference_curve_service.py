@@ -18,6 +18,7 @@ from app.schemas.ofz_reference_curve import (
 )
 from app.services.bond_market_feature_service import BondMarketFeatureService
 from app.services.moex_duration_semantics import normalize_moex_duration
+from app.services.ofz_identity import is_ofz_instrument
 from app.services.ofz_relative_value_evaluator import evaluate_market_against_ofz_curve
 
 
@@ -36,18 +37,12 @@ def _finite(value: object) -> Decimal | None:
     return value if isinstance(value, Decimal) and value.is_finite() else None
 
 
-def _identity_text(bond: Bond) -> str:
+def _structural_marker_text(bond: Bond) -> str:
     return " ".join((bond.name, bond.secid or "", bond.isin or "")).upper()
 
 
-def _is_ofz(bond: Bond) -> bool:
-    text = _identity_text(bond)
-    return (any(marker in text for marker in ("ОФЗ", "OFZ", "FEDERAL LOAN BOND"))
-            or (bond.isin or "").upper().startswith("SU"))
-
-
 def _eligible(bond: Bond, profile: BondSecurityMasterProfile | None, day: date) -> bool:
-    text = _identity_text(bond)
+    text = _structural_marker_text(bond)
     if any(marker in text for marker in (
         "ОФЗ-ИН", "OFZ-IN", "ОФЗ-ПК", "OFZ-PK", "ОФЗ-АД", "OFZ-AD",
     )):
@@ -81,7 +76,7 @@ class OfzReferenceCurveService:
                 ).order_by(Bond.id)
             ).all()
             for bond, profile in candidates:
-                if not _is_ofz(bond):
+                if not is_ofz_instrument(isin=bond.isin, secid=bond.secid):
                     continue
                 counts["ofz_identity_count"] += 1
                 if not _eligible(bond, profile, as_of_date):

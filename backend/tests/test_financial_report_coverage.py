@@ -269,3 +269,29 @@ def test_active_only_false_includes_ofz_scope(
     assert private_scope["companies_with_financial_reports"] == 0
     assert all_scope["company_count"] == 2
     assert all_scope["companies_with_financial_reports"] == 1
+
+
+def test_ru_isin_with_ofz_name_is_not_excluded_from_coverage(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, "FRCIOS")
+    create_bond(
+        db_session,
+        company,
+        7001,
+        isin="RU000A10EXY2",
+        secid="RU000A10EXY2",
+        name="СберИОС 001Р-795R 3Y1M ОФЗ",
+    )
+    create_report(db_session, company, period_end_date=date(2026, 3, 31))
+    db_session.commit()
+
+    payload = client.get(
+        COVERAGE_URL,
+        params={"as_of_date": "2026-05-21"},
+    ).json()
+
+    assert payload["company_count"] == 1
+    assert payload["active_bond_count"] == 1
+    assert payload["companies_with_financial_reports"] == 1

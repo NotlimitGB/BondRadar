@@ -403,6 +403,36 @@ def test_include_ofz_expands_working_universe_counts(
     assert payload["bonds_with_predictions_for_latest_run_count"] == 3
 
 
+def test_ru_isin_with_ofz_name_remains_in_live_working_universe(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    company = create_company(db_session, 7001)
+    create_bond(
+        db_session,
+        company,
+        7001,
+        name="СберИОС 001Р-782R 1Г ОФЗ ДИС",
+        isin="RU000A10EF94",
+        secid="RU000A10EF94",
+    )
+    db_session.commit()
+
+    payload = client.get(
+        LIVE_READINESS_URL,
+        params={
+            "minimum_corporate_bonds": 0,
+            "minimum_bonds_with_recent_market_snapshot": 0,
+            "minimum_bonds_with_recent_features": 0,
+            "minimum_bonds_with_predictions": 0,
+        },
+    ).json()
+
+    assert payload["corporate_bond_count"] == 1
+    assert payload["ofz_bond_count"] == 0
+    assert payload["working_bond_count"] == 1
+
+
 def test_validation_errors(client: TestClient) -> None:
     cases = [
         ({"recent_days": 0}, "recent_days must be between 1 and 365"),
