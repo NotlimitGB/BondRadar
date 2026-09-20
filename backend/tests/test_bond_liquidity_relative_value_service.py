@@ -393,7 +393,8 @@ def integration(db_session):
         duration = D(1) if index == 10 else D(3) if index == 11 else D(2)
         ytm = D(10) if index == 10 else D(12)
         bond = Bond(company_id=company.id, name="ОФЗ-ПД" if ofz else "Corporate bond",
-                    secid=f"TASK274_{index}", duration_years=D(99), yield_to_maturity=D(99),
+                    isin=f"SU{index:010d}" if ofz else None, secid=f"TASK274_{index}",
+                    duration_years=D(99), yield_to_maturity=D(99),
                     volume=D(999999), liquidity_score=99)
         db_session.add(bond)
         db_session.flush()
