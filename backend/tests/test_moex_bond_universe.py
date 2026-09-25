@@ -1,6 +1,10 @@
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
+
+import pytest
+
 from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 
 from fastapi.testclient import TestClient
@@ -13,7 +17,7 @@ from app.models.bond_security_master_profile import BondSecurityMasterProfile
 from app.models.company import Company
 from app.models.company_identity_profile import CompanyIdentityProfile
 from app.models.enums import AnalysisSignal
-from app.services.moex_iss_client import MoexIssClient
+from app.services.moex_iss_client import MoexIssClient, MoexSecurityReferenceCandidate
 from app.services.moex_normalization import canonicalize_moex_currency
 
 
@@ -45,12 +49,17 @@ class FakeBondUniverseClient:
         pages: list[list[dict[str, Any]]] | None = None,
         descriptions: dict[str, dict[str, Any]] | None = None,
         description_warnings: dict[str, list[str]] | None = None,
+        reference_candidates: dict[str, list[MoexSecurityReferenceCandidate]] | None = None,
+        reference_errors: set[str] | None = None,
     ) -> None:
         self.pages = pages or []
         self.descriptions = descriptions or {}
         self.description_warnings = description_warnings or {}
+        self.reference_candidates = reference_candidates or {}
+        self.reference_errors = reference_errors or set()
         self.universe_calls: list[dict[str, Any]] = []
         self.description_calls: list[dict[str, Any]] = []
+        self.reference_calls: list[str] = []
 
     def fetch_bond_universe(
         self,
@@ -74,6 +83,15 @@ class FakeBondUniverseClient:
             dict(self.descriptions.get(secid, {"secid": secid})),
             list(self.description_warnings.get(secid, [])),
         )
+
+    def fetch_security_reference_candidates(
+        self,
+        query: str,
+    ) -> list[MoexSecurityReferenceCandidate]:
+        self.reference_calls.append(query)
+        if query in self.reference_errors:
+            raise RuntimeError("credential=must-not-leak")
+        return list(self.reference_candidates.get(query, []))
 
 
 def description(
@@ -106,6 +124,44 @@ def description(
         "is_perpetual": False,
         "is_traded": is_traded,
     }
+
+
+def ofz_reference_candidate(
+    *,
+    secid: str,
+    isin: str | None,
+    issuer_title: str | None = "Министерство финансов Российской Федерации",
+    issuer_inn: str | None = "7710168360",
+    issuer_okpo: str | None = None,
+    issuer_id: str | None = "1228",
+) -> MoexSecurityReferenceCandidate:
+    return MoexSecurityReferenceCandidate(
+        secid=secid,
+        isin=isin,
+        short_name="ОФЗ-ПД",
+        full_name="Облигация федерального займа",
+        primary_board="TQOB",
+        issuer_id=issuer_id,
+        issuer_title=issuer_title,
+        issuer_inn=issuer_inn,
+        issuer_okpo=issuer_okpo,
+    )
+
+
+def ofz_description(
+    secid: str,
+    isin: str | None,
+    *,
+    issuer_name: str | None = None,
+    issuer_inn: str | None = None,
+) -> dict[str, Any]:
+    return description(
+        secid=secid,
+        isin=isin,
+        name="ОФЗ-ПД 26238 15/05/2041",
+        issuer_name=issuer_name,
+        issuer_inn=issuer_inn,
+    )
 
 
 def sync_payload(**overrides) -> dict[str, Any]:
@@ -607,6 +663,397 @@ def test_missing_moex_issuer_metadata_creates_weak_identity(
     assert "issuer_name_missing" in messages
     assert "issuer_inn_missing" in messages
     assert "company_identity_created_weak" in messages
+    assert fake_client.reference_calls == []
+
+
+def test_ofz_reference_fallback_resolves_partial_metadata_without_okpo(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    secid = "SU26238RMFS4"
+    isin = "RU000A1038V6"
+    fake_client = FakeBondUniverseClient(
+        descriptions={secid: ofz_description(secid, isin)},
+        reference_candidates={
+            secid: [ofz_reference_candidate(secid=secid, isin=isin)]
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[secid]),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bonds_created"] == 1
+    assert payload["companies_created"] == 1
+    assert payload["errors"] == []
+    assert fake_client.reference_calls == [secid]
+
+    company = db_session.execute(select(Company)).scalar_one()
+    assert company.name == "Министерство финансов Российской Федерации"
+    assert company.inn == "7710168360"
+    assert not company.name.startswith("Unknown issuer for")
+    bond = db_session.execute(select(Bond)).scalar_one()
+    assert bond.company_id == company.id
+    identity = db_session.execute(select(CompanyIdentityProfile)).scalar_one()
+    assert identity.identity_status == "matched"
+    assert identity.identity_source == "moex_iss"
+    assert identity.review_status == "pending"
+    assert identity.inn == "7710168360"
+    assert identity.source_payload["metadata"]["issuer_reference_source"] == (
+        "moex_security_reference"
+    )
+    assert identity.source_payload["metadata"]["issuer_reference_id"] == "1228"
+    assert identity.source_payload["metadata"]["issuer_reference_match_status"] == (
+        "EXACT_SECID_ISIN_CORROBORATED"
+    )
+
+
+def test_two_ofz_reference_fallbacks_resolve_to_one_company(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    securities = (
+        ("SU26238RMFS4", "RU000A1038V6"),
+        ("SU26218RMFS6", "RU000A0JVW48"),
+    )
+    fake_client = FakeBondUniverseClient(
+        descriptions={
+            secid: ofz_description(secid, isin) for secid, isin in securities
+        },
+        reference_candidates={
+            secid: [ofz_reference_candidate(secid=secid, isin=isin)]
+            for secid, isin in securities
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[secid for secid, _ in securities]),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["companies_created"] == 1
+    assert payload["bonds_created"] == 2
+    assert payload["errors"] == []
+    assert fake_client.reference_calls == [secid for secid, _ in securities]
+    assert count(db_session, Company) == 1
+    bonds = list(db_session.execute(select(Bond).order_by(Bond.secid)).scalars())
+    assert [bond.secid for bond in bonds] == sorted(secid for secid, _ in securities)
+    assert len({bond.company_id for bond in bonds}) == 1
+    assert db_session.execute(select(Company)).scalar_one().inn == "7710168360"
+
+
+@pytest.mark.parametrize(
+    "match_status",
+    [
+        "EXACT_SECID",
+        "EXACT_SECID_ISIN_CORROBORATED",
+        "EXACT_ISIN_RECOVERED",
+    ],
+)
+def test_only_documented_exact_reference_statuses_are_consumed(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    match_status: str,
+) -> None:
+    secid = "SU26238RMFS4"
+    isin = "RU000A1038V6"
+    fake_client = FakeBondUniverseClient(
+        descriptions={secid: ofz_description(secid, isin)}
+    )
+    resolution = SimpleNamespace(
+        security_match_status=match_status,
+        matched_secid=secid,
+        matched_isin=isin,
+        issuer_metadata_status="ISSUER_PARTIAL",
+        issuer_title="Министерство финансов Российской Федерации",
+        issuer_inn="7710168360",
+        issuer_id="1228",
+    )
+    lookup_calls: list[tuple[str, str | None]] = []
+
+    class StubIssuerIdentitySourceService:
+        def __init__(self, supplied_client) -> None:
+            assert supplied_client is fake_client
+
+        def lookup(self, *, requested_secid: str, expected_isin: str | None):
+            lookup_calls.append((requested_secid, expected_isin))
+            return resolution
+
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssuerIdentitySourceService",
+        StubIssuerIdentitySourceService,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[secid]),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["bonds_created"] == 1
+    assert response.json()["errors"] == []
+    assert lookup_calls == [(secid, isin)]
+    assert db_session.execute(select(Bond)).scalar_one().company_id == (
+        db_session.execute(select(Company)).scalar_one().id
+    )
+
+
+@pytest.mark.parametrize(
+    "issuer_name,issuer_inn",
+    [
+        (None, " 7710168360 "),
+        ("  МИНИСТЕРСТВО   ФИНАНСОВ РОССИЙСКОЙ ФЕДЕРАЦИИ ", None),
+    ],
+)
+def test_ofz_reference_fallback_fills_either_missing_issuer_field(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    issuer_name: str | None,
+    issuer_inn: str | None,
+) -> None:
+    secid = "SU26238RMFS4"
+    isin = "RU000A1038V6"
+    fake_client = FakeBondUniverseClient(
+        descriptions={
+            secid: ofz_description(
+                secid,
+                isin,
+                issuer_name=issuer_name,
+                issuer_inn=issuer_inn,
+            )
+        },
+        reference_candidates={
+            secid: [ofz_reference_candidate(secid=secid, isin=isin)]
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[secid]),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["bonds_created"] == 1
+    assert response.json()["errors"] == []
+    assert fake_client.reference_calls == [secid]
+    assert count(db_session, Company) == 1
+    assert db_session.execute(select(Company)).scalar_one().inn == "7710168360"
+
+
+@pytest.mark.parametrize(
+    "failure,expected_error",
+    [
+        ("source_error", "OFZ_ISSUER_REFERENCE_UNSAFE_MATCH:SOURCE_ERROR"),
+        ("not_found", "OFZ_ISSUER_REFERENCE_UNSAFE_MATCH:SECURITY_NOT_FOUND"),
+        ("ambiguous", "OFZ_ISSUER_REFERENCE_UNSAFE_MATCH:SECURITY_AMBIGUOUS"),
+        (
+            "identifier_conflict",
+            "OFZ_ISSUER_REFERENCE_UNSAFE_MATCH:SECURITY_IDENTIFIER_CONFLICT",
+        ),
+        (
+            "missing_title",
+            "OFZ_ISSUER_REFERENCE_ISSUER_METADATA_INCOMPLETE",
+        ),
+        (
+            "missing_inn",
+            "OFZ_ISSUER_REFERENCE_ISSUER_METADATA_INCOMPLETE",
+        ),
+        (
+            "recovered_other_secid",
+            "OFZ_ISSUER_REFERENCE_IDENTIFIER_MISMATCH",
+        ),
+    ],
+)
+def test_unsafe_ofz_issuer_reference_skips_without_creating_placeholders(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    failure: str,
+    expected_error: str,
+) -> None:
+    secid = "SU26238RMFS4"
+    isin = "RU000A1038V6"
+    candidates: dict[str, list[MoexSecurityReferenceCandidate]] = {}
+    errors: set[str] = set()
+    if failure == "source_error":
+        errors.add(secid)
+    elif failure == "ambiguous":
+        candidates[secid] = [
+            ofz_reference_candidate(secid=secid, isin=isin),
+            ofz_reference_candidate(
+                secid=secid,
+                isin=isin,
+                issuer_title="Conflicting issuer title",
+            ),
+        ]
+    elif failure == "identifier_conflict":
+        candidates[secid] = [
+            ofz_reference_candidate(secid=secid, isin="RU000A1038V7")
+        ]
+    elif failure == "missing_title":
+        candidates[secid] = [
+            ofz_reference_candidate(secid=secid, isin=isin, issuer_title=None)
+        ]
+    elif failure == "missing_inn":
+        candidates[secid] = [
+            ofz_reference_candidate(secid=secid, isin=isin, issuer_inn=None)
+        ]
+    elif failure == "recovered_other_secid":
+        candidates[isin] = [
+            ofz_reference_candidate(secid="SU26218RMFS6", isin=isin)
+        ]
+
+    fake_client = FakeBondUniverseClient(
+        descriptions={secid: ofz_description(secid, isin)},
+        reference_candidates=candidates,
+        reference_errors=errors,
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[secid]),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bonds_skipped"] == 1
+    assert payload["errors"][0]["message"] == expected_error
+    assert count(db_session, Company) == 0
+    assert count(db_session, Bond) == 0
+    expected_queries = [secid]
+    if failure in {"not_found", "recovered_other_secid"}:
+        expected_queries.append(isin)
+    assert fake_client.reference_calls == expected_queries
+
+
+@pytest.mark.parametrize(
+    "issuer_name,issuer_inn",
+    [
+        ("Conflicting source issuer", None),
+        (None, "7700000999"),
+    ],
+)
+def test_conflicting_ofz_description_issuer_is_not_overwritten(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+    issuer_name: str | None,
+    issuer_inn: str | None,
+) -> None:
+    secid = "SU26238RMFS4"
+    isin = "RU000A1038V6"
+    existing_company = None
+    if issuer_inn:
+        existing_company = create_company(
+            db_session,
+            ticker="OFZEXIST",
+            name="Existing issuer company",
+            inn=issuer_inn,
+        )
+    fake_client = FakeBondUniverseClient(
+        descriptions={
+            secid: ofz_description(
+                secid,
+                isin,
+                issuer_name=issuer_name,
+                issuer_inn=issuer_inn,
+            )
+        },
+        reference_candidates={
+            secid: [ofz_reference_candidate(secid=secid, isin=isin)]
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[secid]),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bonds_skipped"] == 1
+    assert payload["errors"][0]["message"] == "OFZ_ISSUER_REFERENCE_CONFLICT"
+    assert count(db_session, Bond) == 0
+    assert fake_client.reference_calls == [secid]
+    if existing_company is None:
+        assert count(db_session, Company) == 0
+    else:
+        assert count(db_session, Company) == 1
+        db_session.refresh(existing_company)
+        assert existing_company.name == "Existing issuer company"
+        assert existing_company.inn == "7700000999"
+
+
+def test_ofz_with_complete_description_metadata_skips_reference_lookup(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    secid = "SU26238RMFS4"
+    isin = "RU000A1038V6"
+    fake_client = FakeBondUniverseClient(
+        descriptions={
+            secid: ofz_description(
+                secid,
+                isin,
+                issuer_name="Ministry of Finance",
+                issuer_inn="7710168360",
+            )
+        },
+        reference_candidates={
+            secid: [ofz_reference_candidate(secid=secid, isin=isin)]
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.moex_bond_universe_service.MoexIssClient",
+        lambda: fake_client,
+    )
+
+    response = client.post(
+        "/api/market-data/moex/bonds/sync",
+        json=sync_payload(secids=[secid]),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["bonds_created"] == 1
+    assert response.json()["errors"] == []
+    assert fake_client.reference_calls == []
+    company = db_session.execute(select(Company)).scalar_one()
+    assert company.name == "Ministry of Finance"
+    assert company.inn == "7710168360"
 
 
 def test_moex_sync_does_not_overwrite_verified_identity(

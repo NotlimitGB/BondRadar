@@ -22,7 +22,11 @@ from app.schemas.moex_bond_universe import (
 from app.services.bond_security_master_service import BondSecurityMasterService
 from app.services.issuer_identity_service import IssuerIdentityService
 from app.services.moex_iss_client import MoexIssClient, MoexIssClientError
+from app.services.moex_issuer_identity_source_service import (
+    MoexIssuerIdentitySourceService,
+)
 from app.services.moex_normalization import canonicalize_moex_currency
+from app.services.ofz_identity import is_ofz_instrument
 
 
 @dataclass
@@ -49,6 +53,12 @@ class FetchedSecurity:
 
 
 class MoexBondUniverseService:
+    OFZ_ISSUER_EXACT_MATCH_STATUSES = {
+        "EXACT_SECID",
+        "EXACT_SECID_ISIN_CORROBORATED",
+        "EXACT_ISIN_RECOVERED",
+    }
+
     def __init__(
         self,
         db: Session,
@@ -331,6 +341,25 @@ class MoexBondUniverseService:
                 error=conflict_error,
             )
 
+        metadata, issuer_reference_error = self._enrich_ofz_issuer_metadata(
+            metadata,
+            secid=secid,
+            isin=isin,
+            warnings=warnings,
+        )
+        if issuer_reference_error is not None:
+            return SecurityOutcome(
+                company_id=None,
+                company_action=None,
+                bond_action=None,
+                warnings=warnings,
+                error=MoexBondUniverseSyncError(
+                    secid=secid,
+                    isin=isin,
+                    message=issuer_reference_error,
+                ),
+            )
+
         nominal_currency = canonicalize_moex_currency(metadata.get("currency"))
         if nominal_currency is None:
             warnings.append(
@@ -435,6 +464,83 @@ class MoexBondUniverseService:
                 board_observed=observation.board_observed,
                 observed_at=observation.observed_at,
             )
+
+    def _enrich_ofz_issuer_metadata(
+        self,
+        metadata: dict[str, Any],
+        *,
+        secid: str,
+        isin: str | None,
+        warnings: list[MoexBondUniverseSyncWarning],
+    ) -> tuple[dict[str, Any], str | None]:
+        working_metadata = dict(metadata)
+        if not is_ofz_instrument(isin=isin, secid=secid):
+            return working_metadata, None
+
+        existing_name = self._text(metadata.get("issuer_name"), max_length=255)
+        existing_inn_raw = self._text(metadata.get("issuer_inn"))
+        existing_inn = self._issuer_inn(
+            metadata.get("issuer_inn"),
+            warnings,
+            secid,
+        )
+        if existing_name and existing_inn:
+            return working_metadata, None
+
+        try:
+            resolution = MoexIssuerIdentitySourceService(self.moex_client).lookup(
+                requested_secid=secid,
+                expected_isin=isin,
+            )
+        except Exception:
+            return working_metadata, "OFZ_ISSUER_REFERENCE_SOURCE_ERROR"
+        match_status = resolution.security_match_status
+        if match_status not in self.OFZ_ISSUER_EXACT_MATCH_STATUSES:
+            return working_metadata, (
+                f"OFZ_ISSUER_REFERENCE_UNSAFE_MATCH:{match_status}"
+            )
+
+        matched_secid = self._text(resolution.matched_secid, upper=True)
+        matched_isin = self._text(resolution.matched_isin, upper=True)
+        if matched_secid != secid or (isin is not None and matched_isin != isin):
+            return working_metadata, "OFZ_ISSUER_REFERENCE_IDENTIFIER_MISMATCH"
+
+        if resolution.issuer_metadata_status not in {
+            "ISSUER_COMPLETE",
+            "ISSUER_PARTIAL",
+        }:
+            return (
+                working_metadata,
+                "OFZ_ISSUER_REFERENCE_ISSUER_METADATA_INCOMPLETE",
+            )
+
+        reference_name = self._text(resolution.issuer_title, max_length=255)
+        reference_inn = self._issuer_inn(
+            resolution.issuer_inn,
+            warnings,
+            secid,
+        )
+        if not reference_name or not reference_inn:
+            return (
+                working_metadata,
+                "OFZ_ISSUER_REFERENCE_ISSUER_METADATA_INCOMPLETE",
+            )
+
+        if existing_name and self._normalize_name(existing_name) != self._normalize_name(
+            reference_name
+        ):
+            return working_metadata, "OFZ_ISSUER_REFERENCE_CONFLICT"
+        if existing_inn_raw and existing_inn != reference_inn:
+            return working_metadata, "OFZ_ISSUER_REFERENCE_CONFLICT"
+
+        if not existing_name:
+            working_metadata["issuer_name"] = reference_name
+        if not existing_inn:
+            working_metadata["issuer_inn"] = reference_inn
+        working_metadata["issuer_reference_source"] = "moex_security_reference"
+        working_metadata["issuer_reference_id"] = resolution.issuer_id
+        working_metadata["issuer_reference_match_status"] = match_status
+        return working_metadata, None
 
     def _resolve_company(
         self,
