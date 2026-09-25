@@ -23,6 +23,27 @@ from app.services.bond_modified_duration_service import BondModifiedDurationServ
 
 DAY = date(2026, 9, 18)
 D = Decimal
+SECURITY_MASTER_PROJECTION = (
+    BondSecurityMasterProfile.id,
+    BondSecurityMasterProfile.contract_version,
+    BondSecurityMasterProfile.currency_state,
+    BondSecurityMasterProfile.currency_code,
+    BondSecurityMasterProfile.nominal_state,
+    BondSecurityMasterProfile.nominal_value,
+)
+
+
+def is_security_master_projection(statement):
+    """Match only the exact narrow projection used by BondDv01Service."""
+    try:
+        selected = tuple(statement.selected_columns)
+    except AttributeError:
+        return False
+    expected_keys = tuple(column.key for column in SECURITY_MASTER_PROJECTION)
+    return (
+        tuple(column.key for column in selected) == expected_keys
+        and all(column.table is BondSecurityMasterProfile.__table__ for column in selected)
+    )
 
 
 @pytest.fixture
@@ -90,7 +111,7 @@ def patch_profile(db, monkeypatch, profile, **fields):
     values.update(fields)
     original = db.execute
     def read(statement, *args, **kwargs):
-        if "nominal_value" in statement.selected_columns.keys():
+        if is_security_master_projection(statement):
             return SimpleNamespace(one_or_none=lambda: SimpleNamespace(**values))
         return original(statement, *args, **kwargs)
     monkeypatch.setattr(db, "execute", read)
@@ -228,7 +249,7 @@ def test_exact_security_master_join_unrelated_profile_cannot_fill_gap(db_session
 def test_security_master_missing_after_ready_md(db_session, ready, monkeypatch):
     original = db_session.execute
     def read(statement, *args, **kwargs):
-        if "nominal_value" in statement.selected_columns.keys():
+        if is_security_master_projection(statement):
             return SimpleNamespace(one_or_none=lambda: None)
         return original(statement, *args, **kwargs)
     monkeypatch.setattr(db_session, "execute", read)
