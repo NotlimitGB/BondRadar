@@ -320,6 +320,7 @@ def test_client_parses_description_alternate_columns() -> None:
                         ["CURRENCYID", "Trading currency", "SUR"],
                         ["FACEUNIT", "Nominal currency", "USD"],
                         ["COUPONPERCENT", "Coupon", "9.75"],
+                        ["COUPONFREQUENCY", "Payments per year", "2"],
                         ["MATDATE", "Maturity", "2031-05-20"],
                     ],
                 }
@@ -339,6 +340,8 @@ def test_client_parses_description_alternate_columns() -> None:
     assert metadata["raw"]["CURRENCYID"] == "SUR"
     assert metadata["raw"]["FACEUNIT"] == "USD"
     assert metadata["coupon_rate"] == "9.75"
+    assert metadata["coupon_frequency_per_year"] == "2"
+    assert metadata["raw"]["COUPONFREQUENCY"] == "2"
     assert metadata["maturity_date"] == "2031-05-20"
 
 

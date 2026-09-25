@@ -464,6 +464,203 @@ def test_missing_source_flags_remain_unknown_and_explicit_flags_resolve(
     assert positive_profile.offer_structure == "present"
 
 
+@pytest.mark.parametrize(
+    "raw_value,expected",
+    [(2, 2), ("2", 2), (4, 4), ("12", 12)],
+)
+def test_coupon_frequency_metadata_creates_verified_scalar_evidence(
+    db_session: Session,
+    raw_value: int | str,
+    expected: int,
+) -> None:
+    bond = create_bond(db_session, f"292-frequency-{expected}-{type(raw_value).__name__}")
+    service = BondSecurityMasterService(db_session)
+
+    profile = ingest_metadata(service, bond, {"COUPONFREQUENCY": raw_value})
+
+    assert profile is not None
+    assert profile.coupon_frequency_state == "verified"
+    assert profile.coupon_frequency_per_year == expected
+    assert profile.coupon_structure == "unknown"
+    assert profile.perpetual_structure == "unknown"
+    evidence = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ).scalar_one()
+    assert evidence.source == "moex_description"
+    assert evidence.assertion_type == "scalar_value"
+    assert evidence.normalized_value_json == {"value": expected}
+    assert evidence.raw_value_json == {
+        "source_field": "COUPONFREQUENCY",
+        "value": raw_value,
+    }
+
+
+def test_coupon_frequency_repeated_ingestion_is_fingerprint_idempotent(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "292-frequency-idempotent")
+    service = BondSecurityMasterService(db_session)
+    first = ingest_metadata(service, bond, {"COUPONFREQUENCY": "2"})
+    first_evidence = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ).scalar_one()
+
+    repeated = ingest_metadata(service, bond, {"COUPONFREQUENCY": 2})
+
+    assert first is not None and repeated is not None
+    assert repeated.coupon_frequency_state == "verified"
+    assert repeated.coupon_frequency_per_year == 2
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ) == 1
+    assert first_evidence.evidence_fingerprint == db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ).scalar_one().evidence_fingerprint
+
+
+def test_conflicting_coupon_frequency_values_remain_fail_closed(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "292-frequency-conflict")
+    service = BondSecurityMasterService(db_session)
+    first = ingest_metadata(service, bond, {"COUPONFREQUENCY": "2"})
+
+    conflict = ingest_metadata(service, bond, {"COUPONFREQUENCY": "4"})
+
+    assert first is not None and conflict is not None
+    assert conflict.coupon_frequency_state == "conflict"
+    assert conflict.coupon_frequency_per_year is None
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ) == 2
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    [
+        None,
+        "",
+        "   ",
+        0,
+        "0",
+        -1,
+        "-1",
+        True,
+        False,
+        "2.5",
+        2.5,
+        "abc",
+        Decimal("NaN"),
+        Decimal("Infinity"),
+        float("nan"),
+        float("inf"),
+    ],
+    ids=[
+        "missing",
+        "empty",
+        "whitespace",
+        "zero-int",
+        "zero-string",
+        "negative-int",
+        "negative-string",
+        "true",
+        "false",
+        "fraction-string",
+        "fraction-float",
+        "malformed",
+        "nan",
+        "infinity",
+        "float-nan",
+        "float-infinity",
+    ],
+)
+def test_invalid_coupon_frequency_creates_no_frequency_evidence(
+    db_session: Session,
+    raw_value: object,
+) -> None:
+    bond = create_bond(db_session, "292-frequency-invalid")
+    service = BondSecurityMasterService(db_session)
+
+    profile = ingest_metadata(service, bond, {"COUPONFREQUENCY": raw_value})
+
+    assert profile is None
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ) == 0
+    assert db_session.execute(
+        select(BondSecurityMasterProfile).where(
+            BondSecurityMasterProfile.bond_id == bond.id
+        )
+    ).scalar_one_or_none() is None
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {"COUPONPERIOD": "182"},
+        {"COUPONPERCENT": "7.5"},
+        {},
+    ],
+    ids=["coupon-period-only", "coupon-rate-only", "legacy-fields-only"],
+)
+def test_coupon_frequency_is_not_derived_from_other_bond_metadata(
+    db_session: Session,
+    raw: dict[str, object],
+) -> None:
+    bond = create_bond(db_session, "292-frequency-no-inference")
+    bond.coupon_rate = Decimal("8.5")
+    bond.is_floating_coupon = False
+    db_session.commit()
+    service = BondSecurityMasterService(db_session)
+
+    profile = ingest_metadata(service, bond, raw)
+
+    if raw == {"COUPONPERCENT": "7.5"}:
+        assert profile is not None
+        assert profile.coupon_rate == Decimal("7.5")
+        assert profile.coupon_frequency_state == "unknown"
+        assert profile.coupon_frequency_per_year is None
+        assert profile.coupon_structure == "unknown"
+        assert profile.perpetual_structure == "unknown"
+        assert db_session.execute(
+            select(BondSecurityMasterProfile).where(
+                BondSecurityMasterProfile.bond_id == bond.id
+            )
+        ).scalar_one() is profile
+    else:
+        assert profile is None
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ) == 0
+    if raw != {"COUPONPERCENT": "7.5"}:
+        assert db_session.execute(
+            select(BondSecurityMasterProfile).where(
+                BondSecurityMasterProfile.bond_id == bond.id
+            )
+        ).scalar_one_or_none() is None
+
+
 def test_faceunit_nominal_currency_agrees_across_sources_and_is_idempotent(
     db_session: Session,
 ) -> None:

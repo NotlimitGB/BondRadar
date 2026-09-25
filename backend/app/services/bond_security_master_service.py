@@ -55,6 +55,7 @@ _METADATA_ALIASES = {
     "currency_code": ("faceunit", "FACEUNIT"),
     "nominal_value": ("nominal_value", "NOMINAL_VALUE", "facevalue", "FACEVALUE", "faceval", "FACEVAL", "nominal", "NOMINAL"),
     "coupon_rate": ("coupon_rate", "COUPON_RATE", "couponpercent", "COUPONPERCENT", "coupon_rate_percent"),
+    "coupon_frequency_per_year": ("COUPONFREQUENCY",),
     "maturity_date": ("maturity_date", "MATURITY_DATE", "matdate", "MATDATE", "maturitydate", "MATURITYDATE"),
     "coupon_structure": ("is_floating_coupon", "IS_FLOATING_COUPON", "floating_coupon", "FLOATING_COUPON"),
     "amortization_structure": ("has_amortization", "HAS_AMORTIZATION", "amortization", "AMORTIZATION", "amortized", "AMORTIZED"),
@@ -203,6 +204,7 @@ class BondSecurityMasterService:
             "currency_code",
             "nominal_value",
             "coupon_rate",
+            "coupon_frequency_per_year",
             "maturity_date",
             "coupon_structure",
             "amortization_structure",
@@ -589,6 +591,13 @@ class BondSecurityMasterService:
     def _normalize_metadata_value(cls, field_name: str, raw_value: Any) -> Any | None:
         if field_name == "currency_code":
             return canonicalize_moex_currency(raw_value)
+        if field_name == "coupon_frequency_per_year":
+            try:
+                return cls._validated_canonical_value(
+                    field_name, "scalar_value", raw_value
+                )
+            except (TypeError, ValueError, OverflowError):
+                return None
         if field_name in {"nominal_value", "coupon_rate"}:
             value = cls._decimal(raw_value)
             if value is None:

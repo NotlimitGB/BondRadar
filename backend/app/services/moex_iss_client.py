@@ -105,6 +105,7 @@ class MoexIssClient:
             "COUPONPERCENT",
             "coupon_rate_percent",
         ),
+        "coupon_frequency_per_year": ("COUPONFREQUENCY",),
         "is_floating_coupon": (
             "is_floating_coupon",
             "IS_FLOATING_COUPON",
