@@ -113,8 +113,8 @@ def seed_ofz_bonds(db: Session, *, count: int) -> list[Bond]:
                 company,
                 1000 + index,
                 name=f"ОФЗ universe {index}",
-                isin=f"SU{index:010d}",
-                secid=f"OFZ{index:05d}",
+                isin=f"RU000A{index:06d}",
+                secid=f"SU{index:010d}",
             )
         )
     db.commit()

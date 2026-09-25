@@ -501,8 +501,8 @@ def seed(db_session):
     company = save(Company(name="Task276 fixture", ticker="TASK276"))
 
     def bond(name="Corporate", duration="2", ytm="14", when=DAY, source="moex", market=True,
-             isin=None):
-        row = save(Bond(company_id=company.id, name=name, secid=digest()[:20],
+             isin=None, secid=None):
+        row = save(Bond(company_id=company.id, name=name, secid=secid or digest()[:20],
             isin=isin or "RU" + digest()[:10], yield_to_maturity=D(99), duration_years=D(99),
             liquidity_score=7))
         profile = save(BondSecurityMasterProfile(bond_id=row.id, currency_state="verified", currency_code="RUB",
@@ -539,8 +539,10 @@ def seed(db_session):
 
 @pytest.mark.parametrize("target_kind", ["BOND", "LEGAL_ISSUER"])
 def test_sqlite_integration_real_dependencies(db_session, seed, target_kind):
-    seed.bond(name="ОФЗ-ПД", duration="1", ytm="10", isin="SU0000000001")
-    seed.bond(name="ОФЗ-ПД", duration="3", ytm="12", isin="SU0000000002")
+    seed.bond(name="ОФЗ-ПД", duration="1", ytm="10",
+              isin="RU000A1038V6", secid="SU26238RMFS4")
+    seed.bond(name="ОФЗ-ПД", duration="3", ytm="12",
+              isin="RU000A0ZYUA9", secid="SU26224RMFS4")
     rating = seed.rating(target_kind)
     result = BondCreditCohortRelativeValueMemberService(db_session).build_for_bond(seed.target.bond.id, DAY,
         target_kind=target_kind, rating_agency="ACRA")
@@ -572,8 +574,10 @@ def test_missing_bond_http_404(db_session):
 
 
 def test_aq_ar_select_only_pending_state_and_source_rows(db_session, seed, monkeypatch):
-    seed.bond(name="ОФЗ-ПД", duration="1", ytm="10", isin="SU0000000001")
-    seed.bond(name="ОФЗ-ПД", duration="3", ytm="12", isin="SU0000000002")
+    seed.bond(name="ОФЗ-ПД", duration="1", ytm="10",
+              isin="RU000A1038V6", secid="SU26238RMFS4")
+    seed.bond(name="ОФЗ-ПД", duration="3", ytm="12",
+              isin="RU000A0ZYUA9", secid="SU26224RMFS4")
     rating = seed.rating()
     doomed = seed.save(Bond(company_id=seed.company.id, name="Caller deleted", isin="RU000A654321"))
     db_session.commit()

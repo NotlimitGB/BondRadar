@@ -388,12 +388,18 @@ def integration(db_session):
     db_session.add(company)
     db_session.flush()
     bonds, snapshots, profiles = [], [], []
+    ofz_identities = {
+        10: ("RU000A1038V6", "SU26238RMFS4"),
+        11: ("RU000A0ZYUA9", "SU26224RMFS4"),
+    }
     for index in range(12):
         ofz = index >= 10
+        ofz_identity = ofz_identities.get(index)
         duration = D(1) if index == 10 else D(3) if index == 11 else D(2)
         ytm = D(10) if index == 10 else D(12)
         bond = Bond(company_id=company.id, name="ОФЗ-ПД" if ofz else "Corporate bond",
-                    isin=f"SU{index:010d}" if ofz else None, secid=f"TASK274_{index}",
+                    isin=ofz_identity[0] if ofz_identity else None,
+                    secid=ofz_identity[1] if ofz_identity else f"TASK274_{index}",
                     duration_years=D(99), yield_to_maturity=D(99),
                     volume=D(999999), liquidity_score=99)
         db_session.add(bond)

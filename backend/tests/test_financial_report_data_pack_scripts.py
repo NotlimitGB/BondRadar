@@ -50,7 +50,7 @@ def test_target_export_empty_report_writes_outputs(tmp_path: Path) -> None:
     assert "# BondRadar Financial Report Target Issuers" in markdown_output.read_text(encoding="utf-8")
 
 
-def test_bond_universe_uses_canonical_ofz_identity_v2() -> None:
+def test_bond_universe_uses_canonical_ofz_identity_v3() -> None:
     bonds = [
         {
             "id": 1,
@@ -69,7 +69,7 @@ def test_bond_universe_uses_canonical_ofz_identity_v2() -> None:
         {
             "id": 3,
             "company_id": 30,
-            "isin": "SU26238RMFS4",
+            "isin": "RU000A1038V6",
             "secid": "SU26238RMFS4",
             "name": "Ordinary name",
         },

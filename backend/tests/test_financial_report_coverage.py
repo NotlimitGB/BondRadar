@@ -163,8 +163,8 @@ def test_partial_recent_and_stale_report_coverage(
         db_session,
         ofz_company,
         4,
-        isin="SU0000000001",
-        secid="OFZ0001",
+        isin="RU000A1038V6",
+        secid="SU26238RMFS4",
         name="OFZ coverage control",
     )
     recent_report = create_report(
@@ -245,8 +245,8 @@ def test_active_only_false_includes_ofz_scope(
         db_session,
         ofz_company,
         2,
-        isin="SU0000000002",
-        secid="OFZ0002",
+        isin="RU000A0ZYUA9",
+        secid="SU26224RMFS4",
         name="OFZ included when requested",
     )
     create_report(

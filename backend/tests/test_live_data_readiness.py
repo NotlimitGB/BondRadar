@@ -241,8 +241,8 @@ def seed_dataset(
                 company,
                 1000 + index,
                 name=f"ОФЗ live data {index}",
-                isin=f"SU{index:010d}",
-                secid=f"OFZ{index:05d}",
+                isin=f"RU000A{index:06d}",
+                secid=f"SU{index:010d}",
             )
         )
     reports_by_company = {

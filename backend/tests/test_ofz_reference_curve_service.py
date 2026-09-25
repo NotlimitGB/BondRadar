@@ -37,8 +37,8 @@ def factory(db_session):
              isin=None, secid=None):
         nonlocal sequence
         sequence += 1
-        resolved_isin = f"SU{sequence:010d}" if ofz and isin is None else isin
-        resolved_secid = secid or f"CURVE{sequence}"
+        resolved_isin = f"RU000A{sequence:06d}" if ofz and isin is None else isin
+        resolved_secid = secid or (f"SU{sequence:010d}" if ofz else f"CURVE{sequence}")
         bond = Bond(company_id=company.id, name=name, secid=resolved_secid,
                     isin=resolved_isin, maturity_date=DAY + timedelta(days=100),
                     is_floating_coupon=False, is_perpetual=False, amortization=False,
@@ -213,17 +213,18 @@ def test_canonical_identity_helper_is_pure_and_consumers_delegate():
 
 
 @pytest.mark.parametrize(("isin", "secid", "expected"), [
+    ("RU000A1038V6", "SU26238RMFS4", True),
+    ("RU000A0ZYUA9", "SU26224RMFS4", True),
     ("RU000A10EXY2", "RU000A10EXY2", False),
     ("RU000A10EF94", "RU000A10EF94", False),
-    ("SU26238RMFS4", None, True),
-    (None, "SU26238RMFS4", True),
-    ("RU000A000000", "SU26238RMFS4", False),
+    ("RU000A000000", "SU26238RMFS4", True),
+    ("SU0000000001", None, True),
     (None, None, False),
     ("RU000A000001", "RU000A000001", False),
-    ("  su26238rmfs4  ", None, True),
-    ("   ", "  su26238rmfs4  ", True),
+    ("  ru000a1038v6  ", "  su26238rmfs4  ", True),
+    ("   ", "  su26224rmfs4  ", True),
 ])
-def test_canonical_ofz_identity_v2(isin, secid, expected):
+def test_canonical_ofz_identity_v3(isin, secid, expected):
     assert is_ofz_instrument(isin=isin, secid=secid) is expected
 
 
@@ -234,6 +235,19 @@ def test_name_only_identity_fails_closed(db_session, factory, name):
     assert result.status == "NO_ELIGIBLE_OFZ"
     assert result.diagnostics.ofz_identity_count == 0
     assert result.node_count == 0
+    assert_counts(result)
+
+
+def test_moex_native_ofz_identity_can_become_curve_candidate(db_session, factory):
+    genuine = factory(
+        isin="RU000A1038V6",
+        secid="SU26238RMFS4",
+        name="ОФЗ-ПД 26238 15/05/2041",
+    )
+    result = curve(db_session)
+    assert result.diagnostics.ofz_identity_count == 1
+    assert result.node_count == 1
+    assert result.nodes[0].component_bond_ids == [genuine.id]
     assert_counts(result)
 
 
