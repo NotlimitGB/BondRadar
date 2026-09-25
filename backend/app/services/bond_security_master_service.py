@@ -31,6 +31,7 @@ from app.models.bond_security_master_profile import (
 )
 from app.services.moex_iss_client import MoexCashflowScheduleResult
 from app.services.moex_normalization import canonicalize_moex_currency
+from app.services.ofz_identity import ofz_pd_family_marker
 
 
 _BOARD_CODE = re.compile(r"[A-Z0-9._-]{1,32}")
@@ -61,6 +62,10 @@ _METADATA_ALIASES = {
     "perpetual_structure": ("is_perpetual", "IS_PERPETUAL", "perpetual", "PERPETUAL"),
     "offer_structure": ("offer_date", "OFFER_DATE", "offerdate", "OFFERDATE"),
 }
+_NAME_ALIASES = ("name", "secname", "fullname")
+_SHORTNAME_ALIASES = ("shortname", "short_name")
+_SECID_ALIASES = ("secid",)
+_ISIN_ALIASES = ("isin", "isincode")
 _SCALAR_FIELDS = {
     "currency_code": ("currency_state", str),
     "nominal_value": ("nominal_state", Decimal),
@@ -228,6 +233,51 @@ class BondSecurityMasterService:
                 raw_value={"source_field": raw_field, "value": self._json_scalar(raw_value)},
             )
             inserted = inserted or created
+
+        source_isin = self._metadata_text(metadata, _ISIN_ALIASES)
+        source_secid = self._metadata_text(metadata, _SECID_ALIASES)
+        family_marker = ofz_pd_family_marker(
+            isin=source_isin,
+            secid=source_secid,
+            name=self._metadata_text(metadata, _NAME_ALIASES),
+            shortname=self._metadata_text(metadata, _SHORTNAME_ALIASES),
+        )
+        if family_marker is not None and self._metadata_identity_matches_bond(
+            bond, isin=source_isin, secid=source_secid
+        ):
+            maturity_present, _, raw_maturity = self._metadata_value(
+                metadata, _METADATA_ALIASES["maturity_date"]
+            )
+            maturity_value = (
+                self._normalize_metadata_value("maturity_date", raw_maturity)
+                if maturity_present and raw_maturity is not None and raw_maturity != ""
+                else None
+            )
+            identity_parts = []
+            for label, value in (("SECID", source_secid), ("ISIN", source_isin)):
+                if isinstance(value, str) and value.strip():
+                    identity_parts.append(f"{label}={value.strip().upper()}")
+            raw_proof = {
+                "classification_basis": "canonical_ofz_pd_family",
+                "canonical_identity": ";".join(identity_parts),
+                "family_marker": family_marker,
+                "maturity_date": maturity_value,
+            }
+            derived_assertions = [("coupon_structure", "fixed")]
+            if maturity_value is not None:
+                derived_assertions.append(("perpetual_structure", "dated"))
+            for field_name, normalized_value in derived_assertions:
+                _, created = self.record_assertion(
+                    bond=bond,
+                    field_name=field_name,
+                    source=source,
+                    assertion_type="classification",
+                    normalized_value=normalized_value,
+                    observed_at=observed_at,
+                    source_key=source_key,
+                    raw_value=raw_proof,
+                )
+                inserted = inserted or created
 
         if board_observed and board is not None:
             normalized_board = str(board).strip().upper()
@@ -510,6 +560,30 @@ class BondSecurityMasterService:
                 if str(key).lower() == normalized_key and value is not None:
                     return True, str(key), value
         return False, None, None
+
+    @classmethod
+    def _metadata_text(
+        cls, metadata: dict[str, Any], aliases: tuple[str, ...]
+    ) -> str | None:
+        for alias in aliases:
+            present, _, value = cls._metadata_value(metadata, (alias,))
+            if present and isinstance(value, str) and value.strip():
+                return value
+        return None
+
+    @staticmethod
+    def _metadata_identity_matches_bond(
+        bond: Bond, *, isin: str | None, secid: str | None
+    ) -> bool:
+        for source_value, bond_value in ((secid, bond.secid), (isin, bond.isin)):
+            if source_value is None:
+                continue
+            if (
+                not isinstance(bond_value, str)
+                or source_value.strip().upper() != bond_value.strip().upper()
+            ):
+                return False
+        return True
 
     @classmethod
     def _normalize_metadata_value(cls, field_name: str, raw_value: Any) -> Any | None:

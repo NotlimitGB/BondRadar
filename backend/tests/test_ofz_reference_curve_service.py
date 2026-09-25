@@ -1,7 +1,7 @@
 """Task268 acceptance on disposable SQLite; no production/source access."""
 
 import ast
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, localcontext
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,6 +17,8 @@ from app.models.bond_security_master_profile import BondSecurityMasterProfile
 from app.models.company import Company
 from app.schemas.ofz_reference_curve import BondRelativeValueView, OfzReferenceCurveView
 from app.services.bond_market_feature_service import BondMarketFeatureService
+from app.services.bond_security_master_service import BondSecurityMasterService
+from app.services.moex_iss_client import MoexCashflowScheduleResult
 from app.services.ofz_identity import is_ofz_instrument
 from app.services.ofz_reference_curve_service import OfzReferenceCurveService, _finite
 from app.services.ofz_relative_value_evaluator import evaluate_market_against_ofz_curve
@@ -248,6 +250,73 @@ def test_moex_native_ofz_identity_can_become_curve_candidate(db_session, factory
     assert result.diagnostics.ofz_identity_count == 1
     assert result.node_count == 1
     assert result.nodes[0].component_bond_ids == [genuine.id]
+    assert_counts(result)
+
+
+def test_ofz_pd_metadata_and_cashflow_evidence_make_curve_ready(db_session, factory):
+    identities = (
+        ("SU26238RMFS4", "RU000A1038V6", "ОФЗ-ПД 26238", "ОФЗ-ПД 26238 15/05/2041", date(2041, 5, 15), "2", "10"),
+        ("SU26218RMFS6", "RU000A0JVW48", "ОФЗ-ПД 26218", "ОФЗ-ПД 26218 17/09/31", date(2031, 9, 17), "4", "12"),
+    )
+    security_master = BondSecurityMasterService(db_session)
+    bond_ids = set()
+    observed_at = datetime(2026, 9, 17, 12, 0, tzinfo=timezone.utc)
+
+    for secid, isin, shortname, name, maturity, duration, ytm in identities:
+        bond = factory(
+            profile=False,
+            market=False,
+            isin=isin,
+            secid=secid,
+            name=name,
+        )
+        profile = security_master.ingest_moex_metadata(
+            bond,
+            {
+                "raw": {
+                    "SECID": secid,
+                    "ISIN": isin,
+                    "SHORTNAME": shortname,
+                    "SECNAME": name,
+                    "FACEUNIT": "SUR",
+                    "FACEVALUE": "1000",
+                    "COUPONPERCENT": "7.1",
+                    "MATDATE": maturity.isoformat(),
+                }
+            },
+            source="moex_description",
+            board=None,
+            board_observed=False,
+            observed_at=observed_at,
+        )
+        assert profile is not None
+        assert profile.currency_state == "verified" and profile.currency_code == "RUB"
+        assert profile.coupon_structure == "fixed"
+        assert profile.perpetual_structure == "dated"
+        assert profile.maturity_state == "verified" and profile.maturity_date == maturity
+        profile = security_master.ingest_moex_cashflow_structure(
+            bond,
+            MoexCashflowScheduleResult(
+                amortizations=[
+                    {
+                        "amortdate": maturity.isoformat(),
+                        "value": "1000",
+                        "valueprc": "100",
+                    }
+                ]
+            ),
+            observed_at=observed_at,
+        )
+        assert profile is not None and profile.amortization_structure == "bullet"
+        add_market(db_session, bond, duration=duration, ytm=ytm)
+        bond_ids.add(bond.id)
+
+    result = curve(db_session)
+    assert result.status == "READY"
+    assert result.diagnostics.ofz_identity_count == 2
+    assert result.diagnostics.security_master_eligible_count == 2
+    assert result.node_count == 2
+    assert {bond_id for node in result.nodes for bond_id in node.component_bond_ids} == bond_ids
     assert_counts(result)
 
 

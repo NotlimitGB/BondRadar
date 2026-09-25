@@ -19,13 +19,21 @@ from app.services.bond_security_master_service import (
     plain_vanilla_strategy_blockers,
     research_terms_blockers,
 )
+from app.services.ofz_identity import is_ofz_pd_instrument, ofz_pd_family_marker
 from app.services.moex_iss_client import MoexCashflowScheduleResult
 
 
 OBSERVED = datetime(2026, 8, 26, 10, 0, tzinfo=timezone.utc)
 
 
-def create_bond(db: Session, suffix: str = "1") -> Bond:
+def create_bond(
+    db: Session,
+    suffix: str = "1",
+    *,
+    isin: str | None = None,
+    secid: str | None = None,
+    name: str | None = None,
+) -> Bond:
     company = Company(
         name=f"Security Master Issuer {suffix}",
         ticker=f"SM{suffix}",
@@ -36,9 +44,9 @@ def create_bond(db: Session, suffix: str = "1") -> Bond:
     db.flush()
     bond = Bond(
         company_id=company.id,
-        isin=f"RUSM{suffix:0>8}"[:12],
-        secid=f"SM{suffix}",
-        name=f"Security Master Bond {suffix}",
+        isin=isin or f"RUSM{suffix:0>8}"[:12],
+        secid=secid or f"SM{suffix}",
+        name=name or f"Security Master Bond {suffix}",
         currency="RUB",
         nominal_value=Decimal("1000"),
         maturity_date=date(2035, 1, 1),
@@ -51,6 +59,275 @@ def create_bond(db: Session, suffix: str = "1") -> Bond:
     db.commit()
     db.refresh(bond)
     return bond
+
+
+def ingest_metadata(
+    service: BondSecurityMasterService,
+    bond: Bond,
+    raw: dict,
+    *,
+    source: str = "moex_description",
+) -> BondSecurityMasterProfile | None:
+    return service.ingest_moex_metadata(
+        bond,
+        {"raw": raw},
+        source=source,
+        board=None,
+        board_observed=False,
+        observed_at=OBSERVED,
+    )
+
+
+@pytest.mark.parametrize(
+    "isin,secid,name,shortname,expected",
+    [
+        ("RU000A1038V6", "SU26238RMFS4", "ОФЗ-ПД 26238 15/05/2041", None, True),
+        ("SU0000000001", "RU0000000001", "Government issue", "Batch OFZ-PD 01", True),
+        ("RU000A0JVW48", "SU26218RMFS6", "Government OFZ-PD series", None, True),
+        ("RU000A10EXY2", "RU000A10EXY2", "СберИОС ОФЗ-ПД reference", None, False),
+        ("RU0000000002", "SU29007RMFS0", "ОФЗ-ПК 29007", None, False),
+        ("RU0000000003", "SU52002RMFS1", "ОФЗ-ИН 52002", None, False),
+        ("RU0000000004", "SU0000000004", "ОФЗ-АД 00004", None, False),
+        ("RU0000000005", "SU0000000005", "Government security", None, False),
+        ("RU0000000006", "RU0000000006", "ОФЗ-ПД 26238", None, False),
+        ("RU0000000007", "SU0000000007", "OFZ-PDX counterfeit", None, False),
+    ],
+)
+def test_ofz_pd_family_requires_canonical_identity_and_bounded_marker(
+    isin: str,
+    secid: str,
+    name: str,
+    shortname: str | None,
+    expected: bool,
+) -> None:
+    marker = ofz_pd_family_marker(
+        isin=isin, secid=secid, name=name, shortname=shortname,
+    )
+    assert is_ofz_pd_instrument(
+        isin=isin, secid=secid, name=name, shortname=shortname,
+    ) is expected
+    assert (marker is not None) is expected
+
+
+def test_ofz_pd_metadata_derives_fixed_and_dated_with_narrow_idempotent_proof(
+    db_session: Session,
+) -> None:
+    bond = create_bond(
+        db_session,
+        "2901",
+        isin="RU000A1038V6",
+        secid="SU26238RMFS4",
+        name="ОФЗ-ПД 26238 15/05/2041",
+    )
+    service = BondSecurityMasterService(db_session)
+    maturity = "2041-05-15"
+    raw = {
+        "SECID": bond.secid,
+        "ISIN": bond.isin,
+        "SHORTNAME": "ОФЗ-ПД 26238",
+        "SECNAME": bond.name,
+        "FACEUNIT": "SUR",
+        "FACEVALUE": "1000",
+        "COUPONPERCENT": "7.1",
+        "MATDATE": maturity,
+    }
+
+    profile = ingest_metadata(service, bond, raw)
+    assert profile is not None
+    assert profile.currency_state == "verified" and profile.currency_code == "RUB"
+    assert profile.nominal_state == "verified" and profile.nominal_value == Decimal("1000")
+    assert profile.coupon_rate_state == "verified" and profile.coupon_rate == Decimal("7.1")
+    assert profile.maturity_state == "verified" and profile.maturity_date == date.fromisoformat(maturity)
+    assert profile.coupon_structure == "fixed"
+    assert profile.perpetual_structure == "dated"
+    assert profile.amortization_structure == "unknown"
+
+    proof_rows = list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name.in_(
+                    ("coupon_structure", "perpetual_structure")
+                ),
+            )
+        ).scalars()
+    )
+    assert {row.field_name for row in proof_rows} == {
+        "coupon_structure", "perpetual_structure",
+    }
+    for row in proof_rows:
+        assert row.source == "moex_description"
+        assert row.raw_value_json == {
+            "classification_basis": "canonical_ofz_pd_family",
+            "canonical_identity": "SECID=SU26238RMFS4;ISIN=RU000A1038V6",
+            "family_marker": "ОФЗ-ПД",
+            "maturity_date": maturity,
+        }
+
+    evidence_count = db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id
+        )
+    )
+    repeated = ingest_metadata(service, bond, raw)
+    assert repeated is not None and repeated.coupon_structure == "fixed"
+    assert repeated.perpetual_structure == "dated"
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id
+        )
+    ) == evidence_count
+
+
+def test_ofz_pd_without_valid_maturity_derives_fixed_only(db_session: Session) -> None:
+    service = BondSecurityMasterService(db_session)
+    for suffix, matdate in (("2902", None), ("2903", "not-a-date")):
+        bond = create_bond(
+            db_session,
+            suffix,
+            isin=f"RU000A0JVW4{suffix[-1]}",
+            secid=f"SU26218RMFS{suffix[-1]}",
+            name="ОФЗ-ПД 26218 17/09/31",
+        )
+        raw = {
+            "SECID": bond.secid,
+            "ISIN": bond.isin,
+            "NAME": bond.name,
+            "FACEUNIT": "SUR",
+            "FACEVALUE": "1000",
+        }
+        if matdate is not None:
+            raw["MATDATE"] = matdate
+        profile = ingest_metadata(service, bond, raw)
+        assert profile is not None
+        assert profile.coupon_structure == "fixed"
+        assert profile.perpetual_structure == "unknown"
+        assert profile.maturity_state == "unknown"
+        assert db_session.scalar(
+            select(func.count()).select_from(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name == "perpetual_structure",
+            )
+        ) == 0
+
+
+def test_ofz_pd_family_marker_can_come_from_source_shortname(db_session: Session) -> None:
+    bond = create_bond(
+        db_session,
+        "2906",
+        isin="RU000A1038V6",
+        secid="SU26238RMFS4",
+        name="Government bond 26238",
+    )
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "SECID": bond.secid,
+            "ISIN": bond.isin,
+            "SECNAME": bond.name,
+            "SHORTNAME": "Batch OFZ-PD 26238",
+        },
+    )
+    assert profile is not None
+    assert profile.coupon_structure == "fixed"
+    assert profile.perpetual_structure == "unknown"
+
+
+@pytest.mark.parametrize(
+    "secid,isin,name,coupon_rate",
+    [
+        ("SU29007RMFS0", "RU0000000007", "ОФЗ-ПК 29007", "7.1"),
+        ("SU52002RMFS1", "RU0000000008", "ОФЗ-ИН 52002", "7.1"),
+        ("SU0000000009", "RU0000000009", "ОФЗ-АД 00009", "7.1"),
+        ("RU000A10EXY2", "RU000A10EXY2", "СберИОС ... ОФЗ-ПД", "7.1"),
+        ("SU0000000010", "RU0000000010", "Government security", "7.1"),
+        ("RU0000000011", "RU0000000011", "ОФЗ-ПД 26238", "7.1"),
+    ],
+)
+def test_only_canonical_ofz_pd_family_derives_structure(
+    db_session: Session,
+    secid: str,
+    isin: str,
+    name: str,
+    coupon_rate: str,
+) -> None:
+    bond = create_bond(db_session, secid[-4:], secid=secid, isin=isin, name=name)
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "SECID": secid,
+            "ISIN": isin,
+            "NAME": name,
+            "FACEUNIT": "SUR",
+            "FACEVALUE": "1000",
+            "COUPONPERCENT": coupon_rate,
+            "MATDATE": "2041-05-15",
+        },
+    )
+    assert profile is not None
+    assert profile.coupon_structure == "unknown"
+    assert profile.perpetual_structure == "unknown"
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name.in_(
+                ("coupon_structure", "perpetual_structure")
+            ),
+        )
+    ) == 0
+
+
+def test_ofz_pd_family_preserves_conflicts_with_explicit_moex_flags(
+    db_session: Session,
+) -> None:
+    bond = create_bond(
+        db_session, "2904", isin="RU000A1038V6", secid="SU26238RMFS4",
+        name="ОФЗ-ПД 26238 15/05/2041",
+    )
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "SECID": bond.secid,
+            "ISIN": bond.isin,
+            "SECNAME": bond.name,
+            "FACEUNIT": "SUR",
+            "MATDATE": "2041-05-15",
+            "IS_FLOATING_COUPON": True,
+            "IS_PERPETUAL": True,
+        },
+    )
+    assert profile is not None
+    assert profile.coupon_structure == "conflict"
+    assert profile.perpetual_structure == "conflict"
+
+
+def test_mismatched_source_identity_cannot_attach_ofz_pd_structure(
+    db_session: Session,
+) -> None:
+    bond = create_bond(
+        db_session,
+        "2905",
+        isin="RU000A1038V6",
+        secid="SU26238RMFS4",
+        name="ОФЗ-ПД 26238 15/05/2041",
+    )
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "SECID": "SU0000009999",
+            "ISIN": bond.isin,
+            "NAME": "ОФЗ-ПД 26238",
+            "FACEUNIT": "SUR",
+            "MATDATE": "2041-05-15",
+        },
+    )
+    assert profile is not None
+    assert profile.coupon_structure == "unknown"
+    assert profile.perpetual_structure == "unknown"
 
 
 @pytest.mark.parametrize(

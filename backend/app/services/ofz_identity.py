@@ -24,3 +24,54 @@ def is_ofz_instrument(*, isin: str | None, secid: str | None) -> bool:
         (normalized_secid is not None and normalized_secid.startswith("SU"))
         or (normalized_isin is not None and normalized_isin.startswith("SU"))
     )
+
+
+def ofz_pd_family_marker(
+    *,
+    isin: str | None,
+    secid: str | None,
+    name: str | None,
+    shortname: str | None = None,
+) -> str | None:
+    """Return an explicit OFZ-PD family token after canonical identity passes.
+
+    Descriptive text classifies the subtype only; it never establishes OFZ
+    identity. The token must have non-alphanumeric boundaries in at least
+    one source-native name field.
+    """
+
+    if not is_ofz_instrument(isin=isin, secid=secid):
+        return None
+
+    markers = ("ОФЗ-ПД", "OFZ-PD")
+    for description in (name, shortname):
+        if not isinstance(description, str):
+            continue
+        normalized = description.strip().upper()
+        for marker in markers:
+            offset = normalized.find(marker)
+            while offset >= 0:
+                end = offset + len(marker)
+                before_is_boundary = offset == 0 or not normalized[offset - 1].isalnum()
+                after_is_boundary = end == len(normalized) or not normalized[end].isalnum()
+                if before_is_boundary and after_is_boundary:
+                    return marker
+                offset = normalized.find(marker, offset + 1)
+    return None
+
+
+def is_ofz_pd_instrument(
+    *,
+    isin: str | None,
+    secid: str | None,
+    name: str | None,
+    shortname: str | None = None,
+) -> bool:
+    """Return whether canonical OFZ identity has an explicit OFZ-PD marker."""
+
+    return ofz_pd_family_marker(
+        isin=isin,
+        secid=secid,
+        name=name,
+        shortname=shortname,
+    ) is not None
