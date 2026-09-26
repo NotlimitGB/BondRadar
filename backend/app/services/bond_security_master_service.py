@@ -67,6 +67,18 @@ _NAME_ALIASES = ("name", "secname", "fullname")
 _SHORTNAME_ALIASES = ("shortname", "short_name")
 _SECID_ALIASES = ("secid",)
 _ISIN_ALIASES = ("isin", "isincode")
+_BONDTYPE_ALIASES = ("BONDTYPE", "BOND_TYPE")
+_BONDSUBTYPE_ALIASES = ("BONDSUBTYPE", "BOND_SUBTYPE")
+_BONDTYPE_COUPON_STRUCTURE = {
+    "Облигация с фиксированным (известным) купоном": "fixed",
+    "Облигация с фиксированным (неизвестным) купоном": "fixed",
+    "Облигация с плавающим купоном": "floating",
+}
+_BONDSUBTYPE_PERPETUAL_STRUCTURE = {
+    "Бессрочные": "perpetual",
+    "До погашения": "dated",
+}
+_BONDSUBTYPE_OFFER_VALUES = {"До оферты (call)", "До оферты (put)"}
 _SCALAR_FIELDS = {
     "currency_code": ("currency_state", str),
     "nominal_value": ("nominal_state", Decimal),
@@ -236,6 +248,15 @@ class BondSecurityMasterService:
             )
             inserted = inserted or created
 
+        classifier_inserted = self._ingest_moex_structural_classifiers(
+            bond=bond,
+            metadata=metadata,
+            source=source,
+            source_key=source_key,
+            observed_at=observed_at,
+        )
+        inserted = inserted or classifier_inserted
+
         source_isin = self._metadata_text(metadata, _ISIN_ALIASES)
         source_secid = self._metadata_text(metadata, _SECID_ALIASES)
         family_marker = ofz_pd_family_marker(
@@ -300,6 +321,90 @@ class BondSecurityMasterService:
         if inserted or profile is None and self._has_evidence(bond.id):
             return self.resolve_profile(bond)
         return profile
+
+    def _ingest_moex_structural_classifiers(
+        self,
+        *,
+        bond: Bond,
+        metadata: dict[str, Any],
+        source: str,
+        source_key: str,
+        observed_at: datetime,
+    ) -> bool:
+        source_isin = self._metadata_text(metadata, _ISIN_ALIASES)
+        source_secid = self._metadata_text(metadata, _SECID_ALIASES)
+        if not self._metadata_identity_matches_bond(
+            bond, isin=source_isin, secid=source_secid
+        ):
+            return False
+
+        assertions: list[tuple[str, str, dict[str, Any]]] = []
+        bond_type_field, bond_type, bond_type_valid = self._metadata_classifier_value(
+            metadata, _BONDTYPE_ALIASES, normalized_key="bond_type"
+        )
+        if bond_type_valid and bond_type_field is not None and bond_type is not None:
+            coupon_structure = _BONDTYPE_COUPON_STRUCTURE.get(bond_type)
+            if coupon_structure is not None:
+                assertions.append(
+                    (
+                        "coupon_structure",
+                        coupon_structure,
+                        {
+                            "classification_basis": "moex_bond_type_exact",
+                            "source_field": bond_type_field,
+                            "source_value": bond_type,
+                        },
+                    )
+                )
+
+        subtype_field, bond_subtype, subtype_valid = self._metadata_classifier_value(
+            metadata, _BONDSUBTYPE_ALIASES, normalized_key="bond_subtype"
+        )
+        if subtype_valid and subtype_field is not None and bond_subtype is not None:
+            perpetual_structure = _BONDSUBTYPE_PERPETUAL_STRUCTURE.get(bond_subtype)
+            proof: dict[str, Any] | None = None
+            if perpetual_structure is not None:
+                proof = {
+                    "classification_basis": "moex_bond_subtype_exact",
+                    "source_field": subtype_field,
+                    "source_value": bond_subtype,
+                }
+            elif bond_subtype in _BONDSUBTYPE_OFFER_VALUES:
+                maturity_present, _, raw_maturity = self._metadata_value(
+                    metadata, _METADATA_ALIASES["maturity_date"]
+                )
+                maturity_value = (
+                    self._normalize_metadata_value("maturity_date", raw_maturity)
+                    if maturity_present and raw_maturity is not None
+                    else None
+                )
+                if maturity_value is not None:
+                    perpetual_structure = "dated"
+                    proof = {
+                        "classification_basis": "moex_bond_subtype_with_maturity",
+                        "source_field": subtype_field,
+                        "source_value": bond_subtype,
+                        "maturity_date": maturity_value,
+                    }
+            if perpetual_structure is not None and proof is not None:
+                assertions.append(
+                    ("perpetual_structure", perpetual_structure, proof)
+                )
+
+        inserted = False
+        for field_name, value, raw_proof in assertions:
+            _, created = self.record_assertion(
+                bond=bond,
+                field_name=field_name,
+                source=source,
+                assertion_type="classification",
+                normalized_value=value,
+                observed_at=observed_at,
+                source_key=source_key,
+                raw_value=raw_proof,
+            )
+            inserted = inserted or created
+        return inserted
 
     def ingest_moex_cashflow_structure(
         self,
@@ -562,6 +667,59 @@ class BondSecurityMasterService:
                 if str(key).lower() == normalized_key and value is not None:
                     return True, str(key), value
         return False, None, None
+
+    @staticmethod
+    def _metadata_classifier_value(
+        metadata: dict[str, Any],
+        aliases: tuple[str, ...],
+        *,
+        normalized_key: str,
+    ) -> tuple[str | None, str | None, bool]:
+        raw = metadata.get("raw")
+        source = raw if isinstance(raw, dict) else metadata
+        alias_keys: dict[str, list[Any]] = {alias.casefold(): [] for alias in aliases}
+        for key, value in source.items():
+            folded_key = str(key).casefold()
+            if folded_key in alias_keys:
+                alias_keys[folded_key].append(value)
+
+        has_source_alias = any(alias_keys.values())
+        if not has_source_alias:
+            normalized_value = next(
+                (
+                    value
+                    for key, value in metadata.items()
+                    if str(key).casefold() == normalized_key.casefold()
+                ),
+                None,
+            )
+            if normalized_value is None:
+                return None, None, True
+            alias_keys[aliases[0].casefold()].append(normalized_value)
+
+        values: list[str] = []
+        source_field: str | None = None
+        malformed = False
+        for alias in aliases:
+            alias_values = alias_keys[alias.casefold()]
+            for value in alias_values:
+                if value is None:
+                    continue
+                if not isinstance(value, str):
+                    malformed = True
+                    continue
+                normalized = value.strip()
+                if not normalized:
+                    continue
+                values.append(normalized)
+                if source_field is None:
+                    source_field = alias
+
+        if malformed or len(set(values)) > 1:
+            return None, None, False
+        if not values:
+            return None, None, True
+        return source_field, values[0], True
 
     @classmethod
     def _metadata_text(

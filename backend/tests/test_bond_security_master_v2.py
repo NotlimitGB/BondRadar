@@ -661,6 +661,409 @@ def test_coupon_frequency_is_not_derived_from_other_bond_metadata(
         ).scalar_one_or_none() is None
 
 
+@pytest.mark.parametrize(
+    "raw_key,raw_value,expected,expected_source_field",
+    [
+        (
+            "BONDTYPE",
+            "Облигация с фиксированным (известным) купоном",
+            "fixed",
+            "BONDTYPE",
+        ),
+        (
+            "BOND_TYPE",
+            "Облигация с фиксированным (известным) купоном",
+            "fixed",
+            "BOND_TYPE",
+        ),
+        (
+            "BONDTYPE",
+            "Облигация с фиксированным (неизвестным) купоном",
+            "fixed",
+            "BONDTYPE",
+        ),
+        (
+            "BONDTYPE",
+            "Облигация с плавающим купоном",
+            "floating",
+            "BONDTYPE",
+        ),
+        (
+            "BONDTYPE",
+            "  Облигация с фиксированным (известным) купоном  ",
+            "fixed",
+            "BONDTYPE",
+        ),
+    ],
+)
+def test_moex_bond_type_exact_allowlist_derives_coupon_structure(
+    db_session: Session,
+    raw_key: str,
+    raw_value: str,
+    expected: str,
+    expected_source_field: str,
+) -> None:
+    bond = create_bond(db_session, "293-bond-type")
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session), bond, {raw_key: raw_value}
+    )
+
+    assert profile is not None
+    assert profile.coupon_structure == expected
+    assert profile.perpetual_structure == "unknown"
+    evidence = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_structure",
+        )
+    ).scalar_one()
+    assert evidence.assertion_type == "classification"
+    assert evidence.source == "moex_description"
+    assert evidence.normalized_value_json == {"value": expected}
+    assert evidence.raw_value_json == {
+        "classification_basis": "moex_bond_type_exact",
+        "source_field": expected_source_field,
+        "source_value": raw_value.strip(),
+    }
+
+
+@pytest.mark.parametrize(
+    "raw_value",
+    [
+        "Амортизируемая облигация",
+        "Валютная облигация",
+        "Дисконтная облигация",
+        "Конвертируемая облигация",
+        "Линкер/облигация с индексируемым номиналом",
+        "Структурная облигация",
+        "Облигация с фиксированным купоном",
+        "облигация с фиксированным (известным) купоном",
+        "Облигация с фиксированным (известным) купоном, серия A",
+        "Будущий неизвестный тип",
+    ],
+)
+def test_unsupported_or_fuzzy_moex_bond_type_creates_no_coupon_evidence(
+    db_session: Session,
+    raw_value: str,
+) -> None:
+    bond = create_bond(db_session, "293-bond-type-unsupported")
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session), bond, {"BONDTYPE": raw_value}
+    )
+
+    assert profile is None
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_structure",
+        )
+    ) == 0
+
+
+@pytest.mark.parametrize(
+    "raw_key,raw_value,expected",
+    [
+        ("BONDSUBTYPE", "Бессрочные", "perpetual"),
+        ("BOND_SUBTYPE", "До погашения", "dated"),
+    ],
+)
+def test_moex_bond_subtype_exact_allowlist_derives_perpetual_structure(
+    db_session: Session,
+    raw_key: str,
+    raw_value: str,
+    expected: str,
+) -> None:
+    bond = create_bond(db_session, "293-bond-subtype")
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session), bond, {raw_key: f" {raw_value} "}
+    )
+
+    assert profile is not None
+    assert profile.perpetual_structure == expected
+    evidence = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "perpetual_structure",
+        )
+    ).scalar_one()
+    assert evidence.raw_value_json == {
+        "classification_basis": "moex_bond_subtype_exact",
+        "source_field": raw_key,
+        "source_value": raw_value,
+    }
+
+
+@pytest.mark.parametrize(
+    "subtype",
+    ["До оферты (call)", "До оферты (put)"],
+)
+def test_moex_offer_subtype_requires_valid_maturity_from_same_metadata(
+    db_session: Session,
+    subtype: str,
+) -> None:
+    branch = "c" if subtype.endswith("(call)") else "p"
+    valid = create_bond(db_session, f"293{branch}val")
+    valid_profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        valid,
+        {"BONDSUBTYPE": subtype, "MATDATE": "2032-01-01"},
+    )
+    assert valid_profile is not None
+    assert valid_profile.perpetual_structure == "dated"
+    proof = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == valid.id,
+            BondSecurityMasterEvidence.field_name == "perpetual_structure",
+        )
+    ).scalar_one()
+    assert proof.raw_value_json == {
+        "classification_basis": "moex_bond_subtype_with_maturity",
+        "source_field": "BONDSUBTYPE",
+        "source_value": subtype,
+        "maturity_date": "2032-01-01",
+    }
+
+    for suffix, maturity in (("missing", None), ("invalid", "not-a-date")):
+        unique_suffix = "mis" if suffix == "missing" else "inv"
+        bond = create_bond(db_session, f"293{branch}{unique_suffix}")
+        metadata = {"BONDSUBTYPE": subtype}
+        if maturity is not None:
+            metadata["MATDATE"] = maturity
+        profile = ingest_metadata(BondSecurityMasterService(db_session), bond, metadata)
+        assert profile is None
+        assert db_session.scalar(
+            select(func.count()).select_from(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name == "perpetual_structure",
+            )
+        ) == 0
+
+
+def test_classifier_alias_conflicts_block_only_the_conflicting_structure(
+    db_session: Session,
+) -> None:
+    coupon_conflict = create_bond(db_session, "293-type-alias-conflict")
+    coupon_profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        coupon_conflict,
+        {
+            "BONDTYPE": "Облигация с фиксированным (известным) купоном",
+            "BOND_TYPE": "Облигация с плавающим купоном",
+            "BONDSUBTYPE": "Бессрочные",
+        },
+    )
+    assert coupon_profile is not None
+    assert coupon_profile.coupon_structure == "unknown"
+    assert coupon_profile.perpetual_structure == "perpetual"
+
+    subtype_conflict = create_bond(db_session, "293-subtype-alias-conflict")
+    subtype_profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        subtype_conflict,
+        {
+            "BONDTYPE": "Облигация с фиксированным (известным) купоном",
+            "BONDSUBTYPE": "Бессрочные",
+            "BOND_SUBTYPE": "До погашения",
+        },
+    )
+    assert subtype_profile is not None
+    assert subtype_profile.coupon_structure == "fixed"
+    assert subtype_profile.perpetual_structure == "unknown"
+
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == coupon_conflict.id,
+            BondSecurityMasterEvidence.field_name == "coupon_structure",
+        )
+    ) == 0
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == subtype_conflict.id,
+            BondSecurityMasterEvidence.field_name == "perpetual_structure",
+        )
+    ) == 0
+
+
+def test_matching_classifier_aliases_are_accepted_and_choose_primary_provenance(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "293-matching-aliases")
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "BONDTYPE": " Облигация с фиксированным (известным) купоном ",
+            "BOND_TYPE": "Облигация с фиксированным (известным) купоном",
+        },
+    )
+
+    assert profile is not None and profile.coupon_structure == "fixed"
+    evidence = db_session.execute(
+        select(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_structure",
+        )
+    ).scalar_one()
+    assert evidence.raw_value_json["source_field"] == "BONDTYPE"
+
+
+def test_non_string_classifier_alias_blocks_only_its_derived_field(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "293-malformed-type-alias")
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "BONDTYPE": 123,
+            "BOND_TYPE": "Облигация с фиксированным (известным) купоном",
+            "BONDSUBTYPE": "Бессрочные",
+        },
+    )
+
+    assert profile is not None
+    assert profile.coupon_structure == "unknown"
+    assert profile.perpetual_structure == "perpetual"
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_structure",
+        )
+    ) == 0
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "perpetual_structure",
+        )
+    ) == 1
+
+
+def test_repeated_moex_classifier_ingestion_is_fingerprint_idempotent(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "293-idempotent")
+    service = BondSecurityMasterService(db_session)
+    raw = {
+        "BONDTYPE": "Облигация с фиксированным (известным) купоном",
+        "BONDSUBTYPE": "До погашения",
+    }
+    first = ingest_metadata(service, bond, raw, source="moex_universe")
+
+    repeated = ingest_metadata(service, bond, raw, source="moex_universe")
+
+    assert first is not None and repeated is not None
+    assert repeated.coupon_structure == "fixed"
+    assert repeated.perpetual_structure == "dated"
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name.in_(
+                {"coupon_structure", "perpetual_structure"}
+            ),
+        )
+    ) == 2
+
+
+def test_classifier_mapping_conflicts_with_explicit_boolean_via_resolver(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "293-explicit-conflict")
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "BONDTYPE": "Облигация с фиксированным (известным) купоном",
+            "is_floating_coupon": True,
+        },
+    )
+
+    assert profile is not None
+    assert profile.coupon_structure == "conflict"
+    evidence = list(
+        db_session.execute(
+            select(BondSecurityMasterEvidence).where(
+                BondSecurityMasterEvidence.bond_id == bond.id,
+                BondSecurityMasterEvidence.field_name == "coupon_structure",
+            )
+        ).scalars()
+    )
+    assert len(evidence) == 2
+    assert {row.normalized_value_json["value"] for row in evidence} == {
+        "fixed",
+        "floating",
+    }
+
+
+@pytest.mark.parametrize("mismatched_field", ["SECID", "ISIN"])
+def test_mismatched_source_identity_blocks_all_task293_structural_evidence(
+    db_session: Session,
+    mismatched_field: str,
+) -> None:
+    bond = create_bond(db_session, "293-identity-mismatch")
+    metadata = {
+        "SECID": bond.secid,
+        "ISIN": bond.isin,
+        "BONDTYPE": "Облигация с фиксированным (известным) купоном",
+        "BONDSUBTYPE": "Бессрочные",
+    }
+    metadata[mismatched_field] = "OTHER-IDENTITY"
+
+    profile = ingest_metadata(BondSecurityMasterService(db_session), bond, metadata)
+
+    assert profile is None
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name.in_(
+                {"coupon_structure", "perpetual_structure"}
+            ),
+        )
+    ) == 0
+
+
+def test_task293_does_not_promote_names_legacy_fields_or_other_coupon_data(
+    db_session: Session,
+) -> None:
+    bond = create_bond(db_session, "293-no-inference")
+    bond.coupon_rate = Decimal("8")
+    bond.is_floating_coupon = True
+    bond.is_perpetual = True
+    db_session.commit()
+    profile = ingest_metadata(
+        BondSecurityMasterService(db_session),
+        bond,
+        {
+            "NAME": "Облигация с фиксированным (известным) купоном",
+            "SHORTNAME": "Бессрочные",
+            "TYPE": "Облигация с плавающим купоном",
+            "TYPENAME": "До погашения",
+            "COUPONFREQUENCY": "2",
+            "COUPONPERCENT": "8",
+            "COUPONPERIOD": "182",
+        },
+    )
+
+    assert profile is not None
+    assert profile.coupon_frequency_state == "verified"
+    assert profile.coupon_frequency_per_year == 2
+    assert profile.coupon_structure == "unknown"
+    assert profile.perpetual_structure == "unknown"
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name == "coupon_frequency_per_year",
+        )
+    ) == 1
+    assert db_session.scalar(
+        select(func.count()).select_from(BondSecurityMasterEvidence).where(
+            BondSecurityMasterEvidence.bond_id == bond.id,
+            BondSecurityMasterEvidence.field_name.in_(
+                {"coupon_structure", "perpetual_structure"}
+            ),
+        )
+    ) == 0
+
+
 def test_faceunit_nominal_currency_agrees_across_sources_and_is_idempotent(
     db_session: Session,
 ) -> None:

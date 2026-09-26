@@ -321,6 +321,12 @@ def test_client_parses_description_alternate_columns() -> None:
                         ["FACEUNIT", "Nominal currency", "USD"],
                         ["COUPONPERCENT", "Coupon", "9.75"],
                         ["COUPONFREQUENCY", "Payments per year", "2"],
+                        [
+                            "BOND_TYPE",
+                            "Bond type",
+                            "Облигация с фиксированным (известным) купоном",
+                        ],
+                        ["BOND_SUBTYPE", "Bond subtype", "До погашения"],
                         ["MATDATE", "Maturity", "2031-05-20"],
                     ],
                 }
@@ -342,7 +348,66 @@ def test_client_parses_description_alternate_columns() -> None:
     assert metadata["coupon_rate"] == "9.75"
     assert metadata["coupon_frequency_per_year"] == "2"
     assert metadata["raw"]["COUPONFREQUENCY"] == "2"
+    assert metadata["bond_type"] == "Облигация с фиксированным (известным) купоном"
+    assert metadata["bond_subtype"] == "До погашения"
+    assert metadata["raw"]["BOND_TYPE"] == metadata["bond_type"]
+    assert metadata["raw"]["BOND_SUBTYPE"] == metadata["bond_subtype"]
     assert metadata["maturity_date"] == "2031-05-20"
+
+
+def test_client_classifier_alias_conflicts_fail_closed_and_keep_raw() -> None:
+    metadata = MoexIssClient._normalize_bond_metadata_row(
+        {
+            "BONDTYPE": "Облигация с фиксированным (известным) купоном",
+            "BOND_TYPE": "Облигация с плавающим купоном",
+            "BONDSUBTYPE": "Бессрочные",
+            "BOND_SUBTYPE": "До погашения",
+        }
+    )
+
+    assert metadata["bond_type"] is None
+    assert metadata["bond_subtype"] is None
+    assert metadata["raw"]["BONDTYPE"] == "Облигация с фиксированным (известным) купоном"
+    assert metadata["raw"]["BOND_TYPE"] == "Облигация с плавающим купоном"
+    assert metadata["raw"]["BONDSUBTYPE"] == "Бессрочные"
+    assert metadata["raw"]["BOND_SUBTYPE"] == "До погашения"
+
+
+def test_client_accepts_matching_classifier_aliases_after_value_trim() -> None:
+    metadata = MoexIssClient._normalize_bond_metadata_row(
+        {
+            "BONDTYPE": " Облигация с фиксированным (известным) купоном ",
+            "BOND_TYPE": "Облигация с фиксированным (известным) купоном",
+        }
+    )
+
+    assert metadata["bond_type"] == "Облигация с фиксированным (известным) купоном"
+
+
+def test_client_classifier_field_aliases_are_case_insensitive() -> None:
+    metadata = MoexIssClient._normalize_bond_metadata_row(
+        {
+            "bondtype": " Облигация с фиксированным (известным) купоном ",
+            "BOND_TYPE": "Облигация с фиксированным (известным) купоном",
+            "bond_subtype": " До погашения ",
+            "BOND_SUBTYPE": "До погашения",
+        }
+    )
+
+    assert metadata["bond_type"] == "Облигация с фиксированным (известным) купоном"
+    assert metadata["bond_subtype"] == "До погашения"
+
+
+def test_client_classifier_non_string_alias_fails_closed() -> None:
+    metadata = MoexIssClient._normalize_bond_metadata_row(
+        {
+            "BONDTYPE": 123,
+            "BOND_TYPE": "Облигация с фиксированным (известным) купоном",
+        }
+    )
+
+    assert metadata["bond_type"] is None
+    assert metadata["raw"]["BONDTYPE"] == 123
 
 
 def test_explicit_secids_sync_creates_company_and_bond(

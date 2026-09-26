@@ -106,6 +106,8 @@ class MoexIssClient:
             "coupon_rate_percent",
         ),
         "coupon_frequency_per_year": ("COUPONFREQUENCY",),
+        "bond_type": ("BONDTYPE", "BOND_TYPE"),
+        "bond_subtype": ("BONDSUBTYPE", "BOND_SUBTYPE"),
         "is_floating_coupon": (
             "is_floating_coupon",
             "IS_FLOATING_COUPON",
@@ -641,9 +643,33 @@ class MoexIssClient:
     def _normalize_bond_metadata_row(cls, row: dict[str, Any]) -> dict[str, Any]:
         normalized: dict[str, Any] = {}
         for target, aliases in cls.BOND_METADATA_ALIASES.items():
-            normalized[target] = cls._first_value(row, aliases)
+            if target in {"bond_type", "bond_subtype"}:
+                normalized[target] = cls._normalize_classifier_aliases(row, aliases)
+            else:
+                normalized[target] = cls._first_value(row, aliases)
         normalized["raw"] = dict(row)
         return normalized
+
+    @staticmethod
+    def _normalize_classifier_aliases(
+        row: dict[str, Any], aliases: tuple[str, ...]
+    ) -> str | None:
+        values: list[str] = []
+        malformed = False
+        for alias in aliases:
+            for key, value in row.items():
+                if str(key).casefold() != alias.casefold() or value is None:
+                    continue
+                if not isinstance(value, str):
+                    malformed = True
+                    continue
+                normalized = value.strip()
+                if normalized:
+                    values.append(normalized)
+        distinct_values = set(values)
+        if malformed or len(distinct_values) > 1 or not values:
+            return None
+        return values[0]
 
     @classmethod
     def _normalize_bond_market_history_row(cls, row: dict[str, Any]) -> dict[str, Any]:
