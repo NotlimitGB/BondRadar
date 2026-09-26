@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ssl
 from typing import Any
 
 import httpx
@@ -18,6 +19,22 @@ DFAS_ROUTE = "/tinkoff.public.invest.api.contract.v1.InstrumentsService/Dfas"
 BONDS_BASE_REQUEST = {"instrumentStatus": "INSTRUMENT_STATUS_BASE"}
 DFAS_REQUEST: dict[str, Any] = {}
 REQUEST_TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+TINVEST_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
+
+
+def _build_ssl_context() -> ssl.SSLContext:
+    try:
+        context = ssl.create_default_context(cafile=TINVEST_CA_BUNDLE)
+    except (OSError, ssl.SSLError, ValueError):
+        raise RuntimeError("T-Invest TLS trust configuration is unavailable") from None
+
+    if (
+        context.verify_mode != ssl.CERT_REQUIRED
+        or not context.check_hostname
+        or not context.get_ca_certs()
+    ):
+        raise RuntimeError("T-Invest TLS trust configuration is unavailable")
+    return context
 
 
 class TInvestInstrumentUniverseClient:
@@ -55,6 +72,7 @@ class TInvestInstrumentUniverseClient:
             timeout=REQUEST_TIMEOUT,
             follow_redirects=False,
             trust_env=False,
+            verify=_build_ssl_context(),
         ) as client:
             return self._send(client, route, payload)
 

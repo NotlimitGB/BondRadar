@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
+import shutil
+import ssl
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +30,7 @@ from app.services.tinvest_instrument_universe_client import (
     TINVEST_REST_BASE,
     TInvestInstrumentUniverseClient,
 )
+from app.services import tinvest_instrument_universe_client as tinvest_client_module
 from app.services.tinvest_instrument_universe_service import (
     TInvestInstrumentUniverseService,
 )
@@ -612,3 +617,197 @@ def test_runtime_surface_has_no_broker_writes_generic_rpc_or_environment_token()
         and node.name.startswith("list_")
     }
     assert public_methods == {"list_base_bonds", "list_dfas"}
+
+
+def test_official_tinvest_ca_files_are_pem_and_fingerprints_are_pinned() -> None:
+    certificate_dir = Path(__file__).resolve().parents[1] / "certs" / "tbank"
+    certificates = {
+        "russian_trusted_root_ca.crt": (
+            "d26d2d0231b7c39f92cc738512ba54103519e4405d68b5bd703e9788ca8ecf31"
+        ),
+        "russian_trusted_sub_ca.crt": (
+            "bbbde2103e790b999ec62bd03cf625a5a2e7c316e10afe6a490eedead8b3fd9b"
+        ),
+    }
+    for filename, expected_fingerprint in certificates.items():
+        path = certificate_dir / filename
+        pem = path.read_text(encoding="ascii")
+        assert pem.count("-----BEGIN CERTIFICATE-----") == 1
+        assert pem.count("-----END CERTIFICATE-----") == 1
+        der = ssl.PEM_cert_to_DER_cert(pem)
+        assert hashlib.sha256(der).hexdigest() == expected_fingerprint
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=str(path))
+
+
+def test_official_tinvest_ca_pair_has_expected_chain_when_openssl_is_available() -> None:
+    openssl = shutil.which("openssl")
+    if openssl is None:
+        pytest.skip("OpenSSL CLI is unavailable; Docker build performs this verification")
+
+    certificate_dir = Path(__file__).resolve().parents[1] / "certs" / "tbank"
+    root = certificate_dir / "russian_trusted_root_ca.crt"
+    sub = certificate_dir / "russian_trusted_sub_ca.crt"
+    root_metadata = subprocess.run(
+        [openssl, "x509", "-in", str(root), "-noout", "-subject", "-issuer"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert "Russian Trusted Root CA" in root_metadata
+    assert "subject=" in root_metadata and "issuer=" in root_metadata
+
+    result = subprocess.run(
+        [openssl, "verify", "-CAfile", str(root), str(sub)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert result.stdout.strip().endswith(": OK")
+
+
+def test_dockerfile_augments_the_debian_system_ca_store_at_build_time() -> None:
+    dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    assert "apt-get install -y --no-install-recommends ca-certificates" in dockerfile
+    assert "ca-certificates curl libarchive-tools openssl" in dockerfile
+    assert (
+        "COPY certs/tbank/russian_trusted_root_ca.crt /usr/local/share/ca-certificates/"
+        in dockerfile
+    )
+    assert (
+        "COPY certs/tbank/russian_trusted_sub_ca.crt /usr/local/share/ca-certificates/"
+        in dockerfile
+    )
+    assert "RUN update-ca-certificates" in dockerfile
+    assert "/etc/ssl/certs/ca-certificates.crt" in dockerfile
+    assert "openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt" in dockerfile
+    assert "> /etc/ssl/certs/ca-certificates.crt" not in dockerfile
+
+
+def test_production_ssl_context_requires_certificate_and_hostname_verification(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = Path(__file__).resolve().parents[1] / "certs" / "tbank" / "russian_trusted_root_ca.crt"
+    monkeypatch.setattr(tinvest_client_module, "TINVEST_CA_BUNDLE", str(root))
+
+    context = tinvest_client_module._build_ssl_context()
+
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname is True
+
+
+def test_missing_system_bundle_fails_closed_without_path_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing_bundle = Path(__file__).resolve().with_name("nonexistent-task295a-ca-bundle.crt")
+    monkeypatch.setattr(tinvest_client_module, "TINVEST_CA_BUNDLE", str(missing_bundle))
+
+    with pytest.raises(RuntimeError) as error:
+        tinvest_client_module._build_ssl_context()
+
+    assert str(error.value) == "T-Invest TLS trust configuration is unavailable"
+    assert str(missing_bundle) not in repr(error.value)
+
+
+def test_empty_system_bundle_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    empty_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    monkeypatch.setattr(
+        tinvest_client_module.ssl,
+        "create_default_context",
+        lambda **_: empty_context,
+    )
+
+    with pytest.raises(RuntimeError) as error:
+        tinvest_client_module._build_ssl_context()
+
+    assert str(error.value) == "T-Invest TLS trust configuration is unavailable"
+
+
+def test_runtime_httpx_client_receives_explicit_verified_context_and_isolated_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = TInvestInstrumentUniverseClient(token=SYNTHETIC_TOKEN)
+    context_sentinel = object()
+    result_sentinel = object()
+    captured: dict[str, Any] = {}
+
+    class ClientManager:
+        def __enter__(self) -> "ClientManager":
+            return self
+
+        def __exit__(self, *_: Any) -> None:
+            return None
+
+    def client_factory(**kwargs: Any) -> ClientManager:
+        captured.update(kwargs)
+        return ClientManager()
+
+    monkeypatch.setattr(tinvest_client_module, "_build_ssl_context", lambda: context_sentinel)
+    monkeypatch.setattr(tinvest_client_module.httpx, "Client", client_factory)
+    monkeypatch.setattr(source, "_send", lambda *_args: result_sentinel)
+
+    assert source._post_instruments_read(BONDS_ROUTE, BONDS_BASE_REQUEST) is result_sentinel
+    assert captured["verify"] is context_sentinel
+    assert captured["trust_env"] is False
+    assert captured["follow_redirects"] is False
+
+
+def test_injected_http_client_is_not_reconfigured_with_the_production_ca_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"instruments": [bond_row()]})
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as http_client:
+        source = TInvestInstrumentUniverseClient(token=SYNTHETIC_TOKEN, http_client=http_client)
+        monkeypatch.setattr(
+            tinvest_client_module,
+            "_build_ssl_context",
+            lambda: pytest.fail("injected client TLS settings must remain caller-owned"),
+        )
+        assert source.list_base_bonds().response["instruments"][0]["uid"] == "bond-uid-1"
+
+
+def test_tinvest_runtime_ast_rejects_tls_verification_bypasses() -> None:
+    source = Path(tinvest_client_module.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute):
+            is_ssl_cert_none = (
+                node.attr == "CERT_NONE"
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "ssl"
+            )
+            assert not is_ssl_cert_none
+        if isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                if keyword.arg in {"verify", "check_hostname"}:
+                    assert not (isinstance(keyword.value, ast.Constant) and keyword.value.value is False)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            assert node.value not in {"PYTHONHTTPSVERIFY=0", "curl -k", "curl --insecure"}
+
+    client_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "httpx"
+        and node.func.attr == "Client"
+    ]
+    production_client = next(
+        node
+        for node in client_calls
+        if any(keyword.arg == "verify" for keyword in node.keywords)
+    )
+    keywords = {keyword.arg: keyword.value for keyword in production_client.keywords}
+    assert isinstance(keywords["verify"], ast.Call)
+    assert isinstance(keywords["verify"].func, ast.Name)
+    assert keywords["verify"].func.id == "_build_ssl_context"
+    assert isinstance(keywords["trust_env"], ast.Constant)
+    assert keywords["trust_env"].value is False
