@@ -587,7 +587,9 @@ class MoexMarketDataService:
             bond.secid,
         )
         clean_price = self._decimal(row.get("LEGALCLOSEPRICE"), "LEGALCLOSEPRICE", warnings, bond.secid)
-        nkd = self._decimal(row.get("ACCRUEDINT"), "ACCRUEDINT", warnings, bond.secid)
+        nkd, nkd_warning, _ = self._resolve_nkd_aliases(row, secid=bond.secid)
+        if nkd_warning is not None:
+            warnings.append(nkd_warning)
         yield_to_maturity = self._first_decimal(
             row,
             ("YIELDATWAPRICE", "YIELDCLOSE"),
@@ -693,14 +695,26 @@ class MoexMarketDataService:
             secid=effective_secid,
             trade_date=trade_date,
         )
-        nkd = self._history_decimal(
-            row.get("accrued_interest"),
-            "accrued_interest",
-            warnings=warnings,
-            bond_id=bond.id,
-            secid=effective_secid,
-            trade_date=trade_date,
+        raw_moex = row.get("raw")
+        nkd_source = raw_moex if isinstance(raw_moex, dict) else row
+        nkd, nkd_warning, nkd_fields = self._resolve_nkd_aliases(
+            nkd_source, secid=effective_secid
         )
+        if nkd_warning is None and not nkd_fields and "accrued_interest" in row:
+            nkd, nkd_warning, nkd_fields = self._resolve_nkd_aliases(
+                {"ACCRUEDINT": row.get("accrued_interest")},
+                secid=effective_secid,
+            )
+        if nkd_warning is not None:
+            warnings.append(
+                MoexBondMarketHistoryBackfillWarning(
+                    bond_id=bond.id,
+                    secid=effective_secid,
+                    trade_date=trade_date,
+                    message=nkd_warning,
+                    details={"source_fields": list(nkd_fields)},
+                )
+            )
         yield_to_maturity = self._history_decimal(
             row.get("yield_to_maturity"),
             "yield_to_maturity",
@@ -741,6 +755,7 @@ class MoexMarketDataService:
             )
 
         canonical_payload = {key: value for key, value in row.items() if key != "raw"}
+        canonical_payload["accrued_interest"] = nkd
         raw_payload: dict[str, Any] = {
             "moex": row.get("raw") or dict(row),
             "canonical": canonical_payload,
@@ -938,6 +953,65 @@ class MoexMarketDataService:
         except (InvalidOperation, ValueError):
             warnings.append(f"Invalid numeric value for {field_name} in {secid}")
             return None
+
+    @staticmethod
+    def _resolve_nkd_aliases(
+        row: dict[str, Any], *, secid: str | None
+    ) -> tuple[Decimal | None, str | None, tuple[str, ...]]:
+        aliases = {"accint", "accruedint"}
+        raw_values = [
+            (str(key), value)
+            for key, value in row.items()
+            if str(key).casefold() in aliases
+            and value is not None
+            and not (isinstance(value, str) and not value.strip())
+        ]
+        if not raw_values:
+            return None, None, ()
+
+        fields = tuple(sorted({field for field, _ in raw_values}, key=str.casefold))
+        parsed: list[tuple[str, Decimal]] = []
+        for field, raw_value in raw_values:
+            if isinstance(raw_value, bool) or not isinstance(
+                raw_value, (Decimal, int, float, str)
+            ):
+                return (
+                    None,
+                    f"Invalid numeric value for {field} in {secid}",
+                    fields,
+                )
+            try:
+                value = Decimal(
+                    raw_value.strip() if isinstance(raw_value, str) else str(raw_value)
+                )
+            except (InvalidOperation, TypeError, ValueError, OverflowError):
+                return (
+                    None,
+                    f"Invalid numeric value for {field} in {secid}",
+                    fields,
+                )
+            if not value.is_finite() or value < 0:
+                return (
+                    None,
+                    f"Invalid numeric value for {field} in {secid}",
+                    fields,
+                )
+            parsed.append((field, value))
+
+        canonical_values = [value for _, value in parsed]
+        if any(value != canonical_values[0] for value in canonical_values[1:]):
+            evidence = ", ".join(
+                f"{field}={value}"
+                for field, value in sorted(
+                    parsed, key=lambda item: (item[0].casefold(), str(item[1]))
+                )
+            )
+            return (
+                None,
+                f"Conflicting MOEX NKD aliases for {secid}: {evidence}",
+                fields,
+            )
+        return canonical_values[0], None, fields
 
     @staticmethod
     def _has_value(value: Any) -> bool:

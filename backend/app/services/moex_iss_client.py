@@ -205,7 +205,7 @@ class MoexIssClient:
             "CURRENCYID",
         ),
         "board": ("boardid", "BOARDID", "board", "BOARD"),
-        "accrued_interest": ("accruedint", "ACCRUEDINT"),
+        "accrued_interest": ("accint", "accruedint"),
     }
 
     def __init__(

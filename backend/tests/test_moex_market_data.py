@@ -170,6 +170,15 @@ def test_moex_client_parses_json_table_and_paginates() -> None:
     )
 
 
+def test_moex_history_normalizes_accint_and_preserves_raw_source() -> None:
+    source = {"accint": "31.560", "SECID": "SEC1", "TRADEDATE": "2026-01-10"}
+
+    normalized = MoexIssClient._normalize_bond_market_history_row(source)
+
+    assert normalized["accrued_interest"] == "31.560"
+    assert normalized["raw"] == source
+
+
 def test_moex_sync_creates_market_snapshots(
     client: TestClient,
     db_session: Session,
@@ -211,6 +220,141 @@ def test_moex_sync_creates_market_snapshots(
     assert snapshot.raw_payload["mapping_notes"] == [
         MOEX_DURATION_MAPPING_NOTE
     ]
+
+
+@pytest.mark.parametrize(
+    "raw_value,expected,has_warning",
+    [
+        (Decimal("31.56"), Decimal("31.56"), False),
+        ("31.56", Decimal("31.56"), False),
+        (0, Decimal("0"), False),
+        ("0", Decimal("0"), False),
+        (True, None, True),
+        (-1, None, True),
+        ("NaN", None, True),
+        ("Infinity", None, True),
+        ("broken", None, True),
+        ("   ", None, False),
+    ],
+)
+@pytest.mark.parametrize("historical", [False, True])
+def test_moex_nkd_parser_accepts_only_finite_nonnegative_values(
+    db_session: Session,
+    raw_value: Any,
+    expected: Decimal | None,
+    has_warning: bool,
+    historical: bool,
+) -> None:
+    bond = create_bond(db_session, create_company(db_session, "NKD294"))
+    service = MoexMarketDataService(db_session, moex_client=FakeMoexClient())
+    source = {
+        "SECID": bond.secid,
+        "TRADEDATE": "2026-01-10",
+        "ACCINT": raw_value,
+        "CLOSE": 100,
+    }
+    if historical:
+        normalized = MoexIssClient._normalize_bond_market_history_row(source)
+        mapped, warnings, error = service._map_history_row(
+            bond,
+            secid=bond.secid,
+            row={
+                "secid": bond.secid,
+                "trade_date": "2026-01-10",
+                **normalized,
+            },
+            board="TQCB",
+            source="moex",
+        )
+    else:
+        mapped, warnings, error = service._map_row(bond, source)
+
+    assert error is None and mapped is not None
+    assert mapped.nkd == expected
+    assert bool(warnings) is has_warning
+    assert mapped.raw_payload["moex"].get("ACCINT") == raw_value
+
+
+@pytest.mark.parametrize(
+    "raw,expected,conflict",
+    [
+        ({"ACCINT": "31.560", "ACCRUEDINT": 31.56}, Decimal("31.560"), False),
+        ({"ACCINT": "31.56", "ACCRUEDINT": "30"}, None, True),
+    ],
+)
+@pytest.mark.parametrize("historical", [False, True])
+def test_nkd_aliases_agree_numerically_or_fail_closed_with_warning(
+    db_session: Session,
+    raw: dict[str, Any],
+    expected: Decimal | None,
+    conflict: bool,
+    historical: bool,
+) -> None:
+    bond = create_bond(db_session, create_company(db_session, "NKD294PAIR"))
+    service = MoexMarketDataService(db_session, moex_client=FakeMoexClient())
+    if historical:
+        normalized = MoexIssClient._normalize_bond_market_history_row(
+            {"SECID": bond.secid, "TRADEDATE": "2026-01-10", **raw}
+        )
+        mapped, warnings, error = service._map_history_row(
+            bond,
+            secid=bond.secid,
+            row={
+                "secid": bond.secid,
+                "trade_date": "2026-01-10",
+                **normalized,
+                "close_price": 100,
+            },
+            board="TQCB",
+            source="moex",
+        )
+    else:
+        direct = {"TRADEDATE": "2026-01-10", "SECID": bond.secid, **raw}
+        mapped, warnings, error = service._map_row(bond, direct)
+
+    assert error is None and mapped is not None
+    assert mapped.nkd == expected
+    if conflict:
+        message = warnings[0].message if historical else warnings[0]
+        assert "Conflicting MOEX NKD aliases" in message
+        assert "ACCINT" in message and "ACCRUEDINT" in message
+        assert "31.56" in message and "30" in message
+        assert mapped.raw_payload["moex"].get("ACCINT") == raw["ACCINT"]
+    else:
+        assert not warnings
+
+
+@pytest.mark.parametrize("historical", [False, True])
+def test_legacy_accruedint_remains_a_direct_nkd_source(
+    db_session: Session,
+    historical: bool,
+) -> None:
+    bond = create_bond(db_session, create_company(db_session, "NKD294OLD"))
+    service = MoexMarketDataService(db_session, moex_client=FakeMoexClient())
+    if historical:
+        normalized = MoexIssClient._normalize_bond_market_history_row(
+            {"SECID": bond.secid, "TRADEDATE": "2026-01-10", "ACCRUEDINT": "2.25"}
+        )
+        mapped, warnings, error = service._map_history_row(
+            bond,
+            secid=bond.secid,
+            row={
+                "secid": bond.secid,
+                "trade_date": "2026-01-10",
+                **normalized,
+                "close_price": 100,
+            },
+            board="TQCB",
+            source="moex",
+        )
+    else:
+        mapped, warnings, error = service._map_row(
+            bond, {"TRADEDATE": "2026-01-10", "ACCRUEDINT": "2.25"}
+        )
+
+    assert error is None and mapped is not None
+    assert mapped.nkd == Decimal("2.25")
+    assert not warnings
 
 
 def test_moex_sync_upserts_existing_snapshots_without_duplicates(
