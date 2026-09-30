@@ -13,7 +13,7 @@ from app.schemas.tinvest_bond_import_preflight import (
     MoexBondImportIssuerEvidence,
 )
 from app.schemas.tinvest_bond_admission_manifest import TInvestBondAdmissionManifestView
-from app.services.moex_iss_client import MoexIssClient
+from app.services.moex_iss_client import MoexBondBoardSnapshotResult, MoexIssClient
 from app.services.moex_issuer_identity_source_service import (
     MoexIssuerIdentitySourceService,
 )
@@ -215,39 +215,20 @@ class MoexBondImportEvidenceService:
         )
 
     def _scan_tqcb(self) -> tuple[list[dict[str, Any]], str, int, int]:
-        rows: list[dict[str, Any]] = []
-        pages = 0
-        warning_count = 0
         try:
-            max_pages = self.client.max_pages
-            if type(max_pages) is not int or max_pages < 1:
+            snapshot = self.client.fetch_bond_board_snapshot(_TQCB, limit=_PAGE_SIZE)
+            if (type(snapshot) is not MoexBondBoardSnapshotResult or
+                    snapshot.completion_status not in {"COMPLETE", "INCOMPLETE", "SOURCE_ERROR"} or
+                    type(snapshot.request_count) is not int or snapshot.request_count < 1 or
+                    type(snapshot.rows) is not tuple or any(type(row) is not dict for row in snapshot.rows) or
+                    type(snapshot.warnings) is not tuple or any(type(w) is not str for w in snapshot.warnings)):
                 return [], "SOURCE_ERROR", 0, 1
-            start = 0
-            for page_index in range(max_pages):
-                page_rows, warnings = self.client.fetch_bond_universe(
-                    _TQCB,
-                    start=start,
-                    limit=_PAGE_SIZE,
-                )
-                pages += 1
-                if (
-                    type(page_rows) is not list
-                    or type(warnings) is not list
-                    or any(type(row) is not dict for row in page_rows)
-                ):
-                    return rows, "SOURCE_ERROR", pages, warning_count + 1
-                warning_count += len(warnings)
-                rows.extend(page_rows)
-                if warnings:
-                    return rows, "INCOMPLETE", pages, warning_count
-                if len(page_rows) < _PAGE_SIZE:
-                    return rows, "COMPLETE", pages, warning_count
-                start += len(page_rows)
-                if page_index == max_pages - 1:
-                    return rows, "INCOMPLETE", pages, warning_count + 1
+            status = snapshot.completion_status
+            if snapshot.warnings and status == "COMPLETE":
+                status = "INCOMPLETE"
+            return list(snapshot.rows), status, snapshot.request_count, len(snapshot.warnings)
         except Exception:
-            return rows, "SOURCE_ERROR", pages, warning_count + 1
-        return rows, "INCOMPLETE", pages, warning_count
+            return [], "SOURCE_ERROR", 0, 1
 
     @staticmethod
     def _description_projection(

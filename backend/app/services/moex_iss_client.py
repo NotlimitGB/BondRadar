@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+import json
 from typing import Any
+from typing import Literal
 
 import httpx
 
@@ -20,6 +22,18 @@ class MoexIssClientError(RuntimeError):
 class MoexHistoryResult:
     rows: list[dict[str, Any]]
     warnings: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class MoexBondBoardSnapshotResult:
+    rows: tuple[dict[str, Any], ...] = ()
+    warnings: tuple[str, ...] = ()
+    completion_status: Literal["COMPLETE", "INCOMPLETE", "SOURCE_ERROR"] = "INCOMPLETE"
+    request_count: int = 0
+    cursor_present: bool = False
+    cursor_index: int | None = None
+    cursor_total: int | None = None
+    cursor_page_size: int | None = None
 
 
 @dataclass
@@ -275,6 +289,95 @@ class MoexIssClient:
             raise MoexIssClientError("Invalid MOEX JSON response") from exc
 
         return self._parse_cashflow_tables(payload, secid)
+
+    def fetch_bond_board_snapshot(
+        self, board: str, *, limit: int = 100,
+    ) -> MoexBondBoardSnapshotResult:
+        """Board securities are a snapshot unless securities.cursor declares pages.
+
+        This endpoint-specific method deliberately does not change the legacy
+        universe or history loaders. Partial/contradictory pages cannot prove
+        complete membership; only sanitized diagnostic codes leave this method.
+        """
+        if type(board) is not str or not board.strip() or type(limit) is not int or limit < 1:
+            raise ValueError("INVALID_BOARD_SNAPSHOT_REQUEST")
+        rows_by_content: dict[str, dict[str, Any]] = {}
+        pages_seen: set[tuple[str, ...]] = set()
+        request_count = 0
+        cursor_present = False
+        cursor_index = cursor_total = cursor_page_size = None
+
+        def result(status, warning=None):
+            return MoexBondBoardSnapshotResult(
+                rows=tuple(rows_by_content[key] for key in sorted(rows_by_content)),
+                warnings=() if warning is None else (warning,),
+                completion_status=status, request_count=request_count,
+                cursor_present=cursor_present, cursor_index=cursor_index,
+                cursor_total=cursor_total, cursor_page_size=cursor_page_size,
+            )
+
+        if type(self.max_pages) is not int or self.max_pages < 1:
+            return result("SOURCE_ERROR", "BOARD_PAGE_BOUND_INVALID")
+        start = 0
+        for _ in range(self.max_pages):
+            request_count += 1
+            try:
+                payload = self._request_json(
+                    self.BOND_UNIVERSE_PATH_TEMPLATE.format(board=board),
+                    params={"iss.meta": "off", "iss.only": "securities,securities.cursor",
+                            "start": start, "limit": limit},
+                )
+            except Exception:
+                return result("SOURCE_ERROR", "BOARD_SOURCE_ERROR")
+            try:
+                def table(name):
+                    block = payload[name]
+                    columns, data = block["columns"], block["data"]
+                    if (type(columns) is not list or not columns or
+                            any(type(c) is not str for c in columns) or
+                            len(set(columns)) != len(columns) or type(data) is not list or
+                            any(type(row) is not list or len(row) != len(columns) for row in data)):
+                        raise ValueError("invalid table")
+                    return [dict(zip(columns, row, strict=True)) for row in data]
+
+                source_rows = table("securities")
+                canonical_rows = [json.dumps(row, sort_keys=True, ensure_ascii=True,
+                    separators=(",", ":"), allow_nan=False) for row in source_rows]
+                page_identity = tuple(sorted(canonical_rows))
+                has_cursor = "securities.cursor" in payload
+                if not has_cursor and cursor_present:
+                    return result("INCOMPLETE", "BOARD_CURSOR_MISSING")
+                if has_cursor:
+                    cursor_present = True
+                    cursor_rows = table("securities.cursor")
+                    if len(cursor_rows) != 1:
+                        raise ValueError("invalid cursor")
+                    raw_cursor = cursor_rows[0]
+                    cursor = {key.upper(): value for key, value in raw_cursor.items()}
+                    if len(cursor) != len(raw_cursor):
+                        raise ValueError("ambiguous cursor columns")
+                    index, total, page_size = (cursor[key] for key in ("INDEX", "TOTAL", "PAGESIZE"))
+                    if (any(type(v) is not int for v in (index, total, page_size)) or
+                            index < 0 or total < 0 or page_size <= 0 or index != start or
+                            index > total or (cursor_total is not None and cursor_total != total) or
+                            len(source_rows) != min(page_size, total - index)):
+                        return result("INCOMPLETE", "BOARD_CURSOR_INCONSISTENT")
+                    cursor_index, cursor_total, cursor_page_size = index, total, page_size
+                    if (len(set(canonical_rows)) != len(canonical_rows) or
+                            page_identity in pages_seen or
+                            any(key in rows_by_content for key in canonical_rows)):
+                        return result("INCOMPLETE", "BOARD_PAGE_REPEATED_OR_OVERLAPPING")
+                for key, row in zip(canonical_rows, source_rows, strict=True):
+                    normalized = self._normalize_bond_metadata_row(row)
+                    normalized["__moex_board_observed"] = True
+                    rows_by_content[key] = normalized
+                pages_seen.add(page_identity)
+                if not has_cursor or index + page_size >= total:
+                    return result("COMPLETE")
+                start = index + page_size
+            except Exception:
+                return result("INCOMPLETE", "BOARD_RESPONSE_INVALID")
+        return result("INCOMPLETE", "BOARD_PAGE_BOUND_EXHAUSTED")
 
     def fetch_bond_universe(
         self,
