@@ -35,6 +35,11 @@ from app.schemas.tinvest_bond_import_preflight import (
     BondImportPreflightState,
     CompanyIdentityProjection,
     MoexBondImportDescriptionProjection,
+    MoexBondImportEvidenceBatch,
+    MoexBondImportCandidateEvidence,
+    MoexBondImportBoardCandidateEvidence,
+    MoexBondImportBoardObservation,
+    MoexBondImportIssuerEvidence,
     TInvestBondReadyImportRow,
     TInvestBondImportPreflightError,
     TInvestBondImportPreflightErrorCode,
@@ -45,6 +50,10 @@ from app.schemas.tinvest_bond_import_preflight import (
     TInvestBondImportPreflightView,
     TINVEST_BOND_IMPORT_PREFLIGHT_VERSION,
     MOEX_BOND_IMPORT_DESCRIPTION_VERSION,
+    MOEX_BOND_IMPORT_EVIDENCE_BATCH_VERSION,
+    MOEX_BOND_IMPORT_CANDIDATE_EVIDENCE_VERSION,
+    MOEX_BOND_IMPORT_BOARD_EVIDENCE_VERSION,
+    MOEX_BOND_IMPORT_ISSUER_EVIDENCE_VERSION,
 )
 from app.services.moex_normalization import canonicalize_moex_currency
 
@@ -78,6 +87,10 @@ def _nonblank(value: object) -> bool:
 
 def _optional_string(value: object) -> bool:
     return value is None or type(value) is str
+
+
+def _identity_present(value: object) -> bool:
+    return type(value) is str and bool(value.strip())
 
 
 def _canonical_json(value: Any) -> bytes:
@@ -361,6 +374,107 @@ def _validate_descriptions(value: object) -> tuple[MoexBondImportDescriptionProj
     return tuple(rows)
 
 
+def _validate_evidence_batch(
+    value: object,
+    candidates: tuple[TInvestBondAdmissionIsinAggregate, ...],
+) -> tuple[MoexBondImportEvidenceBatch, dict[str, MoexBondImportCandidateEvidence]]:
+    if type(value) is not MoexBondImportEvidenceBatch:
+        _raise(TInvestBondImportPreflightErrorCode.MOEX_EVIDENCE_BATCH_INVALID)
+    batch = value
+    expected_isins = tuple(item.isin for item in candidates)
+    expected_secids = tuple(item.matched_secid for item in candidates)
+    if (
+        batch.contract_version != MOEX_BOND_IMPORT_EVIDENCE_BATCH_VERSION
+        or batch.pit_ready is not False
+        or type(batch.board_scan_status) is not str
+        or batch.board_scan_status not in ("COMPLETE", "INCOMPLETE", "SOURCE_ERROR")
+        or type(batch.candidate_isins) is not tuple
+        or batch.candidate_isins != expected_isins
+        or type(batch.candidate_secids) is not tuple
+        or batch.candidate_secids != expected_secids
+        or type(batch.candidate_evidence) is not tuple
+        or len(batch.candidate_evidence) != len(candidates)
+        or type(batch.board_scan_pages_fetched) is not int
+        or batch.board_scan_pages_fetched < 0
+        or (bool(candidates) and batch.board_scan_pages_fetched == 0 and batch.board_scan_status == "COMPLETE")
+        or type(batch.board_scan_rows_fetched) is not int
+        or batch.board_scan_rows_fetched < 0
+        or type(batch.board_scan_warning_count) is not int
+        or batch.board_scan_warning_count < 0
+        or (batch.board_scan_warning_count > 0 and batch.board_scan_status == "COMPLETE")
+        or type(batch.issuer_lookup_count) is not int
+        or batch.issuer_lookup_count != len(candidates)
+        or type(batch.issuer_source_query_count) is not int
+        or batch.issuer_source_query_count < 0
+        or type(batch.description_lookup_count) is not int
+        or batch.description_lookup_count != len(candidates)
+    ):
+        _raise(TInvestBondImportPreflightErrorCode.MOEX_EVIDENCE_BATCH_INVALID)
+
+    by_isin: dict[str, MoexBondImportCandidateEvidence] = {}
+    query_count = 0
+    for candidate, evidence in zip(candidates, batch.candidate_evidence, strict=True):
+        if (
+            type(evidence) is not MoexBondImportCandidateEvidence
+            or evidence.contract_version != MOEX_BOND_IMPORT_CANDIDATE_EVIDENCE_VERSION
+            or evidence.candidate_isin != candidate.isin
+            or evidence.candidate_secid != candidate.matched_secid
+            or evidence.candidate_isin in by_isin
+            or type(evidence.issuer) is not MoexBondImportIssuerEvidence
+            or evidence.issuer.contract_version != MOEX_BOND_IMPORT_ISSUER_EVIDENCE_VERSION
+            or evidence.issuer.requested_secid != candidate.matched_secid
+            or evidence.issuer.expected_isin != candidate.isin
+            or type(evidence.issuer.security_match_status) is not str
+            or evidence.issuer.security_match_status
+            not in (
+                "EXACT_SECID",
+                "EXACT_SECID_ISIN_CORROBORATED",
+                "EXACT_ISIN_RECOVERED",
+                "SECURITY_IDENTIFIER_MISSING",
+                "SECURITY_NOT_FOUND",
+                "SECURITY_AMBIGUOUS",
+                "SECURITY_IDENTIFIER_CONFLICT",
+                "SOURCE_ERROR",
+            )
+            or type(evidence.issuer.issuer_metadata_status) is not str
+            or evidence.issuer.issuer_metadata_status
+            not in ("ISSUER_COMPLETE", "ISSUER_PARTIAL", "ISSUER_MISSING")
+            or type(evidence.issuer.source_query_count) is not int
+            or evidence.issuer.source_query_count < 0
+            or type(evidence.board) is not MoexBondImportBoardCandidateEvidence
+            or evidence.board.contract_version != MOEX_BOND_IMPORT_BOARD_EVIDENCE_VERSION
+            or evidence.board.requested_board != "TQCB"
+            or type(evidence.board.scan_status) is not str
+            or evidence.board.scan_status not in {"COMPLETE", "INCOMPLETE", "SOURCE_ERROR"}
+            or evidence.board.scan_status != batch.board_scan_status
+            or type(evidence.board.observations) is not tuple
+            or any(type(row) is not MoexBondImportBoardObservation for row in evidence.board.observations)
+            or any(row.requested_board != "TQCB" for row in evidence.board.observations)
+            or type(evidence.board.warning_count) is not int
+            or evidence.board.warning_count < 0
+            or evidence.board.warning_count != batch.board_scan_warning_count
+            or (evidence.board.warning_count > 0 and evidence.board.scan_status == "COMPLETE")
+            or type(evidence.descriptions) is not tuple
+            or type(evidence.description_status) is not str
+            or evidence.description_status not in {"OBSERVED", "MISSING", "SOURCE_ERROR"}
+            or (evidence.description_status == "OBSERVED") != bool(evidence.descriptions)
+            or evidence.description_status == "MISSING" and evidence.descriptions
+            or evidence.description_status == "SOURCE_ERROR" and evidence.descriptions
+        ):
+            _raise(TInvestBondImportPreflightErrorCode.MOEX_EVIDENCE_BATCH_INVALID)
+        query_count += evidence.issuer.source_query_count
+        _validate_descriptions(evidence.descriptions)
+        if any(
+            item.requested_secid != candidate.matched_secid
+            for item in evidence.descriptions
+        ):
+            _raise(TInvestBondImportPreflightErrorCode.MOEX_EVIDENCE_BATCH_INVALID)
+        by_isin[evidence.candidate_isin] = evidence
+    if query_count != batch.issuer_source_query_count:
+        _raise(TInvestBondImportPreflightErrorCode.MOEX_EVIDENCE_BATCH_INVALID)
+    return batch, by_isin
+
+
 def _candidate_indexes(candidates: tuple[TInvestBondAdmissionIsinAggregate, ...]):
     secid_counts: dict[str, int] = defaultdict(int)
     for candidate in candidates:
@@ -500,24 +614,24 @@ class TInvestBondImportPreflightService:
     """Build a read-only import preflight from frozen caller-supplied evidence."""
 
     @staticmethod
+    def validate_admission_manifest(
+        admission_manifest: TInvestBondAdmissionManifestView,
+    ) -> None:
+        """Validate frozen candidate input before any evidence acquisition."""
+        _valid_manifest(admission_manifest)
+
+    @staticmethod
     def build(
         *,
         admission_manifest: TInvestBondAdmissionManifestView,
-        moex_descriptions: Sequence[MoexBondImportDescriptionProjection],
+        moex_evidence: MoexBondImportEvidenceBatch,
         internal_bonds: Sequence[BondIdentityProjection],
         company_projections: Sequence[CompanyIdentityProjection],
     ) -> TInvestBondImportPreflightView:
         manifest, candidates, uid_by_id = _valid_manifest(admission_manifest)
-        description_rows = _validate_descriptions(moex_descriptions)
+        evidence_batch, evidence_by_isin = _validate_evidence_batch(moex_evidence, candidates)
         internal_rows = _validate_internal_bonds(internal_bonds)
         companies = _validate_companies(company_projections)
-
-        candidate_secids = {row.matched_secid for row in candidates}
-        description_by_request: dict[str, list[MoexBondImportDescriptionProjection]] = defaultdict(list)
-        for projection in description_rows:
-            if projection.requested_secid not in candidate_secids:
-                _raise(TInvestBondImportPreflightErrorCode.DESCRIPTION_CONFLICT)
-            description_by_request[projection.requested_secid].append(projection)
 
         by_isin, by_secid = _internal_indexes(internal_rows)
         company_by_inn, company_by_name = _company_indexes(companies)
@@ -533,25 +647,57 @@ class TInvestBondImportPreflightService:
         rows: list[TInvestBondImportPreflightRow] = []
         ready: list[TInvestBondReadyImportRow] = []
         for candidate in candidates:
-            descriptions = description_by_request.get(candidate.matched_secid, [])
+            candidate_evidence = evidence_by_isin[candidate.isin]
+            issuer = candidate_evidence.issuer
+            board = candidate_evidence.board
+            descriptions = candidate_evidence.descriptions
             projection = descriptions[0] if len(descriptions) == 1 else None
             reasons: set[BondImportPreflightReason] = set()
-            if not descriptions:
+            if candidate_evidence.description_status == "MISSING":
                 reasons.add(BondImportPreflightReason.DESCRIPTION_MISSING)
+            elif candidate_evidence.description_status == "SOURCE_ERROR":
+                reasons.add(BondImportPreflightReason.DESCRIPTION_SOURCE_ERROR)
             elif len(descriptions) > 1:
                 reasons.add(BondImportPreflightReason.DESCRIPTION_CONFLICT)
 
             if secid_counts[candidate.matched_secid] > 1:
                 reasons.add(BondImportPreflightReason.SECURITY_IDENTITY_CONFLICT)
+            identity_claims: list[tuple[str | None, str | None]] = [
+                (candidate.matched_secid, candidate.isin),
+                (issuer.matched_secid, issuer.matched_isin),
+                *((item.secid, item.isin) for item in board.observations),
+                *((item.secid, item.isin) for item in descriptions),
+            ]
+            for identity_index, identity in enumerate(identity_claims):
+                for other in identity_claims[identity_index + 1 :]:
+                    if (
+                        _identity_present(identity[0])
+                        and _identity_present(other[0])
+                        and identity[0] != other[0]
+                    ) or (
+                        _identity_present(identity[1])
+                        and _identity_present(other[1])
+                        and identity[1] != other[1]
+                    ):
+                        reasons.add(BondImportPreflightReason.SECURITY_IDENTITY_CONFLICT)
+            if issuer.security_match_status == "SECURITY_IDENTIFIER_CONFLICT":
+                reasons.add(BondImportPreflightReason.SECURITY_IDENTITY_CONFLICT)
             if projection is not None:
+                source_has_identity = _identity_present(projection.secid) and _identity_present(projection.isin)
                 if (
-                    candidate.isin == projection.isin
+                    source_has_identity
+                    and candidate.isin == projection.isin
                     and candidate.matched_secid == projection.secid
                     and candidate.matched_isin == projection.isin
                 ):
                     reasons.add(BondImportPreflightReason.MOEX_DESCRIPTION_EXACT_IDENTITY)
-                else:
+                elif (
+                    (_identity_present(projection.secid) and projection.secid != candidate.matched_secid)
+                    or (_identity_present(projection.isin) and projection.isin != candidate.isin)
+                ):
                     reasons.add(BondImportPreflightReason.SECURITY_IDENTITY_CONFLICT)
+                else:
+                    reasons.add(BondImportPreflightReason.DESCRIPTION_IDENTITY_INCOMPLETE)
 
             internal_conflict, internal_collision = _internal_match_state(
                 candidate, projection, by_isin, by_secid
@@ -589,13 +735,115 @@ class TInvestBondImportPreflightService:
                 "raw_structural_fields": (),
                 "company_plan": None,
                 "company_id": None,
+                "issuer_evidence": issuer,
+                "board_evidence": board,
+                "description_source_status": candidate_evidence.description_status,
             }
             ready_evidence: dict[str, Any] | None = None
 
             uid_admissions = tuple(uid_by_id[uid] for uid in candidate.source_uids)
             required_tests, required_tests_state = _required_test_summary(uid_admissions)
-            issuer_name: str | None = None
-            issuer_inn: str | None = None
+            accepted_issuer_match = issuer.security_match_status in {
+                "EXACT_SECID",
+                "EXACT_SECID_ISIN_CORROBORATED",
+                "EXACT_ISIN_RECOVERED",
+            }
+            issuer_identity_ready = (
+                accepted_issuer_match
+                and issuer.issuer_metadata_status in {"ISSUER_COMPLETE", "ISSUER_PARTIAL"}
+                and issuer.matched_secid == candidate.matched_secid
+                and issuer.matched_isin == candidate.isin
+            )
+            issuer_name = (
+                _trimmed(issuer.issuer_title, max_length=255)
+                if issuer_identity_ready
+                else None
+            )
+            raw_inn = _trimmed(issuer.issuer_inn) if issuer_identity_ready else None
+            issuer_inn = raw_inn if raw_inn is not None and len(raw_inn) <= 16 else None
+            primary_board = issuer.primary_board if issuer_identity_ready else None
+            empty_values.update(
+                {
+                    "issuer_name": issuer_name,
+                    "issuer_inn": issuer_inn,
+                    "primary_board": primary_board,
+                    "requested_board": board.requested_board,
+                    "board_observed": False,
+                }
+            )
+            exact_board_observations = [
+                item
+                for item in board.observations
+                if item.secid == candidate.matched_secid and item.isin == candidate.isin
+            ]
+            if issuer.security_match_status == "SOURCE_ERROR":
+                reasons.add(BondImportPreflightReason.ISSUER_REFERENCE_SOURCE_ERROR)
+            elif issuer.security_match_status == "SECURITY_AMBIGUOUS":
+                reasons.add(BondImportPreflightReason.ISSUER_REFERENCE_AMBIGUOUS)
+            elif issuer.security_match_status == "SECURITY_IDENTIFIER_CONFLICT":
+                reasons.add(BondImportPreflightReason.SECURITY_IDENTITY_CONFLICT)
+            elif not accepted_issuer_match or not issuer_identity_ready:
+                reasons.add(BondImportPreflightReason.ISSUER_REFERENCE_MISSING)
+            if issuer_name is None:
+                reasons.add(BondImportPreflightReason.ISSUER_NAME_MISSING)
+            if issuer_inn is None:
+                reasons.add(BondImportPreflightReason.ISSUER_INN_MISSING_OR_INVALID)
+            if issuer_name is not None and issuer_inn is not None:
+                reasons.add(BondImportPreflightReason.ISSUER_IDENTITY_READY)
+            if _trimmed(primary_board) is None:
+                reasons.add(BondImportPreflightReason.PRIMARY_BOARD_MISSING)
+            elif primary_board != "TQCB":
+                reasons.add(BondImportPreflightReason.PRIMARY_BOARD_MISMATCH)
+
+            if board.requested_board != "TQCB":
+                reasons.add(BondImportPreflightReason.BOARD_CONFLICT)
+            if board.scan_status == "SOURCE_ERROR":
+                reasons.add(BondImportPreflightReason.BOARD_SOURCE_ERROR)
+            elif board.scan_status == "INCOMPLETE":
+                reasons.add(BondImportPreflightReason.BOARD_SCAN_INCOMPLETE)
+            if not exact_board_observations:
+                reasons.add(BondImportPreflightReason.BOARD_OBSERVATION_MISSING)
+
+            activity_values: list[tuple[bool | None, str | None]] = []
+            if projection is not None:
+                activity_values.append(
+                    (_parse_bool(projection.is_traded), _trimmed(projection.status))
+                )
+            activity_values.extend(
+                (_parse_bool(item.is_traded), _trimmed(item.status))
+                for item in board.observations
+            )
+            status_inactive = any(
+                status is not None and status.lower() in _INACTIVE_STATUS_VALUES
+                for _, status in activity_values
+            )
+            traded_false = any(value is False for value, _ in activity_values)
+            traded_true = any(value is True for value, _ in activity_values)
+            traded = False if traded_false else True if traded_true else None
+            active_unknown = traded is None and not status_inactive
+            status_text = (
+                _trimmed(projection.status) if projection is not None else None
+            )
+            if status_text is None:
+                status_text = next(
+                    (status for _, status in activity_values if status is not None),
+                    None,
+                )
+            if traded is False or status_inactive:
+                reasons.add(BondImportPreflightReason.NOT_ACTIVE_OR_NOT_TRADED)
+            elif active_unknown:
+                reasons.add(BondImportPreflightReason.ACTIVE_STATUS_UNKNOWN)
+            empty_values.update(
+                {
+                    "is_traded": traded,
+                    "status_source": status_text,
+                    "active_status_unknown": active_unknown,
+                    "requested_board": board.requested_board,
+                    "board_observed": bool(exact_board_observations),
+                    "primary_board": primary_board,
+                }
+            )
+
             nominal_value: Decimal | None = None
             maturity: date | None = None
             perpetual: bool | None = None
@@ -608,9 +856,7 @@ class TInvestBondImportPreflightService:
 
                 clean_name = _trimmed(projection.name, max_length=255)
                 clean_shortname = _trimmed(projection.shortname, max_length=255)
-                issuer_name = _trimmed(projection.issuer_name, max_length=255)
-                raw_inn = _trimmed(projection.issuer_inn)
-                issuer_inn = raw_inn if raw_inn is not None and len(raw_inn) <= 16 else None
+                # Issuer identity is authoritative only from security reference.
                 canonical_currency = canonicalize_moex_currency(projection.currency)
                 nominal_value = _parse_decimal(projection.nominal_value, positive=True)
                 coupon_rate = _parse_decimal(projection.coupon_rate)
@@ -619,15 +865,6 @@ class TInvestBondImportPreflightService:
                 is_subordinated = _parse_bool(projection.is_subordinated)
                 perpetual = _parse_bool(projection.is_perpetual)
                 has_amortization = _parse_bool(projection.has_amortization)
-                traded = _parse_bool(projection.is_traded)
-                status_text = _trimmed(projection.status)
-                status_inactive = (
-                    status_text.lower() in _INACTIVE_STATUS_VALUES
-                    if status_text is not None
-                    else False
-                )
-                active_unknown = traded is None and not status_inactive
-
                 empty_values.update(
                     {
                         "name": clean_name,
@@ -651,39 +888,19 @@ class TInvestBondImportPreflightService:
                         "is_traded": traded,
                         "active_status_unknown": active_unknown,
                         "requested_secid": projection.requested_secid,
-                        "requested_board": projection.requested_board,
-                        "board_observed": projection.board_observed,
-                        "primary_board": projection.primary_board,
+                        "requested_board": board.requested_board,
+                        "board_observed": bool(exact_board_observations),
+                        "primary_board": primary_board,
                         "raw_structural_fields": raw_structural,
                     }
                 )
 
-                if projection.requested_board is not None and projection.requested_board != "TQCB":
-                    reasons.add(BondImportPreflightReason.BOARD_CONFLICT)
-                elif projection.requested_board != "TQCB":
-                    reasons.add(BondImportPreflightReason.BOARD_OBSERVATION_MISSING)
-                if projection.primary_board is not None and projection.primary_board.strip() and projection.primary_board != "TQCB":
-                    reasons.add(BondImportPreflightReason.BOARD_CONFLICT)
-                if projection.board_observed is not True:
-                    reasons.add(BondImportPreflightReason.BOARD_OBSERVATION_MISSING)
-
                 if canonical_currency != "RUB":
                     reasons.add(BondImportPreflightReason.NOMINAL_CURRENCY_CONFLICT)
-                if issuer_name is None:
-                    reasons.add(BondImportPreflightReason.ISSUER_NAME_MISSING)
-                if issuer_inn is None:
-                    reasons.add(BondImportPreflightReason.ISSUER_INN_MISSING_OR_INVALID)
-                if issuer_name is not None and issuer_inn is not None:
-                    reasons.add(BondImportPreflightReason.ISSUER_IDENTITY_READY)
                 if nominal_value is None:
                     reasons.add(BondImportPreflightReason.NOMINAL_VALUE_MISSING_OR_INVALID)
                 if maturity is None and perpetual is not True:
                     reasons.add(BondImportPreflightReason.MATURITY_STRUCTURE_UNRESOLVED)
-                if traded is False or status_inactive:
-                    reasons.add(BondImportPreflightReason.NOT_ACTIVE_OR_NOT_TRADED)
-                elif active_unknown:
-                    reasons.add(BondImportPreflightReason.ACTIVE_STATUS_UNKNOWN)
-
                 if clean_name is None and clean_shortname is None:
                     # The importer's fallback to SECID is intentionally not
                     # accepted by the controlled first-batch readiness gate.
@@ -730,10 +947,13 @@ class TInvestBondImportPreflightService:
                     "has_amortization": has_amortization,
                     "status_source": status_text,
                     "is_traded": traded,
-                    "requested_board": projection.requested_board,
-                    "board_observed": projection.board_observed,
-                    "primary_board": projection.primary_board,
+                    "requested_board": board.requested_board,
+                    "board_observed": bool(exact_board_observations),
+                    "primary_board": primary_board,
                     "raw_structural_fields": raw_structural,
+                    "issuer_evidence": issuer,
+                    "board_evidence": board,
+                    "moex_description": projection,
                     "required_tests": required_tests,
                     "uid_admissions": uid_admissions,
                     "task296b_admission_reasons": candidate.reason_codes,
@@ -786,6 +1006,9 @@ class TInvestBondImportPreflightService:
                         required_tests=ready_evidence["required_tests"],
                         uid_admissions=ready_evidence["uid_admissions"],
                         task296b_admission_reasons=ready_evidence["task296b_admission_reasons"],
+                        issuer_evidence=ready_evidence["issuer_evidence"],
+                        board_evidence=ready_evidence["board_evidence"],
+                        moex_description=ready_evidence["moex_description"],
                         name=ready_evidence["name"],
                         shortname=ready_evidence["shortname"],
                         coupon_rate=ready_evidence["coupon_rate"],
@@ -856,7 +1079,17 @@ class TInvestBondImportPreflightService:
             task296_identity_bridge_contract_version=manifest.identity_bridge.contract_version,
             task296b_admission_manifest_contract_version=manifest.contract_version,
             candidate_count=len(candidates),
-            description_projection_count=len(description_rows),
+            description_projection_count=sum(
+                len(item.descriptions) for item in evidence_batch.candidate_evidence
+            ),
+            candidate_evidence_count=len(evidence_batch.candidate_evidence),
+            issuer_lookup_count=evidence_batch.issuer_lookup_count,
+            issuer_source_query_count=evidence_batch.issuer_source_query_count,
+            board_scan_status=evidence_batch.board_scan_status,
+            board_scan_pages_fetched=evidence_batch.board_scan_pages_fetched,
+            board_scan_rows_fetched=evidence_batch.board_scan_rows_fetched,
+            board_scan_warning_count=evidence_batch.board_scan_warning_count,
+            description_lookup_count=evidence_batch.description_lookup_count,
             internal_bond_projection_count=len(internal_rows),
             company_projection_count=len(companies),
             admission_row_set_sha256=manifest.provenance.admission_row_set_sha256,

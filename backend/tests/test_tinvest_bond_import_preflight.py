@@ -23,6 +23,11 @@ from app.schemas.tinvest_bond_import_preflight import (
     BondImportPreflightState,
     CompanyIdentityProjection,
     MoexBondImportDescriptionProjection,
+    MoexBondImportIssuerEvidence,
+    MoexBondImportBoardObservation,
+    MoexBondImportBoardCandidateEvidence,
+    MoexBondImportCandidateEvidence,
+    MoexBondImportEvidenceBatch,
     TInvestBondImportPreflightError,
     TInvestBondImportPreflightErrorCode,
     TInvestBondImportPreflightView,
@@ -132,12 +137,12 @@ def description(
 ) -> MoexBondImportDescriptionProjection:
     values = {
         "requested_secid": candidate.matched_secid,
-        "requested_board": "TQCB",
+        "requested_board": None,
         "secid": candidate.matched_secid,
         "isin": candidate.isin,
         "name": "Issuer 2030 bond",
-        "issuer_name": "Issuer Ltd",
-        "issuer_inn": "7700000000",
+        "issuer_name": None,
+        "issuer_inn": None,
         "currency": "RUB",
         "nominal_value": Decimal("1000.00"),
         "coupon_rate": None,
@@ -148,12 +153,121 @@ def description(
         "has_amortization": None,
         "status": None,
         "is_traded": None,
-        "board_observed": True,
-        "primary_board": "TQCB",
+        "board_observed": None,
+        "primary_board": None,
         "raw_structural_fields": (("BONDTYPE", "CORPORATE"),),
     }
     values.update(overrides)
     return MoexBondImportDescriptionProjection(**values)
+
+
+def _run_preflight(
+    *,
+    admission_manifest,
+    moex_descriptions,
+    internal_bonds,
+    company_projections,
+    issuer_overrides=None,
+    board_overrides=None,
+    board_scan_status="COMPLETE",
+):
+    """Split old combined fixtures into truthful, independent source DTOs."""
+    if not isinstance(moex_descriptions, (list, tuple)):
+        return TInvestBondImportPreflightService.build(
+            admission_manifest=admission_manifest,
+            moex_evidence=moex_descriptions,
+            internal_bonds=internal_bonds,
+            company_projections=company_projections,
+        )
+    TInvestBondImportPreflightService.validate_admission_manifest(admission_manifest)
+    candidates = admission_manifest.import_candidate_manifest
+    by_request = {}
+    for projection in moex_descriptions:
+        by_request.setdefault(getattr(projection, "requested_secid", None), []).append(projection)
+    bundles = []
+    issuer_overrides = issuer_overrides or {}
+    board_overrides = board_overrides or {}
+    source_query_count = 0
+    board_rows = 0
+    for candidate in candidates:
+        issuer_values = {
+            "matched_secid": candidate.matched_secid,
+            "matched_isin": candidate.isin,
+            "security_match_status": "EXACT_SECID_ISIN_CORROBORATED",
+            "issuer_metadata_status": "ISSUER_COMPLETE",
+            "issuer_title": "Issuer Ltd",
+            "issuer_inn": "7700000000",
+            "primary_board": "TQCB",
+            "source_query_count": 1,
+        }
+        issuer_values.update(issuer_overrides.get(candidate.isin, {}))
+        issuer = MoexBondImportIssuerEvidence(
+            requested_secid=candidate.matched_secid,
+            expected_isin=candidate.isin,
+            **issuer_values,
+        )
+        board_values = {
+            "scan_status": board_scan_status,
+            "observations": (
+                MoexBondImportBoardObservation(
+                    secid=candidate.matched_secid,
+                    isin=candidate.isin,
+                    is_traded=None,
+                    status=None,
+                ),
+            ),
+        }
+        board_values.update(board_overrides.get(candidate.isin, {}))
+        board = MoexBondImportBoardCandidateEvidence(
+            requested_board="TQCB",
+            warning_count=1 if board_scan_status != "COMPLETE" else 0,
+            **board_values,
+        )
+        projections = tuple(by_request.get(candidate.matched_secid, ()))
+        bundles.append(
+            MoexBondImportCandidateEvidence(
+                candidate_secid=candidate.matched_secid,
+                candidate_isin=candidate.isin,
+                issuer=issuer,
+                board=board,
+                description_status="OBSERVED" if projections else "MISSING",
+                descriptions=projections,
+            )
+        )
+        source_query_count += issuer.source_query_count
+        board_rows += len(board.observations)
+    expected_secids = {item.matched_secid for item in candidates}
+    unrequested = tuple(
+        item
+        for item in moex_descriptions
+        if getattr(item, "requested_secid", None) not in expected_secids
+    )
+    if unrequested and bundles:
+        first = bundles[0]
+        bundles[0] = first.model_copy(
+            update={
+                "descriptions": (*first.descriptions, *unrequested),
+                "description_status": "OBSERVED",
+            }
+        )
+    evidence_batch = MoexBondImportEvidenceBatch(
+        candidate_evidence=tuple(bundles),
+        candidate_isins=tuple(item.isin for item in candidates),
+        candidate_secids=tuple(item.matched_secid for item in candidates),
+        board_scan_status=board_scan_status,
+        board_scan_pages_fetched=1 if candidates else 0,
+        board_scan_rows_fetched=board_rows,
+        board_scan_warning_count=1 if board_scan_status != "COMPLETE" else 0,
+        issuer_lookup_count=len(candidates),
+        issuer_source_query_count=source_query_count,
+        description_lookup_count=len(candidates),
+    )
+    return TInvestBondImportPreflightService.build(
+        admission_manifest=admission_manifest,
+        moex_evidence=evidence_batch,
+        internal_bonds=internal_bonds,
+        company_projections=company_projections,
+    )
 
 
 def build(
@@ -166,7 +280,7 @@ def build(
     batch = manifest(source_rows, internal=internal)
     if descriptions is None:
         descriptions = [description(item) for item in batch.import_candidate_manifest]
-    return TInvestBondImportPreflightService.build(
+    return _run_preflight(
         admission_manifest=batch,
         moex_descriptions=descriptions,
         internal_bonds=internal or [],
@@ -244,9 +358,6 @@ def test_inn_and_name_resolving_to_distinct_companies_requires_review() -> None:
 @pytest.mark.parametrize(
     ("overrides", "expected"),
     [
-        ({"issuer_inn": None}, BondImportPreflightReason.ISSUER_INN_MISSING_OR_INVALID),
-        ({"issuer_inn": "x" * 17}, BondImportPreflightReason.ISSUER_INN_MISSING_OR_INVALID),
-        ({"issuer_name": "  "}, BondImportPreflightReason.ISSUER_NAME_MISSING),
         ({"nominal_value": Decimal("0")}, BondImportPreflightReason.NOMINAL_VALUE_MISSING_OR_INVALID),
         ({"nominal_value": Decimal("-1")}, BondImportPreflightReason.NOMINAL_VALUE_MISSING_OR_INVALID),
         ({"nominal_value": "NaN"}, BondImportPreflightReason.NOMINAL_VALUE_MISSING_OR_INVALID),
@@ -261,7 +372,7 @@ def test_inn_and_name_resolving_to_distinct_companies_requires_review() -> None:
 )
 def test_missing_or_invalid_required_evidence_is_review_only(overrides, expected) -> None:
     batch = manifest()
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[description(batch.import_candidate_manifest[0], **overrides)],
         internal_bonds=[],
@@ -274,7 +385,7 @@ def test_missing_or_invalid_required_evidence_is_review_only(overrides, expected
 
 def test_perpetual_without_maturity_is_allowed_and_coupon_is_not_required() -> None:
     batch = manifest()
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[
             description(
@@ -302,7 +413,7 @@ def test_perpetual_without_maturity_is_allowed_and_coupon_is_not_required() -> N
 def test_maturity_dates_and_inn_follow_importer_formatting_without_extra_inference() -> None:
     batch = manifest()
     candidate = batch.import_candidate_manifest[0]
-    valid = TInvestBondImportPreflightService.build(
+    valid = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[
             description(
@@ -315,6 +426,9 @@ def test_maturity_dates_and_inn_follow_importer_formatting_without_extra_inferen
         ],
         internal_bonds=[],
         company_projections=[],
+        issuer_overrides={
+            batch.import_candidate_manifest[0].isin: {"issuer_inn": " AB-123 "}
+        },
     )
     assert valid.candidate_rows[0].status is BondImportPreflightState.READY_FOR_CONTROLLED_IMPORT
     assert valid.candidate_rows[0].issuer_inn == "AB-123"
@@ -325,28 +439,103 @@ def test_maturity_dates_and_inn_follow_importer_formatting_without_extra_inferen
         description(candidate, maturity_date=datetime(2032, 4, 5, 12, 0))
 
 
-@pytest.mark.parametrize(
-    ("overrides", "expected"),
-    [
-        ({"requested_board": None, "board_observed": True}, "BOARD_OBSERVATION_MISSING"),
-        ({"board_observed": False, "primary_board": "TQCB"}, "BOARD_OBSERVATION_MISSING"),
-        ({"requested_board": "TQCB", "board_observed": True, "primary_board": "TQRD"}, "BOARD_CONFLICT"),
-        ({"requested_board": "TQRD", "board_observed": True, "primary_board": "TQCB"}, "BOARD_CONFLICT"),
-    ],
-)
-def test_board_requires_task296b_tqcb_and_fresh_observed_tqcb_context(overrides, expected) -> None:
+def test_description_cannot_supply_issuer_or_board_evidence() -> None:
     batch = manifest()
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
-        moex_descriptions=[description(batch.import_candidate_manifest[0], **overrides)],
+        moex_descriptions=[
+            description(
+                batch.import_candidate_manifest[0],
+                issuer_name="Forged issuer",
+                issuer_inn="BAD-INN",
+                requested_board="TQCB",
+                board_observed=True,
+                primary_board="TQRD",
+            )
+        ],
         internal_bonds=[],
         company_projections=[],
     )
     row = result.candidate_rows[0]
-    assert row.status is BondImportPreflightState.REVIEW_REQUIRED
-    assert expected in codes(row)
+    assert row.status is BondImportPreflightState.READY_FOR_CONTROLLED_IMPORT
+    assert row.issuer_name == "Issuer Ltd"
+    assert row.issuer_inn == "7700000000"
+    assert row.primary_board == "TQCB"
+    assert row.board_observed is True
+    assert row.moex_description is not None
+    assert row.moex_description.issuer_name == "Forged issuer"
+    assert row.moex_description.primary_board == "TQRD"
     assert result.provenance.board_ready_requires_primary_tqcb is True
     assert result.provenance.board_ready_requires_board_observed is True
+
+
+def test_issuer_reference_missing_fields_and_source_failures_are_review_only() -> None:
+    batch = manifest()
+    candidate = batch.import_candidate_manifest[0]
+    cases = (
+        ({"security_match_status": "SECURITY_NOT_FOUND", "matched_secid": None, "matched_isin": None,
+          "issuer_title": None, "issuer_inn": None, "primary_board": None}, "ISSUER_REFERENCE_MISSING"),
+        ({"issuer_title": None}, "ISSUER_NAME_MISSING"),
+        ({"issuer_inn": None}, "ISSUER_INN_MISSING_OR_INVALID"),
+        ({"issuer_inn": "x" * 17}, "ISSUER_INN_MISSING_OR_INVALID"),
+        ({"primary_board": None}, "PRIMARY_BOARD_MISSING"),
+        ({"primary_board": "TQRD"}, "PRIMARY_BOARD_MISMATCH"),
+        ({"primary_board": " TQCB "}, "PRIMARY_BOARD_MISMATCH"),
+        ({"security_match_status": "SOURCE_ERROR", "matched_secid": None, "matched_isin": None,
+          "issuer_title": None, "issuer_inn": None, "primary_board": None}, "ISSUER_REFERENCE_SOURCE_ERROR"),
+    )
+    for override, expected in cases:
+        result = _run_preflight(
+            admission_manifest=batch,
+            moex_descriptions=[description(candidate)],
+            internal_bonds=[],
+            company_projections=[],
+            issuer_overrides={candidate.isin: override},
+        )
+        assert result.candidate_rows[0].status is BondImportPreflightState.REVIEW_REQUIRED
+        assert expected in codes(result.candidate_rows[0])
+
+
+def test_board_membership_requires_complete_exact_tqcb_evidence() -> None:
+    batch = manifest()
+    candidate = batch.import_candidate_manifest[0]
+    absent = _run_preflight(
+        admission_manifest=batch,
+        moex_descriptions=[description(candidate)],
+        internal_bonds=[],
+        company_projections=[],
+        board_overrides={candidate.isin: {"observations": ()}},
+    )
+    assert absent.candidate_rows[0].status is BondImportPreflightState.REVIEW_REQUIRED
+    assert "BOARD_OBSERVATION_MISSING" in codes(absent.candidate_rows[0])
+
+    mismatched = _run_preflight(
+        admission_manifest=batch,
+        moex_descriptions=[description(candidate)],
+        internal_bonds=[],
+        company_projections=[],
+        board_overrides={
+            candidate.isin: {
+                "observations": (
+                    MoexBondImportBoardObservation(
+                        secid=candidate.matched_secid, isin="OTHER-ISIN"
+                    ),
+                )
+            }
+        },
+    )
+    assert mismatched.candidate_rows[0].status is BondImportPreflightState.IDENTITY_CONFLICT
+
+    incomplete = _run_preflight(
+        admission_manifest=batch,
+        moex_descriptions=[description(candidate)],
+        internal_bonds=[],
+        company_projections=[],
+        board_scan_status="INCOMPLETE",
+    )
+    assert incomplete.candidate_rows[0].status is BondImportPreflightState.REVIEW_REQUIRED
+    assert "BOARD_SCAN_INCOMPLETE" in codes(incomplete.candidate_rows[0])
+    assert incomplete.candidate_rows[0].board_observed is True
 
 
 @pytest.mark.parametrize(
@@ -359,7 +548,7 @@ def test_board_requires_task296b_tqcb_and_fresh_observed_tqcb_context(overrides,
 )
 def test_explicit_inactive_evidence_blocks_but_traded_true_is_not_required(overrides, expected) -> None:
     batch = manifest()
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[description(batch.import_candidate_manifest[0], **overrides)],
         internal_bonds=[],
@@ -368,7 +557,7 @@ def test_explicit_inactive_evidence_blocks_but_traded_true_is_not_required(overr
     assert result.candidate_rows[0].status is BondImportPreflightState.REVIEW_REQUIRED
     assert expected in codes(result.candidate_rows[0])
 
-    active = TInvestBondImportPreflightService.build(
+    active = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[description(batch.import_candidate_manifest[0], is_traded=True)],
         internal_bonds=[],
@@ -383,7 +572,7 @@ def test_exact_description_identity_mismatch_is_identity_conflict(identifier) ->
     batch = manifest()
     candidate = batch.import_candidate_manifest[0]
     override = {identifier: "OTHER"}
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[description(candidate, **override)],
         internal_bonds=[],
@@ -401,7 +590,7 @@ def test_internal_bond_collision_and_cross_identifier_conflict() -> None:
     collision = BondIdentityProjection(
         bond_id=15, isin="ANOTHER-ISIN", secid=candidate.matched_secid
     )
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[description(candidate)],
         internal_bonds=[collision],
@@ -414,7 +603,7 @@ def test_internal_bond_collision_and_cross_identifier_conflict() -> None:
         BondIdentityProjection(bond_id=15, isin=candidate.isin, secid="OLD-SECID"),
         BondIdentityProjection(bond_id=16, isin="OTHER", secid=candidate.matched_secid),
     ]
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[description(candidate)],
         internal_bonds=conflict,
@@ -427,7 +616,7 @@ def test_internal_bond_collision_and_cross_identifier_conflict() -> None:
 def test_missing_and_duplicate_descriptions_remain_visible_per_candidate() -> None:
     batch = manifest()
     candidate = batch.import_candidate_manifest[0]
-    missing = TInvestBondImportPreflightService.build(
+    missing = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[],
         internal_bonds=[],
@@ -437,7 +626,7 @@ def test_missing_and_duplicate_descriptions_remain_visible_per_candidate() -> No
     assert "DESCRIPTION_MISSING" in codes(missing.candidate_rows[0])
 
     duplicate_projection = description(candidate)
-    duplicate = TInvestBondImportPreflightService.build(
+    duplicate = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[duplicate_projection, duplicate_projection],
         internal_bonds=[],
@@ -451,7 +640,7 @@ def test_missing_and_duplicate_descriptions_remain_visible_per_candidate() -> No
 def test_task295_required_tests_are_preserved_but_do_not_gate_import() -> None:
     evidence = source("UID-TESTS", "RU000A100AA1", required_tests=("bond", "russian_bonds_foreign_law"))
     batch = manifest([evidence])
-    result = TInvestBondImportPreflightService.build(
+    result = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=[description(batch.import_candidate_manifest[0], name="СФО Кредитный поток")],
         internal_bonds=[],
@@ -474,13 +663,13 @@ def test_hashes_and_serialization_are_order_independent_and_inputs_are_immutable
     projections = [description(item) for item in batch.import_candidate_manifest]
     before_manifest = batch.model_dump(mode="json")
     before_projections = [item.model_dump(mode="json") for item in projections]
-    first = TInvestBondImportPreflightService.build(
+    first = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=projections,
         internal_bonds=[],
         company_projections=[],
     )
-    second = TInvestBondImportPreflightService.build(
+    second = _run_preflight(
         admission_manifest=batch,
         moex_descriptions=list(reversed(projections)),
         internal_bonds=[],
@@ -503,7 +692,7 @@ def test_decimal_and_boolean_values_are_not_coerced_or_context_dependent() -> No
     getcontext().prec = 5
     getcontext().rounding = "ROUND_DOWN"
     try:
-        result = TInvestBondImportPreflightService.build(
+        result = _run_preflight(
             admission_manifest=batch,
             moex_descriptions=[description(batch.import_candidate_manifest[0], nominal_value="1250,50")],
             internal_bonds=[],
@@ -523,14 +712,14 @@ def test_input_containers_manifest_and_projection_contracts_are_strict() -> None
     valid_projection = description(candidate)
     for invalid in ({valid_projection}, iter([valid_projection]), "text", {"x": valid_projection}):
         with pytest.raises(TInvestBondImportPreflightError):
-            TInvestBondImportPreflightService.build(
+            _run_preflight(
                 admission_manifest=batch,
                 moex_descriptions=invalid,
                 internal_bonds=[],
                 company_projections=[],
             )
     with pytest.raises(TInvestBondImportPreflightError):
-        TInvestBondImportPreflightService.build(
+        _run_preflight(
             admission_manifest=object(),
             moex_descriptions=[valid_projection],
             internal_bonds=[],
@@ -538,13 +727,13 @@ def test_input_containers_manifest_and_projection_contracts_are_strict() -> None
         )
     unknown_projection = description(candidate, requested_secid="UNREQUESTED")
     with pytest.raises(TInvestBondImportPreflightError) as error:
-        TInvestBondImportPreflightService.build(
+        _run_preflight(
             admission_manifest=batch,
             moex_descriptions=[unknown_projection],
             internal_bonds=[],
             company_projections=[],
         )
-    assert error.value.code is TInvestBondImportPreflightErrorCode.DESCRIPTION_CONFLICT
+    assert error.value.code is TInvestBondImportPreflightErrorCode.MOEX_EVIDENCE_BATCH_INVALID
     with pytest.raises(ValidationError):
         MoexBondImportDescriptionProjection(**valid_projection.model_dump(), extra_field=True)
     with pytest.raises(ValidationError):
@@ -564,7 +753,7 @@ def test_manifest_hash_drift_and_duplicate_internal_ids_fail_closed() -> None:
         }
     )
     with pytest.raises(TInvestBondImportPreflightError) as error:
-        TInvestBondImportPreflightService.build(
+        _run_preflight(
             admission_manifest=broken,
             moex_descriptions=[description(batch.import_candidate_manifest[0])],
             internal_bonds=[],
@@ -574,7 +763,7 @@ def test_manifest_hash_drift_and_duplicate_internal_ids_fail_closed() -> None:
 
     duplicate_id = BondIdentityProjection(bond_id=2, isin="A", secid="B")
     with pytest.raises(TInvestBondImportPreflightError) as error:
-        TInvestBondImportPreflightService.build(
+        _run_preflight(
             admission_manifest=batch,
             moex_descriptions=[description(batch.import_candidate_manifest[0])],
             internal_bonds=[duplicate_id, duplicate_id],
@@ -588,7 +777,7 @@ def test_manifest_hash_drift_and_duplicate_internal_ids_fail_closed() -> None:
         batch.model_copy(update={"pit_ready": True}),
     ):
         with pytest.raises(TInvestBondImportPreflightError) as error:
-            TInvestBondImportPreflightService.build(
+            _run_preflight(
                 admission_manifest=broken,
                 moex_descriptions=[description(batch.import_candidate_manifest[0])],
                 internal_bonds=[],

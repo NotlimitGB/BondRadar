@@ -20,9 +20,13 @@ from app.schemas.tinvest_bond_admission_manifest import (
 from app.schemas.tinvest_bond_identity_bridge import TInvestBridgeAvailabilityClass
 
 
-TINVEST_BOND_IMPORT_PREFLIGHT_VERSION = "tinvest-bond-import-preflight-v1"
+TINVEST_BOND_IMPORT_PREFLIGHT_VERSION = "tinvest-bond-import-preflight-v2"
 MOEX_BOND_IMPORT_DESCRIPTION_VERSION = "moex-bond-import-description-v1"
 COMPANY_IDENTITY_PROJECTION_VERSION = "company-identity-projection-v1"
+MOEX_BOND_IMPORT_EVIDENCE_BATCH_VERSION = "moex-bond-import-evidence-batch-v1"
+MOEX_BOND_IMPORT_CANDIDATE_EVIDENCE_VERSION = "moex-bond-import-candidate-evidence-v1"
+MOEX_BOND_IMPORT_ISSUER_EVIDENCE_VERSION = "moex-bond-import-issuer-evidence-v1"
+MOEX_BOND_IMPORT_BOARD_EVIDENCE_VERSION = "moex-bond-import-board-evidence-v1"
 
 
 class _StrictFrozenModel(BaseModel):
@@ -38,6 +42,7 @@ class BondImportPreflightState(StrEnum):
 
 class BondImportPreflightReason(StrEnum):
     MOEX_DESCRIPTION_EXACT_IDENTITY = "MOEX_DESCRIPTION_EXACT_IDENTITY"
+    DESCRIPTION_IDENTITY_INCOMPLETE = "DESCRIPTION_IDENTITY_INCOMPLETE"
     DESCRIPTION_MISSING = "DESCRIPTION_MISSING"
     DESCRIPTION_CONFLICT = "DESCRIPTION_CONFLICT"
     SECURITY_IDENTITY_CONFLICT = "SECURITY_IDENTITY_CONFLICT"
@@ -49,7 +54,15 @@ class BondImportPreflightReason(StrEnum):
     INTERNAL_IDENTITY_CONFLICT = "INTERNAL_IDENTITY_CONFLICT"
     ISSUER_NAME_MISSING = "ISSUER_NAME_MISSING"
     ISSUER_INN_MISSING_OR_INVALID = "ISSUER_INN_MISSING_OR_INVALID"
+    ISSUER_REFERENCE_MISSING = "ISSUER_REFERENCE_MISSING"
+    ISSUER_REFERENCE_SOURCE_ERROR = "ISSUER_REFERENCE_SOURCE_ERROR"
+    ISSUER_REFERENCE_AMBIGUOUS = "ISSUER_REFERENCE_AMBIGUOUS"
     ISSUER_IDENTITY_READY = "ISSUER_IDENTITY_READY"
+    PRIMARY_BOARD_MISSING = "PRIMARY_BOARD_MISSING"
+    PRIMARY_BOARD_MISMATCH = "PRIMARY_BOARD_MISMATCH"
+    BOARD_SCAN_INCOMPLETE = "BOARD_SCAN_INCOMPLETE"
+    BOARD_SOURCE_ERROR = "BOARD_SOURCE_ERROR"
+    DESCRIPTION_SOURCE_ERROR = "DESCRIPTION_SOURCE_ERROR"
     COMPANY_IDENTITY_CONFLICT = "COMPANY_IDENTITY_CONFLICT"
     COMPANY_EXISTING_BY_INN = "COMPANY_EXISTING_BY_INN"
     COMPANY_EXISTING_BY_NAME = "COMPANY_EXISTING_BY_NAME"
@@ -76,6 +89,7 @@ class TInvestBondImportPreflightErrorCode(StrEnum):
     INTERNAL_IDENTITY_PROJECTION_INVALID = "INTERNAL_IDENTITY_PROJECTION_INVALID"
     COMPANY_PROJECTION_INVALID = "COMPANY_PROJECTION_INVALID"
     CANDIDATE_HASH_MISMATCH = "CANDIDATE_HASH_MISMATCH"
+    MOEX_EVIDENCE_BATCH_INVALID = "MOEX_EVIDENCE_BATCH_INVALID"
 
 
 class TInvestBondImportPreflightError(ValueError):
@@ -94,7 +108,7 @@ MoexSourceDate = date | str | None
 
 
 class MoexBondImportDescriptionProjection(_StrictFrozenModel):
-    """One caller-fetched MOEX description; this model performs no fetch."""
+    """One description projection; legacy issuer/board fields are diagnostic only."""
 
     contract_version: Literal["moex-bond-import-description-v1"] = (
         MOEX_BOND_IMPORT_DESCRIPTION_VERSION
@@ -120,13 +134,99 @@ class MoexBondImportDescriptionProjection(_StrictFrozenModel):
     has_amortization: bool | None = None
 
     status: str | None = None
-    is_traded: bool | None = None
+    is_traded: MoexSourceScalar = None
 
     board_observed: bool | None = None
     primary_board: str | None = None
 
     # Preserve only compact structural source evidence; no raw HTTP payloads.
     raw_structural_fields: tuple[tuple[str, MoexSourceScalar], ...] = ()
+
+
+class MoexBondImportIssuerEvidence(_StrictFrozenModel):
+    """Issuer/security identity returned by the existing MOEX reference resolver."""
+
+    contract_version: Literal["moex-bond-import-issuer-evidence-v1"] = (
+        MOEX_BOND_IMPORT_ISSUER_EVIDENCE_VERSION
+    )
+    requested_secid: str
+    expected_isin: str
+    matched_secid: str | None = None
+    matched_isin: str | None = None
+    security_match_status: Literal[
+        "EXACT_SECID",
+        "EXACT_SECID_ISIN_CORROBORATED",
+        "EXACT_ISIN_RECOVERED",
+        "SECURITY_IDENTIFIER_MISSING",
+        "SECURITY_NOT_FOUND",
+        "SECURITY_AMBIGUOUS",
+        "SECURITY_IDENTIFIER_CONFLICT",
+        "SOURCE_ERROR",
+    ]
+    issuer_metadata_status: Literal["ISSUER_COMPLETE", "ISSUER_PARTIAL", "ISSUER_MISSING"]
+    issuer_title: str | None = None
+    issuer_inn: str | None = None
+    issuer_okpo: str | None = None
+    primary_board: str | None = None
+    source_query_count: int = Field(ge=0)
+
+
+class MoexBondImportBoardObservation(_StrictFrozenModel):
+    """One identity/trading row from the actual requested board universe."""
+
+    contract_version: Literal["moex-bond-import-board-evidence-v1"] = (
+        MOEX_BOND_IMPORT_BOARD_EVIDENCE_VERSION
+    )
+    requested_board: Literal["TQCB"] = "TQCB"
+    secid: str | None = None
+    isin: str | None = None
+    is_traded: MoexSourceScalar = None
+    status: str | None = None
+
+
+class MoexBondImportBoardCandidateEvidence(_StrictFrozenModel):
+    """Rows for one candidate selected from a shared TQCB universe scan."""
+
+    contract_version: Literal["moex-bond-import-board-evidence-v1"] = (
+        MOEX_BOND_IMPORT_BOARD_EVIDENCE_VERSION
+    )
+    requested_board: Literal["TQCB"] = "TQCB"
+    scan_status: Literal["COMPLETE", "INCOMPLETE", "SOURCE_ERROR"]
+    observations: tuple[MoexBondImportBoardObservation, ...] = ()
+    warning_count: int = Field(ge=0)
+
+
+class MoexBondImportCandidateEvidence(_StrictFrozenModel):
+    """Independently sourced evidence joined to one frozen candidate identity."""
+
+    contract_version: Literal["moex-bond-import-candidate-evidence-v1"] = (
+        MOEX_BOND_IMPORT_CANDIDATE_EVIDENCE_VERSION
+    )
+    candidate_secid: str
+    candidate_isin: str
+    issuer: MoexBondImportIssuerEvidence
+    board: MoexBondImportBoardCandidateEvidence
+    description_status: Literal["OBSERVED", "MISSING", "SOURCE_ERROR"]
+    descriptions: tuple[MoexBondImportDescriptionProjection, ...] = ()
+
+
+class MoexBondImportEvidenceBatch(_StrictFrozenModel):
+    """Timestamp-free result of one multi-source MOEX evidence acquisition."""
+
+    contract_version: Literal["moex-bond-import-evidence-batch-v1"] = (
+        MOEX_BOND_IMPORT_EVIDENCE_BATCH_VERSION
+    )
+    candidate_evidence: tuple[MoexBondImportCandidateEvidence, ...]
+    candidate_isins: tuple[str, ...]
+    candidate_secids: tuple[str, ...]
+    board_scan_status: Literal["COMPLETE", "INCOMPLETE", "SOURCE_ERROR"]
+    board_scan_pages_fetched: int = Field(ge=0)
+    board_scan_rows_fetched: int = Field(ge=0)
+    board_scan_warning_count: int = Field(ge=0)
+    issuer_lookup_count: int = Field(ge=0)
+    issuer_source_query_count: int = Field(ge=0)
+    description_lookup_count: int = Field(ge=0)
+    pit_ready: Literal[False] = False
 
 
 class BondImportSourceUidEvidence(_StrictFrozenModel):
@@ -172,6 +272,9 @@ class TInvestBondImportPreflightRow(_StrictFrozenModel):
     isin: str
     secid: str | None
     moex_description: MoexBondImportDescriptionProjection | None = None
+    issuer_evidence: MoexBondImportIssuerEvidence | None = None
+    board_evidence: MoexBondImportBoardCandidateEvidence | None = None
+    description_source_status: Literal["OBSERVED", "MISSING", "SOURCE_ERROR"]
     source_uids: tuple[str, ...]
     uid_admissions: tuple[TInvestAdmissionUidRow, ...] = ()
     status: BondImportPreflightState
@@ -233,6 +336,9 @@ class TInvestBondReadyImportRow(_StrictFrozenModel):
     required_tests: tuple[str, ...] | None
     uid_admissions: tuple[TInvestAdmissionUidRow, ...] = ()
     task296b_admission_reasons: tuple[TInvestAdmissionReason, ...]
+    issuer_evidence: MoexBondImportIssuerEvidence
+    board_evidence: MoexBondImportBoardCandidateEvidence
+    moex_description: MoexBondImportDescriptionProjection
 
     name: str | None = None
     shortname: str | None = None
@@ -282,9 +388,26 @@ class TInvestBondImportPreflightProvenance(_StrictFrozenModel):
     description_projection_contract_version: Literal[
         "moex-bond-import-description-v1"
     ] = MOEX_BOND_IMPORT_DESCRIPTION_VERSION
+    evidence_batch_contract_version: Literal[
+        "moex-bond-import-evidence-batch-v1"
+    ] = MOEX_BOND_IMPORT_EVIDENCE_BATCH_VERSION
+    issuer_evidence_contract_version: Literal[
+        "moex-bond-import-issuer-evidence-v1"
+    ] = MOEX_BOND_IMPORT_ISSUER_EVIDENCE_VERSION
+    board_evidence_contract_version: Literal[
+        "moex-bond-import-board-evidence-v1"
+    ] = MOEX_BOND_IMPORT_BOARD_EVIDENCE_VERSION
 
     candidate_count: int = Field(ge=0)
     description_projection_count: int = Field(ge=0)
+    candidate_evidence_count: int = Field(ge=0)
+    issuer_lookup_count: int = Field(ge=0)
+    issuer_source_query_count: int = Field(ge=0)
+    board_scan_status: Literal["COMPLETE", "INCOMPLETE", "SOURCE_ERROR"]
+    board_scan_pages_fetched: int = Field(ge=0)
+    board_scan_rows_fetched: int = Field(ge=0)
+    board_scan_warning_count: int = Field(ge=0)
+    description_lookup_count: int = Field(ge=0)
     internal_bond_projection_count: int = Field(ge=0)
     company_projection_count: int = Field(ge=0)
 
@@ -327,6 +450,12 @@ class TInvestBondImportPreflightCapabilities(_StrictFrozenModel):
     positive_nominal_required: Literal[True] = True
     maturity_or_perpetual_required: Literal[True] = True
     ready_import_manifest_hash_ready: Literal[True] = True
+    multi_source_moex_evidence_contract_ready: Literal[True] = True
+    issuer_reference_evidence_separated: Literal[True] = True
+    tqcb_board_universe_evidence_separated: Literal[True] = True
+    description_evidence_separated: Literal[True] = True
+    cross_source_exact_identity_gate_ready: Literal[True] = True
+    shared_tqcb_scan_supported: Literal[True] = True
 
     board_ready_requires_primary_tqcb: Literal[True] = True
     board_ready_requires_board_observed: Literal[True] = True
@@ -355,7 +484,7 @@ class TInvestBondImportPreflightCapabilities(_StrictFrozenModel):
 
 
 class TInvestBondImportPreflightView(_StrictFrozenModel):
-    contract_version: Literal["tinvest-bond-import-preflight-v1"] = (
+    contract_version: Literal["tinvest-bond-import-preflight-v2"] = (
         TINVEST_BOND_IMPORT_PREFLIGHT_VERSION
     )
     identity: BondImportBatchIdentity
