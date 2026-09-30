@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from collections.abc import Mapping, Sequence, Set
+from time import sleep
 from typing import Iterable
 
 from app.services.moex_iss_client import (
     MoexIssClient,
+    MoexIssClientError,
     MoexSecurityReferenceCandidate,
 )
+
+from app.schemas.tinvest_bond_admission_manifest import MoexBondResolutionProjection, MoexSecurityMatchStatus
+from app.schemas.tinvest_frozen_admission_evidence import FinalizedMoexResolution, MoexResolutionAcquisitionDiagnostics
 
 
 SECURITY_MATCH_STATUSES = {
@@ -44,68 +50,95 @@ class MoexIssuerIdentitySourceResolution:
     full_name: str | None
     primary_board: str | None
     source_query_count: int
+    attempt_count: int = 0
+    transient_failure_count: int = 0
+    last_failure_category: str | None = None
+
+    @property
+    def acquisition(self) -> MoexResolutionAcquisitionDiagnostics:
+        return MoexResolutionAcquisitionDiagnostics(attempt_count=self.attempt_count,
+            transient_failure_count=self.transient_failure_count,
+            source_query_count=self.source_query_count,
+            final_status=MoexSecurityMatchStatus(self.security_match_status),
+            last_failure_category=self.last_failure_category)
 
 
 class MoexIssuerIdentitySourceService:
-    def __init__(self, client: MoexIssClient) -> None:
+    MAX_ATTEMPTS = 3
+    RETRY_DELAYS = (0.25, 0.50)
+
+    def __init__(self, client: MoexIssClient, *, sleeper=sleep) -> None:
         self.client = client
+        self.sleeper = sleeper
 
-    def lookup(
-        self,
-        *,
-        requested_secid: str | None,
-        expected_isin: str | None = None,
-    ) -> MoexIssuerIdentitySourceResolution:
-        secid = _identifier(requested_secid)
-        isin = _identifier(expected_isin)
+    def _acquire(self, query):
+        failures = 0
+        last_category = None
+        categories = {"TIMEOUT", "TRANSIENT_TRANSPORT", "TRANSIENT_HTTP", "HTTP_REJECTED", "TRANSPORT_REJECTED", "INVALID_RESPONSE"}
+        for attempt in range(1, self.MAX_ATTEMPTS + 1):
+            try:
+                candidates = self.client.fetch_security_reference_candidates(query)
+                return candidates, attempt, failures, last_category
+            except Exception as exc:
+                retryable = isinstance(exc, MoexIssClientError) and exc.retryable is True and exc.category in {"TIMEOUT", "TRANSIENT_TRANSPORT", "TRANSIENT_HTTP"}
+                last_category = exc.category if isinstance(exc, MoexIssClientError) and exc.category in categories else "UNKNOWN_SOURCE_ERROR"
+                failures += int(retryable)
+                if not retryable or attempt == self.MAX_ATTEMPTS:
+                    return None, attempt, failures, last_category
+                self.sleeper(self.RETRY_DELAYS[attempt - 1])
+        raise AssertionError("unreachable acquisition state")
+
+    def lookup(self, *, requested_secid: str | None, expected_isin: str | None = None) -> MoexIssuerIdentitySourceResolution:
+        secid, isin = _identifier(requested_secid), _identifier(expected_isin)
+        attempts = failures = queries = 0
+        last_category = None
+        def finish(result):
+            return replace(result, attempt_count=attempts, transient_failure_count=failures,
+                           last_failure_category=last_category)
         if secid is None and isin is None:
-            return _empty_resolution(
-                requested_secid=None,
-                expected_isin=None,
-                status="SECURITY_IDENTIFIER_MISSING",
-                source_query_count=0,
-            )
-
+            return finish(_empty_resolution(requested_secid=None, expected_isin=None,
+                status="SECURITY_IDENTIFIER_MISSING", source_query_count=0))
         query = secid or isin
-        assert query is not None
-        try:
-            candidates = self.client.fetch_security_reference_candidates(query)
-        except Exception:
-            return _empty_resolution(
-                requested_secid=secid,
-                expected_isin=isin,
-                status="SOURCE_ERROR",
-                source_query_count=1,
-            )
+        candidates, used, failed, last_category = self._acquire(query)
+        attempts += used
+        failures += failed
+        queries = 1
+        if candidates is None:
+            return finish(_empty_resolution(requested_secid=secid, expected_isin=isin,
+                status="SOURCE_ERROR", source_query_count=queries))
+        resolution = resolve_security_reference(candidates, requested_secid=secid,
+            expected_isin=isin, source_query_count=queries)
+        if resolution.security_match_status != "SECURITY_NOT_FOUND" or isin is None or isin == query:
+            return finish(resolution)
+        fallback, used, failed, category = self._acquire(isin)
+        attempts += used
+        failures += failed
+        last_category = category or last_category
+        queries = 2
+        if fallback is None:
+            return finish(_empty_resolution(requested_secid=secid, expected_isin=isin,
+                status="SOURCE_ERROR", source_query_count=queries))
+        return finish(resolve_security_reference([*candidates, *fallback], requested_secid=secid,
+            expected_isin=isin, source_query_count=queries))
 
-        resolution = resolve_security_reference(
-            candidates,
-            requested_secid=secid,
-            expected_isin=isin,
-            source_query_count=1,
-        )
-        if (
-            resolution.security_match_status != "SECURITY_NOT_FOUND"
-            or isin is None
-            or isin == query
-        ):
-            return resolution
-
-        try:
-            fallback = self.client.fetch_security_reference_candidates(isin)
-        except Exception:
-            return _empty_resolution(
-                requested_secid=secid,
-                expected_isin=isin,
-                status="SOURCE_ERROR",
-                source_query_count=2,
-            )
-        return resolve_security_reference(
-            [*candidates, *fallback],
-            requested_secid=secid,
-            expected_isin=isin,
-            source_query_count=2,
-        )
+    def lookup_isins(self, *, source_isins: Sequence[str]) -> tuple[FinalizedMoexResolution, ...]:
+        if isinstance(source_isins, (str, bytes, bytearray, memoryview, Mapping, Set)) or not isinstance(source_isins, Sequence):
+            raise ValueError("INVALID_ISIN_SEQUENCE")
+        rows = tuple(source_isins)
+        if any(type(v) is not str or not v.strip() or len(v.strip()) > 64 for v in rows) or len(set(rows)) != len(rows):
+            raise ValueError("INVALID_ISIN_SEQUENCE")
+        results = []
+        for isin in sorted(rows):
+            result = self.lookup(requested_secid=None, expected_isin=isin)
+            results.append(FinalizedMoexResolution(
+                resolution=MoexBondResolutionProjection(source_isin=isin,
+                    security_match_status=MoexSecurityMatchStatus(result.security_match_status),
+                    matched_secid=result.matched_secid, matched_isin=result.matched_isin,
+                    candidate_count=result.candidate_count, matched_candidate_count=result.matched_candidate_count,
+                    primary_board=result.primary_board, issuer_metadata_status=result.issuer_metadata_status,
+                    issuer_id=result.issuer_id, issuer_title=result.issuer_title, issuer_inn=result.issuer_inn,
+                    issuer_okpo=result.issuer_okpo), acquisition=result.acquisition))
+        return tuple(results)
 
 
 def resolve_security_reference(

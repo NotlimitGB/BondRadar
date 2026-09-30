@@ -10,7 +10,10 @@ from app.core.config import settings
 
 
 class MoexIssClientError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, category: str = "INVALID_RESPONSE", retryable: bool = False):
+        self.category = category
+        self.retryable = retryable
+        super().__init__(message)
 
 
 @dataclass
@@ -462,13 +465,20 @@ class MoexIssClient:
                 ) as client:
                     response = client.get(path, params=params)
             response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise MoexIssClientError(f"MOEX request failed: {exc}") from exc
+        except httpx.HTTPStatusError as exc:
+            retryable = exc.response.status_code in {408, 429, 500, 502, 503, 504}
+            raise MoexIssClientError("MOEX HTTP request failed", category="TRANSIENT_HTTP" if retryable else "HTTP_REJECTED", retryable=retryable) from None
+        except httpx.TimeoutException:
+            raise MoexIssClientError("MOEX request timed out", category="TIMEOUT", retryable=True) from None
+        except (httpx.NetworkError, httpx.RemoteProtocolError):
+            raise MoexIssClientError("MOEX transport failed", category="TRANSIENT_TRANSPORT", retryable=True) from None
+        except httpx.HTTPError:
+            raise MoexIssClientError("MOEX request failed", category="TRANSPORT_REJECTED") from None
 
         try:
             payload = response.json()
-        except ValueError as exc:
-            raise MoexIssClientError("Invalid MOEX JSON response") from exc
+        except ValueError:
+            raise MoexIssClientError("Invalid MOEX JSON response") from None
         if not isinstance(payload, dict):
             raise MoexIssClientError("Invalid MOEX JSON response")
         return payload
