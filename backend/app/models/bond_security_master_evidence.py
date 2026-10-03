@@ -11,7 +11,7 @@ from app.db.base import Base
 from app.models.bond_security_master_profile import SECURITY_MASTER_CONTRACT_VERSION
 
 
-SECURITY_MASTER_EVIDENCE_SOURCES = {"moex_universe", "moex_description", "moex_cashflows"}
+SECURITY_MASTER_EVIDENCE_SOURCES = {"moex_universe", "moex_description", "moex_cashflows", "tinvest_universe"}
 SECURITY_MASTER_ASSERTION_TYPES = {"scalar_value", "classification"}
 
 
@@ -19,7 +19,7 @@ class BondSecurityMasterEvidence(Base):
     __tablename__ = "bond_security_master_evidence"
     __table_args__ = (
         UniqueConstraint("evidence_fingerprint", name="uq_bond_security_master_evidence_fingerprint"),
-        CheckConstraint("source in ('moex_universe', 'moex_description', 'moex_cashflows')", name="bond_security_master_evidence_source_allowed"),
+        CheckConstraint("source in ('moex_universe', 'moex_description', 'moex_cashflows', 'tinvest_universe')", name="bond_security_master_evidence_source_allowed"),
         CheckConstraint("assertion_type in ('scalar_value', 'classification')", name="bond_security_master_evidence_assertion_type_allowed"),
     )
 
