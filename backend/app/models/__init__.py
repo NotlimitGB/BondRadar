@@ -1,4 +1,8 @@
 from app.models.bond import Bond
+from app.models.shadow_test_run import ShadowTestRun
+from app.models.shadow_ledger_entry import ShadowLedgerEntry
+from app.models.shadow_daily_snapshot import ShadowDailySnapshot
+from app.models.shadow_daily_position_snapshot import ShadowDailyPositionSnapshot
 from app.models.bond_cashflow_event import BondCashflowEvent
 from app.models.bond_feature_snapshot import BondFeatureSnapshot
 from app.models.bond_legal_issuer_evidence import BondLegalIssuerEvidence
@@ -54,6 +58,10 @@ from app.models.paper_portfolio_snapshot import PaperPortfolioSnapshot
 from app.models.paper_portfolio_transaction import PaperPortfolioTransaction
 
 __all__ = [
+    "ShadowTestRun",
+    "ShadowLedgerEntry",
+    "ShadowDailySnapshot",
+    "ShadowDailyPositionSnapshot",
     "Bond",
     "BondCashflowEvent",
     "BondFeatureSnapshot",
