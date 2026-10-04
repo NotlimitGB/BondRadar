@@ -91,10 +91,19 @@ def genesis_fields(plan, request):
     return dict(run_key_sha256=plan.run_key_sha256, status="ACTIVE", genesis_date=s.as_of_date,
         planned_end_date=plan.planned_end_date, horizon_days=90, initial_capital_rub=s.summary.capital_rub,
         base_currency="RUB", market_source="moex", source_code_sha=request.source_code_sha,
-        source_universe_sha256=plan.source_universe_sha256, genesis_shadow_plan_sha256=plan.shadow_execution_sha256,
+        source_universe_sha256=plan.source_universe_sha256, shadow_execution_sha256=plan.shadow_execution_sha256, genesis_plan_sha256=plan.plan_sha256,
         shadow_execution_contract_version=s.contract_version, strategy_contract_version=s.source_strategy.contract_version,
         strategy_policy_version=s.provenance.strategy_policy_version, risk_policy_version=s.provenance.risk_policy_version,
         execution_policy_version=s.policy.contract_version)
+
+
+def original_genesis_plan(plan):
+    """Recover the first authorized plan; repeat authorization has a new DB hash."""
+    return repository.signed_plan(plan.model_copy(update={
+        "status": "EXECUTABLE", "blockers": (),
+        "current_shadow_db_state_sha256": repository.state_hash(
+            dict(run=None, ledger=[], snapshots=[], positions=[])),
+    }))
 
 
 class ShadowLedgerGenesisService:
@@ -143,7 +152,8 @@ class ShadowLedgerGenesisService:
         status, blockers = "EXECUTABLE", ()
         if state["run"]:
             existing = next((x for x in state["snapshots"] if x["as_of_date"] == s.as_of_date), None)
-            if existing and repository.stored_snapshot(existing) == snap and repository.audit(db,key,snap).status == "VERIFIED":
+            if existing and repository.stored_snapshot(existing) == snap and repository.audit_genesis(db, original_genesis_plan(
+                    repository.signed_plan(Plan(**base, status="EXECUTABLE", events=tuple(events), positions=tuple(positions), snapshot=snap)))).status == "VERIFIED":
                 status = "IDEMPOTENT_NOOP"
             else:
                 status, blockers = "BLOCKED", ("HISTORICAL_SOURCE_DRIFT",)
@@ -170,4 +180,5 @@ class ShadowLedgerGenesisService:
         except Exception:
             return Receipt(status="BLOCKED", blockers=("INPUT_INVALID",))
         return repository.execute_apply(self.session_factory, reviewed_plan, authorization,
-            lambda db:self._plan(db,request), Receipt, genesis_fields(reviewed_plan,request))
+            lambda db:self._plan(db,request), Receipt, genesis_fields(reviewed_plan,request),
+            genesis_audit=lambda db, plan:repository.audit_genesis(db, original_genesis_plan(plan)))

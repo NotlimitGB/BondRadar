@@ -146,7 +146,15 @@ are hash material.
 
 The universe hash freezes Task298 date/source and sorted requested, existing,
 missing and candidate partitions. The run key freezes execution hash, universe
-hash, code SHA and 90-day policy. Daily input binds prior snapshot/ledger,
+hash, code SHA and 90-day policy. ShadowTestRun stores two separate nonnullable 64-character hashes:
+`shadow_execution_sha256` is the source Task302 execution-plan hash;
+`genesis_plan_sha256` is the exact reviewed and authorized Task303 Genesis-plan
+hash. The old ambiguous `genesis_shadow_plan_sha256` field is removed before
+production deployment. Both hashes participate in Shadow DB-state hashing and
+Genesis pre/post-commit provenance audit alongside run key, universe and code
+SHA. They represent separate immutable stages, not interchangeable aliases.
+
+Daily input binds prior snapshot/ledger,
 quantities, relevant cashflows and complete Task273 valuation views. Event,
 position and snapshot hashes cover their deterministic accounting content.
 Upstream candidate, investment, risk, strategy, execution, DV01 and Security
@@ -158,7 +166,12 @@ A repeated PLAN reconstructs the requested historical prior-day state and obtain
 current source evidence. Exact matching accepted content yields IDEMPOTENT_NOOP;
 changed content yields HISTORICAL_SOURCE_DRIFT without overwrite. A reviewed plan
 must match the post-lock rebuilt plan exactly. Current-state drift blocks before
-insert. A previous authorization is not reusable after the DB state changes.
+insert. A previous authorization is not reusable after the DB state changes. A new
+no-op Genesis plan has its own authorization hash; it never replaces the stored
+original Genesis hash. Verification reconstructs the original EXECUTABLE plan
+with its initial empty Shadow DB state hash and checks that original signed
+plan against persisted provenance. Source/provenance drift blocks replay.
+Task303A changes neither accounting nor daily return/cashflow/horizon semantics.
 
 ## 16. Session ownership and locks
 
@@ -186,7 +199,20 @@ committed count; it is not labelled a confirmed rollback.
 
 ## 18. Migration and retention
 
-Revision 202610030002 follows 202610030001, creates only four Shadow tables and
+Revision 202610030002 follows 202610030001. Task303A revises this not-yet-deployed
+revision; no 202610030003 is introduced. On SQLite, historical migration tests
+may pre-create current ORM metadata. Upgrade accepts only all four compatible
+Shadow tables: exact columns, type families/string lengths, nullability, primary
+keys, uniqueness, RESTRICT foreign keys, required indexes and complete CHECK
+expressions. Constraint names and SQL whitespace/keyword case are irrelevant;
+string literals and operators remain exact. A partial set raises
+PARTIAL_TASK303_SQLITE_SCHEMA; incompatible full schema raises
+INCOMPATIBLE_TASK303_SQLITE_SCHEMA before any DDL. The frozen expectations live
+inside the migration and do not import mutable ORM definitions. No rows are
+bootstrapped or repaired. PostgreSQL still executes ordinary CREATE statements
+and does not silently accept unknown pre-existing tables.
+
+The revision creates only four Shadow tables and
 does not modify upstream or paper tables. Explicit RESTRICT FKs preserve parent,
 Bond, market and cashflow references. Downgrade checks every Shadow table before
 any DDL and refuses if any row exists. No deletion or automatic history repair is

@@ -178,3 +178,75 @@ def test_authorization_tamper_pending_state_and_rollback(environment,monkeypatch
     assert ShadowLedgerGenesisService(lambda:caller).plan(request=request).blockers==("SESSION_NOT_FRESH",)
     assert caller.new
     caller.rollback(); caller.close()
+
+
+def test_separate_provenance_persistence_state_hash_and_noop(environment):
+    from app.services.shadow_ledger_genesis_service import original_genesis_plan
+    factory, request, _ = environment
+    plan, _ = genesis(environment)
+    with factory() as db:
+        run = db.scalar(select(ShadowTestRun))
+        assert run.shadow_execution_sha256 == plan.shadow_execution_sha256
+        assert run.genesis_plan_sha256 == plan.plan_sha256
+        assert run.genesis_plan_sha256 != run.shadow_execution_sha256
+        assert "genesis_shadow_plan_sha256" not in run.__table__.columns
+        state = repository.read_state(db, plan.run_key_sha256)
+        for field in ("shadow_execution_sha256", "genesis_plan_sha256"):
+            changed = deepcopy(state); changed["run"][field] = "0" * 64
+            assert repository.state_hash(changed) != repository.state_hash(state)
+    service = ShadowLedgerGenesisService(factory)
+    repeat = service.plan(request=request)
+    assert repeat.status == "IDEMPOTENT_NOOP" and repeat.plan_sha256 != plan.plan_sha256
+    assert original_genesis_plan(repeat) == plan
+    receipt = service.apply(request=request, reviewed_plan=repeat, authorization=authorization(repeat))
+    assert receipt.status == "IDEMPOTENT_NOOP" and receipt.committed_rows == 0
+    with factory() as db:
+        assert db.scalar(select(ShadowTestRun.genesis_plan_sha256)) == plan.plan_sha256
+
+
+@pytest.mark.parametrize("field", ["plan_sha256", "shadow_execution_sha256"])
+def test_provenance_authorization_tampering_blocks_before_transaction(environment, field):
+    factory, request, _ = environment
+    service = ShadowLedgerGenesisService(factory); plan = service.plan(request=request)
+    auth = authorization(plan).model_copy(update={field: "0" * 64})
+    assert service.apply(request=request, reviewed_plan=plan, authorization=auth).status == "BLOCKED"
+    with factory() as db:
+        assert db.scalar(select(func.count()).select_from(ShadowTestRun)) == 0
+
+
+@pytest.mark.parametrize("field", ["genesis_plan_sha256", "shadow_execution_sha256", "source_code_sha", "source_universe_sha256"])
+def test_persisted_provenance_corruption_fails_audit_and_replay(environment, field):
+    factory, request, _ = environment; plan, _ = genesis(environment)
+    with factory() as db:
+        run = db.scalar(select(ShadowTestRun)); setattr(run, field, "0" * (40 if field == "source_code_sha" else 64)); db.commit()
+    with factory() as db:
+        assert repository.audit_genesis(db, plan).status == "FAILED"
+    repeat = ShadowLedgerGenesisService(factory).plan(request=request)
+    assert repeat.status == "BLOCKED" and repeat.blockers == ("HISTORICAL_SOURCE_DRIFT",)
+
+
+@pytest.mark.parametrize("phase", ["before_commit", "after_commit"])
+def test_provenance_audit_guards_both_commit_phases(environment, monkeypatch, phase):
+    factory, request, engine = environment
+    service = ShadowLedgerGenesisService(factory); plan = service.plan(request=request)
+    if phase == "before_commit":
+        original = repository.persist
+        def corrupt(db, current, run_fields):
+            original(db, current, run_fields)
+            db.scalar(select(ShadowTestRun)).genesis_plan_sha256 = "0" * 64
+            db.flush()
+        monkeypatch.setattr(repository, "persist", corrupt)
+    else:
+        calls = []
+        def corrupt_factory():
+            db = factory(); calls.append(True)
+            if len(calls) == 2:
+                # Isolated fixture mutation simulates persisted post-commit corruption.
+                with factory() as damaged:
+                    damaged.scalar(select(ShadowTestRun)).shadow_execution_sha256 = "0" * 64
+                    damaged.commit()
+            return db
+        service = ShadowLedgerGenesisService(corrupt_factory)
+    receipt = service.apply(request=request, reviewed_plan=plan, authorization=authorization(plan))
+    assert receipt.status == ("ROLLED_BACK" if phase == "before_commit" else "POST_COMMIT_AUDIT_FAILED")
+    assert receipt.committed_rows == (0 if phase == "before_commit" else 9)

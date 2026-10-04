@@ -3,6 +3,7 @@ from datetime import date, datetime
 from decimal import Context, Decimal, ROUND_HALF_EVEN, localcontext
 import hashlib
 import json
+import re
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -215,6 +216,27 @@ def audit(db, key, expected):
         snapshot_sha256=expected.snapshot_sha256, ledger_entry_count=len(ledger), position_count=len(positions), blockers=tuple(sorted(errors)))
 
 
+def audit_genesis(db, reviewed):
+    """Check persisted original Genesis provenance in addition to accounting."""
+    result = audit(db, reviewed.run_key_sha256, reviewed.snapshot)
+    state = read_state(db, reviewed.run_key_sha256)
+    expected = {
+        "run_key_sha256": reviewed.run_key_sha256,
+        "shadow_execution_sha256": reviewed.shadow_execution_sha256,
+        "genesis_plan_sha256": reviewed.plan_sha256,
+        "source_universe_sha256": reviewed.source_universe_sha256,
+        "source_code_sha": reviewed.source_code_sha,
+    }
+    valid = state["run"] is not None
+    for name, value in expected.items():
+        width = 40 if name == "source_code_sha" else 64
+        valid = valid and type(value) is str and re.fullmatch(r"[0-9a-f]{%d}" % width, value) is not None
+        valid = valid and state["run"].get(name) == value
+    if not valid:
+        return result.model_copy(update={"status": "FAILED", "blockers": ("SHADOW_HISTORY_INVALID",)})
+    return result
+
+
 def persist(db, plan, run_fields=None):
     state = read_state(db, plan.run_key_sha256)
     if state["run"] is None:
@@ -248,7 +270,7 @@ def persist(db, plan, run_fields=None):
     db.flush()
 
 
-def execute_apply(factory, reviewed, authorization, rebuild, receipt_type, run_fields=None, daily=False):
+def execute_apply(factory, reviewed, authorization, rebuild, receipt_type, run_fields=None, daily=False, genesis_audit=None):
     base = dict(plan_sha256=reviewed.plan_sha256, run_key_sha256=reviewed.run_key_sha256)
     try:
         require(reviewed.status in ("EXECUTABLE", "IDEMPOTENT_NOOP") and not reviewed.blockers, "AUTHORIZATION_MISMATCH")
@@ -280,19 +302,19 @@ def execute_apply(factory, reviewed, authorization, rebuild, receipt_type, run_f
         current = rebuild(db)
         require(current == reviewed, "CURRENT_SHADOW_STATE_DRIFT")
         if current.status == "IDEMPOTENT_NOOP":
-            pre = audit(db, current.run_key_sha256, current.snapshot)
+            pre = genesis_audit(db, current) if genesis_audit else audit(db, current.run_key_sha256, current.snapshot)
             require(pre.status == "VERIFIED", "PRE_COMMIT_AUDIT_FAILED")
             return receipt_type(**base, status="IDEMPOTENT_NOOP", pre_commit_audit=pre)
         attempted = len(current.events) + len(current.positions) + 1 + int(run_fields is not None)
         persist(db, current, run_fields)
-        pre = audit(db, current.run_key_sha256, current.snapshot)
+        pre = genesis_audit(db, current) if genesis_audit else audit(db, current.run_key_sha256, current.snapshot)
         require(pre.status == "VERIFIED", "PRE_COMMIT_AUDIT_FAILED")
         committing = True
         db.commit()
         committed = True
         verification = fresh(factory)
         try:
-            post = audit(verification, current.run_key_sha256, current.snapshot)
+            post = genesis_audit(verification, current) if genesis_audit else audit(verification, current.run_key_sha256, current.snapshot)
         finally:
             verification.close()
         if post.status != "VERIFIED":
