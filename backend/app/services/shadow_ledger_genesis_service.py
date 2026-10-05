@@ -106,11 +106,9 @@ def original_genesis_plan(plan):
     }))
 
 
-class ShadowLedgerGenesisService:
-    def __init__(self, session_factory):
-        self.session_factory = session_factory
-
-    def _plan(self, db, request):
+def build_genesis_plan_in_session(db, *, request):
+    """Read-only Genesis builder in a caller-owned transaction; never closes it."""
+    with db.no_autoflush:
         s = validate_request(request)
         universe = s.source_strategy.source_investment_batch.source_batch
         universe_hash = repository.digest({name:getattr(universe, name) for name in
@@ -158,6 +156,14 @@ class ShadowLedgerGenesisService:
             else:
                 status, blockers = "BLOCKED", ("HISTORICAL_SOURCE_DRIFT",)
         return repository.signed_plan(Plan(**base, status=status, events=tuple(events), positions=tuple(positions), snapshot=snap, blockers=blockers))
+
+
+class ShadowLedgerGenesisService:
+    def __init__(self, session_factory):
+        self.session_factory = session_factory
+
+    def _plan(self, db, request):
+        return build_genesis_plan_in_session(db, request=request)
 
     def plan(self, *, request):
         try:

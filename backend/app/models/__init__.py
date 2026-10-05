@@ -1,3 +1,7 @@
+from app.models.shadow_experiment_group import ShadowExperimentGroup
+from app.models.shadow_experiment_case import ShadowExperimentCase
+from app.models.shadow_experiment_benchmark import ShadowExperimentBenchmark
+from app.models.shadow_experiment_benchmark_component import ShadowExperimentBenchmarkComponent
 from app.models.bond import Bond
 from app.models.shadow_test_run import ShadowTestRun
 from app.models.shadow_ledger_entry import ShadowLedgerEntry
@@ -58,6 +62,11 @@ from app.models.paper_portfolio_snapshot import PaperPortfolioSnapshot
 from app.models.paper_portfolio_transaction import PaperPortfolioTransaction
 
 __all__ = [
+    "ShadowExperimentGroup",
+    "ShadowExperimentCase",
+    "ShadowExperimentBenchmark",
+    "ShadowExperimentBenchmarkComponent",
+
     "ShadowTestRun",
     "ShadowLedgerEntry",
     "ShadowDailySnapshot",
