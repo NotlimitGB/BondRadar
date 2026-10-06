@@ -10,7 +10,7 @@ class HistoricalResearchHorizonPolicyV1(Contract):
     horizons_days: tuple[Literal[90,180,365], ...] = (90,180,365)
     primary_horizon_days: Literal[365] = 365
     endpoint_max_age_days: Literal[7] = 7
-    monthly_entry_grid: Literal["FIRST_TRADE_DATE_WITH_GE3_DECISION_ONLY_BONDS"] = "FIRST_TRADE_DATE_WITH_GE3_DECISION_ONLY_BONDS"
+    monthly_entry_grid: Literal["FIRST_MOEX_TRADE_DATE_PER_CALENDAR_MONTH"] = "FIRST_MOEX_TRADE_DATE_PER_CALENDAR_MONTH"
 
     @field_validator("horizons_days",mode="before")
     @classmethod

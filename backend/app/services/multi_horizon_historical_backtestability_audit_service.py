@@ -104,19 +104,33 @@ def endpoint_coverage(label,endpoints):
         missing_both=sum(not e.canonical_price_ready and not e.canonical_nkd_ready for e in rows),already_ready=ready,additional_ready_from_raw=extra,
         still_unavailable=len(rows)-ready-extra,raw_field_status_counts=tuple(sorted(status.items())))
 
+class MonthlyEntryDateNotInSourceRcaGrid(ValueError):
+    """Fixed schedule cannot be represented by the upstream date grid."""
+
+
+def frozen_monthly_dates(raw_market_dates,source_dates):
+    first_by_month={}
+    for day in sorted(set(raw_market_dates)):
+        first_by_month.setdefault((day.year,day.month),day)
+    selected=tuple(first_by_month.values())
+    if not set(selected).issubset(set(source_dates)):
+        raise MonthlyEntryDateNotInSourceRcaGrid()
+    return selected
+
+
 def assemble(source,data,curve_service):
     rca.require(rca.signed(source).audit_sha256==source.audit_sha256)
     index=rca.EvidenceIndex(data);endpoints=EndpointIndex(data.tables["bond_market_snapshots"],index.profiles,index.bonds)
     flows={bid:CashflowIndex(index.flows[bid]) for bid in index.bonds}
     dates=tuple(sorted(r["trade_date"] for r in data.market_date_counts));first=dates[0] if dates else None;last=dates[-1] if dates else None
-    records=[];ofz_rows=[];months=set()
+    monthly_dates=set(frozen_monthly_dates(dates,(r.as_of_date for r in source.per_date)))
+    records=[];ofz_rows=[]
     for base in source.per_date:
         day=base.as_of_date;observed={bid for bid,ds in index.days.items() if ds[0]<day}
         _,_,keys,cohorts=rca.credit_funnel(day,observed,index)
         _,_,decision,_,_,_,_,_=rca.joint_funnel(day,observed,index,keys,set())
         rca.require(len(decision)==base.decision_only_intersection_count)
-        monthly=len(decision)>=3 and (day.year,day.month) not in months
-        if monthly:months.add((day.year,day.month))
+        monthly=day in monthly_dates
         horizons=tuple(make_horizon(day,h,observed,decision,endpoints,flows,first,last) for h in HORIZONS)
         records.append(DateReadiness(as_of_date=day,monthly_research_entry_date=monthly,decision_only_bond_ids=tuple(sorted(decision)),decision_only_intersection_count=len(decision),credit_prerequisite_count=len(rca.qualified(cohorts)),horizons=horizons))
         selection=day-timedelta(days=1);curve=curve_service.build_curve(selection,market_source="moex",max_curve_age_days=7)
@@ -181,5 +195,6 @@ class MultiHorizonHistoricalBacktestabilityAuditService:
                 rca.require(rca.original._build(data).audit_sha256==source.source_readiness_audit_sha256)
                 with Session(bind=connection,autoflush=False,join_transaction_mode="rollback_only") as curve_db:
                     return assemble(source,data,OfzReferenceCurveService(curve_db))
+        except MonthlyEntryDateNotInSourceRcaGrid:return blocked("MONTHLY_ENTRY_DATE_NOT_IN_SOURCE_RCA_GRID",source)
         except SQLAlchemyError:return blocked("PERSISTED_ENDPOINT_EVIDENCE_UNAVAILABLE",source)
         except (ValueError,TypeError,KeyError,OverflowError,DecimalException):return blocked("ENDPOINT_EVIDENCE_OR_SOURCE_BINDING_INVALID",source)

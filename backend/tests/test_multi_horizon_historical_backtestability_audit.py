@@ -163,7 +163,7 @@ def test_service_binding_one_source_call_pending_readonly_and_determinism(seeded
         assert all(s.lstrip().upper().startswith(("SELECT","WITH","PRAGMA QUERY_ONLY")) for s in sql)
         assert result.policy.horizons_days==(90,180,365) and result.source_task306a1_sha256
         assert all(x.selection_as_of_date==x.as_of_date-timedelta(days=1) for x in result.ofz_readiness)
-        assert all(x==next(r.as_of_date for r in result.per_date if r.as_of_date.year==x.year and r.as_of_date.month==x.month and r.decision_only_intersection_count>=3) for x in result.monthly_entry_dates)
+        assert all(x==next(r.as_of_date for r in result.per_date if r.as_of_date.year==x.year and r.as_of_date.month==x.month) for x in result.monthly_entry_dates)
         assert Audit.model_validate_json(result.model_dump_json())==result
         assert audit.signed(result).audit_sha256==result.audit_sha256
         with pytest.raises(Exception):result.status="BLOCKED"
@@ -187,6 +187,8 @@ def test_fixed_policy_rejects_overrides():
     for value in ((90,),(365,180,90),(90,180,True),[90,180,365]):
         with pytest.raises(ValueError):Policy(horizons_days=value)
     assert Policy.model_validate_json(Policy().model_dump_json())==Policy()
+    assert Policy().monthly_entry_grid=="FIRST_MOEX_TRADE_DATE_PER_CALENDAR_MONTH"
+    with pytest.raises(ValueError):Policy(monthly_entry_grid="FIRST_TRADE_DATE_WITH_GE3_DECISION_ONLY_BONDS")
 
 
 def test_future_outcome_changes_do_not_change_decision_grid_or_ofz_selection(seeded):
@@ -201,6 +203,7 @@ def test_future_outcome_changes_do_not_change_decision_grid_or_ofz_selection(see
         db.commit()
     with readonly(seeded.engine) as db:after=audit.MultiHorizonHistoricalBacktestabilityAuditService(db).build()
     assert after.status=="COMPLETE",after.blockers
+    assert before.monthly_entry_dates==after.monthly_entry_dates
     a=next(r for r in before.per_date if r.as_of_date==target);b=next(r for r in after.per_date if r.as_of_date==target)
     assert a.decision_only_bond_ids==b.decision_only_bond_ids
     assert a.credit_prerequisite_count==b.credit_prerequisite_count
@@ -244,4 +247,75 @@ def test_source_blocked_stops_supporting_reads_and_sanitizes(seeded,monkeypatch)
     with readonly(seeded.engine) as db:result=audit.MultiHorizonHistoricalBacktestabilityAuditService(db).build()
     assert result.blockers==("SOURCE_TASK306A1_BLOCKED",)
     assert result.source_task306a1_sha256 and result.per_date==()
+    assert Audit.model_validate_json(result.model_dump_json())==result
+
+
+
+def synthetic_monthly_audit(monkeypatch,dates,decision_counts,recovered_counts=None):
+    from collections import defaultdict
+    from app.schemas.multi_horizon_historical_backtestability import HistoricalHorizonReadinessV1 as Horizon
+    recovered_counts=recovered_counts or decision_counts
+    bonds={bid:{"secid":str(bid),"maturity_date":None} for bid in range(1,11)}
+    index=SimpleNamespace(bonds=bonds,profiles={},flows=defaultdict(list),ofz=set(),days={bid:(date(2024,2,1),) for bid in bonds})
+    monkeypatch.setattr(rca,"EvidenceIndex",lambda data:index)
+    monkeypatch.setattr(rca,"signed",lambda source:source)
+    monkeypatch.setattr(rca,"credit_funnel",lambda *a:(None,None,{},()))
+    def joint(day,*args):
+        decision=set(range(1,decision_counts[day]+1))
+        return None,None,decision,None,None,None,None,None
+    monkeypatch.setattr(rca,"joint_funnel",joint)
+    monkeypatch.setattr(rca,"curve_valid",lambda *a:None)
+    def horizon(day,h,ids,decision,*args):
+        ready=tuple(sorted(decision));recovered=tuple(range(1,recovered_counts[day]+1)) if decision else ()
+        return Horizon(horizon_days=h,terminal_target_date=day+timedelta(days=h),terminal_target_inside_global_range=False,
+            entry_ready_bond_count=len(ready),terminal_market_ready_bond_count=len(ready),redeemed_ready_bond_count=0,cashflow_valid_bond_count=len(ready),
+            terminal_outcome_ready_bond_count=len(ready),terminal_outcome_ready_after_raw_recovery_count=len(recovered),coupon_baseline_observable_bond_count=0,
+            decision_ready_bond_ids=ready,decision_ready_after_raw_recovery_bond_ids=recovered,canonical_funnel=(),recoverable_funnel=(),bonds=(),blockers=())
+    monkeypatch.setattr(audit,"make_horizon",horizon)
+    curves=SimpleNamespace(build_curve=lambda *a,**kw:SimpleNamespace(status="NO_ELIGIBLE_OFZ",nodes=(),node_count=0,curve_trade_date=None))
+    source=SimpleNamespace(audit_sha256="a"*64,per_date=tuple(SimpleNamespace(as_of_date=d,decision_only_intersection_count=decision_counts[d],task268_status="NO_ELIGIBLE_OFZ") for d in dates))
+    data=SimpleNamespace(tables={"bond_market_snapshots":(),"bond_security_master_evidence":()},market_date_counts=tuple({"trade_date":d} for d in dates))
+    return audit.assemble(source,data,curves)
+
+
+@pytest.mark.parametrize("first_count,classification",[(0,"NO_365D_WINDOWS"),(1,"PARTIAL_365D_WINDOWS"),(2,"PARTIAL_365D_WINDOWS")])
+def test_monthly_first_trade_date_low_candidates_retained(monkeypatch,first_count,classification):
+    dates=(date(2024,3,1),date(2024,3,10),date(2024,3,20))
+    result=synthetic_monthly_audit(monkeypatch,dates,dict(zip(dates,(first_count,2,10))))
+    assert result.monthly_entry_dates==(dates[0],)
+    assert [r.monthly_research_entry_date for r in result.per_date]==[True,False,False]
+    for coverage in result.readiness_by_horizon:
+        assert coverage.monthly_entry_date_count==1
+        assert (coverage.dates_with_3_ready,coverage.dates_with_5_ready,coverage.dates_with_10_ready)==(0,0,0)
+    assert result.primary_365d_readiness.monthly_entry_date_count==1
+    assert result.primary_365d_readiness.classification==classification
+    assert result.primary_365d_readiness.after_raw_recovery_classification==classification
+
+
+def test_two_months_fixed_schedule_not_shifted_by_late_decisions_or_recovery(monkeypatch):
+    dates=(date(2024,3,1),date(2024,3,10),date(2024,3,20),date(2024,4,2),date(2024,4,15))
+    counts=dict(zip(dates,(1,2,10,5,10)))
+    before=synthetic_monthly_audit(monkeypatch,dates,counts)
+    later=dict(zip(dates,(1,10,0,5,0)));recovery=dict(zip(dates,(2,10,10,10,10)))
+    after=synthetic_monthly_audit(monkeypatch,dates,later,recovery)
+    assert before.monthly_entry_dates==after.monthly_entry_dates==(dates[0],dates[3])
+    assert before.primary_365d_readiness.classification=="RESEARCH_WINDOWS_AVAILABLE"
+    assert after.primary_365d_readiness.after_raw_recovery_classification=="RESEARCH_WINDOWS_AVAILABLE"
+    assert after.primary_365d_readiness.coverage.monthly_entry_date_count==2
+    assert after.primary_365d_readiness.coverage.dates_with_10_after_raw_recovery==1
+    assert audit.frozen_monthly_dates(reversed(dates),reversed(dates))==(dates[0],dates[3])
+
+
+def test_monthly_date_missing_from_source_is_explicit_blocked(seeded,monkeypatch):
+    with readonly(seeded.engine) as db:
+        source=rca.HistoricalReplayBlockerRootCauseAuditService(db).build()
+    missing=source.per_date[0].as_of_date
+    source=rca.signed(source.model_copy(update={"per_date":source.per_date[1:]}))
+    assert missing not in {r.as_of_date for r in source.per_date}
+    monkeypatch.setattr(rca.HistoricalReplayBlockerRootCauseAuditService,"build",lambda self:source)
+    monkeypatch.setattr(audit.OfzReferenceCurveService,"build_curve",lambda *a,**kw:pytest.fail("A2 curve call after invalid source grid"))
+    with readonly(seeded.engine) as db:result=audit.MultiHorizonHistoricalBacktestabilityAuditService(db).build()
+    assert result.blockers==("MONTHLY_ENTRY_DATE_NOT_IN_SOURCE_RCA_GRID",)
+    assert result.status=="BLOCKED" and result.source_task306a1_sha256==source.audit_sha256
+    assert result.per_date==() and result.monthly_entry_dates==()
     assert Audit.model_validate_json(result.model_dump_json())==result

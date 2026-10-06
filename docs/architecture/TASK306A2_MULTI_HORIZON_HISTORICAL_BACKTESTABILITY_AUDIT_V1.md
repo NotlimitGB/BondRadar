@@ -34,7 +34,8 @@ Connection with rollback_only; pending caller values cannot alter curves.
 
 ## 5. Frozen policy and monthly selection
 Horizons ordered (90,180,365), max quote age seven. Monthly research entry is the
-first observed trade date with at least three C1 decision-only Bonds. All raw
+first persisted MOEX trade date of each calendar month, independent of C1
+decision counts and all readiness gates. All raw
 trade dates are retained. Raw recovery/outcomes never alter the entry grid.
 This is a lower-frequency diagnostic grid, not statistically independent samples.
 Actual Task277 readiness remains NOT_EVALUATED.
@@ -145,3 +146,20 @@ unique scenarios; 552 passed in the backend cwd, and a cwd-sensitive existing
 MOEX test failed to locate backend/requirements.txt. The unchanged MOEX module
 was rerun from repository root: all 61 tests passed. No test was skipped or
 modified to handle this. Compile and Alembic head checks passed.
+
+
+## 17. Task306A2F — Model-independent monthly schedule
+Task306A2F supersedes only the original model-dependent monthly selection.
+Frozen literal is FIRST_MOEX_TRADE_DATE_PER_CALENDAR_MONTH with no old alias.
+Select min raw_market_dates per year/month before per-date calculations. Months
+with 0/1/2 decision candidates remain scheduled and remain in monthly denominators;
+later readiness cannot shift their entry date. Such months are research findings,
+not omitted observations. Portfolio 3/5/10 and primary >=3 thresholds are unchanged,
+but operate on this fixed schedule. Missing scheduled source RCA date returns
+BLOCKED / MONTHLY_ENTRY_DATE_NOT_IN_SOURCE_RCA_GRID with source SHA, without
+substitution or partial results. Endpoint/cashflow/raw/OFZ/credit/range logic is
+unchanged. No source mutation, profitability, production or deployment.
+
+Task306A2F local acceptance: 64 Task306A2 audit/runner focused tests and 95
+unchanged Task306A/A1 regressions passed. Compile and Alembic head checks passed;
+exact scope is four existing schema/service/audit-test/document files.
