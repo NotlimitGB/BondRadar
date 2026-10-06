@@ -1,5 +1,4 @@
 """Read-only multi-horizon audit; upstream decision semantics remain frozen."""
-from bisect import bisect_left
 from collections import Counter,defaultdict
 from datetime import datetime,time,timedelta,timezone
 from decimal import Context,DecimalException,ROUND_HALF_EVEN,localcontext
@@ -12,11 +11,13 @@ from app.schemas.multi_horizon_historical_backtestability import (
     HistoricalMultiHorizonDateReadinessV1 as DateReadiness, HorizonPortfolioCoverageV1 as Portfolio,
     Historical365DayQualificationReadinessV1 as Primary, HistoricalResearchRangeScenarioV1 as Scenario,
     OfzHistoricalHorizonReadinessV1 as Ofz, EndpointCoverageV1 as Coverage, BackfillRequirementV1 as Requirement,
+    OfzHistoricalRepresentativeV1 as Representative,
 )
 from app.services import historical_replay_blocker_root_cause_audit_service as rca
 from app.services.modern_historical_replay_evidence_reader import read_evidence
 from app.services.ofz_reference_curve_service import OfzReferenceCurveService
-from app.services.historical_endpoint_evidence import EndpointIndex,CashflowIndex,bond_horizon,HORIZONS,finite,terms_ready
+from app.services.ofz_total_return_benchmark_service import curve_representatives
+from app.services.historical_endpoint_evidence import EndpointIndex,CashflowIndex,bond_horizon,HORIZONS,terms_ready
 
 ORDER=("OBSERVED_BEFORE_ENTRY","CURRENT_DIAGNOSTIC_TERMS_READY","ENTRY_SNAPSHOT_FRESH","ENTRY_PRICE_READY","ENTRY_NKD_READY",
     "ENTRY_VALUATION_EVIDENCE_READY","TERMINAL_TARGET_INSIDE_PERSISTED_GLOBAL_RANGE","TERMINAL_OR_REDEMPTION_PATH_EXISTS",
@@ -118,6 +119,60 @@ def frozen_monthly_dates(raw_market_dates,source_dates):
     return selected
 
 
+def ofz_readiness(day,base,curve,index,data,endpoints,flows,first,last):
+    """Task304 selects identities; this audit checks only diagnostic prerequisites."""
+    ids=tuple(sorted(bid for node in curve.nodes for bid in node.component_bond_ids))
+    frequency=tuple((bid,frequency_status(bid,index.profiles.get(bid),data.tables["bond_security_master_evidence"],day)) for bid in sorted(index.ofz))
+    statuses=dict(frequency);representatives=[]
+    for node,component in curve_representatives(curve,day-timedelta(days=1)) if curve.status=="READY" else ():
+        bid,snapshot,secid,isin,ytm=component;profile=index.profiles.get(bid);errors=set()
+        if not terms_ready(profile) or profile.get("coupon_structure")!="fixed" or profile.get("perpetual_structure")!="dated":
+            errors.add("OFZ_CURRENT_STRUCTURAL_PREREQUISITES_UNAVAILABLE")
+        status=statuses[bid]
+        if status!="ALREADY_VERIFIED":errors.add("OFZ_FREQUENCY_"+status)
+        if not 1<=(day-curve.curve_trade_date).days<=7:errors.add("OFZ_REPRESENTATIVE_ENTRY_STALE")
+        representatives.append(Representative(bond_id=bid,snapshot_id=snapshot,secid=secid,isin=isin,trade_date=curve.curve_trade_date,
+            source_node_macaulay_duration_years=node.duration_years,source_node_yield_pct=node.yield_to_maturity_pct,component_yield_pct=ytm,
+            frequency_recoverability=status,modified_duration_prerequisites_ready=not errors,blockers=tuple(sorted(errors))))
+    selected=tuple(r.bond_id for r in representatives)
+    prerequisites=bool(representatives) and all(r.modified_duration_prerequisites_ready for r in representatives)
+    blockers={code for r in representatives for code in r.blockers}
+    if curve.status!="READY":blockers.add("OFZ_CURVE_NOT_READY")
+    elif not prerequisites:blockers.add("OFZ_MODIFIED_DURATION_PREREQUISITES_UNAVAILABLE")
+    return Ofz(as_of_date=day,selection_as_of_date=day-timedelta(days=1),task306a1_curve_status_at_t=base.task268_status,
+        curve_status=curve.status,curve_trade_date=curve.curve_trade_date,node_count=curve.node_count,component_bond_ids=ids,
+        curve_ready=curve.status=="READY",representatives=tuple(representatives),representative_bond_ids=selected,
+        modified_duration_prerequisites_ready=prerequisites,frequency_recoverability=frequency,
+        horizons=tuple(make_horizon(day,h,set(selected),set(selected),endpoints,flows,first,last) for h in HORIZONS),blockers=tuple(sorted(blockers)))
+
+
+def ofz_remediation(rows,requirements):
+    """Non-selected members never generate repair requirements."""
+    for row in rows:
+        if row.curve_status=="NO_FRESH_MARKET_DATA":
+            requirements["TARGETED_ENDPOINT_MOEX_BACKFILL_REQUIRED"].add("OFZ_CURVE_EVIDENCE_UNAVAILABLE:DATE="+row.selection_as_of_date.isoformat())
+        for rep in row.representatives:
+            binding=":BOND_ID="+str(rep.bond_id)+":DATE="+row.as_of_date.isoformat()
+            if rep.frequency_recoverability!="ALREADY_VERIFIED":
+                requirements["OFZ_SECURITY_MASTER_REPAIR_REQUIRED"].add(rep.frequency_recoverability+binding)
+            if "OFZ_CURRENT_STRUCTURAL_PREREQUISITES_UNAVAILABLE" in rep.blockers:
+                requirements["OFZ_SECURITY_MASTER_REPAIR_REQUIRED"].add("CURRENT_STRUCTURAL_PREREQUISITES_UNAVAILABLE"+binding)
+        for horizon in row.horizons:
+            for bond in horizon.bonds:
+                binding=":BOND_ID="+str(bond.bond_id)+":DATE="+row.as_of_date.isoformat()+":HORIZON="+str(horizon.horizon_days)
+                if not bond.cashflow_events_valid:
+                    requirements["CASHFLOW_HISTORY_REPAIR_REQUIRED"].add("OFZ_REPRESENTATIVE_CASHFLOW_INVALID"+binding)
+                for endpoint in (bond.entry,bond.terminal):
+                    if endpoint is None:continue
+                    if not endpoint.fresh or not endpoint.recoverable_price_ready or not endpoint.recoverable_nkd_ready:
+                        requirements["TARGETED_ENDPOINT_MOEX_BACKFILL_REQUIRED"].add("OFZ_REPRESENTATIVE_"+endpoint.kind+"_EVIDENCE_UNAVAILABLE"+binding)
+                    fields={f.field for f in endpoint.fields if f.status=="RAW_RECOVERABLE"}
+                    if fields:
+                        price=bool(fields&{"price","clean_price"});nkd="nkd" in fields
+                        category="OFFLINE_RAW_PRICE_AND_NKD_REPAIR_REQUIRED" if price and nkd else "OFFLINE_RAW_PRICE_REPAIR_REQUIRED" if price else "OFFLINE_RAW_NKD_REPAIR_SUFFICIENT"
+                        requirements[category].add("OFZ_REPRESENTATIVE_SAFE_RAW_"+endpoint.kind+binding)
+
+
 def assemble(source,data,curve_service):
     rca.require(rca.signed(source).audit_sha256==source.audit_sha256)
     index=rca.EvidenceIndex(data);endpoints=EndpointIndex(data.tables["bond_market_snapshots"],index.profiles,index.bonds)
@@ -135,16 +190,7 @@ def assemble(source,data,curve_service):
         records.append(DateReadiness(as_of_date=day,monthly_research_entry_date=monthly,decision_only_bond_ids=tuple(sorted(decision)),decision_only_intersection_count=len(decision),credit_prerequisite_count=len(rca.qualified(cohorts)),horizons=horizons))
         selection=day-timedelta(days=1);curve=curve_service.build_curve(selection,market_source="moex",max_curve_age_days=7)
         rca.curve_valid(curve,selection,index)
-        ids=tuple(sorted(bid for node in curve.nodes for bid in node.component_bond_ids))
-        frequency=tuple((bid,frequency_status(bid,index.profiles.get(bid),data.tables["bond_security_master_evidence"],day)) for bid in sorted(index.ofz))
-        prerequisites=curve.status=="READY" and all(terms_ready(index.profiles.get(bid)) and
-            index.profiles[bid]["coupon_structure"]=="fixed" and index.profiles[bid]["perpetual_structure"]=="dated" and status=="ALREADY_VERIFIED"
-            and endpoints.endpoint(bid,day,"ENTRY").fresh and finite(endpoints.rows[bid][bisect_left(endpoints.days[bid],day)-1]["yield_to_maturity"])
-            for bid,status in frequency if bid in ids)
-        ofz_rows.append(Ofz(as_of_date=day,selection_as_of_date=selection,task306a1_curve_status_at_t=base.task268_status,curve_status=curve.status,curve_trade_date=curve.curve_trade_date,
-            node_count=curve.node_count,component_bond_ids=ids,curve_ready=curve.status=="READY",modified_duration_prerequisites_ready=prerequisites,frequency_recoverability=frequency,
-            horizons=tuple(make_horizon(day,h,set(ids),set(ids),endpoints,flows,first,last) for h in HORIZONS),
-            blockers=tuple(sorted({"OFZ_MODIFIED_DURATION_PREREQUISITES_UNAVAILABLE"} if not prerequisites else set()))))
+        ofz_rows.append(ofz_readiness(day,base,curve,index,data,endpoints,flows,first,last))
     coverage=tuple(portfolio(records,h) for h in HORIZONS);primary=coverage[-1]
     annual=[r.horizons[-1] for r in records if r.monthly_research_entry_date]
     def classification(field):
@@ -168,11 +214,7 @@ def assemble(source,data,curve_service):
         requirements[category].add("SAFE_SAME_SNAPSHOT_RAW_EVIDENCE_AVAILABLE")
     if selected and all(r.canonical_ready for r in selected):requirements["NO_MARKET_REPAIR_REQUIRED"].add("PRIMARY_CANONICAL_ENDPOINTS_READY")
     if any(not r.cashflow_events_valid for r in selected):requirements["CASHFLOW_HISTORY_REPAIR_REQUIRED"].update(errors&{"CASHFLOW_AMOUNT_OR_CURRENCY_INVALID","DUPLICATE_AUTOMATIC_EVENT","AUTOMATIC_EVENT_AFTER_REDEMPTION","UNSUPPORTED_AUTOMATIC_EVENT","MATURITY_REDEMPTION_EVIDENCE_MISSING"})
-    for row in ofz_rows:
-        for bid,status in row.frequency_recoverability:
-            if status!="ALREADY_VERIFIED":
-                reason=("TARGETED_OFZ_SECURITY_MASTER_REFRESH" if status=="EVIDENCE_MISSING" else status)+":BOND_ID="+str(bid)
-                requirements["OFZ_SECURITY_MASTER_REPAIR_REQUIRED"].add(reason)
+    ofz_remediation(ofz_rows,requirements)
     groups={"ENTRY":[r.entry for d in records for r in d.horizons[0].bonds]}
     for h in HORIZONS:groups["TERMINAL_"+str(h)]=[r.terminal for d in records for x in d.horizons if x.horizon_days==h for r in x.bonds if r.terminal]
     market_coverage=tuple(endpoint_coverage(k,v) for k,v in groups.items())

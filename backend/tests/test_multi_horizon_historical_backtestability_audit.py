@@ -227,6 +227,120 @@ def test_ofz_curve_ready_does_not_require_frequency(seeded):
     assert any(status=="EVIDENCE_MISSING" for r in ready for _,status in r.frequency_recoverability)
 
 
+def representative_fixture():
+    from app.schemas.ofz_reference_curve import OfzReferenceCurveView,OfzCurveNode,OfzCurveDiagnostics
+    nodes=[]
+    for duration,bids,yields in ((1,(1,2),("10","12")),(3,(3,4),("13","15"))):
+        nodes.append(OfzCurveNode(duration_years=D(duration),yield_to_maturity_pct=sum(map(D,yields))/2,
+            aggregation_method="MEDIAN",component_bond_ids=list(bids),component_snapshot_ids=[100+b for b in bids],
+            component_secids=[f"SU{b}" for b in bids],component_isins=[f"RU{b}" for b in bids],component_yields_pct=list(map(D,yields))))
+    curve=OfzReferenceCurveView(as_of_date=T-timedelta(days=1),market_source="moex",status="READY",curve_trade_date=T-timedelta(days=1),
+        node_count=2,min_duration_years=D(1),max_duration_years=D(3),nodes=nodes,diagnostics=OfzCurveDiagnostics())
+    bonds={b:{"secid":f"SU{b}","maturity_date":None} for b in range(1,6)}
+    profiles={b:{**profile(),"coupon_structure":"fixed","perpetual_structure":"dated"} for b in bonds}
+    rows=[]
+    for b in bonds:
+        for offset,identity in ((-1,100+b),(90,200+b),(180,300+b),(365,400+b)):
+            rows.append(snapshot(T+timedelta(days=offset),identity,bond_id=b,
+                raw_payload={"moex":{"SECID":f"SU{b}","TRADEDATE":(T+timedelta(days=offset)).isoformat(),"CLOSE":"100","ACCINT":"0"}}))
+    return curve,SimpleNamespace(bonds=bonds,profiles=profiles,ofz=set(bonds)),rows
+
+
+def representative_result(curve,idx,rows,events=None):
+    endpoints=ep.EndpointIndex(rows,idx.profiles,idx.bonds)
+    flows={b:ep.CashflowIndex((events or {}).get(b,[])) for b in idx.bonds}
+    result=audit.ofz_readiness(T,SimpleNamespace(task268_status="READY"),curve,idx,
+        SimpleNamespace(tables={"bond_security_master_evidence":[]}),endpoints,flows,T-timedelta(days=1),T+timedelta(days=365))
+    from collections import defaultdict
+    requirements=defaultdict(set);audit.ofz_remediation((result,),requirements)
+    return result,dict(requirements)
+
+
+def test_task304_representative_parity_ties_order_and_immutable_inputs():
+    from app.services.ofz_total_return_benchmark_service import curve_representatives
+    curve,idx,rows=representative_fixture();before=deepcopy((curve,idx,rows))
+    with localcontext() as ctx:
+        ctx.prec=5;ctx.rounding=ROUND_DOWN
+        result,requirements=representative_result(curve,idx,rows)
+        assert ctx.prec==5 and ctx.rounding==ROUND_DOWN
+    expected=curve_representatives(curve,T-timedelta(days=1))
+    assert result.representative_bond_ids==tuple(component[0] for _,component in expected)==(1,3)
+    assert result.component_bond_ids==(1,2,3,4)
+    assert result.modified_duration_prerequisites_ready and not result.blockers and not requirements
+    assert result.actual_task272_readiness==result.final_duration_match_readiness=="NOT_EVALUATED"
+    assert all(h.decision_ready_bond_ids==(1,3) and len(h.bonds)==2 for h in result.horizons)
+    assert [h.horizon_days for h in result.horizons]==[90,180,365]
+    for representative,(node,component) in zip(result.representatives,expected):
+        assert (representative.bond_id,representative.snapshot_id,representative.secid,representative.isin,representative.component_yield_pct)==component
+        assert representative.source_node_macaulay_duration_years==node.duration_years
+        assert representative.source_node_yield_pct==node.yield_to_maturity_pct
+        assert representative.trade_date==curve.curve_trade_date
+    reversed_nodes=[]
+    fields=("component_bond_ids","component_snapshot_ids","component_secids","component_isins","component_yields_pct")
+    for node in curve.nodes:reversed_nodes.append(node.model_copy(update={name:list(reversed(getattr(node,name))) for name in fields}))
+    shuffled=curve.model_copy(update={"nodes":reversed_nodes})
+    again,_=representative_result(shuffled,idx,list(reversed(rows)))
+    assert again==result and again.model_dump_json()==result.model_dump_json()
+    assert audit.signed(Audit(status="COMPLETE",ofz_readiness=(again,))).audit_sha256==audit.signed(Audit(status="COMPLETE",ofz_readiness=(result,))).audit_sha256
+    assert curve==before[0] and idx.__dict__==before[1].__dict__ and rows==before[2]
+    assert type(result).model_validate_json(result.model_dump_json())==result
+    with pytest.raises(Exception):result.representatives[0].bond_id=99
+
+
+@pytest.mark.parametrize("bid",[1,2,5])
+@pytest.mark.parametrize("missing",["frequency","terminal","entry","structure","raw","cashflow"])
+def test_only_selected_representative_failures_create_ofz_requirements(bid,missing):
+    curve,idx,rows=representative_fixture();events={}
+    if missing=="frequency":idx.profiles[bid].update(coupon_frequency_state="unknown",coupon_frequency_per_year=None)
+    elif missing=="structure":idx.profiles[bid]["coupon_structure"]="unknown"
+    elif missing in ("entry","terminal"):
+        rows=[r for r in rows if r["bond_id"]!=bid or (r["trade_date"]>=T if missing=="entry" else r["trade_date"]<T)]
+    elif missing=="raw":
+        for r in rows:
+            if r["bond_id"]==bid:r["nkd"]=None
+    else:events[bid]=[cash("coupon",amount=None)]
+    result,requirements=representative_result(curve,idx,rows,events)
+    assert result.curve_ready and result.representative_bond_ids==(1,3)
+    assert result.actual_task272_readiness==result.final_duration_match_readiness=="NOT_EVALUATED"
+    if bid!=1:
+        assert result.modified_duration_prerequisites_ready and not result.blockers and not requirements
+        assert all(h.decision_ready_bond_ids==(1,3) for h in result.horizons)
+    else:
+        assert requirements and all(":BOND_ID=1:" in reason for reasons in requirements.values() for reason in reasons)
+        if missing in ("frequency","structure"):
+            assert not result.modified_duration_prerequisites_ready
+            assert set(requirements)=={"OFZ_SECURITY_MASTER_REPAIR_REQUIRED"}
+            assert all(h.decision_ready_bond_ids==(1,3) for h in result.horizons)
+        elif missing=="raw":
+            assert set(requirements)=={"OFFLINE_RAW_NKD_REPAIR_SUFFICIENT"}
+            assert all(h.decision_ready_bond_ids==(3,) and h.decision_ready_after_raw_recovery_bond_ids==(1,3) for h in result.horizons)
+        else:
+            category="CASHFLOW_HISTORY_REPAIR_REQUIRED" if missing=="cashflow" else "TARGETED_ENDPOINT_MOEX_BACKFILL_REQUIRED"
+            assert set(requirements)=={category}
+            assert all(h.decision_ready_after_raw_recovery_bond_ids==(3,) for h in result.horizons)
+
+
+@pytest.mark.parametrize("status",["NO_ELIGIBLE_OFZ","NO_FRESH_MARKET_DATA","INSUFFICIENT_DISTINCT_DURATIONS"])
+def test_unavailable_curve_separate_from_representatives_and_no_false_readiness(status):
+    curve,idx,rows=representative_fixture()
+    curve=curve.model_copy(update={"status":status,"nodes":[],"node_count":0,"curve_trade_date":None,
+        "min_duration_years":None,"max_duration_years":None})
+    result,requirements=representative_result(curve,idx,rows)
+    assert not result.curve_ready and not result.modified_duration_prerequisites_ready
+    assert result.representatives==result.representative_bond_ids==()
+    assert result.blockers==("OFZ_CURVE_NOT_READY",)
+    assert all(h.bonds==() for h in result.horizons)
+    assert set(requirements)==({"TARGETED_ENDPOINT_MOEX_BACKFILL_REQUIRED"} if status=="NO_FRESH_MARKET_DATA" else set())
+
+
+def test_audit_uses_only_task304_selection_helper_no_duration_or_return_calls():
+    tree=ast.parse(Path(audit.__file__).read_text(encoding="utf-8"))
+    imports=[n for n in ast.walk(tree) if isinstance(n,ast.ImportFrom) and n.module=="app.services.ofz_total_return_benchmark_service"]
+    assert len(imports)==1 and [a.name for a in imports[0].names]==["curve_representatives"]
+    names={n.func.id for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name)}
+    assert not names&{"modified_representative","duration_weights","build_genesis","build_daily"}
+
+
 
 def test_history_identity_conflict_and_portfolio_thresholds():
     row=snapshot(T,price=None)

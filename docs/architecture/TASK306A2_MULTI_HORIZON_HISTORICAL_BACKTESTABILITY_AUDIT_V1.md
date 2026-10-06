@@ -96,14 +96,17 @@ windows are planning scenarios, never profitability acceptance thresholds.
 
 ## 12. OFZ selection and modified-duration gap
 C1's Task268-at-T status is preserved. Separate Task268(T-1, moex, age=7) defines
-pre-decision components once per date. Component endpoints use the same horizon
-rules. Frequency is not a Task268 curve gate. Current-term/frequency/yield
+pre-decision curve once per date. Task304's pure curve_representatives selects
+one component per node: minimum absolute yield distance, then Bond ID and snapshot
+ID. Only selected representatives enter endpoint and prerequisite checks.
+Frequency is not a Task268 curve gate. Current-term/frequency/yield
 prerequisites are reported separately from curve readiness; actual Task272
 READY and modified-duration matching are NOT_EVALUATED. No duration formula.
 All canonical OFZ have frequency diagnostics: already verified, evidence
 recoverable, evidence conflict, missing. Source-backed MOEX frequency evidence
 observed by cutoff can support recoverability; spacing cannot. Missing evidence
-has exact Bond IDs and TARGETED_OFZ_SECURITY_MASTER_REFRESH reason; no refresh runs.
+for selected representatives has exact Bond IDs/date attribution in remediation;
+non-selected components and non-member OFZ remain diagnostics only. No refresh runs.
 
 ## 13. Historical range scenarios
 Anchor only on persisted max date D, no clock. Latest planning monthly slot is
@@ -163,3 +166,45 @@ unchanged. No source mutation, profitability, production or deployment.
 Task306A2F local acceptance: 64 Task306A2 audit/runner focused tests and 95
 unchanged Task306A/A1 regressions passed. Compile and Alembic head checks passed;
 exact scope is four existing schema/service/audit-test/document files.
+
+## 18. Task306A2G — Task304 representative readiness
+The earlier audit required all Task268 components and generated frequency repair
+requirements for all canonical OFZ. That overstated evidence required by Task304,
+which first selects one representative per node. The existing Task304 selection
+helper is reused unchanged; no parallel selection algorithm or duration formula
+is introduced. Component IDs and full-universe frequency diagnostics are retained.
+Representatives follow curve-node order and preserve exact Bond/snapshot IDs,
+SECID/ISIN, curve trade date, node Macaulay duration/yield and component yield.
+
+Curve readiness, selected current structural/frequency prerequisites, and selected
+endpoint coverage are separate. Each selected representative uses existing entry,
+90/180/365 endpoint, raw-recovery, redemption and cashflow semantics. The curve
+snapshot itself must be 1–7 days old at T for prerequisites; endpoint selection
+continues using the existing latest-before-T rule. Current prerequisites are only
+diagnostic, never historical resolved-state or PIT proof. Actual Task272 readiness
+and final duration match explicitly remain NOT_EVALUATED: no historical strategy
+target is supplied and no Task272/Task273 or return computation is performed.
+
+Only selected failures generate OFZ requirements: frequency/structural gaps,
+unrecoverable entry/terminal market evidence, safe raw fields, or invalid cashflows.
+Unavailable curve evidence is a separate diagnostic blocker. Only Task268's
+NO_FRESH_MARKET_DATA supports a curve market-evidence requirement; no-eligible
+or insufficient-node statuses do not invent a repair cause. Market acquisition
+alone is never claimed sufficient to make the curve ready. Non-selected
+failures never generate OFZ blockers or repair requirements. Safe raw sufficiency
+refers only to the identified field, not benchmark readiness; other blockers remain.
+
+The fixed monthly schedule, corporate decision universe, primary 365-day horizon,
+90/180/365 horizons, quote-age, cashflow/recovery, credit and research-range rules
+are unchanged. No migration, runner change, source request or persistence. Focused
+tests cover Task304 parity/ties, aligned-array permutations, source immutability,
+selected versus non-selected failures, hashes and the NOT_EVALUATED boundaries.
+Independent review and green exact-commit CI precede any separately authorized
+production read-only audit. No production audit, backfill, repair or deploy here.
+
+Task306A2G local acceptance: 87 Task306A2 audit/runner scenarios and 135 unchanged
+Task304 benchmark / Task306A/A1 audit/runner regressions passed. The first focused
+attempt had 82 passes and three setup errors caused by an inaccessible system
+pytest temporary directory; a dedicated new temporary directory resolved the
+environment issue, without changing tests or existing temporary directories.
+Full local suite is deferred to exact-commit CI.

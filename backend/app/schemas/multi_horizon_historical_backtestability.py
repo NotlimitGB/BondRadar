@@ -83,6 +83,19 @@ class HistoricalHorizonReadinessV1(Contract):
     bonds: tuple[HistoricalBondHorizonReadinessV1,...]
     blockers: tuple[str,...]
 
+class OfzHistoricalRepresentativeV1(Contract):
+    bond_id: int
+    snapshot_id: int
+    secid: str | None
+    isin: str | None
+    trade_date: date
+    source_node_macaulay_duration_years: Decimal
+    source_node_yield_pct: Decimal
+    component_yield_pct: Decimal
+    frequency_recoverability: str
+    modified_duration_prerequisites_ready: bool
+    blockers: tuple[str,...]
+
 class OfzHistoricalHorizonReadinessV1(Contract):
     as_of_date: date
     selection_as_of_date: date
@@ -92,8 +105,11 @@ class OfzHistoricalHorizonReadinessV1(Contract):
     node_count: int
     component_bond_ids: tuple[int,...]
     curve_ready: bool
+    representatives: tuple[OfzHistoricalRepresentativeV1,...] = ()
+    representative_bond_ids: tuple[int,...] = ()
     modified_duration_prerequisites_ready: bool
     actual_task272_readiness: Literal["NOT_EVALUATED"] = "NOT_EVALUATED"
+    final_duration_match_readiness: Literal["NOT_EVALUATED"] = "NOT_EVALUATED"
     frequency_recoverability: tuple[tuple[int,str],...]
     horizons: tuple[HistoricalHorizonReadinessV1,...]
     blockers: tuple[str,...]
