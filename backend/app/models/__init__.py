@@ -1,3 +1,7 @@
+from app.models.historical_evidence_foundation import (
+    HistoricalEvidenceRun, HistoricalEvidenceWorkItem, HistoricalEvidenceSourcePage,
+    HistoricalEvidenceSecurity, HistoricalEvidenceObservation, HistoricalEvidenceApplicationReceipt,
+)
 from app.models.shadow_experiment_group import ShadowExperimentGroup
 from app.models.shadow_experiment_case import ShadowExperimentCase
 from app.models.shadow_experiment_benchmark import ShadowExperimentBenchmark

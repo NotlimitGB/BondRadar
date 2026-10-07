@@ -17,6 +17,21 @@ from tests.helpers.assertions import assert_no_forbidden_investment_vocabulary
 BACKFILL_URL = "/api/market-data/moex/bonds/history/backfill"
 
 
+def test_task306a3_pure_history_mapper_keeps_legacy_values_and_diagnostics():
+    from types import SimpleNamespace
+    from app.services.moex_market_data_service import MoexMarketDataService, map_moex_history_row
+    raw={"SECID":"RU_TEST","TRADEDATE":"2020-09-01","CLOSE":"99.125",
+         "LEGALCLOSEPRICE":"98.5","ACCINT":"0","ACCRUEDINT":"0.00","YIELD":"-1","DURATION":"365"}
+    row=MoexIssClient._normalize_bond_market_history_row(raw)
+    bond=SimpleNamespace(id=17)
+    service=MoexMarketDataService.__new__(MoexMarketDataService)
+    legacy=service._map_history_row(bond,secid="RU_TEST",row=row,board="TQCB",source="moex")
+    pure=map_moex_history_row(bond,secid="RU_TEST",row=row,board="TQCB")
+    assert legacy==pure
+    assert pure[0].price==Decimal("99.125") and pure[0].nkd==0
+    assert pure[0].duration_years==1 and pure[0].raw_payload["moex"]==raw
+
+
 class FakeResponse:
     def __init__(self, payload: dict[str, Any]) -> None:
         self.payload = payload

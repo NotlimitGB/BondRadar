@@ -633,159 +633,8 @@ class MoexMarketDataService:
             None,
         )
 
-    def _map_history_row(
-        self,
-        bond: Bond,
-        *,
-        secid: str,
-        row: dict[str, Any],
-        board: str,
-        source: str,
-    ) -> tuple[
-        BondMarketSnapshotCreate | None,
-        list[MoexBondMarketHistoryBackfillWarning],
-        MoexBondMarketHistoryBackfillError | None,
-    ]:
-        warnings: list[MoexBondMarketHistoryBackfillWarning] = []
-        mapping_notes: list[str] = []
-        row_secid = self._text(row.get("secid"), upper=True)
-        effective_secid = row_secid or secid
-        trade_date = self._parse_date(row.get("trade_date"))
-
-        if not effective_secid:
-            return None, warnings, MoexBondMarketHistoryBackfillError(
-                bond_id=bond.id,
-                secid=None,
-                trade_date=trade_date,
-                message="MOEX history row secid is missing or invalid",
-            )
-        if row_secid is not None and row_secid != secid:
-            return None, warnings, MoexBondMarketHistoryBackfillError(
-                bond_id=bond.id,
-                secid=row_secid,
-                trade_date=trade_date,
-                message="MOEX history row secid does not match selected bond",
-                details={"expected_secid": secid},
-            )
-        if trade_date is None:
-            return None, warnings, MoexBondMarketHistoryBackfillError(
-                bond_id=bond.id,
-                secid=effective_secid,
-                message="MOEX history row trade date is missing or invalid",
-            )
-
-        price = self._first_history_decimal(
-            row,
-            (
-                "close_price",
-                "market_price",
-                "weighted_average_price",
-                "last_price",
-            ),
-            warnings=warnings,
-            bond_id=bond.id,
-            secid=effective_secid,
-            trade_date=trade_date,
-        )
-        clean_price = self._history_decimal(
-            row.get("legal_close_price"),
-            "legal_close_price",
-            warnings=warnings,
-            bond_id=bond.id,
-            secid=effective_secid,
-            trade_date=trade_date,
-        )
-        raw_moex = row.get("raw")
-        nkd_source = raw_moex if isinstance(raw_moex, dict) else row
-        nkd, nkd_warning, nkd_fields = self._resolve_nkd_aliases(
-            nkd_source, secid=effective_secid
-        )
-        if nkd_warning is None and not nkd_fields and "accrued_interest" in row:
-            nkd, nkd_warning, nkd_fields = self._resolve_nkd_aliases(
-                {"ACCRUEDINT": row.get("accrued_interest")},
-                secid=effective_secid,
-            )
-        if nkd_warning is not None:
-            warnings.append(
-                MoexBondMarketHistoryBackfillWarning(
-                    bond_id=bond.id,
-                    secid=effective_secid,
-                    trade_date=trade_date,
-                    message=nkd_warning,
-                    details={"source_fields": list(nkd_fields)},
-                )
-            )
-        yield_to_maturity = self._history_decimal(
-            row.get("yield_to_maturity"),
-            "yield_to_maturity",
-            warnings=warnings,
-            bond_id=bond.id,
-            secid=effective_secid,
-            trade_date=trade_date,
-        )
-        normalized_duration = normalize_moex_duration({
-            "moex": row.get("raw") or dict(row),
-            "canonical": {key: value for key, value in row.items() if key != "raw"},
-        })
-        duration = normalized_duration.duration_years
-        if normalized_duration.status == "READY":
-            mapping_notes.append(MOEX_DURATION_MAPPING_NOTE)
-        elif normalized_duration.status != "RAW_DURATION_MISSING":
-            warnings.append(MoexBondMarketHistoryBackfillWarning(
-                bond_id=bond.id, secid=effective_secid, trade_date=trade_date,
-                message="Invalid numeric value for duration; field was ignored",
-            ))
-        volume = self._history_decimal(
-            row.get("volume"),
-            "volume",
-            warnings=warnings,
-            bond_id=bond.id,
-            secid=effective_secid,
-            trade_date=trade_date,
-        )
-
-        if price is None and yield_to_maturity is None:
-            warnings.append(
-                MoexBondMarketHistoryBackfillWarning(
-                    bond_id=bond.id,
-                    secid=effective_secid,
-                    trade_date=trade_date,
-                    message="MOEX history row has no price or yield values",
-                )
-            )
-
-        canonical_payload = {key: value for key, value in row.items() if key != "raw"}
-        canonical_payload["accrued_interest"] = nkd
-        raw_payload: dict[str, Any] = {
-            "moex": row.get("raw") or dict(row),
-            "canonical": canonical_payload,
-            "board": board,
-            "value": row.get("value"),
-            "num_trades": row.get("num_trades"),
-            "currency": row.get("currency"),
-        }
-        if mapping_notes:
-            raw_payload["mapping_notes"] = mapping_notes
-
-        return (
-            BondMarketSnapshotCreate(
-                bond_id=bond.id,
-                trade_date=trade_date,
-                price=price,
-                clean_price=clean_price,
-                dirty_price=None,
-                nkd=nkd,
-                yield_to_maturity=yield_to_maturity,
-                duration_years=duration,
-                volume=volume,
-                liquidity_score=None,
-                spread_to_ofz=None,
-                source=source,
-                raw_payload=raw_payload,
-            ),
-            warnings,
-            None,
-        )
+    def _map_history_row(self, bond, *, secid, row, board, source):
+        return map_moex_history_row(bond, secid=secid, row=row, board=board, source=source)
 
     @staticmethod
     def _validate_history_request(
@@ -830,8 +679,9 @@ class MoexMarketDataService:
             )
         return board, source
 
+    @classmethod
     def _first_history_decimal(
-        self,
+        cls,
         row: dict[str, Any],
         keys: tuple[str, ...],
         *,
@@ -841,8 +691,8 @@ class MoexMarketDataService:
         trade_date: date,
     ) -> Decimal | None:
         for key in keys:
-            if self._has_value(row.get(key)):
-                return self._history_decimal(
+            if cls._has_value(row.get(key)):
+                return cls._history_decimal(
                     row.get(key),
                     key,
                     warnings=warnings,
@@ -1022,3 +872,148 @@ class MoexMarketDataService:
         if isinstance(exc, MoexIssClientError):
             return str(exc)
         return str(exc)
+
+
+def map_moex_history_row(
+    bond, *, secid, row, board, source="moex",
+):
+    warnings: list[MoexBondMarketHistoryBackfillWarning] = []
+    mapping_notes: list[str] = []
+    row_secid = MoexMarketDataService._text(row.get("secid"), upper=True)
+    effective_secid = row_secid or secid
+    trade_date = MoexMarketDataService._parse_date(row.get("trade_date"))
+
+    if not effective_secid:
+        return None, warnings, MoexBondMarketHistoryBackfillError(
+            bond_id=bond.id,
+            secid=None,
+            trade_date=trade_date,
+            message="MOEX history row secid is missing or invalid",
+        )
+    if row_secid is not None and row_secid != secid:
+        return None, warnings, MoexBondMarketHistoryBackfillError(
+            bond_id=bond.id,
+            secid=row_secid,
+            trade_date=trade_date,
+            message="MOEX history row secid does not match selected bond",
+            details={"expected_secid": secid},
+        )
+    if trade_date is None:
+        return None, warnings, MoexBondMarketHistoryBackfillError(
+            bond_id=bond.id,
+            secid=effective_secid,
+            message="MOEX history row trade date is missing or invalid",
+        )
+
+    price = MoexMarketDataService._first_history_decimal(
+        row,
+        (
+            "close_price",
+            "market_price",
+            "weighted_average_price",
+            "last_price",
+        ),
+        warnings=warnings,
+        bond_id=bond.id,
+        secid=effective_secid,
+        trade_date=trade_date,
+    )
+    clean_price = MoexMarketDataService._history_decimal(
+        row.get("legal_close_price"),
+        "legal_close_price",
+        warnings=warnings,
+        bond_id=bond.id,
+        secid=effective_secid,
+        trade_date=trade_date,
+    )
+    raw_moex = row.get("raw")
+    nkd_source = raw_moex if isinstance(raw_moex, dict) else row
+    nkd, nkd_warning, nkd_fields = MoexMarketDataService._resolve_nkd_aliases(
+        nkd_source, secid=effective_secid
+    )
+    if nkd_warning is None and not nkd_fields and "accrued_interest" in row:
+        nkd, nkd_warning, nkd_fields = MoexMarketDataService._resolve_nkd_aliases(
+            {"ACCRUEDINT": row.get("accrued_interest")},
+            secid=effective_secid,
+        )
+    if nkd_warning is not None:
+        warnings.append(
+            MoexBondMarketHistoryBackfillWarning(
+                bond_id=bond.id,
+                secid=effective_secid,
+                trade_date=trade_date,
+                message=nkd_warning,
+                details={"source_fields": list(nkd_fields)},
+            )
+        )
+    yield_to_maturity = MoexMarketDataService._history_decimal(
+        row.get("yield_to_maturity"),
+        "yield_to_maturity",
+        warnings=warnings,
+        bond_id=bond.id,
+        secid=effective_secid,
+        trade_date=trade_date,
+    )
+    normalized_duration = normalize_moex_duration({
+        "moex": row.get("raw") or dict(row),
+        "canonical": {key: value for key, value in row.items() if key != "raw"},
+    })
+    duration = normalized_duration.duration_years
+    if normalized_duration.status == "READY":
+        mapping_notes.append(MOEX_DURATION_MAPPING_NOTE)
+    elif normalized_duration.status != "RAW_DURATION_MISSING":
+        warnings.append(MoexBondMarketHistoryBackfillWarning(
+            bond_id=bond.id, secid=effective_secid, trade_date=trade_date,
+            message="Invalid numeric value for duration; field was ignored",
+        ))
+    volume = MoexMarketDataService._history_decimal(
+        row.get("volume"),
+        "volume",
+        warnings=warnings,
+        bond_id=bond.id,
+        secid=effective_secid,
+        trade_date=trade_date,
+    )
+
+    if price is None and yield_to_maturity is None:
+        warnings.append(
+            MoexBondMarketHistoryBackfillWarning(
+                bond_id=bond.id,
+                secid=effective_secid,
+                trade_date=trade_date,
+                message="MOEX history row has no price or yield values",
+            )
+        )
+
+    canonical_payload = {key: value for key, value in row.items() if key != "raw"}
+    canonical_payload["accrued_interest"] = nkd
+    raw_payload: dict[str, Any] = {
+        "moex": row.get("raw") or dict(row),
+        "canonical": canonical_payload,
+        "board": board,
+        "value": row.get("value"),
+        "num_trades": row.get("num_trades"),
+        "currency": row.get("currency"),
+    }
+    if mapping_notes:
+        raw_payload["mapping_notes"] = mapping_notes
+
+    return (
+        BondMarketSnapshotCreate(
+            bond_id=bond.id,
+            trade_date=trade_date,
+            price=price,
+            clean_price=clean_price,
+            dirty_price=None,
+            nkd=nkd,
+            yield_to_maturity=yield_to_maturity,
+            duration_years=duration,
+            volume=volume,
+            liquidity_score=None,
+            spread_to_ofz=None,
+            source=source,
+            raw_payload=raw_payload,
+        ),
+        warnings,
+        None,
+    )
