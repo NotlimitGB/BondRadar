@@ -3,7 +3,6 @@ from bisect import bisect_left, bisect_right
 from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta, timezone
 from decimal import Context, Decimal, DecimalException, ROUND_HALF_EVEN, localcontext
-import hashlib
 import json
 from sqlalchemy import Connection, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,6 +22,7 @@ from app.services.modern_historical_replay_evidence_reader import read_evidence
 from app.services.moex_duration_semantics import normalize_moex_duration
 from app.services.ofz_identity import is_ofz_instrument
 from app.services.ofz_reference_curve_service import OfzReferenceCurveService
+from app.services.historical_audit_canonical_json import digest, ModelSpool, RcaLinkage, SourceDateLink
 
 
 OUTCOME_ORDER = (
@@ -58,9 +58,7 @@ finite, present, require, pct = original.finite, original.present, original.requ
 
 
 def signed(report):
-    content = json.dumps(report.model_dump(mode="json", exclude={"audit_sha256"}),sort_keys=True,
-        ensure_ascii=True,separators=(",",":"),allow_nan=False).encode("ascii")
-    return report.model_copy(update={"audit_sha256":hashlib.sha256(content).hexdigest()})
+    return report.model_copy(update={"audit_sha256":digest(report)})
 
 
 def blocked(code, source=None):
@@ -153,9 +151,29 @@ def gap_metrics(day, end, intervals):
 
 
 def gap_summary(metrics):
+    if isinstance(metrics,GapAccumulator):return metrics.result()
     return Gaps(maximum_continuous_covered_days=distribution([m[0] for m in metrics]),
         first_gap_offset_from_entry=distribution([m[1] for m in metrics if m[1] is not None]),
         largest_uncovered_interval_days=distribution([m[2] for m in metrics]),gap_count=distribution([m[3] for m in metrics]))
+
+
+class GapAccumulator:
+    def __init__(self):self.counts=[Counter() for _ in range(4)]
+    def extend(self,metrics):
+        for values in metrics:
+            for counter,value in zip(self.counts,values):
+                if value is not None:counter[value]+=1
+    def result(self):
+        def dist(counter):
+            count=sum(counter.values())
+            if not count:return Distribution()
+            ordered=sorted(counter);middle=(count-1)//2,count//2;found=[];offset=0
+            for value in ordered:
+                for index in middle:
+                    if offset<=index<offset+counter[value]:found.append(value)
+                offset+=counter[value]
+            return Distribution(count=count,minimum=ordered[0],maximum=ordered[-1],median=Decimal(sum(found))/2)
+        return Gaps(**dict(zip(("maximum_continuous_covered_days","first_gap_offset_from_entry","largest_uncovered_interval_days","gap_count"),map(dist,self.counts))))
 
 
 def outcome(day, observed, index, inside):
@@ -404,7 +422,8 @@ def joint_funnel(day,observed,index,keys,full):
     for bid,w in index.windows[day].items():
         p = index.profiles.get(bid)
         snap = index.snapshot(bid,day)
-        if snap and original._market_inputs(snap) and original._market_ready(snap,p):market.add(bid)
+        if snap and ((snap["_decision_inputs"] and snap["_decision_ready"]) if hasattr(snap,"decision_inputs") else
+            (original._market_inputs(snap) and original._market_ready(snap,p))):market.add(bid)
         if w["observation_days"] >= 5:liquid.add(bid)
         ds = index.days[bid]
         left,right = bisect_left(ds,day-timedelta(days=30)),bisect_left(ds,day)
@@ -431,26 +450,30 @@ def joint_funnel(day,observed,index,keys,full):
 def aggregate_stages(rows,field):
     results = []
     if not rows:return ()
-    for pos,base in enumerate(getattr(rows[0],field)):
-        incoming = sum(getattr(r,field)[pos].input_count for r in rows)
-        passed = sum(getattr(r,field)[pos].pass_count for r in rows)
+    bases=getattr(rows[0],field);counts=[[0,0,0] for _ in bases]
+    for row in rows:
+        for totals,stage in zip(counts,getattr(row,field)):
+            totals[0]+=stage.input_count;totals[1]+=stage.pass_count;totals[2]+=stage.independent_pass_count
+    for base,(incoming,passed,independent) in zip(bases,counts):
         results.append(base.model_copy(update={"input_count":incoming,"pass_count":passed,"fail_count":incoming-passed,
-            "pass_pct":pct(passed,incoming),"independent_pass_count":sum(getattr(r,field)[pos].independent_pass_count for r in rows),
+            "pass_pct":pct(passed,incoming),"independent_pass_count":independent,
             "unit":"COMPONENTS_TO_NODES" if base.unit=="COMPONENTS_TO_NODES" else "BOND_DATES"}))
     return tuple(results)
 
 
 def aggregate_reasons(rows,field,index):
-    grouped = defaultdict(list)
+    grouped = {};universe=0
     for row in rows:
-        for issue in getattr(row,field):grouped[issue.reason].append(issue)
+        universe+=getattr(row,field.replace("_reasons","_funnel"))[0].input_count
+        for issue in getattr(row,field):
+            totals=grouped.setdefault(issue.reason,[0,0,True])
+            totals[0]+=issue.affected_bond_date_count;totals[1]+=1;totals[2]=totals[2] and issue.blocking
     result = []
-    for code,issues in grouped.items():
+    for code,(affected,dates,blocking) in grouped.items():
         ids = index.reason_ids[code]
-        result.append(Reason(reason=code,affected_bond_date_count=sum(r.affected_bond_date_count for r in issues),
-            affected_date_count=len(issues),distinct_bond_count=len(ids),blocking=all(r.blocking for r in issues),
-            universe_count=sum(getattr(row,field.replace("_reasons","_funnel"))[0].input_count for row in rows),
-            affected_pct=pct(sum(r.affected_bond_date_count for r in issues),sum(getattr(row,field.replace("_reasons","_funnel"))[0].input_count for row in rows)),
+        result.append(Reason(reason=code,affected_bond_date_count=affected,
+            affected_date_count=dates,distinct_bond_count=len(ids),blocking=blocking,
+            universe_count=universe,affected_pct=pct(affected,universe),
             representative_bonds=tuple(Example(bond_id=bid,isin=index.bonds[bid]["isin"],secid=index.bonds[bid]["secid"])
                 for bid in sorted(ids)[:10])))
     return tuple(sorted(result,key=lambda r:(-r.affected_bond_date_count,r.reason)))
@@ -476,7 +499,7 @@ def curve_valid(curve,day,index):
     require((curve.status=="READY") == (curve.node_count>=2))
     seen = set()
     previous = None
-    snapshots = {r["id"]:r for r in index.data.tables["bond_market_snapshots"]}
+    snapshots = index.snapshot_by_id if hasattr(index,"snapshot_by_id") else {r["id"]:r for r in index.data.tables["bond_market_snapshots"]}
     for node in curve.nodes:
         require(finite(node.duration_years) and node.duration_years>0 and (previous is None or node.duration_years>previous))
         previous = node.duration_years
@@ -488,12 +511,13 @@ def curve_valid(curve,day,index):
             seen.add(bid)
 
 
-def build_rca(source,data,curves):
+def build_rca(source,data,curves,*,row_store=None):
     # Reconstruct the frozen source semantics without a second service call.
-    require(original._build(data).audit_sha256 == source.audit_sha256)
+    if row_store is None:require(original._build(data).audit_sha256 == source.audit_sha256)
     index = EvidenceIndex(data)
     latest = max((r["trade_date"] for r in data.market_date_counts),default=None)
-    rows,gaps,cohort_maxima = [],[],{}
+    rows = row_store if row_store is not None else []
+    gaps,cohort_maxima = GapAccumulator(),{}
     for base in source.per_date_readiness:
         day = base.as_of_date
         observed = {bid for bid,days in index.days.items() if days[0]<day}
@@ -603,17 +627,43 @@ def build_rca(source,data,curves):
         if item.blocking or code=="OUTCOME_HORIZON_EXTENDS_BEYOND_MARKET_HISTORY":remediation[category].add(code)
     if any("TASK306A_CREDIT_PEER_ZERO_IS_INTERSECTION_DEPENDENT" in r.diagnostics for r in rows):
         remediation["AUDIT_LOGIC_FIX"].add("TASK306A_CREDIT_PEER_ZERO_IS_INTERSECTION_DEPENDENT")
-    return signed(Audit(status="COMPLETE",source_readiness_audit_sha256=source.audit_sha256,
+    report = Audit(status="COMPLETE",source_readiness_audit_sha256=source.audit_sha256,
         source_readiness_classification=source.audit_classification,candidate_date_count=source.all_candidate_date_count,
         source_pit_safe_date_count=source.pit_safe_date_count,source_diagnostic_only_date_count=source.diagnostic_only_date_count,
         source_unusable_date_count=source.unusable_date_count,outcome_summary=outcome_summary,ofz_summary=ofz_summary,
-        credit_summary=credit_summary,joint_summary=joint_summary,per_date=tuple(rows),known_limitations=LIMITATIONS,
-        remediation_categories=tuple(Remediation(category=k,factual_reasons=tuple(sorted(v))) for k,v in sorted(remediation.items()))))
+        credit_summary=credit_summary,joint_summary=joint_summary,per_date=tuple(rows) if row_store is None else (),known_limitations=LIMITATIONS,
+        remediation_categories=tuple(Remediation(category=k,factual_reasons=tuple(sorted(v))) for k,v in sorted(remediation.items())))
+    if row_store is not None:
+        return RcaLinkage("COMPLETE",digest(report,overrides={"per_date":rows}),
+            tuple(SourceDateLink(r.as_of_date,r.decision_only_intersection_count,r.task268_status) for r in rows))
+    return signed(report)
 
 
 class HistoricalReplayBlockerRootCauseAuditService:
     def __init__(self,db):
         self.db = db
+
+    def build_linkage(self):
+        """Same RCA and semantic SHA, without retaining the per-date RCA graph."""
+        source = None
+        try:
+            with self.db.no_autoflush,localcontext(Context(prec=28,rounding=ROUND_HALF_EVEN)):
+                connection = consistent_connection(self.db)
+                if connection is None:
+                    result = blocked("CONSISTENT_READ_ONLY_TRANSACTION_REQUIRED")
+                    return RcaLinkage(result.status,result.audit_sha256)
+                source = original.ModernHistoricalReplayReadinessAuditService(self.db).build()
+                if source.status=="BLOCKED":
+                    result = blocked("SOURCE_TASK306A_BLOCKED",source)
+                    return RcaLinkage(result.status,result.audit_sha256)
+                data = read_evidence(self.db)
+                with ModelSpool(DateRca) as rows,Session(bind=connection,autoflush=False,join_transaction_mode="rollback_only") as curve_session:
+                    return build_rca(source,data,OfzReferenceCurveService(curve_session),row_store=rows)
+        except (SQLAlchemyError,OSError):
+            result = blocked("PERSISTED_RCA_EVIDENCE_UNAVAILABLE",source)
+        except (ValueError,TypeError,KeyError,OverflowError,DecimalException):
+            result = blocked("RCA_EVIDENCE_OR_SOURCE_BINDING_INVALID",source)
+        return RcaLinkage(result.status,result.audit_sha256)
 
     def build(self):
         source = None

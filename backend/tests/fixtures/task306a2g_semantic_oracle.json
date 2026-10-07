@@ -1,0 +1,14 @@
+{
+  "canonical_market_coverage": "74f66e0f6b7e78462a95f988842c9f691e177ead5a1961b7e9905d7ee16d2719",
+  "known_limitations": "25020e7c4561c0a2b5549563c07d9b118d18a344685af282262e8a273778b074",
+  "monthly_entry_dates": "ed8e45981532a2abb1bd4cbf768043146aee6ba1bca64561969868e533d8fbfe",
+  "ofz_readiness": "815194dae932a2e7dbca4688c9d424e94dc4cce1cda95f98ce2813702bdb8ea6",
+  "per_date": "56116900e9f7eb19bea6b8f461c2c500d08ed3287f2defc2996fb3f5196c8365",
+  "primary_365d_readiness": "10fc5be44a2bb0e0ae6642f25a12d07b604db18af3c2122df327f102df7d3d48",
+  "raw_market_dates": "5228bdec5115c5eb0a699b70011b779393c08692feba53f94fb4ff71500166c7",
+  "raw_recoverability": "74f66e0f6b7e78462a95f988842c9f691e177ead5a1961b7e9905d7ee16d2719",
+  "readiness_by_horizon": "9ec80340d1c2c282446bd67fc02861e7855c7212fba66e68c290dd686503f0a7",
+  "remediation_requirements": "25d2a4d2885c499a45638b58ec2ab1e0ed6582ddd2a58cc6854ec2fa4deadfee",
+  "required_backfill_ranges": "51f6eaea779fe691f9d125ba8c29d270ac0c51ea45b80af22d3e2640d7250177",
+  "research_range_scenarios": "5c47d651cd4f83312c77ecd63c8190ade70b72924d95e5ee83b21ca7021abb60"
+}

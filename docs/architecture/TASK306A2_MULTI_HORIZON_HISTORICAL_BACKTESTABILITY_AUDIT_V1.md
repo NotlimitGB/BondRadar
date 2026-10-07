@@ -1,5 +1,8 @@
 # Task306A2 — Multi-Horizon Historical Backtestability Audit v1
 
+Current wire contract: `multi-horizon-historical-backtestability-audit-v2`.
+Task306A2H below supersedes the detailed wire shape, preserving research semantics.
+
 ## 1. Objective and superseding boundary
 The v2 task request supersedes the earlier proposed 90-day-only Task306A2.
 One implementation audits 90/180/365 calendar-day endpoints; 365 is primary.
@@ -208,3 +211,76 @@ attempt had 82 passes and three setup errors caused by an inaccessible system
 pytest temporary directory; a dedicated new temporary directory resolved the
 environment issue, without changing tests or existing temporary directories.
 Full local suite is deferred to exact-commit CI.
+
+## 19. Task306A2H — bounded aggregation and streaming output
+
+Baseline: `806748091a425ce728764ff1ffac651c2519d73e`, Alembic
+`202610040001`. The supplied production memory failure is diagnostic context;
+this development package performs no production audit or measurement.
+
+The previous path retained a full RCA, another generic inventory, and nested
+Bond/date/horizon models, then copied the report into a JSON object and string.
+The replacement separates source linkage, compact evidence indexing, aggregation
+and output. Task306A1 `build_linkage()` uses the same gates and computes the exact
+full RCA semantic SHA. It invokes Task306A once in the checked read-only snapshot,
+spools one per-date RCA at a time, aggregates counters, and closes its private
+temporary spool on success or failure. The existing full `build()` output remains
+compatible. The generic source inventory still exists during this source phase;
+memory is not constant independently of input size.
+
+The A2-specific reader streams batched scalar SELECTs and parses each raw market
+payload once. It retains snapshot/date identities, canonical/recovery flags,
+exact recoverable values, credit/issuer evidence and liquidity prefixes. It does
+not reload financial, CBR or legacy inventories. All raw dates, all observed Bonds
+and all three horizons are evaluated; there is no sampling or endpoint-model
+collection. Temporary per-Bond results feed counts and repair targets immediately.
+
+The compact v2 report preserves dates, funnels, coverage, classifications, ranges,
+limitations and Task304 representatives. Exact ID sets appear once in the
+`bond_memberships` dictionary; per-date and per-horizon references resolve to
+those sorted sets. Legacy inline ID tuples and detailed horizon Bond tuples are
+empty in emitted reports. Reference decoding is exact, with no probabilistic
+encoding. Endpoint field coverage retains its distinct-snapshot denominator;
+economic readiness counts share that denominator, while blocker counts explicitly
+count endpoint observations, including absent snapshots.
+
+Offline repair targets deduplicate snapshot ID/field and retain exact value,
+source fields and Bond/SECID/ISIN/date binding. A safe field target does not imply
+the whole endpoint is ready. Missing targets group Bond, role, horizon, scope and
+reason, using inclusive index ranges into the original sorted raw-date grid.
+Expanding ranges yields only actual grid dates, never invented calendar dates.
+Cashflow targets retain event identities or missing-redemption maturity context.
+Selected OFZ representatives retain profile/frequency evidence references; their
+targets exclude non-selected components. Reasons are never truncated.
+
+A shared canonical iterator emits sorted keys, ASCII escapes and compact JSON,
+encoding finite Decimal/date values without whole-result `model_dump`, string
+serialization or a second Pydantic graph. The same chunks feed SHA and runner
+stdout/explicit output. Private spools are lifetime-scoped implementation storage,
+not artifacts. Persistent output requires `--output`. Runner remains REPORT-only,
+read-only and rollback-only, with sanitized errors.
+
+The accepted A2G small-fixture oracle compares research sections after decoding
+compact memberships. Full versus bounded A1 SHA is compared on the same database
+snapshot; separately recreated fixtures have different ingestion timestamps and
+are not a valid static source-SHA comparison. Monthly schedule, freshness,
+same-day selection, raw binding, cashflows, redemption, credit and PIT limitations
+are unchanged. Task272 and final duration matching remain `NOT_EVALUATED`.
+
+Local verification: 106 focused audit/runner/memory scenarios and 180 unchanged
+Task306A/A1, Task304 benchmark and NKD regressions passed. Scale regression covers
+600 Bonds × 360 dates × 3 horizons = 648,000 evaluations, including gaps and raw
+recovery. `tracemalloc` aggregation peak was 42,805,408 bytes; output-phase peak
+was 42,823,632 bytes (40.84 MiB), below 64 MiB. Streamed output was 6,963,167 bytes;
+the scale case took 56.58 seconds on the available Windows environment. The test
+uses synthetic precomputed outcomes to exercise the aggregation/target/output
+pipeline; it does not measure source-reader memory, production RSS or Linux
+allocator behavior. Parser and reader parity are verified separately.
+
+Retained memory scales with compact inventory, per-date counters, distinct exact
+memberships and necessary unique/compressed targets. Pathologically distinct
+remediation data may grow; exact evidence is not discarded to meet a bound.
+This package changes twelve scoped files, no models or migrations. Full local
+suite is deferred to exact-commit CI. Independent review and green CI precede
+any separately authorized production read-only retry. No production access,
+source acquisition, repair, backfill, deployment or profitability calculation.

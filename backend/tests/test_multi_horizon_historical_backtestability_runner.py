@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy import create_engine,event
 from app.db.base import Base
 import app.models
-from app.schemas.multi_horizon_historical_backtestability import MultiHorizonHistoricalBacktestabilityAuditV1 as Audit
+from app.schemas.multi_horizon_historical_backtestability import MultiHorizonHistoricalBacktestabilityAuditV2 as Audit
 from test_modern_historical_replay_readiness_audit import seeded
 
 

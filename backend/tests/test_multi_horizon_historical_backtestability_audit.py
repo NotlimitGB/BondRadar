@@ -10,7 +10,7 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session
 from app.models.company import Company
 from app.models.bond import Bond
-from app.schemas.multi_horizon_historical_backtestability import MultiHorizonHistoricalBacktestabilityAuditV1 as Audit
+from app.schemas.multi_horizon_historical_backtestability import MultiHorizonHistoricalBacktestabilityAuditV2 as Audit
 from app.services import historical_endpoint_evidence as ep
 from app.services import multi_horizon_historical_backtestability_audit_service as audit
 from app.services import historical_replay_blocker_root_cause_audit_service as rca
@@ -140,12 +140,12 @@ def test_range_planning_exact_month_slots_leap_year_no_clock():
 
 
 def test_service_binding_one_source_call_pending_readonly_and_determinism(seeded,monkeypatch):
-    calls=[];curve_calls=[];real=rca.HistoricalReplayBlockerRootCauseAuditService.build
+    calls=[];curve_calls=[];real=rca.HistoricalReplayBlockerRootCauseAuditService.build_linkage
     real_curve=audit.OfzReferenceCurveService.build_curve
     def curve(self,day,**kw):curve_calls.append((day,kw));return real_curve(self,day,**kw)
     monkeypatch.setattr(audit.OfzReferenceCurveService,"build_curve",curve)
     def wrapped(self):calls.append(1);return real(self)
-    monkeypatch.setattr(rca.HistoricalReplayBlockerRootCauseAuditService,"build",wrapped)
+    monkeypatch.setattr(rca.HistoricalReplayBlockerRootCauseAuditService,"build_linkage",wrapped)
     with readonly(seeded.engine) as db:
         pending=Company(name="Pending",ticker="A2_PENDING");db.add(pending)
         with db.no_autoflush:
@@ -205,7 +205,8 @@ def test_future_outcome_changes_do_not_change_decision_grid_or_ofz_selection(see
     assert after.status=="COMPLETE",after.blockers
     assert before.monthly_entry_dates==after.monthly_entry_dates
     a=next(r for r in before.per_date if r.as_of_date==target);b=next(r for r in after.per_date if r.as_of_date==target)
-    assert a.decision_only_bond_ids==b.decision_only_bond_ids
+    before_ids={r.membership_id:r.bond_ids for r in before.bond_memberships};after_ids={r.membership_id:r.bond_ids for r in after.bond_memberships}
+    assert before_ids[a.decision_membership_id]==after_ids[b.decision_membership_id]
     assert a.credit_prerequisite_count==b.credit_prerequisite_count
     assert a.monthly_research_entry_date==b.monthly_research_entry_date
     oa=next(r for r in before.ofz_readiness if r.as_of_date==target);ob=next(r for r in after.ofz_readiness if r.as_of_date==target)
@@ -356,7 +357,7 @@ def test_history_identity_conflict_and_portfolio_thresholds():
 
 
 def test_source_blocked_stops_supporting_reads_and_sanitizes(seeded,monkeypatch):
-    monkeypatch.setattr(rca.HistoricalReplayBlockerRootCauseAuditService,"build",lambda self:rca.blocked("SOURCE_UNAVAILABLE"))
+    monkeypatch.setattr(rca.HistoricalReplayBlockerRootCauseAuditService,"build_linkage",lambda self:rca.blocked("SOURCE_UNAVAILABLE"))
     monkeypatch.setattr(audit,"read_evidence",lambda db:pytest.fail("supporting read after blocked source"))
     with readonly(seeded.engine) as db:result=audit.MultiHorizonHistoricalBacktestabilityAuditService(db).build()
     assert result.blockers==("SOURCE_TASK306A1_BLOCKED",)
@@ -379,7 +380,7 @@ def synthetic_monthly_audit(monkeypatch,dates,decision_counts,recovered_counts=N
         return None,None,decision,None,None,None,None,None
     monkeypatch.setattr(rca,"joint_funnel",joint)
     monkeypatch.setattr(rca,"curve_valid",lambda *a:None)
-    def horizon(day,h,ids,decision,*args):
+    def horizon(day,h,ids,decision,*args,**kwargs):
         ready=tuple(sorted(decision));recovered=tuple(range(1,recovered_counts[day]+1)) if decision else ()
         return Horizon(horizon_days=h,terminal_target_date=day+timedelta(days=h),terminal_target_inside_global_range=False,
             entry_ready_bond_count=len(ready),terminal_market_ready_bond_count=len(ready),redeemed_ready_bond_count=0,cashflow_valid_bond_count=len(ready),
@@ -426,7 +427,7 @@ def test_monthly_date_missing_from_source_is_explicit_blocked(seeded,monkeypatch
     missing=source.per_date[0].as_of_date
     source=rca.signed(source.model_copy(update={"per_date":source.per_date[1:]}))
     assert missing not in {r.as_of_date for r in source.per_date}
-    monkeypatch.setattr(rca.HistoricalReplayBlockerRootCauseAuditService,"build",lambda self:source)
+    monkeypatch.setattr(rca.HistoricalReplayBlockerRootCauseAuditService,"build_linkage",lambda self:source)
     monkeypatch.setattr(audit.OfzReferenceCurveService,"build_curve",lambda *a,**kw:pytest.fail("A2 curve call after invalid source grid"))
     with readonly(seeded.engine) as db:result=audit.MultiHorizonHistoricalBacktestabilityAuditService(db).build()
     assert result.blockers==("MONTHLY_ENTRY_DATE_NOT_IN_SOURCE_RCA_GRID",)

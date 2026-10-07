@@ -1,5 +1,5 @@
 """Task306A2 diagnostic evidence contracts, without economic performance."""
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 from pydantic import Field, field_validator, ValidationInfo
@@ -82,6 +82,10 @@ class HistoricalHorizonReadinessV1(Contract):
     recoverable_funnel: tuple[FunnelStageV1,...]
     bonds: tuple[HistoricalBondHorizonReadinessV1,...]
     blockers: tuple[str,...]
+    decision_ready_bond_count: int | None = None
+    decision_ready_after_raw_recovery_bond_count: int | None = None
+    decision_ready_membership_id: int | None = None
+    decision_ready_after_raw_recovery_membership_id: int | None = None
 
 class OfzHistoricalRepresentativeV1(Contract):
     bond_id: int
@@ -95,6 +99,16 @@ class OfzHistoricalRepresentativeV1(Contract):
     frequency_recoverability: str
     modified_duration_prerequisites_ready: bool
     blockers: tuple[str,...]
+    security_master_profile_id: int | None = None
+    frequency_evidence_ids: tuple[int,...] = ()
+
+class OfzFrequencyEvidenceV2(Contract):
+    evidence_id: int
+    bond_id: int
+    source: str
+    contract_version: str
+    observed_at: datetime | None
+    positive_exact_int_value: int | None
 
 class OfzHistoricalHorizonReadinessV1(Contract):
     as_of_date: date
@@ -121,6 +135,11 @@ class HistoricalMultiHorizonDateReadinessV1(Contract):
     decision_only_intersection_count: int
     credit_prerequisite_count: int
     horizons: tuple[HistoricalHorizonReadinessV1,...]
+    decision_membership_id: int | None = None
+
+class BondMembershipV2(Contract):
+    membership_id: int
+    bond_ids: tuple[int,...]
 
 class HorizonPortfolioCoverageV1(Contract):
     horizon_days: Literal[90,180,365]
@@ -163,6 +182,34 @@ class EndpointCoverageV1(Contract):
     additional_ready_from_raw: int
     still_unavailable: int
     raw_field_status_counts: tuple[tuple[str,int],...]
+    canonical_economic_ready: int = 0
+    recoverable_economic_ready: int = 0
+    blocker_counts: tuple[tuple[str,int],...] = ()
+    endpoint_observation_count: int = 0
+    missing_snapshot_observation_count: int = 0
+    blocker_count_unit: Literal["ENDPOINT_OBSERVATIONS"] = "ENDPOINT_OBSERVATIONS"
+
+class OfflineSnapshotRepairTargetV2(Contract):
+    snapshot_id: int
+    bond_id: int
+    secid: str | None
+    isin: str | None
+    trade_date: date
+    field: Literal["clean_price","price","nkd"]
+    value: Decimal
+    source_fields: tuple[str,...]
+
+class EndpointRepairTargetV2(Contract):
+    bond_id: int
+    secid: str | None
+    isin: str | None
+    scope: Literal["CORPORATE_PRIMARY","OFZ_REPRESENTATIVE"]
+    role: Literal["ENTRY","TERMINAL","CASHFLOW"]
+    horizon_days: Literal[90,180,365]
+    reason: str
+    entry_date_index_ranges: tuple[tuple[int,int],...]
+    event_ids: tuple[int,...] = ()
+    maturity_date: date | None = None
 
 class BackfillRequirementV1(Contract):
     category: Literal["NO_MARKET_REPAIR_REQUIRED","OFFLINE_RAW_NKD_REPAIR_SUFFICIENT","OFFLINE_RAW_PRICE_REPAIR_REQUIRED","OFFLINE_RAW_PRICE_AND_NKD_REPAIR_REQUIRED","TARGETED_ENDPOINT_MOEX_BACKFILL_REQUIRED","BROAD_HISTORICAL_MOEX_BACKFILL_REQUIRED","CASHFLOW_HISTORY_REPAIR_REQUIRED","OFZ_SECURITY_MASTER_REPAIR_REQUIRED","HISTORICAL_UNIVERSE_CAPTURE_REQUIRED","SECURITY_MASTER_VERSIONING_REQUIRED"]
@@ -176,8 +223,8 @@ class HistoricalBacktestabilityCapabilitiesV1(Contract):
     replay_ready: Literal[False] = False
     live_ready: Literal[False] = False
 
-class MultiHorizonHistoricalBacktestabilityAuditV1(Contract):
-    contract_version: Literal["multi-horizon-historical-backtestability-audit-v1"] = "multi-horizon-historical-backtestability-audit-v1"
+class MultiHorizonHistoricalBacktestabilityAuditV2(Contract):
+    contract_version: Literal["multi-horizon-historical-backtestability-audit-v2"] = "multi-horizon-historical-backtestability-audit-v2"
     status: Literal["COMPLETE","BLOCKED"]
     policy: HistoricalResearchHorizonPolicyV1 = Field(default_factory=HistoricalResearchHorizonPolicyV1)
     source_task306a1_sha256: str | None = None
@@ -193,7 +240,13 @@ class MultiHorizonHistoricalBacktestabilityAuditV1(Contract):
     research_range_scenarios: tuple[HistoricalResearchRangeScenarioV1,...] = ()
     required_backfill_ranges: tuple[HistoricalResearchRangeScenarioV1,...] = ()
     ofz_readiness: tuple[OfzHistoricalHorizonReadinessV1,...] = ()
+    ofz_frequency_evidence: tuple[OfzFrequencyEvidenceV2,...] = ()
     remediation_requirements: tuple[BackfillRequirementV1,...] = ()
+    offline_repair_targets: tuple[OfflineSnapshotRepairTargetV2,...] = ()
+    endpoint_repair_targets: tuple[EndpointRepairTargetV2,...] = ()
+    detail_policy: Literal["COUNTS_MEMBERSHIPS_AND_EXACT_REPAIR_TARGETS"] = "COUNTS_MEMBERSHIPS_AND_EXACT_REPAIR_TARGETS"
+    bond_memberships: tuple[BondMembershipV2,...] = ()
+    membership_encoding: Literal["SORTED_UNIQUE_BOND_ID_SET_REFERENCES_V1"] = "SORTED_UNIQUE_BOND_ID_SET_REFERENCES_V1"
     known_limitations: tuple[str,...] = ()
     blockers: tuple[str,...] = ()
     audit_sha256: str | None = None

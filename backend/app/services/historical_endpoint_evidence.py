@@ -109,11 +109,15 @@ class EndpointIndex:
         if pos<0:return Endpoint(bond_id=bid,target_date=target,kind=kind,current_terms_ready=terms,blockers=tuple(sorted(errors+["SNAPSHOT_MISSING"])))
         row=self.rows[bid][pos];age=(target-row["trade_date"]).days;fresh=0<=age<=7
         if not fresh:errors.append("SNAPSHOT_STALE")
-        if row["id"] not in self.cache:self.cache[row["id"]]=tuple(recover_field(row,self.bonds[bid],name) for name in ("clean_price","price","nkd"))
-        fields=self.cache[row["id"]]
-        canonical_basis=next((name for name in ("clean_price","price") if price_valid(row[name])),None)
+        compact=hasattr(row,"proofs")
+        if compact:
+            fields=tuple(Field(field=f,status=s,value=v,source_fields=sf,blockers=b) for f,s,v,sf,b in row["_endpoint_fields"])
+        else:
+            if row["id"] not in self.cache:self.cache[row["id"]]=tuple(recover_field(row,self.bonds[bid],name) for name in ("clean_price","price","nkd"))
+            fields=self.cache[row["id"]]
+        canonical_basis=next((f.field for f in fields[:2] if f.status=="ALREADY_CANONICAL"),None) if compact else next((name for name in ("clean_price","price") if price_valid(row[name])),None)
         recovered_basis=next((f.field for f in fields[:2] if f.status in ("ALREADY_CANONICAL","RAW_RECOVERABLE")),None)
-        nkd=finite(row["nkd"]) and row["nkd"]>=0
+        nkd=fields[2].status=="ALREADY_CANONICAL" if compact else finite(row["nkd"]) and row["nkd"]>=0
         recovered_nkd=fields[2].status in ("ALREADY_CANONICAL","RAW_RECOVERABLE")
         if canonical_basis is None:errors.append("PRICE_UNAVAILABLE")
         if not nkd:errors.append("NKD_UNAVAILABLE")

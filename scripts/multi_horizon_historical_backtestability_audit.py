@@ -1,6 +1,5 @@
 """Task306A2 REPORT only; production RCA requires separate authorization."""
 import argparse
-import json
 from pathlib import Path
 import sys
 from sqlalchemy import create_engine
@@ -13,6 +12,7 @@ if str(ROOT / "backend") not in sys.path:
 from app.services.multi_horizon_historical_backtestability_audit_service import (
     MultiHorizonHistoricalBacktestabilityAuditService, blocked,
 )
+from app.services.historical_audit_canonical_json import write_json
 
 
 def report(engine):
@@ -54,16 +54,16 @@ def main(argv=None,*,engine=None,stdout=None):
                 engine = create_engine(settings.DATABASE_URL,pool_pre_ping=True)
             except Exception:
                 result = blocked("READ_ONLY_RCA_CONNECTION_FAILED")
-                (stdout or sys.stdout).write(result.model_dump_json()+"\n")
+                write_json(result,stdout or sys.stdout)
                 return 1
         result = report(engine)
-        encoded = json.dumps(result.model_dump(mode="json"),sort_keys=True,ensure_ascii=True,separators=(",",":"),allow_nan=False)+"\n"
         if args.output is not None:
-            try:args.output.write_text(encoded,encoding="utf-8")
+            try:
+                with args.output.open("w",encoding="utf-8",newline="\n") as stream:write_json(result,stream)
             except OSError:
-                (stdout or sys.stdout).write(blocked("EXPLICIT_OUTPUT_WRITE_FAILED").model_dump_json()+"\n")
+                write_json(blocked("EXPLICIT_OUTPUT_WRITE_FAILED"),stdout or sys.stdout)
                 return 1
-        else:(stdout or sys.stdout).write(encoded)
+        else:write_json(result,stdout or sys.stdout)
         return 0 if result.status=="COMPLETE" else 1
     finally:
         if own_engine and engine is not None:engine.dispose()
