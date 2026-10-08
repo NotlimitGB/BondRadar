@@ -81,7 +81,12 @@ class HistoricalSourcePage(Contract):
 
     @model_validator(mode="after")
     def consistent(self):
-        if len(self.rows)>100 or self.transient_failures!=self.attempts-1:raise ValueError("INVALID_SOURCE_PAGE")
+        metadata = self.query.family in ("DATES", "COLUMNS")
+        if (not metadata and len(self.rows)>100) or self.transient_failures!=self.attempts-1:raise ValueError("INVALID_SOURCE_PAGE")
+        if metadata:
+            if self.query.offset != 0 or self.cursor_total is not None or self.cursor_page_size is not None or self.next_offset is not None or not self.complete:
+                raise ValueError("INVALID_METADATA_COMPLETION")
+            return self
         if self.cursor_total is None:
             if self.cursor_page_size is not None:raise ValueError("INVALID_SOURCE_CURSOR")
             expected=None if len(self.rows)<100 else self.query.offset+100

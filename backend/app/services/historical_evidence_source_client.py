@@ -33,16 +33,23 @@ class HistoricalEvidenceSourceClient:
         if query.family=="CASHFLOWS":params[query.table+".start"]=query.offset
         return routes[query.family],params
 
-    def fetch_page(self,query):
+    def fetch_page(self,query,*,budget=None,include_numtrades=True):
         if type(query) is not HistoricalSourceQuery: raise ValueError("SOURCE_QUERY_REQUIRED")
         query=HistoricalSourceQuery.model_validate({k:getattr(query,k) for k in type(query).model_fields})
         url,params=self._route(query);transient=0
+        if query.family in ("DATES", "COLUMNS"):
+            params={"iss.meta":"on", "iss.only":query.table}
+        if query.family=="MARKET" and not include_numtrades:
+            params.pop("numtrades",None)
         for attempt in range(1,4):
             wait=0 if self.last_attempt is None else max(0,0.5-(self.monotonic()-self.last_attempt))
+            if budget is not None:budget.before_attempt(wait)
             if wait:self.sleep(wait)
             self.last_attempt=self.monotonic();retry_after=0
             try:
-                with self.client.stream("GET",url,params=params,follow_redirects=False,timeout=30) as response:
+                timeout=30 if budget is None else budget.timeout()
+                if budget is not None:budget.start_attempt()
+                with self.client.stream("GET",url,params=params,follow_redirects=False,timeout=timeout) as response:
                     if response.status_code>=300:
                         retryable=response.status_code in (408,429,500,502,503,504)
                         try:retry_after=min(60,max(0,int(response.headers.get("Retry-After","0"))))
@@ -50,6 +57,7 @@ class HistoricalEvidenceSourceClient:
                         raise HistoricalSourceError("TRANSIENT_HTTP" if retryable else "SOURCE_REQUEST_REJECTED",retryable=retryable)
                     body=bytearray()
                     for chunk in response.iter_bytes():
+                        if budget is not None:budget.check_time()
                         if len(body)+len(chunk)>LIMIT: raise HistoricalSourceError("SOURCE_BODY_TOO_LARGE")
                         body.extend(chunk)
                 try:
@@ -62,9 +70,16 @@ class HistoricalEvidenceSourceClient:
                     payload=json.loads(body,parse_float=Decimal,parse_constant=lambda _:(_ for _ in ()).throw(ValueError()),object_pairs_hook=pairs)
                 except (ValueError,TypeError,RecursionError):raise HistoricalSourceError("MALFORMED_SOURCE_JSON") from None
                 rows,next_offset,total,page_size=self._table(payload,query)
-                return signed(HistoricalSourcePage,"page_sha256",query=query,rows=rows,observed_at=self.clock(),
+                page_class=HistoricalSourcePage;extras={}
+                if budget is not None:
+                    from app.schemas.historical_discovery_checkpoint import DiscoverySourcePage
+                    page_class=DiscoverySourcePage
+                    basis="METADATA" if query.family in ("DATES","COLUMNS") else "CURSOR" if total is not None else "EMPTY_TERMINATOR"
+                    extras={"completion_basis":basis}
+                    if basis=="EMPTY_TERMINATOR":next_offset=query.offset+len(rows) if rows else None
+                return signed(page_class,"page_sha256",query=query,rows=rows,observed_at=self.clock(),
                     complete=next_offset is None,next_offset=next_offset,cursor_total=total,cursor_page_size=page_size,
-                    attempts=attempt,transient_failures=transient)
+                    attempts=attempt,transient_failures=transient,**extras)
             except (httpx.TimeoutException,httpx.NetworkError,httpx.RemoteProtocolError):
                 error=HistoricalSourceError("TRANSIENT_TRANSPORT",retryable=True)
             except httpx.HTTPError:error=HistoricalSourceError("SOURCE_TRANSPORT_REJECTED")
@@ -72,7 +87,10 @@ class HistoricalEvidenceSourceClient:
             except Exception:error=HistoricalSourceError("SOURCE_UNEXPECTED_FAILURE")
             if not error.retryable or attempt==3:
                 raise HistoricalSourceError(error.code,retryable=error.retryable,attempts=attempt) from None
-            transient+=1;self.sleep(max((0.25,0.50)[attempt-1],retry_after))
+            transient+=1
+            delay=max((0.25,0.50)[attempt-1],retry_after)
+            if budget is not None:budget.before_wait(delay)
+            self.sleep(delay)
         raise HistoricalSourceError("SOURCE_REQUEST_FAILED")
 
     @staticmethod
@@ -91,6 +109,10 @@ class HistoricalEvidenceSourceClient:
             except ValueError:
                 raise HistoricalSourceError("UNSAFE_SOURCE_FIELDS") from None
         rows=table(query.table)
+        if query.family in ("DATES", "COLUMNS"):
+            if query.offset != 0 or query.table+".cursor" in payload:
+                raise HistoricalSourceError("INVALID_METADATA_COMPLETION")
+            return rows,None,None,None
         if len(rows)>100:raise HistoricalSourceError("SOURCE_PAGE_LIMIT_EXCEEDED")
         name=query.table+".cursor"
         if name in payload:

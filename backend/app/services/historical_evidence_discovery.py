@@ -32,7 +32,7 @@ def pages(client,query,*,max_pages=100000):
         try:
             index.execute("PRAGMA cache_size=-1024")
             index.execute("CREATE TABLE seen (kind TEXT, hash TEXT, PRIMARY KEY(kind,hash)) WITHOUT ROWID")
-            total=None;cursor_started=False
+            total=None;cursor_started=False;page_size=None
             for _ in range(max_pages):
                 try:page=client.fetch_page(query);checked(page,"page_sha256")
                 except (ValueError,TypeError):raise HistoricalSourceError("SOURCE_PAGE_CONTRACT_INVALID") from None
@@ -44,6 +44,8 @@ def pages(client,query,*,max_pages=100000):
                 if cursor_started and page.cursor_total is None:raise HistoricalSourceError("SOURCE_CURSOR_DISAPPEARED")
                 if page.cursor_total is not None:
                     if total is not None and total!=page.cursor_total:raise HistoricalSourceError("SOURCE_TOTAL_CHANGED")
+                    if page_size is not None and page_size!=page.cursor_page_size:raise HistoricalSourceError("SOURCE_PAGE_SIZE_CHANGED")
+                    page_size=page.cursor_page_size
                     total=page.cursor_total;cursor_started=True
                 try:index.executemany("INSERT INTO seen VALUES ('ROW',?)",((sha(row),) for row in page.rows))
                 except sqlite3.IntegrityError:raise HistoricalSourceError("OVERLAPPING_SOURCE_ROWS") from None
@@ -58,10 +60,16 @@ def pages(client,query,*,max_pages=100000):
 class HistoricalEvidenceDiscoveryService:
     def __init__(self,source_client):self.source_client=source_client
 
+    def discover_bounded(self, *, policy, evidence_root, authorization, limits=None):
+        from app.services.historical_discovery_checkpoint import run_discovery
+        return run_discovery(source_client=self.source_client, policy=policy, evidence_root=evidence_root,
+                             authorization=authorization, limits=limits)
+
     def discover(self,*,policy,authorization,page_sink=None):
         if type(policy) is not HistoricalEvidencePolicy or type(authorization) is not HistoricalAuthorization:
             raise ValueError("DISCOVERY_REQUEST_REQUIRED")
         HistoricalEvidencePolicy.model_validate({k:getattr(policy,k) for k in type(policy).model_fields})
+        if (policy.cutoff-policy.history_start).days>31:raise ValueError("DURABLE_DISCOVERY_REQUIRED")
         scope=read_scope(policy)
         if authorization.operation!="READ_SOURCE" or authorization.plan_sha256!=scope or authorization.scope_sha256!=scope or authorization.source_manifest_sha256!=scope or authorization.current_db_sha256!=sha({}):
             raise ValueError("SOURCE_READ_AUTHORIZATION_MISMATCH")
@@ -90,16 +98,23 @@ class HistoricalEvidenceDiscoveryService:
 
 
 def acquisition_queries(discovery,representatives=()):
-    checked(discovery,"source_manifest_sha256")
+    from app.services.historical_discovery_checkpoint import VerifiedDiscoveryIndex
+    if type(discovery) is not VerifiedDiscoveryIndex:
+        checked(discovery,"source_manifest_sha256")
     if discovery.status!="COMPLETE":raise ValueError("DISCOVERY_INCOMPLETE")
     # Calendar requests include absent days; a short source tail never shortens policy.
     yield from discovery_queries(discovery.policy)
     exact={}
-    for security in discovery.securities:
-        key=(security.secid,security.isin)
-        if key not in exact:exact[key]=security
+    if type(discovery) is VerifiedDiscoveryIndex:
+        from app.services.historical_discovery_checkpoint import iterate_index
+        bindings=((item["secid"],item["isin"]) for item in iterate_index(discovery.path("bindings")))
+    else:
+        for security in discovery.securities:
+            key=(security.secid,security.isin)
+            if key not in exact:exact[key]=security
+        bindings=sorted(exact,key=lambda item:(item[0],item[1] or ""))
     selected={(r.secid,r.isin) for r in representatives}
-    for (secid,isin),security in sorted(exact.items(),key=lambda item:(item[0][0],item[0][1] or "")):
+    for secid,isin in bindings:
         structural=not is_ofz_instrument(isin=isin,secid=secid) or (secid,isin) in selected
         # Exact reference may resolve a SECID observed in history without ISIN;
         # its result remains current observation, not historical linkage proof.

@@ -170,7 +170,17 @@ class HistoricalEvidencePlanService:
         return HistoricalEvidencePolicy(cutoff=cutoff)
 
     def plan_acquisition(self,*,discovery,representatives=()):
-        checked(discovery,"source_manifest_sha256")
+        from app.services.historical_discovery_checkpoint import VerifiedDiscoveryIndex, PLAN_CEILING
+        indexed = type(discovery) is VerifiedDiscoveryIndex
+        if indexed:
+            discovery = VerifiedDiscoveryIndex(discovery.store.root, discovery.policy)
+            # Traversal and source-population review are distinct authorities.
+            if not discovery.manifest.acquisition_ready:
+                return signed(HistoricalAcquisitionPlan,"plan_sha256",policy=discovery.policy,
+                    source_manifest_sha256=discovery.source_manifest_sha256,queries=(),representatives=(),
+                    current_db_sha256=sha({}),status="BLOCKED",blockers=("DISCOVERY_SOURCE_POPULATION_NOT_VERIFIED",))
+        else:
+            checked(discovery,"source_manifest_sha256")
         if type(representatives) not in (tuple,list):raise ValueError("FROZEN_REPRESENTATIVES_REQUIRED")
         for representative in representatives:
             if type(representative) is not RepresentativeBinding:raise ValueError("FROZEN_REPRESENTATIVES_REQUIRED")
@@ -179,7 +189,12 @@ class HistoricalEvidencePlanService:
             if not any(s.secid==representative.secid and s.isin==representative.isin for s in discovery.securities):
                 raise ValueError("REPRESENTATIVE_NOT_IN_DISCOVERY")
         if len({(r.secid,r.isin) for r in representatives})!=len(representatives):raise ValueError("DUPLICATE_REPRESENTATIVE")
-        queries=tuple(acquisition_queries(discovery,representatives));key=run_key(discovery.policy,discovery.source_manifest_sha256,representatives)
+        query_rows=[]; query_bytes=0
+        for q in acquisition_queries(discovery,representatives):
+            query_bytes += len(json_bytes(q))
+            if query_bytes > PLAN_CEILING:raise ValueError("ACQUISITION_PLAN_RESOURCE_LIMIT")
+            query_rows.append(q)
+        queries=tuple(query_rows);key=run_key(discovery.policy,discovery.source_manifest_sha256,representatives)
         with fresh(self.factory) as db,db.no_autoflush:
             for r in representatives:
                 match=db.execute(select(Market.bond_id,Market.trade_date,Bond.secid,Bond.isin).join(Bond,Market.bond_id==Bond.id)
