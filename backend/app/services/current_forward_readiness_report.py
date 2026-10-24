@@ -8,7 +8,7 @@ from app.schemas import current_forward_readiness as s
 from app.schemas.shadow_scale_experiment import CAPITAL_GRID_RUB
 from app.services.historical_audit_canonical_json import digest
 from app.services.tinvest_frozen_admission_evidence_service import TInvestFrozenAdmissionEvidenceService
-from app.services.tinvest_bond_import_preflight_service import TInvestBondImportPreflightService, _INACTIVE_STATUS_VALUES
+from app.services.tinvest_bond_import_preflight_service import TInvestBondImportPreflightService, _INACTIVE_STATUS_VALUES, _parse_bool
 from app.services.unified_candidate_reducer import CORE_REASONS
 from app.services.shadow_experiment_evaluator import digest as native_fingerprint
 
@@ -138,13 +138,32 @@ def source_findings(request, canonical):
                 reasons.append("REQUIRED_TESTS_NOT_PROVEN")
         if source.class_code != "TQCB":
             reasons.append("SOURCE_BOARD_UNKNOWN" if source.class_code is None else "SOURCE_BOARD_NOT_TQCB")
-        # Reuse Task296C's explicit inactive vocabulary. Unknown activity remains
-        # diagnostic, never interpreted as explicitly inactive or as positive proof.
+        # Raw activity remains a separate diagnostic, not MOEX confirmation.
+        # Fresh broker trading AND buying are the independent positive authority;
+        # explicit inactive evidence always vetoes it, never the reverse.
         raw_status = source.source_fields.get("status")
         raw_traded = source.source_fields.get("is_traded")
-        inactive = (type(raw_traded) is bool and raw_traded is False) or (
+        traded = _parse_bool(raw_traded)
+        invalid_activity = (raw_traded is not None and traded is None) or (raw_status is not None and type(raw_status) is not str)
+        status_inactive = (
             type(raw_status) is str and raw_status.strip().lower() in _INACTIVE_STATUS_VALUES)
-        active_state = UNAVAILABLE if inactive else VERIFIED if raw_traded is True else UNKNOWN
+        inactive = traded is False or status_inactive
+        activity_conflict = traded is True and status_inactive
+        active_state = CONFLICT if activity_conflict else UNAVAILABLE if inactive else VERIFIED if traded is True else UNKNOWN
+        positive_broker = source.api_trade_available is True and source.buy_available is True
+        tradability = UNKNOWN
+        basis = "NONE"
+        if activity_conflict or (positive_broker and inactive):
+            tradability = CONFLICT; basis = "SOURCE_CONFLICT"
+            reasons.append("TRADABILITY_SOURCE_CONFLICT")
+        elif inactive:
+            tradability = UNAVAILABLE; basis = "EXPLICIT_INACTIVE_VETO"
+        elif invalid_activity:
+            reasons.append("ACTIVITY_SOURCE_VALUE_INVALID")
+        elif positive_broker and temporal is None:
+            tradability = VERIFIED; basis = "FRESH_BROKER_API_POSITIVE"
+        elif source.availability_classification is not None and not positive_broker:
+            tradability = UNAVAILABLE
         if inactive: reasons.append("NOT_ACTIVE_OR_NOT_TRADED")
         if admission.admission_state.value != "EXISTING_MATCHED":
             reasons.append("ADMISSION_NOT_EXISTING_MATCHED")
@@ -158,7 +177,8 @@ def source_findings(request, canonical):
             buy_available=source.buy_available, api_trade_available=source.api_trade_available,
             for_qual_investor=source.for_qual_investor, required_tests=source.required_tests,
             required_tests_state=source.required_tests_state, active_status=active_state,
-            source_eligible=not reasons, reason_codes=tuple(sorted(set(reasons)))))
+            tradability_status=tradability, tradability_basis=basis,
+            source_eligible=tradability == VERIFIED and not reasons, reason_codes=tuple(sorted(set(reasons)))))
     return tuple(result)
 
 
@@ -290,7 +310,7 @@ def build_report(request, canonical, investment, risk, work, *, errors=()):
     eligible_sources = {f.bond_id for f in findings if f.eligible_witness_uids}
     known_source_rejections = {"API_NOT_BUYABLE", "QUALIFIED_ONLY_RESTRICTED", "ACCOUNT_RESTRICTED",
         "SOURCE_BOARD_NOT_TQCB", "NOT_ACTIVE_OR_NOT_TRADED", "ADMISSION_NOT_EXISTING_MATCHED",
-        "CANONICAL_IDENTITY_CONFLICT"}
+        "CANONICAL_IDENTITY_CONFLICT", "TRADABILITY_SOURCE_CONFLICT"}
     source_unknown = {f.bond_id for f in findings if not f.eligible_witness_uids and
         (not any(r.bond_id == f.bond_id for r in sources) or any(r.bond_id == f.bond_id and
             not set(r.reason_codes) & known_source_rejections for r in sources))}

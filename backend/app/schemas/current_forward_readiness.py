@@ -17,6 +17,7 @@ SHA = r"^[0-9a-f]{64}$"
 FactState = Literal["SOURCE_FACT_VERIFIED", "SOURCE_FACT_UNKNOWN", "SOURCE_FACT_CONFLICT", "SOURCE_FACT_UNAVAILABLE"]
 Status = Literal["READY", "BLOCKED", "NOT_EVALUATED", "INPUTS_MISSING", "SOURCE_STALE", "SOURCE_CONFLICT", "EMPTY", "UNEXECUTABLE"]
 Decision = Literal["YES", "NO", "UNKNOWN"]
+TRADABILITY_POLICY = "FRESH_BROKER_API_POSITIVE_WITH_EXPLICIT_INACTIVE_VETO_V1"
 DECISION_NAMES = ("CURRENT_UNIVERSE_BOUND", "CURRENT_CORE_READY", "INVESTMENT_MODEL_EVALUABLE",
     "RISK_ELIGIBLE_SUBSET_AVAILABLE", "STRATEGY_50K_NONEMPTY", "SHADOW_50K_EXECUTABLE",
     "SHADOW_50K_POST_RISK_PASS", "SEVEN_CAPITAL_CASES_EVALUATED", "SEVEN_CAPITAL_CASES_READY",
@@ -181,8 +182,26 @@ class SourceFinding(Contract):
     required_tests: tuple[str, ...] | None
     required_tests_state: str
     active_status: FactState = "SOURCE_FACT_UNKNOWN"
+    tradability_status: FactState
+    tradability_basis: Literal["FRESH_BROKER_API_POSITIVE", "EXPLICIT_INACTIVE_VETO", "SOURCE_CONFLICT", "NONE"]
     source_eligible: bool
     reason_codes: tuple[str, ...]
+
+    @field_validator("source_observed_at")
+    @classmethod
+    def observation_timestamp(cls, value):
+        return utc(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def eligibility_authority(self):
+        if self.source_eligible and not (
+            self.tradability_status == "SOURCE_FACT_VERIFIED" and self.tradability_basis == "FRESH_BROKER_API_POSITIVE"
+            and self.api_trade_available is True and self.buy_available is True and self.for_qual_investor is False
+            and self.active_status not in ("SOURCE_FACT_CONFLICT", "SOURCE_FACT_UNAVAILABLE")
+            and self.canonical_identity_status == self.availability_status == self.account_status == "SOURCE_FACT_VERIFIED"
+            and self.source_observed_at is not None and self.class_code == "TQCB" and not self.reason_codes):
+            raise ValueError("SOURCE_ELIGIBILITY_AUTHORITY_INVALID")
+        return self
 
 
 class CandidateFinding(Contract):
@@ -299,6 +318,7 @@ class ReadinessDecision(Contract):
 
 class CurrentForwardReadinessReport(Contract):
     contract_version: Literal["current-forward-readiness-report-v1"] = "current-forward-readiness-report-v1"
+    tradability_policy: Literal["FRESH_BROKER_API_POSITIVE_WITH_EXPLICIT_INACTIVE_VETO_V1"] = TRADABILITY_POLICY
     status: Status
     as_of_date: date | None = None
     evaluation_at: datetime | None = None
@@ -336,4 +356,24 @@ class CurrentForwardReadinessReport(Contract):
             raise ValueError("CAPITAL_CASE_ORDER_CONFLICT")
         if tuple(d.name for d in self.readiness_decisions) != DECISION_NAMES:
             raise ValueError("READINESS_DECISION_SET_INVALID")
+        if self.status == "READY":
+            if self.blockers or self.evaluation_at is None or any(
+                    row.tradability_status == "SOURCE_FACT_CONFLICT" for row in self.source_findings):
+                raise ValueError("READY_SOURCE_AUTHORITY_INVALID")
+            for row in self.source_findings:
+                SourceFinding.model_validate(row.model_dump(warnings=False))
+            for case in self.capital_cases:
+                if (case.status != "READY" or case.execution_status != "READY" or case.post_rounding_risk_status != "PASS"
+                        or case.blockers or not case.positions or case.benchmark.status != "READY"
+                        or case.selected_bond_ids != tuple(p.bond_id for p in case.positions)
+                        or len(set(case.selected_bond_ids)) != len(case.selected_bond_ids)):
+                    raise ValueError("READY_CASE_INCOMPLETE")
+                for position in case.positions:
+                    if (position.status != "PLANNED" or position.terms_status != "READY" or position.blockers
+                            or position.planned_lots <= 0 or position.planned_quantity <= 0 or position.trading_board != "TQCB"):
+                        raise ValueError("READY_POSITION_INCOMPLETE")
+                    witnesses = tuple(row for row in self.source_findings if row.bond_id == position.bond_id and row.source_eligible)
+                    if not any(row.source_observed_at is not None and timedelta(0) <= self.evaluation_at-row.source_observed_at <= timedelta(seconds=86400)
+                               for row in witnesses):
+                        raise ValueError("READY_SOURCE_WITNESS_MISSING_OR_STALE")
         return self

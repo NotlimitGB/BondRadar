@@ -35,6 +35,29 @@ Required tests are per UID. SOURCE_EMPTY does not require account test proof. Mi
 
 ## 4. Identity and investability scope
 
+### Task310A current tradability authority
+
+Operational safety review baseline: `a1046d8b94a09581c149e48a8ff9d4ea2b142455`; both baseline workflows completed successfully. This revision changes only Task310 diagnostics, guards and credential transport. Native Investment/Risk/Strategy/Shadow/OFZ and historical financial contracts/formulas are unchanged.
+
+The explicit report policy is `FRESH_BROKER_API_POSITIVE_WITH_EXPLICIT_INACTIVE_VETO_V1`. Current source tradability requires **both** exact `api_trade_available=True` and `buy_available=True`, bound to the validated UID and a genuine observation no more than 24 hours old and not in the future. This is reviewed broker-API authority for this diagnostic, not an independent MOEX trading confirmation, personal fill guarantee or documentary claim that an exchange supplied these raw fields.
+
+| Raw activity evidence | Broker facts | Diagnostic and eligibility effect |
+|---|---|---|
+| Missing/null `is_traded`, no explicit inactive status | Both positive and fresh | `active_status=SOURCE_FACT_UNKNOWN` remains unchanged; independent `tradability_status=SOURCE_FACT_VERIFIED`, basis FRESH_BROKER_API_POSITIVE. Other gates still required |
+| Positive raw activity | Broker availability unknown | Activity may be a known raw fact; tradability remains UNKNOWN, never inferred from raw activity alone |
+| No inactive evidence | Broker explicitly not buyable/API-unavailable | Tradability UNAVAILABLE; known rejection, not a positive witness |
+| Explicit `is_traded=false` or existing inactive-status vocabulary | Positive broker facts | Tradability CONFLICT, explicit inactive veto and conflict reasons retained; source eligibility false and global READY blocked |
+| Explicit inactive evidence | Broker unknown/negative | Inactive veto; no eligible source witness |
+| `is_traded=true` and an explicit inactive status | Any | Conflicting activity evidence; never choose the convenient positive fact |
+| Invalid nonnull raw activity value | Positive broker facts | Diagnostic remains UNKNOWN with a blocking invalid-value reason; malformed evidence is not silently converted to missing |
+| Positive broker facts are stale/future/unobserved | Any non-inactive raw hint | No fresh positive authority, no eligible witness |
+
+Raw activity scalar parsing and inactive vocabulary reuse Task296C helpers. This does not introduce a new positive MOEX-status definition. A nonempty required-test list still needs fresh permitted account proof covering those tests; qualified-only and account-restricted inputs remain excluded. Lot, board, admission, exact identity and current-profile gates are not relaxed.
+
+Every source finding now carries explicit `tradability_status` and `tradability_basis`. `source_eligible` is schema-guarded against absent/contradictory authority, missing positive broker flags, wrong qualification/account/identity state and blocking reasons. Global READY additionally requires fresh eligible witnesses for every selected Bond, native execution READY/post-risk PASS, nonempty PLANNED positive-lot positions with READY terms, no case/position blockers, matching selected IDs and ready benchmarks. These are envelope checks, not new economic formulas. A conflict anywhere in the explicit scoped source evidence blocks global READY even if another UID is positive.
+
+The report version remains v1 with an explicit versioned tradability policy; older reports lacking the new mandatory finding fields must be re-evaluated, not relabeled or granted new authority. New report hashes include these fields/policy. Identical reviewed inputs remain deterministic within this revision. No safety review creates a production-readiness or Day0 grant.
+
 Task296's exact-ISIN bridge and admission are replayed from the frozen artifact. Current canonical Bond ISIN/SECID must exactly equal the frozen internal binding; no name, ticker, FIGI or normalized ISIN fallback is added. FIGI is retained as source context, not an identity resolver.
 
 Only source UIDs related to explicit requested IDs/ISINs appear in detailed source findings. Counts separately disclose the full frozen source UID population and in-scope UIDs. Missing source binding remains visible for every requested Bond. Existing exact multiple UIDs are preserved, with explicit eligible witness UIDs; required-tests/account/buy facts cannot be assembled across different UIDs.
@@ -109,15 +132,23 @@ Runner input and output limits are 32 MiB each; no silent truncation. Output use
 
 ## 12. Runner and future operator invocation
 
-Only mode `REPORT_CURRENT_FORWARD_READINESS` exists. Explicit `--input`, `--database-url`, `--expected-source-sha256` and `--expected-code-sha` are required. There is no DATABASE_URL/settings fallback. The expected source SHA is `fingerprint(request.source_context)` in this contract's canonical representation; native artifact/source-bonds expected hashes are additionally mandatory inside a supplied artifact context. Expected code identity binds the declaration; it is not a measurement of deployed binaries. Pin reviewed checkout/image separately.
+Only mode `REPORT_CURRENT_FORWARD_READINESS` exists. Explicit `--input`, `--expected-source-sha256` and `--expected-code-sha` are required, plus exactly one of `--database-url-file` (recommended for credentials) or a **passwordless** `--database-url`. Inline URL passwords, secret-bearing query parameters, service/options indirection and endpoint overrides are refused. There is no DATABASE_URL/settings fallback. PostgreSQL requires explicit nonblank host/database/user; absent port is explicitly fixed to 5432 instead of inheriting PGPORT. Query-only host/service configurations without a URL host are unsupported in v1. Passwordless driver-native authentication still requires a reviewed trusted operator environment; the recommended secret-file path supplies explicit credentials for a dedicated read-only role.
+
+The secret file is a single UTF-8 URL line, maximum 16 KiB, with regular-file/no-symlink/reparse checks, descriptor identity checking and bounded reading. On POSIX it must be owned by the effective runner UID with no group/other mode bits (normally 0400 or 0600). On Windows, the operator must provision/review an owner-only DACL; mode bits do **not** validate Windows ACLs. Automated production permission enforcement described here is POSIX/Linux. Do not claim a Windows ACL was checked by this code. Prefer the reviewed rootless Linux operator container when that prerequisite cannot be established.
+
+Provision the file through a secret manager or private editor/secure input mechanism, not a literal-password shell command. Mount it read-only at `/run/secrets/task310-db-url`, readable only by the runner UID, separately from input/output artifacts. The file is never copied to the report, request, semantic fingerprint or log. Credential-file/input/output path overlap is rejected. The runner never prints a URL or raw driver exception; engine echo is disabled and parameters are hidden. Credentials necessarily exist in process memory for connection creation; no memory-zeroization guarantee is made.
+
+The expected source SHA is `fingerprint(request.source_context)` in this contract's canonical representation; native artifact/source-bonds expected hashes are additionally mandatory inside a supplied artifact context. Expected code identity binds the declaration; it is not a measurement of deployed binaries. Pin reviewed checkout/image separately.
 
 The runner owns a PostgreSQL repeatable-read/read-only or SQLite query-only physical transaction and always rolls it back. It never commits. Source requests remain zero; an explicitly configured database connection is the necessary read-only access, not a live MOEX/T-Invest request.
 
+Persistent SQLite URLs additionally require an explicit `file:` URI with `mode=ro&uri=true`; query-only alone cannot prevent file creation at connect time. Embedded URI query/fragment components in the database name are refused. Missing database files therefore fail without being created. Plain `sqlite://` / `:memory:` remain available for isolated fixtures **without query parameters**: a URI suffix could turn the supposed memory name into a disk filename. No fixture creates a shared/production database.
+
 Future operator procedure, **not executed by this task**:
 
-1. Independent review and green Task310 delivery CI; separately authorize read-only operational REPORT. Choose pinned reviewed code/image and deploy/schema state; no schema change is part of this command.
+1. Independent safety review and green Task310A delivery CI; separately authorize read-only operational REPORT. Choose pinned reviewed code/image and deploy/schema state; no schema change is part of this command.
 2. Supply contemporary reviewed frozen input JSON and expected hashes. Do not include broker tokens or credentials in the artifact. Confirm source observation dates, account-fact scope, canonical IDs and optional reviewed Genesis plans.
-3. Run in an isolated operator environment with explicit read-only DB credentials, no source-network access, protected input mount and separate report directory. Do not use default production settings. A database password must not enter logs/reports.
+3. Provision/review the private URL secret file and dedicated read-only DB role without putting a password in argv or shell history. Run in an isolated operator environment with no source-network access, protected input mount and separate report directory. Confirm the fresh broker authority, unresolved raw activity and explicit conflict policy above. Do not use default production settings or reinterpret UNKNOWN as MOEX confirmation.
 4. Inspect all seven cases, unknowns, exclusions, actual joint membership, hashes and benchmark status. A BLOCKED/UNKNOWN report is a valid diagnostic result, not permission to repair. Nonzero exit code is expected when the technical scope is not READY.
 
 Example skeleton (placeholders require separate operator decisions):
@@ -128,7 +159,7 @@ python scripts/current_forward_readiness.py \
   --input /reviewed/current-forward-input.json \
   --expected-source-sha256 <REVIEWED_CONTEXT_SHA256> \
   --expected-code-sha <PINNED_REVIEWED_CODE_SHA> \
-  --database-url <EXPLICIT_READ_ONLY_DATABASE_URL> \
+  --database-url-file /run/secrets/task310-db-url \
   --output /reports/task310-current-forward-readiness.json
 ```
 
@@ -139,6 +170,8 @@ Do not copy placeholder credentials into a report or execute this procedure with
 Focused tests exercise exact source/admission lineage, time limits, account tests/restrictions, identity conflict, missing/independent coverage, real native risk/Strategy/Shadow calculations, all capitals, native benchmark delegation, immutable/hash behavior, read-only SQL and pending state, runner safety and static forbidden-operation boundaries. Existing fixtures are synthetic and isolated. They cannot establish current real universe coverage, personal access, real market fills, deployed schema, cashflow authority or operational Day0 readiness.
 
 Minimal regressions cover Task304 Genesis authority, Task302 asymmetric rounding and Task304A Genesis. Compile/import and working/staged diff checks verify the new package. Broad regression belongs to exact-commit CI; no full local suite is required here.
+
+Task310A adds source-only authority/negative/conflict fixtures, global eligibility and schema-tamper checks, private-file credential tests, partial-endpoint/inline-password refusal, POSIX permission/bounds checks, output redaction and credential-independent report hash checks. No credential test connects to PostgreSQL or reads real secrets. Existing account, qualification, freshness and read-only runner cases remain regression evidence. Independent review precedes commit; production execution is still not verified or authorized.
 
 ## 14. Handoff and safety
 

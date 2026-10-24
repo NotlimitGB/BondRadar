@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, localcontext, ROUND_UP
 import importlib.util
 import json
+import stat
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -407,3 +408,180 @@ def test_missing_source_fact_is_unknown_not_policy_rejection(env,changes,unknown
     result=pure.build_report(request,canonical,env.investment,None,tuple(pure.CaseWork(c) for c in CAPITAL_GRID_RUB))
     stage=next(s for s in result.funnel_stages if s.name=="SOURCE_ELIGIBLE_CORE_INTERSECTION")
     assert (stage.unknown_count,stage.excluded_count)==(unknown,excluded)
+
+
+def task310a_source_request(*, trade=True,buy=True,raw=None,age=0,qual=False):
+    """Source-only fixture: no ORM, SQL or modern financial calculation."""
+    now=datetime(2026,10,24,12,tzinfo=timezone.utc)
+    internal=(BondIdentityProjection(bond_id=1,isin="RU000A123456",secid="TASK310A"),)
+    rows=(source_row("UID-310A",internal[0].isin,api_trade=trade,buy=buy,qual=qual,extras=raw),)
+    bridge=TInvestBondIdentityBridgeService.build(rows,internal,())
+    artifact=TInvestFrozenAdmissionEvidenceService.build(source_bonds=rows,internal_bonds=internal,
+        core_m3_complete_bond_ids=(),identity_bridge=bridge,finalized_resolutions=(),captured_at=now)
+    context=SourceContext(collection_id="task310a-synthetic",observed_at=now-timedelta(seconds=age),
+        frozen_admission=artifact,expected_artifact_sha256=artifact.artifact_sha256,expected_source_bonds_sha256=artifact.source_bonds_sha256)
+    request=CurrentForwardReadinessRequest(as_of_date=now.date(),evaluation_at=now,implementation_sha="a"*40,
+        bond_ids=(1,),source_context=context)
+    return pure.normalize_request(request),internal
+
+
+@pytest.mark.parametrize("changes,active,tradable,eligible",[
+    ({},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_VERIFIED",True),
+    ({"raw":{"is_traded":None}},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_VERIFIED",True),
+    ({"raw":{"is_traded":True}},"SOURCE_FACT_VERIFIED","SOURCE_FACT_VERIFIED",True),
+    ({"trade":None},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_UNKNOWN",False),
+    ({"buy":None,"raw":{"is_traded":True}},"SOURCE_FACT_VERIFIED","SOURCE_FACT_UNKNOWN",False),
+    ({"buy":False},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_UNAVAILABLE",False),
+    ({"trade":False},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_UNAVAILABLE",False),
+    ({"raw":{"is_traded":False}},"SOURCE_FACT_UNAVAILABLE","SOURCE_FACT_CONFLICT",False),
+    ({"raw":{"status":"delisted"}},"SOURCE_FACT_UNAVAILABLE","SOURCE_FACT_CONFLICT",False),
+    ({"raw":{"is_traded":True,"status":"inactive"}},"SOURCE_FACT_CONFLICT","SOURCE_FACT_CONFLICT",False),
+    ({"raw":{"is_traded":"0"}},"SOURCE_FACT_UNAVAILABLE","SOURCE_FACT_CONFLICT",False),
+    ({"trade":False,"raw":{"is_traded":False}},"SOURCE_FACT_UNAVAILABLE","SOURCE_FACT_UNAVAILABLE",False),
+    ({"raw":{"is_traded":[]}},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_UNKNOWN",False),
+    ({"age":86401},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_UNKNOWN",False),
+    ({"age":-1},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_UNKNOWN",False),
+    ({"qual":True},"SOURCE_FACT_UNKNOWN","SOURCE_FACT_VERIFIED",False),
+])
+def test_task310a_tradability_authority(changes,active,tradable,eligible):
+    request,internal=task310a_source_request(**changes)
+    row=pure.source_findings(request,internal)[0]
+    assert (row.active_status,row.tradability_status,row.source_eligible)==(active,tradable,eligible)
+    if eligible: assert row.tradability_basis=="FRESH_BROKER_API_POSITIVE"
+    if tradable=="SOURCE_FACT_CONFLICT": assert "TRADABILITY_SOURCE_CONFLICT" in row.reason_codes
+
+
+def task310a_report(prepared, changes=None):
+    request=pure.normalize_request(request_for(prepared,changes=changes,plans=True))
+    investment=prepared.inputs[0].source_shadow_execution.source_strategy.source_investment_batch
+    canonical=tuple(BondIdentityProjection(bond_id=e.bond_id,isin=e.isin,secid=e.secid) for e in investment.evaluations)
+    work=tuple(pure.CaseWork(c.capital_rub,c.source_shadow_execution.source_strategy,c.source_shadow_execution,
+        c.experiment_genesis) for c in prepared.matrix.cases)
+    return pure.build_report(request,canonical,investment,prepared.inputs[0].source_shadow_execution.source_strategy.source_risk_batch,work)
+
+
+@pytest.fixture(scope="module")
+def task310a_ready(prepared):
+    return task310a_report(prepared)
+
+
+@pytest.mark.parametrize("changes,expected",[
+    ({},"READY"),
+    ({1:{"buy_available":None,"availability_classification":None}},"BLOCKED"),
+    ({1:{"source_fields":{"is_traded":False}}},"SOURCE_CONFLICT"),
+    ({1:{"for_qual_investor":True}},"BLOCKED"),
+])
+def test_task310a_global_ready_eligibility(prepared,changes,expected):
+    report=task310a_report(prepared,changes)
+    assert report.status==expected
+    assert report.tradability_policy=="FRESH_BROKER_API_POSITIVE_WITH_EXPLICIT_INACTIVE_VETO_V1"
+    if expected=="READY":
+        assert all(row.active_status=="SOURCE_FACT_UNKNOWN" and row.source_eligible for row in report.source_findings)
+    else:
+        assert decisions(report)["FORWARD_GENESIS_INPUTS_READY"]=="NO"
+    assert not report.official_day0_ready and not report.p0_01_closed
+    assert CurrentForwardReadinessReport.model_validate_json(report.model_dump_json())==report
+    assert pure.digest(report,exclude=("report_sha256",))==report.report_sha256
+
+
+@pytest.mark.parametrize("tamper",["broker","freshness","witness","execution","risk","lots","terms","selected_ids","case_blocker"])
+def test_task310a_schema_rejects_false_ready(task310a_ready,tamper):
+    report=task310a_ready
+    data=report.model_dump()
+    if tamper in ("broker","freshness","witness"):
+        rows=list(data["source_findings"])
+        if tamper=="broker": rows[0]["buy_available"]=False
+        elif tamper=="freshness": rows[0]["source_observed_at"]=report.evaluation_at-timedelta(days=2)
+        else: rows=[]
+        data["source_findings"]=tuple(rows)
+    else:
+        cases=list(data["capital_cases"]); first=cases[0]
+        if tamper=="execution": first["execution_status"]="RISK_BLOCKED"
+        elif tamper=="risk": first["post_rounding_risk_status"]="BLOCKED"
+        elif tamper=="selected_ids": first["selected_bond_ids"]=()
+        elif tamper=="case_blocker": first["blockers"]=("BLOCKED",)
+        else:
+            positions=list(first["positions"])
+            if tamper=="lots": positions[0]["planned_lots"]=0
+            else: positions[0]["terms_status"]="UNAVAILABLE"
+            first["positions"]=tuple(positions)
+        data["capital_cases"]=tuple(cases)
+    with pytest.raises(ValueError): CurrentForwardReadinessReport.model_validate(data)
+
+
+def task310a_cli_args(path,request):
+    return ["--mode","REPORT_CURRENT_FORWARD_READINESS","--input",str(path),
+        "--expected-source-sha256",pure.fingerprint(request.source_context),"--expected-code-sha",request.implementation_sha]
+
+
+def test_task310a_private_credential_file_no_argv_password_or_report_leak(tmp_path,monkeypatch,capsys):
+    runner=runner_module();request,_=task310a_source_request()
+    source=tmp_path/"input.json";source.write_text(request.model_dump_json(),encoding="utf-8")
+    secret=tmp_path/"database.url";secret.write_text("postgresql+psycopg2://reader:SYNTHETIC_CREDENTIAL@db.invalid/bonds\n")
+    secret.chmod(0o600);seen=[]
+    def evaluate(request,url):
+        seen.append((url.host,url.database,url.username,url.password,url.port))
+        return pure.blocked("SYNTHETIC_NO_DB_ACCESS",request)
+    monkeypatch.setattr(runner,"evaluate",evaluate)
+    args=task310a_cli_args(source,request)+["--database-url-file",str(secret)]
+    assert all("SYNTHETIC_CREDENTIAL" not in arg for arg in args)
+    before=secret.read_bytes();assert runner.main(args)==2
+    output=capsys.readouterr()
+    assert seen==[("db.invalid","bonds","reader","SYNTHETIC_CREDENTIAL",5432)]
+    assert "SYNTHETIC_CREDENTIAL" not in output.out+output.err and secret.read_bytes()==before
+    first=json.loads(output.out)["report_sha256"]
+    secret.write_text("postgresql+psycopg2://reader:ROTATED_CREDENTIAL@db.invalid/bonds\n");secret.chmod(0o600)
+    runner.main(args);output=capsys.readouterr()
+    assert json.loads(output.out)["report_sha256"]==first and "ROTATED_CREDENTIAL" not in output.out+output.err
+    def fail(*args): raise RuntimeError("SYNTHETIC_CREDENTIAL in a driver failure")
+    monkeypatch.setattr(runner,"evaluate",fail);runner.main(args);output=capsys.readouterr()
+    assert "SYNTHETIC_CREDENTIAL" not in output.out+output.err
+
+
+@pytest.mark.parametrize("url",["postgresql://reader:SYNTHETIC_CREDENTIAL@db.invalid/bonds",
+    "postgresql://reader@db.invalid/bonds?password=SYNTHETIC_CREDENTIAL",
+    "postgresql://", "postgresql://reader@/bonds", "postgresql://reader@db.invalid", "postgresql://db.invalid/bonds",
+    "postgresql://reader@db.invalid/bonds?host=other.invalid"])
+def test_task310a_inline_password_and_implicit_database_refusal(tmp_path,monkeypatch,capsys,url):
+    runner=runner_module();request,_=task310a_source_request()
+    source=tmp_path/"input.json";source.write_text(request.model_dump_json())
+    monkeypatch.setattr(runner,"evaluate",lambda *args:pytest.fail("Database must not be reached"))
+    assert runner.main(task310a_cli_args(source,request)+["--database-url",url])==2
+    output=capsys.readouterr()
+    assert "SYNTHETIC_CREDENTIAL" not in output.out+output.err
+
+
+def test_task310a_secret_file_bounds_permissions_and_overlap(tmp_path,monkeypatch,capsys):
+    runner=runner_module();request,_=task310a_source_request()
+    source=tmp_path/"input.json";source.write_text(request.model_dump_json());source.chmod(0o600)
+    secret=tmp_path/"database.url"
+    for mode,owner in ((0o644,42),(0o640,42),(0o600,99)):
+        info=SimpleNamespace(st_mode=stat.S_IFREG|mode,st_uid=owner,st_size=10)
+        with pytest.raises(ValueError):runner.validate_secret_stat(info,owner_uid=42)
+    runner.validate_secret_stat(SimpleNamespace(st_mode=stat.S_IFREG|0o600,st_uid=42,st_size=10),owner_uid=42)
+    with pytest.raises(ValueError):runner.validate_secret_stat(SimpleNamespace(st_mode=stat.S_IFIFO,st_size=0))
+    secret.write_bytes(b"x"*(runner.SECRET_LIMIT+1));secret.chmod(0o600)
+    with pytest.raises(ValueError):runner.read_database_url_file(secret)
+    monkeypatch.setattr(runner,"evaluate",lambda *args:pytest.fail("Database must not be reached"))
+    assert runner.main(task310a_cli_args(source,request)+["--database-url-file",str(source)])==2
+    capsys.readouterr()
+    secret.write_text("postgresql://reader:PRIVATE@db.invalid/bonds");secret.chmod(0o600)
+    assert runner.main(task310a_cli_args(source,request)+["--database-url-file",str(secret),"--output",str(secret)])==2
+    assert "PRIVATE" not in capsys.readouterr().out
+
+
+def test_task310a_sqlite_missing_file_is_not_created(tmp_path,capsys):
+    runner=runner_module();request,_=task310a_source_request()
+    source=tmp_path/"input.json";source.write_text(request.model_dump_json())
+    missing=tmp_path/"must-not-exist.sqlite"
+    with pytest.raises(ValueError):runner.checked_database_url("sqlite:///"+str(missing))
+    # SQLite URI read-only open fails rather than creating a missing file.
+    url="sqlite:///"+missing.as_uri()+"?mode=ro&uri=true"
+    assert runner.main(task310a_cli_args(source,request)+["--database-url",url])==2
+    assert not missing.exists() and "must-not-exist" not in capsys.readouterr().out
+    for invalid in ("sqlite:///:memory:?uri=true&mode=rw", "sqlite://?uri=true&cache=shared"):
+        with pytest.raises(ValueError):runner.checked_database_url(invalid)
+    assert runner.checked_database_url("sqlite://").database is None
+    from sqlalchemy.engine import URL
+    with pytest.raises(ValueError):runner.checked_database_url(URL.create("sqlite",database="file:ambiguous?mode=rw",
+        query={"mode":"ro","uri":"true"}))
